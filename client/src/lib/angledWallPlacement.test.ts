@@ -285,6 +285,20 @@ describe("cabinet-supported peninsula runs", () => {
       wallOffset: 0,
       rotation: 0,
     });
+    const savedDiamond = {
+      ...peninsulaCabinet("legacy-diamond-b18", 0),
+      wallId: legacyPrimary.id,
+      wallOffset: 0,
+      rotation: 45,
+      x: 18,
+      y: 48,
+    };
+    const normalized = normalizeLegacyPeninsulaCabinets([savedDiamond], room);
+    expect(normalized[0]).toMatchObject({
+      wallId: legacyPrimary.id,
+      wallOffset: 0,
+      rotation: 0,
+    });
   });
 
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {

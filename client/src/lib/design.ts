@@ -1364,13 +1364,30 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
   let changed = false;
   const normalized = placed.map((cabinet) => {
     if (cabinet.islandFace || !["base", "wall", "tall", "appliance"].includes(cabinet.placement)) return cabinet;
-    // Do not alter a cabinet already assigned to a specific connected run. A
-    // legacy peninsula cabinet can still carry its original parent-wall ID;
-    // that stale perimeter owner must be recoverable from its seated geometry.
-    if (peninsulaRunById(room, cabinet.wallId)) return cabinet;
     const width = Math.max(0, Number(cabinet.width) || 0);
     const depth = Math.max(0, Number(cabinet.depth) || 0);
     if (width <= 0 || depth <= 0) return cabinet;
+    const ownedRun = peninsulaRunById(room, cabinet.wallId);
+    // Older plans could save a 45° value directly on the primary run. The
+    // primary is now a straight first leg, so cabinets already carrying that
+    // run ID must be reseated on its corrected axis as well. Without this
+    // migration, the run line becomes straight while its old cabinet remains a
+    // diamond-shaped footprint beside it.
+    if (ownedRun) {
+      if (ownedRun.parentRunId || ownedRun.turn !== 45) return cabinet;
+      const currentFootprint = placedFootprint(cabinet);
+      const currentCenter = { x: cabinet.x + currentFootprint.w / 2, y: cabinet.y + currentFootprint.d / 2 };
+      const projectedOffset = peninsulaRunOffsetAtPoint(ownedRun, room, currentCenter) - width / 2;
+      const offset = Number.isFinite(Number(cabinet.wallOffset))
+        ? Number(cabinet.wallOffset)
+        : Math.max(0, projectedOffset);
+      const peninsulaSide = cabinet.peninsulaSide ?? ownedRun.cabinetSide ?? "left";
+      const spot = wallPlacementAt(offset, width, depth, ownedRun.id as WallSide, room, peninsulaSide);
+      changed = true;
+      return { ...cabinet, ...spot, wallId: ownedRun.id, wallOffset: spot.wallOffset ?? 0, peninsulaSide: spot.peninsulaSide ?? peninsulaSide };
+    }
+    // A legacy peninsula cabinet can still carry its original parent-wall ID;
+    // that stale perimeter owner must be recoverable from its seated geometry.
     let footprint = placedFootprint(cabinet);
     let center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
     let hit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
