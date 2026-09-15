@@ -68,19 +68,25 @@ export function setVersionNotifier(fn: NotifyFn) {
 }
 
 function doReload() {
-  // Force a fresh document fetch.
-  window.location.reload();
+  // Navigate to the same route with a one-time cache-busting marker. This gives
+  // the browser a fresh HTML document request, so its hashed script references
+  // come from the newly deployed build even when the current Designer tab has
+  // been open for a long time.
+  const target = new URL(window.location.href);
+  target.searchParams.set("__cd_refresh", String(Date.now()));
+  window.location.replace(target.toString());
 }
 
 function fallbackBanner(onReload: () => void) {
   if (document.getElementById("cd-version-banner")) return;
   const bar = document.createElement("div");
   bar.id = "cd-version-banner";
-  bar.setAttribute("role", "status");
+  bar.setAttribute("role", "alert");
+  bar.setAttribute("aria-live", "assertive");
   bar.style.cssText = [
     "position:fixed",
     "left:50%",
-    "bottom:20px",
+    "top:max(16px, env(safe-area-inset-top))",
     "transform:translateX(-50%) translateY(8px)",
     "z-index:2147483647",
     "display:flex",
@@ -98,7 +104,7 @@ function fallbackBanner(onReload: () => void) {
   ].join(";");
 
   const text = document.createElement("span");
-  text.textContent = "A new version of Cabinet Dealz is available.";
+  text.textContent = "A Cabinet Dealz update is ready.";
 
   const btn = document.createElement("button");
   btn.textContent = "Refresh";
@@ -142,10 +148,14 @@ function notifyNewVersion() {
   if (notified) return;
   notified = true;
   const onReload = doReload;
+  // A high-z-index DOM banner is the guaranteed delivery mechanism. Sonner
+  // toasts can be visually displaced by an existing notification stack or a
+  // browser's reduced-motion/extension behavior; this banner remains above
+  // every Sheet, Dialog, and Designer canvas until the user refreshes or
+  // explicitly dismisses it.
+  fallbackBanner(onReload);
   if (notifyFn) {
     notifyFn({ onReload });
-  } else {
-    fallbackBanner(onReload);
   }
 }
 

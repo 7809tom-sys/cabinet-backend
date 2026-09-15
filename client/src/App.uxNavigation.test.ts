@@ -6,9 +6,9 @@ const topNavSource = readFileSync(new URL("./components/TopNav.tsx", import.meta
 const footerSource = readFileSync(new URL("./components/SiteFooter.tsx", import.meta.url), "utf8");
 
 describe("public navigation and update notification", () => {
-  it("keeps the deployed-version notice short-lived and dismissible", () => {
-    expect(appSource).toContain("duration: 10_000");
-    expect(appSource).toContain('cancel: { label: "Dismiss", onClick: () => undefined }');
+  it("keeps the deployed-version notice persistent and dismissible until a user chooses to refresh", () => {
+    expect(appSource).toContain("duration: Infinity");
+    expect(appSource).toContain('cancel: { label: "Later", onClick: () => undefined }');
     expect(appSource).toContain('action: { label: "Refresh now", onClick: onReload }');
   });
 

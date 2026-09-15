@@ -2033,3 +2033,4 @@
 - [x] Automatically fill remaining valid peninsula voids with compatible selected-line cabinets and use only truthful catalog fillers for the final small remainder
 - [x] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds
 - [x] Unify active peninsula cabinet placement and countertop geometry so both follow the selected 45-degree or 90-degree run path and cabinet side
+- [x] Keep the update-and-refresh prompt visible and actionable above open Designer dialogs and panels

@@ -62,5 +62,8 @@ describe("fetchDeployedVersion", () => {
     expect(appSource).toContain("duration: Infinity");
     expect(appSource).toContain('cancel: { label: "Later"');
     expect(toasterSource).toContain("zIndex: 2147483647");
+    expect(watcherSource).toContain("fallbackBanner(onReload);");
+    expect(watcherSource).toContain("top:max(16px, env(safe-area-inset-top))");
+    expect(watcherSource).toContain('target.searchParams.set("__cd_refresh"');
   });
 });
