@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, bestFitCatalogOption, removePeninsulaRun,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -4168,7 +4168,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
 	        ? cabinetCollisionDetail(finalCab, normalizedPrevious)
 	        : null;
-	      if (hasCollision(finalCab, normalizedPrevious)) {
+      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room)) {
 	        // A hood must occupy the same upper-wall span as its range. When an
 	        // existing upper cabinet is already in that exact band, do not move
 	        // either object silently or allow physical overlap. Offer the shopper
@@ -4191,7 +4191,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        }
 		        if (strictDropTarget || preserveResolvedPlacement) {
 	          rememberFailedWallFit(finalCab, normalizedPrevious);
-	          const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
+          const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious, room) ?? `${finalCab.masterCode} was not added because the selected 3D drop location does not have a clear ${finalCab.width}" opening.`;
           setPlacementWarning(message);
           toast.error(message);
           return;
@@ -4218,16 +4218,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const recoveredCab = { ...finalCab, ...recoveredSpot };
           const recoveredRun = normalizeRefrigeratorBayUppers([...prev, recoveredCab], room);
           const normalizedRecoveredCab = recoveredRun.find((cabinet) => cabinet.uid === recoveredCab.uid) ?? recoveredCab;
-          if (!hasCollision(normalizedRecoveredCab, normalizedPrevious)) {
+          if (!cabinetPlacementCollisionDetail(normalizedRecoveredCab, normalizedPrevious, room)) {
             finalCab = normalizedRecoveredCab;
             normalizedRun = recoveredRun;
             toast.success(`${finalCab.masterCode} snapped to the nearest open position.`);
           }
         }
       }
-	      if (hasCollision(finalCab, normalizedPrevious) && !validMountedMicrowavePair) {
+      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room) && !validMountedMicrowavePair) {
 	        rememberFailedWallFit(finalCab, normalizedPrevious);
-	        const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
+        const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious, room) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
         toast.error(message);
 	        return;

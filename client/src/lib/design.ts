@@ -2153,6 +2153,117 @@ export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabi
   return null;
 }
 
+type PlanFootprintPoint = { x: number; y: number };
+
+function planRectanglePolygon(x: number, y: number, width: number, depth: number): PlanFootprintPoint[] {
+  return [
+    { x, y },
+    { x: x + width, y },
+    { x: x + width, y: y + depth },
+    { x, y: y + depth },
+  ];
+}
+
+/** Returns a cabinet's actual rotated body instead of its screen-space bounding box. */
+function rotatedCabinetBodyPolygon(cabinet: PlacedCabinet): PlanFootprintPoint[] {
+  const bounds = placedFootprint(cabinet);
+  const center = { x: cabinet.x + bounds.w / 2, y: cabinet.y + bounds.d / 2 };
+  const radians = (((cabinet.rotation % 360) + 360) % 360) * Math.PI / 180;
+  const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+  const normal = { x: -Math.sin(radians), y: Math.cos(radians) };
+  const halfWidth = Math.max(0, Number(cabinet.width) || 0) / 2;
+  const halfDepth = Math.max(0, Number(cabinet.depth) || 0) / 2;
+  return [
+    { x: center.x - tangent.x * halfWidth - normal.x * halfDepth, y: center.y - tangent.y * halfWidth - normal.y * halfDepth },
+    { x: center.x + tangent.x * halfWidth - normal.x * halfDepth, y: center.y + tangent.y * halfWidth - normal.y * halfDepth },
+    { x: center.x + tangent.x * halfWidth + normal.x * halfDepth, y: center.y + tangent.y * halfWidth + normal.y * halfDepth },
+    { x: center.x - tangent.x * halfWidth + normal.x * halfDepth, y: center.y - tangent.y * halfWidth + normal.y * halfDepth },
+  ];
+}
+
+/** The two solid legs of an L-corner; its interior notch is intentionally empty. */
+function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
+  const bounds = placedFootprint(cabinet);
+  const leg = Math.min(bounds.w, bounds.d) * cornerLegRatioForPlaced(cabinet);
+  const right = cabinet.x + bounds.w;
+  const bottom = cabinet.y + bounds.d;
+  switch ((((cabinet.rotation % 360) + 360) % 360)) {
+    case 90:
+      return [planRectanglePolygon(cabinet.x, cabinet.y, bounds.w, leg), planRectanglePolygon(right - leg, cabinet.y + leg, leg, bounds.d - leg)];
+    case 180:
+      return [planRectanglePolygon(cabinet.x, bottom - leg, bounds.w, leg), planRectanglePolygon(right - leg, cabinet.y, leg, bounds.d - leg)];
+    case 270:
+      return [planRectanglePolygon(cabinet.x, bottom - leg, bounds.w, leg), planRectanglePolygon(cabinet.x, cabinet.y, leg, bounds.d - leg)];
+    default:
+      return [planRectanglePolygon(cabinet.x, cabinet.y, bounds.w, leg), planRectanglePolygon(cabinet.x, cabinet.y + leg, leg, bounds.d - leg)];
+  }
+}
+
+function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
+  return placedCornerGeometryKind(cabinet) === "l-shape"
+    ? lCornerBodyPolygons(cabinet)
+    : [rotatedCabinetBodyPolygon(cabinet)];
+}
+
+/** Convex separating-axis test where flush edge contact remains valid. */
+function convexPlanPolygonsIntersect(left: PlanFootprintPoint[], right: PlanFootprintPoint[]): boolean {
+  for (const polygon of [left, right]) {
+    for (let index = 0; index < polygon.length; index++) {
+      const start = polygon[index];
+      const end = polygon[(index + 1) % polygon.length];
+      const axis = { x: -(end.y - start.y), y: end.x - start.x };
+      const project = (points: PlanFootprintPoint[]) => points.reduce(
+        (range, point) => {
+          const value = point.x * axis.x + point.y * axis.y;
+          return { min: Math.min(range.min, value), max: Math.max(range.max, value) };
+        },
+        { min: Number.POSITIVE_INFINITY, max: Number.NEGATIVE_INFINITY },
+      );
+      const leftRange = project(left);
+      const rightRange = project(right);
+      if (leftRange.max <= rightRange.min + COLLISION_EPSILON_IN || rightRange.max <= leftRange.min + COLLISION_EPSILON_IN) return false;
+    }
+  }
+  return true;
+}
+
+function cabinetPlanBodiesIntersect(left: PlacedCabinet, right: PlacedCabinet): boolean {
+  return cabinetPlanBodyPolygons(left).some((leftPolygon) =>
+    cabinetPlanBodyPolygons(right).some((rightPolygon) => convexPlanPolygonsIntersect(leftPolygon, rightPolygon)),
+  );
+}
+
+function usesFortyFiveDegreePeninsulaJoinBodyCheck(moving: PlacedCabinet, other: PlacedCabinet, room: RoomData): boolean {
+  if (moving.placement !== "base" || other.placement !== "base") return false;
+  const run = peninsulaRunById(room, moving.wallId);
+  return Boolean(
+    run?.turn === 45 &&
+    run.parentWall &&
+    cabinetWall(other, room) === run.parentWall &&
+    placedCornerGeometryKind(other) === "l-shape",
+  );
+}
+
+/**
+ * Placement-time collision calculation. Only a 45-degree peninsula joining an
+ * L-corner on its own parent wall uses true plan bodies; all other pairs retain
+ * the established generic collision behavior.
+ */
+export function cabinetPlacementCollisionDetail(
+  moving: PlacedCabinet,
+  others: PlacedCabinet[],
+  room?: RoomData,
+): CabinetCollisionDetail | null {
+  if (!room) return cabinetCollisionDetail(moving, others);
+  for (const other of others) {
+    const detail = cabinetCollisionDetail(moving, [other]);
+    if (!detail) continue;
+    if (usesFortyFiveDegreePeninsulaJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
+    return detail;
+  }
+  return null;
+}
+
 export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
   return cabinetCollisionDetail(moving, others) != null;
 }
@@ -2228,8 +2339,8 @@ export function snapCabinetSeamOverlap(
 }
 
 /** Returns an actionable explanation when a placement is rejected for a true collision. */
-export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[]): string | null {
-  const detail = cabinetCollisionDetail(moving, others);
+export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[], room?: RoomData): string | null {
+  const detail = cabinetPlacementCollisionDetail(moving, others, room);
   if (!detail) return null;
   const conflicting = detail.cabinet;
   const category = conflicting.placement === "wall" ? "wall cabinet" : conflicting.placement === "base" ? "base cabinet" : "item";

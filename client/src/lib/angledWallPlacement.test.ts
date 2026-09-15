@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -253,6 +253,57 @@ describe("cabinet-supported peninsula runs", () => {
       wallOffset: 0,
       rotation: 90,
     });
+  });
+
+  it("allows 3-DB15 to begin on a 45-degree peninsula beside BER33 when only the L-corner screen box overlaps", () => {
+    const fortyFiveRoom: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{
+        id: "peninsula-45-join",
+        parentWall: "top",
+        startOffset: 36,
+        turn: 45,
+        direction: "left",
+        length: 72,
+        height: 34.5,
+      }],
+    };
+    const ber33: PlacedCabinet = {
+      uid: "ber33-parent-wall",
+      cabinetId: 8,
+      masterCode: "BER33",
+      description: "Easy Reach Corner Base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 33,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "top",
+    };
+    const drawerBase: PlacedCabinet = {
+      uid: "3-db15-peninsula",
+      cabinetId: 9,
+      masterCode: "3-DB15",
+      description: "15 inch 3 Drawer Base",
+      placement: "base",
+      // The 45° body touches the BER legs at a point, while its axis-aligned
+      // screen envelope overlaps the BER's 36-inch bounding square by 12 inches.
+      x: 24,
+      y: 24,
+      width: 15,
+      depth: 24,
+      height: 34.5,
+      rotation: 45,
+      wallId: "peninsula-45-join",
+      wallOffset: 0,
+      peninsulaSide: "left",
+    };
+    expect(cabinetCollisionDetail(drawerBase, [ber33])).toMatchObject({ cabinet: ber33 });
+    expect(cabinetPlacementCollisionDetail(drawerBase, [ber33], fortyFiveRoom)).toBeNull();
+    const trulyOverlappingDrawer = { ...drawerBase, x: 20, y: 20 };
+    expect(cabinetPlacementCollisionDetail(trulyOverlappingDrawer, [ber33], fortyFiveRoom)).toMatchObject({ cabinet: ber33 });
   });
 
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
