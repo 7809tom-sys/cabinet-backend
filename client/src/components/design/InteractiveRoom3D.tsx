@@ -8651,7 +8651,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         <p className="mt-2 text-center text-xs text-muted-foreground">Tap a cabinet to edit or move it · Drag to orbit · Pinch or scroll to zoom</p>
       </>}
       <Sheet open={workspacePanel !== null} onOpenChange={(open) => { if (!open) setWorkspacePanel(null); }}>
-        <SheetContent side="bottom" className="max-h-[78dvh] overflow-y-auto rounded-t-2xl px-4 pb-6 sm:mx-auto sm:max-w-3xl">
+        <SheetContent
+          side="bottom"
+          data-testid={workspacePanel === "room" ? "three-d-room-controls-sheet" : "three-d-workspace-sheet"}
+          className="max-h-[calc(100dvh-0.75rem)] overflow-y-auto overscroll-contain rounded-t-2xl px-3 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-1 sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2 sm:w-[min(42rem,calc(100vw-2rem))] sm:max-h-[calc(100dvh-2rem)] sm:max-w-none sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border sm:px-5 sm:pb-5"
+        >
           {workspacePanel === "catalog" && <>
             <SheetHeader><SheetTitle>Add from catalog</SheetTitle></SheetHeader>
             <p className="mt-2 text-sm text-muted-foreground">Browse the complete active cabinet catalog, then add an item to the active wall. It immediately joins this 3D room and the saved 2D plan.</p>
@@ -8676,9 +8680,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
             <p className="mt-5 text-xs font-semibold">Countertop preview</p><div className="mt-2 flex flex-wrap gap-2">{COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}</button>)}</div>
           </>}
           {workspacePanel === "room" && <>
-            <SheetHeader><SheetTitle>Room controls</SheetTitle></SheetHeader>
-            <label data-testid="three-d-wall-height-control" className="mt-4 flex items-center justify-between gap-3 rounded-xl border border-[#a87f33]/60 bg-[#fffaf1] p-3 text-sm font-semibold text-[#4b3a20]"><span>All wall height</span><span className="flex items-center gap-1"><Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-9 w-16 border border-[#d9c196] bg-background text-center font-semibold shadow-none" />in</span></label>
-            <div data-testid="three-d-per-wall-height-controls" className="mt-3 grid grid-cols-2 gap-2" aria-label="Individual wall heights">{([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => <label key={side} className={`flex items-center justify-between rounded-lg border p-2 text-xs font-semibold ${wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? "border-amber-300 bg-amber-50 text-amber-900" : ""}`}><span>{label}</span><Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-8 w-14 text-center text-xs" /></label>)}</div>
+            <SheetHeader className="px-1 pb-0 pt-3 sm:px-0"><SheetTitle>Room controls</SheetTitle></SheetHeader>
+            <label data-testid="three-d-wall-height-control" className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-[#a87f33]/60 bg-[#fffaf1] p-2.5 text-sm font-semibold text-[#4b3a20]"><span>All wall height</span><span className="flex items-center gap-1"><Input aria-label="3D wall height in inches" type="number" min={1} max={120} step={1} value={wallHeightIn} onChange={(event) => updateWallHeight(event.target.value)} className="h-8 w-16 border border-[#d9c196] bg-background text-center font-semibold shadow-none" />in</span></label>
+            <div data-testid="three-d-per-wall-height-controls" className="mt-2 grid grid-cols-2 gap-2" aria-label="Individual wall heights">{([ ["top", "Back"], ["left", "Left"], ["right", "Right"], ["bottom", "Front"] ] as const).map(([side, label]) => <label key={side} className={`flex items-center justify-between rounded-lg border p-2 text-xs font-semibold ${wallHeights[side] < (upperCabinetWallMinimums[side] ?? 0) ? "border-amber-300 bg-amber-50 text-amber-900" : ""}`}><span>{label}</span><Input aria-label={`${label} wall height in inches`} type="number" min={1} max={120} step={1} value={wallHeights[side]} onChange={(event) => updateWallHeightForSide(side, event.target.value)} className="h-8 w-14 text-center text-xs" /></label>)}</div>
+            <p className="mt-3 px-1 text-xs text-muted-foreground">Changes apply to the room immediately.</p>
           </>}
           {workspacePanel === "output" && <>
             <SheetHeader><SheetTitle>Save, quote & share</SheetTitle></SheetHeader>

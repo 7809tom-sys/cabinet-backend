@@ -28,6 +28,14 @@ describe("3D cabinet movement controls on mobile", () => {
     expect(source).toContain('hidden max-w-[calc(100%-10rem)]');
   });
 
+  it("keeps Room controls inside the viewport as a compact desktop dialog or a scrollable touch sheet", () => {
+    expect(source).toContain('data-testid={workspacePanel === "room" ? "three-d-room-controls-sheet" : "three-d-workspace-sheet"}');
+    expect(source).toContain('max-h-[calc(100dvh-0.75rem)] overflow-y-auto overscroll-contain');
+    expect(source).toContain('sm:top-1/2 sm:right-auto sm:bottom-auto sm:left-1/2');
+    expect(source).toContain('sm:max-h-[calc(100dvh-2rem)]');
+    expect(source).toContain('Changes apply to the room immediately.');
+  });
+
   it("keeps every base filler board flush to the room-facing cabinet front", () => {
     expect(source).toContain('const isFrontFlushFillerBoard = isBaseFillerPiece;');
     expect(source).toContain('bodyDepth / 2 - installedFillerBoardDepth / 2');

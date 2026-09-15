@@ -2009,3 +2009,4 @@
 - [x] Terminate the original parent wall exactly at the peninsula attachment, leaving the continuation open and aligning the adjacent cabinet run with a measured filler when needed
 - [x] Terminate the confirmed top perimeter wall at the peninsula start, leaving the rest of the top edge open for the connected cabinet run
 - [x] Diagnose and correct the reported incorrect price in the active saved Designer plan using verified vendor and door-style pricing
+- [x] Repair the Designer Room controls popup so all fields and action buttons remain reachable without being cut off on desktop, tablet, or mobile screens

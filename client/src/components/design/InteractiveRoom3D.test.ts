@@ -491,7 +491,7 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(designerSource).toContain("freehand ? undefined : dropTarget.placementUid");
     expect(designerSource.match(/onMoveCabinetTo=\{cabinetsLocked \? undefined : moveCabinetToFrom3D\}/g)).toHaveLength(2);
     expect(designerSource).toContain("rangeHoodPositionAdjusted: true");
-    expect(designerSource).toContain("moveCabinet(uid, x, y, undefined, true)");
+    expect(designerSource).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping)");
     expect(designerSource).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
   });
 
