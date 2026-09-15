@@ -6288,7 +6288,13 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
   const cornerBody = threeDCornerBodyDimensions(cabinet);
   const applianceCode = `${cabinet.masterCode ?? ""}`.toLowerCase().replace(/[^a-z0-9]/g, "");
   const inferredAppliancePlacement = /^(?:fridge|range|hood|dw|wine|mw)/i.test(cabinet.masterCode ?? "");
-  const placementType = cabinet.placement === "appliance" || inferredAppliancePlacement || isRangeOrOven(cabinet.masterCode, cabinet.description)
+  // Tall UOC / oven-pantry cabinets contain an oven but are not appliances.
+  // Keep their configured tall enclosure in the oven-cabinet renderer. Sending
+  // them through the appliance path turns the full cabinet into a freestanding
+  // oven shape and causes the visible distorted tower regression.
+  const isOvenTowerCabinet = cabinet.placement === "tall"
+    && /\b(?:oven\s+(?:cabinet|tower|pantry)|universal\s+oven\s+cabinet)\b/i.test(`${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`);
+  const placementType = cabinet.placement === "appliance" || (!isOvenTowerCabinet && (inferredAppliancePlacement || isRangeOrOven(cabinet.masterCode, cabinet.description)))
     ? "appliance"
     : cabinet.placement;
   const appliance = placementType === "appliance"

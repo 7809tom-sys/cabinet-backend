@@ -2301,7 +2301,26 @@ describe("interactive 3D room scene helpers", () => {
     const contract = threeDSceneInputDiagnostics(placed, "/manus-storage/selected-door.png");
     expect(contract).toMatchObject({ cabinetCount: 1, ovenTowerCount: 1, measuredDrawerCabinetCount: 1, specialtyCabinetCount: 1, doorSampleUrl: "/manus-storage/selected-door.png" });
     expect(contract.mapped[0]).toMatchObject({ masterCode: "UOC3396", ovenType: "double", drawerLayout: JSON.stringify([{ count: 1, height: 6 }]), graphicType: "end-angle", facePattern: "lattice" });
-    expect(existingCabinetSku(placed[0])).toMatchObject({ height: 96, width: 33, depth: 24 });
+    expect(existingCabinetSku(placed[0])).toMatchObject({ placementType: "tall", height: 96, width: 33, depth: 24 });
+  });
+
+  it("renders a saved UOC oven tower as its tall enclosure with cabinet doors, drawers, and oven cutout", () => {
+    const placed = {
+      uid: "uoc-tall", cabinetId: 9390085, masterCode: "UOC3396", description: '33" x 96" Universal Oven Cabinet - 30" x 39.75" Oven Opening - 2 Doors 3 Drawers',
+      placement: "tall", x: 0, y: 0, width: 33, depth: 24, height: 96, rotation: 0,
+      numberOfDoors: 2, numberOfDrawers: 3, ovenType: "double",
+    } as never;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(placed), null, {}, 144, 120, "#d7c49a", "#f8f8f6");
+    const meshMarkers: Record<string, number> = { ovenCabinetDoor: 0, ovenCabinetDrawer: 0, ovenOpening: 0 };
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.ovenCabinetDoor) meshMarkers.ovenCabinetDoor += 1;
+      if (node.userData.ovenCabinetDrawer) meshMarkers.ovenCabinetDrawer += 1;
+      if (node.userData.ovenOpeningWidthIn != null) meshMarkers.ovenOpening += 1;
+    });
+    expect(existingCabinetSku(placed).placementType).toBe("tall");
+    expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1 });
   });
 
   it("normalizes the retired top-center override for saved Island mode and 4½-inch floor wall cabinets", () => {
