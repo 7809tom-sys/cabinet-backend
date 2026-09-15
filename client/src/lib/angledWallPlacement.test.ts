@@ -233,6 +233,14 @@ describe("cabinet-supported peninsula runs", () => {
     expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 0, length: 30 });
   });
 
+  it("recovers a legacy peninsula cabinet that still carries its original parent-wall owner", () => {
+    const staleParentWallOwner = { ...peninsulaCabinet("legacy-parent-wall-ber33", 30), wallId: "top", wallOffset: undefined };
+    const normalized = normalizeLegacyPeninsulaCabinets([staleParentWallOwner], peninsulaRoom);
+    expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
+    const opening = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base");
+    expect(opening).toContainEqual({ start: 0, length: 30 });
+  });
+
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
     const hit = peninsulaRunHitAtPoint(peninsulaRoom, { x: 49, y: 60 }, 12);
     expect(hit).toMatchObject({ run: { id: "peninsula-90-right" }, offset: 60 });

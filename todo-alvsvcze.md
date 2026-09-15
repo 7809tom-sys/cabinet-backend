@@ -2017,3 +2017,5 @@
 - [x] Add peninsula countertop coverage across permitted void areas with selectable 10-inch or 12-inch seating overhang and exposed-end waterfall options
 - [x] Recommend an available selected-line cabinet that fits a measured peninsula opening and provide a direct placement action when a requested cabinet does not fit
 - [x] Make each peninsula's selected left or right cabinet face authoritative for placement, fit recommendations, seating overhang, and exposed-end waterfall treatment
+- [x] Eliminate the false BER33 collision so base cabinets can be placed in the selected peninsula's actual open spans while retaining real overlap blocks
+- [x] Cascade-delete a sink and faucet whenever its owning sink-base cabinet is removed from the Designer

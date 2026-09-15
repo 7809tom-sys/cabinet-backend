@@ -1362,14 +1362,18 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
   if (!room.peninsulaRuns?.length) return placed;
   let changed = false;
   const normalized = placed.map((cabinet) => {
-    if (cabinet.wallId || cabinet.islandFace || !["base", "wall", "tall", "appliance"].includes(cabinet.placement)) return cabinet;
+    if (cabinet.islandFace || !["base", "wall", "tall", "appliance"].includes(cabinet.placement)) return cabinet;
+    // Do not alter a cabinet already assigned to a specific connected run. A
+    // legacy peninsula cabinet can still carry its original parent-wall ID;
+    // that stale perimeter owner must be recoverable from its seated geometry.
+    if (peninsulaRunById(room, cabinet.wallId)) return cabinet;
     const footprint = placedFootprint(cabinet);
     const width = Math.max(0, Number(cabinet.width) || 0);
     const depth = Math.max(0, Number(cabinet.depth) || 0);
     if (width <= 0 || depth <= 0) return cabinet;
     const center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
     const hit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
-    if (!hit) return cabinet;
+    if (!hit || (cabinet.wallId && cabinet.wallId !== hit.run.parentWall)) return cabinet;
     const { radians } = peninsulaRunEndpoints(hit.run, room);
     const tangentRotation = ((radians * 180) / Math.PI + 360) % 360;
     const rotationDistance = (left: number, right: number) => Math.abs((((left - right + 540) % 360) - 180));
@@ -3016,6 +3020,11 @@ export function fixtureIsOnCabinetFootprint(
     centerX >= cabinet.x && centerX <= cabinet.x + footprint.w &&
     centerY >= cabinet.y && centerY <= cabinet.y + footprint.d
   );
+}
+
+/** Exact sink-base ownership is authoritative; footprint matching preserves legacy saved fixtures. */
+export function fixtureBelongsToCabinet(fixture: SinkFixture, cabinet: PlacedCabinet): boolean {
+  return fixture.cabinetUid === cabinet.uid || fixtureIsOnCabinetFootprint(fixture, cabinet);
 }
 
 /**
