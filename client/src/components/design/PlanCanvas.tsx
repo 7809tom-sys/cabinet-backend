@@ -642,6 +642,18 @@ export function PlanCanvas({
     onWallCompassDrop?.(drag.side, startIn);
   };
 
+  // Touch browsers can cancel a pointer sequence when the user's finger crosses
+  // a scroll boundary or the OS momentarily steals the gesture. Clear the
+  // preview in that case so the one visible Compass target is immediately ready
+  // for the next drag instead of retaining a stale captured state.
+  const onCompassPointerCancel = (event: React.PointerEvent) => {
+    if (!compassDrag.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    compassDrag.current = null;
+    setCompassPreviewStart(null);
+  };
+
   const onPeninsulaPullDown = (event: React.PointerEvent, draft: PeninsulaRun) => {
     event.preventDefault();
     event.stopPropagation();
@@ -1261,13 +1273,16 @@ export function PlanCanvas({
                       type="button"
                       aria-label={`Drag Compass along ${wallLabel[side]} wall to set the peninsula split point`}
                       title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
-                      className="absolute z-20 grid h-10 w-10 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
+                      data-testid="on-wall-compass-drag-target"
+                      className="absolute z-20 grid h-12 w-12 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
-                        ? { left: compassStart * ppi - 20, top: -12 }
-                        : { top: compassStart * ppi - 20, left: -12 }}
+                        ? { left: compassStart * ppi - 24, top: -16 }
+                        : { top: compassStart * ppi - 24, left: -16 }}
                       onPointerDown={(event) => onCompassPointerDown(event, side)}
                       onPointerMove={onCompassPointerMove}
                       onPointerUp={onCompassPointerUp}
+                      onPointerCancel={onCompassPointerCancel}
+                      onLostPointerCapture={onCompassPointerCancel}
                     >
                       <Compass className="h-4 w-4" />
                       <span className="absolute bottom-1 text-[8px] font-bold leading-none">45°</span>

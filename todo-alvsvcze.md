@@ -1960,7 +1960,7 @@
 - [x] Prevent wall selection or a simple touch from changing wall size, angle, or corner geometry; reserve all wall mutations for an explicit saved edit
 - [x] Prevent a wall touch from opening the Edit selected wall dialog; open it only with the explicit Compass action
 - [x] Fix the on-wall gold Compass handle so press-and-drag updates the corner-start marker instead of opening the attributes popup
-- [ ] Replace the still-unusable live Compass gesture with one verified on-wall drag target in the active Designer workspace
+- [x] Replace the still-unusable live Compass gesture with one verified on-wall drag target in the active Designer workspace
 - [x] Make Compass release immediately form one bounded exact 45-degree right or left wall turn at the release point
 - [x] Restore cabinetdealz.com public routing after the live site returned Railway Not Found instead of Cabinet Dealz
 - [x] Replace the live visible Compass popup action with direct activation of the on-wall 45-degree drag control

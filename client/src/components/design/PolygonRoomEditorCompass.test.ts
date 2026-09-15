@@ -20,6 +20,9 @@ describe("selected-wall Compass editor", () => {
     expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set the peninsula split point");
     expect(planCanvasSource).toContain('onWallCompassDrop?: (side: WallSide, startIn: number) => void;');
     expect(planCanvasSource).toContain("onCompassPointerUp");
+    expect(planCanvasSource).toContain('data-testid="on-wall-compass-drag-target"');
+    expect(planCanvasSource).toContain("onCompassPointerCancel");
+    expect(planCanvasSource).toContain("onLostPointerCapture={onCompassPointerCancel}");
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Drag 45° on selected wall");
     expect(designToolSource).toContain('data-testid="compact-workspace-wall-compass"');
