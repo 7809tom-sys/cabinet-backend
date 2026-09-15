@@ -948,6 +948,35 @@ export function clearForeignSavedStyleOverrides<T extends { styleId?: number | n
 }
 
 /**
+ * Resolve the finish used for price lookups. A saved cabinet can retain a
+ * legacy per-cabinet style from another distributor until client state has
+ * normalized. That foreign finish must never create a cross-distributor price
+ * lookup: price it at the plan's active finish instead. Explicit same-line
+ * two-tone overrides remain intact, and an unknown historic style is retained
+ * rather than guessed.
+ */
+export function pricingStyleId(
+  cab: { styleId?: number | null },
+  defaultStyleId: number | null,
+  selectedDistributorId: number | null | undefined,
+  distributorByStyleId: ReadonlyMap<number, number>,
+): number | null {
+  const overrideStyleId = cab.styleId;
+  const overrideDistributorId = overrideStyleId == null
+    ? undefined
+    : distributorByStyleId.get(overrideStyleId);
+  if (
+    defaultStyleId != null &&
+    selectedDistributorId != null &&
+    overrideDistributorId != null &&
+    overrideDistributorId !== selectedDistributorId
+  ) {
+    return defaultStyleId;
+  }
+  return effectiveStyleId(cab, defaultStyleId);
+}
+
+/**
  * Rendering follows the active selected sample for a normal one-finish design.
  * Per-cabinet style IDs are honored only after the user has explicitly selected
  * a distinct second two-tone style; this prevents stale placement metadata from

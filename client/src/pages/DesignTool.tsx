@@ -95,7 +95,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -1270,6 +1270,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return normalized.some((cabinet, index) => cabinet !== current[index]) ? normalized : current;
     });
   }, [lockedDistributorId, styleDistributorIdById]);
+  // Price from the plan's active supplier line while saved-plan normalization
+  // settles. A legacy foreign override must never produce a cross-distributor
+  // price lookup, a pending line, or a zero-value total.
+  const pricingStyleIdFor = useCallback(
+    (cabinet: PlacedCabinet) => pricingStyleId(cabinet, styleId, lockedDistributorId, styleDistributorIdById),
+    [styleId, lockedDistributorId, styleDistributorIdById],
+  );
   // Neutral, customer-safe distributor labels (white-label safe) used to group the
   // door-style picker by supply line. Never carries the hidden supplier brand.
   const { data: distributorLabels } = trpc.distributors.list.useQuery();
@@ -2014,17 +2021,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       pairs.push({ cabinetId, styleId: sid });
     };
     placed.forEach((p) => {
-      push(pricingIdForPlacedCabinet(p), effectiveStyleId(p, styleId) ?? styleId);
+      push(pricingIdForPlacedCabinet(p), pricingStyleIdFor(p) ?? styleId);
       // Fetch the exact same-style glass product. Some lines use a separately
       // priced replacement door; others use a complete GD cabinet variant.
       if (p.glassDoor) {
         const gdCode = glassDoorAddonCodeFor(p) ?? `${p.masterCode}GD`;
         const gdCab = glassDoorCatalogProduct(gdCode);
-        if (gdCab) push(gdCab.id, effectiveStyleId(p, styleId) ?? styleId);
+        if (gdCab) push(gdCab.id, pricingStyleIdFor(p) ?? styleId);
       }
     });
     return pairs;
-  }, [placed, pricingIdForPlacedCabinet, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]);
+  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -2086,7 +2093,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     (p: PlacedCabinet): number | null => {
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
       if (!styleId) return null;
-      const sid = effectiveStyleId(p, styleId) ?? styleId;
+      const sid = pricingStyleIdFor(p) ?? styleId;
       const linkedGlassDoorCode = glassDoorAddonCodeFor(p);
       // A complete GD cabinet replaces the base price. A separately linked
       // replacement door is additive, so WDC2442 retains its cabinet price.
@@ -2101,7 +2108,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const v = priceMap.get(`${pricingIdForPlacedCabinet(p)}:${sid}`);
       return v ?? null;
     },
-    [priceMap, pricingIdForPlacedCabinet, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
+    [priceMap, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
   );
 
   const glassDoorAddonFor = useCallback((p: PlacedCabinet, resolvedStyleId: number) => {
@@ -2175,9 +2182,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [cabinetsLocked]);
 
   const activeBundlePriceLock = useMemo(() => {
-    if (!loadedBundlePriceLock || loadedBundlePriceLock.cabinetSignature !== bundleCabinetPricingSignature(placed, styleId)) return null;
+    const pricingSignature = bundleCabinetPricingSignature(
+      placed.map((cabinet) => ({ ...cabinet, styleId: pricingStyleIdFor(cabinet) })),
+      styleId,
+    );
+    if (!loadedBundlePriceLock || loadedBundlePriceLock.cabinetSignature !== pricingSignature) return null;
     return loadedBundlePriceLock;
-  }, [loadedBundlePriceLock, placed, styleId]);
+  }, [loadedBundlePriceLock, placed, pricingStyleIdFor, styleId]);
 
   // ─── Per-cabinet roll-out shelves (add-on) → BOM / cart line items ───────────
   // Distinct effective door-style ids in the design (only cabinets that actually
@@ -2190,12 +2201,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const ids = new Set<number>();
     for (const p of placed) {
       if ((p.rolloutQty ?? 0) > 0) {
-        const sid = effectiveStyleId(p, styleId) ?? styleId;
+        const sid = pricingStyleIdFor(p) ?? styleId;
         if (sid != null) ids.add(sid);
       }
     }
     return Array.from(ids).sort((a, b) => a - b);
-  }, [placed, styleId]);
+  }, [placed, pricingStyleIdFor, styleId]);
 
   const { data: rolloutTrayRows } = trpc.design.rollOutTraysForStyles.useQuery(
     { styleIds: rolloutStyleIds, distributorId: lockedDistributorId ?? undefined },
@@ -2234,11 +2245,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       isCornerCabinet: isCornerCabinet(p.masterCode, p.description),
       nominalWidth: p.nominalWidth ?? null,
       width: p.width,
-      effectiveStyleId: effectiveStyleId(p, styleId) ?? styleId,
+      effectiveStyleId: pricingStyleIdFor(p) ?? styleId,
       rolloutQty: p.rolloutQty ?? 0,
     }));
     return buildRollOutLines(targets, rolloutOptionsByStyle);
-  }, [placed, styleId, rolloutStyleIds, rolloutOptionsByStyle]);
+  }, [placed, pricingStyleIdFor, styleId, rolloutStyleIds, rolloutOptionsByStyle]);
 
   // ─── Trim pricing (toe kick / light rail / batten) → BOM / cart ──────────────
   // Trim SKUs are per door style, so we fetch the priced trim rows for the
@@ -2411,7 +2422,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const attrNote = attrNotes.join(", ");
       // Per-cabinet color (two-tone aware) for the export, mirroring the on-screen
       // line items. Included in the dedup key so different colors stay separate.
-      const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
+      const cabStyleId = styleId ? pricingStyleIdFor(p) : null;
       const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
       const discKey = p.discountPct ?? 0;
       const gdFlag = p.glassDoor ? "GD" : "";
@@ -2520,14 +2531,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       });
     }
     return rows;
-  }, [placed, priceMap, styleId, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
+  }, [placed, priceMap, styleId, pricingStyleIdFor, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
 
   const affiliatePriceListItems = useMemo(() => {
     if (!styleId) return [] as Array<{ masterCode: string; styleId: number; quantity: number }>;
     const grouped = new Map<string, { masterCode: string; styleId: number; quantity: number }>();
     for (const cabinet of placed) {
       if (isApplianceCode(cabinet.masterCode)) continue;
-      const cabinetStyleId = effectiveStyleId(cabinet, styleId);
+      const cabinetStyleId = pricingStyleIdFor(cabinet);
       if (cabinetStyleId == null) continue;
       const key = `${cabinet.masterCode}:${cabinetStyleId}`;
       const existing = grouped.get(key);
@@ -2535,18 +2546,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       else grouped.set(key, { masterCode: cabinet.masterCode, styleId: cabinetStyleId, quantity: 1 });
     }
     return Array.from(grouped.values());
-  }, [placed, styleId]);
+  }, [placed, pricingStyleIdFor, styleId]);
 
   const affiliatePriceLabels = useMemo(() => {
     const labels = new Map<string, string>();
     for (const cabinet of placed) {
       if (!styleId || isApplianceCode(cabinet.masterCode)) continue;
-      const cabinetStyleId = effectiveStyleId(cabinet, styleId);
+      const cabinetStyleId = pricingStyleIdFor(cabinet);
       if (cabinetStyleId == null) continue;
       labels.set(`${cabinet.masterCode}:${cabinetStyleId}`, cabinet.description || cabinet.masterCode);
     }
     return labels;
-  }, [placed, styleId]);
+  }, [placed, pricingStyleIdFor, styleId]);
 
   const [affiliatePriceListOpen, setAffiliatePriceListOpen] = useState(false);
   const affiliatePriceList = trpc.design.affiliateDesignPriceList.useQuery(
@@ -2570,6 +2581,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const designLines = buildDesignCabinetCartLines({
       placed: placedWithGlassDoorLinks,
       styleId,
+      pricingStyleIdFor,
       distributorId: lockedDistributorId ?? null,
       tier: DESIGN_TIER_TO_SHARED[tier],
       styleNameById,
@@ -2596,6 +2608,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const lines = buildDesignPreviewPricingLines({
       placed: placedWithGlassDoorLinks,
       styleId,
+      pricingStyleIdFor,
       distributorId: lockedDistributorId ?? null,
       tier: DESIGN_TIER_TO_SHARED[tier],
       styleNameById,
@@ -2603,7 +2616,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       glassDoorAddonFor,
     });
     return activeBundlePriceLock ? lockDesignCartLinesToPackageTotal(lines, activeBundlePriceLock.total) : lines;
-  }, [placedWithGlassDoorLinks, styleId, lockedDistributorId, tier, styleNameById, unitPriceFor, glassDoorAddonFor, activeBundlePriceLock]);
+  }, [placedWithGlassDoorLinks, styleId, pricingStyleIdFor, lockedDistributorId, tier, styleNameById, unitPriceFor, glassDoorAddonFor, activeBundlePriceLock]);
 
 
   // Decorative hardware schedule (knobs / pulls) for the chosen spec. A finishing
@@ -3251,7 +3264,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // Resolve THIS cabinet's specific color (two-tone designs place cabinets in
       // either Color 1 or Color 2). We key by color too so each color shows as
       // its own line, and surface the swatch + finish name for the line item.
-      const cabStyleId = styleId ? effectiveStyleId(p, styleId) : null;
+      const cabStyleId = styleId ? pricingStyleIdFor(p) : null;
       const colorKey = cabStyleId ?? "_";
       const discKey = p.discountPct ?? 0;
       const gdFlag = p.glassDoor ? "GD" : "";
@@ -3283,7 +3296,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
     }
     return Array.from(map.values());
-  }, [placed, priceMap, styleId, conflictUids, unitPriceFor, finishById, styleNameById]);
+  }, [placed, priceMap, styleId, pricingStyleIdFor, conflictUids, unitPriceFor, finishById, styleNameById]);
 
   // Build-sheet cabinet sections. Full-height (tall) base cabinets are grouped
   // WITH the regular base cabinets (a single "Base Cabinets" section) — there is

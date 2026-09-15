@@ -54,6 +54,26 @@ describe("designer cabinet cart lines", () => {
 	    ]);
 	  });
 
+  it("keeps cart and preview identity on the active supplier style for a stale foreign saved finish", () => {
+    const foreignFinishCabinet = { ...bec, uid: "foreign-finish", styleId: 330003 } as PlacedCabinet;
+    const common = {
+      placed: [foreignFinishCabinet],
+      styleId: 390019,
+      pricingStyleIdFor: () => 390019,
+      distributorId: 180001,
+      tier: "homeowner" as const,
+      styleNameById: new Map([[390019, "Slim Amber Oak"]]),
+      unitPriceFor: () => 412.5,
+    };
+
+    expect(buildDesignCabinetCartLines(common)).toEqual([
+      expect.objectContaining({ styleId: 390019, styleLabel: "Slim Amber Oak", unitPrice: 412.5, priceLocked: true }),
+    ]);
+    expect(buildDesignPreviewPricingLines(common)).toEqual([
+      expect.objectContaining({ styleId: 390019, styleLabel: "Slim Amber Oak", unitPrice: 412.5, placementUids: ["foreign-finish"] }),
+    ]);
+  });
+
 	  it("prices a mandatory BBC filler through its real catalog cabinet ID and SKU", () => {
 	    const blind = {
 	      ...bec,

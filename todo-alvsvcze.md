@@ -2008,3 +2008,4 @@
 - [x] When a peninsula-connected wall section is removed, start cabinets on the marked clear run and automatically fill the measured gap back to the angled connection when a compatible filler exists
 - [x] Terminate the original parent wall exactly at the peninsula attachment, leaving the continuation open and aligning the adjacent cabinet run with a measured filler when needed
 - [x] Terminate the confirmed top perimeter wall at the peninsula start, leaving the rest of the top edge open for the connected cabinet run
+- [x] Diagnose and correct the reported incorrect price in the active saved Designer plan using verified vendor and door-style pricing

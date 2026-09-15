@@ -6,6 +6,8 @@ import { calculateCartSubtotal } from "@/lib/cartTotals";
 type BuildDesignCabinetCartLinesArgs = {
   placed: PlacedCabinet[];
   styleId: number | null;
+  /** Use when a saved plan needs a pricing-only style normalization. */
+  pricingStyleIdFor?: (cabinet: PlacedCabinet) => number | null;
   distributorId: number | null;
   tier: CartItem["tier"];
   styleNameById: Map<number, string>;
@@ -40,6 +42,7 @@ export function adjustedDesignUnitPrice(
 export function buildDesignCabinetCartLines({
   placed,
   styleId,
+  pricingStyleIdFor,
   distributorId,
   tier,
   styleNameById,
@@ -60,7 +63,7 @@ export function buildDesignCabinetCartLines({
     ) continue;
     const unitPrice = adjustedDesignUnitPrice(cabinet, unitPriceFor(cabinet));
     if (unitPrice == null) continue;
-    const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+    const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
     // A linked glassDoorAddonCode is a separately priced replacement door. Keep
     // the cabinet itself on its canonical SKU; only full-cabinet GD swaps use an
     // appended-code identity.
@@ -175,6 +178,7 @@ export function bundleCabinetPricingSignature(placed: PlacedCabinet[], styleId: 
 export function buildDesignPreviewPricingLines({
   placed,
   styleId,
+  pricingStyleIdFor,
   distributorId,
   tier,
   styleNameById,
@@ -195,7 +199,7 @@ export function buildDesignPreviewPricingLines({
     // overlay. Retain it as an explicit pending line; do not infer or invent a
     // replacement amount from another distributor, tier, or style.
     const adjustedUnitPrice = adjustedDesignUnitPrice(cabinet, basePrice);
-    const resolvedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
+    const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
     const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
       ? `${cabinet.masterCode}GD`
       : cabinet.masterCode;

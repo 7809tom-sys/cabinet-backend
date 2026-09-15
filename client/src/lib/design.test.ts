@@ -29,7 +29,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
 } from "./design";
 
@@ -553,6 +553,13 @@ describe("saved design style restoration", () => {
     expect(clearForeignSavedStyleOverrides([cabinet], 180001, distributors)).toEqual([{ uid: "foreign-style", styleId: null }]);
     expect(clearForeignSavedStyleOverrides([{ uid: "two-tone", styleId: 390019 }], 180001, distributors))
       .toEqual([{ uid: "two-tone", styleId: 390019 }]);
+  });
+
+  it("prices a stale foreign override at the active plan style before saved-plan normalization completes", () => {
+    const distributors = new Map([[330003, 210001], [390019, 180001], [390020, 180001]]);
+    expect(pricingStyleId({ styleId: 330003 }, 390019, 180001, distributors)).toBe(390019);
+    expect(pricingStyleId({ styleId: 390020 }, 390019, 180001, distributors)).toBe(390020);
+    expect(pricingStyleId({ styleId: 777777 }, 390019, 180001, distributors)).toBe(777777);
   });
 });
 
