@@ -119,7 +119,7 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(onMoveInOut).toHaveBeenNthCalledWith(2, "w3024", "in", 1);
   });
 
-  it("offers only the 24–30 inch knee-drawer mounting presets for a placed knee drawer", () => {
+  it("offers knee-drawer mounting presets and a standard 34.5-inch base-body top alignment action", () => {
     const onSetMountBottom = vi.fn();
     const kneeDrawer = {
       ...wallCabinet,
@@ -140,8 +140,10 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     expect(screen.getByTestId("knee-drawer-height-presets")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "24″" }));
     fireEvent.click(screen.getByRole("button", { name: "30″" }));
+    fireEvent.click(screen.getByRole("button", { name: "Align top 34.5″" }));
     expect(onSetMountBottom).toHaveBeenNthCalledWith(1, "knee-drawer", 24);
     expect(onSetMountBottom).toHaveBeenNthCalledWith(2, "knee-drawer", 30);
+    expect(onSetMountBottom).toHaveBeenNthCalledWith(3, "knee-drawer", 27.5);
   });
 
   it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {

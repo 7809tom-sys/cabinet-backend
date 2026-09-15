@@ -49,6 +49,7 @@ import {
   blindPullRange,
   fillerWidthRange,
   isKneeDrawerItem,
+  STD,
   KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN,
   KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN,
   KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN,
@@ -330,8 +331,11 @@ export function CabinetAttributesDialog({
   const usesAutomaticRaisedPull = usesRaisedFloorWallDoorPull(cabinet);
   const isIslandWallCabinet = isCounterHeightIslandWallCabinet(cabinet);
   const islandBaseTreatment = islandWallCabinetBaseTreatment(cabinet);
-  const isBase = cabinet.placement === "base";
+	  const isBase = cabinet.placement === "base";
 	  const isKneeDrawer = cabinet.placement === "baseTop" && isKneeDrawerItem(cabinet);
+  const kneeDrawerBaseBodyAlignBottom = isKneeDrawer
+    ? Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, STD.BASE_HEIGHT - placedHeight(cabinet)))
+    : null;
   const canMoveMount = (cabinet.placement === "wall" || isKneeDrawer) && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
   const custom =
@@ -541,7 +545,7 @@ export function CabinetAttributesDialog({
 	              <div className="flex items-center justify-between gap-3">
 	                <div>
 	                  <h4 className="text-sm font-semibold">{isKneeDrawer ? "Knee-drawer position" : "Elevation position"}</h4>
-	                  <p className="text-[11px] text-muted-foreground">{isKneeDrawer ? "Set the drawer bottom 24–30 inches from the finished floor for a seated work area." : "Move this wall cabinet up or down from the floor."}</p>
+	                  <p className="text-[11px] text-muted-foreground">{isKneeDrawer ? "Set the drawer bottom 24–30 inches from the finished floor for a seated work area, or align its top to the 34.5-inch base body." : "Move this wall cabinet up or down from the floor."}</p>
 	                </div>
 	                <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onSetMountBottom?.(uid, isKneeDrawer ? KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN : 54)}>
 	                  {isKneeDrawer ? "Reset 30″" : "Reset 54″"}
@@ -552,6 +556,16 @@ export function CabinetAttributesDialog({
 	                  {[24, 27, 30].map((height) => (
 	                    <Button key={height} type="button" size="sm" variant={Math.round(mountBottom ?? 0) === height ? "default" : "outline"} className="h-7 px-2 text-xs" onClick={() => onSetMountBottom?.(uid, height)}>{height}″</Button>
 	                  ))}
+	                  <Button
+                    type="button"
+                    size="sm"
+                    variant={Math.abs((mountBottom ?? 0) - (kneeDrawerBaseBodyAlignBottom ?? 0)) < 0.01 ? "default" : "outline"}
+                    className="h-7 px-2 text-xs"
+                    title="Align the knee-drawer top with the 34.5-inch base-cabinet body"
+                    onClick={() => kneeDrawerBaseBodyAlignBottom !== null && onSetMountBottom?.(uid, kneeDrawerBaseBodyAlignBottom)}
+                  >
+                    Align top 34.5″
+                  </Button>
 	                </div>
 	              )}
 	              <div className="flex items-center gap-1">
