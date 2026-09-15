@@ -4,6 +4,14 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
+	  it("makes Compass start a new attached 45-degree wall without changing the selected parent wall", () => {
+	    expect(source).toContain('turn: 45');
+	    expect(source).toContain('label: "Attached 45° wall"');
+	    expect(source).toContain("New attached 45° wall");
+	    expect(source).toContain("Compass keeps the selected wall unchanged and starts a new connected wall");
+	    expect(source).toContain("Create {peninsulaDraft.turn}° {peninsulaDraft.direction} wall");
+	  });
+
 		  it("exposes vendor-available 12-to-24-inch glass-stacker bulk actions inside Placement controls", () => {
 	    expect(source).toContain("glassStackerBulkHeightOptions(");
 	    expect(source).toContain("vendorGlassStackerHeightOptions");

@@ -67,17 +67,18 @@ describe("selected-wall Compass editor", () => {
     expect(planCanvasSource).not.toContain('{g.layer === "wall" ? "W " : "B "}{formatInches(g.length)}');
   });
 
-  it("keeps wall-measurement logic separate from the direct Compass gesture", () => {
-    expect(editorSource).toContain("Wall height (inches)");
-    expect(editorSource).toContain("Wall length (inches)");
-    expect(designToolSource).toContain("setCompassWallStartIn(exactStart);");
-    expect(designToolSource).toContain("Choose its angle, height, and pull length.");
-    expect(planCanvasSource).toContain("Math.abs(movement) < 0.5");
-  });
+	it("keeps wall-measurement logic separate from the direct Compass gesture", () => {
+	  expect(editorSource).toContain("Wall height (inches)");
+	  expect(editorSource).toContain("Wall length (inches)");
+	  expect(designToolSource).toContain("setCompassWallStartIn(exactStart);");
+	  expect(designToolSource).toContain("Choose left or right, then set its height and length.");
+	  expect(planCanvasSource).toContain("Math.abs(movement) < 0.5");
+	});
 
-  it("keeps the new peninsula continuation inline, popup-free, and pull-to-length", () => {
-    expect(designToolSource).toContain('data-testid="peninsula-inline-builder"');
-    expect(designToolSource).toContain("Create peninsula run");
+	it("keeps the new peninsula continuation inline, popup-free, and pull-to-length", () => {
+	  expect(designToolSource).toContain('data-testid="peninsula-inline-builder"');
+	  expect(designToolSource).toContain("Create {peninsulaDraft.turn}° {peninsulaDraft.direction} wall");
+	  expect(designToolSource).toContain("New attached 45° wall");
     expect(planCanvasSource).toContain('data-testid="peninsula-run-draft"');
     expect(planCanvasSource).toContain('data-testid="peninsula-run-segment"');
     expect(planCanvasSource).toContain("onPeninsulaDraftLengthChange");

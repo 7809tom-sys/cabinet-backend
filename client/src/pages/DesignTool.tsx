@@ -3141,16 +3141,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       id: `peninsula_draft_${Date.now().toString(36)}`,
       parentWall: wall,
       startOffset: exactStart,
-      turn: 90,
+      turn: 45,
       direction: "right",
       length: 36,
       height: 34.5,
-      label: "Peninsula run",
+      label: "Attached 45° wall",
     });
     setActiveWall(wall);
     setPlacementTarget("wall");
     setCompassWallStartIn(exactStart);
-    toast.success(`Peninsula split set at ${exactStart}\". Choose its angle, height, and pull length.`);
+    toast.success(`New attached 45° wall starts at ${exactStart}\". Choose left or right, then set its height and length.`);
   }, [layoutLocked, room.depth, room.width]);
 
   const commitPeninsulaDraft = useCallback(() => {
@@ -3167,7 +3167,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaDraft(null);
-    toast.success(`New ${run.turn}° peninsula run created at ${run.height}\" high and ${run.length}\" long.`);
+    toast.success(`New ${run.turn}° attached wall created at ${run.height}\" high and ${run.length}\" long.`);
   }, [layoutLocked, peninsulaDraft]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
   const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
@@ -11351,15 +11351,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            >
 	              <div className="flex items-start justify-between gap-2">
 	                <div>
-	                  <p className="text-sm font-bold text-[#1a2744]">New peninsula run</p>
-	                  <p className="mt-0.5 text-[11px] text-muted-foreground">Split at {formatEighthInches(peninsulaDraft.startOffset)}. Choose the turn, height, and pull length.</p>
+                  <p className="text-sm font-bold text-[#1a2744]">New attached 45° wall</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the selected wall unchanged and starts a new connected wall at {formatEighthInches(peninsulaDraft.startOffset)}.</p>
 	                </div>
 	                <button type="button" onClick={() => setPeninsulaDraft(null)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
 	              </div>
 	              <div className="mt-3">
-	                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Turn</p>
-	                <div className="mt-1 grid grid-cols-3 gap-1">
-	                  {([45, 90] as const).flatMap((turn) => (["left", "right"] as const).map((direction) => ({ turn, direction }))).map(({ turn, direction }) => (
+                <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">New wall angle</p>
+                <div className="mt-1 grid grid-cols-2 gap-1">
+                  {([45, 90] as const).flatMap((turn) => (["left", "right"] as const).map((direction) => ({ turn, direction }))).map(({ turn, direction }) => (
 	                    <button
 	                      key={`${turn}-${direction}`}
 	                      type="button"
@@ -11404,7 +11404,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                />
 	              </label>
 	              <p className="mt-1 text-[10px] text-muted-foreground">Or drag the gold pull handle at the end of the draft line.</p>
-	              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create peninsula run</button>
+              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create {peninsulaDraft.turn}° {peninsulaDraft.direction} wall</button>
 	            </section>
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}

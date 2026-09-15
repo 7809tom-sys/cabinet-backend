@@ -1997,3 +1997,4 @@
 - [x] Verify and correct DKD knee-drawer recognition so it uses the valid 24-to-30-inch mounting range and seated-work clearance
 - [x] Add a DKD knee-drawer preset that aligns its top to the 34.5-inch base-cabinet body by calculating the correct drawer-bottom elevation
 - [x] Repair the desktop Designer workspace height so bottom placement controls remain visible and reachable above the viewport edge
+- [x] Let Compass create a new attached 45-degree wall/run from the selected wall without altering the original wall, with selectable cabinet placement
