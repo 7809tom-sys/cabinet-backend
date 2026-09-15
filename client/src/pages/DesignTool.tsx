@@ -888,6 +888,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [activeWall, setActiveWall] = useState<WallSide>("top");
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
+  const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);
+  const [peninsulaWizardDraft, setPeninsulaWizardDraft] = useState<{
+    parentWall: "top" | "bottom" | "left" | "right";
+    startOffset: number;
+    turn: PeninsulaTurn;
+    direction: PeninsulaDirection;
+    length: number;
+    cabinetSide: PeninsulaCabinetSide;
+    applianceCode: "none" | "DW-24" | "WINE-24";
+    seatingOverhang: 10 | 12;
+    waterfall: boolean;
+  } | null>(null);
   const [wallSettingsOpen, setWallSettingsOpen] = useState(false);
   const [peninsulaDeletePrompt, setPeninsulaDeletePrompt] = useState<null | {
     runId: string;
@@ -924,6 +936,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setMeasureMode(false);
     toast.info(`Drag the gold 45° Compass on the selected ${WALL_LABELS[activeWall]} wall. No popup is needed.`);
   }, [activeWall, layoutLocked]);
+  const openPeninsulaWizard = useCallback(() => {
+    if (layoutLocked) return;
+    const parentWall = (["top", "bottom", "left", "right"] as const).includes(activeWall as any)
+      ? activeWall as "top" | "bottom" | "left" | "right"
+      : "top";
+    const parentLength = parentWall === "top" || parentWall === "bottom" ? room.width : room.depth;
+    setPeninsulaWizardDraft({
+      parentWall,
+      startOffset: Math.round((parentLength / 2) * 8) / 8,
+      turn: 90,
+      direction: "right",
+      length: 72,
+      cabinetSide: "left",
+      applianceCode: "none",
+      seatingOverhang: 12,
+      waterfall: false,
+    });
+    setPeninsulaWizardOpen(true);
+  }, [activeWall, layoutLocked, room.depth, room.width]);
   const openWallSettings = useCallback((requestedWallId: WallSide = activeWall) => {
     const peninsula = peninsulaRunById(room, requestedWallId);
     const custom = room.customWalls?.find((wall) => wall.id === requestedWallId);
@@ -3202,6 +3233,87 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPeninsulaDraft(null);
     toast.success(`New ${run.turn}° attached wall created at ${run.height}\" high and ${run.length}\" long.`);
   }, [layoutLocked, peninsulaDraft]);
+  const buildPeninsulaWizardLayout = useCallback(() => {
+    const draft = peninsulaWizardDraft;
+    if (!draft || layoutLocked) return;
+    const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    if (pool.length === 0) {
+      toast.error("Choose a cabinet line and door style before building a peninsula.");
+      return;
+    }
+    const candidate: PeninsulaRun = {
+      id: `peninsula_wizard_${Date.now().toString(36)}`,
+      parentWall: draft.parentWall,
+      startOffset: Math.round(Math.max(6, draft.startOffset) * 8) / 8,
+      turn: draft.turn,
+      direction: draft.direction,
+      length: Math.round(Math.max(24, draft.length) * 8) / 8,
+      height: 34.5,
+      cabinetSide: draft.cabinetSide,
+      countertopSeatingOverhang: draft.seatingOverhang,
+      countertopWaterfallEnd: draft.waterfall,
+      label: `Peninsula · ${draft.turn}° ${draft.direction}`,
+    };
+    const maximumLength = peninsulaRunMaxLength(candidate, room);
+    if (maximumLength < 24) {
+      toast.error("There is not enough clear room to create a 24-inch peninsula from that wall.");
+      return;
+    }
+    const run: PeninsulaRun = { ...candidate, length: Math.min(candidate.length, maximumLength) };
+    const nextRoom: RoomData = { ...room, peninsulaRuns: [...(room.peninsulaRuns ?? []), run] };
+    const appliance = draft.applianceCode === "none"
+      ? null
+      : APPLIANCES.find((item) => item.masterCode === draft.applianceCode) ?? null;
+    const applianceSpot = appliance
+      ? firstCollisionFreePeninsulaPlacement(run.id as WallSide, nextRoom, placed, appliance.width, appliance.depth, "appliance")
+      : null;
+    if (appliance && !applianceSpot) {
+      toast.error("That appliance cannot fit on this peninsula length. Increase the length or choose no appliance.");
+      return;
+    }
+    setPlaced((previous) => {
+      let working = [...previous];
+      if (appliance && applianceSpot) {
+        working.push({
+          uid: makeUid(), cabinetId: 0, masterCode: appliance.masterCode, description: appliance.description,
+          category: "Appliance", subCategory: null, placement: "appliance", x: applianceSpot.x, y: applianceSpot.y,
+          width: appliance.width, depth: appliance.depth, height: appliance.elevHeight, rotation: applianceSpot.rotation,
+          mountBottom: appliance.elevBottom, numberOfDoors: 0, numberOfDrawers: 0, catalogImageUrl: appliance.catalogImageUrl ?? null,
+          wallId: applianceSpot.wallId, wallOffset: applianceSpot.wallOffset, peninsulaSide: applianceSpot.peninsulaSide,
+        });
+      }
+      const segments = freeSegmentsOnWall(run.id as WallSide, nextRoom, working, [], 9);
+      for (const segment of segments) {
+        const fill = autoFillSpan(segment.length, "kitchen", pool);
+        for (const item of fill.items) {
+          const fillerCandidate = item.isFiller ? catalogFillerForGap(pool, item.width, "base") : null;
+          const cabinet = fillerCandidate
+            ? pool.find((option) => option.id === fillerCandidate.id) ?? null
+            : item.isFiller ? null : item.cabinet;
+          if (!cabinet) continue;
+          const width = item.width;
+          const depth = footprintDepth(cabinet);
+          const spot = firstCollisionFreePeninsulaPlacement(run.id as WallSide, nextRoom, working, width, depth, "base");
+          if (!spot) continue;
+          working.push({
+            uid: makeUid(), cabinetId: cabinet.id, masterCode: cabinet.masterCode,
+            description: item.isFiller ? fittedCatalogFillerDescription(cabinet, width) : cabinet.description,
+            category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null, placement: "base",
+            x: spot.x, y: spot.y, width, depth, height: dim(cabinet.height, standardHeight(cabinet.placement)),
+            rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors, numberOfDrawers: cabinet.numberOfDrawers,
+            catalogImageUrl: cabinet.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+            wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
+          });
+        }
+      }
+      return working;
+    });
+    setRoom(nextRoom);
+    setActiveWall(run.id as WallSide);
+    setPlacementTarget("wall");
+    setPeninsulaWizardOpen(false);
+    toast.success(`Peninsula built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to the remaining run.`);
+  }, [autoFillCabinets, layoutLocked, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
   const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
     if (layoutLocked) return;
@@ -9302,15 +9414,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
                 {/* Quick-action rows */}
                 <div className="px-1 pb-1">
-                  <button
-                    disabled={!canLoadInteractive3d || interactive3dLoading}
-                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 120); }}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
+	                  <button
+	                    disabled={!canLoadInteractive3d || interactive3dLoading}
+	                    onClick={() => { setMoreSheetOpen(false); setTimeout(() => setViewMode("threeD"), 120); }}
+	                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors"
                   >
                     <Boxes className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left">Interactive 3D Preview</span>
-                  </button>
-                  <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+	                    <span className="flex-1 text-left">Interactive 3D Preview</span>
+	                  </button>
+	                  <button disabled={layoutLocked || roomType !== "kitchen"} onClick={() => { setMoreSheetOpen(false); openPeninsulaWizard(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+	                    <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
+	                    <span className="flex-1 text-left">Peninsula Wizard</span>
+	                    <Badge variant="secondary" className="text-[10px]">fast layout</Badge>
+	                  </button>
+	                  <button disabled={layoutLocked} onClick={autoFillActiveWall} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
                     <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_autofill_active")}</span>
                   </button>
@@ -11955,6 +12072,66 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                )}
 	                <Button type="button" variant="outline" onClick={() => setWallSettingsOpen(false)}>Cancel</Button>
 	                <Button type="button" onClick={saveWallSettings}>Save wall</Button>
+	              </DialogFooter>
+	            </DialogContent>
+	          </Dialog>
+	          <Dialog open={peninsulaWizardOpen} onOpenChange={setPeninsulaWizardOpen}>
+	            <DialogContent data-testid="peninsula-wizard-dialog" className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0">
+	              <DialogHeader className="shrink-0 border-b px-4 py-3">
+	                <DialogTitle>Peninsula Wizard</DialogTitle>
+	                <DialogDescription>Choose the run, optional appliance, and countertop treatment. The Designer creates the peninsula and fills compatible cabinet openings for you.</DialogDescription>
+	              </DialogHeader>
+	              {peninsulaWizardDraft && (
+	                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+	                  <div className="grid gap-3">
+	                    <div className="grid grid-cols-2 gap-2">
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Start wall
+	                        <select value={peninsulaWizardDraft.parentWall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, parentWall: event.target.value as "top" | "bottom" | "left" | "right" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                          <option value="top">Back wall</option><option value="bottom">Front wall</option><option value="left">Left wall</option><option value="right">Right wall</option>
+	                        </select>
+	                      </label>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Start from corner (in)
+	                        <Input type="number" min="6" step="0.125" value={peninsulaWizardDraft.startOffset} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, startOffset: Number(event.target.value) || 6 } : draft)} />
+	                      </label>
+	                    </div>
+	                    <div className="grid grid-cols-2 gap-2">
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Turn
+	                        <select value={`${peninsulaWizardDraft.turn}-${peninsulaWizardDraft.direction}`} onChange={(event) => {
+	                          const [turn, direction] = event.target.value.split("-");
+	                          setPeninsulaWizardDraft((draft) => draft ? { ...draft, turn: Number(turn) as PeninsulaTurn, direction: direction as PeninsulaDirection } : draft);
+	                        }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                          <option value="90-right">90° right</option><option value="90-left">90° left</option><option value="45-right">45° right</option><option value="45-left">45° left</option>
+	                        </select>
+	                      </label>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Run length (in)
+	                        <Input type="number" min="24" step="0.125" value={peninsulaWizardDraft.length} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, length: Number(event.target.value) || 24 } : draft)} />
+	                      </label>
+	                    </div>
+	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
+	                      <select value={peninsulaWizardDraft.cabinetSide} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                        <option value="left">Left side</option><option value="right">Right side</option>
+	                      </select>
+	                    </label>
+	                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Appliance in this run
+	                      <select value={peninsulaWizardDraft.applianceCode} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, applianceCode: event.target.value as "none" | "DW-24" | "WINE-24" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                        <option value="none">No appliance</option><option value="DW-24">Dishwasher · 24 in.</option><option value="WINE-24">Wine cooler · 24 in.</option>
+	                      </select>
+	                    </label>
+	                    <div className="grid grid-cols-2 gap-2">
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Seating overhang
+	                        <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 10 | 12 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"><option value={10}>10 in.</option><option value={12}>12 in.</option></select>
+	                      </label>
+	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground">
+	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
+	                      </label>
+	                    </div>
+	                    <p className="text-[11px] leading-4 text-muted-foreground">The build action creates the run, seats the optional appliance first, then adds compatible selected-line base cabinets to the remaining safe spans. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
+	                  </div>
+	                </div>
+	              )}
+	              <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
+	                <Button type="button" variant="outline" onClick={() => setPeninsulaWizardOpen(false)}>Cancel</Button>
+	                <Button type="button" data-testid="build-peninsula-wizard" onClick={buildPeninsulaWizardLayout}><Wand2 className="mr-1.5 h-4 w-4" /> Build peninsula</Button>
 	              </DialogFooter>
 	            </DialogContent>
 	          </Dialog>

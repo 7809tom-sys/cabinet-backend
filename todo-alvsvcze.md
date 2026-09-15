@@ -2023,11 +2023,11 @@
 - [x] Repair the 45-degree peninsula join so 3-DB15 and other base cabinets only test true plan intersections with BER33, allowing flush edge contact
 - [x] Add an automatic peninsula start offset that seats the first cabinet past the adjoining corner unit's true physical clearance
 - [x] Keep the peninsula settings dialog save and cancel actions reachable without browser-page scrolling on desktop, tablet, and mobile
-- [ ] Add a Peninsula Wizard that creates a selected-side peninsula, asks for an optional appliance, and automatically places compatible selected-line base cabinets and required fillers
-- [ ] Ensure the Peninsula Wizard completes the full peninsula layout: run, optional appliance, compatible cabinets, fillers, countertop, price, and materials updates
-- [ ] Restore normal cabinet-add functionality after the reported global placement regression before continuing Peninsula Wizard work
+- [x] Add a Peninsula Wizard that creates a selected-side peninsula, asks for an optional appliance, and automatically places compatible selected-line base cabinets and required fillers
+- [x] Ensure the Peninsula Wizard completes the full peninsula layout: run, optional appliance, compatible cabinets, fillers, countertop, price, and materials updates
+- [x] Restore normal cabinet-add functionality after the reported global placement regression before continuing Peninsula Wizard work
 - [x] Restore the exact selected-peninsula cabinet-add path so a base cabinet can be placed in its clear measured run span
 - [x] Replace the corner-only peninsula start offset with first-safe placement that clears every physical cabinet body, including B-24 and BER33
 - [x] Simplify selected-peninsula cabinet adds to one click by automatically using the first clear physical location
 - [x] Automatically fill remaining valid peninsula voids with compatible selected-line cabinets and use only truthful catalog fillers for the final small remainder
-- [ ] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds
+- [x] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds
