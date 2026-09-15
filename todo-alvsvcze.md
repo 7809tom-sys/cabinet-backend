@@ -1993,3 +1993,4 @@
 - [x] Explain in Placement controls when a diagonal WDC cabinet is skipped because it already reaches the configured room ceiling
 - [x] Repair bulk stacker placement when compatible ceiling-safe refrigerator-top and diagonal-corner wall cabinets are skipped
 - [x] Verify active room ceiling use and restore complete selected-vendor catalog coverage so a 120-inch room can stack both diagonal and refrigerator-top wall cabinets
+- [x] Simplify the on-canvas plan controls by removing opening-gap labels and retaining only the Compass wall-editing control

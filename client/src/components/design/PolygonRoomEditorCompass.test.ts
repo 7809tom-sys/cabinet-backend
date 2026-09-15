@@ -60,6 +60,13 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).not.toContain("setCompassWallRequestId((current) => current + 1);");
   });
 
+  it("keeps the plan uncluttered by removing base and wall opening chips while retaining the Compass", () => {
+    expect(planCanvasSource).toContain("selected-wall Compass is the sole persistent wall-editing affordance");
+    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set the peninsula split point");
+    expect(planCanvasSource).not.toContain('aria-label={`Select ${formatInches(g.length)} ${g.layer}-cabinet opening for best-fit options`}');
+    expect(planCanvasSource).not.toContain('{g.layer === "wall" ? "W " : "B "}{formatInches(g.length)}');
+  });
+
   it("keeps wall-measurement logic separate from the direct Compass gesture", () => {
     expect(editorSource).toContain("Wall height (inches)");
     expect(editorSource).toContain("Wall length (inches)");

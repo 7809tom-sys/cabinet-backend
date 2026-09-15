@@ -2142,38 +2142,9 @@ export function PlanCanvas({
           );
         })()}
 
-        {/* ─── Gap intelligence labels ─────────────────────────────────── */}
-        {!dragUid && !measureMode && (() => {
-          const gaps = wallGaps(room, cabinets, openings, 1);
-          // Helper: convert a gap's run-axis center to pixel x/y inside the room div.
-          const gapPx = (g: WallGap): { left: number; top: number } => {
-            const BAND = 10; // px inset from the wall
-            if (g.side === "top")    return { left: g.center * ppi, top: BAND };
-            if (g.side === "bottom") return { left: g.center * ppi, top: roomPxH - BAND };
-            if (g.side === "left")   return { left: BAND, top: g.center * ppi };
-            return { left: roomPxW - BAND, top: g.center * ppi };
-          };
-          // Only show base-layer gaps on the wall being edited. The active wall
-          // makes recommendations contextual rather than offering unrelated room gaps.
-          const visibleGaps = gaps.filter((g) => g.length >= 3 && (!activeWall || g.side === activeWall));
-          return visibleGaps.map((g, i) => {
-            const pos = gapPx(g);
-            const color = g.isFillerSize ? "#e07b39" : g.isStandardSize ? "#2e7d32" : "#1a2744";
-            return (
-              <button
-                type="button"
-                key={`gap-${g.side}-${i}`}
-                className={`absolute z-30 -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold text-white shadow-md transition-transform active:scale-95 ${gapFillCandidates ? "cursor-pointer ring-2 ring-white/70" : "pointer-events-none"}`}
-                style={{ left: pos.left, top: pos.top + (g.layer === "wall" ? 15 : 0), background: color, border: "1.5px solid white" }}
-                title={gapFillCandidates ? `Select ${formatInches(g.length)} ${g.layer}-cabinet space` : t("dt_gap_title", { len: formatInches(g.length) })}
-                aria-label={`Select ${formatInches(g.length)} ${g.layer}-cabinet opening for best-fit options`}
-                onClick={(event) => { event.stopPropagation(); if (gapFillCandidates) { setSmartGapType("all"); setSmartGapOrder("fit"); setActiveGap(g); } }}
-              >
-                {g.layer === "wall" ? "W " : "B "}{formatInches(g.length)}
-              </button>
-            );
-          });
-        })()}
+	        {/* Opening-gap chips are intentionally omitted from the canvas. The
+	            selected-wall Compass is the sole persistent wall-editing affordance
+	            so the plan remains uncluttered. */}
 
         {/* ── Furniture footprints (floor-plan only) ───────────────────── */}
         {furniture.map((f) => {
