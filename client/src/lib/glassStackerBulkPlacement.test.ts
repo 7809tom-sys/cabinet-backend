@@ -113,9 +113,9 @@ describe("glass stacker bulk placement", () => {
     ]);
   });
 
-  it("offers a DCW diagonal stacker only above the matching WDC diagonal wall-corner cabinet", () => {
-    const straightParent = wall("straight-24", "W2430", 24, { x: 0 });
-    const diagonalParent = wall("diagonal-24", "WDC2430", 24, {
+  it("offers a vendor-prefixed DCW diagonal stacker only above the matching WDC diagonal wall-corner cabinet", () => {
+    const straightParent = wall("straight-24", "SW-W2430", 24, { x: 0 });
+    const diagonalParent = wall("diagonal-24", "SW-WDC2430", 24, {
       x: 36,
       depth: 24,
       cornerType: "diagonal",
@@ -123,7 +123,7 @@ describe("glass stacker bulk placement", () => {
     const options = glassStackerBulkHeightOptions(
       [straightParent, diagonalParent],
       { ...room, ceilingHeight: 108 },
-      [catalog("DCW2412GD", 24, 12)],
+      [catalog("SW-DCW2412-GD", 24, 12)],
     );
     expect(options).toEqual([
       expect.objectContaining({
@@ -131,7 +131,7 @@ describe("glass stacker bulk placement", () => {
         candidates: [expect.objectContaining({
           parentUid: diagonalParent.uid,
           stacker: expect.objectContaining({
-            masterCode: "DCW2412GD",
+            masterCode: "SW-DCW2412-GD",
             stackedOnCabinetUid: diagonalParent.uid,
           }),
         })],

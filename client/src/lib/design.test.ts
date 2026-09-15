@@ -2499,6 +2499,7 @@ describe("wall cabinet elevation rules", () => {
 	      expect(isStacker({ masterCode: `W30${height}GD`, description: `30x${height} Glass Door Wall Cabinet`, height })).toBe(true);
 	    }
 	    expect(isStacker({ masterCode: "2412WDCGD", description: "24x12 WDC Glass Door Wall Cabinet", height: 12 })).toBe(true);
+	    expect(isDiagonalCorner("SW-DCW2412-GD", "24x12 Diagonal Corner Wall Glass Door Cabinet")).toBe(true);
 	    expect(isStacker({ masterCode: "WDC42PG", description: "24 inch Glass Door Wall Cabinet", height: 42 })).toBe(false);
 	    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
 	  });

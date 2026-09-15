@@ -1987,3 +1987,5 @@
 - [x] Add a configurable 24-to-30-inch knee-drawer mounting-height rule for seated work areas, with clearance validation and Designer view coverage
 - [x] Add a Placement controls action that offers only the selected vendor’s available 12-to-24-inch glass stacker heights and applies the chosen height to eligible wall cabinets
 - [x] Include matching diagonal WDC glass stacker cabinets when bulk stacking compatible diagonal wall-corner cabinets
+- [ ] Add a safe Remove Stackers control beside Placement controls that removes only stacked glass cabinets and preserves their parent wall cabinets
+- [x] Repair the live saved-design path when a selected diagonal WDC corner cabinet still receives no visible matching glass stacker

@@ -54,6 +54,18 @@ describe("three-drawer base family", () => {
 });
 
 describe("cabinetDrawingType", () => {
+	  it("keeps vendor-prefixed DCW stacker cabinets as diagonal corner fronts", () => {
+	    expect(cabinetDrawingType({
+	      masterCode: "SW-DCW2412-GD",
+	      description: '24" x 12" Diagonal Corner Wall Glass Door Cabinet',
+	      category: "Wall",
+	      subCategory: "Glass Door Wall",
+	      width: "24",
+	      numberOfDoors: 1,
+	      numberOfDrawers: 0,
+	    })).toBe("diagonal-corner");
+	  });
+
   it("keeps explicit Cabinet Config zeroes instead of restoring generic door or drawer faces", () => {
     expect(resolveConfiguredFaceCounts({
       numberOfDoors: 0,

@@ -3072,7 +3072,7 @@ function glassStackerFamily(p: { masterCode?: string | null }): "WDC" | "W" | nu
   // Supplier catalogs use both WDC-2412GD and DCW2412GD for the same diagonal
   // wall-corner stacker family. Keep those identities together, but never let
   // either one stack above a conventional straight W24 wall cabinet.
-  if (code.includes("WDC") || code.startsWith("DCW")) return "WDC";
+  if (code.includes("WDC") || code.includes("DCW")) return "WDC";
   if (code.startsWith("W") || /^GD?S\d/.test(code)) return "W";
   return null;
 }
@@ -3402,11 +3402,12 @@ export function isAngledWallCabinet(masterCode: string, description?: string): b
 // DCW (Diagonal Corner Wall), WDC, KWD and descriptions containing "diagonal".
 export function isDiagonalCorner(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
+  const normalizedCode = code.replace(/[^A-Z0-9]/g, "");
   // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
   // (AG) all sit across the corner at 45 degrees and share the same footprint.
   // BEC = Base End Cabinet: an end-of-run angle cabinet, never a room-corner
   // cabinet. It is handled by the independent end-angle drawing profile.
-  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code)) return true;
+  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code) || normalizedCode.includes("DCW") || normalizedCode.includes("WDC")) return true;
   const desc = (description || "").toLowerCase();
   if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
   return false;
