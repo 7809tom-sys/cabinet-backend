@@ -301,6 +301,30 @@ describe("cabinet-supported peninsula runs", () => {
     });
   });
 
+  it("uses the selected primary-run side rather than a stale cabinet-side value when reseating a legacy cabinet", () => {
+    const legacyPrimary: PeninsulaRun = {
+      id: "legacy-side-authority",
+      parentWall: "left",
+      startOffset: 48,
+      turn: 45,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+      cabinetSide: "left",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [legacyPrimary] };
+    const staleRightSide = {
+      ...peninsulaCabinet("legacy-right-side-b18", 0),
+      wallId: legacyPrimary.id,
+      wallOffset: 0,
+      peninsulaSide: "right" as const,
+      rotation: 45,
+    };
+    const normalized = normalizeLegacyPeninsulaCabinets([staleRightSide], room);
+    expect(normalized[0].peninsulaSide).toBe("left");
+    expect(normalized[0]).toMatchObject(wallPlacementAt(0, 18, 24, legacyPrimary.id as any, room, "left"));
+  });
+
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     const spot = firstCollisionFreePeninsulaPlacement(

@@ -1381,7 +1381,10 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
       const offset = Number.isFinite(Number(cabinet.wallOffset))
         ? Number(cabinet.wallOffset)
         : Math.max(0, projectedOffset);
-      const peninsulaSide = cabinet.peninsulaSide ?? ownedRun.cabinetSide ?? "left";
+      // The selected run side is authoritative. Legacy cabinet-level side
+      // values can describe the pre-migration diagonal and would otherwise
+      // keep a corrected cabinet visibly on the opposite side of its wall.
+      const peninsulaSide = ownedRun.cabinetSide ?? cabinet.peninsulaSide ?? "left";
       const spot = wallPlacementAt(offset, width, depth, ownedRun.id as WallSide, room, peninsulaSide);
       changed = true;
       return { ...cabinet, ...spot, wallId: ownedRun.id, wallOffset: spot.wallOffset ?? 0, peninsulaSide: spot.peninsulaSide ?? peninsulaSide };

@@ -2043,3 +2043,4 @@
 - [x] Generate the Peninsula Wizard countertop from the exact same run shape and side as its cabinet layout
 - [x] Make the Peninsula Wizard automatically fill its remaining valid cabinet voids with compatible selected-line cabinets and truthful fillers
 - [x] Eliminate the diamond-shaped false corner footprint so Wizard cabinets and countertops render only on the intended straight and optional 45-degree peninsula segments
+- [x] Seat peninsula cabinets entirely on their selected side so cabinet bodies never pass through the peninsula wall centerline
