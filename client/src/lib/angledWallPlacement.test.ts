@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -363,6 +363,55 @@ describe("cabinet-supported peninsula runs", () => {
       wallOffset: 12,
       peninsulaSide: "right",
     });
+  });
+
+  it("keeps a right-side B-18 wholly centered beside a 45-degree wall after its 180-degree face flip", () => {
+    const primary: PeninsulaRun = {
+      id: "straight-before-angle",
+      parentWall: "left",
+      startOffset: 48,
+      turn: 90,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+      cabinetSide: "left",
+    };
+    const angleWall: PeninsulaRun = {
+      id: "right-side-45-wall",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 60,
+      height: 34.5,
+      cabinetSide: "right",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, angleWall] };
+    const spot = wallPlacementAt(12, 18, 24, angleWall.id as any, room, "right");
+    const cabinet: PlacedCabinet = {
+      ...peninsulaCabinet("right-side-b18", 12),
+      ...spot,
+      width: 18,
+      nominalWidth: 18,
+      depth: 24,
+      nominalDepth: 24,
+      wallId: angleWall.id,
+      wallOffset: 12,
+      peninsulaSide: "right",
+    };
+    const footprint = placedFootprint(cabinet);
+    const { start, radians } = peninsulaRunEndpoints(angleWall, room);
+    const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+    const rightNormal = { x: Math.sin(radians), y: -Math.cos(radians) };
+    const expectedCenter = {
+      x: start.x + tangent.x * 21 + rightNormal.x * 12,
+      y: start.y + tangent.y * 21 + rightNormal.y * 12,
+    };
+    expect(spot.rotation).toBe(225);
+    expect(footprint.w).toBeCloseTo(42 * Math.SQRT1_2, 6);
+    expect(footprint.d).toBeCloseTo(42 * Math.SQRT1_2, 6);
+    expect(spot.x + footprint.w / 2).toBeCloseTo(expectedCenter.x, 6);
+    expect(spot.y + footprint.d / 2).toBeCloseTo(expectedCenter.y, 6);
   });
 
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {

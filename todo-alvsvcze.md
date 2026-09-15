@@ -2047,3 +2047,4 @@
 - [x] Place a newly added peninsula cabinet only on the explicitly selected connected run instead of another nearby segment
 - [x] Keep the first cabinet on every peninsula run at least 12 inches from that run's inside connected corner
 - [x] Inspect and correct the exact refreshed saved-plan B-18 record that still renders as a diamond on the wrong connected peninsula segment
+- [x] Snap cabinets wholly to the selected right or left side of a 45-degree peninsula wall with the cabinet back flush and no wall penetration

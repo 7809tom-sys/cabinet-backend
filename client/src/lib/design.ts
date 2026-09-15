@@ -1801,7 +1801,10 @@ export function rotatedSize(p: PlacedCabinet): { w: number; d: number } {
   }
   // Locked 45° cabinets retain their nominal body but reserve the smallest
   // axis-aligned screen envelope for general room bounds/cross-run checks.
-  if (rot === 45 || rot === 315) {
+  // Right-side seating flips the cabinet by 180° (45→225 or 315→135), so all
+  // four diagonal quadrants must use the same expanded envelope. Treating only
+  // 45/315 as diagonal shifts the rendered 135/225 body across its wall.
+  if (rot === 45 || rot === 135 || rot === 225 || rot === 315) {
     const diagonal = Math.SQRT1_2;
     return { w: Math.abs(width * diagonal) + Math.abs(depth * diagonal), d: Math.abs(width * diagonal) + Math.abs(depth * diagonal) };
   }
