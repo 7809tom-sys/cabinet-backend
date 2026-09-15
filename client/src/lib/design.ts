@@ -2264,6 +2264,60 @@ export function cabinetPlacementCollisionDetail(
   return null;
 }
 
+/**
+ * Finds the earliest usable start of a primary peninsula when an adjoining
+ * parent-wall corner unit occupies the physical join. The measurement uses the
+ * exact same placement collision rule as the final catalog add, so the first
+ * cabinet is seated immediately after true clearance rather than created at
+ * offset zero and then rejected. It deliberately applies only to base/tall/
+ * appliance floor items on a 45° or 90° primary peninsula; later cabinets are
+ * already handled by the normal explicit-run free-span calculation.
+ */
+export function peninsulaAutomaticStartOffset(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  width: number,
+  depth: number,
+  placement: Placement,
+  requestedPeninsulaSide?: PeninsulaCabinetSide | null,
+): number {
+  const run = peninsulaRunById(room, side);
+  if (!run?.parentWall || run.parentRunId || !["base", "tall", "appliance"].includes(placement) || width <= 0 || depth <= 0) return 0;
+  const joinCorners = placed.filter((cabinet) => {
+    const kind = placedCornerGeometryKind(cabinet);
+    return (
+      cabinetWall(cabinet, room) === run.parentWall &&
+      (kind === "l-shape" || kind === "diagonal" || kind === "corner-drawer" || kind === "blind-corner")
+    );
+  });
+  if (!joinCorners.length) return 0;
+
+  const maximumOffset = Math.max(0, Number(run.length) - width);
+  const steps = Math.round(maximumOffset * 8);
+  for (let step = 0; step <= steps; step++) {
+    const offset = step / 8;
+    const spot = wallPlacementAt(offset, width, depth, side, room, requestedPeninsulaSide);
+    const candidate: PlacedCabinet = {
+      uid: "peninsula-start-clearance-probe",
+      cabinetId: -1,
+      masterCode: "PENINSULA-START-PROBE",
+      description: "Peninsula start clearance probe",
+      placement,
+      x: spot.x,
+      y: spot.y,
+      width,
+      depth,
+      rotation: spot.rotation,
+      wallId: spot.wallId,
+      wallOffset: spot.wallOffset,
+      peninsulaSide: spot.peninsulaSide,
+    };
+    if (!cabinetPlacementCollisionDetail(candidate, joinCorners, room)) return offset;
+  }
+  return 0;
+}
+
 export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
   return cabinetCollisionDetail(moving, others) != null;
 }
@@ -5936,12 +5990,16 @@ export function paletteActiveWallPlacement(
     placement,
     reserveFullHeightAppliances,
   );
+  const automaticStart = peninsulaAutomaticStartOffset(side, room, placed, width, depth, placement);
   // Work from the selected wall's visible left edge toward its right edge. A
   // later tall cabinet or prior intentional gap must not push the next cabinet
   // beyond a perfectly valid earlier opening. Narrow segments are skipped, but
   // the first segment that can contain the requested cabinet is authoritative.
-  const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
-  if (segment) return wallPlacementAt(segment.start, width, depth, side, room);
+  const segment = segments.find((candidate) => {
+    const start = Math.max(candidate.start, automaticStart);
+    return start + width <= candidate.start + candidate.length + 0.001;
+  });
+  if (segment) return wallPlacementAt(Math.max(segment.start, automaticStart), width, depth, side, room);
   return null;
 }
 

@@ -2021,3 +2021,4 @@
 - [x] Cascade-delete a sink and faucet whenever its owning sink-base cabinet is removed from the Designer
 - [x] Reproduce and repair the still-reported live BER33 peninsula catalog-add rejection through the exact selected-run UI path
 - [x] Repair the 45-degree peninsula join so 3-DB15 and other base cabinets only test true plan intersections with BER33, allowing flush edge contact
+- [x] Add an automatic peninsula start offset that seats the first cabinet past the adjoining corner unit's true physical clearance

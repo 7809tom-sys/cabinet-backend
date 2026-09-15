@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -304,6 +304,49 @@ describe("cabinet-supported peninsula runs", () => {
     expect(cabinetPlacementCollisionDetail(drawerBase, [ber33], fortyFiveRoom)).toBeNull();
     const trulyOverlappingDrawer = { ...drawerBase, x: 20, y: 20 };
     expect(cabinetPlacementCollisionDetail(trulyOverlappingDrawer, [ber33], fortyFiveRoom)).toMatchObject({ cabinet: ber33 });
+  });
+
+  it("automatically starts the first 45-degree peninsula cabinet after a parent-wall corner's true body clearance", () => {
+    const fortyFiveRoom: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{
+        id: "peninsula-45-clearance",
+        parentWall: "top",
+        startOffset: 36,
+        turn: 45,
+        direction: "left",
+        length: 72,
+        height: 34.5,
+      }],
+    };
+    const ber33: PlacedCabinet = {
+      uid: "ber33-parent-wall-clearance",
+      cabinetId: 8,
+      masterCode: "BER33",
+      description: "Easy Reach Corner Base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 33,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "top",
+    };
+    const start = peninsulaAutomaticStartOffset("peninsula-45-clearance" as any, fortyFiveRoom, [ber33], 15, 24, "base");
+    const spot = paletteActiveWallPlacement("peninsula-45-clearance" as any, fortyFiveRoom, [ber33], [], 15, 24, "base");
+    expect(start).toBeGreaterThan(0);
+    expect(spot).toMatchObject({ wallId: "peninsula-45-clearance", wallOffset: start });
+    const candidate = {
+      ...ber33,
+      uid: "3-db15-after-ber33-clearance",
+      cabinetId: 9,
+      masterCode: "3-DB15",
+      description: "15 inch 3 Drawer Base",
+      width: 15,
+      ...spot,
+    };
+    expect(cabinetPlacementCollisionDetail(candidate, [ber33], fortyFiveRoom)).toBeNull();
   });
 
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
