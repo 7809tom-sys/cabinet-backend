@@ -1956,7 +1956,7 @@
 - [x] Mirror cabinet selection highlights, validation, cancel, and undo-safe behavior when editing walls
 - [x] Fix the selected-wall Compass handle so it recognizes a true drag rather than opening wall attributes immediately on pointer press
 - [x] Keep wall attributes available through an explicit action while confirming drag release stores the intended corner start
-- [ ] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
+- [x] Support a stable angled-peninsula cabinet run with one exact 45-degree transition between straight runs, continuous countertop treatment, and seating-side configuration
 - [x] Prevent wall selection or a simple touch from changing wall size, angle, or corner geometry; reserve all wall mutations for an explicit saved edit
 - [x] Prevent a wall touch from opening the Edit selected wall dialog; open it only with the explicit Compass action
 - [x] Fix the on-wall gold Compass handle so press-and-drag updates the corner-start marker instead of opening the attributes popup
