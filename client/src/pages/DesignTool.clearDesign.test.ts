@@ -12,10 +12,15 @@ function clearDesignBlock() {
 }
 
 describe("DesignTool authoritative Clear Design transaction", () => {
-  it("clears the plan, all temporary 3D sources, selections, fixtures, warnings, history, and draft persistence together", () => {
-    const block = clearDesignBlock();
-    for (const required of [
-      "smartGapPreviewSessionRef.current = null",
+	it("clears the plan, room geometry, temporary 3D sources, selections, fixtures, warnings, history, and draft persistence together", () => {
+	  const block = clearDesignBlock();
+	  for (const required of [
+	    "const emptyRoom: RoomData = { ...DEFAULT_ROOM }",
+	    "setRoom(emptyRoom)",
+	    "room.vertices?.length",
+	    "room.customWalls?.length",
+	    "room.peninsulaRuns?.length",
+	    "smartGapPreviewSessionRef.current = null",
       "undoRedoRef.current.clear()",
       "lastPushedRef.current = emptyPlaced",
       "clearDraft()",
@@ -37,8 +42,16 @@ describe("DesignTool authoritative Clear Design transaction", () => {
       "setSelectedAnnotationUid(null)",
       "setInteractive3dPresentation(null)",
       "setLoadedBundlePriceLock(null)",
-      "setActiveSavedDesignId(null)",
-    ]) {
+	    "setActiveSavedDesignId(null)",
+	    'setActiveWall("top")',
+	    "setCompassWallStartIn(null)",
+	    "setPeninsulaDraft(null)",
+	    "setWallSettingsOpen(false)",
+	    "setWallSettingsDraft(null)",
+	    "setPeninsulaDeletePrompt(null)",
+	    'setPlacementTarget("wall")',
+	    'setViewMode("plan")',
+	  ]) {
       expect(block).toContain(required);
     }
   });

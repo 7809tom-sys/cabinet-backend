@@ -1998,3 +1998,4 @@
 - [x] Add a DKD knee-drawer preset that aligns its top to the 34.5-inch base-cabinet body by calculating the correct drawer-bottom elevation
 - [x] Repair the desktop Designer workspace height so bottom placement controls remain visible and reachable above the viewport edge
 - [x] Let Compass create a new attached 45-degree wall/run from the selected wall without altering the original wall, with selectable cabinet placement
+- [x] Reset all geometry and placed-design state, including angled walls and connected runs, when a new Designer project begins

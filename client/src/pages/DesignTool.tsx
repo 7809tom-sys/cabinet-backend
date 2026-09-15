@@ -8265,10 +8265,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // the first call so the second synthetic event is a no-op.
   const isAddingRef = useRef(false);
   const clearCurrentDesign = usePersistFn(() => {
-    const hasDesignContent = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0 || smartGapPreview.length > 0;
+    const hasCustomRoomGeometry = room.width !== DEFAULT_ROOM.width
+      || room.depth !== DEFAULT_ROOM.depth
+      || room.ceilingHeight !== DEFAULT_ROOM.ceilingHeight
+      || (room.vertices?.length ?? 0) > 0
+      || (room.customWalls?.length ?? 0) > 0
+      || (room.peninsulaRuns?.length ?? 0) > 0
+      || Object.keys(room.wallCeilings ?? {}).length > 0;
+    const hasDesignContent = hasCustomRoomGeometry || placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0 || smartGapPreview.length > 0;
     if (hasDesignContent && !window.confirm(t("dt_sh_start_new_confirm"))) return false;
 
     const emptyPlaced: PlacedCabinet[] = [];
+    const emptyRoom: RoomData = { ...DEFAULT_ROOM };
     smartGapPreviewSessionRef.current = null;
     undoRedoRef.current.clear();
     lastPushedRef.current = emptyPlaced;
@@ -8276,6 +8284,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     loadedBundleRef.current = bundleIdParam;
     clearDraft();
 
+    setRoom(emptyRoom);
     setPlaced(emptyPlaced);
     setSmartGapPreview([]);
     setSmartGapPreviewPosition(null);
@@ -8334,6 +8343,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setLayoutStarterOpen(false);
     setMobilePanel(null);
     setMoreSheetOpen(false);
+    setActiveWall("top");
+    setCompassWallStartIn(null);
+    setPeninsulaDraft(null);
+    setWallSettingsOpen(false);
+    setWallSettingsDraft(null);
+    setPeninsulaDeletePrompt(null);
+    setPlacementTarget("wall");
+    setViewMode("plan");
 
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
