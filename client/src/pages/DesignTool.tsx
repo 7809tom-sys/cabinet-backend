@@ -6170,17 +6170,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
       let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
       const peers = workingPrev.filter((p) => p.uid !== uid);
-	      if (isLockedAngledCustomWall(room, cabinet.wallId) || peninsulaRunById(room, cabinet.wallId)) {
-	        const peninsula = peninsulaRunById(room, cabinet.wallId);
-	        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
-	        if (peninsula || (wall && room.vertices)) {
-	          const requestedAlong = peninsula
-	            ? peninsulaRunOffsetAtPoint(peninsula, room, { x: x + placedFootprint(cabinet).w / 2, y: y + placedFootprint(cabinet).d / 2 })
-	            : positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall!, room.vertices!);
-	          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
-	          const nextStart = nearestAvailableWallStart(segments, requestedAlong, cabinet.width);
-	          if (nextStart == null) {
-	            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "45° wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
+      if (isLockedAngledCustomWall(room, cabinet.wallId) || peninsulaRunById(room, cabinet.wallId)) {
+        const peninsula = peninsulaRunById(room, cabinet.wallId);
+        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
+        if (peninsula || (wall && room.vertices)) {
+          const requestedAlong = peninsula
+            ? peninsulaRunOffsetAtPoint(peninsula, room, { x: x + placedFootprint(cabinet).w / 2, y: y + placedFootprint(cabinet).d / 2 })
+            : positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall!, room.vertices!);
+          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+          // Peninsula and connected-return runs use the same magnetic intent as
+          // perimeter walls. With the magnet on, resolve the closest clear span;
+          // with it off, retain the deliberate along-run position and let the
+          // collision guard reject any real overlap.
+          const desiredStart = requestedAlong - cabinet.width / 2;
+          const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;
+          const nextStart = shouldMagnetSnapToRun
+            ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
+            : Math.max(0, Math.min(wallLength(cabinet.wallId as WallSide, room) - cabinet.width, desiredStart));
+          if (nextStart == null) {
+            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "45° wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
             setPlacementWarning(message);
             toast.error(message);
             return prev;

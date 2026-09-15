@@ -1999,3 +1999,5 @@
 - [x] Repair the desktop Designer workspace height so bottom placement controls remain visible and reachable above the viewport edge
 - [x] Let Compass create a new attached 45-degree wall/run from the selected wall without altering the original wall, with selectable cabinet placement
 - [x] Reset all geometry and placed-design state, including angled walls and connected runs, when a new Designer project begins
+- [x] Add a direct free-end peninsula control to create a connected 45-degree or 90-degree return wall/run
+- [x] Apply the existing magnetic cabinet snap behavior consistently to peninsula and connected return runs

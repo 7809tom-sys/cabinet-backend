@@ -1181,6 +1181,24 @@ export function PlanCanvas({
                   onPointerUp={onPeninsulaLengthPointerUp}
                   className="absolute -right-2.5 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#d4a75a] text-xs font-bold text-[#1a2744] shadow"
                 >↔</button>
+                <button
+                  type="button"
+                  aria-label="Add a connected 45° or 90° wall from the far peninsula end"
+                  title="Compass: add a new connected 45° or 90° wall from this end"
+                  onPointerDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onSelectWall?.(run.id as WallSide);
+                    onOpenWallSettings?.(run.id as WallSide);
+                  }}
+                  className="absolute -right-10 -top-[7px] z-20 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-[#1a2744] text-white shadow"
+                >
+                  <Compass className="h-3.5 w-3.5" />
+                </button>
                 <span className="pointer-events-none absolute left-1/2 top-4 -translate-x-1/2 whitespace-nowrap rounded bg-white/95 px-1 py-0.5 text-[9px] font-bold text-[#1a2744] shadow">{run.parentRunId ? "Connected return · gold end resizes" : "Hold line to move · gold end resizes"}</span>
               </>}
             </div>

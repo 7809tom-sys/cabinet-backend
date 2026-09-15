@@ -105,10 +105,20 @@ describe("selected-wall Compass editor", () => {
     expect(planCanvasSource).toContain("const onPeninsulaAttachmentPointerDown");
     expect(planCanvasSource).toContain("const onPeninsulaLengthPointerDown");
     expect(planCanvasSource).toContain('aria-label="Drag joined peninsula end along adjoining wall"');
+    expect(planCanvasSource).toContain('aria-label="Add a connected 45° or 90° wall from the far peninsula end"');
+    expect(planCanvasSource).toContain('title="Compass: add a new connected 45° or 90° wall from this end"');
     expect(planCanvasSource).toContain("onOpenWallSettings?.(run.id as WallSide);");
     expect(designToolSource).toContain("const movePeninsulaAttachment = useCallback");
     expect(designToolSource).toContain("const resizePeninsulaRun = useCallback");
     expect(designToolSource).toContain('cabinetSide: peninsula?.cabinetSide ?? "left"');
+  });
+
+  it("applies the cabinet magnet to peninsula and connected-return runs while retaining collision protection", () => {
+    expect(designToolSource).toContain("const desiredStart = requestedAlong - cabinet.width / 2;");
+    expect(designToolSource).toContain("const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;");
+    expect(designToolSource).toContain("? nearestAvailableWallStart(segments, desiredStart, cabinet.width)");
+    expect(designToolSource).toContain("wallLength(cabinet.wallId as WallSide, room) - cabinet.width");
+    expect(designToolSource).toContain("shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {
