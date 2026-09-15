@@ -2019,3 +2019,4 @@
 - [x] Make each peninsula's selected left or right cabinet face authoritative for placement, fit recommendations, seating overhang, and exposed-end waterfall treatment
 - [x] Eliminate the false BER33 collision so base cabinets can be placed in the selected peninsula's actual open spans while retaining real overlap blocks
 - [x] Cascade-delete a sink and faucet whenever its owning sink-base cabinet is removed from the Designer
+- [x] Reproduce and repair the still-reported live BER33 peninsula catalog-add rejection through the exact selected-run UI path

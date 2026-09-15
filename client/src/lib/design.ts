@@ -1367,19 +1367,45 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
     // legacy peninsula cabinet can still carry its original parent-wall ID;
     // that stale perimeter owner must be recoverable from its seated geometry.
     if (peninsulaRunById(room, cabinet.wallId)) return cabinet;
-    const footprint = placedFootprint(cabinet);
     const width = Math.max(0, Number(cabinet.width) || 0);
     const depth = Math.max(0, Number(cabinet.depth) || 0);
     if (width <= 0 || depth <= 0) return cabinet;
-    const center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
-    const hit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
+    let footprint = placedFootprint(cabinet);
+    let center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
+    let hit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
+    // A record saved before the run existed can preserve the parent-wall
+    // rotation. Re-evaluate its center using the matching connected-run axis so
+    // the old rotation cannot shift the recovered span by a cabinet depth.
+    const parentOwnedRun = !hit && cabinet.wallId
+      ? (room.peninsulaRuns ?? []).find((run) => run.parentWall === cabinet.wallId)
+      : hit && cabinet.wallId === hit.run.parentWall
+        ? hit.run
+        : null;
+    if (parentOwnedRun) {
+      const { radians } = peninsulaRunEndpoints(parentOwnedRun, room);
+      const intendedRotation = ((radians * 180) / Math.PI + 360) % 360;
+      const rotationDistance = (left: number, right: number) => Math.abs((((left - right + 540) % 360) - 180));
+      const matchesIntendedAxis = rotationDistance(cabinet.rotation, intendedRotation) <= 0.51
+        || rotationDistance(cabinet.rotation, intendedRotation + 180) <= 0.51;
+      if (!matchesIntendedAxis) {
+        footprint = placedFootprint({ ...cabinet, rotation: intendedRotation });
+        center = { x: cabinet.x + footprint.w / 2, y: cabinet.y + footprint.d / 2 };
+        const recoveredHit = peninsulaRunHitAtPoint(room, center, depth / 2 + 1);
+        if (recoveredHit?.run.id === parentOwnedRun.id) hit = recoveredHit;
+      }
+    }
     if (!hit || (cabinet.wallId && cabinet.wallId !== hit.run.parentWall)) return cabinet;
     const { radians } = peninsulaRunEndpoints(hit.run, room);
     const tangentRotation = ((radians * 180) / Math.PI + 360) % 360;
     const rotationDistance = (left: number, right: number) => Math.abs((((left - right + 540) % 360) - 180));
     const matchesRunAxis = rotationDistance(cabinet.rotation, tangentRotation) <= 0.51
       || rotationDistance(cabinet.rotation, tangentRotation + 180) <= 0.51;
-    if (!matchesRunAxis) return cabinet;
+    // A persisted cabinet can retain the perimeter wall's old rotation even
+    // when its center is visibly seated in the run that splits from that wall.
+    // The parent-wall identity plus the geometric hit is more authoritative
+    // than this stale rotation; retain the rotation guard for unowned records.
+    const hasLegacyParentWallOwner = cabinet.wallId === hit.run.parentWall;
+    if (!matchesRunAxis && !hasLegacyParentWallOwner) return cabinet;
     const start = peninsulaRunEndpoints(hit.run, room).start;
     const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
     const lateral = (center.x - start.x) * leftNormal.x + (center.y - start.y) * leftNormal.y;

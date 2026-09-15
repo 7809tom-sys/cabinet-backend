@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -239,6 +239,20 @@ describe("cabinet-supported peninsula runs", () => {
     expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
     const opening = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base");
     expect(opening).toContainEqual({ start: 0, length: 30 });
+  });
+
+  it("repairs a parent-wall peninsula cabinet whose saved rotation is still the old perimeter-wall rotation", () => {
+    const staleRotation = { ...peninsulaCabinet("legacy-stale-rotation-ber33", 30), wallId: "top", wallOffset: undefined, rotation: 0 };
+    const normalized = normalizeLegacyPeninsulaCabinets([staleRotation], peninsulaRoom);
+    expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
+    const next = wallPlacementAt(0, 30, 24, "peninsula-90-right" as any, peninsulaRoom);
+    const candidate = { ...peninsulaCabinet("new-b12-after-stale-ber33", 0), ...next, wallId: next.wallId, wallOffset: next.wallOffset };
+    expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
+    expect(paletteActiveWallPlacement("peninsula-90-right" as any, peninsulaRoom, normalized, [], 30, 24, "base")).toMatchObject({
+      wallId: "peninsula-90-right",
+      wallOffset: 0,
+      rotation: 90,
+    });
   });
 
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
