@@ -3865,6 +3865,8 @@ export function addCabinet(
         door.userData = { cabinetFront: true, ovenCabinetDoor: true, flushPhysicalFace: true };
         frontGroup.add(door);
         addShakerFrame(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, 0.066);
+        addFaceShadow(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y);
+        addPull(doorWidth - 0.03, Math.max(0.08, height - 0.025), door.position.x, door.position.y, false, 0.086, "upper", i === 0 ? "left" : "right");
       }
       zoneTop -= height;
     };
@@ -3887,6 +3889,8 @@ export function addCabinet(
           frontGroup.add(drawer);
           addDrawerReveal(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
           addShakerFrame(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, 0.066);
+          addFaceShadow(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y);
+          addPull(drawerWidth - 0.025, Math.max(0.08, row.height - 0.025), drawer.position.x, drawer.position.y, true);
         }
         zoneTop -= row.height;
       }
@@ -3897,11 +3901,25 @@ export function addCabinet(
       oven.position.set(0, zoneTop - ovenLayout.openingHeight / 2, 0.032);
       oven.userData = { ovenOpeningWidthIn: ovenOpeningWidth / INCH, singleOvenInsetIn: ovenOpeningGeometry(bodyWidth / INCH, sku.ovenType).horizontalInset };
       frontGroup.add(oven);
-      const singleOvenHeight = ovenLayout.openingHeight / ovenLayout.ovenCount;
+      const ovenUnitHeight = ovenLayout.openingHeight / ovenLayout.ovenCount;
       for (let i = 0; i < ovenLayout.ovenCount; i++) {
-        const glass = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth * 0.79, singleOvenHeight * 0.62, 0.078), glassMaterial);
-        glass.position.set(0, zoneTop - singleOvenHeight * (i + 0.5), 0.072);
+        const unitCenterY = zoneTop - ovenUnitHeight * (i + 0.5);
+        const applianceDoor = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth - 0.045, Math.max(0.08, ovenUnitHeight - 0.03), 0.038), applianceMaterial);
+        applianceDoor.position.set(0, unitCenterY, 0.07);
+        applianceDoor.userData = { ovenCabinetApplianceDoor: true, ovenUnit: i + 1, ovenUnitCount: ovenLayout.ovenCount };
+        frontGroup.add(applianceDoor);
+        const controlBand = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth * 0.84, Math.min(0.06, ovenUnitHeight * 0.13), 0.052), new THREE.MeshStandardMaterial({ color: "#4b535b", roughness: 0.28, metalness: 0.58 }));
+        controlBand.position.set(0, unitCenterY + ovenUnitHeight * 0.34, 0.094);
+        controlBand.userData = { ovenControlBand: true, ovenUnit: i + 1 };
+        frontGroup.add(controlBand);
+        const glass = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth * 0.74, Math.max(0.08, ovenUnitHeight * 0.48), 0.078), glassMaterial);
+        glass.position.set(0, unitCenterY - ovenUnitHeight * 0.055, 0.102);
+        glass.userData = { ovenGlassDoor: true, ovenUnit: i + 1, ovenUnitCount: ovenLayout.ovenCount };
         frontGroup.add(glass);
+        const ovenHandle = new THREE.Mesh(new THREE.BoxGeometry(ovenOpeningWidth * 0.62, 0.026, 0.03), hardwareMaterial);
+        ovenHandle.position.set(0, unitCenterY - ovenUnitHeight * 0.32, 0.132);
+        ovenHandle.userData = { ovenDoorHandle: true, ovenUnit: i + 1, ovenUnitCount: ovenLayout.ovenCount };
+        frontGroup.add(ovenHandle);
       }
       zoneTop -= ovenLayout.openingHeight;
     };

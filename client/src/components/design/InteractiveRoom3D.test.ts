@@ -2312,15 +2312,18 @@ describe("interactive 3D room scene helpers", () => {
     } as never;
     const root = new THREE.Group();
     addCabinet(root, existingCabinetSku(placed), null, {}, 144, 120, "#d7c49a", "#f8f8f6");
-    const meshMarkers: Record<string, number> = { ovenCabinetDoor: 0, ovenCabinetDrawer: 0, ovenOpening: 0 };
+    const meshMarkers: Record<string, number> = { ovenCabinetDoor: 0, ovenCabinetDrawer: 0, ovenOpening: 0, ovenApplianceDoor: 0, ovenGlassDoor: 0, ovenDoorHandle: 0 };
     root.traverse((node) => {
       if (!(node instanceof THREE.Mesh)) return;
       if (node.userData.ovenCabinetDoor) meshMarkers.ovenCabinetDoor += 1;
       if (node.userData.ovenCabinetDrawer) meshMarkers.ovenCabinetDrawer += 1;
       if (node.userData.ovenOpeningWidthIn != null) meshMarkers.ovenOpening += 1;
+      if (node.userData.ovenCabinetApplianceDoor) meshMarkers.ovenApplianceDoor += 1;
+      if (node.userData.ovenGlassDoor) meshMarkers.ovenGlassDoor += 1;
+      if (node.userData.ovenDoorHandle) meshMarkers.ovenDoorHandle += 1;
     });
     expect(existingCabinetSku(placed).placementType).toBe("tall");
-    expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1 });
+    expect(meshMarkers).toEqual({ ovenCabinetDoor: 2, ovenCabinetDrawer: 1, ovenOpening: 1, ovenApplianceDoor: 2, ovenGlassDoor: 2, ovenDoorHandle: 2 });
   });
 
   it("normalizes the retired top-center override for saved Island mode and 4½-inch floor wall cabinets", () => {

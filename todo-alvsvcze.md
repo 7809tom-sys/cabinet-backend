@@ -2012,3 +2012,4 @@
 - [x] Repair the Designer Room controls popup so all fields and action buttons remain reachable without being cut off on desktop, tablet, or mobile screens
 - [x] Diagnose and correct the distorted 3D oven cabinet so it matches the configured cabinet opening, doors, drawers, dimensions, and saved-plan position
 - [x] Restore the oven cabinet to the last known-good 3D rendering behavior after the reported regression
+- [x] Refine single- and double-oven tall cabinet renderings to match the provided upper-storage, oven-opening, and lower-drawer construction references
