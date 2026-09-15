@@ -1961,6 +1961,7 @@
 - [x] Prevent a wall touch from opening the Edit selected wall dialog; open it only with the explicit Compass action
 - [x] Fix the on-wall gold Compass handle so press-and-drag updates the corner-start marker instead of opening the attributes popup
 - [x] Replace the still-unusable live Compass gesture with one verified on-wall drag target in the active Designer workspace
+- [ ] Unify active peninsula cabinet placement and countertop geometry so both follow the selected 45-degree or 90-degree run path and cabinet side
 - [x] Make Compass release immediately form one bounded exact 45-degree right or left wall turn at the release point
 - [x] Restore cabinetdealz.com public routing after the live site returned Railway Not Found instead of Cabinet Dealz
 - [x] Replace the live visible Compass popup action with direct activation of the on-wall 45-degree drag control
@@ -2031,3 +2032,4 @@
 - [x] Simplify selected-peninsula cabinet adds to one click by automatically using the first clear physical location
 - [x] Automatically fill remaining valid peninsula voids with compatible selected-line cabinets and use only truthful catalog fillers for the final small remainder
 - [x] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds
+- [x] Unify active peninsula cabinet placement and countertop geometry so both follow the selected 45-degree or 90-degree run path and cabinet side

@@ -7037,11 +7037,18 @@ export function peninsulaCountertopSurface(run: PeninsulaRun, room: RoomData): C
     height: STD.COUNTERTOP_THICKNESS,
     rotation: spot.rotation,
   });
+  // `wallPlacementAt` correctly returns the screen-space AABB of a rotated
+  // object. Surface consumers rotate their own local rectangle, however, so
+  // returning that AABB as width/depth makes a 45° slab inflate and rotate a
+  // second time. Keep its true local dimensions and preserve the identical
+  // world center used by cabinet placement and the 3D slab mesh.
+  const centerX = spot.x + footprint.w / 2;
+  const centerY = spot.y + footprint.d / 2;
   return {
-    x: spot.x,
-    y: spot.y,
-    width: footprint.w,
-    depth: footprint.d,
+    x: centerX - run.length / 2,
+    y: centerY - slabDepth / 2,
+    width: run.length,
+    depth: slabDepth,
     kind: "base",
     rotation: spot.rotation,
     peninsulaRunId: run.id,

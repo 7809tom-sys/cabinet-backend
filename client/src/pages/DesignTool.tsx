@@ -6273,6 +6273,45 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
       const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
       const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
+	      // The selected peninsula is an explicit, one-click placement target. A
+	      // direct catalog drop must therefore use the same first-clear resolver as
+	      // a catalog click; otherwise the pointer gap calculation can place a
+	      // rotated base back inside the parent-wall corner envelope. Preserve the
+	      // resolved run offset so the final commit, counter, price, and materials
+	      // paths all share one canonical run coordinate.
+	      const firstClearPeninsulaSpot = activePeninsulaRun
+	        && !freehand
+	        && (placement === "base" || placement === "tall" || placement === "appliance")
+	        ? firstCollisionFreePeninsulaPlacement(
+	            activePeninsulaRun.id as WallSide,
+	            room,
+	            normalizeLegacyPeninsulaCabinets(placedRef.current, room),
+	            width,
+	            depth,
+	            placement,
+	          )
+	        : null;
+	      if (firstClearPeninsulaSpot && activePeninsulaRun) {
+	        addCabinet(
+	          data,
+	          firstClearPeninsulaSpot.x,
+	          firstClearPeninsulaSpot.y,
+	          forceAccessory,
+	          firstClearPeninsulaSpot.rotation,
+	          true,
+	          undefined,
+	          undefined,
+	          false,
+	          {
+	            wallId: activePeninsulaRun.id as WallSide,
+	            wallOffset: firstClearPeninsulaSpot.wallOffset ?? 0,
+	            ...(firstClearPeninsulaSpot.peninsulaSide ? { peninsulaSide: firstClearPeninsulaSpot.peninsulaSide } : {}),
+	          },
+	        );
+	        dragDataRef.current = null;
+	        setCatalogDragPreview(null);
+	        return;
+	      }
 	      const targetAlong = activePeninsulaRun
 	        ? peninsulaRunOffsetAtPoint(activePeninsulaRun, room, center)
 	        : polygonWall && isLockedAngledCustomWall(room, dropWall)

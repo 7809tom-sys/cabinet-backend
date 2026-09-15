@@ -457,6 +457,11 @@ describe("cabinet-supported peninsula runs", () => {
     const surface = countertopSurfaces([start, end], withSeating).find((item) => item.peninsulaRunId === "peninsula-90-right");
     expect(surface).toMatchObject({ linearInches: 96, areaInches: 96 * 37.5, rotation: 90 });
     expect(surface).toEqual(peninsulaCountertopSurface(withSeating.peninsulaRuns![0], withSeating));
+    expect(surface).toMatchObject({ width: 96, depth: 37.5 });
+    const placement = wallPlacementAt(0, 96, 37.5, "peninsula-90-right" as any, withSeating, "left");
+    const expectedCenter = { x: placement.x + 37.5 / 2, y: placement.y + 96 / 2 };
+    expect(surface!.x + surface!.width / 2).toBeCloseTo(expectedCenter.x, 6);
+    expect(surface!.y + surface!.depth / 2).toBeCloseTo(expectedCenter.y, 6);
     expect(countertopSurfaces([], withSeating)).toEqual([]);
   });
 
