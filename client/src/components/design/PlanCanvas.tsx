@@ -12,7 +12,7 @@ import {
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-  wallDimensions, type DimensionSeg,
+  wallDimensions, cabinetWallRunLength, type DimensionSeg,
 	  type PonyWall, clampPonyWall,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -932,7 +932,7 @@ export function PlanCanvas({
           left: "50%",
           top: "50%",
           transform: "translate(-50%, -50%)",
-          border: "3px solid #1a2744",
+          border: "none",
           backgroundColor: flooringMaterialId
             ? flooringMaterial(flooringMaterialId).fill
             : "#ffffff",
@@ -1033,6 +1033,13 @@ export function PlanCanvas({
           })(),
         }}
       >
+        {/* A peninsula opens its parent wall at the attachment. Draw the room
+            shell as individual wall segments so that the open continuation is
+            visible rather than appearing as a second wall behind the run. */}
+        <div data-testid="room-wall-top" className="pointer-events-none absolute left-0 top-0 z-[1] h-[3px] bg-[#1a2744]" style={{ width: cabinetWallRunLength("top", room) * ppi }} />
+        <div data-testid="room-wall-bottom" className="pointer-events-none absolute bottom-0 left-0 z-[1] h-[3px] bg-[#1a2744]" style={{ width: cabinetWallRunLength("bottom", room) * ppi }} />
+        <div data-testid="room-wall-left" className="pointer-events-none absolute left-0 top-0 z-[1] w-[3px] bg-[#1a2744]" style={{ height: cabinetWallRunLength("left", room) * ppi }} />
+        <div data-testid="room-wall-right" className="pointer-events-none absolute right-0 top-0 z-[1] w-[3px] bg-[#1a2744]" style={{ height: cabinetWallRunLength("right", room) * ppi }} />
         {peninsulaDraft && (() => {
           const { start, end, radians } = peninsulaRunEndpoints(peninsulaDraft, room);
           const degrees = (radians * 180) / Math.PI;
@@ -1213,17 +1220,18 @@ export function PlanCanvas({
           const wallLocked = isWallLocked(side);
           const compassStart = compassStartForWall(side);
           const band = 14;
+          const visibleLength = cabinetWallRunLength(side, room) * ppi;
           const wstyle: React.CSSProperties = horizontal
             ? {
                 left: 0,
-                width: roomPxW,
+                width: visibleLength,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
                 cursor: "pointer",
               }
             : {
                 top: 0,
-                height: roomPxH,
+                height: visibleLength,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
                 cursor: "pointer",

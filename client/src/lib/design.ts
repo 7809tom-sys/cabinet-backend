@@ -1178,6 +1178,13 @@ export interface PeninsulaRun {
   parentRunId?: string;
   /** Exact distance in inches from a primary parent wall's start corner. */
   startOffset: number;
+  /**
+   * A primary peninsula turns the parent wall into an open connection at its
+   * attachment. The parent wall remains from its start corner through this
+   * offset; its continuation is open and cannot receive new cabinets. Kept
+   * optional so already-saved peninsula runs follow this default rule.
+   */
+  terminatesParentWall?: boolean;
   /** Locked continuation turn relative to the parent wall. */
   turn: PeninsulaTurn;
   direction: PeninsulaDirection;
@@ -1994,6 +2001,8 @@ export function orientToWall(
 
 /** User-approved near-seam snap range; accepted placements are normalized to exact zero gap and zero overlap. */
 export const CABINET_SEAM_SNAP_IN = 1 / 16;
+/** A deliberate magnetic cabinet drop may be corrected to an exact seam within one inch. */
+export const CABINET_CONFLICT_LOCK_IN = 1;
 /** Floating-point dust only. Any real positive overlap remains invalid. */
 export const COLLISION_EPSILON_IN = 1e-9;
 
@@ -2067,12 +2076,16 @@ export function nearestCollisionFreeMountBottom(moving: PlacedCabinet, others: P
 }
 
 /**
- * Resolve a near seam (gap or penetration of at most 1/16") to exact edge
+ * Resolve a near seam (gap or penetration within the supplied tolerance) to exact edge
  * contact for every same-category base/base and wall/wall pair. This never
  * approves an overlap: it returns coordinates whose saved gap and penetration
  * are both zero. Larger overlaps remain untouched for normal rejection.
  */
-export function snapCabinetSeamOverlap(moving: PlacedCabinet, others: PlacedCabinet[]): PlacedCabinet {
+export function snapCabinetSeamOverlap(
+  moving: PlacedCabinet,
+  others: PlacedCabinet[],
+  toleranceIn = CABINET_SEAM_SNAP_IN,
+): PlacedCabinet {
   let next = moving;
   for (let pass = 0; pass < 4; pass++) {
     let changed = false;
@@ -2094,7 +2107,7 @@ export function snapCabinetSeamOverlap(moving: PlacedCabinet, others: PlacedCabi
         const seamDelta = nextCenter <= otherCenter
           ? other.x - (next.x + size.w)
           : other.x + otherSize.w - next.x;
-        if (Math.abs(seamDelta) > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
+        if (Math.abs(seamDelta) > toleranceIn + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
         next = { ...next, x: next.x + seamDelta };
       } else {
         const nextCenter = next.y + size.d / 2;
@@ -2102,7 +2115,7 @@ export function snapCabinetSeamOverlap(moving: PlacedCabinet, others: PlacedCabi
         const seamDelta = nextCenter <= otherCenter
           ? other.y - (next.y + size.d)
           : other.y + otherSize.d - next.y;
-        if (Math.abs(seamDelta) > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
+        if (Math.abs(seamDelta) > toleranceIn + COLLISION_EPSILON_IN || Math.abs(seamDelta) <= COLLISION_EPSILON_IN) continue;
         next = { ...next, y: next.y + seamDelta };
       }
       changed = true;
@@ -3677,6 +3690,21 @@ export function wallLength(side: WallSide, room: RoomData): number {
     }
   }
   return side === "top" || side === "bottom" ? room.width : room.depth;
+}
+
+/**
+ * The usable segment of a cardinal room wall for cabinet placement and plan
+ * rendering. A primary peninsula ends its parent wall at the attachment point,
+ * leaving the rest of that room edge open. This intentionally does not change
+ * `wallLength`: the full room span is still required when moving the primary
+ * attachment and measuring the room shell.
+ */
+export function cabinetWallRunLength(side: WallSide, room: RoomData): number {
+  const fullLength = side === "top" || side === "bottom" ? room.width : room.depth;
+  const terminatingOffsets = (room.peninsulaRuns ?? [])
+    .filter((run) => !run.parentRunId && run.parentWall === side && run.terminatesParentWall !== false)
+    .map((run) => Math.max(0, Math.min(fullLength, Number(run.startOffset) || 0)));
+  return terminatingOffsets.length > 0 ? Math.min(...terminatingOffsets) : fullLength;
 }
 
 // Clamp an opening to its owning wall in both run and elevation directions.
@@ -5553,7 +5581,7 @@ export function freeSegmentsOnWall(
   const horizontal = side === "top" || side === "bottom";
   const wallLen = explicitRun
     ? wallLength(side, room)
-    : horizontal ? room.width : room.depth;
+    : cabinetWallRunLength(side, room);
 
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
@@ -5900,7 +5928,7 @@ export function wallDimensions(
   layer: "base" | "wall" = "base"
 ): DimensionSeg[] {
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = horizontal ? room.width : room.depth;
+  const wallLen = cabinetWallRunLength(side, room);
   // Collect cabinets on this wall + layer, sorted by run-axis start.
   const onWall = placed
     .filter((p) => {
@@ -5993,13 +6021,15 @@ export function wallPlacementAt(
   }
   const horizontal = side === "top" || side === "bottom";
   const rotation = horizontal ? 0 : 90;
+  const runLength = cabinetWallRunLength(side, room);
+  const clampedAlong = Math.max(0, Math.min(Math.max(0, runLength - width), along));
   // depth runs into the room from the wall.
   let x = 0;
   let y = 0;
-  if (side === "top") { y = 0; x = along; }
-  else if (side === "bottom") { y = Math.max(0, room.depth - depth); x = along; }
-  else if (side === "left") { x = 0; y = along; }
-  else { x = Math.max(0, room.width - depth); y = along; }
+  if (side === "top") { y = 0; x = clampedAlong; }
+  else if (side === "bottom") { y = Math.max(0, room.depth - depth); x = clampedAlong; }
+  else if (side === "left") { x = 0; y = clampedAlong; }
+  else { x = Math.max(0, room.width - depth); y = clampedAlong; }
   return { x, y, rotation };
 }
 
@@ -7145,11 +7175,19 @@ export type WallGapFitPreview = {
   status: "valid" | "invalid";
 };
 
-export function nearestRectRoomWallAtPoint(room: Pick<RoomData, "width" | "depth">, point: { x: number; y: number }): WallSide {
+export function nearestRectRoomWallAtPoint(room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">, point: { x: number; y: number }): WallSide {
   const x = Math.max(0, Math.min(room.width, point.x));
   const y = Math.max(0, Math.min(room.depth, point.y));
+  const terminatedRoom = room as RoomData;
+  const topOpen = x > cabinetWallRunLength("top", terminatedRoom) + COLLISION_EPSILON_IN;
+  const bottomOpen = x > cabinetWallRunLength("bottom", terminatedRoom) + COLLISION_EPSILON_IN;
+  const leftOpen = y > cabinetWallRunLength("left", terminatedRoom) + COLLISION_EPSILON_IN;
+  const rightOpen = y > cabinetWallRunLength("right", terminatedRoom) + COLLISION_EPSILON_IN;
   const distances: Array<{ side: WallSide; distance: number }> = [
-    { side: "top", distance: y }, { side: "bottom", distance: room.depth - y }, { side: "left", distance: x }, { side: "right", distance: room.width - x },
+    { side: "top", distance: topOpen ? Number.POSITIVE_INFINITY : y },
+    { side: "bottom", distance: bottomOpen ? Number.POSITIVE_INFINITY : room.depth - y },
+    { side: "left", distance: leftOpen ? Number.POSITIVE_INFINITY : x },
+    { side: "right", distance: rightOpen ? Number.POSITIVE_INFINITY : room.width - x },
   ];
   return distances.reduce((best, candidate) => candidate.distance < best.distance ? candidate : best).side;
 }

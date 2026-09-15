@@ -46,6 +46,9 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
 	    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
 	    expect(source).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
+	    expect(source).toContain("CABINET_CONFLICT_LOCK_IN");
+	    expect(source).toContain("window.setTimeout(() => applySmallGapFiller(automaticSmallGapFillerMode(opportunity), opportunity), 0)");
+	    expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(opportunity), opportunity)");
 	  });
 
 		it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {

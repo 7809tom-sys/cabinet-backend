@@ -26,7 +26,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, snapCabinetSeamOverlap, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
+  snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -3669,6 +3669,15 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(hasCollision(snapped, [wall])).toBe(false);
     expect(hasCollision(trueOverlap, [wall])).toBe(true);
     expect(collisionReason(trueOverlap, [wall])).toContain('by ⅛"');
+  });
+
+  it("uses the cabinet magnet conflict lock to seat a near one-inch same-run overlap at exact zero contact", () => {
+    const left = cab({ uid: "locked-left", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
+    const moving = cab({ uid: "locked-moving", placement: "base", x: 23.125, y: 0, width: 18, depth: 24 });
+    expect(hasCollision(moving, [left])).toBe(true);
+    const locked = snapCabinetSeamOverlap(moving, [left], CABINET_CONFLICT_LOCK_IN);
+    expect(locked.x).toBe(24);
+    expect(hasCollision(locked, [left])).toBe(false);
   });
 
   it("snaps a one-sixteenth-inch wall-cabinet gap to exact zero gap and zero overlap", () => {

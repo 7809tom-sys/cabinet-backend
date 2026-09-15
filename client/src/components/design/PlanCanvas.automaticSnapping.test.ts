@@ -53,4 +53,11 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain("BACK EXPANDS");
 	    expect(source).toContain("island-depth-expansion-cue");
 	  });
+
+	  it("renders a primary peninsula attachment as the endpoint of its parent wall instead of retaining a wall behind the open continuation", () => {
+	    expect(source).toContain('data-testid="room-wall-top"');
+	    expect(source).toContain('cabinetWallRunLength("top", room) * ppi');
+	    expect(source).toContain('border: "none"');
+	    expect(source).toContain("const visibleLength = cabinetWallRunLength(side, room) * ppi");
+	  });
 });

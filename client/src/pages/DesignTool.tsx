@@ -95,7 +95,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-          isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
   isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -6199,9 +6199,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
 	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag && !peninsulaRunById(room, cabinet.wallId);
 	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
-	      const alignedCabinet: PlacedCabinet = snappedPosition
-	        ? snapCabinetSeamOverlap({ ...requestedCabinet, x: snappedPosition.x, y: snappedPosition.y }, peers)
-	        : requestedCabinet;
+      const alignedCabinet: PlacedCabinet = snappedPosition
+        ? snapCabinetSeamOverlap(
+          { ...requestedCabinet, x: snappedPosition.x, y: snappedPosition.y },
+          peers,
+          automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+        )
+        : requestedCabinet;
 	      const movedCabinet: PlacedCabinet = {
 	        ...alignedCabinet,
 	        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
@@ -6277,9 +6281,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    // the existing hard collision guard.
 		    moveCabinet(uid, x, y, undefined, !automaticSnapping);
 		    const opportunity = movingBlindCorner ? null : smallGapFillerOpportunityFromDragPreview(uid, preview);
-		    setSmallGapFillerPrompt(opportunity);
+		    if (opportunity && automaticSnapping) {
+		      // Commit the cabinet seam first, then use the existing catalog-priced
+		      // filler workflow against the updated conflict-free run.
+		      window.setTimeout(() => applySmallGapFiller(automaticSmallGapFillerMode(opportunity), opportunity), 0);
+		      setSmallGapFillerPrompt(null);
+		    } else {
+		      setSmallGapFillerPrompt(opportunity);
+		    }
 		    if (opportunity) setMobilePanel(null);
-		  }, [automaticSnapping, moveCabinet]);
+		  }, [applySmallGapFiller, automaticSnapping, moveCabinet]);
 
   const swingSelected = () => {
     if (!selectedUid) return;

@@ -2004,3 +2004,7 @@
 - [x] Refine peninsula run labels and endpoint controls so angled and straight runs remain readable without overlapping cabinets or controls
 - [x] Snap adjacent same-run cabinets flush and offer or add compatible fillers for remaining gaps without permitting physical overlap
 - [x] Extend countertop continuously from cabinet-supported wall runs onto connected peninsula and return runs without bridging unsupported space
+- [x] Add a cabinet placement lock that resolves small overlaps to the nearest conflict-free seam and automatically places compatible priced fillers in eligible remaining gaps
+- [x] When a peninsula-connected wall section is removed, start cabinets on the marked clear run and automatically fill the measured gap back to the angled connection when a compatible filler exists
+- [x] Terminate the original parent wall exactly at the peninsula attachment, leaving the continuation open and aligning the adjacent cabinet run with a measured filler when needed
+- [x] Terminate the confirmed top perimeter wall at the peninsula start, leaving the rest of the top edge open for the connected cabinet run

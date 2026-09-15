@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -118,6 +118,27 @@ describe("locked 45-degree cabinet wall placement", () => {
     expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([
       expect.objectContaining({ code: "B-36", qty: 1, unitPrice: 250, section: "cabinet" }),
     ]);
+  });
+});
+
+describe("parent-wall termination at a peninsula attachment", () => {
+  it("keeps the full room span for attachment editing but ends the top cabinet wall at the primary peninsula start", () => {
+    expect(wallLength("top", peninsulaRoom)).toBe(144);
+    expect(cabinetWallRunLength("top", peninsulaRoom)).toBe(48);
+    expect(freeSegmentsOnWall("top", peninsulaRoom, [], [], 0.5, 0, "base")).toEqual([{ start: 0, length: 48 }]);
+  });
+
+  it("clamps new top-wall cabinets inside the retained parent-wall segment instead of placing them in the open continuation", () => {
+    const spot = wallPlacementAt(96, 30, 24, "top", peninsulaRoom);
+    expect(spot).toMatchObject({ x: 18, y: 0, rotation: 0 });
+  });
+
+  it("retains the full parent wall when a primary run explicitly keeps it", () => {
+    const retained: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: peninsulaRoom.peninsulaRuns?.map((run) => ({ ...run, terminatesParentWall: false })),
+    };
+    expect(cabinetWallRunLength("top", retained)).toBe(144);
   });
 });
 
