@@ -5,15 +5,21 @@ import path from "node:path";
 const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/pages/DesignTool.tsx"), "utf8");
 
 describe("Peninsula Wizard", () => {
-  it("creates a selected-side run, supports safe appliance choices, and fills remaining spans from the active line", () => {
+  it("creates a straight selected-side run with an optional connected 45-degree end, then fills each safe span from the active line", () => {
     expect(source).toContain("const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);");
     expect(source).toContain("const buildPeninsulaWizardLayout = useCallback(() => {");
+    expect(source).toContain('turn: 90,');
+    expect(source).toContain('label: "Peninsula · straight",');
+    expect(source).toContain('parentRunId: run.id,');
+    expect(source).toContain('turn: 45,');
+    expect(source).toContain('const layoutRuns = angledRun ? [run, angledRun] : [run];');
     expect(source).toContain("countertopSeatingOverhang: draft.seatingOverhang");
     expect(source).toContain("countertopWaterfallEnd: draft.waterfall");
     expect(source).toContain('applianceCode: "none" | "DW-24" | "WINE-24"');
-    expect(source).toContain('firstCollisionFreePeninsulaPlacement(run.id as WallSide, nextRoom, working, width, depth, "base")');
+    expect(source).toContain('firstCollisionFreePeninsulaPlacement(\n              layoutRun.id as WallSide,');
     expect(source).toContain('autoFillSpan(segment.length, "kitchen", pool)');
     expect(source).toContain('catalogFillerForGap(pool, item.width, "base")');
     expect(source).toContain('data-testid="build-peninsula-wizard"');
+    expect(source).toContain('45° end from the straight run');
   });
 });

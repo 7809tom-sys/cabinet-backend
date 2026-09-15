@@ -2034,3 +2034,11 @@
 - [x] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds
 - [x] Unify active peninsula cabinet placement and countertop geometry so both follow the selected 45-degree or 90-degree run path and cabinet side
 - [x] Keep the update-and-refresh prompt visible and actionable above open Designer dialogs and panels
+- [x] Display a clear wall-length measurement for the thin opposite-side segment adjoining a peninsula cabinet run
+- [x] Make a peninsula extend straight from its selected exterior wall to a chosen length before optionally continuing at an exact 45-degree turn
+- [x] Keep generated cabinets, automatic void filling, countertop coverage, seating overhang, waterfall end, and measurements on that same connected peninsula path
+- [x] Keep each selected peninsula run on its chosen cabinet side and automatically prevent cabinet-to-cabinet overlap within that run
+- [x] Disable direct peninsula resize gestures after creation so only right-click Attributes can change a run's saved length
+- [x] Correct Peninsula Wizard cabinet placement so generated cabinets remain within the selected angled or straight peninsula run
+- [x] Generate the Peninsula Wizard countertop from the exact same run shape and side as its cabinet layout
+- [x] Make the Peninsula Wizard automatically fill its remaining valid cabinet voids with compatible selected-line cabinets and truthful fillers

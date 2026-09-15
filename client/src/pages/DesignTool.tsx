@@ -892,9 +892,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [peninsulaWizardDraft, setPeninsulaWizardDraft] = useState<{
     parentWall: "top" | "bottom" | "left" | "right";
     startOffset: number;
-    turn: PeninsulaTurn;
-    direction: PeninsulaDirection;
-    length: number;
+    primaryLength: number;
+    endTurn: "none" | 45;
+    endDirection: PeninsulaDirection;
+    endLength: number;
     cabinetSide: PeninsulaCabinetSide;
     applianceCode: "none" | "DW-24" | "WINE-24";
     seatingOverhang: 10 | 12;
@@ -945,9 +946,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPeninsulaWizardDraft({
       parentWall,
       startOffset: Math.round((parentLength / 2) * 8) / 8,
-      turn: 90,
-      direction: "right",
-      length: 72,
+      primaryLength: 72,
+      endTurn: "none",
+      endDirection: "right",
+      endLength: 36,
       cabinetSide: "left",
       applianceCode: "none",
       seatingOverhang: 12,
@@ -1121,23 +1123,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     setRoom(proposedRoom);
     if (movedByUid.size > 0) setPlaced((previous) => previous.map((cabinet) => movedByUid.get(cabinet.uid) ?? cabinet));
-  }, [layoutLocked, placed, room]);
-  const resizePeninsulaRun = useCallback((runId: string, requestedLength: number) => {
-    const run = peninsulaRunById(room, runId);
-    if (!run || layoutLocked) return;
-    const proposed = { ...run, length: Math.max(6, Math.round(requestedLength * 8) / 8) };
-    const cappedLength = Math.min(proposed.length, peninsulaRunMaxLength(proposed, room));
-    const assigned = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id);
-    const requiredLength = assigned.reduce((furthest, cabinet) => Math.max(furthest, (Number(cabinet.wallOffset) || 0) + cabinet.width), 0);
-    if (cappedLength + 0.01 < requiredLength) {
-      toast.error(`This peninsula cannot be shorter than ${formatEighthInches(requiredLength)} while its cabinets remain on the run.`);
-      return;
-    }
-    if (Math.abs(run.length - cappedLength) < 0.01) return;
-    setRoom((previous) => ({
-      ...previous,
-      peninsulaRuns: (previous.peninsulaRuns ?? []).map((candidate) => candidate.id === run.id ? { ...candidate, length: cappedLength } : candidate),
-    }));
   }, [layoutLocked, placed, room]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
@@ -3245,14 +3230,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       id: `peninsula_wizard_${Date.now().toString(36)}`,
       parentWall: draft.parentWall,
       startOffset: Math.round(Math.max(6, draft.startOffset) * 8) / 8,
-      turn: draft.turn,
-      direction: draft.direction,
-      length: Math.round(Math.max(24, draft.length) * 8) / 8,
+      // The first leg always leaves the selected exterior wall through the
+      // room interior. A 45° choice is a connected end wall, not a diagonal
+      // replacement for the whole peninsula.
+      turn: 90,
+      direction: "right",
+      length: Math.round(Math.max(24, draft.primaryLength) * 8) / 8,
       height: 34.5,
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
       countertopWaterfallEnd: draft.waterfall,
-      label: `Peninsula · ${draft.turn}° ${draft.direction}`,
+      label: "Peninsula · straight",
     };
     const maximumLength = peninsulaRunMaxLength(candidate, room);
     if (maximumLength < 24) {
@@ -3260,7 +3248,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
     const run: PeninsulaRun = { ...candidate, length: Math.min(candidate.length, maximumLength) };
-    const nextRoom: RoomData = { ...room, peninsulaRuns: [...(room.peninsulaRuns ?? []), run] };
+    const primaryRoom: RoomData = { ...room, peninsulaRuns: [...(room.peninsulaRuns ?? []), run] };
+    const angledCandidate: PeninsulaRun | null = draft.endTurn === 45
+      ? {
+          id: `${run.id}_45_end`,
+          parentRunId: run.id,
+          startOffset: 0,
+          turn: 45,
+          direction: draft.endDirection,
+          length: Math.round(Math.max(12, draft.endLength) * 8) / 8,
+          height: run.height,
+          cabinetSide: run.cabinetSide,
+          countertopSeatingOverhang: run.countertopSeatingOverhang,
+          countertopWaterfallEnd: run.countertopWaterfallEnd,
+          label: `Peninsula end · 45° ${draft.endDirection}`,
+        }
+      : null;
+    const angledMaximum = angledCandidate ? peninsulaRunMaxLength(angledCandidate, primaryRoom) : 0;
+    if (angledCandidate && angledMaximum < 12) {
+      toast.error("The selected 45° end does not have 12 inches of clear room. Shorten the straight run or choose no angled end.");
+      return;
+    }
+    const angledRun = angledCandidate
+      ? { ...angledCandidate, length: Math.min(angledCandidate.length, angledMaximum) }
+      : null;
+    const layoutRuns = angledRun ? [run, angledRun] : [run];
+    const nextRoom: RoomData = {
+      ...primaryRoom,
+      peninsulaRuns: angledRun ? [...primaryRoom.peninsulaRuns!, angledRun] : primaryRoom.peninsulaRuns,
+    };
     const appliance = draft.applianceCode === "none"
       ? null
       : APPLIANCES.find((item) => item.masterCode === draft.applianceCode) ?? null;
@@ -3282,28 +3298,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           wallId: applianceSpot.wallId, wallOffset: applianceSpot.wallOffset, peninsulaSide: applianceSpot.peninsulaSide,
         });
       }
-      const segments = freeSegmentsOnWall(run.id as WallSide, nextRoom, working, [], 9);
-      for (const segment of segments) {
-        const fill = autoFillSpan(segment.length, "kitchen", pool);
-        for (const item of fill.items) {
-          const fillerCandidate = item.isFiller ? catalogFillerForGap(pool, item.width, "base") : null;
-          const cabinet = fillerCandidate
-            ? pool.find((option) => option.id === fillerCandidate.id) ?? null
-            : item.isFiller ? null : item.cabinet;
-          if (!cabinet) continue;
-          const width = item.width;
-          const depth = footprintDepth(cabinet);
-          const spot = firstCollisionFreePeninsulaPlacement(run.id as WallSide, nextRoom, working, width, depth, "base");
-          if (!spot) continue;
-          working.push({
-            uid: makeUid(), cabinetId: cabinet.id, masterCode: cabinet.masterCode,
-            description: item.isFiller ? fittedCatalogFillerDescription(cabinet, width) : cabinet.description,
-            category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null, placement: "base",
-            x: spot.x, y: spot.y, width, depth, height: dim(cabinet.height, standardHeight(cabinet.placement)),
-            rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors, numberOfDrawers: cabinet.numberOfDrawers,
-            catalogImageUrl: cabinet.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-            wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
-          });
+      for (const layoutRun of layoutRuns) {
+        const segments = freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, working, [], 9);
+        for (const segment of segments) {
+          const fill = autoFillSpan(segment.length, "kitchen", pool);
+          for (const item of fill.items) {
+            const fillerCandidate = item.isFiller ? catalogFillerForGap(pool, item.width, "base") : null;
+            const cabinet = fillerCandidate
+              ? pool.find((option) => option.id === fillerCandidate.id) ?? null
+              : item.isFiller ? null : item.cabinet;
+            if (!cabinet) continue;
+            const width = item.width;
+            const depth = footprintDepth(cabinet);
+            const spot = firstCollisionFreePeninsulaPlacement(
+              layoutRun.id as WallSide,
+              nextRoom,
+              working,
+              width,
+              depth,
+              "base",
+              { start: segment.start, end: segment.start + segment.length - width },
+            );
+            if (!spot) continue;
+            working.push({
+              uid: makeUid(), cabinetId: cabinet.id, masterCode: cabinet.masterCode,
+              description: item.isFiller ? fittedCatalogFillerDescription(cabinet, width) : cabinet.description,
+              category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null, placement: "base",
+              x: spot.x, y: spot.y, width, depth, height: dim(cabinet.height, standardHeight(cabinet.placement)),
+              rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors, numberOfDrawers: cabinet.numberOfDrawers,
+              catalogImageUrl: cabinet.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+              wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
+            });
+          }
         }
       }
       return working;
@@ -3312,7 +3338,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaWizardOpen(false);
-    toast.success(`Peninsula built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to the remaining run.`);
+    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""} built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to each clear run.`);
   }, [autoFillCabinets, layoutLocked, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
   const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
@@ -11622,7 +11648,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               peninsulaDraft={peninsulaDraft}
               onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
               onPeninsulaAttachmentChange={movePeninsulaAttachment}
-              onPeninsulaRunLengthChange={resizePeninsulaRun}
               onOpenWallSettings={openWallSettings}
               conflictUids={conflictUids}
               layoutLocked={layoutLocked}
@@ -11860,7 +11885,6 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                  peninsulaDraft={peninsulaDraft}
 		                  onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
 		                  onPeninsulaAttachmentChange={movePeninsulaAttachment}
-		                  onPeninsulaRunLengthChange={resizePeninsulaRun}
 		                  onOpenWallSettings={openWallSettings}
 		                  conflictUids={conflictUids}
 	                  layoutLocked={layoutLocked}
@@ -12134,18 +12158,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                      </label>
 	                    </div>
 	                    <div className="grid grid-cols-2 gap-2">
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Turn
-	                        <select value={`${peninsulaWizardDraft.turn}-${peninsulaWizardDraft.direction}`} onChange={(event) => {
-	                          const [turn, direction] = event.target.value.split("-");
-	                          setPeninsulaWizardDraft((draft) => draft ? { ...draft, turn: Number(turn) as PeninsulaTurn, direction: direction as PeninsulaDirection } : draft);
-	                        }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-	                          <option value="90-right">90° right</option><option value="90-left">90° left</option><option value="45-right">45° right</option><option value="45-left">45° left</option>
-	                        </select>
-	                      </label>
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Run length (in)
-	                        <Input type="number" min="24" step="0.125" value={peninsulaWizardDraft.length} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, length: Number(event.target.value) || 24 } : draft)} />
-	                      </label>
-	                    </div>
+                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Straight run length (in)
+                        <Input type="number" min="24" step="0.125" value={peninsulaWizardDraft.primaryLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, primaryLength: Number(event.target.value) || 24 } : draft)} />
+                      </label>
+                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end from the straight run
+                        <select value={`${peninsulaWizardDraft.endTurn}-${peninsulaWizardDraft.endDirection}`} onChange={(event) => {
+                          const [endTurn, endDirection] = event.target.value.split("-");
+                          setPeninsulaWizardDraft((draft) => draft ? { ...draft, endTurn: endTurn === "45" ? 45 : "none", endDirection: endDirection as PeninsulaDirection } : draft);
+                        }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+                          <option value="none-right">No angled end</option><option value="45-right">45° right end</option><option value="45-left">45° left end</option>
+                        </select>
+                      </label>
+                    </div>
+                    {peninsulaWizardDraft.endTurn === 45 && <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end length (in)
+                      <Input type="number" min="12" step="0.125" value={peninsulaWizardDraft.endLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, endLength: Number(event.target.value) || 12 } : draft)} />
+                    </label>}
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
 	                      <select value={peninsulaWizardDraft.cabinetSide} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
 	                        <option value="left">Left side</option><option value="right">Right side</option>
@@ -12164,7 +12191,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
 	                      </label>
 	                    </div>
-	                    <p className="text-[11px] leading-4 text-muted-foreground">The build action creates the run, seats the optional appliance first, then adds compatible selected-line base cabinets to the remaining safe spans. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
+                    <p className="text-[11px] leading-4 text-muted-foreground">The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
 	                  </div>
 	                </div>
 	              )}

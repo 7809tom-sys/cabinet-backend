@@ -217,6 +217,64 @@ describe("cabinet-supported peninsula runs", () => {
     expect(peninsulaRunHitAtPoint(connectedRoom, { x: 20, y: 96 }, 8)).toMatchObject({ run: { id: returnRun.id } });
   });
 
+  it("keeps a straight primary peninsula and its optional 45-degree end on one connected cabinet and countertop path", () => {
+    const primary = {
+      id: "wizard-straight-primary",
+      parentWall: "top" as const,
+      startOffset: 48,
+      turn: 90 as const,
+      direction: "right" as const,
+      length: 72,
+      height: 34.5,
+      cabinetSide: "left" as const,
+      countertopSeatingOverhang: 12 as const,
+      label: "Peninsula · straight",
+    };
+    const angledEnd = {
+      id: "wizard-angled-end",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45 as const,
+      direction: "right" as const,
+      length: 36,
+      height: 34.5,
+      cabinetSide: "left" as const,
+      countertopSeatingOverhang: 12 as const,
+      label: "Peninsula end · 45° right",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, angledEnd] };
+    expect(peninsulaRunEndpoints(primary, room)).toMatchObject({
+      start: { x: 48, y: 0 },
+      end: { x: 48, y: 72 },
+    });
+    expect(peninsulaRunEndpoints(angledEnd, room)).toMatchObject({
+      start: { x: 48, y: 72 },
+      end: { x: 22.5, y: 97.5 },
+    });
+    const primarySpot = wallPlacementAt(0, 30, 24, primary.id as any, room, "left");
+    const endSpot = wallPlacementAt(0, 24, 24, angledEnd.id as any, room, "left");
+    const primaryCabinet = { ...peninsulaCabinet("wizard-primary-cabinet", 0), ...primarySpot, wallId: primary.id, wallOffset: 0 };
+    const endCabinet = { ...peninsulaCabinet("wizard-end-cabinet", 0), ...endSpot, wallId: angledEnd.id, wallOffset: 0, width: 24 };
+    expect(countertopSurfaces([primaryCabinet, endCabinet], room)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ peninsulaRunId: primary.id, linearInches: 72, rotation: 90 }),
+      expect.objectContaining({ peninsulaRunId: angledEnd.id, linearInches: 36, rotation: 135 }),
+    ]));
+  });
+
+  it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {
+    const run = peninsulaRoom.peninsulaRuns![0];
+    const spot = firstCollisionFreePeninsulaPlacement(
+      run.id as any,
+      peninsulaRoom,
+      [],
+      30,
+      24,
+      "base",
+      { start: 0, end: 0 },
+    );
+    expect(spot).toMatchObject({ wallId: run.id, wallOffset: 0 });
+  });
+
   it("projects a catalog drop onto the active peninsula run rather than an outside room wall", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     expect(peninsulaRunOffsetAtPoint(run, peninsulaRoom, { x: 48, y: 63 })).toBe(63);

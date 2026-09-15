@@ -1,4 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from "react";
+import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
@@ -172,8 +173,6 @@ interface Props {
   onPeninsulaDraftLengthChange?: (length: number) => void;
   /** Moves a committed peninsula's joined endpoint along its parent wall. */
   onPeninsulaAttachmentChange?: (runId: string, startOffset: number) => void;
-  /** Changes a committed peninsula run length from its far endpoint. */
-  onPeninsulaRunLengthChange?: (runId: string, length: number) => void;
   /** Opens the explicit Wall settings editor for the chosen wall. */
   onOpenWallSettings?: (side: WallSide) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
@@ -264,7 +263,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onPeninsulaRunLengthChange, onOpenWallSettings, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -443,7 +442,6 @@ export function PlanCanvas({
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
   const peninsulaPull = useRef<{ startX: number; startY: number; radians: number; maxLength: number } | null>(null);
   const peninsulaAttachmentDrag = useRef<{ run: PeninsulaRun } | null>(null);
-  const peninsulaLengthDrag = useRef<{ run: PeninsulaRun; startX: number; startY: number; radians: number; maxLength: number } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
 	  const [activeGap, setActiveGap] = useState<WallGap | null>(null);
 	  const [catalogDragFit, setCatalogDragFit] = useState<WallGapFitPreview | null>(null);
@@ -713,32 +711,6 @@ export function PlanCanvas({
     onPeninsulaAttachmentPointerMove(event);
     try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
     peninsulaAttachmentDrag.current = null;
-  };
-
-  const onPeninsulaLengthPointerDown = (event: React.PointerEvent, run: PeninsulaRun) => {
-    if (layoutLocked || !onPeninsulaRunLengthChange) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onSelectWall?.(run.id as WallSide);
-    const { start, radians } = peninsulaRunEndpoints(run, room);
-    peninsulaLengthDrag.current = { run, startX: start.x, startY: start.y, radians, maxLength: peninsulaRunMaxLength(run, room) };
-    try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
-  };
-
-  const onPeninsulaLengthPointerMove = (event: React.PointerEvent) => {
-    const drag = peninsulaLengthDrag.current;
-    if (!drag || !onPeninsulaRunLengthChange) return;
-    const point = peninsulaPointFromPointer(event);
-    if (!point) return;
-    const projected = (point.x - drag.startX) * Math.cos(drag.radians) + (point.y - drag.startY) * Math.sin(drag.radians);
-    onPeninsulaRunLengthChange(drag.run.id, Math.round(Math.max(6, Math.min(drag.maxLength, projected)) * 8) / 8);
-  };
-
-  const onPeninsulaLengthPointerUp = (event: React.PointerEvent) => {
-    if (!peninsulaLengthDrag.current) return;
-    onPeninsulaLengthPointerMove(event);
-    try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
-    peninsulaLengthDrag.current = null;
   };
 
   // Manual double-tap detector (iOS Safari does not reliably synthesize
@@ -1145,9 +1117,33 @@ export function PlanCanvas({
           const runDegrees = (radians * 180) / Math.PI;
           const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
           const active = activeWall === run.id;
+          const parentWall = run.parentWall;
+          const primaryAttachmentMeasure = !run.parentRunId && parentWall
+            ? Math.max(0, Number(run.startOffset) || 0)
+            : null;
+          const attachmentMeasureHorizontal = parentWall === "top" || parentWall === "bottom";
+          const attachmentMeasureStyle: React.CSSProperties | undefined = primaryAttachmentMeasure == null
+            ? undefined
+            : attachmentMeasureHorizontal
+              ? {
+                  left: Math.max(3, start.x * ppi / 2 - 40),
+                  top: parentWall === "top" ? 4 : Math.max(4, roomPxH - 22),
+                }
+              : {
+                  left: parentWall === "left" ? 4 : Math.max(4, roomPxW - 118),
+                  top: Math.max(3, start.y * ppi / 2 - 10),
+                };
           return (
+            <Fragment key={run.id}>
+              {primaryAttachmentMeasure != null && <span
+                data-testid="peninsula-attachment-measurement"
+                title="Measured parent-wall segment from the wall start corner to this peninsula attachment"
+                className="pointer-events-none absolute z-20 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow"
+                style={attachmentMeasureStyle}
+              >
+                Wall to peninsula · {formatEighthInches(primaryAttachmentMeasure)}
+              </span>}
             <div
-              key={run.id}
               data-testid="peninsula-run-segment"
               role="button"
               tabIndex={0}
@@ -1155,8 +1151,8 @@ export function PlanCanvas({
                 ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint`
                 : `Select ${run.label ?? "peninsula run"}; hold and drag it along the adjoining ${wallLabel[run.parentWall ?? "top"]} wall to move the attachment point`}
               title={run.parentRunId
-                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high. Its far end can be resized.`
-                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Hold and drag the line to move its attachment along the adjoining wall.`}
+                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high. Right-click for Attributes.`
+                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Right-click for Attributes; hold and drag the line to move its attachment along the adjoining wall.`}
               onPointerDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1179,7 +1175,7 @@ export function PlanCanvas({
                 transform: `rotate(${runDegrees}deg)`,
                 transformOrigin: "0 50%",
               }}
-            >
+                >
               {active && <>
                 {!run.parentRunId && <button
                   type="button"
@@ -1191,16 +1187,6 @@ export function PlanCanvas({
                   style={counterRotate}
                   className="absolute -left-2 -top-[4px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#1a2744] text-[10px] font-bold text-white shadow"
                 >↔</button>}
-                <button
-                  type="button"
-                  aria-label="Drag far peninsula end to change length"
-                  title="Drag to make this peninsula longer or shorter"
-                  onPointerDown={(event) => onPeninsulaLengthPointerDown(event, run)}
-                  onPointerMove={onPeninsulaLengthPointerMove}
-                  onPointerUp={onPeninsulaLengthPointerUp}
-                  style={counterRotate}
-                  className="absolute -right-2 -top-[4px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#d4a75a] text-[10px] font-bold text-[#1a2744] shadow"
-                >↔</button>
                 <button
                   type="button"
                   aria-label="Add a connected 45° or 90° wall from the far peninsula end"
@@ -1222,6 +1208,7 @@ export function PlanCanvas({
                 </button>
               </>}
             </div>
+            </Fragment>
           );
         })}
         {/* Wall bands: touch to select and highlight only. Rendered first so

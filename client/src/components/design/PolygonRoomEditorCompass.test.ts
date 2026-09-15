@@ -102,17 +102,18 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("onPickPeninsula={snapSelectedToWall}");
   });
 
-  it("provides direct joined-end dragging, far-end resizing, and right-click settings for committed peninsula walls", () => {
+  it("provides joined-end attachment movement and right-click settings while reserving committed-run length changes for Attributes", () => {
     expect(planCanvasSource).toContain('onPeninsulaAttachmentChange?: (runId: string, startOffset: number) => void;');
-    expect(planCanvasSource).toContain('onPeninsulaRunLengthChange?: (runId: string, length: number) => void;');
     expect(planCanvasSource).toContain("const onPeninsulaAttachmentPointerDown");
-    expect(planCanvasSource).toContain("const onPeninsulaLengthPointerDown");
     expect(planCanvasSource).toContain('aria-label="Drag joined peninsula end along adjoining wall"');
     expect(planCanvasSource).toContain('aria-label="Add a connected 45° or 90° wall from the far peninsula end"');
     expect(planCanvasSource).toContain('title="Compass: add a new connected 45° or 90° wall from this end"');
     expect(planCanvasSource).toContain("onOpenWallSettings?.(run.id as WallSide);");
     expect(designToolSource).toContain("const movePeninsulaAttachment = useCallback");
-    expect(designToolSource).toContain("const resizePeninsulaRun = useCallback");
+    expect(planCanvasSource).toContain('Right-click for Attributes');
+    expect(planCanvasSource).not.toContain('aria-label="Drag far peninsula end to change length"');
+    expect(planCanvasSource).not.toContain("const onPeninsulaLengthPointerDown");
+    expect(designToolSource).not.toContain("const resizePeninsulaRun = useCallback");
     expect(designToolSource).toContain('cabinetSide: peninsula?.cabinetSide ?? "left"');
   });
 

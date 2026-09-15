@@ -2344,13 +2344,26 @@ export function firstCollisionFreePeninsulaPlacement(
   width: number,
   depth: number,
   placement: Placement,
+  bounds?: { start: number; end: number },
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } | null {
   const run = peninsulaRunById(room, side);
   if (!run || width <= 0 || depth <= 0) return null;
-  const earliest = peninsulaAutomaticStartOffset(side, room, placed, width, depth, placement);
   const maximumOffset = Math.max(0, Number(run.length) - width);
+  const requestedMinimum = Number(bounds?.start);
+  const requestedMaximum = Number(bounds?.end);
+  const minimumOffset = Number.isFinite(requestedMinimum)
+    ? Math.max(0, Math.min(maximumOffset, requestedMinimum))
+    : 0;
+  const boundedMaximum = Number.isFinite(requestedMaximum)
+    ? Math.max(0, Math.min(maximumOffset, requestedMaximum))
+    : maximumOffset;
+  if (boundedMaximum + COLLISION_EPSILON_IN < minimumOffset) return null;
+  const earliest = Math.max(
+    minimumOffset,
+    peninsulaAutomaticStartOffset(side, room, placed, width, depth, placement),
+  );
   const firstStep = Math.max(0, Math.ceil(earliest * 8 - 0.001));
-  const lastStep = Math.floor(maximumOffset * 8 + 0.001);
+  const lastStep = Math.floor(boundedMaximum * 8 + 0.001);
   for (let step = firstStep; step <= lastStep; step++) {
     const spot = wallPlacementAt(step / 8, width, depth, side, room);
     const candidate: PlacedCabinet = {
