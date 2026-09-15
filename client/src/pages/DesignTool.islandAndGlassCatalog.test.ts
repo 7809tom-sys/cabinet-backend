@@ -4,14 +4,22 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
-	  it("exposes vendor-available 12-to-24-inch glass-stacker bulk actions inside Placement controls", () => {
+		  it("exposes vendor-available 12-to-24-inch glass-stacker bulk actions inside Placement controls", () => {
 	    expect(source).toContain("glassStackerBulkHeightOptions(");
 	    expect(source).toContain("vendorGlassStackerHeightOptions");
 	    expect(source).toContain('data-testid="vendor-glass-stacker-controls"');
 	    expect(source).toContain('data-testid={`add-vendor-glass-stacker-${option.height}`}');
 	    expect(source).toContain("addVendorGlassStackersAtHeight(option.height)");
-	    expect(source).toContain("vendor-matched ${formatInches(height)} glass stacker");
-	  });
+		    expect(source).toContain("vendor-matched ${formatInches(height)} glass stacker");
+		  });
+
+		  it("provides a scoped Placement controls action that removes stackers while preserving parent wall cabinets", () => {
+		    expect(source).toContain("glassStackerUidsForRemoval");
+		    expect(source).toContain("const removeGlassStackers");
+		    expect(source).toContain('data-testid="remove-glass-stackers"');
+		    expect(source).toContain("removeCabinetsAndReleaseVoid(stackerUids)");
+		    expect(source).toContain("parent wall cabinets were kept");
+		  });
 
 	  it("routes a catalog knee drawer only into a measured base-cabinet knee-space opening and preserves its dedicated elevation profile", () => {
 	    expect(source).toContain("isKneeDrawerItem(c) ? \"knee-drawer\"");

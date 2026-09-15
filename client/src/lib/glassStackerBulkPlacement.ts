@@ -19,6 +19,22 @@ export type GlassStackerBulkHeightOption = {
   candidates: GlassStackerBulkPlacementCandidate[];
 };
 
+/**
+ * Identifies only actual glass stackers that have a saved parent relationship.
+ * This deliberately retains the parent wall cabinet, ordinary glass uppers,
+ * and any unstacked cabinet in the design.
+ */
+export function glassStackerUidsForRemoval(placed: readonly PlacedCabinet[]): string[] {
+  return placed.flatMap((cabinet) => (
+    cabinet.placement === "wall" &&
+    cabinet.stackedOnCabinetUid != null &&
+    isStacker(cabinet) &&
+    isGlassDoorCabinet(cabinet)
+      ? [cabinet.uid]
+      : []
+  ));
+}
+
 function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: PlacedCabinet): PlacedCabinet {
   const dimensions = resolvedDesignCabinetDimensions(catalog);
   const { mountBottom: _mountBottom, mountBottomAdjusted: _mountBottomAdjusted, stackedOnCabinetUid: _stackedOnCabinetUid, ...base } = source;

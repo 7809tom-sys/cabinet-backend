@@ -86,7 +86,7 @@ import {
 } from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
-import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -1600,6 +1600,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    room,
 	    (wallCabPool as DesignCabinet[] | undefined) ?? [],
 	  ), [placed, room, wallCabPool]);
+	  const removableGlassStackerCount = useMemo(
+	    () => glassStackerUidsForRemoval(placed).length,
+	    [placed],
+	  );
 
   // Keep every tall cabinet available when matching a reviewed imported plan,
   // regardless of the palette tab the customer currently has open.
@@ -6882,6 +6886,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    setPlacementTarget("wall");
 	    toast.success(`Added ${option.candidates.length} vendor-matched ${formatInches(height)} glass stacker${option.candidates.length === 1 ? "" : "s"} above eligible wall cabinets.`);
 	  }, [room]);
+	  const removeGlassStackers = useCallback(() => {
+	    const stackerUids = glassStackerUidsForRemoval(placedRef.current);
+	    if (stackerUids.length === 0) {
+	      toast.info("There are no stacked glass cabinets to remove.");
+	      return;
+	    }
+	    removeCabinetsAndReleaseVoid(stackerUids);
+	    toast.success(`Removed ${stackerUids.length} glass stacker${stackerUids.length === 1 ? "" : "s"}; parent wall cabinets were kept.`);
+	  }, [removeCabinetsAndReleaseVoid]);
 
 	  // A wall cabinet can use either a same-line replacement glass door or a
   // complete same-line GD cabinet variant.
@@ -11174,6 +11187,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                      ))}
 	                    </div>
 	                  </section>}
+	                  {removableGlassStackerCount > 0 && <button
+	                    type="button"
+	                    data-testid="remove-glass-stackers"
+	                    onClick={removeGlassStackers}
+	                    className="mt-2 w-full rounded border border-rose-300 px-2 py-1.5 text-[11px] font-medium text-rose-700 hover:bg-rose-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]"
+	                  >Remove Stackers · {removableGlassStackerCount}</button>}
 	                  <button type="button" onClick={() => setIslandAttributesOpen(true)} className="mt-2 w-full rounded border border-[#b98d3e] px-2 py-1.5 text-[#7b5a20] hover:bg-[#fff8e8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a2744]">Island setup</button>
 	                </div>
 	              )}

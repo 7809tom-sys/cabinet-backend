@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesignCabinet, PlacedCabinet, RoomData } from "./design";
-import { applyGlassStackerBulkPlacement, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates } from "./glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval } from "./glassStackerBulkPlacement";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 
@@ -150,5 +150,21 @@ describe("glass stacker bulk placement", () => {
       parent,
       expect.objectContaining({ uid: "new-stacker", masterCode: "W2412GD", stackedOnCabinetUid: parent.uid }),
     ]);
+  });
+
+  it("selects only parent-owned glass stackers for removal and preserves wall cabinets and ordinary glass uppers", () => {
+    const parent = wall("parent", "W2430", 24);
+    const stacker = wall("stacker", "W2412GD", 24, {
+      description: "Glass stacker cabinet",
+      height: 12,
+      glassDoor: true,
+      stackedOnCabinetUid: parent.uid,
+    });
+    const ordinaryGlassUpper = wall("glass-upper", "W2442GD", 24, {
+      description: "Glass door wall cabinet",
+      height: 42,
+      glassDoor: true,
+    });
+    expect(glassStackerUidsForRemoval([parent, stacker, ordinaryGlassUpper])).toEqual([stacker.uid]);
   });
 });
