@@ -109,7 +109,7 @@ export function isKneeDrawerItem(c: {
 }): boolean {
   const code = (c.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const hay = `${c.category ?? ""} ${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
-  return /\bknee\s*drawer\b|\bknee\b/.test(hay) || /^VKD\d/.test(code) || /^KD\d/.test(code);
+  return /\bknee\s*drawer\b|\bknee\b/.test(hay) || /^(?:VKD|DKD|KD)\d/.test(code);
 }
 
 /**

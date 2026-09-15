@@ -1994,3 +1994,4 @@
 - [x] Repair bulk stacker placement when compatible ceiling-safe refrigerator-top and diagonal-corner wall cabinets are skipped
 - [x] Verify active room ceiling use and restore complete selected-vendor catalog coverage so a 120-inch room can stack both diagonal and refrigerator-top wall cabinets
 - [x] Simplify the on-canvas plan controls by removing opening-gap labels and retaining only the Compass wall-editing control
+- [x] Verify and correct DKD knee-drawer recognition so it uses the valid 24-to-30-inch mounting range and seated-work clearance

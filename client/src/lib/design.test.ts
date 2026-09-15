@@ -80,6 +80,17 @@ describe("knee drawer mounting", () => {
     expect(accessoryPlacement(kneeDrawer)).toBe("baseTop");
   });
 
+  it("recognizes the DKD30 catalog code as a raised knee drawer even when imported as a base item", () => {
+    const dkd30 = {
+      masterCode: "DKD30",
+      description: "30 inch x 6 inch Knee Drawer Base Cabinet",
+      category: "Base",
+      subCategory: "Knee Drawer",
+    };
+    expect(isKneeDrawerItem(dkd30)).toBe(true);
+    expect(accessoryPlacement(dkd30)).toBe("baseTop");
+  });
+
   it("defaults to 30 inches and constrains custom knee-drawer mounting height to 24–30 inches", () => {
     expect(elevationBox(kneeDrawer, ROOM_12x10)).toEqual({ bottom: 30, height: 7 });
     expect(elevationBox({ ...kneeDrawer, mountBottom: 24 }, ROOM_12x10)).toEqual({ bottom: 24, height: 7 });
