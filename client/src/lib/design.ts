@@ -3069,7 +3069,10 @@ function glassStackerHeight(p: { height?: number | string | null; masterCode?: s
 
 function glassStackerFamily(p: { masterCode?: string | null }): "WDC" | "W" | null {
   const code = (p.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (code.includes("WDC")) return "WDC";
+  // Supplier catalogs use both WDC-2412GD and DCW2412GD for the same diagonal
+  // wall-corner stacker family. Keep those identities together, but never let
+  // either one stack above a conventional straight W24 wall cabinet.
+  if (code.includes("WDC") || code.startsWith("DCW")) return "WDC";
   if (code.startsWith("W") || /^GD?S\d/.test(code)) return "W";
   return null;
 }

@@ -113,6 +113,32 @@ describe("glass stacker bulk placement", () => {
     ]);
   });
 
+  it("offers a DCW diagonal stacker only above the matching WDC diagonal wall-corner cabinet", () => {
+    const straightParent = wall("straight-24", "W2430", 24, { x: 0 });
+    const diagonalParent = wall("diagonal-24", "WDC2430", 24, {
+      x: 36,
+      depth: 24,
+      cornerType: "diagonal",
+    });
+    const options = glassStackerBulkHeightOptions(
+      [straightParent, diagonalParent],
+      { ...room, ceilingHeight: 108 },
+      [catalog("DCW2412GD", 24, 12)],
+    );
+    expect(options).toEqual([
+      expect.objectContaining({
+        height: 12,
+        candidates: [expect.objectContaining({
+          parentUid: diagonalParent.uid,
+          stacker: expect.objectContaining({
+            masterCode: "DCW2412GD",
+            stackedOnCabinetUid: diagonalParent.uid,
+          }),
+        })],
+      }),
+    ]);
+  });
+
   it("adds one new stacker per still-unoccupied parent and gives each a fresh uid", () => {
     const parent = wall("parent", "W2430", 24, { x: 30 });
     const candidate = {
