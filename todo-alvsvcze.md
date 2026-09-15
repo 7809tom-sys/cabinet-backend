@@ -2027,3 +2027,7 @@
 - [ ] Ensure the Peninsula Wizard completes the full peninsula layout: run, optional appliance, compatible cabinets, fillers, countertop, price, and materials updates
 - [ ] Restore normal cabinet-add functionality after the reported global placement regression before continuing Peninsula Wizard work
 - [x] Restore the exact selected-peninsula cabinet-add path so a base cabinet can be placed in its clear measured run span
+- [x] Replace the corner-only peninsula start offset with first-safe placement that clears every physical cabinet body, including B-24 and BER33
+- [x] Simplify selected-peninsula cabinet adds to one click by automatically using the first clear physical location
+- [ ] Automatically fill remaining valid peninsula voids with compatible selected-line cabinets and use only truthful catalog fillers for the final small remainder
+- [ ] Make the standard selected-peninsula cabinet workflow fast enough to complete a usable run in under 60 seconds

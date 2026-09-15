@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -349,6 +349,51 @@ describe("cabinet-supported peninsula runs", () => {
       ...spot,
     };
     expect(cabinetPlacementCollisionDetail(candidate, normalized, fortyFiveRoom)).toBeNull();
+  });
+
+  it("uses the first physically clear peninsula location when a parent-wall B-24 blocks the join", () => {
+    const fortyFiveRoom: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{
+        id: "peninsula-45-b24-clearance",
+        parentWall: "top",
+        startOffset: 72,
+        turn: 45,
+        direction: "right",
+        length: 72,
+        height: 34.5,
+      }],
+    };
+    const joinSpot = wallPlacementAt(0, 24, 24, "peninsula-45-b24-clearance" as any, fortyFiveRoom);
+    const b24: PlacedCabinet = {
+      uid: "b24-parent-wall-join",
+      cabinetId: 10,
+      masterCode: "B-24",
+      description: "24 inch Base Cabinet",
+      placement: "base",
+      x: joinSpot.x,
+      y: joinSpot.y,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      rotation: joinSpot.rotation,
+      wallId: "top",
+    };
+    const firstClear = firstCollisionFreePeninsulaPlacement("peninsula-45-b24-clearance" as any, fortyFiveRoom, [b24], 15, 24, "base");
+    const oneClick = paletteActiveWallPlacement("peninsula-45-b24-clearance" as any, fortyFiveRoom, [b24], [], 15, 24, "base");
+    expect(firstClear).toMatchObject({ wallId: "peninsula-45-b24-clearance" });
+    expect(firstClear!.wallOffset).toBeGreaterThan(0);
+    expect(oneClick).toEqual(firstClear);
+    const candidate: PlacedCabinet = {
+      ...b24,
+      uid: "3-db15-after-b24",
+      cabinetId: 11,
+      masterCode: "3-DB15",
+      description: "15 inch 3 Drawer Base",
+      width: 15,
+      ...firstClear!,
+    };
+    expect(cabinetPlacementCollisionDetail(candidate, [b24], fortyFiveRoom)).toBeNull();
   });
 
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {
