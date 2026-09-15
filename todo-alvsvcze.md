@@ -2046,3 +2046,4 @@
 - [x] Seat peninsula cabinets entirely on their selected side so cabinet bodies never pass through the peninsula wall centerline
 - [x] Place a newly added peninsula cabinet only on the explicitly selected connected run instead of another nearby segment
 - [x] Keep the first cabinet on every peninsula run at least 12 inches from that run's inside connected corner
+- [x] Inspect and correct the exact refreshed saved-plan B-18 record that still renders as a diamond on the wrong connected peninsula segment

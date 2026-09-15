@@ -1368,24 +1368,33 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
     const depth = Math.max(0, Number(cabinet.depth) || 0);
     if (width <= 0 || depth <= 0) return cabinet;
     const ownedRun = peninsulaRunById(room, cabinet.wallId);
-    // Older plans could save a 45° value directly on the primary run. The
-    // primary is now a straight first leg, so cabinets already carrying that
-    // run ID must be reseated on its corrected axis as well. Without this
-    // migration, the run line becomes straight while its old cabinet remains a
-    // diamond-shaped footprint beside it.
+    // Explicit run metadata is authoritative after a saved plan reload. Rebuild
+    // the plan position from the run ID, saved along-run offset, and selected
+    // cabinet side for both primary and connected segments. This clears stale
+    // diagonal rotations/coordinates that otherwise survive refresh as a large
+    // diamond even though the cabinet belongs to the highlighted straight run.
     if (ownedRun) {
-      if (ownedRun.parentRunId || ownedRun.turn !== 45) return cabinet;
       const currentFootprint = placedFootprint(cabinet);
       const currentCenter = { x: cabinet.x + currentFootprint.w / 2, y: cabinet.y + currentFootprint.d / 2 };
       const projectedOffset = peninsulaRunOffsetAtPoint(ownedRun, room, currentCenter) - width / 2;
-      const offset = Number.isFinite(Number(cabinet.wallOffset))
+      const rawOffset = Number.isFinite(Number(cabinet.wallOffset))
         ? Number(cabinet.wallOffset)
         : Math.max(0, projectedOffset);
+      const offset = Math.max(0, Math.min(Math.max(0, ownedRun.length - width), rawOffset));
       // The selected run side is authoritative. Legacy cabinet-level side
       // values can describe the pre-migration diagonal and would otherwise
       // keep a corrected cabinet visibly on the opposite side of its wall.
       const peninsulaSide = ownedRun.cabinetSide ?? cabinet.peninsulaSide ?? "left";
       const spot = wallPlacementAt(offset, width, depth, ownedRun.id as WallSide, room, peninsulaSide);
+      const alreadyCanonical = (
+        Math.abs(cabinet.x - spot.x) <= 0.01 &&
+        Math.abs(cabinet.y - spot.y) <= 0.01 &&
+        Math.abs((((cabinet.rotation - spot.rotation + 540) % 360) - 180)) <= 0.01 &&
+        cabinet.wallId === ownedRun.id &&
+        Math.abs((Number(cabinet.wallOffset) || 0) - (spot.wallOffset ?? 0)) <= 0.01 &&
+        cabinet.peninsulaSide === (spot.peninsulaSide ?? peninsulaSide)
+      );
+      if (alreadyCanonical) return cabinet;
       changed = true;
       return { ...cabinet, ...spot, wallId: ownedRun.id, wallOffset: spot.wallOffset ?? 0, peninsulaSide: spot.peninsulaSide ?? peninsulaSide };
     }

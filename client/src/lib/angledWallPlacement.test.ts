@@ -325,6 +325,46 @@ describe("cabinet-supported peninsula runs", () => {
     expect(normalized[0]).toMatchObject(wallPlacementAt(0, 18, 24, legacyPrimary.id as any, room, "left"));
   });
 
+  it("reseats a refreshed B-18 with stale connected-run coordinates onto the exact highlighted segment", () => {
+    const primary: PeninsulaRun = {
+      id: "selected-straight-wall",
+      parentWall: "left",
+      startOffset: 48,
+      turn: 90,
+      direction: "right",
+      length: 54,
+      height: 34.5,
+      cabinetSide: "left",
+    };
+    const nextWall: PeninsulaRun = {
+      id: "selected-next-wall",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 60,
+      height: 34.5,
+      cabinetSide: "right",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, nextWall] };
+    const staleB18 = {
+      ...peninsulaCabinet("refreshed-b18", 12),
+      wallId: nextWall.id,
+      wallOffset: 12,
+      peninsulaSide: "left" as const,
+      rotation: 90,
+      x: 36,
+      y: 60,
+    };
+    const normalized = normalizeLegacyPeninsulaCabinets([staleB18], room);
+    expect(normalized[0]).toMatchObject({
+      ...wallPlacementAt(12, 30, 24, nextWall.id as any, room, "right"),
+      wallId: nextWall.id,
+      wallOffset: 12,
+      peninsulaSide: "right",
+    });
+  });
+
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     const spot = firstCollisionFreePeninsulaPlacement(
