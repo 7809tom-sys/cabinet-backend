@@ -1996,3 +1996,4 @@
 - [x] Simplify the on-canvas plan controls by removing opening-gap labels and retaining only the Compass wall-editing control
 - [x] Verify and correct DKD knee-drawer recognition so it uses the valid 24-to-30-inch mounting range and seated-work clearance
 - [x] Add a DKD knee-drawer preset that aligns its top to the 34.5-inch base-cabinet body by calculating the correct drawer-bottom elevation
+- [x] Repair the desktop Designer workspace height so bottom placement controls remain visible and reachable above the viewport edge

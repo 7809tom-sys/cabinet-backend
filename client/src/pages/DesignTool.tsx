@@ -10600,7 +10600,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       )}
 
       {/* Main area */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Left palette — inline column on desktop; slide-in drawer on mobile.
             Mobile wraps the SAME body in a left Sheet; desktop renders it as a
             fixed-width column. The body markup below is shared (no duplication). */}
@@ -14185,7 +14185,7 @@ function PaletteShell({
     );
   }
   return (
-    <div className="hidden lg:flex w-60 shrink-0 border-r border-border bg-card flex-col">
+    <div className="hidden lg:flex w-60 shrink-0 min-h-0 overflow-hidden border-r border-border bg-card flex-col">
       {children}
     </div>
   );
@@ -14214,7 +14214,7 @@ function PricingShell({
     );
   }
   return (
-    <div className="hidden lg:flex w-72 shrink-0 border-l border-border bg-card flex-col">
+    <div className="hidden lg:flex w-72 shrink-0 min-h-0 overflow-hidden border-l border-border bg-card flex-col">
       {children}
     </div>
   );
