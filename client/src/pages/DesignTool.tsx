@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, bestFitCatalogOption, removePeninsulaRun,
+  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -4601,6 +4601,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     // Break the wall into OPEN segments around existing cabinets and any
     // door/window openings, then tile EACH segment independently so the run
     // breaks cleanly around a doorway instead of running under it.
+    const isActivePeninsula = Boolean(peninsulaRunById(room, activeWall));
     const segments = freeSegmentsOnWall(activeWall, room, placed, openings, 9);
     if (segments.length === 0) { toast.info(t("dt_t_wall_full")); return; }
 
@@ -4614,16 +4615,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // Place items left-to-right starting at the segment's run-axis start.
         let along = seg.start;
         for (const it of result.items) {
-          const c = it.cabinet;
+          const catalogFillerCandidate = it.isFiller
+            ? catalogFillerForGap(pool, it.width, "base")
+            : null;
+          const catalogFiller = catalogFillerCandidate
+            ? pool.find((candidate) => candidate.id === catalogFillerCandidate.id) ?? null
+            : null;
+          // A generic FILL-* placeholder must never become a priced cabinet.
+          // Keep a small reveal when the selected line has no cuttable filler.
+          if (it.isFiller && !catalogFiller) {
+            along += it.width;
+            continue;
+          }
+          const c = catalogFiller ?? it.cabinet;
           const width = it.width;
           const depth = footprintDepth(c);
           const height = dim(c.height, standardHeight(c.placement));
-          const spot = wallPlacementAt(along, width, depth, activeWall, room);
+          const spot = isActivePeninsula
+            ? firstCollisionFreePeninsulaPlacement(activeWall, room, working, width, depth, "base")
+            : wallPlacementAt(along, width, depth, activeWall, room);
+          if (!spot) {
+            along += width;
+            continue;
+          }
           const newCab: PlacedCabinet = {
             uid: makeUid(),
             cabinetId: c.id,
             masterCode: c.masterCode,
-            description: c.description,
+            description: it.isFiller ? fittedCatalogFillerDescription(c, width) : c.description,
             category: c.category ?? null,
             subCategory: c.subCategory ?? null,
             placement: "base",
@@ -4646,6 +4665,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             drawerLayout: (c as any).drawerLayout ?? null,
             facePattern: (c as any).facePattern ?? null,
             glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
+            ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+            ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
             // Stamp the active color so Auto-Fill cabinets keep their finish.
             styleId: styleIdRef.current ?? null,
           };
