@@ -6748,6 +6748,37 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
+  // A primary peninsula leaves an ordinary room wall. When a counter-bearing
+  // wall base covers its attachment point and a counter-bearing base begins the
+  // peninsula, add only the supported joint pad between them. The individual
+  // peninsula cabinet slabs extend the remainder of the run; an empty run never
+  // receives invented countertop.
+  for (const run of room.peninsulaRuns ?? []) {
+    if (!run.parentWall) continue;
+    const peninsulaSupportedAtStart = placed.some((cabinet) =>
+      bearsCountertop(cabinet) &&
+      cabinetWall(cabinet, room) === run.id &&
+      (Number(cabinet.wallOffset) || 0) <= COLLISION_EPSILON_IN,
+    );
+    const parentWallSupportsAttachment = placed.some((cabinet) => {
+      if (!bearsCountertop(cabinet) || cabinetWall(cabinet, room) !== run.parentWall) return false;
+      const footprint = placedFootprint(cabinet);
+      const horizontalParent = run.parentWall === "top" || run.parentWall === "bottom";
+      const alongStart = horizontalParent ? cabinet.x : cabinet.y;
+      const alongSpan = horizontalParent ? footprint.w : footprint.d;
+      return alongStart <= run.startOffset + COLLISION_EPSILON_IN &&
+        alongStart + alongSpan >= run.startOffset - COLLISION_EPSILON_IN;
+    });
+    if (!peninsulaSupportedAtStart || !parentWallSupportsAttachment) continue;
+    const joint = peninsulaRunEndpoints(run, room).start;
+    out.push({
+      x: Math.max(0, Math.min(room.width - D, joint.x - D / 2)),
+      y: Math.max(0, Math.min(room.depth - D, joint.y - D / 2)),
+      width: D,
+      depth: D,
+      kind: "base",
+    });
+  }
   // A return and its parent form one connected kitchen run. When both sides of
   // that exact joint have a counter-bearing base cabinet at the connection, add
   // a compact shared joint slab. This keeps the visible counter continuous

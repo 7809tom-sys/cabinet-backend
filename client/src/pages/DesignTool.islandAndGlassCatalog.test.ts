@@ -42,7 +42,13 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain("needs a clear ${formatInches(width)} knee-space opening between base cabinets");
 	  });
 
-	it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {
+	  it("uses the enabled cabinet magnet for 3D moves so a small same-run overlap seats at an exact cabinet edge", () => {
+	    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
+	    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
+	    expect(source).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
+	  });
+
+		it("routes every normal and 3D catalog placement to the selected island face when Island mode is active", () => {
 		expect(source).toContain("const selectedIslandFace = targetIslandFace");
 		expect(source).toContain("islandPlacementMode || islandPlacementModeRef.current");
 		expect(source).not.toContain("islandPlacementMode && x == null && y == null");

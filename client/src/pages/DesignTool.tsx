@@ -6270,11 +6270,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 		  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
 		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
-		    moveCabinet(uid, x, y, undefined, true);
+		    // A 3D move should use the same cabinet magnet as the plan whenever it is
+		    // enabled. This turns a near or partially overlapping drop into an exact
+		    // edge-to-edge join instead of rejecting a small penetration outright.
+		    // With the magnet off, retain deliberate freehand placement and preserve
+		    // the existing hard collision guard.
+		    moveCabinet(uid, x, y, undefined, !automaticSnapping);
 		    const opportunity = movingBlindCorner ? null : smallGapFillerOpportunityFromDragPreview(uid, preview);
-	    setSmallGapFillerPrompt(opportunity);
-	    if (opportunity) setMobilePanel(null);
-	  }, [moveCabinet]);
+		    setSmallGapFillerPrompt(opportunity);
+		    if (opportunity) setMobilePanel(null);
+		  }, [automaticSnapping, moveCabinet]);
 
   const swingSelected = () => {
     if (!selectedUid) return;

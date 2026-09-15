@@ -253,6 +253,24 @@ describe("cabinet-supported peninsula runs", () => {
     ]);
   });
 
+  it("joins the perimeter counter to a peninsula only where both cabinet runs support the attachment", () => {
+    const wallSpot = wallPlacementAt(24, 30, 24, "top", peninsulaRoom);
+    const wallCabinet: PlacedCabinet = {
+      ...peninsulaCabinet("wall-support", 0),
+      ...wallSpot,
+      wallId: "top",
+      wallOffset: 24,
+    };
+    const peninsulaStart = peninsulaCabinet("peninsula-start", 0);
+    const supported = countertopSurfaces([wallCabinet, peninsulaStart], peninsulaRoom);
+    expect(countertopSurfaces([peninsulaStart], peninsulaRoom)).not.toContainEqual(
+      expect.objectContaining({ x: 35.25, y: 0, width: 25.5, depth: 25.5, kind: "base" }),
+    );
+    expect(supported).toContainEqual(
+      expect.objectContaining({ x: 35.25, y: 0, width: 25.5, depth: 25.5, kind: "base" }),
+    );
+  });
+
   it("bridges a connected counter joint only when both joined runs are cabinet-supported", () => {
     const parent = peninsulaRoom.peninsulaRuns![0];
     const child = { id: "return-with-counter", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 42, height: 34.5 };

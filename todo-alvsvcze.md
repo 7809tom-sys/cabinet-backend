@@ -2002,3 +2002,5 @@
 - [x] Add a direct free-end peninsula control to create a connected 45-degree or 90-degree return wall/run
 - [x] Apply the existing magnetic cabinet snap behavior consistently to peninsula and connected return runs
 - [x] Refine peninsula run labels and endpoint controls so angled and straight runs remain readable without overlapping cabinets or controls
+- [x] Snap adjacent same-run cabinets flush and offer or add compatible fillers for remaining gaps without permitting physical overlap
+- [x] Extend countertop continuously from cabinet-supported wall runs onto connected peninsula and return runs without bridging unsupported space
