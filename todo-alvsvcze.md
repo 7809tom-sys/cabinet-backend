@@ -1989,3 +1989,5 @@
 - [x] Include matching diagonal WDC glass stacker cabinets when bulk stacking compatible diagonal wall-corner cabinets
 - [x] Add a safe Remove Stackers control beside Placement controls that removes only stacked glass cabinets and preserves their parent wall cabinets
 - [x] Repair the live saved-design path when a selected diagonal WDC corner cabinet still receives no visible matching glass stacker
+- [x] Diagnose the confirmed center diagonal WDC stacker exclusion and retain the ceiling-safety rule when that cabinet already reaches the configured room ceiling
+- [x] Explain in Placement controls when a diagonal WDC cabinet is skipped because it already reaches the configured room ceiling

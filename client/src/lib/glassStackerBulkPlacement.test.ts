@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DesignCabinet, PlacedCabinet, RoomData } from "./design";
-import { applyGlassStackerBulkPlacement, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval } from "./glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement, glassStackerBulkCeilingBlocksAtHeight, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval } from "./glassStackerBulkPlacement";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 
@@ -137,6 +137,27 @@ describe("glass stacker bulk placement", () => {
         })],
       }),
     ]);
+  });
+
+  it("explains when a diagonal WDC42 already reaches a 96-inch ceiling and cannot accept a 12-inch stacker", () => {
+    const diagonalParent = wall("diagonal-42", "SW-WDC42PG", 24, {
+      x: 36,
+      depth: 24,
+      height: 42,
+      mountBottom: 54,
+      cornerType: "diagonal",
+    });
+    expect(glassStackerBulkCeilingBlocksAtHeight(
+      [diagonalParent],
+      room,
+      [catalog("SW-DCW2412-GD", 24, 12)],
+      12,
+    )).toEqual([{
+      parentUid: diagonalParent.uid,
+      parentCode: diagonalParent.masterCode,
+      requiredTop: 108,
+      ceiling: 96,
+    }]);
   });
 
   it("adds one new stacker per still-unoccupied parent and gives each a fresh uid", () => {

@@ -11,6 +11,9 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain('data-testid={`add-vendor-glass-stacker-${option.height}`}');
 	    expect(source).toContain("addVendorGlassStackersAtHeight(option.height)");
 		    expect(source).toContain("vendor-matched ${formatInches(height)} glass stacker");
+		    expect(source).toContain("glassStackerBulkCeilingBlocksAtHeight");
+		    expect(source).toContain('data-testid="glass-stacker-ceiling-blocks"');
+		    expect(source).toContain("already reaches the {formatInches(block.ceiling)} ceiling");
 		  });
 
 		  it("provides a scoped Placement controls action that removes stackers while preserving parent wall cabinets", () => {

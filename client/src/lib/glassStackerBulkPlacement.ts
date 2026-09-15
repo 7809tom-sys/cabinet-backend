@@ -19,6 +19,13 @@ export type GlassStackerBulkHeightOption = {
   candidates: GlassStackerBulkPlacementCandidate[];
 };
 
+export type GlassStackerCeilingBlock = {
+  parentUid: string;
+  parentCode: string;
+  requiredTop: number;
+  ceiling: number;
+};
+
 /**
  * Identifies only actual glass stackers that have a saved parent relationship.
  * This deliberately retains the parent wall cabinet, ordinary glass uppers,
@@ -214,6 +221,61 @@ export function glassStackerBulkHeightOptions(
       return [];
     });
     return candidates.length > 0 ? [{ height, candidates }] : [];
+  });
+}
+
+/**
+ * Reports compatible cabinets that would accept the selected stacker family,
+ * but cannot physically receive it because the cabinet already reaches the
+ * configured ceiling. The bulk action uses this to explain a skipped WDC42
+ * corner rather than silently omitting it from a 12-inch stacker operation.
+ */
+export function glassStackerBulkCeilingBlocksAtHeight(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  stackerCatalog: DesignCabinet[],
+  height: number,
+): GlassStackerCeilingBlock[] {
+  const occupiedParentUids = new Set(
+    placed.flatMap((cabinet) => cabinet.stackedOnCabinetUid ? [cabinet.stackedOnCabinetUid] : []),
+  );
+  const stackersAtHeight = stackerCatalog.filter((catalog) => {
+    const dimensions = resolvedDesignCabinetDimensions(catalog);
+    return catalog.placement === "wall" &&
+      isStacker({ ...catalog, height: dimensions.height }) &&
+      isGlassDoorCabinet(catalog) &&
+      Math.abs(dimensions.height - height) <= 0.5;
+  });
+
+  return placed.flatMap((parent) => {
+    if (
+      parent.placement !== "wall" ||
+      parent.islandFace ||
+      parent.noDoor === true ||
+      isStacker(parent) ||
+      occupiedParentUids.has(parent.uid)
+    ) return [];
+
+    for (const catalog of stackersAtHeight) {
+      const dimensions = resolvedDesignCabinetDimensions(catalog);
+      if (Math.abs(dimensions.width - Number(parent.width)) > 0.5) continue;
+      const placement = glassStackerParentPlacement(stackerDraft(parent, catalog, parent), placed, room, parent.uid);
+      if (
+        !placement.ok &&
+        placement.reason === "ceiling" &&
+        placement.parentCode === parent.masterCode &&
+        typeof placement.requiredTop === "number" &&
+        typeof placement.ceiling === "number"
+      ) {
+        return [{
+          parentUid: parent.uid,
+          parentCode: parent.masterCode,
+          requiredTop: placement.requiredTop,
+          ceiling: placement.ceiling,
+        }];
+      }
+    }
+    return [];
   });
 }
 

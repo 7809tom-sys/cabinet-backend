@@ -86,7 +86,7 @@ import {
 } from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
-import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
+import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkCeilingBlocksAtHeight, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -1600,6 +1600,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    room,
 	    (wallCabPool as DesignCabinet[] | undefined) ?? [],
 	  ), [placed, room, wallCabPool]);
+	  const vendorGlassStackerCeilingBlocks = useMemo(() => vendorGlassStackerHeightOptions.flatMap((option) => (
+	    glassStackerBulkCeilingBlocksAtHeight(
+	      placed,
+	      room,
+	      (wallCabPool as DesignCabinet[] | undefined) ?? [],
+	      option.height,
+	    ).map((block) => ({ ...block, stackerHeight: option.height }))
+	  )), [placed, room, vendorGlassStackerHeightOptions, wallCabPool]);
 	  const removableGlassStackerCount = useMemo(
 	    () => glassStackerUidsForRemoval(placed).length,
 	    [placed],
@@ -11186,6 +11194,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        >{formatInches(option.height)} · {option.candidates.length}</button>
 	                      ))}
 	                    </div>
+	                    {vendorGlassStackerCeilingBlocks.length > 0 && <div className="mt-1.5 text-[10px] leading-snug text-amber-800" data-testid="glass-stacker-ceiling-blocks">
+	                      {vendorGlassStackerCeilingBlocks.map((block) => (
+	                        <p key={`${block.parentUid}-${block.stackerHeight}`}>
+	                          {block.parentCode} already reaches the {formatInches(block.ceiling)} ceiling; a {formatInches(block.stackerHeight)} stacker would need {formatInches(block.requiredTop)}. Choose a shorter corner cabinet or raise the room ceiling.
+	                        </p>
+	                      ))}
+	                    </div>}
 	                  </section>}
 	                  {removableGlassStackerCount > 0 && <button
 	                    type="button"
