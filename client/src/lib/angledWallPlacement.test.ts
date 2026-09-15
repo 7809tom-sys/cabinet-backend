@@ -333,8 +333,10 @@ describe("cabinet-supported peninsula runs", () => {
       rotation: 0,
       wallId: "top",
     };
-    const start = peninsulaAutomaticStartOffset("peninsula-45-clearance" as any, fortyFiveRoom, [ber33], 15, 24, "base");
-    const spot = paletteActiveWallPlacement("peninsula-45-clearance" as any, fortyFiveRoom, [ber33], [], 15, 24, "base");
+    const normalized = normalizeLegacyPeninsulaCabinets([ber33], fortyFiveRoom);
+    expect(normalized[0]).toMatchObject({ wallId: "top", rotation: 0 });
+    const start = peninsulaAutomaticStartOffset("peninsula-45-clearance" as any, fortyFiveRoom, normalized, 15, 24, "base");
+    const spot = paletteActiveWallPlacement("peninsula-45-clearance" as any, fortyFiveRoom, normalized, [], 15, 24, "base");
     expect(start).toBeGreaterThan(0);
     expect(spot).toMatchObject({ wallId: "peninsula-45-clearance", wallOffset: start });
     const candidate = {
@@ -346,7 +348,7 @@ describe("cabinet-supported peninsula runs", () => {
       width: 15,
       ...spot,
     };
-    expect(cabinetPlacementCollisionDetail(candidate, [ber33], fortyFiveRoom)).toBeNull();
+    expect(cabinetPlacementCollisionDetail(candidate, normalized, fortyFiveRoom)).toBeNull();
   });
 
   it("uses the visible peninsula line as the direct drop target and never reseats an owned upper on an outer wall", () => {

@@ -2022,3 +2022,8 @@
 - [x] Reproduce and repair the still-reported live BER33 peninsula catalog-add rejection through the exact selected-run UI path
 - [x] Repair the 45-degree peninsula join so 3-DB15 and other base cabinets only test true plan intersections with BER33, allowing flush edge contact
 - [x] Add an automatic peninsula start offset that seats the first cabinet past the adjoining corner unit's true physical clearance
+- [x] Keep the peninsula settings dialog save and cancel actions reachable without browser-page scrolling on desktop, tablet, and mobile
+- [ ] Add a Peninsula Wizard that creates a selected-side peninsula, asks for an optional appliance, and automatically places compatible selected-line base cabinets and required fillers
+- [ ] Ensure the Peninsula Wizard completes the full peninsula layout: run, optional appliance, compatible cabinets, fillers, countertop, price, and materials updates
+- [ ] Restore normal cabinet-add functionality after the reported global placement regression before continuing Peninsula Wizard work
+- [x] Restore the exact selected-peninsula cabinet-add path so a base cabinet can be placed in its clear measured run span

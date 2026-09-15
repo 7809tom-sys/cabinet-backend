@@ -11839,13 +11839,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            </div>
 	          )}
 	          <Dialog open={wallSettingsOpen} onOpenChange={setWallSettingsOpen}>
-	            <DialogContent className="max-w-md gap-0 p-0">
-	              <DialogHeader className="border-b px-4 py-3">
+	          <DialogContent data-testid="peninsula-settings-dialog" className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+	            <DialogHeader className="shrink-0 border-b px-4 py-3">
 	                <DialogTitle>Edit {wallSettingsDraft?.label ?? "wall"}</DialogTitle>
 	                <DialogDescription>Compass creates a peninsula split. These settings edit the selected wall itself.</DialogDescription>
 	              </DialogHeader>
 	              {wallSettingsDraft && (
-	                <div className="grid gap-3 px-4 py-4">
+	                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
+	                  <div className="grid gap-3">
 	                  {wallSettingsDraft.kind === "peninsula" && (
 	                    <>
 	                      <div className="grid grid-cols-2 gap-2">
@@ -11916,9 +11917,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                    </label>
 	                  </div>
 	                  <p className="text-xs leading-5 text-muted-foreground">Changing a wall’s geometry is blocked while it has cabinets, and a wall cannot be shortened below a mounted cabinet. This keeps every placed cabinet supported and in its existing run.</p>
+	                  </div>
 	                </div>
 	              )}
-	              <DialogFooter className="border-t px-4 py-3">
+	              <DialogFooter data-testid="peninsula-settings-actions" className="shrink-0 border-t bg-background px-4 py-3 sm:flex-wrap">
 	                {wallSettingsDraft?.kind === "peninsula" && (
 	                  <Button
 	                    type="button"

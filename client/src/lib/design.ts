@@ -1395,6 +1395,18 @@ export function normalizeLegacyPeninsulaCabinets(placed: PlacedCabinet[], room: 
       }
     }
     if (!hit || (cabinet.wallId && cabinet.wallId !== hit.run.parentWall)) return cabinet;
+    // A real parent-wall corner unit can sit at the peninsula attachment and
+    // naturally fall within the run hit-test tolerance. It is not a legacy
+    // peninsula cabinet: retaining its parent-wall ownership lets the automatic
+    // peninsula start offset clear its actual body before the first cabinet is
+    // added. Reassigning it to the peninsula instead blocks the full run span.
+    const isParentWallCorner = cabinet.wallId === hit.run.parentWall && (
+      placedCornerGeometryKind(cabinet) === "l-shape" ||
+      placedCornerGeometryKind(cabinet) === "diagonal" ||
+      placedCornerGeometryKind(cabinet) === "corner-drawer" ||
+      placedCornerGeometryKind(cabinet) === "blind-corner"
+    );
+    if (isParentWallCorner) return cabinet;
     const { radians } = peninsulaRunEndpoints(hit.run, room);
     const tangentRotation = ((radians * 180) / Math.PI + 360) % 360;
     const rotationDistance = (left: number, right: number) => Math.abs((((left - right + 540) % 360) - 180));
