@@ -132,7 +132,7 @@ const GROUPS = [
       { value: "cabinet-attention", label: "⚠ Cabinet Attention" },
       { value: "categories", label: "Categories" },
       { value: "pending-review", label: "⏳ Pending Review" },
-      { value: "pending-distributor-connections", label: "⏳ Distributor Connections" },
+      { value: "pending-distributor-connections", label: "✎ Supplier Products" },
       { value: "bundle-deals", label: "📦 Kitchen Packages" },
       { value: "price-shop-10x10", label: "10×10 Price Shop" },
       { value: "media-library", label: "📁 Media Library" },

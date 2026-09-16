@@ -251,6 +251,194 @@ export const distributorPortalRouter = router({
       return { updated: ownedIds.length };
     }),
 
+  /** Administrator product list used by the direct draft/edit/publish workspace. */
+  adminProductList: distributorProcedure
+    .input(
+      z.object({
+        distributorId: z.number().optional(),
+        status: z.enum(["all", "pending", "approved", "rejected"]).default("all"),
+        search: z.string().trim().max(128).optional(),
+        limit: z.number().int().min(1).max(250).default(100),
+        offset: z.number().int().min(0).default(0),
+      }).optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      if (!ctx.isAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Only administrators can manage supplier products." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const args = input ?? { status: "all" as const, limit: 100, offset: 0 };
+      const conditions: any[] = [];
+      if (args.distributorId) conditions.push(eq(distributorSkus.distributorId, args.distributorId));
+      if (args.status !== "all") conditions.push(eq(distributorSkus.status, args.status));
+      if (args.search) {
+        const like = `%${args.search}%`;
+        conditions.push(sql`(
+          ${cabinets.masterCode} LIKE ${like}
+          OR ${cabinets.description} LIKE ${like}
+          OR ${distributorSkus.distributorSku} LIKE ${like}
+          OR ${distributorSkus.supplierCabinetName} LIKE ${like}
+          OR ${distributorSkus.platformSku} LIKE ${like}
+        )`);
+      }
+      const where = conditions.length ? and(...conditions) : undefined;
+      const select = {
+        skuId: distributorSkus.id,
+        cabinetId: distributorSkus.cabinetId,
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        distributorId: distributors.id,
+        distributorName: distributors.name,
+        distributorBrandName: distributors.brandName,
+        styleId: doorStyles.id,
+        styleName: doorStyles.ourName,
+        styleCode: doorStyles.styleCode,
+        distributorSku: distributorSkus.distributorSku,
+        platformSku: distributorSkus.platformSku,
+        supplierCabinetName: distributorSkus.supplierCabinetName,
+        listPrice: distributorSkus.listPrice,
+        yourCost: distributorSkus.yourCost,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+        status: distributorSkus.status,
+        imageUrl: distributorSkus.imageUrl,
+        createdAt: distributorSkus.createdAt,
+      };
+      const [items, [totalRow]] = await Promise.all([
+        db
+          .select(select)
+          .from(distributorSkus)
+          .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .where(where)
+          .orderBy(desc(distributorSkus.createdAt), distributorSkus.id)
+          .limit(args.limit)
+          .offset(args.offset),
+        db
+          .select({ count: sql<number>`COUNT(*)` })
+          .from(distributorSkus)
+          .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+          .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+          .where(where),
+      ]);
+      return { items, total: Number(totalRow?.count ?? 0) };
+    }),
+
+  /** Direct administrator editor for supplier products. Master mapping is optional. */
+  adminSaveProduct: distributorProcedure
+    .input(
+      z.object({
+        skuId: z.number().int().positive().optional(),
+        distributorId: z.number().int().positive(),
+        styleId: z.number().int().positive(),
+        distributorSku: z.string().trim().min(1).max(128),
+        supplierCabinetName: z.string().trim().max(255).optional(),
+        masterCode: z.string().trim().max(64).optional(),
+        listPrice: z.number().min(0).nullable().optional(),
+        yourCost: z.number().min(0).nullable().optional(),
+        isAvailable: z.boolean().default(true),
+        mode: z.enum(["draft", "publish"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.isAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Only administrators can create or edit supplier products." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [style] = await db
+        .select({ id: doorStyles.id })
+        .from(doorStyles)
+        .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, input.distributorId)))
+        .limit(1);
+      if (!style) throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a door style that belongs to the selected supplier line." });
+      if (input.mode === "publish" && !hasVendorPrice(
+        input.listPrice == null ? null : String(input.listPrice),
+        input.yourCost == null ? null : String(input.yourCost),
+      )) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Add a List Price or Your Cost before publishing." });
+      }
+
+      let resolvedCabinetId: number | null = null;
+      let resolvedMasterCode: string | null = null;
+      const requestedMasterCode = input.masterCode?.trim().toUpperCase();
+      if (requestedMasterCode) {
+        const [cabinet] = await db
+          .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+          .from(cabinets)
+          .where(eq(cabinets.masterCode, requestedMasterCode))
+          .limit(1);
+        if (!cabinet) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "That master product code does not exist. Leave it blank to save a standalone supplier product, or create the master cabinet first." });
+        }
+        resolvedCabinetId = cabinet.id;
+        resolvedMasterCode = cabinet.masterCode;
+      } else {
+        const cabinetRows = await db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            sku: cabinets.sku,
+            vendorSku: cabinets.vendorSku,
+            altSku1: cabinets.altSku1,
+            altSku2: cabinets.altSku2,
+            altSku3: cabinets.altSku3,
+          })
+          .from(cabinets);
+        const match = matchVendorCabinetBySku(input.distributorSku, cabinetRows);
+        if (match.kind === "matched") {
+          resolvedCabinetId = match.cabinetId;
+          resolvedMasterCode = match.masterCode;
+        }
+      }
+
+      const matchingRows = await db
+        .select({ id: distributorSkus.id, cabinetId: distributorSkus.cabinetId, distributorSku: distributorSkus.distributorSku })
+        .from(distributorSkus)
+        .where(and(eq(distributorSkus.distributorId, input.distributorId), eq(distributorSkus.styleId, input.styleId)));
+      const normalizedSku = normalizeCode(input.distributorSku);
+      const duplicate = matchingRows.find((row) => row.id !== input.skuId && (
+        (resolvedCabinetId != null && row.cabinetId === resolvedCabinetId)
+        || normalizeCode(row.distributorSku) === normalizedSku
+      ));
+      if (duplicate) {
+        throw new TRPCError({ code: "CONFLICT", message: "A supplier product with this SKU or master connection already exists for the selected supplier line and door style." });
+      }
+
+      const status: "approved" | "pending" = input.mode === "publish" ? "approved" : "pending";
+      const sharedValues = {
+        distributorId: input.distributorId,
+        styleId: input.styleId,
+        distributorSku: input.distributorSku,
+        supplierCabinetName: input.supplierCabinetName || null,
+        listPrice: input.listPrice == null ? null : String(input.listPrice),
+        yourCost: input.yourCost == null ? null : String(input.yourCost),
+        isAvailable: input.isAvailable,
+        status,
+        isPublished: input.mode === "publish",
+      };
+      if (input.skuId) {
+        const [existing] = await db
+          .select({ id: distributorSkus.id, cabinetId: distributorSkus.cabinetId })
+          .from(distributorSkus)
+          .where(eq(distributorSkus.id, input.skuId))
+          .limit(1);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Product not found." });
+        const cabinetId = resolvedCabinetId ?? existing.cabinetId;
+        await db.update(distributorSkus).set({ ...sharedValues, cabinetId }).where(eq(distributorSkus.id, input.skuId));
+        return { skuId: input.skuId, status, isPublished: input.mode === "publish", cabinetId };
+      }
+
+      const [result] = await db.insert(distributorSkus).values({
+        ...sharedValues,
+        cabinetId: resolvedCabinetId,
+        platformSku: resolvedMasterCode
+          ? `${resolvedMasterCode}-${input.distributorSku}-${input.distributorId}`.slice(0, 128)
+          : buildUnmatchedPlatformSku(input.distributorId, input.styleId, input.distributorSku),
+      });
+      return { skuId: (result as { insertId: number }).insertId, status, isPublished: input.mode === "publish", cabinetId: resolvedCabinetId };
+    }),
+
   // ─── Price Update (instant, no approval) ─────────────────────────────────────
 
   /** Vendor updates pricing on their own SKUs. Instant — no admin approval needed. */
@@ -459,18 +647,18 @@ export const distributorPortalRouter = router({
 
   // ─── Admin Approve/Reject Product ─────────────────────────────────────────────
 
-  /** Admin approves or rejects a pending product submission. */
+  /** Admin publishes, returns to draft, or rejects a supplier product. */
   adminSetProductStatus: distributorProcedure
     .input(
       z.object({
         distributorId: z.number().optional(),
         skuId: z.number(),
-        status: z.enum(["approved", "rejected"]),
+        status: z.enum(["approved", "pending", "rejected"]),
       })
     )
     .mutation(async ({ ctx, input }) => {
       if (!ctx.isAdmin) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can approve/reject products." });
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only admins can publish, draft, or reject products." });
       }
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });

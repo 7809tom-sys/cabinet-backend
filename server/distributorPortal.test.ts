@@ -105,6 +105,68 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
     }
   });
 
+  it("lets an admin draft, edit, publish, and list a standalone supplier product", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const lines = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (lines.length === 0) return;
+    const lineId = lines[0].id;
+    const styles = await db
+      .select({ id: doorStyles.id })
+      .from(doorStyles)
+      .where(eq(doorStyles.distributorId, lineId))
+      .limit(1);
+    if (styles.length === 0) return;
+
+    const supplierSku = `DIRECT_PRODUCT_${Date.now()}`;
+    const caller = appRouter.createCaller(adminUser);
+    let skuId: number | null = null;
+    try {
+      const drafted = await caller.distributorPortal.adminSaveProduct({
+        distributorId: lineId,
+        styleId: styles[0].id,
+        distributorSku: supplierSku,
+        supplierCabinetName: "Directly managed supplier item",
+        yourCost: 11.5,
+        mode: "draft",
+      });
+      skuId = drafted.skuId;
+      expect(drafted).toMatchObject({ status: "pending", isPublished: false, cabinetId: null });
+
+      const drafts = await caller.distributorPortal.adminProductList({
+        distributorId: lineId,
+        status: "pending",
+        search: supplierSku,
+      });
+      expect(drafts.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({ skuId, cabinetId: null, distributorSku: supplierSku, supplierCabinetName: "Directly managed supplier item", status: "pending", isPublished: false }),
+      ]));
+
+      const published = await caller.distributorPortal.adminSaveProduct({
+        skuId,
+        distributorId: lineId,
+        styleId: styles[0].id,
+        distributorSku: supplierSku,
+        supplierCabinetName: "Updated directly managed supplier item",
+        listPrice: 22.75,
+        isAvailable: true,
+        mode: "publish",
+      });
+      expect(published).toMatchObject({ skuId, status: "approved", isPublished: true, cabinetId: null });
+
+      const publishedItems = await caller.distributorPortal.adminProductList({
+        distributorId: lineId,
+        status: "approved",
+        search: supplierSku,
+      });
+      expect(publishedItems.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({ skuId, cabinetId: null, distributorSku: supplierSku, supplierCabinetName: "Updated directly managed supplier item", status: "approved", isPublished: true }),
+      ]));
+    } finally {
+      if (skuId != null) await db.delete(distributorSkus).where(eq(distributorSkus.id, skuId));
+    }
+  });
+
   it("a linked distributor sees only their line and can toggle SKU visibility", async () => {
     const db = await getDb();
     if (!db) return;
@@ -164,10 +226,12 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
     });
     const caller = appRouter.createCaller(distCtx);
 
-    const all = await caller.distributorPortal.catalog({ limit: 500, offset: 0 });
-    if (all.items.length === 0) return;
-    // pick a code fragment guaranteed to exist
-    const frag = all.items[0].masterCode.slice(0, 2);
+      const all = await caller.distributorPortal.catalog({ limit: 500, offset: 0 });
+    const mappedItem = all.items.find((item) => item.masterCode);
+    if (!mappedItem) return;
+    // Pick a master-code fragment from a mapped item; standalone supplier items
+    // intentionally have no master code and remain visible in the vendor catalog.
+    const frag = mappedItem.masterCode.slice(0, 2);
     const filtered = await caller.distributorPortal.catalog({ search: frag, limit: 500, offset: 0 });
     // total reflects the filtered set (<= unfiltered) and every row matches
     expect(filtered.total).toBeLessThanOrEqual(all.total);

@@ -2100,3 +2100,12 @@
 - [x] Keep master-cabinet-only pricing, freight, order, image, coverage, and forecasting flows safe for nullable SKU links
 - [x] Show unmatched pending vendor products in the catalog with clear supplier-SKU and mapping status guidance
 - [x] Validate unmatched upload, matched upload, duplicate protection, Cost/List validation, TypeScript, tests, and production build
+- [x] Replace the approval-only vendor item flow with a WordPress-style administrator product editor for supplier products
+- [x] Let administrators create, save as draft, edit, publish, unpublish, and reject matched or unmatched supplier items from one management screen
+- [x] Display unmatched supplier items in the administrator product queue with clear mapping state and prevent them from entering cabinet-only customer and Designer flows until mapped
+- [x] Validate the direct product-management workflow, catalog visibility rules, TypeScript, tests, responsive UI, and production build before publication
+- [x] Diagnose the Madison origin 60446 Worldwide Express live-rate configuration error and trace the production quote request path
+- [x] Restore a verified live carrier quote path for Madison orders rather than a flat or manual shipping fallback
+- [x] Validate a live rate using an order or saved design with a destination ZIP code and publish the correction
+- [x] Reconfigure the Madison shipping test to use verified WWEX sandbox settings rather than the incomplete production endpoint
+- [x] Run and verify a real WWEX sandbox carrier rate for the Madison test flow without exposing credentials
