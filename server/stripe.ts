@@ -60,18 +60,16 @@ export async function createCheckoutSession(
     }));
 
   const session = await stripe.checkout.sessions.create({
+    ui_mode: "hosted_page",
     mode: "payment",
+    billing_address_collection: "auto",
+    phone_number_collection: { enabled: false },
+    automatic_tax: { enabled: false },
+    allow_promotion_codes: false,
+    submit_type: "auto",
+    integration_identifier: "hosted_web_0001",
+    origin_context: "web",
     line_items: stripeLineItems,
-    customer_email: input.customerEmail,
-    allow_promotion_codes: true,
-    client_reference_id: input.userId.toString(),
-    metadata: {
-      order_id: input.orderId.toString(),
-      order_number: input.orderNumber,
-      user_id: input.userId.toString(),
-      customer_email: input.customerEmail ?? "",
-      customer_name: input.customerName ?? "",
-    },
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
   });

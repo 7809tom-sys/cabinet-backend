@@ -2087,3 +2087,6 @@
 - [x] Publish the verified saved-peninsula back seating and B-12 cross-view hardware consistency repair
 
 - [x] Publish the verified peninsula cabinet back-edge and bilateral 12-inch inside-corner clearance correction
+- [x] Review attached CabinetDealz requirements and classify which are actionable for the current project
+- [x] Implement only the applicable attached requirements with focused regressions and no unrelated workflow changes
+- [x] Validate and publish the applicable attached CabinetDealz update, or report any clarification needed
