@@ -2130,3 +2130,7 @@
 - [x] Align the adjoining countertop edges with one shared mitered corner in both Plan and 3D
 - [x] Preserve stove openings, sink seating, waterfall placement, countertop area takeoff, and save/refresh behavior after the joint correction
 - [x] Validate the exact reported angled corner, TypeScript, focused and broad Designer tests, production build, and live rendering before publication
+- [x] Reproduce the reported countertop projection that remains after the first miter correction
+- [x] Correct the miter half-plane or run-side transform so the slab follows the angled cabinet footprint without excess overhang
+- [x] Validate left/right cabinet sides and 45-degree left/right turns while preserving the sink, stove opening, waterfall, and countertop takeoff
+- [x] Publish only after the exact reported countertop shape, TypeScript, tests, production build, and rendered geometry are verified

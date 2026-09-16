@@ -7197,90 +7197,94 @@ function countertopPolygonArea(points: CountertopPlanPoint[]): number {
   }, 0)) / 2;
 }
 
-function countertopPolygonIntersectionArea(
-  subjectPoints: CountertopPlanPoint[],
-  clipPoints: CountertopPlanPoint[],
-): number {
-  let output = subjectPoints.map((point) => ({ ...point }));
-  const signedClipArea = clipPoints.reduce((sum, point, index) => {
-    const next = clipPoints[(index + 1) % clipPoints.length]!;
-    return sum + point.x * next.y - next.x * point.y;
-  }, 0) / 2;
-  const clip = signedClipArea < 0 ? [...clipPoints].reverse() : clipPoints;
-  for (let edgeIndex = 0; edgeIndex < clip.length; edgeIndex += 1) {
-    const edgeStart = clip[edgeIndex]!;
-    const edgeEnd = clip[(edgeIndex + 1) % clip.length]!;
-    const input = output;
-    output = [];
-    if (input.length === 0) break;
-    const cross = (point: CountertopPlanPoint) =>
-      (edgeEnd.x - edgeStart.x) * (point.y - edgeStart.y)
-      - (edgeEnd.y - edgeStart.y) * (point.x - edgeStart.x);
-    for (let index = 0; index < input.length; index += 1) {
-      const current = input[index]!;
-      const next = input[(index + 1) % input.length]!;
-      const currentCross = cross(current);
-      const nextCross = cross(next);
-      const currentInside = currentCross >= -COLLISION_EPSILON_IN;
-      const nextInside = nextCross >= -COLLISION_EPSILON_IN;
-      if (currentInside) output.push(current);
-      if (currentInside === nextInside) continue;
-      const amount = currentCross / (currentCross - nextCross);
-      output.push({
-        x: current.x + (next.x - current.x) * amount,
-        y: current.y + (next.y - current.y) * amount,
-      });
-    }
-  }
-  return countertopPolygonArea(output);
+function countertopSurfaceLocalPointFromWorld(
+  surface: CountertopSurface,
+  point: CountertopPlanPoint,
+): CountertopPlanPoint {
+  const radians = (surface.rotation ?? 0) * Math.PI / 180;
+  const cos = Math.cos(radians);
+  const sin = Math.sin(radians);
+  const centerX = surface.x + surface.width / 2;
+  const centerY = surface.y + surface.depth / 2;
+  const worldX = point.x - centerX;
+  const worldY = point.y - centerY;
+  return {
+    x: worldX * cos + worldY * sin + surface.width / 2,
+    y: -worldX * sin + worldY * cos + surface.depth / 2,
+  };
 }
 
-function clipCountertopSurfaceAtJoin(
-  surface: CountertopSurface,
+function countertopRunFaceNormal(radians: number, side: PeninsulaCabinetSide): CountertopPlanPoint {
+  const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
+  return side === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
+}
+
+function countertopOffsetEdgeMiterPoint(
   joint: CountertopPlanPoint,
-  lineNormal: CountertopPlanPoint,
-  keepBeforeJoint: boolean,
+  parentRadians: number,
+  parentNormal: CountertopPlanPoint,
+  parentDepth: number,
+  childRadians: number,
+  childNormal: CountertopPlanPoint,
+  childDepth: number,
+): CountertopPlanPoint {
+  const parentOuter = { x: joint.x + parentNormal.x * parentDepth, y: joint.y + parentNormal.y * parentDepth };
+  const childOuter = { x: joint.x + childNormal.x * childDepth, y: joint.y + childNormal.y * childDepth };
+  const parentTangent = { x: Math.cos(parentRadians), y: Math.sin(parentRadians) };
+  const childTangent = { x: Math.cos(childRadians), y: Math.sin(childRadians) };
+  const determinant = parentTangent.x * childTangent.y - parentTangent.y * childTangent.x;
+  const fallback = { x: (parentOuter.x + childOuter.x) / 2, y: (parentOuter.y + childOuter.y) / 2 };
+  if (Math.abs(determinant) <= 1e-9) return fallback;
+  const delta = { x: childOuter.x - parentOuter.x, y: childOuter.y - parentOuter.y };
+  const amount = (delta.x * childTangent.y - delta.y * childTangent.x) / determinant;
+  const intersection = {
+    x: parentOuter.x + parentTangent.x * amount,
+    y: parentOuter.y + parentTangent.y * amount,
+  };
+  const maximumProjection = Math.max(parentDepth, childDepth) * 2;
+  return Math.hypot(intersection.x - joint.x, intersection.y - joint.y) <= maximumProjection
+    ? intersection
+    : fallback;
+}
+
+function countertopSurfaceWithMiterPoint(
+  surface: CountertopSurface,
+  run: PeninsulaRun,
+  room: RoomData,
+  atStart: boolean,
+  miterPoint: CountertopPlanPoint,
 ): CountertopSurface {
   const local = countertopSurfaceLocalPolygon(surface);
   const world = countertopSurfacePlanPolygon(surface);
-  const signed = (point: CountertopPlanPoint) =>
-    (point.x - joint.x) * lineNormal.x + (point.y - joint.y) * lineNormal.y;
-  const inside = (value: number) => keepBeforeJoint
-    ? value <= COLLISION_EPSILON_IN
-    : value >= -COLLISION_EPSILON_IN;
-  const clipped: CountertopPlanPoint[] = [];
-  for (let index = 0; index < local.length; index += 1) {
-    const currentLocal = local[index]!;
-    const nextLocal = local[(index + 1) % local.length]!;
-    const currentSigned = signed(world[index]!);
-    const nextSigned = signed(world[(index + 1) % world.length]!);
-    const currentInside = inside(currentSigned);
-    const nextInside = inside(nextSigned);
-    if (currentInside) clipped.push(currentLocal);
-    if (currentInside === nextInside) continue;
-    const denominator = currentSigned - nextSigned;
-    const amount = Math.abs(denominator) <= 1e-9 ? 0 : currentSigned / denominator;
-    clipped.push({
-      x: currentLocal.x + (nextLocal.x - currentLocal.x) * amount,
-      y: currentLocal.y + (nextLocal.y - currentLocal.y) * amount,
-    });
-  }
-  const deduplicated = clipped.filter((point, index) => {
-    const previous = clipped[index - 1];
-    return !previous || Math.hypot(point.x - previous.x, point.y - previous.y) > 1e-6;
+  const geometry = peninsulaRunEndpoints(run, room);
+  const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
+  const normal = countertopRunFaceNormal(geometry.radians, run.cabinetSide ?? "left");
+  const targetAlong = atStart ? (surface.runStartIn ?? 0) : (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width);
+  let outerIndex = 0;
+  let bestScore = Number.POSITIVE_INFINITY;
+  world.forEach((point, index) => {
+    const along = (point.x - geometry.start.x) * tangent.x + (point.y - geometry.start.y) * tangent.y;
+    const outward = (point.x - geometry.start.x) * normal.x + (point.y - geometry.start.y) * normal.y;
+    const score = Math.abs(along - targetAlong) + Math.abs(outward - surface.depth);
+    if (score < bestScore) {
+      bestScore = score;
+      outerIndex = index;
+    }
   });
-  if (deduplicated.length > 1) {
-    const first = deduplicated[0]!;
-    const last = deduplicated[deduplicated.length - 1]!;
-    if (Math.hypot(first.x - last.x, first.y - last.y) <= 1e-6) deduplicated.pop();
-  }
-  const areaInches = countertopPolygonArea(deduplicated);
-  return deduplicated.length >= 3 && areaInches > COLLISION_EPSILON_IN
-    ? { ...surface, polygon: deduplicated, areaInches }
-    : surface;
+  local[outerIndex] = countertopSurfaceLocalPointFromWorld(surface, miterPoint);
+  return {
+    ...surface,
+    polygon: local,
+    areaInches: countertopPolygonArea(local),
+    ...(atStart ? { miteredStart: true } : { miteredEnd: true }),
+  };
 }
 
-/** Divides a parent/child countertop overlap along one shared angle-bisector seam. */
+/**
+ * Joins the outer cabinet-side edges at one bounded shared point. Unlike an
+ * infinite outside-line intersection, this miter cannot project beyond both
+ * physical countertop edges at an acute 45-degree turn.
+ */
 export function miteredPeninsulaCountertopSurfaces(
   surfaces: CountertopSurface[],
   room: RoomData,
@@ -7297,28 +7301,27 @@ export function miteredPeninsulaCountertopSurfaces(
       .map((surface, index) => ({ surface, index }))
       .filter(({ surface }) => surface.peninsulaRunId === child.id && (surface.runStartIn ?? 0) <= COLLISION_EPSILON_IN);
     if (parentIndices.length === 0 || childIndices.length === 0) continue;
-    const overlappingParentIndices = parentIndices.filter(({ surface }) => childIndices.some(({ surface: childSurface }) =>
-      countertopPolygonIntersectionArea(countertopSurfacePlanPolygon(surface), countertopSurfacePlanPolygon(childSurface)) > COLLISION_EPSILON_IN,
-    ));
-    const overlappingChildIndices = childIndices.filter(({ surface }) => parentIndices.some(({ surface: parentSurface }) =>
-      countertopPolygonIntersectionArea(countertopSurfacePlanPolygon(surface), countertopSurfacePlanPolygon(parentSurface)) > COLLISION_EPSILON_IN,
-    ));
-    if (overlappingParentIndices.length === 0 || overlappingChildIndices.length === 0) continue;
     const parentGeometry = peninsulaRunEndpoints(parent, room);
     const childGeometry = peninsulaRunEndpoints(child, room);
-    const lineNormal = {
-      x: Math.cos(parentGeometry.radians) + Math.cos(childGeometry.radians),
-      y: Math.sin(parentGeometry.radians) + Math.sin(childGeometry.radians),
-    };
-    const magnitude = Math.hypot(lineNormal.x, lineNormal.y);
-    if (magnitude <= 1e-9) continue;
-    lineNormal.x /= magnitude;
-    lineNormal.y /= magnitude;
-    for (const { index } of overlappingParentIndices) {
-      resolved[index] = { ...clipCountertopSurfaceAtJoin(resolved[index]!, parentGeometry.end, lineNormal, true), miteredEnd: true };
-    }
-    for (const { index } of overlappingChildIndices) {
-      resolved[index] = { ...clipCountertopSurfaceAtJoin(resolved[index]!, parentGeometry.end, lineNormal, false), miteredStart: true };
+    const side = parent.cabinetSide ?? "left";
+    for (const { index: parentIndex } of parentIndices) {
+      for (const { index: childIndex } of childIndices) {
+        const parentSurface = resolved[parentIndex]!;
+        const childSurface = resolved[childIndex]!;
+        const parentNormal = countertopRunFaceNormal(parentGeometry.radians, side);
+        const childNormal = countertopRunFaceNormal(childGeometry.radians, side);
+        const miterPoint = countertopOffsetEdgeMiterPoint(
+          parentGeometry.end,
+          parentGeometry.radians,
+          parentNormal,
+          parentSurface.depth,
+          childGeometry.radians,
+          childNormal,
+          childSurface.depth,
+        );
+        resolved[parentIndex] = countertopSurfaceWithMiterPoint(parentSurface, parent, room, false, miterPoint);
+        resolved[childIndex] = countertopSurfaceWithMiterPoint(childSurface, child, room, true, miterPoint);
+      }
     }
   }
   return resolved;

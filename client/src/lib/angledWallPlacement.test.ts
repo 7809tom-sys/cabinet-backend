@@ -972,6 +972,39 @@ describe("cabinet-supported peninsula runs", () => {
     expect(measurement.squareFeet).toBe(Math.ceil((visibleArea / 144) * 10) / 10);
   });
 
+  it.each([
+    ["right", "right", "left"],
+    ["right", "left", "right"],
+    ["left", "right", "left"],
+    ["left", "left", "right"],
+  ] as const)("keeps the %s-side %s/%s straight-to-45-to-straight countertop within its physical depth", (cabinetSide, firstDirection, secondDirection) => {
+    const primary = { id: `projection-${cabinetSide}-${firstDirection}-primary`, parentWall: "left" as const, startOffset: 48, turn: 90 as const, direction: "right" as const, length: 30, height: 34.5, cabinetSide };
+    const angle = { id: `projection-${cabinetSide}-${firstDirection}-angle`, parentRunId: primary.id, startOffset: 0, turn: 45 as const, direction: firstDirection, length: 42, height: 34.5, cabinetSide };
+    const returning = { id: `projection-${cabinetSide}-${firstDirection}-return`, parentRunId: angle.id, startOffset: 0, turn: 45 as const, direction: secondDirection, length: 48, height: 34.5, cabinetSide };
+    const room: RoomData = { ...peninsulaRoom, width: 180, depth: 150, peninsulaRuns: [primary, angle, returning] };
+    const cabinets = room.peninsulaRuns!.map((run, index) => {
+      const spot = wallPlacementAt(0, run.length, 24, run.id as any, room, cabinetSide);
+      return { ...peninsulaCabinet(`${run.id}-cabinet`, 0), ...spot, cabinetId: index + 1, width: run.length, wallId: run.id, wallOffset: 0, peninsulaSide: cabinetSide };
+    });
+    const surfaces = countertopSurfaces(cabinets, room).filter((surface) => surface.peninsulaRunId);
+    expect(surfaces).toHaveLength(3);
+    for (const surface of surfaces) {
+      const run = room.peninsulaRuns!.find((candidate) => candidate.id === surface.peninsulaRunId)!;
+      const geometry = peninsulaRunEndpoints(run, room);
+      const leftNormal = { x: -Math.sin(geometry.radians), y: Math.cos(geometry.radians) };
+      const normal = cabinetSide === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
+      const outwardDistances = countertopSurfacePlanPolygon(surface).map((point) =>
+        (point.x - geometry.start.x) * normal.x + (point.y - geometry.start.y) * normal.y,
+      );
+      expect(Math.min(...outwardDistances)).toBeGreaterThanOrEqual(-0.001);
+      expect(Math.max(...outwardDistances)).toBeLessThanOrEqual(surface.depth + 0.001);
+    }
+    const [primarySurface, angleSurface, returnSurface] = surfaces;
+    expect(primarySurface).toEqual(expect.objectContaining({ miteredEnd: true }));
+    expect(angleSurface).toEqual(expect.objectContaining({ miteredStart: true, miteredEnd: true }));
+    expect(returnSurface).toEqual(expect.objectContaining({ miteredStart: true }));
+  });
+
   it("cuts the peninsula countertop around a stove without changing the connected 45-degree return", () => {
     const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "stove-parent", startOffset: 72, length: 96 };
     const child = { id: "stove-angled-return", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 30, height: 34.5 };
