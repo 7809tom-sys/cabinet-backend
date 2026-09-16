@@ -67,6 +67,14 @@ type CartState = {
   storefrontSlug: string | null;
   /** Exact saved plan whose unchanged design lines replaced this cart, if any. */
   sourceDesignId: number | null;
+  /** Most recent cabinet rejected because it came from another supplier line. */
+  supplierConflict: {
+    lockedDistributorId: number;
+    attemptedDistributorId: number;
+    lockedStyleLabel: string;
+    attemptedStyleLabel: string;
+  } | null;
+  clearSupplierConflict: () => void;
   setStorefrontSlug: (slug: string | null) => void;
   addItem: (item: CartItem) => AddItemResult;
   /** Replaces the cart only after an explicit user-requested design synchronization. */
@@ -85,6 +93,7 @@ const STORAGE_KEY = "cd_cart_v1";
 const ZIP_KEY = "cd_cart_zip_v1";
 const SLUG_KEY = "cd_cart_slug_v1";
 const SOURCE_DESIGN_KEY = "cd_cart_source_design_v1";
+const SUPPLIER_CONFLICT_KEY = "cd_cart_supplier_conflict_v1";
 
 function lineKey(
   i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
@@ -125,6 +134,24 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const [supplierConflict, setSupplierConflict] = useState<CartState["supplierConflict"]>(() => {
+    try {
+      const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SUPPLIER_CONFLICT_KEY) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<NonNullable<CartState["supplierConflict"]>>;
+      if (
+        Number.isInteger(parsed.lockedDistributorId)
+        && Number.isInteger(parsed.attemptedDistributorId)
+        && typeof parsed.lockedStyleLabel === "string"
+        && typeof parsed.attemptedStyleLabel === "string"
+      ) {
+        return parsed as NonNullable<CartState["supplierConflict"]>;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
     try {
@@ -139,6 +166,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
       else sessionStorage.removeItem(SOURCE_DESIGN_KEY);
     } catch { /* ignore */ }
   }, [sourceDesignId]);
+
+  useEffect(() => {
+    try {
+      if (supplierConflict) sessionStorage.setItem(SUPPLIER_CONFLICT_KEY, JSON.stringify(supplierConflict));
+      else sessionStorage.removeItem(SUPPLIER_CONFLICT_KEY);
+    } catch { /* ignore */ }
+  }, [supplierConflict]);
 
   useEffect(() => {
     try {
@@ -167,6 +201,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const lockedStyleId = firstCabinetItem?.styleId ?? null;
   const lockedStyleLabel = firstCabinetItem?.styleLabel ?? null;
 
+  useEffect(() => {
+    if (lockedDistributorId == null) setSupplierConflict(null);
+  }, [lockedDistributorId]);
+
   const api = useMemo<CartState>(() => {
     const addItem = (item: CartItem): AddItemResult => {
       // Distributor-lock enforcement (pure rule in shared/familyLock.ts): colors
@@ -181,6 +219,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         item.distributorId
       );
       if (!decision.ok && lockedDistributorId != null) {
+        setSupplierConflict({
+          lockedDistributorId,
+          attemptedDistributorId: item.distributorId!,
+          lockedStyleLabel: lockedStyleLabel ?? "the current supplier line",
+          attemptedStyleLabel: item.styleLabel || "another supplier line",
+        });
         return {
           ok: false,
           reason: "distributor_locked",
@@ -200,6 +244,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return { ok: true };
     };
     const replaceWithDesignItems = (designItems: readonly CartItem[], designId: number | null = null) => {
+      setSupplierConflict(null);
       setItems(synchronizedDesignCartItems(designItems));
       setSourceDesignId(Number.isInteger(designId) && designId! > 0 ? designId : null);
     };
@@ -240,7 +285,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           .filter((p) => p.qty > 0);
       });
     };
-    const clear = () => { setItems([]); setSourceDesignId(null); };
+    const clear = () => { setItems([]); setSourceDesignId(null); setSupplierConflict(null); };
+    const clearSupplierConflict = () => setSupplierConflict(null);
     const setZip = (z: string | null) => setZipState(z);
     const setStorefrontSlug = (s: string | null) => setStorefrontSlugState(s);
 
@@ -255,6 +301,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       lockedStyleLabel,
       storefrontSlug,
       sourceDesignId,
+      supplierConflict,
+      clearSupplierConflict,
       setStorefrontSlug,
       addItem,
       replaceWithDesignItems,
@@ -265,7 +313,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       count,
       subtotal,
     };
-  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug, sourceDesignId]);
+  }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug, sourceDesignId, supplierConflict]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
 }

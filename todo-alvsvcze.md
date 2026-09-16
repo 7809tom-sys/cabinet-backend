@@ -2116,3 +2116,6 @@
 - [x] Route every eligible same-supplier cart through the configured WWEX sandbox live-rate quote path using its actual pallet plan
 - [x] Display the cart quote’s carrier, pallet size, contents weight, billed weight, freight class, and actionable eligibility errors
 - [x] Validate a real cart-based Madison sandbox quote and publish the shopping-cart test workflow
+- [x] Add a prominent cart warning that clearly identifies when products come from multiple suppliers and explains that one live quote requires one supplier
+- [x] Show a persistent loading spinner and status message while the cart calculates a live carrier freight quote
+- [x] Validate mixed-supplier, freight-loading, responsive cart, TypeScript, test, and production build behavior before publication

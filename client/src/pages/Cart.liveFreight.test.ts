@@ -3,6 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const cartSource = readFileSync(resolve(process.cwd(), "client/src/pages/Cart.tsx"), "utf8");
+const cartContextSource = readFileSync(resolve(process.cwd(), "client/src/contexts/CartContext.tsx"), "utf8");
 const builderSource = readFileSync(resolve(process.cwd(), "client/src/pages/OrderBuilder.tsx"), "utf8");
 const reviewSource = readFileSync(resolve(process.cwd(), "client/src/components/order/OrderReview.tsx"), "utf8");
 
@@ -25,5 +26,24 @@ describe("cart live freight quoting", () => {
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {
     expect(builderSource).toContain("cartDistributorId: cartLine.distributorId ?? null");
     expect(reviewSource).toContain("distributorId: line.cartDistributorId ?? null");
+  });
+
+  it("records a rejected cross-supplier add attempt and displays a prominent cart alert", () => {
+    expect(cartContextSource).toContain("setSupplierConflict({");
+    expect(cartContextSource).toContain("attemptedDistributorId: item.distributorId!");
+    expect(cartContextSource).toContain('SUPPLIER_CONFLICT_KEY = "cd_cart_supplier_conflict_v1"');
+    expect(cartContextSource).toContain("sessionStorage.setItem(SUPPLIER_CONFLICT_KEY");
+    expect(cartSource).toContain('role="alert"');
+    expect(cartSource).toContain("Different supplier item was not added");
+    expect(cartSource).toContain("Live freight and order submission require one supplier");
+    expect(cartSource).toContain("clearSupplierConflict");
+  });
+
+  it("shows an accessible spinner and status while the live carrier rate is calculated", () => {
+    expect(cartSource).toContain('aria-busy={cartFreightEstimate.isFetching}');
+    expect(cartSource).toContain('role="status" aria-live="polite"');
+    expect(cartSource).toContain("Calculating live carrier rate…");
+    expect(cartSource).toContain("This can take up to 30 seconds");
+    expect(cartSource).toContain("!cartFreightEstimate.isFetching && cartFreightEstimate.data");
   });
 });

@@ -27,7 +27,10 @@ export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
 export default function Cart() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
-  const { items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug, sourceDesignId } = useCart();
+  const {
+    items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug, sourceDesignId,
+    supplierConflict, clearSupplierConflict,
+  } = useCart();
   const currentAffiliateSlug = storefrontSlug
     ?? (typeof window !== "undefined"
       ? affiliateSlugFromPath(window.location.pathname) ?? affiliateSlugFromHostname(window.location.hostname)
@@ -258,6 +261,39 @@ export default function Cart() {
         </Button>
       </div>
 
+      {(supplierConflict || isMixedSupplier) && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="mb-6 flex flex-col gap-3 rounded-xl border-2 border-destructive bg-destructive/10 p-4 text-destructive sm:flex-row sm:items-start sm:justify-between"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+            <div>
+              <p className="font-semibold">
+                {isMixedSupplier ? "Multiple suppliers detected" : "Different supplier item was not added"}
+              </p>
+              <p className="mt-1 text-sm">
+                {isMixedSupplier
+                  ? `This cart contains cabinet items from ${supplierGroups.size} suppliers. Live freight and order submission require one supplier. Remove the other supplier items before continuing.`
+                  : `Your cart is locked to ${supplierConflict?.lockedStyleLabel || "the original supplier line"}. The ${supplierConflict?.attemptedStyleLabel || "different supplier"} item was blocked so you are not charged for a second shipment. Clear or finish this cart before choosing another supplier.`}
+              </p>
+            </div>
+          </div>
+          {supplierConflict && !isMixedSupplier && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="self-end text-destructive hover:text-destructive sm:self-start"
+              onClick={clearSupplierConflict}
+            >
+              Dismiss
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Items */}
         <div className="space-y-4">
@@ -482,7 +518,7 @@ export default function Cart() {
           <p className="mb-4 text-xs text-muted-foreground">
             {t("crt_shipping_note")}
           </p>
-          <div className="mb-4 rounded-lg border border-border bg-muted/25 p-3">
+          <div className="mb-4 rounded-lg border border-border bg-muted/25 p-3" aria-busy={cartFreightEstimate.isFetching}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Live shipping quote</p>
@@ -497,8 +533,17 @@ export default function Cart() {
                 {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get live quote</>}
               </Button>
             </div>
-            {cartFreightEstimate.error && <p className="mt-2 text-xs text-destructive">{cartFreightEstimate.error.message}</p>}
-            {cartFreightEstimate.data && (
+            {cartFreightEstimate.isFetching && (
+              <div role="status" aria-live="polite" className="mt-3 flex items-start gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-primary">
+                <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-semibold">Calculating live carrier rate…</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Sending this cart’s pallet dimensions, loaded weight, supplier origin, and delivery ZIP to the carrier. This can take up to 30 seconds.</p>
+                </div>
+              </div>
+            )}
+            {!cartFreightEstimate.isFetching && cartFreightEstimate.error && <p className="mt-2 text-xs text-destructive">{cartFreightEstimate.error.message}</p>}
+            {!cartFreightEstimate.isFetching && cartFreightEstimate.data && (
               cartFreightEstimate.data.available ? (
                 <div className="mt-3 space-y-2 text-xs">
                   <div className="flex justify-between gap-3 font-medium"><span>{cartFreightEstimate.data.zoneName ?? "Carrier quote"}</span><span>${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</span></div>
@@ -520,7 +565,7 @@ export default function Cart() {
             </div>
           )}
           {isMixedSupplier && (
-            <div className="mb-3 rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive">
+            <div role="alert" className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                 <div>
