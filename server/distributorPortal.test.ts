@@ -129,9 +129,11 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
     const filtered = await caller.distributorPortal.catalog({ search: frag, limit: 500, offset: 0 });
     // total reflects the filtered set (<= unfiltered) and every row matches
     expect(filtered.total).toBeLessThanOrEqual(all.total);
+    const normalizedFrag = frag.toLowerCase().replace(/[-_ ]/g, "");
     for (const it of filtered.items) {
-      const hay = `${it.masterCode} ${it.description ?? ""}`.toLowerCase();
-      expect(hay.includes(frag.toLowerCase())).toBe(true);
+      const hay = `${it.masterCode} ${it.description ?? ""} ${it.platformSku ?? ""} ${it.distributorSku ?? ""}`.toLowerCase();
+      const normalizedHay = hay.replace(/[-_ ]/g, "");
+      expect(normalizedHay.includes(normalizedFrag)).toBe(true);
     }
     expect(filtered.items.length).toBe(Math.min(filtered.total, 500));
   });

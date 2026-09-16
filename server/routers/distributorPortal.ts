@@ -13,6 +13,7 @@ import {
 } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { matchVendorCabinetBySku, hasVendorPrice } from "../vendorProductSubmission";
 
 /**
  * Resolve the supply line this request operates on.
@@ -158,6 +159,7 @@ export const distributorPortalRouter = router({
           styleName: doorStyles.ourName,
           platformSku: distributorSkus.platformSku,
           listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
@@ -338,13 +340,12 @@ export const distributorPortalRouter = router({
     .input(
       z.object({
         distributorId: z.number().optional(),
-        cabinetId: z.number(),
-        styleId: z.number(),
-        distributorSku: z.string().min(1).max(128),
+        /** Optional for backwards compatibility; new submissions resolve it from the vendor SKU. */
+        cabinetId: z.number().int().positive().optional(),
+        styleId: z.number().int().positive(),
+        distributorSku: z.string().trim().min(1).max(128),
         listPrice: z.string().max(16).optional(),
-        wholesalePrice: z.string().max(16).optional(),
-        contractorPrice: z.string().max(16).optional(),
-        homeownerPrice: z.string().max(16).optional(),
+        yourCost: z.string().max(16).optional(),
         supplierCabinetName: z.string().max(255).optional(),
       })
     )
@@ -353,13 +354,48 @@ export const distributorPortalRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
 
-      // Verify the cabinet exists
-      const cab = await db
-        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
-        .from(cabinets)
-        .where(eq(cabinets.id, input.cabinetId))
-        .limit(1);
-      if (!cab[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
+      // Cabinet ID is an internal platform identity. New vendor submissions do
+      // not require vendors to know it; resolve it from a unique master-code or
+      // alias match on the vendor SKU. An ambiguous or unknown code is rejected
+      // rather than attaching pricing to the wrong cabinet.
+      let resolvedCabinetId = input.cabinetId;
+      let resolvedMasterCode: string | null = null;
+      if (resolvedCabinetId != null) {
+        const cab = await db
+          .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+          .from(cabinets)
+          .where(eq(cabinets.id, resolvedCabinetId))
+          .limit(1);
+        if (!cab[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Cabinet not found." });
+        resolvedMasterCode = cab[0].masterCode;
+      } else {
+        const cabinetRows = await db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            sku: cabinets.sku,
+            vendorSku: cabinets.vendorSku,
+            altSku1: cabinets.altSku1,
+            altSku2: cabinets.altSku2,
+            altSku3: cabinets.altSku3,
+          })
+          .from(cabinets);
+        const match = matchVendorCabinetBySku(input.distributorSku, cabinetRows);
+        if (match.kind === "not_found") {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "The vendor SKU does not match a master cabinet code or catalog alias. Ask an administrator to map the item first.",
+          });
+        }
+        if (match.kind === "ambiguous") {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The vendor SKU matches more than one master cabinet. Ask an administrator to resolve the duplicate code first.",
+          });
+        }
+        resolvedCabinetId = match.cabinetId;
+        resolvedMasterCode = match.masterCode;
+      }
 
       // Verify the style belongs to this line
       const style = await db
@@ -377,7 +413,7 @@ export const distributorPortalRouter = router({
         .from(distributorSkus)
         .where(
           and(
-            eq(distributorSkus.cabinetId, input.cabinetId),
+            eq(distributorSkus.cabinetId, resolvedCabinetId!),
             eq(distributorSkus.distributorId, lineId),
             eq(distributorSkus.styleId, input.styleId),
           ),
@@ -390,19 +426,21 @@ export const distributorPortalRouter = router({
         });
       }
 
+      if (!hasVendorPrice(input.listPrice, input.yourCost)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a List Price or Your Cost." });
+      }
+
       // Generate platform SKU: masterCode-styleCode-distCode
-      const platformSku = `${cab[0].masterCode}-${input.distributorSku}-${lineId}`;
+      const platformSku = `${resolvedMasterCode}-${input.distributorSku}-${lineId}`;
 
       const result = await db.insert(distributorSkus).values({
-        cabinetId: input.cabinetId,
+        cabinetId: resolvedCabinetId!,
         distributorId: lineId,
         styleId: input.styleId,
         platformSku,
         distributorSku: input.distributorSku,
         listPrice: input.listPrice || null,
-        wholesalePrice: input.wholesalePrice || null,
-        contractorPrice: input.contractorPrice || null,
-        homeownerPrice: input.homeownerPrice || null,
+        yourCost: input.yourCost || null,
         supplierCabinetName: input.supplierCabinetName || null,
         status: "pending",
         isPublished: false,

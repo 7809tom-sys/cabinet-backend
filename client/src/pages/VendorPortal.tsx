@@ -882,13 +882,10 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
   const adminDistId = useAdminDistributorId();
   const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
   const [form, setForm] = useState({
-    cabinetId: "",
     styleId: "",
     distributorSku: "",
     listPrice: "",
-    wholesalePrice: "",
-    contractorPrice: "",
-    homeownerPrice: "",
+    yourCost: "",
     supplierCabinetName: "",
   });
 
@@ -908,15 +905,6 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="text-sm font-medium">Cabinet ID *</label>
-          <Input
-            type="number"
-            placeholder="Cabinet ID from master catalog"
-            value={form.cabinetId}
-            onChange={(e) => setForm({ ...form, cabinetId: e.target.value })}
-          />
-        </div>
-        <div>
           <label className="text-sm font-medium">Door Style *</label>
           <Select value={form.styleId} onValueChange={(v) => setForm({ ...form, styleId: v })}>
             <SelectTrigger><SelectValue placeholder="Select style" /></SelectTrigger>
@@ -934,6 +922,7 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
             value={form.distributorSku}
             onChange={(e) => setForm({ ...form, distributorSku: e.target.value })}
           />
+          <p className="mt-1 text-xs text-muted-foreground">Use the master catalog code or mapped alias. Cabinet ID is matched automatically.</p>
         </div>
         <div>
           <label className="text-sm font-medium">Supplier Cabinet Name</label>
@@ -944,7 +933,7 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div>
-          <label className="text-sm font-medium">List Price</label>
+          <label className="text-sm font-medium">List Price <span className="text-muted-foreground">(optional if Cost is entered)</span></label>
           <Input
             type="number" step="0.01" placeholder="0.00"
             value={form.listPrice}
@@ -952,46 +941,31 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
           />
         </div>
         <div>
-          <label className="text-sm font-medium">Wholesale Price</label>
+          <label className="text-sm font-medium">Your Cost <span className="text-muted-foreground">(optional if List Price is entered)</span></label>
           <Input
             type="number" step="0.01" placeholder="0.00"
-            value={form.wholesalePrice}
-            onChange={(e) => setForm({ ...form, wholesalePrice: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Contractor Price</label>
-          <Input
-            type="number" step="0.01" placeholder="0.00"
-            value={form.contractorPrice}
-            onChange={(e) => setForm({ ...form, contractorPrice: e.target.value })}
-          />
-        </div>
-        <div>
-          <label className="text-sm font-medium">Homeowner Price</label>
-          <Input
-            type="number" step="0.01" placeholder="0.00"
-            value={form.homeownerPrice}
-            onChange={(e) => setForm({ ...form, homeownerPrice: e.target.value })}
+            value={form.yourCost}
+            onChange={(e) => setForm({ ...form, yourCost: e.target.value })}
           />
         </div>
       </div>
       <div className="flex gap-3 pt-2">
         <Button
           onClick={() => {
-            if (!form.cabinetId || !form.styleId || !form.distributorSku) {
-              toast.error("Cabinet ID, Style, and SKU are required");
+            if (!form.styleId || !form.distributorSku) {
+              toast.error("Style and SKU are required");
+              return;
+            }
+            if (!form.listPrice && !form.yourCost) {
+              toast.error("Enter a List Price or Your Cost");
               return;
             }
             submit.mutate({
               ...(adminDistId ? { distributorId: adminDistId } : {}),
-              cabinetId: Number(form.cabinetId),
               styleId: Number(form.styleId),
               distributorSku: form.distributorSku,
               listPrice: form.listPrice || undefined,
-              wholesalePrice: form.wholesalePrice || undefined,
-              contractorPrice: form.contractorPrice || undefined,
-              homeownerPrice: form.homeownerPrice || undefined,
+              yourCost: form.yourCost || undefined,
               supplierCabinetName: form.supplierCabinetName || undefined,
             });
           }}

@@ -2092,3 +2092,6 @@
 - [x] Validate and publish the applicable attached CabinetDealz update, or report any clarification needed
 - [x] Add a visible Stripe Payment settings entry that reports secure configuration status without exposing secret keys
 - [x] Validate Stripe Payment settings navigation, redaction, checkout compatibility, responsive layout, and access controls before publication
+- [x] Remove the required vendor-facing Cabinet ID for new products while preserving system-generated identity, supplier SKU uniqueness, pricing, imports, and existing records
+- [x] Validate new-product creation, spreadsheet import, duplicate protection, existing records, pricing, and responsive vendor UI after the Cabinet ID change
+- [x] Make new vendor product pricing require only Cost or List Price, with no Cabinet ID field or requirement
