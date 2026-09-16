@@ -42,9 +42,11 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	    expect(source).toContain("needs a clear ${formatInches(width)} knee-space opening between base cabinets");
 	  });
 
-	  it("uses the enabled cabinet magnet for 3D moves so a small same-run overlap seats at an exact cabinet edge", () => {
-	    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
-	    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
+		  it("uses the enabled cabinet magnet for 3D moves so a small same-run overlap seats at an exact cabinet edge", () => {
+		    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
+		    expect(source).toContain("autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)");
+		    expect(source).toContain("!isLockedAngledCustomWall(room, requestedCabinet.wallId)");
+		    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
 	    expect(source).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
 	    expect(source).toContain("CABINET_CONFLICT_LOCK_IN");
 	    expect(source).toContain("window.setTimeout(() => applySmallGapFiller(automaticSmallGapFillerMode(opportunity), opportunity), 0)");

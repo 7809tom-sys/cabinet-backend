@@ -2152,6 +2152,8 @@ export const CABINET_SEAM_SNAP_IN = 1 / 16;
 export const CABINET_CONFLICT_LOCK_IN = 1;
 /** Floating-point dust only. Any real positive overlap remains invalid. */
 export const COLLISION_EPSILON_IN = 1e-9;
+/** Required cabinet setback on each adjoining peninsula leg at an inside turn. */
+export const PENINSULA_INSIDE_CORNER_CLEARANCE_IN = 11;
 
 export type CabinetCollisionDetail = {
   cabinet: PlacedCabinet;
@@ -2383,15 +2385,15 @@ export function firstCollisionFreePeninsulaPlacement(
   if (!run || width <= 0 || depth <= 0) return null;
   const floorSupported = ["base", "tall", "appliance"].includes(placement);
   const hasConnectedFarEnd = Boolean(room.peninsulaRuns?.some((candidate) => candidate.parentRunId === run.id));
-  const farInsideCornerClearance = floorSupported && hasConnectedFarEnd ? 12 : 0;
+  const farInsideCornerClearance = floorSupported && hasConnectedFarEnd ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
   const maximumOffset = Math.max(0, Number(run.length) - farInsideCornerClearance - width);
   const requestedMinimum = Number(bounds?.start);
   const requestedMaximum = Number(bounds?.end);
   // Every floor-supported peninsula segment begins with an installer clearance
   // at its joined inside corner. This applies independently to the straight
   // primary run and each connected continuation, so selecting the next wall
-  // still starts its first cabinet 12 inches after that wall's own corner.
-  const insideCornerClearance = floorSupported ? 12 : 0;
+  // still starts its first cabinet 11 inches after that wall's own corner.
+  const insideCornerClearance = floorSupported ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
   const minimumOffset = Math.max(
     insideCornerClearance,
     Number.isFinite(requestedMinimum) ? Math.max(0, requestedMinimum) : 0,
@@ -5982,13 +5984,13 @@ export function freeSegmentsOnWall(
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
   if (peninsulaRun && ["base", "tall", "appliance"].includes(layer)) {
-    blocked.push({ s: 0, e: Math.min(12, wallLen) });
+    blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
     // When another peninsula segment turns from this run's far endpoint, the
-    // parent and child each need their own 12-inch clear leg at that inside
+    // parent and child each need their own 11-inch clear leg at that inside
     // angle. A free terminal end is not reserved, so a 36-inch one-corner run
-    // can still accept one exact 24-inch cabinet from offset 12 through 36.
+    // still accepts a standard 24-inch cabinet with one inch remaining.
     if (room.peninsulaRuns?.some((candidate) => candidate.parentRunId === peninsulaRun.id)) {
-      blocked.push({ s: Math.max(0, wallLen - 12), e: wallLen });
+      blocked.push({ s: Math.max(0, wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN), e: wallLen });
     }
   }
 
@@ -6443,6 +6445,91 @@ export function wallPlacementAt(
   else if (side === "left") { x = 0; y = clampedAlong; }
   else { x = Math.max(0, room.width - depth); y = clampedAlong; }
   return { x, y, rotation };
+}
+
+export const CABINET_WALL_AUTO_SNAP_IN = STD.SNAP_THRESHOLD;
+
+/**
+ * Seats a cabinet whose back edge is within the magnetic threshold of a room,
+ * locked 45-degree, or peninsula wall. The result carries exact wall ownership
+ * and rotation and is returned only when the whole run span is clear.
+ */
+export function autoSnapCabinetToNearbyWall(
+  moving: PlacedCabinet,
+  room: RoomData,
+  others: PlacedCabinet[],
+  openings: WallOpening[],
+  maximumDistance = CABINET_WALL_AUTO_SNAP_IN,
+): PlacedCabinet | null {
+  if (moving.islandFace || maximumDistance < 0) return null;
+  if (!["base", "wall", "tall", "appliance"].includes(moving.placement)) return null;
+  const width = Math.max(0, Number(moving.width) || 0);
+  const depth = Math.max(0, Number(moving.depth) || 0);
+  if (width <= 0 || depth <= 0) return null;
+  const footprint = placedFootprint(moving);
+  const center = { x: moving.x + footprint.w / 2, y: moving.y + footprint.d / 2 };
+  const candidates: Array<{ side: WallSide; distance: number; alongCenter: number }> = [];
+
+  const addSegment = (
+    side: WallSide,
+    start: { x: number; y: number },
+    end: { x: number; y: number },
+  ) => {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= COLLISION_EPSILON_IN) return;
+    const tangent = { x: dx / length, y: dy / length };
+    const rawAlong = (center.x - start.x) * tangent.x + (center.y - start.y) * tangent.y;
+    const alongCenter = Math.max(0, Math.min(length, rawAlong));
+    const nearest = { x: start.x + tangent.x * alongCenter, y: start.y + tangent.y * alongCenter };
+    const centerlineDistance = Math.hypot(center.x - nearest.x, center.y - nearest.y);
+    const backEdgeDistance = Math.abs(centerlineDistance - depth / 2);
+    if (backEdgeDistance <= maximumDistance + COLLISION_EPSILON_IN) {
+      candidates.push({ side, distance: backEdgeDistance, alongCenter });
+    }
+  };
+
+  addSegment("top", { x: 0, y: 0 }, { x: cabinetWallRunLength("top", room), y: 0 });
+  addSegment("bottom", { x: 0, y: room.depth }, { x: cabinetWallRunLength("bottom", room), y: room.depth });
+  addSegment("left", { x: 0, y: 0 }, { x: 0, y: cabinetWallRunLength("left", room) });
+  addSegment("right", { x: room.width, y: 0 }, { x: room.width, y: cabinetWallRunLength("right", room) });
+
+  for (const wall of room.customWalls ?? []) {
+    if (!room.vertices || (wall.lockedAngle !== 45 && wall.lockedAngle !== -45)) continue;
+    const start = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
+    const end = room.vertices.find((vertex) => vertex.id === wall.endVertexId);
+    if (start && end) addSegment(wall.id as WallSide, start, end);
+  }
+  for (const run of room.peninsulaRuns ?? []) {
+    const endpoints = peninsulaRunEndpoints(run, room);
+    addSegment(run.id as WallSide, endpoints.start, endpoints.end);
+  }
+
+  for (const candidate of candidates.sort((left, right) => left.distance - right.distance)) {
+    const runStart = Math.round((candidate.alongCenter - width / 2) * 8) / 8;
+    const spot = wallPlacementAt(
+      runStart,
+      width,
+      depth,
+      candidate.side,
+      room,
+      peninsulaRunById(room, candidate.side)?.cabinetSide,
+    );
+    const snapped: PlacedCabinet = {
+      ...moving,
+      ...spot,
+      ...(spot.wallId
+        ? { wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide }
+        : { wallId: undefined, wallOffset: undefined, peninsulaSide: undefined }),
+    };
+    const start = wallRunOffset(snapped, candidate.side, room);
+    const clearSpan = freeSegmentsOnWall(candidate.side, room, others, openings, 0, 0, moving.placement, false, snapped)
+      .some((segment) => start >= segment.start - COLLISION_EPSILON_IN && start + width <= segment.start + segment.length + COLLISION_EPSILON_IN);
+    if (!clearSpan || cabinetPlacementCollisionDetail(snapped, others, room)) continue;
+    return snapped;
+  }
+  return null;
 }
 
 /** True when a custom wall has been explicitly locked to one of the v1 diagonals. */

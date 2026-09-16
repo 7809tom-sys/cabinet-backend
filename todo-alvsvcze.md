@@ -2050,6 +2050,8 @@
 - [x] Snap cabinets wholly to the selected right or left side of a 45-degree peninsula wall with the cabinet back flush and no wall penetration
 - [x] Align every peninsula cabinet back edge flush to its selected straight or 45-degree wall in both Plan and 3D
 - [x] Reserve 12 inches from both sides of every peninsula wall-angle intersection before placing cabinets on either adjoining segment
-- [x] Treat a 24-inch cabinet as the exact maximum nominal fit on a 36-inch segment after its 12-inch corner reserve, and recommend a smaller selected-line cabinet when true geometry cannot fit
+- [x] Treat a 24-inch cabinet as the exact maximum nominal fit on a 36-inch segment after its 12-inch corner reserve, and recommend a smaller selected-line cabinet when true geometry cannot fit (superseded by the later 11-inch rule below)
 - [x] Correct the reported physical peninsula cabinet back gap so the actual B-18/B-12 bodies touch their selected straight and 45-degree wall segments in both Plan and 3D
 - [x] Make B-12 door and drawer handle placement resolve from one shared rule so Plan and 3D show the same hardware layout
+- [x] Change peninsula inside-corner cabinet clearance from 12 inches to 11 inches on both adjoining segments and update exact-fit guidance
+- [x] Auto-snap cabinets placed within a small wall distance to the selected straight or 45-degree wall while preserving side, overlap, opening, and run ownership safeguards; verify the live Designer route renders after the update

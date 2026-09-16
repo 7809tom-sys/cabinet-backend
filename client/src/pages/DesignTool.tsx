@@ -96,7 +96,7 @@ import {
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
   isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
-  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation,
+	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -3266,7 +3266,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           startOffset: 0,
           turn: 45,
           direction: draft.endDirection,
-          length: Math.round(Math.max(12, draft.endLength) * 8) / 8,
+	          length: Math.round(Math.max(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, draft.endLength) * 8) / 8,
           height: run.height,
           cabinetSide: run.cabinetSide,
           countertopSeatingOverhang: run.countertopSeatingOverhang,
@@ -3275,8 +3275,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       : null;
     const angledMaximum = angledCandidate ? peninsulaRunMaxLength(angledCandidate, primaryRoom) : 0;
-    if (angledCandidate && angledMaximum < 12) {
-      toast.error("The selected 45° end does not have 12 inches of clear room. Shorten the straight run or choose no angled end.");
+	    if (angledCandidate && angledMaximum < PENINSULA_INSIDE_CORNER_CLEARANCE_IN) {
+	      toast.error(`The selected 45° end does not have ${PENINSULA_INSIDE_CORNER_CLEARANCE_IN} inches of clear room. Shorten the straight run or choose no angled end.`);
       return;
     }
     const angledRun = angledCandidate
@@ -6469,16 +6469,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
 		        : []);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
-      let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
-      const peers = workingPrev.filter((p) => p.uid !== uid);
-      if (isLockedAngledCustomWall(room, cabinet.wallId) || peninsulaRunById(room, cabinet.wallId)) {
-        const peninsula = peninsulaRunById(room, cabinet.wallId);
-        const wall = room.customWalls?.find((candidate) => candidate.id === cabinet.wallId);
-        if (peninsula || (wall && room.vertices)) {
+	      let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
+	      const peers = workingPrev.filter((p) => p.uid !== uid);
+	      const nearbyWallSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
+	        ? autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)
+	        : null;
+	      if (nearbyWallSnap) requestedCabinet = nearbyWallSnap;
+	      const requestedWallId = requestedCabinet.wallId ?? cabinet.wallId;
+	      if (!nearbyWallSnap && (isLockedAngledCustomWall(room, requestedWallId) || peninsulaRunById(room, requestedWallId))) {
+	        const peninsula = peninsulaRunById(room, requestedWallId);
+	        const wall = room.customWalls?.find((candidate) => candidate.id === requestedWallId);
+	        if (peninsula || (wall && room.vertices)) {
           const requestedAlong = peninsula
             ? peninsulaRunOffsetAtPoint(peninsula, room, { x: x + placedFootprint(cabinet).w / 2, y: y + placedFootprint(cabinet).d / 2 })
             : positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall!, room.vertices!);
-          const segments = freeSegmentsOnWall(cabinet.wallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+	          const segments = freeSegmentsOnWall(requestedWallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
           // Peninsula and connected-return runs use the same magnetic intent as
           // perimeter walls. With the magnet on, resolve the closest clear span;
           // with it off, retain the deliberate along-run position and let the
@@ -6487,18 +6492,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;
           const nextStart = shouldMagnetSnapToRun
             ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
-            : Math.max(0, Math.min(wallLength(cabinet.wallId as WallSide, room) - cabinet.width, desiredStart));
+	            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
           if (nextStart == null) {
             const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "45° wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
             setPlacementWarning(message);
             toast.error(message);
             return prev;
           }
-	          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, cabinet.wallId as WallSide, room, cabinet.peninsulaSide);
-          requestedCabinet = { ...cabinet, ...angledSpot, wallId: cabinet.wallId, wallOffset: nextStart };
-        }
-      }
-	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag && !peninsulaRunById(room, cabinet.wallId);
+	          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, requestedWallId as WallSide, room, cabinet.peninsulaSide);
+	          requestedCabinet = { ...cabinet, ...angledSpot, wallId: requestedWallId, wallOffset: nextStart };
+	        }
+	      }
+	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
+	        && !isLockedAngledCustomWall(room, requestedCabinet.wallId)
+	        && !peninsulaRunById(room, requestedCabinet.wallId);
 	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
       const alignedCabinet: PlacedCabinet = snappedPosition
         ? snapCabinetSeamOverlap(
@@ -6571,7 +6578,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      placedRef.current = nextPlaced;
 	      return nextPlaced;
 	    });
-	  }, [catalogFillers, setSinks, room, island, customPlacementMode, automaticSnapping]);
+	  }, [catalogFillers, setSinks, room, island, openings, customPlacementMode, automaticSnapping]);
 
 		  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
 		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
@@ -12174,7 +12181,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       </label>
                     </div>
                     {peninsulaWizardDraft.endTurn === 45 && <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end length (in)
-                      <Input type="number" min="12" step="0.125" value={peninsulaWizardDraft.endLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, endLength: Number(event.target.value) || 12 } : draft)} />
+	                      <Input type="number" min={PENINSULA_INSIDE_CORNER_CLEARANCE_IN} step="0.125" value={peninsulaWizardDraft.endLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, endLength: Number(event.target.value) || PENINSULA_INSIDE_CORNER_CLEARANCE_IN } : draft)} />
                     </label>}
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
 	                      <select value={peninsulaWizardDraft.cabinetSide} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
