@@ -414,6 +414,46 @@ describe("cabinet-supported peninsula runs", () => {
     expect(spot.y + footprint.d / 2).toBeCloseTo(expectedCenter.y, 6);
   });
 
+  it("keeps the nominal cabinet back edge exactly flush to straight and 45-degree peninsula wall lines on either selected side", () => {
+    const primary = { ...peninsulaRoom.peninsulaRuns![0], id: "flush-primary", length: 72 };
+    const child: PeninsulaRun = {
+      id: "flush-angle",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 60,
+      height: 34.5,
+      cabinetSide: "right",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, child] };
+    for (const run of [primary, child]) {
+      for (const side of ["left", "right"] as const) {
+        const spot = wallPlacementAt(12, 18, 24, run.id as any, room, side);
+        const footprint = placedFootprint({
+          uid: `${run.id}-${side}`,
+          cabinetId: 18,
+          masterCode: "B-18",
+          description: "Back-edge probe",
+          placement: "base",
+          ...spot,
+          width: 18,
+          depth: 24,
+          height: 34.5,
+        } as PlacedCabinet);
+        const geometry = peninsulaRunEndpoints(run, room);
+        const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
+        const leftNormal = { x: -Math.sin(geometry.radians), y: Math.cos(geometry.radians) };
+        const faceNormal = side === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
+        const center = { x: spot.x + footprint.w / 2, y: spot.y + footprint.d / 2 };
+        const backEdgeCenter = { x: center.x - faceNormal.x * 12, y: center.y - faceNormal.y * 12 };
+        const wallPoint = { x: geometry.start.x + tangent.x * 21, y: geometry.start.y + tangent.y * 21 };
+        expect(backEdgeCenter.x).toBeCloseTo(wallPoint.x, 6);
+        expect(backEdgeCenter.y).toBeCloseTo(wallPoint.y, 6);
+      }
+    }
+  });
+
   it("keeps an exact-width Wizard filler inside its measured peninsula void instead of searching another run location", () => {
     const run = peninsulaRoom.peninsulaRuns![0];
     const spot = firstCollisionFreePeninsulaPlacement(
@@ -428,7 +468,7 @@ describe("cabinet-supported peninsula runs", () => {
     expect(spot).toMatchObject({ wallId: run.id, wallOffset: 12 });
   });
 
-  it("keeps the first cabinet 12 inches from the inside corner on both primary and connected peninsula runs", () => {
+  it("keeps cabinets 12 inches from both legs of a peninsula angle intersection", () => {
     const primary = peninsulaRoom.peninsulaRuns![0];
     const child: PeninsulaRun = {
       id: "peninsula-next-wall",
@@ -450,11 +490,53 @@ describe("cabinet-supported peninsula runs", () => {
       wallOffset: 12,
     });
     expect(freeSegmentsOnWall(primary.id as any, room, [], [], 1, 0, "base")).toEqual([
-      { start: 12, length: primary.length - 12 },
+      { start: 12, length: primary.length - 24 },
     ]);
     expect(freeSegmentsOnWall(child.id as any, room, [], [], 1, 0, "base")).toEqual([
       { start: 12, length: child.length - 12 },
     ]);
+  });
+
+  it("fits one 24-inch cabinet exactly on a 36-inch one-corner segment but not between two reserved corners", () => {
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "peninsula-parent", length: 48 };
+    const oneCorner: PeninsulaRun = {
+      id: "peninsula-36-free-end",
+      parentRunId: parent.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "right",
+      length: 36,
+      height: 34.5,
+      cabinetSide: "right",
+    };
+    const oneCornerRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, oneCorner] };
+    expect(freeSegmentsOnWall(oneCorner.id as any, oneCornerRoom, [], [], 1, 0, "base")).toEqual([
+      { start: 12, length: 24 },
+    ]);
+    expect(firstCollisionFreePeninsulaPlacement(oneCorner.id as any, oneCornerRoom, [], 24, 24, "base")).toMatchObject({
+      wallId: oneCorner.id,
+      wallOffset: 12,
+    });
+
+    const turnAfter36: PeninsulaRun = {
+      id: "peninsula-after-36",
+      parentRunId: oneCorner.id,
+      startOffset: 0,
+      turn: 45,
+      direction: "left",
+      length: 48,
+      height: 34.5,
+      cabinetSide: "right",
+    };
+    const twoCornerRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, oneCorner, turnAfter36] };
+    expect(freeSegmentsOnWall(oneCorner.id as any, twoCornerRoom, [], [], 1, 0, "base")).toEqual([
+      { start: 12, length: 12 },
+    ]);
+    expect(firstCollisionFreePeninsulaPlacement(oneCorner.id as any, twoCornerRoom, [], 24, 24, "base")).toBeNull();
+    expect(firstCollisionFreePeninsulaPlacement(oneCorner.id as any, twoCornerRoom, [], 12, 24, "base")).toMatchObject({
+      wallId: oneCorner.id,
+      wallOffset: 12,
+    });
   });
 
   it("does not move a selected peninsula cabinet onto another connected segment when its selected run lacks 12-inch clearance", () => {

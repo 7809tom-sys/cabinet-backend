@@ -2048,3 +2048,6 @@
 - [x] Keep the first cabinet on every peninsula run at least 12 inches from that run's inside connected corner
 - [x] Inspect and correct the exact refreshed saved-plan B-18 record that still renders as a diamond on the wrong connected peninsula segment
 - [x] Snap cabinets wholly to the selected right or left side of a 45-degree peninsula wall with the cabinet back flush and no wall penetration
+- [x] Align every peninsula cabinet back edge flush to its selected straight or 45-degree wall in both Plan and 3D
+- [x] Reserve 12 inches from both sides of every peninsula wall-angle intersection before placing cabinets on either adjoining segment
+- [x] Treat a 24-inch cabinet as the exact maximum nominal fit on a 36-inch segment after its 12-inch corner reserve, and recommend a smaller selected-line cabinet when true geometry cannot fit

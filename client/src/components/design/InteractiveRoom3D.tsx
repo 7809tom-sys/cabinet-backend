@@ -4732,10 +4732,10 @@ export function threeDLegacyWallAnchor(
  * cabinet/appliance back remains against the wall.
  */
 export function threeDRoomFacingRotation(
-	  cabinet: PlacedCabinet,
-	  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
-	  fallbackRotation = 0,
-) {
+		  cabinet: PlacedCabinet,
+		  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns">>) | null,
+		  fallbackRotation = 0,
+	) {
 	  if (cabinet.islandFace) {
 	    const islandFacing = {
 	      front: 0,
@@ -4745,10 +4745,15 @@ export function threeDRoomFacingRotation(
 	    } as const;
 	    return islandFacing[cabinet.islandFace];
 	  }
-	  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
-	  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
-	  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
-	  if (explicitAngle === 45 || explicitAngle === 315) return fallbackRotation;
+		  // A cabinet explicitly owned by a peninsula segment already carries the
+		  // selected wall side in its saved rotation. Never re-infer that facing from
+		  // the nearest perimeter wall: doing so turns its front away from the run and
+		  // makes the physical cabinet back appear detached from the peninsula wall.
+		  if (room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId)) return fallbackRotation;
+		  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
+		  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
+		  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
+		  if (explicitAngle === 45 || explicitAngle === 135 || explicitAngle === 225 || explicitAngle === 315) return fallbackRotation;
 	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
@@ -4820,7 +4825,7 @@ export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left"
 
 export function existingCabinetTransform(
   cabinet: PlacedCabinet,
-  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth">>) | null,
+  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns">>) | null,
 ) {
   // Placed coordinates are the top-left of the 2D rotation-aware footprint.
   // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
@@ -4860,11 +4865,14 @@ export function existingCabinetTransform(
   // their end-run cabinet is intended to sit on the closest wall. Keep explicit
   // Move In/Move Out adjustments intact, but seat legacy end runs flush so their
   // backs do not float inside the room.
+  const isPeninsulaCabinet = Boolean(room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId));
   const legacyWall = hasPlacedRoom
+    && !isPeninsulaCabinet
     && !cabinet.islandFace
     && cabinet.placement === "wall"
     ? cabinetWall(cabinet, room as RoomData)
     : hasPlacedRoom
+      && !isPeninsulaCabinet
       && !cabinet.islandFace
       && !cabinet.depthPositionAdjusted
       && cabinet.placement === "base"

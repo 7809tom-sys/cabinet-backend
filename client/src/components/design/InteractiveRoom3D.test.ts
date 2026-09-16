@@ -3097,6 +3097,33 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
+  it("keeps straight and 45-degree peninsula cabinet backs facing their exact selected run in 3D", () => {
+    const room = {
+      width: 144,
+      depth: 144,
+      ceilingHeight: 96,
+      peninsulaRuns: [
+        { id: "peninsula-primary", parentWall: "left", startOffset: 36, turn: 90, direction: "right", length: 48, height: 34.5, cabinetSide: "right" },
+        { id: "peninsula-angle", parentRunId: "peninsula-primary", startOffset: 0, turn: 45, direction: "right", length: 48, height: 34.5, cabinetSide: "right" },
+      ],
+    } as never;
+    const straight = {
+      uid: "straight-b18", cabinetId: 18, masterCode: "B-18", description: "Straight peninsula base", placement: "base",
+      x: 24, y: 36, width: 18, depth: 24, height: 34.5, rotation: 180, wallId: "peninsula-primary", wallOffset: 12, peninsulaSide: "right",
+    } as never;
+    const angled = {
+      uid: "angled-b18", cabinetId: 18, masterCode: "B-18", description: "Angled peninsula base", placement: "base",
+      x: 42, y: 54, width: 18, depth: 24, height: 34.5, rotation: 225, wallId: "peninsula-angle", wallOffset: 12, peninsulaSide: "right",
+    } as never;
+    expect(existingCabinetTransform(straight, room).rotation).toBeCloseTo(Math.PI, 12);
+    expect(existingCabinetTransform(angled, room).rotation).toBeCloseTo(Math.PI * 1.25, 12);
+    const nearPerimeter = {
+      uid: "near-perimeter-peninsula", cabinetId: 18, masterCode: "B-18", description: "Interior peninsula near perimeter", placement: "base",
+      x: 6, y: 24, width: 18, depth: 24, height: 34.5, rotation: 90, wallId: "peninsula-primary", wallOffset: 12, peninsulaSide: "left",
+    } as never;
+    expect(existingCabinetTransform(nearPerimeter, room)).toMatchObject({ x: 18, z: 33, rotation: Math.PI / 2 });
+  });
+
   it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
     expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never])).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: false, needs2DPlacement: true });
     expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never, { masterCode: "HOOD-30" } as never])).toEqual({ hasRange: true, hasRangeHood: true, hasOverRangeMicrowave: false, needs2DPlacement: false });
