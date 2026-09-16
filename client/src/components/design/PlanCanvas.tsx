@@ -13,7 +13,7 @@ import {
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-  wallDimensions, cabinetWallRunSegment, type DimensionSeg,
+	  wallDimensions, cabinetWallRunSegment, retainedWallSegmentForSplit, type DimensionSeg,
 	  type PonyWall, clampPonyWall,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -65,6 +65,30 @@ export function planCabinetHardwarePosition(cabinet: PlacedCabinet) {
   return hardwarePosition === "auto"
     ? (swing === "left" ? "right" : "left")
     : hardwarePosition;
+}
+
+function formatSixteenthInches(inches: number): string {
+  const measured = Math.max(0, Number.isFinite(inches) ? inches : 0);
+  const sixteenths = Math.round(measured * 16);
+  const whole = Math.floor(sixteenths / 16);
+  const remainder = sixteenths % 16;
+  const divisor = remainder === 0 ? 1 : remainder % 8 === 0 ? 2 : remainder % 4 === 0 ? 4 : remainder % 2 === 0 ? 8 : 16;
+  const numerator = remainder === 0 ? 0 : remainder / (16 / divisor);
+  const fraction = numerator > 0 ? `${numerator}/${divisor}` : "";
+  return `${whole || !fraction ? whole : ""}${whole && fraction ? " " : ""}${fraction}\"`;
+}
+
+/** Exact installed dimensions for either half of one purchased split filler. */
+export function splitFillerDimensionTooltip(cabinet: PlacedCabinet): string | null {
+  if (!cabinet.fillerPieceGroupId || cabinet.fillerPlacementMode !== "split") return null;
+  const pieceWidth = Math.max(0, Number(cabinet.width) || 0);
+  const storedTotal = Number(cabinet.fillerTotalWidth);
+  const totalWidth = Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : pieceWidth * 2;
+  const depth = Math.max(0, Number(cabinet.depth) || 0);
+  const height = Math.max(0, Number(cabinet.height) || 0);
+  if (pieceWidth <= 0 || totalWidth <= 0 || depth <= 0 || height <= 0) return null;
+  const adjoiningWidth = Math.max(0, totalWidth - pieceWidth);
+  return `Split filler gap: ${formatSixteenthInches(totalWidth)} total. This half: ${formatSixteenthInches(pieceWidth)} wide × ${formatSixteenthInches(depth)} deep × ${formatSixteenthInches(height)} high. Adjoining half: ${formatSixteenthInches(adjoiningWidth)} wide.`;
 }
 
 export function planCornerGeometry(cabinet: PlacedCabinet) {
@@ -450,6 +474,7 @@ export function PlanCanvas({
   const [drawRect, setDrawRect] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const compassDrag = useRef<{ side: WallSide; initialStartIn: number } | null>(null);
   const [compassPreviewStart, setCompassPreviewStart] = useState<number | null>(null);
+  const [compassPreviewVisible, setCompassPreviewVisible] = useState(false);
   const peninsulaPull = useRef<{ startX: number; startY: number; radians: number; maxLength: number } | null>(null);
   const peninsulaAttachmentDrag = useRef<{ run: PeninsulaRun } | null>(null);
   // Gap intelligence: which gap label was clicked (shows fill suggestions).
@@ -624,6 +649,7 @@ export function PlanCanvas({
     const initialStartIn = compassPositionFromPointer(event, side);
     compassDrag.current = { side, initialStartIn };
     setCompassPreviewStart(initialStartIn);
+    setCompassPreviewVisible(true);
     try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
   };
 
@@ -642,6 +668,7 @@ export function PlanCanvas({
     try { (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId); } catch { /* ignore */ }
     const startIn = compassPositionFromPointer(event, drag.side);
     setCompassPreviewStart(null);
+    setCompassPreviewVisible(false);
     const movement = startIn - drag.initialStartIn;
     // A press without meaningful travel only keeps the wall selected. A moved
     // handle establishes a real peninsula split point; angle and pull length
@@ -660,6 +687,7 @@ export function PlanCanvas({
     event.stopPropagation();
     compassDrag.current = null;
     setCompassPreviewStart(null);
+    setCompassPreviewVisible(false);
   };
 
   const onPeninsulaPullDown = (event: React.PointerEvent, draft: PeninsulaRun) => {
@@ -1238,6 +1266,8 @@ export function PlanCanvas({
           const compassStart = compassStartForWall(side);
           const band = 14;
           const retainedWall = cabinetWallRunSegment(side, room);
+          const prospectiveRetainedWall = retainedWallSegmentForSplit(side, room, compassStart);
+          const showCompassRetainedPreview = isActive && compassPreviewVisible && !layoutLocked && Boolean(onWallCompassDrop);
           const visibleStart = retainedWall.start * ppi;
           const visibleLength = retainedWall.length * ppi;
           const wstyle: React.CSSProperties = horizontal
@@ -1267,6 +1297,31 @@ export function PlanCanvas({
               }}
               title={t("dt_pc_wall_target", { wall: wallLabel[side] })}
             >
+              {showCompassRetainedPreview && (
+                <div
+                  data-testid="compass-retained-wall-preview"
+                  data-retained-start={prospectiveRetainedWall.start}
+                  data-retained-length={prospectiveRetainedWall.length}
+                  className="pointer-events-none absolute z-10 flex items-center justify-center border-2 border-emerald-700 bg-emerald-300/70 text-[8px] font-bold text-emerald-950 shadow-sm"
+                  style={horizontal
+                    ? {
+                        left: (prospectiveRetainedWall.start - retainedWall.start) * ppi,
+                        width: prospectiveRetainedWall.length * ppi,
+                        height: band,
+                        top: 0,
+                      }
+                    : {
+                        top: (prospectiveRetainedWall.start - retainedWall.start) * ppi,
+                        height: prospectiveRetainedWall.length * ppi,
+                        width: band,
+                        left: 0,
+                        writingMode: "vertical-rl",
+                      }}
+                  aria-label={`Retained wall preview: ${formatEighthInches(prospectiveRetainedWall.length)}`}
+                >
+                  Retain {formatEighthInches(prospectiveRetainedWall.length)}
+                </div>
+              )}
               {isActive && (
                 <>
                   <span
@@ -1290,6 +1345,10 @@ export function PlanCanvas({
                       onPointerUp={onCompassPointerUp}
                       onPointerCancel={onCompassPointerCancel}
                       onLostPointerCapture={onCompassPointerCancel}
+                      onPointerEnter={() => setCompassPreviewVisible(true)}
+                      onPointerLeave={() => { if (!compassDrag.current) setCompassPreviewVisible(false); }}
+                      onFocus={() => setCompassPreviewVisible(true)}
+                      onBlur={() => { if (!compassDrag.current) setCompassPreviewVisible(false); }}
                     >
                       <Compass className="h-4 w-4" />
                       <span className="absolute bottom-1 text-[8px] font-bold leading-none">45°</span>
@@ -1669,6 +1728,7 @@ export function PlanCanvas({
             const lbl = readableLabel(faceFill);
             const collides = hasCollision(p, cabinets);
             const inConflict = conflictUids?.has(p.uid) ?? false;
+            const splitFillerTooltip = splitFillerDimensionTooltip(p);
             return (
               <div
                 key={p.uid}
@@ -1728,7 +1788,9 @@ export function PlanCanvas({
                   transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
                   transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
-                title={`${p.masterCode} — ${p.description}`}
+                title={splitFillerTooltip ?? `${p.masterCode} — ${p.description}`}
+                tabIndex={splitFillerTooltip ? 0 : undefined}
+                aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
@@ -1969,6 +2031,17 @@ export function PlanCanvas({
                 })()}
                 {/* Blind corners need a corner filler strip for door clearance — show
                     a hatched gap marker on the inside edge so the layout reads correctly. */}
+
+                {splitFillerTooltip && (
+                  <span
+                    id={`split-filler-tooltip-${p.uid}`}
+                    role="tooltip"
+                    data-testid="split-filler-dimension-tooltip"
+                    className="pointer-events-none absolute left-1/2 top-0 z-50 w-max max-w-64 -translate-x-1/2 -translate-y-[calc(100%+6px)] rounded bg-[#1a2744] px-2 py-1 text-[9px] font-semibold leading-4 text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
+                  >
+                    {splitFillerTooltip}
+                  </span>
+                )}
 
                 {/* Always-available rotate control on the selected cabinet — a
                     touch-friendly handle so customers can turn a cabinet without

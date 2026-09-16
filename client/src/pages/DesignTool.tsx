@@ -888,6 +888,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [activeWall, setActiveWall] = useState<WallSide>("top");
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
+  const [compassSplitUndo, setCompassSplitUndo] = useState<null | {
+    createdRunId: string;
+    activeWall: WallSide;
+    islandPlacementMode: boolean;
+    islandFace: IslandFace;
+    compassWallStartIn: number | null;
+  }>(null);
   const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);
   const [peninsulaWizardDraft, setPeninsulaWizardDraft] = useState<{
     parentWall: "top" | "bottom" | "left" | "right";
@@ -3222,12 +3229,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       direction: "right",
       label: "Peninsula · straight",
     };
+    setCompassSplitUndo({
+      createdRunId: run.id,
+      activeWall,
+      islandPlacementMode,
+      islandFace,
+      compassWallStartIn,
+    });
     setRoom((current) => ({ ...current, peninsulaRuns: [...(current.peninsulaRuns ?? []), run] }));
     setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaDraft(null);
-    toast.success(`New straight peninsula created at ${run.height}\" high and ${run.length}\" long. Use its free-end Compass to add an optional 45° continuation.`);
-  }, [layoutLocked, peninsulaDraft]);
+    toast.success(`New straight peninsula created at ${run.height}" high and ${run.length}" long. Use its free-end Compass to add an optional 45° continuation.`);
+  }, [activeWall, compassWallStartIn, islandFace, islandPlacementMode, layoutLocked, peninsulaDraft]);
+  const undoCompassWallSplit = useCallback(() => {
+    if (!compassSplitUndo) return;
+    const removed = removePeninsulaRun(room, placedRef.current, compassSplitUndo.createdRunId);
+    const removedCabinetUids = new Set(removed.removedCabinetUids);
+    placedRef.current = removed.placed;
+    setRoom(removed.room);
+    setPlaced(removed.placed);
+    setSinks((current) => current.filter((sink) => !sink.cabinetUid || !removedCabinetUids.has(sink.cabinetUid)));
+    setSelectedUid((current) => current && removedCabinetUids.has(current) ? null : current);
+    setActiveWall(compassSplitUndo.activeWall);
+    setCompassWallStartIn(compassSplitUndo.compassWallStartIn);
+    setPeninsulaDraft(null);
+    setPlacementTarget(compassSplitUndo.islandPlacementMode ? "island" : "wall", compassSplitUndo.islandPlacementMode ? compassSplitUndo.islandFace : undefined);
+    setCompassSplitUndo(null);
+    toast.success(
+      removed.removedCabinetUids.length > 0
+        ? `Compass wall split undone. Removed ${removed.removedCabinetUids.length} attached cabinet${removed.removedCabinetUids.length === 1 ? "" : "s"}; unrelated work was kept.`
+        : "Compass wall split undone. The previous wall was restored.",
+    );
+  }, [compassSplitUndo, room, setPlacementTarget]);
   const buildPeninsulaWizardLayout = useCallback(() => {
     const draft = peninsulaWizardDraft;
     if (!draft || layoutLocked) return;
@@ -8685,6 +8719,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setActiveWall("top");
     setCompassWallStartIn(null);
     setPeninsulaDraft(null);
+    setCompassSplitUndo(null);
     setWallSettingsOpen(false);
     setWallSettingsDraft(null);
     setPeninsulaDeletePrompt(null);
@@ -9880,14 +9915,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </div>
 
         {/* Desktop action cluster */}
-        <div className="hidden lg:flex items-center gap-1">
-          {/* Undo / Redo */}
+	        <div className="hidden lg:flex items-center gap-1">
+	          {/* Undo / Redo */}
           <Button variant="outline" size="icon" onClick={handleUndo} className="h-7 w-7" title={t("dt_sh_undo")}>
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
-          <Button variant="outline" size="icon" onClick={handleRedo} className="h-7 w-7" title={t("dt_sh_redo")}>
-            <Redo2 className="h-3.5 w-3.5" />
-          </Button>
+	          <Button variant="outline" size="icon" onClick={handleRedo} className="h-7 w-7" title={t("dt_sh_redo")}>
+	            <Redo2 className="h-3.5 w-3.5" />
+	          </Button>
+	          {compassSplitUndo && (
+	            <Button
+	              variant="outline"
+	              size="sm"
+	              data-testid="undo-compass-wall-split"
+	              onClick={undoCompassWallSplit}
+	              className="h-7 gap-1 border-[#d4a75a] px-2 text-[10px] font-bold text-[#1a2744]"
+	              title="Undo the most recent Compass wall split and restore the prior layout"
+	            >
+	              <Undo2 className="h-3.5 w-3.5" />
+	              Undo Compass
+	            </Button>
+	          )}
           <div className="h-5 w-px bg-border mx-0.5" />
 	          {/* Automatic snapping */}
 	          <Button
@@ -13211,6 +13259,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               label="Undo"
               onClick={handleUndo}
             />
+	            {compassSplitUndo && (
+	              <MobileBarButton
+	                icon={<Compass className="h-5 w-5" />}
+	                label="Undo Compass"
+	                onClick={undoCompassWallSplit}
+	              />
+	            )}
             <MobileBarButton
               icon={<Redo2 className="h-5 w-5" />}
               label="Redo"

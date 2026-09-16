@@ -4,13 +4,26 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
-	  it("makes Compass start a new attached 45-degree wall while preserving the longer parent-wall section", () => {
-	    expect(source).toContain('turn: 45');
-	    expect(source).toContain('label: `Peninsula end · 45° ${draft.endDirection}`');
-	    expect(source).toContain("add a 45° continuation from its free end after creation");
-	    expect(source).toContain("Compass keeps the longer wall section, opens the shorter section");
-	    expect(source).toContain("Primary peninsulas start straight from the selected wall");
-	  });
+		  it("makes Compass start a new attached 45-degree wall while preserving the longer parent-wall section", () => {
+		    expect(source).toContain('turn: 45');
+		    expect(source).toContain('label: `Peninsula end · 45° ${draft.endDirection}`');
+		    expect(source).toContain("add a 45° continuation from its free end after creation");
+		    expect(source).toContain("Compass keeps the longer wall section, opens the shorter section");
+		    expect(source).toContain("Primary peninsulas start straight from the selected wall");
+		  });
+
+		  it("offers a dedicated one-action Compass undo that reverses only the created run and its attached cabinets and sinks", () => {
+		    expect(source).toContain("const [compassSplitUndo, setCompassSplitUndo]");
+		    expect(source).toContain("setCompassSplitUndo({");
+		    expect(source).toContain("createdRunId: run.id");
+		    expect(source).toContain("removePeninsulaRun(room, placedRef.current, compassSplitUndo.createdRunId)");
+		    expect(source).toContain("placedRef.current = removed.placed");
+		    expect(source).toContain("setRoom(removed.room)");
+		    expect(source).toContain("setPlaced(removed.placed)");
+		    expect(source).toContain("removedCabinetUids.has(sink.cabinetUid)");
+		    expect(source).toContain('data-testid="undo-compass-wall-split"');
+		    expect(source).toContain('label="Undo Compass"');
+		  });
 
 		  it("exposes vendor-available 12-to-24-inch glass-stacker bulk actions inside Placement controls", () => {
 	    expect(source).toContain("glassStackerBulkHeightOptions(");

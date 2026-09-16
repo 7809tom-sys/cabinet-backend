@@ -4076,6 +4076,16 @@ export function wallLength(side: WallSide, room: RoomData): number {
   return side === "top" || side === "bottom" ? room.width : room.depth;
 }
 
+/** Prospective longer-side wall segment shown before a Compass split commits. */
+export function retainedWallSegmentForSplit(side: WallSide, room: RoomData, splitIn: number): { start: number; length: number } {
+  const fullLength = side === "top" || side === "bottom" ? room.width : room.depth;
+  const split = Math.max(0, Math.min(fullLength, Number(splitIn) || 0));
+  const suffixLength = fullLength - split;
+  return split >= suffixLength
+    ? { start: 0, length: split }
+    : { start: split, length: suffixLength };
+}
+
 /**
  * The usable segment of a cardinal room wall for cabinet placement and plan
  * rendering. A primary peninsula opens the shorter side of its parent wall at
@@ -4094,11 +4104,7 @@ export function cabinetWallRunSegment(side: WallSide, room: RoomData): { start: 
     const bestRetained = Math.max(best, fullLength - best);
     return retained > bestRetained ? offset : best;
   });
-  const prefixLength = split;
-  const suffixLength = fullLength - split;
-  return prefixLength >= suffixLength
-    ? { start: 0, length: prefixLength }
-    : { start: split, length: suffixLength };
+  return retainedWallSegmentForSplit(side, room, split);
 }
 
 export function cabinetWallRunLength(side: WallSide, room: RoomData): number {

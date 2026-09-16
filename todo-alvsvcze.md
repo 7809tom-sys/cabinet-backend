@@ -2062,3 +2062,6 @@
 - [x] Restore the filler decision popup after placing B-18 on a peninsula when a valid selected-line filler gap remains, without filling the protected 11-inch inside corner
 - [x] When a fillable peninsula gap is bounded by two cabinets, split the installed filler evenly so half belongs at each adjoining cabinet edge while retaining one catalog-priced filler group
 - [x] When Compass splits a wall, preserve the longer original wall section and remove the shorter section so the kitchen perimeter remains buildable
+- [x] Show exact installed dimensions for each half of a split peninsula filler in an accessible hover and keyboard-focus tooltip
+- [x] Add a dedicated Undo Compass Split action that restores the immediately previous parent-wall and peninsula state after an accidental split
+- [x] Preview and highlight the exact longer wall section that will be retained while the Compass is hovered or dragged before committing a split

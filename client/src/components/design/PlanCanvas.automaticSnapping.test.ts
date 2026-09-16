@@ -62,4 +62,20 @@ describe("PlanCanvas automatic replacement placement", () => {
 	    expect(source).toContain("const retainedWall = cabinetWallRunSegment(side, room)");
 	    expect(source).toContain("const visibleLength = retainedWall.length * ppi");
 	  });
+
+	  it("previews the exact wall section that will remain before the Compass split commits", () => {
+	    expect(source).toContain("retainedWallSegmentForSplit(side, room, compassStart)");
+	    expect(source).toContain('data-testid="compass-retained-wall-preview"');
+	    expect(source).toContain("data-retained-length={prospectiveRetainedWall.length}");
+	    expect(source).toContain("Retain {formatEighthInches(prospectiveRetainedWall.length)}");
+	    expect(source).toContain("onFocus={() => setCompassPreviewVisible(true)}");
+	  });
+
+	  it("shows exact installed dimensions for each split filler half on hover and keyboard focus", () => {
+	    expect(source).toContain("splitFillerDimensionTooltip(p)");
+	    expect(source).toContain('data-testid="split-filler-dimension-tooltip"');
+	    expect(source).toContain("group-hover:opacity-100 group-focus:opacity-100");
+	    expect(source).toContain("This half:");
+	    expect(source).toContain("Adjoining half:");
+	  });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -122,6 +122,12 @@ describe("locked 45-degree cabinet wall placement", () => {
 });
 
 describe("parent-wall termination at a peninsula attachment", () => {
+  it("previews the exact longer wall section before a Compass split commits", () => {
+    expect(retainedWallSegmentForSplit("top", peninsulaRoom, 48)).toEqual({ start: 48, length: 96 });
+    expect(retainedWallSegmentForSplit("top", peninsulaRoom, 120)).toEqual({ start: 0, length: 120 });
+    expect(retainedWallSegmentForSplit("top", peninsulaRoom, 72)).toEqual({ start: 0, length: 72 });
+  });
+
   it("keeps the full room span for attachment editing and retains the longer wall section after the Compass split", () => {
     expect(wallLength("top", peninsulaRoom)).toBe(144);
     expect(cabinetWallRunSegment("top", peninsulaRoom)).toEqual({ start: 48, length: 96 });
