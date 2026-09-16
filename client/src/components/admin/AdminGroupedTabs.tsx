@@ -80,6 +80,7 @@ import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 import AdminStickyNotes from "@/components/admin/AdminStickyNotes";
 import GeminiImageProviderAdmin from "@/components/admin/GeminiImageProviderAdmin";
 import { ManualAiRenderQueueAdmin } from "@/components/admin/ManualAiRenderQueueAdmin";
+import StripePaymentSettingsAdmin from "@/components/admin/StripePaymentSettingsAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -166,6 +167,7 @@ const GROUPS = [
     label: "Settings",
     icon: Settings,
     tabs: [
+      { value: "stripe-payment", label: "Stripe Payment" },
       { value: "email-settings", label: "Email Settings" },
       { value: "banners", label: "Banner Management" },
       { value: "branding", label: "Site Branding" },
@@ -525,6 +527,7 @@ export default function AdminGroupedTabs() {
 
         {/* Settings */}
         <TabsContent value="banners" className="mt-6"><BannerAdmin /></TabsContent>
+        <TabsContent value="stripe-payment" className="mt-6"><StripePaymentSettingsAdmin /></TabsContent>
         <TabsContent value="email-settings" className="mt-6"><AdminTabHelp tab="email-settings" /><EmailSettingsAdmin /></TabsContent>
         <TabsContent value="branding" className="mt-6"><AdminTabHelp tab="branding" /><BrandingSettingsAdmin /></TabsContent>
         <TabsContent value="notifications" className="mt-6"><AdminTabHelp tab="notifications" /><NotificationSettingsAdmin /></TabsContent>

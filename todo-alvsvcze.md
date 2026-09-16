@@ -2090,3 +2090,5 @@
 - [x] Review attached CabinetDealz requirements and classify which are actionable for the current project
 - [x] Implement only the applicable attached requirements with focused regressions and no unrelated workflow changes
 - [x] Validate and publish the applicable attached CabinetDealz update, or report any clarification needed
+- [x] Add a visible Stripe Payment settings entry that reports secure configuration status without exposing secret keys
+- [x] Validate Stripe Payment settings navigation, redaction, checkout compatibility, responsive layout, and access controls before publication

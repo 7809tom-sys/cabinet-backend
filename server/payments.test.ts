@@ -48,6 +48,32 @@ describe("payments router", () => {
     await expect(caller.payments.adminGetSettings()).rejects.toThrow();
   });
 
+  it("Stripe status is admin-only and never returns credential values", async () => {
+    const admin = appRouter.createCaller(adminCtx());
+    const status = await admin.payments.adminGetStripeStatus();
+    expect(status).toHaveProperty("configured");
+    expect(status).toHaveProperty("secretKeyConfigured");
+    expect(status).toHaveProperty("publishableKeyConfigured");
+    expect(status).not.toHaveProperty("secretKey");
+    expect(status).not.toHaveProperty("publishableKey");
+    expect(status).not.toHaveProperty("webhookSecret");
+
+    const user = appRouter.createCaller(userCtx());
+    await expect(user.payments.adminGetStripeStatus()).rejects.toThrow();
+  });
+
+  it("Stripe Checkout keeps the configured hosted web parameters", () => {
+    const source = readFileSync(resolve(process.cwd(), "server/stripe.ts"), "utf8");
+    expect(source).toContain('ui_mode: "hosted_page"');
+    expect(source).toContain('billing_address_collection: "auto"');
+    expect(source).toContain('phone_number_collection: { enabled: false }');
+    expect(source).toContain('automatic_tax: { enabled: false }');
+    expect(source).toContain('allow_promotion_codes: false');
+    expect(source).toContain('integration_identifier: "hosted_web_0001"');
+    expect(source).toContain('origin_context: "web"');
+    expect(source).not.toContain('payment_method_collection: "always"');
+  });
+
   it("settings never expose the transaction key (only hasTransactionKey flag)", async () => {
     const db = await getDb();
     if (!db) return;

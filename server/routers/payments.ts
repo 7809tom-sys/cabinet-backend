@@ -6,6 +6,7 @@ import { getDb, getPlatformPricingSettings } from "../db";
 import { paymentSettings, payments, orderRequests } from "../../drizzle/schema";
 import { computeFeeStack } from "@shared/pricing";
 import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
+import { ENV } from "../_core/env";
 
 // Load the single payment_settings row (seeding an empty default row once).
 async function loadSettingsRow() {
@@ -42,6 +43,28 @@ export const paymentsRouter = router({
       // Only signal whether a transaction key is on file — never expose it.
       hasTransactionKey: Boolean(row.transactionKey),
       updatedAt: row.updatedAt,
+    };
+  }),
+
+  // ─── Admin: redacted Stripe status (credentials never leave the server) ──────
+  adminGetStripeStatus: adminProcedure.query(() => {
+    const secretKeyConfigured = Boolean(ENV.stripeSecretKey.trim());
+    const publishableKeyConfigured = Boolean(ENV.stripePublishableKey.trim());
+    const webhookSecretConfigured = Boolean(ENV.stripeWebhookSecret.trim());
+    const keyForMode = ENV.stripeSecretKey.trim() || ENV.stripePublishableKey.trim();
+    const environment = keyForMode.startsWith("sk_live_") || keyForMode.startsWith("pk_live_")
+      ? "production"
+      : keyForMode.startsWith("sk_test_") || keyForMode.startsWith("pk_test_")
+        ? "test"
+        : "unknown";
+
+    return {
+      configured: secretKeyConfigured && publishableKeyConfigured,
+      webhookConfigured: webhookSecretConfigured,
+      secretKeyConfigured,
+      publishableKeyConfigured,
+      environment,
+      checkoutMode: "Hosted Checkout" as const,
     };
   }),
 
