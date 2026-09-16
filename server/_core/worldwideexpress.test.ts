@@ -213,6 +213,12 @@ describe("worldwideexpressQuote", () => {
           primaryVendor: { preferredName: "Central Transport" },
           offeredProductList: [{
             offerPrice: 585.32,
+            shopRQShipment: {
+              timeInTransit: {
+                transitDays: 1,
+                estimatedDeliveryDate: "2026-09-18",
+              },
+            },
             chargeItemList: [
               { customerChargeCode: "FREIGHT", customerPrice: { value: 376.08 } },
               { customerChargeCode: "FSC", customerPrice: { value: 172.24 } },
@@ -221,7 +227,13 @@ describe("worldwideexpressQuote", () => {
           }],
         }],
       },
-    })).toEqual([{ amountCents: 58532, carrier: "Central Transport", service: undefined }]);
+    })).toEqual([{
+      amountCents: 58532,
+      carrier: "Central Transport",
+      service: undefined,
+      transitDays: 1,
+      estimatedDeliveryDate: "2026-09-18",
+    }]);
   });
 
   it("does not treat a partial charge line as a carrier offer when Speedship omits the full offerPrice", () => {

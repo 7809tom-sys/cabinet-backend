@@ -710,6 +710,8 @@ type LiveRateResult = {
   amountCents: number;
   carrier?: string;
   service?: string;
+  transitDays?: number;
+  estimatedDeliveryDate?: string;
   error?: string;
   retryAfterMs?: number;
 };
@@ -1220,7 +1222,7 @@ export const freightRouter = router({
           );
           const plan = buildPallets(resolvedGroup.packages, caps);
           totalBillableWeightLbs += plan.totalWeightLbs;
-          shipmentGroups.push({
+          const shipmentGroup: FreightShipmentGroup = {
             label: group.label,
             originZip: group.originZip,
             freightClass: liveFreightClass,
@@ -1236,7 +1238,8 @@ export const freightRouter = router({
               contentsWeightLbs: pallet.contentsWeightLbs,
               contentsCubicFt: pallet.contentsCubicFt,
             })),
-          });
+          };
+          shipmentGroups.push(shipmentGroup);
           const liveReq: LiveRateRequest = {
             fromZip: group.originZip,
             toZip: input.destinationZip,
@@ -1262,6 +1265,8 @@ export const freightRouter = router({
           const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
 
           if (live.ok) {
+            shipmentGroup.transitDays = live.transitDays;
+            shipmentGroup.estimatedDeliveryDate = live.estimatedDeliveryDate;
             rateGroups.push({
               key: group.key,
               label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
@@ -1270,6 +1275,8 @@ export const freightRouter = router({
               baseAmountCents: live.amountCents,
               carrier: carrierLabel,
               palletCount: plan.palletCount,
+              transitDays: live.transitDays,
+              estimatedDeliveryDate: live.estimatedDeliveryDate,
             });
           } else {
             failedGroups.push(`${group.label}: ${live.error ?? "carrier unavailable"}`);

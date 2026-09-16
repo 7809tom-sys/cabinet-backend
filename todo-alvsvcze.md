@@ -2119,3 +2119,6 @@
 - [x] Add a prominent cart warning that clearly identifies when products come from multiple suppliers and explains that one live quote requires one supplier
 - [x] Show a persistent loading spinner and status message while the cart calculates a live carrier freight quote
 - [x] Validate mixed-supplier, freight-loading, responsive cart, TypeScript, test, and production build behavior before publication
+- [x] Audit live carrier responses for authoritative transit or estimated-delivery data and define a safe normalized freight response field
+- [x] Display a clearly labeled estimated delivery timeframe beside each completed live freight quote without presenting it as guaranteed
+- [x] Validate carrier-provided, unavailable, accessible, responsive, TypeScript, test, and production build states before publication

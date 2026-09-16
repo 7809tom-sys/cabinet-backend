@@ -44,6 +44,10 @@ export interface LiveQuoteResult {
   amountCents: number; // lowest rate found, in cents
   carrier?: string;
   service?: string;
+  /** Carrier-reported transit time after shipment pickup. */
+  transitDays?: number;
+  /** Carrier-reported estimated arrival date in YYYY-MM-DD form, when supplied. */
+  estimatedDeliveryDate?: string;
   error?: string;
   /** Remaining provider throttle time, when a carrier explicitly rate-limits a quote request. */
   retryAfterMs?: number;
@@ -114,25 +118,50 @@ export async function easypostQuote(
     }
 
     const data = (await res.json()) as {
-      rates?: Array<{ rate?: string; carrier?: string; service?: string }>;
+      rates?: Array<{
+        rate?: string;
+        carrier?: string;
+        service?: string;
+        delivery_days?: number;
+        delivery_date?: string;
+      }>;
     };
     const rates = data.rates ?? [];
     if (!rates.length) {
       return { ok: false, amountCents: 0, error: "No carrier rates returned for this shipment" };
     }
 
-    let best: { cents: number; carrier?: string; service?: string } | null = null;
+    let best: {
+      cents: number;
+      carrier?: string;
+      service?: string;
+      transitDays?: number;
+      estimatedDeliveryDate?: string;
+    } | null = null;
     for (const r of rates) {
       const dollars = Number(r.rate);
       if (!Number.isFinite(dollars) || dollars <= 0) continue;
       const cents = Math.round(dollars * 100);
       if (!best || cents < best.cents) {
-        best = { cents, carrier: r.carrier, service: r.service };
+        best = {
+          cents,
+          carrier: r.carrier,
+          service: r.service,
+          transitDays: Number.isInteger(r.delivery_days) && (r.delivery_days ?? 0) > 0 ? r.delivery_days : undefined,
+          estimatedDeliveryDate: /^\d{4}-\d{2}-\d{2}$/.test(r.delivery_date ?? "") ? r.delivery_date : undefined,
+        };
       }
     }
     if (!best) return { ok: false, amountCents: 0, error: "No usable rate amounts returned" };
 
-    return { ok: true, amountCents: best.cents, carrier: best.carrier, service: best.service };
+    return {
+      ok: true,
+      amountCents: best.cents,
+      carrier: best.carrier,
+      service: best.service,
+      transitDays: best.transitDays,
+      estimatedDeliveryDate: best.estimatedDeliveryDate,
+    };
   } catch (err) {
     return {
       ok: false,

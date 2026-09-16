@@ -56,6 +56,8 @@ export interface FreightRateGroup {
   baseAmountCents: number;
   carrier?: string | null;
   palletCount?: number;
+  transitDays?: number;
+  estimatedDeliveryDate?: string;
 }
 
 /** Carrier-ready pallet data returned with a live freight quote for review. */
@@ -78,6 +80,10 @@ export interface FreightShipmentGroup {
   totalContentsWeightLbs: number;
   totalCubicFt: number;
   pallets: FreightPalletDetail[];
+  /** Carrier transit after pickup; warehouse processing time is separate. */
+  transitDays?: number;
+  /** Carrier-provided estimated arrival date for the quoted pickup date. */
+  estimatedDeliveryDate?: string;
 }
 
 export interface FreightQuote {

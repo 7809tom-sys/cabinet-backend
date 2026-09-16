@@ -38,6 +38,26 @@ function finiteMoney(value: unknown): number | null {
   return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
 }
 
+function finiteTransitDays(value: unknown): number | undefined {
+  const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isInteger(numeric) && numeric > 0 && numeric <= 365 ? numeric : undefined;
+}
+
+function isoDeliveryDate(value: unknown): string | undefined {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : undefined;
+}
+
+function speedshipTransit(record: JsonRecord): Pick<LiveQuoteResult, "transitDays" | "estimatedDeliveryDate"> {
+  const shipment = asRecord(record.shopRQShipment);
+  const timeInTransit = asRecord(shipment?.timeInTransit) ?? asRecord(record.timeInTransit);
+  return {
+    transitDays: finiteTransitDays(timeInTransit?.transitDays ?? shipment?.transitDays ?? record.transitDays),
+    estimatedDeliveryDate: isoDeliveryDate(
+      timeInTransit?.estimatedDeliveryDate ?? shipment?.estimatedDeliveryDate ?? record.estimatedDeliveryDate,
+    ),
+  };
+}
+
 function providerCacheKey(creds: WWEXCreds, tokenUrl: string): string {
   return `${creds.clientId}:${creds.environment}:${tokenUrl}`;
 }
@@ -205,8 +225,20 @@ export function buildSpeedshipShopFlowPayload(req: LiveQuoteRequest, date = new 
  * Speedship response objects differ by carrier/service. Collect documented
  * charge fields only, then choose the lowest usable carrier quote.
  */
-export function parseSpeedshipRates(payload: unknown): Array<{ amountCents: number; carrier?: string; service?: string }> {
-  const found: Array<{ amountCents: number; carrier?: string; service?: string }> = [];
+export function parseSpeedshipRates(payload: unknown): Array<{
+  amountCents: number;
+  carrier?: string;
+  service?: string;
+  transitDays?: number;
+  estimatedDeliveryDate?: string;
+}> {
+  const found: Array<{
+    amountCents: number;
+    carrier?: string;
+    service?: string;
+    transitDays?: number;
+    estimatedDeliveryDate?: string;
+  }> = [];
   const collectOfferRates = (value: unknown): boolean => {
     const record = asRecord(value);
     if (!record) return false;
@@ -230,7 +262,12 @@ export function parseSpeedshipRates(payload: unknown): Array<{ amountCents: numb
           const service = typeof productRecord.serviceName === "string" ? productRecord.serviceName
             : typeof productRecord.serviceType === "string" ? productRecord.serviceType
               : undefined;
-          found.push({ amountCents: Math.round(offerPrice * 100), carrier, service });
+          found.push({
+            amountCents: Math.round(offerPrice * 100),
+            carrier,
+            service,
+            ...speedshipTransit(productRecord),
+          });
         }
       }
       return true;
@@ -269,7 +306,7 @@ export function parseSpeedshipRates(payload: unknown): Array<{ amountCents: numb
         : typeof record.service === "string" ? record.service
           : typeof record.serviceType === "string" ? record.serviceType
             : undefined;
-      found.push({ amountCents: Math.round(amount * 100), carrier, service });
+      found.push({ amountCents: Math.round(amount * 100), carrier, service, ...speedshipTransit(record) });
     }
     Object.values(record).forEach(visit);
   };
@@ -399,6 +436,8 @@ export async function worldwideexpressQuote(
       amountCents: best.amountCents,
       carrier: best.carrier,
       service: best.service,
+      transitDays: best.transitDays,
+      estimatedDeliveryDate: best.estimatedDeliveryDate,
     };
   } catch (err) {
     if (err instanceof WorldwideExpressThrottleError) {

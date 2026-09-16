@@ -107,6 +107,7 @@ export async function freightquoteQuote(
       amountCents: Math.round((best.totalCharge ?? 0) * 100),
       carrier: best.carrier,
       service: best.service,
+      transitDays: Number.isInteger(best.transitDays) && (best.transitDays ?? 0) > 0 ? best.transitDays : undefined,
     };
   } catch (err) {
     return { ok: false, amountCents: 0, error: err instanceof Error ? err.message : "Freightquote request failed." };

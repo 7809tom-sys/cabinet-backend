@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
 import {
-  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Check, Loader2, Package,
+  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Check, Loader2, Package, CalendarClock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,19 @@ import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliat
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
+
+function formatCarrierDeliveryDate(value: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
+}
 
 export default function Cart() {
   const { t, lang } = useLanguage();
@@ -547,13 +560,30 @@ export default function Cart() {
               cartFreightEstimate.data.available ? (
                 <div className="mt-3 space-y-2 text-xs">
                   <div className="flex justify-between gap-3 font-medium"><span>{cartFreightEstimate.data.zoneName ?? "Carrier quote"}</span><span>${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</span></div>
-                  {cartFreightEstimate.data.shipmentGroups?.map((group) => (
-                    <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
-                      <div className="font-medium text-foreground">{group.label}</div>
-                      <div>{group.palletCount} pallet{group.palletCount === 1 ? "" : "s"} · Class {group.freightClass} · {group.totalContentsWeightLbs} lb contents · {group.totalWeightLbs} lb billed</div>
-                      {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
-                    </div>
-                  ))}
+                  {cartFreightEstimate.data.shipmentGroups?.map((group) => {
+                    const deliveryDate = group.estimatedDeliveryDate
+                      ? formatCarrierDeliveryDate(group.estimatedDeliveryDate)
+                      : null;
+                    return (
+                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
+                        <div className="font-medium text-foreground">{group.label}</div>
+                        <div>{group.palletCount} pallet{group.palletCount === 1 ? "" : "s"} · Class {group.freightClass} · {group.totalContentsWeightLbs} lb contents · {group.totalWeightLbs} lb billed</div>
+                        {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                        <div className="mt-2 flex items-start gap-2 rounded-md bg-primary/5 p-2 text-foreground">
+                          <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                          <div>
+                            <p className="font-semibold">
+                              Estimated carrier transit: {group.transitDays
+                                ? `${group.transitDays} transit day${group.transitDays === 1 ? "" : "s"} after pickup`
+                                : "Carrier confirmation required"}
+                            </p>
+                            {deliveryDate && <p>Quoted arrival date: {deliveryDate}</p>}
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">Carrier estimate only; not guaranteed. Warehouse processing and order preparation occur before pickup.</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : <p className="mt-2 text-xs text-amber-700">{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
             )}

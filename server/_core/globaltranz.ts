@@ -81,6 +81,7 @@ export async function globaltranzQuote(
       carrier: (r.carrier ?? r.carrierName) as string | undefined,
       totalCharge: Number(r.totalCharge ?? r.totalCharges ?? 0),
       service: (r.service ?? r.serviceLevel) as string | undefined,
+      transitDays: Number(r.transitDays ?? 0),
     }));
 
     if (rates.length === 0) return { ok: false, amountCents: 0, error: "No rates returned from GlobalTranz." };
@@ -91,6 +92,7 @@ export async function globaltranzQuote(
       amountCents: Math.round(best.totalCharge * 100),
       carrier: best.carrier,
       service: best.service,
+      transitDays: Number.isInteger(best.transitDays) && best.transitDays > 0 ? best.transitDays : undefined,
     };
   } catch (err) {
     return { ok: false, amountCents: 0, error: err instanceof Error ? err.message : "GlobalTranz request failed." };

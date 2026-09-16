@@ -9,6 +9,8 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain("const shipmentGroups: FreightShipmentGroup[] = []");
     expect(source).toContain("totalContentsWeightLbs: plan.totalContentsWeightLbs");
     expect(source).toContain("pallets: plan.pallets.map");
+    expect(source).toContain("shipmentGroup.transitDays = live.transitDays");
+    expect(source).toContain("shipmentGroup.estimatedDeliveryDate = live.estimatedDeliveryDate");
     expect(source).toContain("return attachFreightQuoteToken({ ...quote, shipmentGroups }, input)");
   });
 

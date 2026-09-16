@@ -46,4 +46,11 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("This can take up to 30 seconds");
     expect(cartSource).toContain("!cartFreightEstimate.isFetching && cartFreightEstimate.data");
   });
+
+  it("shows carrier transit time and a non-guaranteed delivery estimate after rating completes", () => {
+    expect(cartSource).toContain("Estimated carrier transit:");
+    expect(cartSource).toContain("Quoted arrival date:");
+    expect(cartSource).toContain("Carrier estimate only; not guaranteed.");
+    expect(cartSource).toContain("Warehouse processing and order preparation occur before pickup.");
+  });
 });
