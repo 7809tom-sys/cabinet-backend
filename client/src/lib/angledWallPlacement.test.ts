@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -930,6 +930,46 @@ describe("cabinet-supported peninsula runs", () => {
       expect.objectContaining({ peninsulaRunId: parent.id, linearInches: 36, rotation: 90 }),
       expect.objectContaining({ peninsulaRunId: child.id, linearInches: 30, rotation: 45 }),
     ]));
+  });
+
+  it("partitions the straight-to-45 countertop overlap along one shared miter seam and charges only the visible area", () => {
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "miter-parent", startOffset: 72, length: 48, cabinetSide: "right" as const };
+    const child = { id: "miter-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+    const parentSpot = wallPlacementAt(0, 48, 24, parent.id as any, room, "right");
+    const childSpot = wallPlacementAt(0, 36, 24, child.id as any, room, "right");
+    const parentCabinet = { ...peninsulaCabinet("miter-parent-cabinet", 0), ...parentSpot, width: 48, wallId: parent.id, wallOffset: 0, peninsulaSide: "right" as const };
+    const childCabinet = { ...peninsulaCabinet("miter-child-cabinet", 0), ...childSpot, width: 36, wallId: child.id, wallOffset: 0, peninsulaSide: "right" as const };
+    const surfaces = countertopSurfaces([parentCabinet, childCabinet], room);
+    const parentSurface = surfaces.find((surface) => surface.peninsulaRunId === parent.id)!;
+    const childSurface = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
+    expect(parentSurface.polygon).toBeDefined();
+    expect(childSurface.polygon).toBeDefined();
+    expect(parentSurface.areaInches).toBeLessThan(parent.length * parentSurface.depth);
+    expect(childSurface.areaInches).toBeLessThan(child.length * childSurface.depth);
+
+    const parentGeometry = peninsulaRunEndpoints(parent, room);
+    const childGeometry = peninsulaRunEndpoints(child, room);
+    const lineNormal = {
+      x: Math.cos(parentGeometry.radians) + Math.cos(childGeometry.radians),
+      y: Math.sin(parentGeometry.radians) + Math.sin(childGeometry.radians),
+    };
+    const magnitude = Math.hypot(lineNormal.x, lineNormal.y);
+    lineNormal.x /= magnitude;
+    lineNormal.y /= magnitude;
+    const seamPoints = (surface: typeof parentSurface) => countertopSurfacePlanPolygon(surface)
+      .filter((point) => Math.abs((point.x - parentGeometry.end.x) * lineNormal.x + (point.y - parentGeometry.end.y) * lineNormal.y) < 0.001)
+      .sort((a, b) => a.x - b.x || a.y - b.y);
+    const parentSeam = seamPoints(parentSurface);
+    const childSeam = seamPoints(childSurface);
+    expect(parentSeam).toHaveLength(2);
+    expect(childSeam).toHaveLength(2);
+    expect(parentSeam[0]).toEqual(expect.objectContaining({ x: expect.closeTo(childSeam[0]!.x, 5), y: expect.closeTo(childSeam[0]!.y, 5) }));
+    expect(parentSeam[1]).toEqual(expect.objectContaining({ x: expect.closeTo(childSeam[1]!.x, 5), y: expect.closeTo(childSeam[1]!.y, 5) }));
+
+    const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
+    const measurement = countertopArea([parentCabinet, childCabinet], null, null, room);
+    expect(measurement.squareFeet).toBe(Math.ceil((visibleArea / 144) * 10) / 10);
   });
 
   it("cuts the peninsula countertop around a stove without changing the connected 45-degree return", () => {

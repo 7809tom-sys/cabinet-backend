@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -81,6 +81,48 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(slabs.every((item) => item.userData.preservesRangeOpening)).toBe(true);
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-stove", exposedFarEnd: true });
+  });
+
+  it("extrudes a mitered slab polygon instead of the overlapping rectangular footprint", () => {
+    const geometry = threeDPeninsulaCountertopGeometry({
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 25.5,
+      kind: "base",
+      rotation: 45,
+      polygon: [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 30, y: 25.5 }, { x: 0, y: 25.5 }],
+    }, 36, 25.5);
+    expect(geometry.type).toBe("ExtrudeGeometry");
+    geometry.computeBoundingBox();
+    expect(geometry.boundingBox?.max.x).toBeCloseTo(18 / 12, 6);
+    expect(geometry.boundingBox?.min.x).toBeCloseTo(-18 / 12, 6);
+  });
+
+  it("renders the reported right-side straight-to-45 joint as two complementary miter meshes", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 144,
+      depth: 144,
+      ceilingHeight: 96,
+      peninsulaRuns: [
+        { id: "miter-parent-3d", parentWall: "top", startOffset: 72, turn: 90, direction: "right", length: 48, height: 34.5, cabinetSide: "right" },
+        { id: "miter-child-3d", parentRunId: "miter-parent-3d", startOffset: 0, turn: 45, direction: "left", length: 36, height: 34.5, cabinetSide: "right" },
+      ],
+    };
+    const placed = [
+      { uid: "miter-parent-base", cabinetId: 1, masterCode: "B-48", placement: "base", x: 0, y: 0, width: 48, depth: 24, height: 34.5, rotation: 270, wallId: "miter-parent-3d", wallOffset: 0, peninsulaSide: "right" } as PlacedCabinet,
+      { uid: "miter-child-base", cabinetId: 2, masterCode: "B-36", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 225, wallId: "miter-child-3d", wallOffset: 0, peninsulaSide: "right" } as PlacedCabinet,
+    ];
+    addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
+    const parentSlab = root.children.find((item) => item.userData.peninsulaRunId === "miter-parent-3d");
+    const childSlab = root.children.find((item) => item.userData.peninsulaRunId === "miter-child-3d");
+    expect(parentSlab?.geometry.type).toBe("ExtrudeGeometry");
+    expect(childSlab?.geometry.type).toBe("ExtrudeGeometry");
+    expect(parentSlab?.userData.miteredEnd).toBe(true);
+    expect(childSlab?.userData.miteredStart).toBe(true);
+    expect(parentSlab?.rotation.y).toBeCloseTo(Math.PI / 2, 6);
+    expect(childSlab?.rotation.y).toBeCloseTo(Math.PI * 3 / 4, 6);
   });
 });
 

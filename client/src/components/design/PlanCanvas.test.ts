@@ -167,6 +167,12 @@ describe("plan countertop material scopes", () => {
     expect(source).toContain('transform: s.planRotation ? `rotate(${s.planRotation}deg)` : undefined');
     expect(source).toContain('transformOrigin: "50% 50%"');
   });
+
+  it("clips connected peninsula slabs to the shared miter polygon instead of stacking rectangles", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain("clipPath: s.polygon");
+    expect(source).toContain("s.polygon.map((point)");
+  });
 });
 
 describe("island work-zone face selection", () => {

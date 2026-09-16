@@ -2126,3 +2126,7 @@
 - [x] Ensure countertop geometry never covers a stove or cooktop footprint and preserves the appliance opening after refresh
 - [x] Correct countertop outline generation so it follows the actual straight and 45-degree peninsula cabinet footprint without bridging invalid voids
 - [x] Validate sink ownership, appliance countertop exclusions, angled countertop continuity, Plan-to-3D parity, save/refresh, TypeScript, tests, and production build before publication
+- [x] Remove countertop overlap where a straight peninsula run joins a connected 45-degree run
+- [x] Align the adjoining countertop edges with one shared mitered corner in both Plan and 3D
+- [x] Preserve stove openings, sink seating, waterfall placement, countertop area takeoff, and save/refresh behavior after the joint correction
+- [x] Validate the exact reported angled corner, TypeScript, focused and broad Designer tests, production build, and live rendering before publication

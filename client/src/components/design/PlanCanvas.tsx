@@ -7,7 +7,7 @@ import {
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
   cabinetWall, wallSpanMeasure,
-  countertopSurfaces, countertopMaterial, type SinkFixture, SINK_PRESETS,
+	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
   wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
@@ -1372,7 +1372,7 @@ export function PlanCanvas({
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {
 	          const perimeterSurfaces = countertopSurfaces(cabinets, room, island).filter((surface) => surface.kind !== "island");
-	          const islandSurfaces: Array<{ x: number; y: number; width: number; depth: number; kind: "island"; rotation?: number }> = island
+	          const islandSurfaces: CountertopSurface[] = island
 	            ? islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const }))
 	            : [];
 	          const surfaces = [...perimeterSurfaces, ...islandSurfaces];
@@ -1401,6 +1401,9 @@ export function PlanCanvas({
                       opacity: 0.92,
                       transform: s.rotation ? `rotate(${s.rotation}deg)` : undefined,
                       transformOrigin: "50% 50%",
+                      clipPath: s.polygon
+                        ? `polygon(${s.polygon.map((point) => `${(point.x / s.width) * 100}% ${(point.y / s.depth) * 100}%`).join(", ")})`
+                        : undefined,
                     }}
                   />
                 );
