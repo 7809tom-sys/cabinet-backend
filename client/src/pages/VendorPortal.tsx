@@ -57,7 +57,7 @@ const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "catalog", label: "My Catalog", icon: Package },
   { id: "styles", label: "Door Styles", icon: Palette },
-  { id: "picks", label: "Design Tool Picks", icon: Star },
+  { id: "picks", label: "3D Designer Picks", icon: Star },
   { id: "promotions", label: "Promotions", icon: DollarSign },
   { id: "gallery", label: "Gallery", icon: ImageIcon },
   { id: "analytics", label: "Analytics", icon: BarChart3 },
@@ -329,7 +329,7 @@ function OverviewPage() {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold tracking-tight">{line.name}</h2>
-        <p className="text-muted-foreground">Manage your product line, pricing, and design tool presence.</p>
+        <p className="text-muted-foreground">Manage your product line, pricing, and 3D Designer presence.</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -398,7 +398,7 @@ function OverviewPage() {
             <span>{(line.warehouseZips as string[] | null)?.join(", ") || "—"}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Design Tool Picks</span>
+            <span className="text-muted-foreground">3D Designer Picks</span>
             <span>{(line.designToolPicks as number[] | null)?.length ?? 0} / {MAX_PICKS}</span>
           </div>
         </CardContent>
@@ -1049,9 +1049,9 @@ function DesignToolPicksPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-bold">Design Tool Picks</h2>
+        <h2 className="text-xl font-bold">3D Designer Picks</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Select up to {MAX_PICKS} products to feature in the kitchen design tool.
+          Select up to {MAX_PICKS} products to feature in the 3D Designer.
           These are your best items that customers will see when designing their kitchen.
         </p>
       </div>

@@ -92,7 +92,7 @@ export default function ContractorDashboard() {
             </a>
             <Link href="/design">
               <Button size="lg" variant="outline">
-                Try the design tool
+                Try the 3D Designer
               </Button>
             </Link>
           </div>

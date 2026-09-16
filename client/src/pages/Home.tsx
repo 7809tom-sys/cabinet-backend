@@ -165,7 +165,7 @@ function Hero() {
             { value: "Cabinets", label: "Full catalog, every door style" },
             { value: "Surfaces", label: "Quartz, tile, flooring & more" },
             { value: "Fixtures", label: "Sinks, faucets, showers, toilets" },
-            { value: "Design", label: "2D kitchen planner included" },
+            { value: "Design", label: "3D kitchen designer included" },
           ].map((stat) => (
             <div key={stat.label}>
               <div className="text-3xl md:text-4xl font-bold text-[var(--color-gold)]">{stat.value}</div>
@@ -288,7 +288,7 @@ function FeaturedStyles() {
             </EditableText>
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            <EditableText pageKey="home" field="featured_subtitle" defaultValue="Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 2D design tool." multiline>
+            <EditableText pageKey="home" field="featured_subtitle" defaultValue="Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 3D Designer." multiline>
               {(v) => <>{v}</>}
             </EditableText>
           </p>
@@ -337,7 +337,7 @@ function FeaturedStyles() {
                 </span>
                 <button
                   type="button"
-                  title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
+                  title="Open the 3D Designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/design?style=${first.id}`; }}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-all"
                 >
@@ -385,7 +385,7 @@ function FeaturedStyles() {
                 {/* Design with this button */}
                 <Link
                   href={`/design?style=${style.id}`}
-                  title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
+                  title="Open the 3D Designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
                   className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--color-navy)]/80 hover:bg-[var(--color-navy)] text-white text-[10px] font-semibold rounded-full px-2.5 py-1 flex items-center gap-1"
                 >
                   <ChevronRight className="h-3 w-3" /> Design
@@ -649,8 +649,8 @@ function AffiliatePromo() {
     },
     {
       icon: Palette,
-      title: "2D Design Tool Included",
-      description: "Your customers can design their kitchen right on your storefront with the built-in 2D planner. No extra software.",
+      title: "3D Designer Included",
+      description: "Your customers can build their kitchen in 3D right on your storefront. No extra software.",
     },
     {
       icon: FileSpreadsheet,

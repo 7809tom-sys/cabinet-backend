@@ -175,7 +175,7 @@ export default function KitchenDiscovery({ affiliateSlug }: KitchenDiscoveryProp
             <article className="border-t-2 border-primary pt-5">
               <PackageOpen className="h-5 w-5 text-primary" aria-hidden="true" />
               <h2 className="mt-3 font-serif text-2xl font-bold">2. Start with a package or layout</h2>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use a ready-to-customize kitchen package, or begin your own layout in the design tool.</p>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Use a ready-to-customize kitchen package, or begin your own layout in the 3D Designer.</p>
               <Link href={bundleHref} className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">View packages <ArrowRight className="h-4 w-4" /></Link>
             </article>
             <article className="border-t-2 border-primary pt-5">

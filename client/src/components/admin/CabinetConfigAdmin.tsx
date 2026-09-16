@@ -1586,7 +1586,7 @@ function EditModal({
               <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
                 {([
                   { field: "showInCatalog" as const, label: "Show in Catalog", desc: "Visible on the public storefront" },
-                  { field: "showInDesigner" as const, label: "Show in Designer", desc: "Available in the 2D design tool" },
+                  { field: "showInDesigner" as const, label: "Show in Designer", desc: "Available in the 3D Designer" },
                   { field: "showIn2020" as const, label: "Show in 2020", desc: "Exported to 2020 Design catalog" },
                   { field: "isActive" as const, label: "Active", desc: "Cabinet is active in the system" },
                 ] as const).map(({ field, label, desc }) => (

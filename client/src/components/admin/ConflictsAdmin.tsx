@@ -320,7 +320,7 @@ export default function ConflictsAdmin() {
         <div className="text-sm">
           <p className="font-medium">Conflicts / Needs Review</p>
           <p className="text-amber-800">
-            Products held here are hidden from the public catalog, storefront and the Design Tool
+            Products held here are hidden from the public catalog, storefront and the 3D Designer
             until reviewed. Prices are preserved. Edit a product to fix what caused the conflict, or
             clear it to put the product back live.
           </p>

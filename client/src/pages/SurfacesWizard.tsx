@@ -72,7 +72,7 @@ const STEPS: StepDef[] = [
     category: "Quartz Slabs (Countertops)",
     title: "Countertop",
     blurb:
-      "Select your quartz countertop. This becomes the default surface in the Design Tool, sized to sit on 34.5\" base cabinets for a standard 36\" finished height.",
+      "Select your quartz countertop. This becomes the default surface in the 3D Designer, sized to sit on 34.5\" base cabinets for a standard 36\" finished height.",
     needsArea: false,
   },
   {
@@ -262,7 +262,7 @@ export default function SurfacesWizard() {
     const sel = buildSelection();
     saveSurfaceSelection(sel); // keep the profile too
     requestSurfaceHandoff(sel); // one-time opt-in signal the Design Tool consumes
-    toast.success("Great — opening the Design Tool with your selections.");
+    toast.success("Great — opening the 3D Designer with your selections.");
     navigate("/design");
   };
 
@@ -346,7 +346,7 @@ export default function SurfacesWizard() {
           <p className="mt-2 max-w-2xl text-sm text-white/70">
             Choose your flooring, backsplash, countertop, sink and faucet in order. We'll size the
             boxes you need and can render a photoreal preview from the real product photos before you
-            open the Design Tool.
+            open the 3D Designer.
           </p>
         </div>
       </div>
@@ -450,7 +450,7 @@ export default function SurfacesWizard() {
             <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--color-gold)]/40 bg-[var(--color-gold)]/10 px-4 py-3 text-sm">
               <span className="text-muted-foreground">
                 Saving keeps your picks on this device. Sign in to keep them across devices and load
-                them into the Design Tool anytime.
+                them into the 3D Designer anytime.
               </span>
               <a href={getLoginUrl()}>
                 <Button variant="outline" size="sm" className="gap-2">
@@ -611,7 +611,7 @@ function PreviewStep({
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Generate a photoreal render of your kitchen built from the actual product photos you
           selected. Nothing moves automatically — when you're ready, save your selections or take
-          them into the Design Tool yourself.
+          them into the 3D Designer yourself.
         </p>
       </div>
 
@@ -676,7 +676,7 @@ function PreviewStep({
 
       {/* Material mapping note */}
       <div className="mt-5 rounded-lg border border-border bg-card p-4 text-xs text-muted-foreground">
-        We'll pre-select the closest matching materials in the Design Tool:
+        We'll pre-select the closest matching materials in the 3D Designer:
         <ul className="mt-2 space-y-1">
           {picks.flooring && (
             <li>

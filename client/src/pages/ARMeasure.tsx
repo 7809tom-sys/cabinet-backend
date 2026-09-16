@@ -113,7 +113,7 @@ export function WebXRMeasure({ onExit, sessionToken }: { onExit: () => void; ses
   const [noteInputIdx, setNoteInputIdx] = useState<number | null>(null);
   const [noteInputValue, setNoteInputValue] = useState("");
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
-    onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
+    onSuccess: () => toast.success("Measurements sent to the 3D Designer!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
   });
   function sendToDesigner() {
@@ -664,7 +664,7 @@ function PhotoMeasure({ sessionToken }: { sessionToken?: string | null } = {}) {
   const [photoNoteInputOpen, setPhotoNoteInputOpen] = useState(false);
   const [photoNoteValue, setPhotoNoteValue] = useState("");
   const saveMeasurements = trpc.measureSessions.saveMeasurements.useMutation({
-    onSuccess: () => toast.success("Measurements sent to the Design Tool!"),
+    onSuccess: () => toast.success("Measurements sent to the 3D Designer!"),
     onError: (e) => toast.error(`Failed to send: ${e.message}`),
   });
   function sendToDesigner() {

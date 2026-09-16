@@ -6,7 +6,7 @@ import { usePwaInstall } from "@/hooks/usePwaInstall";
 const FEATURES = [
   {
     icon: <Smartphone className="h-7 w-7 text-[#d4a75a]" />,
-    title: "2D Kitchen Designer",
+    title: "3D Kitchen Designer",
     desc: "Plan your full kitchen layout on your phone. Place cabinets, appliances, windows, and doors — then send your design directly to our team.",
   },
   {
@@ -76,7 +76,7 @@ export default function MobileApp() {
               </h1>
               <p className="text-[#8a9bb8] text-lg leading-relaxed mb-8">
                 The CabinetDealz app puts the full power of our trade platform
-                in your pocket — 2D kitchen designer, AR tape measure, full
+                in your pocket — 3D kitchen designer, AR tape measure, full
                 catalog, and trade pricing all in one place. Install it directly
                 from this page in seconds.
               </p>

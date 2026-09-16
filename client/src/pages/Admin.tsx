@@ -556,7 +556,7 @@ export default function Admin() {
       <div className="container py-10">
         <h1 className="font-serif text-3xl font-bold mb-1">Sales Rep Workspace</h1>
         <p className="text-muted-foreground mb-8">
-          Work your pipeline in the CRM and build customer kitchens in the Design Tool. A flat $400
+          Work your pipeline in the CRM and build customer kitchens in the 3D Designer. A flat $400
           commission is recorded automatically each time a deal you own is marked Won.
         </p>
         <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "crm"}>
@@ -574,7 +574,7 @@ export default function Admin() {
         <div className="mt-8">
           <a href="/design">
             <Button className="bg-[var(--color-navy)] text-white gap-2">
-              <UserRound className="h-4 w-4" /> Open Design Tool
+              <UserRound className="h-4 w-4" /> Open 3D Designer
             </Button>
           </a>
         </div>

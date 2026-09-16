@@ -722,7 +722,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
             <div className="rounded-lg border border-blue-200 bg-blue-50/40 px-3 py-3 space-y-3">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-semibold text-blue-800">Elevation Renderer Images</span>
-                <span className="text-xs text-muted-foreground">— used in the 2D kitchen designer</span>
+                <span className="text-xs text-muted-foreground">— used in the 3D Designer and elevation renderer</span>
               </div>
               <ImageField
                 label="Door Sample Photo"

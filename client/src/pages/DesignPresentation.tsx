@@ -152,7 +152,7 @@ export default function DesignPresentation() {
           <p className="text-muted-foreground">No design found. Please create a design first.</p>
           <Button variant="outline" asChild>
             <Link href="/design">
-              <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Design Tool
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to 3D Designer
             </Link>
           </Button>
         </div>

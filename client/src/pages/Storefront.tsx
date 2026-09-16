@@ -572,7 +572,7 @@ function ClassicHeader({ data, brand, t, withRef, headlineFont, LangToggle, Logo
               </h1>
               <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed">
                 {data.aboutText ||
-                  `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                  `Shop a full cabinet catalog, choose your finish, design your kitchen in 3D with our Designer, and get a fast quote — all backed by ${data.storeName}.`}
               </p>
               <div className="flex flex-col sm:flex-row gap-3">
                 <a href="#shop">
@@ -645,7 +645,7 @@ function ShowcaseHero({ data, brand, t, withRef, headlineFont, heroImg, LangTogg
             </h1>
             <p className="text-lg md:text-xl text-white/85 mb-8 leading-relaxed max-w-xl">
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 3D with our Designer, and get a fast quote — all backed by ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">
@@ -698,7 +698,7 @@ function MinimalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggl
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground mb-8 leading-relaxed max-w-2xl">
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 3D with our Designer, and get a fast quote — all backed by ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">
@@ -769,7 +769,7 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
             </h1>
             <p className="text-lg md:text-xl mb-8 leading-relaxed max-w-2xl font-medium" style={{ color: brand.primary }}>
               {data.aboutText ||
-                `Shop a full cabinet catalog, choose your finish, design your kitchen in 2D, and get a fast quote — all backed by ${data.storeName}.`}
+                `Shop a full cabinet catalog, choose your finish, design your kitchen in 3D with our Designer, and get a fast quote — all backed by ${data.storeName}.`}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <a href="#shop">

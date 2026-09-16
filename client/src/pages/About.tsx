@@ -68,7 +68,7 @@ export default function About() {
               <Link href="/catalog">Browse Cabinets <ArrowRight className="ml-2 h-4 w-4" /></Link>
             </Button>
             <Button asChild variant="outline">
-              <Link href="/design">Open Design Tool</Link>
+              <Link href="/design">Open 3D Designer</Link>
             </Button>
           </div>
         </div>

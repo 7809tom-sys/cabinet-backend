@@ -14290,7 +14290,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ScanLine className="h-5 w-5 text-[#d4a75a]" /> Measure the real room</DialogTitle>
             <DialogDescription>
-              Open this protected link on a phone. Use the camera measurement tool to measure two walls, then choose <strong>Send to Design Tool</strong>. This plan will not change until you review and apply the readings here.
+              Open this protected link on a phone. Use the camera measurement tool to measure two walls, then choose <strong>Send to 3D Designer</strong>. This plan will not change until you review and apply the readings here.
             </DialogDescription>
           </DialogHeader>
           {phoneMeasureToken && (

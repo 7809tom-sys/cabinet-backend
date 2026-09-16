@@ -26,8 +26,8 @@ const PLATFORM_GUIDES = [
     href: "/manus-storage/01-getting-started_7112e75c.pdf",
   },
   {
-    title: "How to Use the 2D Kitchen Design Tool",
-    description: "Step-by-step guide to using the Cabinet Dealz design tool: placing cabinets, selecting door styles, generating quotes, and sharing designs with customers.",
+    title: "How to Use the 3D Kitchen Designer",
+    description: "Step-by-step guide to using the Cabinet Dealz 3D Designer: placing cabinets, selecting door styles, generating quotes, and sharing designs with customers.",
     icon: Ruler,
     badge: "Design Tool",
     badgeColor: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
@@ -223,7 +223,7 @@ const QUICK_START = [
   { step: 4, label: "Complete your payout setup", detail: "Submit your W-9, bank info, ID documents, and e-signature in Payout Setup to unlock commission payments." },
   { step: 5, label: "Share your storefront link", detail: "Copy your unique storefront URL from the Overview tab and share it on social media, your website, and with clients." },
   { step: 6, label: "Add your first lead to the CRM", detail: "Open My CRM and add any current prospects. Track them through the pipeline from first contact to closed sale." },
-  { step: 7, label: "Run the design tool with a client", detail: "Use the 2D Kitchen Designer to create a kitchen plan with a client. Save the design and add it to your CRM deal." },
+  { step: 7, label: "Run the design tool with a client", detail: "Use the 3D Kitchen Designer to create a kitchen plan with a client. Save the design and add it to your CRM deal." },
   { step: 8, label: "Set up a promo banner", detail: "In Customize Store → Promotions, activate a seasonal banner or holiday offer to drive urgency on your storefront." },
 ];
 

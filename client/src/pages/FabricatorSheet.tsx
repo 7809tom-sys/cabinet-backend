@@ -218,7 +218,7 @@ export default function FabricatorSheet() {
   if (!draft) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-muted-foreground">No design found. Open the Design Tool first.</p>
+        <p className="text-muted-foreground">No design found. Open the 3D Designer first.</p>
       </div>
     );
   }

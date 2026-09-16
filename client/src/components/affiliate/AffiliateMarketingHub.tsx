@@ -315,7 +315,7 @@ export default function AffiliateMarketingHub() {
             },
             {
               title: "Follow-Up Text (Day 3)",
-              text: `Hey [Name], just wanted to make sure you got my message! Here's my store link again: ${storefrontUrl}. We have a 2D design tool so you can plan your whole kitchen before you order. No pressure — just wanted you to have it.`,
+              text: `Hey [Name], just wanted to make sure you got my message! Here's my store link again: ${storefrontUrl}. We have a 3D Designer so you can plan your whole kitchen before you order. No pressure — just wanted you to have it.`,
             },
             {
               title: "Design Tool Invitation",

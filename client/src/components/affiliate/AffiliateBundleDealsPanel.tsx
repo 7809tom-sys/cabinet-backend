@@ -48,7 +48,7 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
           <PackageOpen className="h-12 w-12 mx-auto mb-3 opacity-20" />
           <h3 className="font-semibold text-foreground mb-1">No Kitchen Packages Yet</h3>
           <p className="text-sm max-w-sm mx-auto">
-            Open the Design Tool, create a kitchen layout, then use the More menu → "Save as Kitchen Package" to create your first package.
+            Open the 3D Designer, create a kitchen layout, then use the More menu → "Save as Kitchen Package" to create your first package.
           </p>
         </div>
       ) : (

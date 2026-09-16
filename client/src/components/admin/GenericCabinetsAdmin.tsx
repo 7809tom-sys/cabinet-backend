@@ -397,7 +397,7 @@ function EditDialog({
                   <div className="space-y-3">
                     {([
                       ["isActive", "Active", "Available for use"],
-                      ["showInDesigner", "Show in Designer", "Appears in 2D design tool"],
+                      ["showInDesigner", "Show in Designer", "Appears in the 3D Designer"],
                       ["showInCatalog", "Show in Catalog", "Appears in public catalog"],
                     ] as [keyof DraftState, string, string][]).map(([key, label, desc]) => (
                       <div key={key} className="flex items-center justify-between gap-3">

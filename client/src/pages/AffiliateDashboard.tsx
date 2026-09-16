@@ -69,7 +69,7 @@ function AffiliateLanding() {
               — Without the Overhead
             </h1>
             <p className="text-white/80 text-lg md:text-xl mt-6 leading-relaxed">
-              One annual membership gives you a fully branded storefront, the 2D kitchen design tool,
+              One annual membership gives you a fully branded storefront, the 3D Kitchen Designer,
               access to thousands of cabinets and surfaces at trade pricing, and we handle all the fulfillment.
               A single completed kitchen order typically returns more than the membership costs.
             </p>
@@ -118,8 +118,8 @@ function AffiliateLanding() {
             },
             {
               icon: PencilRuler,
-              title: "2D Kitchen Design Tool",
-              desc: "Lay out rooms, drop cabinets, price jobs instantly. Your customers design their dream kitchen right on your site.",
+              title: "3D Kitchen Designer",
+              desc: "Build rooms in 3D, place cabinets, and price jobs instantly. Your customers design their dream kitchen right on your site.",
             },
             {
               icon: Globe,
@@ -471,7 +471,7 @@ export default function AffiliateDashboard() {
               href={`${storeUrl.replace(/\/$/, "")}/design`}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90"
             >
-              Open Design Tool <ExternalLink className="h-4 w-4" />
+              Open 3D Designer <ExternalLink className="h-4 w-4" />
             </a>
           </div>
         );
@@ -837,7 +837,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
           </a>
           <a href="/design">
             <Button variant="outline" className="gap-2">
-              <PencilRuler className="h-4 w-4" /> Open Design Tool
+              <PencilRuler className="h-4 w-4" /> Open 3D Designer
             </Button>
           </a>
           <Button variant="outline" className="gap-2" onClick={() => {

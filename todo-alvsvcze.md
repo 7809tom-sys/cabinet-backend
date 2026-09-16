@@ -2067,3 +2067,23 @@
 - [x] Preview and highlight the exact longer wall section that will be retained while the Compass is hovered or dragged before committing a split
 - [x] Trace the current active Designer price through 2D, 3D, Materials & Parts, cart, save/restore, and checkout and identify any verified identity, tier, quantity, or stale-value mismatch
 - [x] Correct only the verified downstream pricing-path mismatch while preserving authoritative source catalog amounts and unrelated products
+- [x] Rename customer-visible CabinetDealz and affiliate-facing 2D Designer labels, metadata, and accessibility copy to 3D Designer without changing underlying Plan/Elevation/3D workflows
+- [x] Validate the 3D Designer naming update across public, affiliate, navigation, metadata, responsive, and in-Designer routes before publication
+
+- [x] Audit and repair the active Designer downstream price discrepancy across Designer, Materials & Parts, cart, and checkout using the exact locked adjusted price basis; no authoritative catalog amounts changed
+
+- [x] Revert the cancelled unpublished 9.5-inch peninsula request and preserve the published 11-inch inside-corner clearance
+
+- [x] Publish split-filler dimensions, retained-wall Compass preview, and scoped Compass split undo improvements
+
+- [x] Publish the verified three-segment peninsula Plan-to-3D cabinet parity correction
+
+- [x] Publish the verified even peninsula filler split and longer-wall Compass retention corrections
+
+- [x] Publish the verified B-18 peninsula filler-popup repair
+
+- [x] Publish the verified 11-inch peninsula clearance and cabinet auto-snap update
+
+- [x] Publish the verified saved-peninsula back seating and B-12 cross-view hardware consistency repair
+
+- [x] Publish the verified peninsula cabinet back-edge and bilateral 12-inch inside-corner clearance correction

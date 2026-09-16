@@ -251,7 +251,7 @@ function Step2DoorStyle({
       {selected && (
         <div className="space-y-2 max-w-sm">
           <Label className="text-sm font-medium">Door Sample Photo (optional)</Label>
-          <p className="text-xs text-muted-foreground">Upload a high-res door swatch. The design tool uses it to render cabinet finish colors accurately.</p>
+          <p className="text-xs text-muted-foreground">Upload a high-res door swatch. The 3D Designer uses it to render cabinet finish colors accurately.</p>
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
           {photoPreview ? (
             <div className="relative inline-block">

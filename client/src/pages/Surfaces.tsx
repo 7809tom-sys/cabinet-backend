@@ -61,7 +61,7 @@ export default function Surfaces() {
             </Link>
             <Link href="/design">
               <Button variant="outline" className="gap-2 border-white/25 bg-white/5 text-white hover:bg-white/10">
-                <PencilRuler className="h-4 w-4" /> Open the Design Tool
+                <PencilRuler className="h-4 w-4" /> Open 3D Designer
               </Button>
             </Link>
           </div>

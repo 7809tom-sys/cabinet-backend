@@ -515,7 +515,7 @@ export default function Family({ styleCode }: { styleCode: string }) {
             <div className="mt-5 flex flex-wrap gap-3">
               <Link
                 href={`/design?style=${styleId}`}
-                title="Open the 2D kitchen designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
+                title="Open the 3D Designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
                 className="inline-flex items-center gap-2 rounded-full bg-[var(--color-gold)] hover:bg-[var(--color-gold)]/90 text-[var(--color-navy)] font-semibold text-sm px-5 py-2.5 transition-all shadow-md hover:shadow-lg"
               >
                 <Pencil className="h-4 w-4" />

@@ -1560,7 +1560,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                   <div>
                     <Label className="text-sm font-semibold">Designer Drawing Rule</Label>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Choose the cabinet drawing profile used in the 2D designer. Use <strong>Base end angle cabinet</strong> for BEC/end cabinets; do not use a corner rule.
+                      Choose the cabinet drawing profile used in the 3D Designer and elevation views. Use <strong>Base end angle cabinet</strong> for BEC/end cabinets; do not use a corner rule.
                     </p>
                   </div>
                 </div>
