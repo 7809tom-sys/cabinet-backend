@@ -1,0 +1,1 @@
+ALTER TABLE `distributor_skus` MODIFY COLUMN `cabinetId` int;

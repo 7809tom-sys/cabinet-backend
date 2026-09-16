@@ -603,7 +603,8 @@ export type InsertCatalogImport = typeof catalogImports.$inferInsert;
 
 export const distributorSkus = mysqlTable("distributor_skus", {
   id: int("id").autoincrement().primaryKey(),
-  cabinetId: int("cabinetId").notNull(),
+  // Pending vendor submissions may not yet be mapped to a master cabinet.
+  cabinetId: int("cabinetId"),
   distributorId: int("distributorId").notNull(),
   styleId: int("styleId").notNull(),
   platformSku: varchar("platformSku", { length: 128 }).notNull().unique(), // DB24-SW-UCD

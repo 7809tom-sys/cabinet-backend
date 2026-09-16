@@ -719,6 +719,7 @@ export const designRouter = router({
       // Collapse to one priced row per cabinet (cheapest contractor price).
       const best = new Map<number, (typeof rows)[number]>();
       for (const r of rows) {
+        if (r.cabinetId == null) continue;
         const cur = best.get(r.cabinetId);
         if (!cur) { best.set(r.cabinetId, r); continue; }
         const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
@@ -1763,6 +1764,7 @@ export const designRouter = router({
           // Cheapest contractor price per cabinet (matches priceForCabinets).
           const best = new Map<number, number>();
           for (const r of skuRows) {
+            if (r.cabinetId == null) continue;
             const price = Number(r.contractorPrice ?? r.wholesalePrice ?? 0);
             if (!price) continue;
             const cur = best.get(r.cabinetId);
@@ -2372,6 +2374,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
               ),
             );
           for (const s of skuRows) {
+            if (s.cabinetId == null) continue;
             const code = skinCabIdToCode.get(s.cabinetId);
             if (code && !buyable.has(code)) {
               buyable.set(code, { wholesalePrice: s.wholesalePrice, homeownerPrice: s.homeownerPrice });

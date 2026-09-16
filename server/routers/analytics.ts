@@ -301,6 +301,9 @@ export const analyticsRouter = router({
           .where(eq(doorStyles.distributorId, distId)),
       ]);
 
-      return summarizeSavedPlanDemand(plans, skus, styles);
+      const linkedSkus: SavedPlanForecastSku[] = skus.flatMap((sku) =>
+        sku.cabinetId == null ? [] : [{ ...sku, cabinetId: sku.cabinetId }],
+      );
+      return summarizeSavedPlanDemand(plans, linkedSkus, styles);
     }),
 });

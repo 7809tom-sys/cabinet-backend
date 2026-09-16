@@ -60,6 +60,7 @@ export const skuAdminRouter = router({
     // Build coverage map: cabinetId -> Set of "distId:styleId" strings
     const coverageMap = new Map<number, Set<string>>();
     for (const sku of allSkus) {
+      if (sku.cabinetId == null) continue;
       if (!coverageMap.has(sku.cabinetId)) coverageMap.set(sku.cabinetId, new Set());
       coverageMap.get(sku.cabinetId)!.add(`${sku.distributorId}:${sku.styleId}`);
     }

@@ -210,7 +210,10 @@ export const distributorImportRouter = router({
       map.set(cabinetId, [...(map.get(cabinetId) ?? []), value]);
     };
     for (const row of aliasRows) add(aliasesByCabinet, row.cabinetId, row.alias);
-    for (const row of skuConnections) add(eligibleByCabinet, row.cabinetId, row.distributorCode);
+    for (const row of skuConnections) {
+      if (row.cabinetId == null) continue;
+      add(eligibleByCabinet, row.cabinetId, row.distributorCode);
+    }
     for (const row of manualConnections) add(eligibleByCabinet, row.cabinetId, row.distributorCode);
 
     const csv = buildDistributorRoundTripCsv(masterRows.map((row) => ({

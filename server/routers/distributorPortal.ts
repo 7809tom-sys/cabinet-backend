@@ -13,7 +13,7 @@ import {
 } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
-import { matchVendorCabinetBySku, hasVendorPrice } from "../vendorProductSubmission";
+import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
 
 /**
  * Resolve the supply line this request operates on.
@@ -141,17 +141,20 @@ export const distributorPortalRouter = router({
         const like = `%${q}%`;
         const normalizedCodeSearch = normalizeCode(q);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+        const normalizedDistributorSku = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.distributorSku}, '-', ''), ' ', ''), '_', ''))`;
         const normalizedPlatformSku = sql`UPPER(REPLACE(REPLACE(REPLACE(${distributorSkus.platformSku}, '-', ''), ' ', ''), '_', ''))`;
         conds.push(
-          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.platformSku} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`} OR ${normalizedPlatformSku} LIKE ${`%${normalizedCodeSearch}%`})`
+          sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like} OR ${distributorSkus.supplierCabinetName} LIKE ${like} OR ${distributorSkus.platformSku} LIKE ${like} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`} OR ${normalizedDistributorSku} LIKE ${`%${normalizedCodeSearch}%`} OR ${normalizedPlatformSku} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
 
       const base = db
         .select({
           skuId: distributorSkus.id,
-          cabinetId: cabinets.id,
+          cabinetId: distributorSkus.cabinetId,
           masterCode: cabinets.masterCode,
+          distributorSku: distributorSkus.distributorSku,
+          supplierCabinetName: distributorSkus.supplierCabinetName,
           description: cabinets.description,
           category: cabinets.category,
           subCategory: cabinets.subCategory,
@@ -170,7 +173,7 @@ export const distributorPortalRouter = router({
           status: distributorSkus.status,
         })
         .from(distributorSkus)
-        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
@@ -183,7 +186,7 @@ export const distributorPortalRouter = router({
       const [tot] = await db
         .select({ n: sql<number>`count(*)` })
         .from(distributorSkus)
-        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
         .where(and(...conds));
 
@@ -354,11 +357,11 @@ export const distributorPortalRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
 
-      // Cabinet ID is an internal platform identity. New vendor submissions do
-      // not require vendors to know it; resolve it from a unique master-code or
-      // alias match on the vendor SKU. An ambiguous or unknown code is rejected
-      // rather than attaching pricing to the wrong cabinet.
-      let resolvedCabinetId = input.cabinetId;
+      // Cabinet ID is an internal platform identity. A vendor does not need to
+      // know it, and a supplier SKU may be new to the master catalog. Resolve a
+      // unique match when one exists; otherwise keep the link null for admin
+      // review instead of blocking the pending submission or guessing.
+      let resolvedCabinetId: number | null = input.cabinetId ?? null;
       let resolvedMasterCode: string | null = null;
       if (resolvedCabinetId != null) {
         const cab = await db
@@ -381,20 +384,10 @@ export const distributorPortalRouter = router({
           })
           .from(cabinets);
         const match = matchVendorCabinetBySku(input.distributorSku, cabinetRows);
-        if (match.kind === "not_found") {
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "The vendor SKU does not match a master cabinet code or catalog alias. Ask an administrator to map the item first.",
-          });
+        if (match.kind === "matched") {
+          resolvedCabinetId = match.cabinetId;
+          resolvedMasterCode = match.masterCode;
         }
-        if (match.kind === "ambiguous") {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message: "The vendor SKU matches more than one master cabinet. Ask an administrator to resolve the duplicate code first.",
-          });
-        }
-        resolvedCabinetId = match.cabinetId;
-        resolvedMasterCode = match.masterCode;
       }
 
       // Verify the style belongs to this line
@@ -408,17 +401,28 @@ export const distributorPortalRouter = router({
       // A Designer Coverage gap means there is no published and available SKU;
       // it does not prove that no pending or unpublished connection exists. Do
       // not create a duplicate row when an administrator is reviewing a gap.
-      const existing = await db
-        .select({ id: distributorSkus.id })
-        .from(distributorSkus)
-        .where(
-          and(
-            eq(distributorSkus.cabinetId, resolvedCabinetId!),
-            eq(distributorSkus.distributorId, lineId),
-            eq(distributorSkus.styleId, input.styleId),
-          ),
-        )
-        .limit(1);
+      const existing = resolvedCabinetId != null
+        ? await db
+            .select({ id: distributorSkus.id })
+            .from(distributorSkus)
+            .where(
+              and(
+                eq(distributorSkus.cabinetId, resolvedCabinetId),
+                eq(distributorSkus.distributorId, lineId),
+                eq(distributorSkus.styleId, input.styleId),
+              ),
+            )
+            .limit(1)
+        : (await db
+            .select({ id: distributorSkus.id, distributorSku: distributorSkus.distributorSku })
+            .from(distributorSkus)
+            .where(
+              and(
+                eq(distributorSkus.distributorId, lineId),
+                eq(distributorSkus.styleId, input.styleId),
+              ),
+            ))
+            .filter((row) => normalizeCode(row.distributorSku) === normalizeCode(input.distributorSku));
       if (existing[0]) {
         throw new TRPCError({
           code: "CONFLICT",
@@ -430,11 +434,13 @@ export const distributorPortalRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a List Price or Your Cost." });
       }
 
-      // Generate platform SKU: masterCode-styleCode-distCode
-      const platformSku = `${resolvedMasterCode}-${input.distributorSku}-${lineId}`;
+      // Generate a stable platform identity even when no master cabinet exists.
+      const platformSku = resolvedMasterCode
+        ? `${resolvedMasterCode}-${input.distributorSku}-${lineId}`
+        : buildUnmatchedPlatformSku(lineId, input.styleId, input.distributorSku);
 
       const result = await db.insert(distributorSkus).values({
-        cabinetId: resolvedCabinetId!,
+        cabinetId: resolvedCabinetId,
         distributorId: lineId,
         styleId: input.styleId,
         platformSku,

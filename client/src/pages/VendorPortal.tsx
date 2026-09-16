@@ -597,10 +597,10 @@ function CatalogPage() {
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{item.masterCode}</TableCell>
-                  <TableCell className="max-w-[200px] truncate text-sm">{item.description}</TableCell>
+                  <TableCell className="font-mono text-xs">{item.masterCode ?? item.distributorSku ?? item.platformSku}</TableCell>
+                  <TableCell className="max-w-[200px] truncate text-sm">{item.description ?? item.supplierCabinetName ?? "Pending master-cabinet mapping"}</TableCell>
                   <TableCell><Badge variant="secondary" className="text-xs">{item.styleName}</Badge></TableCell>
-                  <TableCell className="text-xs">{item.category}</TableCell>
+                  <TableCell className="text-xs">{item.category ?? <span className="text-muted-foreground">Unmapped</span>}</TableCell>
                   <TableCell className="text-right">
                     <button
                       className="text-sm hover:underline cursor-pointer"
@@ -922,7 +922,7 @@ function NewProductForm({ onClose }: { onClose: () => void }) {
             value={form.distributorSku}
             onChange={(e) => setForm({ ...form, distributorSku: e.target.value })}
           />
-          <p className="mt-1 text-xs text-muted-foreground">Use the master catalog code or mapped alias. Cabinet ID is matched automatically.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Enter any supplier SKU. Master-cabinet matching is optional and can be completed during approval.</p>
         </div>
         <div>
           <label className="text-sm font-medium">Supplier Cabinet Name</label>

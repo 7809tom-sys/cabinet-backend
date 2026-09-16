@@ -4905,8 +4905,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { pairs: smartGapPricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: smartGapPricePairs.length > 0 && !!styleId },
   );
-  const smartGapCandidatePrices = useMemo(
+  const smartGapCandidatePrices = useMemo<Map<number, number>>(
     () => new Map((smartGapPriceRows ?? []).flatMap((row) => {
+      if (row.cabinetId == null) return [];
       const price = priceOf(row, tier);
       return price == null ? [] : [[row.cabinetId, price] as const];
     })),

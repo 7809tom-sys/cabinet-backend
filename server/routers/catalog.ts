@@ -1412,6 +1412,7 @@ export const cabinetsRouter = router({
       .where(inArray(distributorSkus.cabinetId, ids));
     const byCab = new Map<number, typeof skuRows>();
     for (const r of skuRows) {
+      if (r.cabinetId == null) continue;
       const arr = byCab.get(r.cabinetId) ?? [];
       arr.push(r);
       byCab.set(r.cabinetId, arr);
@@ -3797,6 +3798,7 @@ export const pricingRouter = router({
 
       const skusByCabinet = new Map<number, typeof skuRows>();
       for (const r of skuRows) {
+        if (r.cabinetId == null) continue;
         const list = skusByCabinet.get(r.cabinetId) ?? ([] as unknown as typeof skuRows);
         (list as unknown[]).push(r);
         skusByCabinet.set(r.cabinetId, list);
@@ -3844,6 +3846,12 @@ export const pricingRouter = router({
         .limit(1);
       const existing = existingRows[0];
       if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "SKU not found" });
+      if (existing.cabinetId == null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Map this pending supplier SKU to a master cabinet before editing its audited price ladder.",
+        });
+      }
 
       // Normalize a decimal db value to a canonical string for comparison.
       const norm = (v: string | null | undefined): string | null => {
@@ -4102,6 +4110,7 @@ export const pricingRouter = router({
         .orderBy(asc(distributorSkus.cabinetId), asc(doorStyles.ourName));
       const byCab = new Map<number, typeof skuRows>();
       for (const r of skuRows) {
+        if (r.cabinetId == null) continue;
         const list = byCab.get(r.cabinetId) ?? ([] as unknown as typeof skuRows);
         (list as unknown[]).push(r);
         byCab.set(r.cabinetId, list);

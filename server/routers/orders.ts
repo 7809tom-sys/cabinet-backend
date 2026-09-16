@@ -557,6 +557,7 @@ export const ordersRouter = router({
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
       const bestCost = new Map<number, number>();
       for (const r of rows) {
+        if (r.cabinetId == null) continue;
         const price = sellPriceForTier(r, ps, orderTier(input.tier));
         if (price !== null && Number.isFinite(price)) {
           const cur = best.get(r.cabinetId);
@@ -633,6 +634,7 @@ export const ordersRouter = router({
         { name: string; doorStyle: string | null; finish: string | null; color: string | null; covered: Set<number> }
       >();
       for (const r of rows) {
+        if (r.cabinetId == null) continue;
         const entry =
           byStyle.get(r.styleId) ??
           { name: r.name, doorStyle: r.doorStyle, finish: r.finish, color: r.color, covered: new Set<number>() };
@@ -1073,6 +1075,7 @@ export const ordersRouter = router({
             )
           );
         for (const r of skuRows) {
+          if (r.cabinetId == null) continue;
           const key: SkuKey = `${r.cabinetId}-${r.styleId}`;
           if (!skuMap.has(key)) {
             skuMap.set(key, {

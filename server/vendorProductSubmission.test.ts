@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasVendorPrice, matchVendorCabinetBySku } from "./vendorProductSubmission";
+import { buildUnmatchedPlatformSku, hasVendorPrice, matchVendorCabinetBySku } from "./vendorProductSubmission";
 
 describe("vendor product submission rules", () => {
   const rows = [
@@ -34,5 +34,13 @@ describe("vendor product submission rules", () => {
     expect(hasVendorPrice("12.50", null)).toBe(true);
     expect(hasVendorPrice(null, "8.25")).toBe(true);
     expect(hasVendorPrice("  ", "")).toBe(false);
+  });
+
+  it("creates a stable, bounded identity for an unmatched supplier SKU", () => {
+    const first = buildUnmatchedPlatformSku(7, 23, "new / supplier sku 01");
+    expect(first).toBe(buildUnmatchedPlatformSku(7, 23, "new / supplier sku 01"));
+    expect(first).toMatch(/^UNMAPPED-7-23-/);
+    expect(first.length).toBeLessThanOrEqual(128);
+    expect(buildUnmatchedPlatformSku(7, 23, "new / supplier sku 02")).not.toBe(first);
   });
 });

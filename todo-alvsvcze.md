@@ -2095,3 +2095,8 @@
 - [x] Remove the required vendor-facing Cabinet ID for new products while preserving system-generated identity, supplier SKU uniqueness, pricing, imports, and existing records
 - [x] Validate new-product creation, spreadsheet import, duplicate protection, existing records, pricing, and responsive vendor UI after the Cabinet ID change
 - [x] Make new vendor product pricing require only Cost or List Price, with no Cabinet ID field or requirement
+- [x] Allow a new vendor product with any nonempty supplier SKU to submit for approval without matching a master cabinet, while preserving generated identity, duplicate protection, pending status, and Cost/List validation
+- [x] Persist unmatched supplier SKUs with a nullable master-cabinet link and deterministic platform identity
+- [x] Keep master-cabinet-only pricing, freight, order, image, coverage, and forecasting flows safe for nullable SKU links
+- [x] Show unmatched pending vendor products in the catalog with clear supplier-SKU and mapping status guidance
+- [x] Validate unmatched upload, matched upload, duplicate protection, Cost/List validation, TypeScript, tests, and production build

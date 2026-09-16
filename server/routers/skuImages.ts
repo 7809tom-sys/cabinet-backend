@@ -156,7 +156,16 @@ export const skuImagesRouter = router({
         return { updated: 1 };
       }
 
-      // All SKUs sharing the same cabinet (masterCode) -> same cabinetId.
+      // All SKUs sharing the same master cabinet receive the image together.
+      // An unmatched pending SKU has no sibling cabinet group, so keep the
+      // requested image scoped to that SKU rather than dereferencing null.
+      if (target[0].cabinetId == null) {
+        await db
+          .update(distributorSkus)
+          .set({ imageUrl: input.imageUrl })
+          .where(eq(distributorSkus.id, input.skuId));
+        return { updated: 1 };
+      }
       const siblings = await db
         .select({ id: distributorSkus.id })
         .from(distributorSkus)
@@ -281,6 +290,7 @@ export const skuImagesRouter = router({
         .where(eq(distributorSkus.id, input.skuId))
         .limit(1);
       if (!t[0]) return { count: 0, masterCode: "" };
+      if (t[0].cabinetId == null) return { count: 1, masterCode: "Unmapped supplier SKU" };
       const c = await db
         .select({ count: sql<number>`COUNT(*)` })
         .from(distributorSkus)

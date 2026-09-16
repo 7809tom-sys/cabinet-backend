@@ -569,6 +569,7 @@ async function resolveStyleFreightGroups(input: {
       .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
       .where(inArray(distributorSkus.cabinetId, cabinetIds));
     for (const row of rows) {
+      if (row.cabinetId == null) continue;
       const candidate: StyleMeta = row;
       const current = candidatesByCabinet.get(row.cabinetId) ?? [];
       current.push(candidate);

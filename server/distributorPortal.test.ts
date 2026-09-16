@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributors, distributorSkus } from "../drizzle/schema";
+import { cabinets, distributors, distributorSkus, doorStyles } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 function ctxFor(user: Record<string, unknown> | null): TrpcContext {
@@ -61,6 +61,48 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
         distributorSku: existing[0].distributorSku || "existing-sku",
       }),
     ).rejects.toThrow("already exists");
+  });
+
+  it("accepts an unmatched supplier SKU, stores it pending, and returns it in the catalog", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const lines = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (lines.length === 0) return;
+    const lineId = lines[0].id;
+    const styles = await db
+      .select({ id: doorStyles.id })
+      .from(doorStyles)
+      .where(eq(doorStyles.distributorId, lineId))
+      .limit(1);
+    if (styles.length === 0) return;
+
+    const unmatchedSku = `UNMATCHED_TEST_${Date.now()}`;
+    const caller = appRouter.createCaller(adminUser);
+    let skuId: number | null = null;
+    try {
+      const submitted = await caller.distributorPortal.submitNewProduct({
+        distributorId: lineId,
+        styleId: styles[0].id,
+        distributorSku: unmatchedSku,
+        yourCost: "8.25",
+      });
+      skuId = submitted.skuId;
+      expect(submitted.status).toBe("pending");
+
+      const stored = await db
+        .select({ cabinetId: distributorSkus.cabinetId, status: distributorSkus.status, isPublished: distributorSkus.isPublished, yourCost: distributorSkus.yourCost, platformSku: distributorSkus.platformSku })
+        .from(distributorSkus)
+        .where(eq(distributorSkus.id, skuId))
+        .limit(1);
+      expect(stored[0]).toMatchObject({ cabinetId: null, status: "pending", isPublished: false, yourCost: "8.25" });
+      expect(stored[0]?.platformSku).toMatch(/^UNMAPPED-/);
+
+      const catalog = await caller.distributorPortal.catalog({ distributorId: lineId, search: unmatchedSku, onlyPending: true, limit: 10, offset: 0 });
+      expect(catalog.total).toBe(1);
+      expect(catalog.items[0]).toMatchObject({ skuId, cabinetId: null, masterCode: null, distributorSku: unmatchedSku, status: "pending" });
+    } finally {
+      if (skuId != null) await db.delete(distributorSkus).where(eq(distributorSkus.id, skuId));
+    }
   });
 
   it("a linked distributor sees only their line and can toggle SKU visibility", async () => {

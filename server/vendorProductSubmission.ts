@@ -35,3 +35,12 @@ export function matchVendorCabinetBySku(
 export function hasVendorPrice(listPrice?: string | null, yourCost?: string | null): boolean {
   return Boolean(listPrice?.trim() || yourCost?.trim());
 }
+
+/** Build a stable platform identity for an SKU awaiting master-cabinet mapping. */
+export function buildUnmatchedPlatformSku(lineId: number, styleId: number, distributorSku: string): string {
+  const normalized = normalizeCode(distributorSku) || "SKU";
+  let hash = 0;
+  for (const character of distributorSku) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+  const fingerprint = hash.toString(36).toUpperCase();
+  return `UNMAPPED-${lineId}-${styleId}-${normalized.slice(0, 72)}-${fingerprint}`.slice(0, 128);
+}

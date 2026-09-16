@@ -278,9 +278,9 @@ export const cabinetOverridesRouter = router({
       if (cabinetRows.length === 0) return { updated: 0 };
 
       // Filter by category if specified
-      let cabinetIds: number[] = cabinetRows.map(
-        (r: { cabinetId: number }) => r.cabinetId
-      );
+      let cabinetIds: number[] = cabinetRows
+        .map((r) => r.cabinetId)
+        .filter((id): id is number => id != null);
       if (category) {
         const catRows = await db
           .select({ id: cabinets.id })

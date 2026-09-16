@@ -20,4 +20,10 @@ describe("VendorPortal new-product form", () => {
     expect(formSource).not.toContain("Contractor Price");
     expect(formSource).not.toContain("Homeowner Price");
   });
+
+  it("explains that unmatched supplier SKUs are allowed for approval", () => {
+    expect(formSource).toContain("Enter any supplier SKU");
+    expect(formSource).toContain("Master-cabinet matching is optional");
+    expect(source).toContain("Pending master-cabinet mapping");
+  });
 });
