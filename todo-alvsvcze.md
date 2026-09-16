@@ -2112,3 +2112,7 @@
 - [x] Retrieve and verify the exact pallet dimensions, package contents weight, tare weight, billed weight, and freight class used in the Madison live quote
 - [x] Report the carrier-ready pallet breakdown and flag any source packaging data that needs correction
 - [x] Align the generic freight test path with the validated WWEX freight-class normalization so it does not send unsupported class 75 to the sandbox rate endpoint
+- [x] Audit the shopping-cart freight request and confirm what cart items, supplier mapping, and ZIP input are required for a live carrier test
+- [x] Route every eligible same-supplier cart through the configured WWEX sandbox live-rate quote path using its actual pallet plan
+- [x] Display the cart quote’s carrier, pallet size, contents weight, billed weight, freight class, and actionable eligibility errors
+- [x] Validate a real cart-based Madison sandbox quote and publish the shopping-cart test workflow

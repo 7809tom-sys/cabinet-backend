@@ -51,6 +51,8 @@ export type ReviewLine = {
   cartUnitPrice?: number | null;
   cartPriceLocked?: boolean;
   cartStyleId?: number | null;
+  /** Exact supplier line selected in the cart; preserves the live freight origin. */
+  cartDistributorId?: number | null;
   cartTier?: string | null;
 };
 
@@ -500,7 +502,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           cabinetId: line.cabinetId,
           masterCode: line.masterCode,
           styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null,
-          distributorId: null,
+          distributorId: line.cartDistributorId ?? null,
           qty: line.qty,
           weightLbs: null,
         })),

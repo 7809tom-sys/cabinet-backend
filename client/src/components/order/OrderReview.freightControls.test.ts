@@ -27,6 +27,7 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null");
     expect(source).toContain('residential: deliveryLocationType === "residential"');
     expect(source).toContain("liftgate: liftgateRequired");
+    expect(source).toContain("distributorId: line.cartDistributorId ?? null");
     expect(source).toContain("final pallet dimensions and loaded weight");
   });
 

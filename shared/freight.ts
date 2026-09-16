@@ -58,6 +58,28 @@ export interface FreightRateGroup {
   palletCount?: number;
 }
 
+/** Carrier-ready pallet data returned with a live freight quote for review. */
+export interface FreightPalletDetail {
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightLbs: number;
+  contentsWeightLbs: number;
+  contentsCubicFt: number;
+}
+
+/** One style-origin shipment within a cart's live freight result. */
+export interface FreightShipmentGroup {
+  label: string;
+  originZip: string;
+  freightClass: string;
+  palletCount: number;
+  totalWeightLbs: number;
+  totalContentsWeightLbs: number;
+  totalCubicFt: number;
+  pallets: FreightPalletDetail[];
+}
+
 export interface FreightQuote {
   available: boolean;
   zoneName: string | null;
@@ -71,6 +93,8 @@ export interface FreightQuote {
   freeFreightApplied: boolean;
   reason?: string; // populated when available=false
   rateGroups?: FreightRateGroup[];
+  /** Actual physical plan submitted to the live carrier for this quote. */
+  shipmentGroups?: FreightShipmentGroup[];
   /** Server-signed short-lived proof used to attach this exact quote to an order. */
   quoteToken?: string;
 }

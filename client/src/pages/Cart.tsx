@@ -153,6 +153,49 @@ export default function Cart() {
   }, [items]);
   const isMixedSupplier = supplierGroups.size > 1;
 
+  // A live carrier request uses all cabinet lines already in the cart. Products
+  // without a supply line (fixtures, surfaces, and similar add-ons) do not have
+  // a cabinet pallet profile and are therefore excluded from the cabinet freight
+  // request without blocking the customer's cart.
+  const cartFreightItems = useMemo(
+    () => items
+      .filter((item) => item.distributorId != null && Boolean(item.masterCode))
+      .map((item) => ({
+        cabinetId: null,
+        masterCode: item.masterCode,
+        styleId: item.styleId,
+        distributorId: item.distributorId,
+        qty: item.qty,
+        weightLbs: null,
+      })),
+    [items],
+  );
+  const cartFreightInput = useMemo(() => ({
+    destinationZip: normalizedZip ?? "",
+    merchandiseSubtotalCents: Math.max(0, Math.round(liveSubtotal * 100)),
+    accessorials: { residential: false, liftgate: false },
+    items: cartFreightItems,
+  }), [normalizedZip, liveSubtotal, cartFreightItems]);
+  const cartFreightEstimate = trpc.freight.estimate.useQuery(cartFreightInput, {
+    enabled: false,
+    retry: false,
+  });
+  const requestLiveCartQuote = () => {
+    if (!normalizedZip) {
+      toast.error("Enter and check a valid 5-digit delivery ZIP before requesting a live shipping quote.");
+      return;
+    }
+    if (isMixedSupplier) {
+      toast.error("Use products from one supplier line to request one live shipping quote.");
+      return;
+    }
+    if (cartFreightItems.length === 0) {
+      toast.error("Add at least one supplier cabinet to request a live shipping quote.");
+      return;
+    }
+    void cartFreightEstimate.refetch();
+  };
+
   const requestOrder = () => {
     if (items.length === 0) return;
     if (isMixedSupplier) {
@@ -167,6 +210,7 @@ export default function Cart() {
         code: i.masterCode,
         qty: i.qty,
         styleId: i.styleId,
+        distributorId: i.distributorId,
         tier: i.tier,
         unitPrice: liveUnitPrice(i),
         priceLocked: i.priceLocked === true,
@@ -438,6 +482,37 @@ export default function Cart() {
           <p className="mb-4 text-xs text-muted-foreground">
             {t("crt_shipping_note")}
           </p>
+          <div className="mb-4 rounded-lg border border-border bg-muted/25 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold">Live shipping quote</p>
+                <p className="text-xs text-muted-foreground">Uses the actual eligible cabinet items and pallet plan in this cart.</p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={requestLiveCartQuote}
+                disabled={cartFreightEstimate.isFetching || !normalizedZip || isMixedSupplier || cartFreightItems.length === 0}
+              >
+                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get live quote</>}
+              </Button>
+            </div>
+            {cartFreightEstimate.error && <p className="mt-2 text-xs text-destructive">{cartFreightEstimate.error.message}</p>}
+            {cartFreightEstimate.data && (
+              cartFreightEstimate.data.available ? (
+                <div className="mt-3 space-y-2 text-xs">
+                  <div className="flex justify-between gap-3 font-medium"><span>{cartFreightEstimate.data.zoneName ?? "Carrier quote"}</span><span>${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</span></div>
+                  {cartFreightEstimate.data.shipmentGroups?.map((group) => (
+                    <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
+                      <div className="font-medium text-foreground">{group.label}</div>
+                      <div>{group.palletCount} pallet{group.palletCount === 1 ? "" : "s"} · Class {group.freightClass} · {group.totalContentsWeightLbs} lb contents · {group.totalWeightLbs} lb billed</div>
+                      {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="mt-2 text-xs text-amber-700">{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
+            )}
+          </div>
           {outOfRangeCount > 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />

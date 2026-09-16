@@ -18,6 +18,7 @@ type CartPrefillItem = {
   code: string;
   qty: number;
   styleId?: number | null;
+  distributorId?: number | null;
   tier?: string | null;
   unitPrice?: number | null;
   priceLocked?: boolean;
@@ -83,12 +84,13 @@ export default function OrderBuilder() {
           setSource("manual");
           setLines(result.lines.map((line, index) => {
             const cartLine = items[index];
-            return cartLine?.priceLocked
+            return cartLine
               ? {
                   ...line,
                   cartUnitPrice: cartLine.unitPrice ?? null,
-                  cartPriceLocked: true,
+                  cartPriceLocked: cartLine.priceLocked === true,
                   cartStyleId: cartLine.styleId ?? null,
+                  cartDistributorId: cartLine.distributorId ?? null,
                   cartTier: cartLine.tier ?? null,
                 }
               : line;

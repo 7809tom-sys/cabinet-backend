@@ -24,6 +24,7 @@ import {
   type FreightSettings,
   type FreightQuote,
   type FreightQuoteLine,
+  type FreightShipmentGroup,
   combineStyleFreightGroups,
   type FreightRateGroup,
 } from "@shared/freight";
@@ -1207,6 +1208,7 @@ export const freightRouter = router({
           fallbackOriginZip: settings.originZip,
         });
         const rateGroups: FreightRateGroup[] = [];
+        const shipmentGroups: FreightShipmentGroup[] = [];
         const failedGroups: string[] = [];
         let totalBillableWeightLbs = 0;
 
@@ -1218,6 +1220,23 @@ export const freightRouter = router({
           );
           const plan = buildPallets(resolvedGroup.packages, caps);
           totalBillableWeightLbs += plan.totalWeightLbs;
+          shipmentGroups.push({
+            label: group.label,
+            originZip: group.originZip,
+            freightClass: liveFreightClass,
+            palletCount: plan.palletCount,
+            totalWeightLbs: plan.totalWeightLbs,
+            totalContentsWeightLbs: plan.totalContentsWeightLbs,
+            totalCubicFt: plan.totalCubicFt,
+            pallets: plan.pallets.map((pallet) => ({
+              lengthIn: pallet.lengthIn,
+              widthIn: pallet.widthIn,
+              heightIn: pallet.heightIn,
+              weightLbs: pallet.weightLbs,
+              contentsWeightLbs: pallet.contentsWeightLbs,
+              contentsCubicFt: pallet.contentsCubicFt,
+            })),
+          });
           const liveReq: LiveRateRequest = {
             fromZip: group.originZip,
             toZip: input.destinationZip,
@@ -1268,11 +1287,12 @@ export const freightRouter = router({
             damageFeeCents: 0,
             totalCents: 0,
             freeFreightApplied: false,
+            shipmentGroups,
             reason: `Carrier shipping is unavailable for ${failedGroups.join("; ")}.`,
           };
         }
 
-        return attachFreightQuoteToken(combineStyleFreightGroups({
+        const quote = combineStyleFreightGroups({
           groups: rateGroups,
           settings,
           accessorials: input.accessorials,
@@ -1280,7 +1300,8 @@ export const freightRouter = router({
           billableWeightLbs: totalBillableWeightLbs,
           isKitchen,
           kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
-        }), input);
+        });
+        return attachFreightQuoteToken({ ...quote, shipmentGroups }, input);
       }
 
       // Quote requests never substitute table estimates or Plan B fees for a
