@@ -1420,12 +1420,14 @@ export function PlanCanvas({
               onPointerMove={onSinkPointerMove}
               onPointerUp={onSinkPointerUp}
               className={`absolute z-[3] ${onMoveSink && !layoutLocked ? "cursor-move" : ""}`}
-              style={{
-                left: s.x * ppi,
-                top: s.y * ppi,
-                width: s.width * ppi,
-                height: s.depth * ppi,
-              }}
+	              style={{
+	                left: s.x * ppi,
+	                top: s.y * ppi,
+	                width: s.width * ppi,
+	                height: s.depth * ppi,
+	                transform: s.planRotation ? `rotate(${s.planRotation}deg)` : undefined,
+	                transformOrigin: "50% 50%",
+	              }}
               title={t("dt_pc_sink_drag", { name: s.pelicanProductName || SINK_PRESETS[s.type].name })}
             >
               {/* basin */}

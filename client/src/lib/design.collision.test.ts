@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, nearestCollisionFreeMountBottom, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, preferredRangeForOverRangeMicrowave, refrigeratorEndPanelConflict, refrigeratorEndPanelConflictDetail, removeOverlappingPlacements, snapPosition, type PlacedCabinet } from "./design";
+import { appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, DEFAULT_ROOM, elevationBox, fixtureIsOnCabinetFootprint, hasCollision, isMicrowaveOverRangePair, makeSinkForCabinet, mountedMicrowaveOverRangeSpot, nearestCollisionFreeMountBottom, normalizeRefrigeratorPanelSeams, normalizeSinkFixturesToBases, overRangeMicrowaveAttachment, placedFootprint, preferredRangeForOverRangeMicrowave, refrigeratorEndPanelConflict, refrigeratorEndPanelConflictDetail, removeOverlappingPlacements, snapPosition, wallPlacementAt, type PlacedCabinet, type RoomData } from "./design";
 
 function placed(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -60,6 +60,55 @@ describe("design placement collision prevention", () => {
     expect(installed.cabinetUid).toBe("right-sb36");
     const normalized = normalizeSinkFixturesToBases([{ ...installed, wallSide: undefined, width: 25, depth: 18, sourceWidth: undefined, sourceDepth: undefined }], [rightSinkBase], DEFAULT_ROOM);
     expect(normalized[0]).toMatchObject({ wallSide: "right", width: 18, depth: 25, cabinetUid: "right-sb36" });
+  });
+
+  it("centers and rotates an attached sink with its exact 45-degree peninsula SB36", () => {
+    const room: RoomData = {
+      width: 144,
+      depth: 144,
+      ceilingHeight: 96,
+      peninsulaRuns: [{
+        id: "sink-parent-run",
+        parentWall: "top",
+        startOffset: 72,
+        turn: 90,
+        direction: "right",
+        length: 36,
+        height: 34.5,
+        cabinetSide: "left",
+      }, {
+        id: "sink-45-run",
+        parentRunId: "sink-parent-run",
+        startOffset: 0,
+        turn: 45,
+        direction: "left",
+        length: 72,
+        height: 34.5,
+        cabinetSide: "left",
+      }],
+    };
+    const spot = wallPlacementAt(12, 36, 24, "sink-45-run" as never, room, "left");
+    const sinkBase = placed({
+      uid: "angled-sb36",
+      masterCode: "SB36",
+      description: "Sink Base 36",
+      x: spot.x,
+      y: spot.y,
+      width: 36,
+      depth: 24,
+      rotation: spot.rotation,
+      wallId: spot.wallId,
+      wallOffset: spot.wallOffset,
+      peninsulaSide: spot.peninsulaSide,
+    });
+    const installed = makeSinkForCabinet("single", sinkBase, room, { width: 31, depth: 20 });
+    const footprint = placedFootprint(sinkBase);
+    expect(installed).toMatchObject({ cabinetUid: "angled-sb36", wallSide: "sink-45-run", planRotation: 45 });
+    expect(installed.x + installed.width / 2).toBeCloseTo(sinkBase.x + footprint.w / 2, 6);
+    expect(installed.y + installed.depth / 2).toBeCloseTo(sinkBase.y + footprint.d / 2, 6);
+
+    const normalized = normalizeSinkFixturesToBases([{ ...installed, x: 0, y: 0, planRotation: 0 }], [sinkBase], room);
+    expect(normalized[0]).toMatchObject({ x: installed.x, y: installed.y, planRotation: 45, cabinetUid: "angled-sb36" });
   });
 
   it("puts an island sink faucet at the side opposite the user-facing cabinet front", () => {

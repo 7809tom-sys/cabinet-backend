@@ -59,6 +59,63 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", exposedFarEnd: true });
   });
+
+  it("leaves a physical stove opening and keeps the waterfall on only the exposed final slab", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 144,
+      depth: 120,
+      ceilingHeight: 96,
+      peninsulaRuns: [{ id: "peninsula-stove", parentWall: "top", startOffset: 24, turn: 90, direction: "right", length: 96, height: 34.5, cabinetSide: "left", countertopWaterfallEnd: true }],
+    };
+    const placed = [
+      { uid: "base-before", cabinetId: 1, masterCode: "B-24", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 90, wallId: "peninsula-stove", wallOffset: 0 } as PlacedCabinet,
+      { uid: "stove-opening", cabinetId: 2, masterCode: "STOVE-30", description: "30 inch gas stove", placement: "appliance", x: 0, y: 0, width: 30, depth: 25, height: 36, rotation: 90, wallId: "peninsula-stove", wallOffset: 24 } as PlacedCabinet,
+      { uid: "base-after", cabinetId: 3, masterCode: "B-42", placement: "base", x: 0, y: 0, width: 42, depth: 24, height: 34.5, rotation: 90, wallId: "peninsula-stove", wallOffset: 54 } as PlacedCabinet,
+    ];
+    addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
+    const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
+    const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
+    expect(slabs).toHaveLength(2);
+    expect(slabs.map((item) => item.userData.runStartIn)).toEqual([0, 54]);
+    expect(slabs.every((item) => item.userData.preservesRangeOpening)).toBe(true);
+    expect(waterfalls).toHaveLength(1);
+    expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-stove", exposedFarEnd: true });
+  });
+});
+
+describe("angled sink fixture parity", () => {
+  it("rotates the complete sink assembly around its stored SB36 center", () => {
+    const root = new THREE.Group();
+    const sink = {
+      uid: "angled-sb36-sink",
+      type: "single",
+      x: 48,
+      y: 36,
+      width: 31,
+      depth: 20,
+      sourceWidth: 31,
+      sourceDepth: 20,
+      faucet: false,
+      wallSide: "peninsula-45",
+      cabinetUid: "angled-sb36",
+      planRotation: 45,
+    } as never;
+    const transform = sinkFixtureTransform(sink);
+    expect(transform.rotation).toBeCloseTo(Math.PI * 7 / 4, 8);
+    addSinkFixture(root, sink);
+    const fixtureGroup = root.children.find((item) => item.userData.sinkFixtureGroup);
+    expect(fixtureGroup).toBeDefined();
+    expect(fixtureGroup?.rotation.y).toBeCloseTo(transform.rotation, 8);
+    let bowl: THREE.Object3D | undefined;
+    fixtureGroup?.traverse((node) => {
+      if (node.userData.sinkBowl) bowl = node;
+    });
+    root.updateMatrixWorld(true);
+    const bowlCenter = bowl?.getWorldPosition(new THREE.Vector3());
+    expect(bowlCenter?.x).toBeCloseTo(transform.x, 8);
+    expect(bowlCenter?.z).toBeCloseTo(transform.z, 8);
+  });
 });
 
 describe("interactive 3D room scene helpers", () => {

@@ -2122,3 +2122,7 @@
 - [x] Audit live carrier responses for authoritative transit or estimated-delivery data and define a safe normalized freight response field
 - [x] Display a clearly labeled estimated delivery timeframe beside each completed live freight quote without presenting it as guaranteed
 - [x] Validate carrier-provided, unavailable, accessible, responsive, TypeScript, test, and production build states before publication
+- [x] Keep each sink fixture centered and seated inside its owning SB36 cabinet in both Plan and 3D, including cabinets on angled peninsula runs
+- [x] Ensure countertop geometry never covers a stove or cooktop footprint and preserves the appliance opening after refresh
+- [x] Correct countertop outline generation so it follows the actual straight and 45-degree peninsula cabinet footprint without bridging invalid voids
+- [x] Validate sink ownership, appliance countertop exclusions, angled countertop continuity, Plan-to-3D parity, save/refresh, TypeScript, tests, and production build before publication

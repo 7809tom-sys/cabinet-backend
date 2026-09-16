@@ -7147,6 +7147,8 @@ export interface CountertopSurface {
   rotation?: number;
   /** Explicit-run identity for a continuous cabinet-supported peninsula slab. */
   peninsulaRunId?: string;
+  /** Along-run start for a segmented peninsula slab, measured from the run attachment. */
+  runStartIn?: number;
   /** Physical slab length used for takeoff when the plan rectangle is rotated. */
   linearInches?: number;
   /** Physical slab area used for takeoff when the plan rectangle is rotated. */
@@ -7214,21 +7216,29 @@ export function bearsCountertop(p: {
  * cabinet face so it always extends beyond cabinet fronts rather than through
  * the peninsula wall.
  */
-export function peninsulaCountertopSurface(run: PeninsulaRun, room: RoomData): CountertopSurface {
+export function peninsulaCountertopSurface(
+  run: PeninsulaRun,
+  room: RoomData,
+  requestedStartIn = 0,
+  requestedLengthIn = run.length,
+): CountertopSurface {
   const seating = run.countertopSeatingOverhang === 10 || run.countertopSeatingOverhang === 12
     ? run.countertopSeatingOverhang
     : 0;
   const slabDepth = COUNTERTOP_DEPTH_IN + seating;
-  const spot = wallPlacementAt(0, run.length, slabDepth, run.id as WallSide, room, run.cabinetSide ?? "left");
+  const runLength = Math.max(0, Number(run.length) || 0);
+  const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
+  const lengthIn = Math.max(0, Math.min(runLength - startIn, Number(requestedLengthIn) || 0));
+  const spot = wallPlacementAt(startIn, lengthIn, slabDepth, run.id as WallSide, room, run.cabinetSide ?? "left");
   const footprint = placedFootprint({
-    uid: `peninsula-countertop-${run.id}`,
+    uid: `peninsula-countertop-${run.id}-${startIn}`,
     cabinetId: 0,
     masterCode: "PENINSULA-COUNTERTOP",
     description: "Peninsula countertop",
     placement: "base",
     x: spot.x,
     y: spot.y,
-    width: run.length,
+    width: lengthIn,
     depth: slabDepth,
     height: STD.COUNTERTOP_THICKNESS,
     rotation: spot.rotation,
@@ -7241,15 +7251,16 @@ export function peninsulaCountertopSurface(run: PeninsulaRun, room: RoomData): C
   const centerX = spot.x + footprint.w / 2;
   const centerY = spot.y + footprint.d / 2;
   return {
-    x: centerX - run.length / 2,
+    x: centerX - lengthIn / 2,
     y: centerY - slabDepth / 2,
-    width: run.length,
+    width: lengthIn,
     depth: slabDepth,
     kind: "base",
     rotation: spot.rotation,
     peninsulaRunId: run.id,
-    linearInches: run.length,
-    areaInches: run.length * slabDepth,
+    runStartIn: startIn,
+    linearInches: lengthIn,
+    areaInches: lengthIn * slabDepth,
   };
 }
 
@@ -7370,18 +7381,54 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
-  // Every cabinet-supported peninsula receives one continuous countertop from
-  // its wall attachment to its exposed end. It deliberately bridges an
-  // intentional void in that run, while a peninsula with no base support
-  // remains bare. This also avoids double-counting separate cabinet slabs and
-  // attachment pads in plan, price, and materials takeoff.
+  // Every cabinet-supported peninsula receives continuous countertop across
+  // ordinary cabinet voids, but a freestanding range/stove/cooktop remains a
+  // true opening. Split only at those appliance footprints so Plan, 3D, price,
+  // and materials all share the same physical slab geometry.
   for (const run of room.peninsulaRuns ?? []) {
     const hasCountertopSupport = placed.some((cabinet) =>
       bearsCountertop(cabinet) &&
       cabinetWall(cabinet, room) === run.id &&
       Number(cabinet.width) > 0,
     );
-    if (hasCountertopSupport) out.push(peninsulaCountertopSurface(run, room));
+    if (!hasCountertopSupport) continue;
+    const applianceOpenings = placed
+      .filter((cabinet) => isRangeOrOven(cabinet.masterCode, cabinet.description) && cabinetWall(cabinet, room) === run.id)
+      .map((cabinet) => {
+        const width = Math.max(0, Number(cabinet.width) || 0);
+        const footprint = placedFootprint(cabinet);
+        const projectedCenter = peninsulaRunOffsetAtPoint(run, room, {
+          x: cabinet.x + footprint.w / 2,
+          y: cabinet.y + footprint.d / 2,
+        });
+        const savedStart = typeof cabinet.wallOffset === "number" ? cabinet.wallOffset : Number.NaN;
+        const start = Number.isFinite(savedStart) ? savedStart : projectedCenter - width / 2;
+        return {
+          start: Math.max(0, Math.min(run.length, start)),
+          end: Math.max(0, Math.min(run.length, start + width)),
+        };
+      })
+      .filter((opening) => opening.end - opening.start > COLLISION_EPSILON_IN)
+      .sort((a, b) => a.start - b.start)
+      .reduce<Array<{ start: number; end: number }>>((merged, opening) => {
+        const previous = merged[merged.length - 1];
+        if (previous && opening.start <= previous.end + COLLISION_EPSILON_IN) {
+          previous.end = Math.max(previous.end, opening.end);
+        } else {
+          merged.push({ ...opening });
+        }
+        return merged;
+      }, []);
+    let cursor = 0;
+    for (const opening of applianceOpenings) {
+      if (opening.start - cursor > COLLISION_EPSILON_IN) {
+        out.push(peninsulaCountertopSurface(run, room, cursor, opening.start - cursor));
+      }
+      cursor = Math.max(cursor, opening.end);
+    }
+    if (run.length - cursor > COLLISION_EPSILON_IN) {
+      out.push(peninsulaCountertopSurface(run, room, cursor, run.length - cursor));
+    }
   }
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
@@ -7417,6 +7464,8 @@ export interface SinkFixture {
   faucet: boolean;
   /** Wall that the fixture faces, used to orient the basin and faucet in plan/3D. */
   wallSide?: WallSide;
+  /** Exact clockwise Plan rotation inherited from the owning cabinet. */
+  planRotation?: number;
   /** Owning sink-base placement when the fixture is installed in a cabinet. */
   cabinetUid?: string;
   /** Physical product dimensions before the plan footprint is rotated. */
@@ -7540,7 +7589,9 @@ export function makeSinkForCabinet(
         ? cabinet.y
         : centeredY
     : centeredY;
-  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid };
+	  const cardinalWall = side === "top" || side === "bottom" || side === "left" || side === "right";
+	  const planRotation = cardinalWall ? 0 : ((Number(cabinet.rotation) % 360) + 360) % 360;
+	  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid, planRotation };
 }
 
 /** Repairs legacy sink fixtures so their plan footprint matches the owning sink-base wall. */
@@ -7557,7 +7608,7 @@ export function normalizeSinkFixturesToBases(
     const sourceWidth = sink.sourceWidth ?? sink.width;
     const sourceDepth = sink.sourceDepth ?? sink.depth;
     const next = makeSinkForCabinet(sink.type, owner, room, { width: sourceWidth, depth: sourceDepth });
-    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
+    const same = sink.x === next.x && sink.y === next.y && sink.width === next.width && sink.depth === next.depth && sink.wallSide === next.wallSide && sink.planRotation === next.planRotation && sink.sourceWidth === next.sourceWidth && sink.sourceDepth === next.sourceDepth && sink.cabinetUid === next.cabinetUid;
     if (same) return sink;
     changed = true;
     return {

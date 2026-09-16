@@ -161,6 +161,12 @@ describe("plan countertop material scopes", () => {
     expect(source).toContain('data-countertop-scope={s.kind === "island" ? "island" : "perimeter"}');
     expect(source).toContain('s.kind === "island" ? islandCountertopMaterialId ?? countertopMaterialId : countertopMaterialId');
   });
+
+  it("rotates an attached sink around its own center using the owning cabinet angle", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain('transform: s.planRotation ? `rotate(${s.planRotation}deg)` : undefined');
+    expect(source).toContain('transformOrigin: "50% 50%"');
+  });
 });
 
 describe("island work-zone face selection", () => {

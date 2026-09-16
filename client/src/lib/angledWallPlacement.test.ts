@@ -932,6 +932,40 @@ describe("cabinet-supported peninsula runs", () => {
     ]));
   });
 
+  it("cuts the peninsula countertop around a stove without changing the connected 45-degree return", () => {
+    const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "stove-parent", startOffset: 72, length: 96 };
+    const child = { id: "stove-angled-return", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 30, height: 34.5 };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+    const startSpot = wallPlacementAt(0, 24, 24, parent.id as any, room);
+    const stoveSpot = wallPlacementAt(24, 30, 25, parent.id as any, room);
+    const endSpot = wallPlacementAt(54, 42, 24, parent.id as any, room);
+    const angledSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
+    const start = { ...peninsulaCabinet("stove-start", 0), ...startSpot, width: 24, wallId: parent.id, wallOffset: 0 };
+    const stove = {
+      ...peninsulaCabinet("range-opening", 24),
+      ...stoveSpot,
+      masterCode: "STOVE-30",
+      description: "30 inch gas stove",
+      placement: "appliance" as const,
+      width: 30,
+      depth: 25,
+      height: 36,
+      wallId: parent.id,
+      wallOffset: 24,
+    };
+    const end = { ...peninsulaCabinet("stove-end", 54), ...endSpot, width: 42, wallId: parent.id, wallOffset: 54 };
+    const angled = { ...peninsulaCabinet("stove-angle", 0), ...angledSpot, width: 30, wallId: child.id, wallOffset: 0 };
+
+    const surfaces = countertopSurfaces([start, stove, end, angled], room);
+    const parentSurfaces = surfaces.filter((surface) => surface.peninsulaRunId === parent.id);
+    expect(parentSurfaces).toEqual([
+      expect.objectContaining({ runStartIn: 0, linearInches: 24, rotation: 90 }),
+      expect.objectContaining({ runStartIn: 54, linearInches: 42, rotation: 90 }),
+    ]);
+    expect(parentSurfaces.reduce((total, surface) => total + (surface.linearInches ?? 0), 0)).toBe(66);
+    expect(surfaces).toContainEqual(expect.objectContaining({ peninsulaRunId: child.id, runStartIn: 0, linearInches: 30, rotation: 45 }));
+  });
+
   it("deletes only the selected peninsula and its owned cabinets, clearing derived counter, price, and materials entries", () => {
     const owned = peninsulaCabinet("delete-peninsula", 0);
     const removed = removePeninsulaRun(peninsulaRoom, [owned], "peninsula-90-right");

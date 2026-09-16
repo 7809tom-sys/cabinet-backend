@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSurface, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -4904,9 +4904,10 @@ export function addThreeDPeninsulaCountertops(
   counterColor: string,
   countertopTexture?: THREE.Texture | null,
 ) {
-  for (const run of room.peninsulaRuns ?? []) {
-    if (!placed.some((cabinet) => bearsCountertop(cabinet) && cabinetWall(cabinet, room) === run.id)) continue;
-    const surface = peninsulaCountertopSurface(run, room);
+  const surfaces = countertopSurfaces(placed, room).filter((surface) => Boolean(surface.peninsulaRunId));
+  for (const surface of surfaces) {
+    const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
+    if (!run) continue;
     const length = Math.max(0.1, surface.linearInches ?? run.length);
     const depth = Math.max(0.1, (surface.areaInches ?? length * 25.5) / length);
     const rotation = (surface.rotation ?? 0) * Math.PI / 180;
@@ -4922,9 +4923,10 @@ export function addThreeDPeninsulaCountertops(
     const slab = new THREE.Mesh(new THREE.BoxGeometry(length * INCH, STD.COUNTERTOP_THICKNESS * INCH, depth * INCH), material);
     slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, seatingOverhangIn: run.countertopSeatingOverhang ?? 0, bridgesCabinetVoids: true };
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, runStartIn: surface.runStartIn ?? 0, seatingOverhangIn: run.countertopSeatingOverhang ?? 0, bridgesCabinetVoids: true, preservesRangeOpening: true };
     root.add(slab);
-    if (!run.countertopWaterfallEnd) continue;
+    const reachesFarEnd = (surface.runStartIn ?? 0) + length >= run.length - 0.01;
+    if (!run.countertopWaterfallEnd || !reachesFarEnd) continue;
     const waterfall = new THREE.Mesh(new THREE.BoxGeometry(STD.COUNTERTOP_THICKNESS * INCH, STD.COUNTERTOP_HEIGHT * INCH, depth * INCH), material.clone());
     waterfall.position.set((centerX + Math.cos(rotation) * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH, STD.COUNTERTOP_HEIGHT * INCH / 2, (centerZ + Math.sin(rotation) * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH);
     waterfall.rotation.y = rotation;
@@ -5437,10 +5439,12 @@ export function threeDCornerBodyDimensions(cabinet: PlacedCabinet) {
 }
 
 export function sinkFixtureTransform(sink: SinkFixture) {
+  const planRotation = Number.isFinite(sink.planRotation) ? Number(sink.planRotation) * Math.PI / 180 : 0;
   return {
     x: (sink.x + sink.width / 2) * INCH,
     z: (sink.y + sink.depth / 2) * INCH,
     countertopTop: COUNTERTOP_TOP * INCH,
+    rotation: threeDPlanRotation(planRotation),
   };
 }
 
@@ -5525,7 +5529,22 @@ function sinkInteriorStencilMaterial<T extends THREE.Material>(material: T, sten
 export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const width = sink.width * INCH;
   const depth = sink.depth * INCH;
-  const { x: centerX, z: centerZ, countertopTop } = sinkFixtureTransform(sink);
+  const { x: centerX, z: centerZ, countertopTop, rotation } = sinkFixtureTransform(sink);
+  const rotatesFixture = Math.abs(rotation) > 1e-9;
+  const fixtureRoot = new THREE.Group();
+  fixtureRoot.position.set(centerX, 0, centerZ);
+  fixtureRoot.rotation.y = rotation;
+  fixtureRoot.userData = { sinkFixtureGroup: true, sinkUid: sink.uid, planRotation: sink.planRotation ?? 0 };
+  if (rotatesFixture) root.add(fixtureRoot);
+  const addFixtureNode = (node: THREE.Object3D) => {
+    if (!rotatesFixture) {
+      root.add(node);
+      return;
+    }
+    node.position.x -= centerX;
+    node.position.z -= centerZ;
+    fixtureRoot.add(node);
+  };
   const sinkStencilRef = 1 + Array.from(sink.uid || `${sink.x}:${sink.y}:${sink.width}:${sink.depth}`).reduce(
     (hash, character) => ((hash * 31) + character.charCodeAt(0)) % 254,
     0,
@@ -5615,7 +5634,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     rimSegment.position.set(centerX + segment.x, countertopTop + 0.018, centerZ + segment.z);
     rimSegment.renderOrder = 24;
     rimSegment.userData = { sinkRim: true, sinkRimFrameSegment: true, sinkRimSide: segment.side, openSinkCutout: true, fixtureDetail: true };
-    root.add(rimSegment);
+    addFixtureNode(rimSegment);
   });
   const openingWidth = Math.max(0.04, openingMaxX - openingMinX);
   const openingDepth = Math.max(0.04, openingMaxZ - openingMinZ);
@@ -5635,7 +5654,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   openingShadow.position.set(openingCenterX, countertopTop + 0.012, openingCenterZ);
   openingShadow.renderOrder = 18;
   openingShadow.userData = { sinkCountertopCutoutMask: true, openSinkCutout: true, fixtureDetail: true };
-  root.add(openingShadow);
+  addFixtureNode(openingShadow);
   const hasMeasuredDrainInset = Number.isFinite(sink.drainInsetRight) || Number.isFinite(sink.drainInsetBack);
   const documentedDrainPosition = (bowlX: number, bowlZ: number, sourceMeasuredBowlWidthIn: number, sourceMeasuredBowlDepthIn: number) => {
     if (!hasMeasuredDrainInset) return { x: bowlX, z: bowlZ + sourceMeasuredBowlDepthIn * INCH * 0.18 };
@@ -5669,7 +5688,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     bowl.position.set(bowlX, countertopTop, bowlZ);
     bowl.renderOrder = 20;
     bowl.userData = { sinkBowl: true, recessedSinkBowl: true, openSinkBowl: true, visibleInteriorDepth: true, bowlDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
-    root.add(bowl);
+    addFixtureNode(bowl);
     const floorInset = bowlGeometry.userData as { bottomWidth: number; bottomDepth: number };
     const bowlFloorMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
     const bowlFloor = new THREE.Mesh(
@@ -5679,7 +5698,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     bowlFloor.position.set(bowlX, countertopTop - bowlHeightForIndex + 0.014, bowlZ);
     bowlFloor.renderOrder = 21;
     bowlFloor.userData = { sinkBowlFloor: true, visibleSinkBowlBottom: true, recessedDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
-    root.add(bowlFloor);
+    addFixtureNode(bowlFloor);
     const drainRadius = Math.min(1.75 * INCH, bowlInnerWidth * 0.12, bowlInnerDepth * 0.12);
     const drainMaterial = sinkInteriorStencilMaterial(steel.clone(), sinkStencilRef);
     drainMaterial.color.set(isGunmetalBlack ? "#0d1012" : "#556168");
@@ -5690,14 +5709,14 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     drain.position.set(drainPosition.x, countertopTop - bowlHeightForIndex + 0.03, drainPosition.z);
     drain.renderOrder = 22;
     drain.userData = { sinkDrain: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1, documentedDrainInset: hasMeasuredDrainInset };
-    root.add(drain);
+    addFixtureNode(drain);
     const drainRingMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
     const drainRing = new THREE.Mesh(new THREE.TorusGeometry(drainRadius, 0.012, 8, 32), drainRingMaterial);
     drainRing.rotation.x = Math.PI / 2;
     drainRing.position.set(drain.position.x, drain.position.y + 0.013, drain.position.z);
     drainRing.renderOrder = 23;
     drainRing.userData = { sinkDrainRing: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
-    root.add(drainRing);
+    addFixtureNode(drainRing);
     [0.62, 0.34].forEach((scale, strainerIndex) => {
       const strainerMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
       const strainerRing = new THREE.Mesh(new THREE.TorusGeometry(drainRadius * scale, 0.0055, 6, 28), strainerMaterial);
@@ -5705,7 +5724,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       strainerRing.position.set(drain.position.x, drainRing.position.y + 0.002 + strainerIndex * 0.001, drain.position.z);
       strainerRing.renderOrder = 23;
       strainerRing.userData = { sinkDrainStrainer: true, drainAtBowlBottom: true, fixtureDetail: true, sinkBowlIndex: bowlIndex + 1 };
-      root.add(strainerRing);
+      addFixtureNode(strainerRing);
     });
   });
   if (sink.apronFront) {
@@ -5731,7 +5750,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const edgeInset = Math.max(0, (side === "left" || side === "right" ? depth : width) / 2 - apronThickness / 2);
     // A sink against the top/left wall faces into the room (positive Z/X); a
     // sink against the bottom/right wall faces in the negative direction.
-    const direction = side === "top" ? 1 : side === "bottom" ? -1 : 0;
+    const direction = side === "bottom" ? -1 : side === "left" || side === "right" ? 0 : 1;
     const sidewaysDirection = side === "left" ? 1 : side === "right" ? -1 : 0;
     apron.position.set(
       centerX + sidewaysDirection * edgeInset,
@@ -5739,7 +5758,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       centerZ + direction * edgeInset,
     );
     apron.userData = { sinkApronFront: true, sinkApronMaterial: isGunmetalBlack ? "gunmetal-black" : isSourceMeasuredStainlessApron ? "stainless-steel" : "fireclay", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId };
-    root.add(apron);
+    addFixtureNode(apron);
   }
   if (sink.type === "double" || measuredDoubleBowl) {
     const dividerMaterial = sinkInteriorStencilMaterial(steel.clone(), sinkStencilRef);
@@ -5760,7 +5779,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     );
     divider.renderOrder = 22;
     divider.userData = { sinkBowlDivider: true, visibleInsideSinkCutout: true, fixtureDetail: true };
-    root.add(divider);
+    addFixtureNode(divider);
   }
   if (!sink.faucet || !sink.pelicanFaucetProfileId || sink.faucetOverallHeight == null || sink.faucetSpoutLength == null || sink.faucetSpoutHeight == null || !sink.faucetForm) return;
   const faucet = sinkFaucetTransform(sink);
@@ -5789,7 +5808,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const base = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.095, 0.11, 20), faucetMaterial);
   base.position.set(faucet.x, countertopTop + 0.055, faucet.z);
   base.userData = { sinkFaucetBase: true, sinkFaucet: true, faucetPlacement: "back", fixtureDetail: true };
-  root.add(base);
+  addFixtureNode(base);
   const articulatedJointPoints = faucetForm === "articulated-swing"
     ? [
       new THREE.Vector3(faucet.x + forward.x * reach * 0.24, countertopTop + overallHeight * 0.7, faucet.z + forward.z * reach * 0.24),
@@ -5837,31 +5856,31 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
       })();
   const spout = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, tubeRadius, 10, false), faucetMaterial);
   spout.userData = { sinkFaucetSpout: true, sinkFaucetArc: true, faucetPlacement: "back", fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetFinish: sink.faucetFinish, faucetForm };
-  root.add(spout);
+  addFixtureNode(spout);
   if (faucetForm === "articulated-swing") {
     articulatedJointPoints.forEach((position, index) => {
       const joint = new THREE.Mesh(new THREE.SphereGeometry(0.052, 16, 12), faucetMaterial);
       joint.position.copy(position);
       joint.userData = { sinkFaucetSwingJoint: true, fixtureDetail: true, swingJointIndex: index + 1, pelicanFaucetProfileId: sink.pelicanFaucetProfileId };
-      root.add(joint);
+      addFixtureNode(joint);
     });
   }
   if (faucetForm !== "standard-arc") {
     const sprayHead = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.04, faucetForm === "pull-out" ? 0.17 : 0.23, 16), faucetMaterial);
     sprayHead.position.set(faucet.x + forward.x * reach, countertopTop + outletHeight, faucet.z + forward.z * reach);
     sprayHead.userData = { sinkFaucetSprayHead: true, fixtureDetail: true, pelicanFaucetProfileId: sink.pelicanFaucetProfileId, faucetForm };
-    root.add(sprayHead);
+    addFixtureNode(sprayHead);
   }
   const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.18, 16), faucetMaterial);
   handleBase.position.set(faucet.x + side.x * 0.12, countertopTop + 0.14, faucet.z + side.z * 0.12);
   handleBase.userData = { sinkFaucetHandleBase: true, fixtureDetail: true };
-  root.add(handleBase);
+  addFixtureNode(handleBase);
   const handle = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.24, 0.035), faucetMaterial);
   handle.position.set(handleBase.position.x + side.x * 0.025, countertopTop + 0.29, handleBase.position.z + side.z * 0.025);
   handle.rotation.z = side.x * -0.32;
   handle.rotation.x = side.z * 0.32;
   handle.userData = { sinkFaucetHandle: true, fixtureDetail: true };
-  root.add(handle);
+  addFixtureNode(handle);
 }
 
 export function islandZoneTransform(island: { x: number; y: number; width: number; depth: number }) {
