@@ -13,7 +13,7 @@ import {
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-  wallDimensions, cabinetWallRunLength, type DimensionSeg,
+  wallDimensions, cabinetWallRunSegment, type DimensionSeg,
 	  type PonyWall, clampPonyWall,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -1030,10 +1030,18 @@ export function PlanCanvas({
         {/* A peninsula opens its parent wall at the attachment. Draw the room
             shell as individual wall segments so that the open continuation is
             visible rather than appearing as a second wall behind the run. */}
-        <div data-testid="room-wall-top" className="pointer-events-none absolute left-0 top-0 z-[1] h-[3px] bg-[#1a2744]" style={{ width: cabinetWallRunLength("top", room) * ppi }} />
-        <div data-testid="room-wall-bottom" className="pointer-events-none absolute bottom-0 left-0 z-[1] h-[3px] bg-[#1a2744]" style={{ width: cabinetWallRunLength("bottom", room) * ppi }} />
-        <div data-testid="room-wall-left" className="pointer-events-none absolute left-0 top-0 z-[1] w-[3px] bg-[#1a2744]" style={{ height: cabinetWallRunLength("left", room) * ppi }} />
-        <div data-testid="room-wall-right" className="pointer-events-none absolute right-0 top-0 z-[1] w-[3px] bg-[#1a2744]" style={{ height: cabinetWallRunLength("right", room) * ppi }} />
+        {(["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
+          const segment = cabinetWallRunSegment(side, room);
+          const horizontal = side === "top" || side === "bottom";
+          return <div
+            key={`room-wall-${side}`}
+            data-testid={`room-wall-${side}`}
+            className={`pointer-events-none absolute z-[1] bg-[#1a2744] ${horizontal ? "h-[3px]" : "w-[3px]"}`}
+            style={horizontal
+              ? { left: segment.start * ppi, width: segment.length * ppi, top: side === "top" ? 0 : undefined, bottom: side === "bottom" ? 0 : undefined }
+              : { top: segment.start * ppi, height: segment.length * ppi, left: side === "left" ? 0 : undefined, right: side === "right" ? 0 : undefined }}
+          />;
+        })}
         {peninsulaDraft && (() => {
           const { start, end, radians } = peninsulaRunEndpoints(peninsulaDraft, room);
           const degrees = (radians * 180) / Math.PI;
@@ -1229,17 +1237,19 @@ export function PlanCanvas({
           const wallLocked = isWallLocked(side);
           const compassStart = compassStartForWall(side);
           const band = 14;
-          const visibleLength = cabinetWallRunLength(side, room) * ppi;
+          const retainedWall = cabinetWallRunSegment(side, room);
+          const visibleStart = retainedWall.start * ppi;
+          const visibleLength = retainedWall.length * ppi;
           const wstyle: React.CSSProperties = horizontal
             ? {
-                left: 0,
+                left: visibleStart,
                 width: visibleLength,
                 height: band,
                 top: side === "top" ? 0 : roomPxH - band,
                 cursor: "pointer",
               }
             : {
-                top: 0,
+                top: visibleStart,
                 height: visibleLength,
                 width: band,
                 left: side === "left" ? 0 : roomPxW - band,
@@ -1273,8 +1283,8 @@ export function PlanCanvas({
                       data-testid="on-wall-compass-drag-target"
                       className="absolute z-20 grid h-12 w-12 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
-                        ? { left: compassStart * ppi - 24, top: -16 }
-                        : { top: compassStart * ppi - 24, left: -16 }}
+                        ? { left: (compassStart - retainedWall.start) * ppi - 24, top: -16 }
+                        : { top: (compassStart - retainedWall.start) * ppi - 24, left: -16 }}
                       onPointerDown={(event) => onCompassPointerDown(event, side)}
                       onPointerMove={onCompassPointerMove}
                       onPointerUp={onCompassPointerUp}

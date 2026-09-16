@@ -55,9 +55,11 @@ describe("PlanCanvas automatic replacement placement", () => {
 	  });
 
 	  it("renders a primary peninsula attachment as the endpoint of its parent wall instead of retaining a wall behind the open continuation", () => {
-	    expect(source).toContain('data-testid="room-wall-top"');
-	    expect(source).toContain('cabinetWallRunLength("top", room) * ppi');
+	    expect(source).toContain('data-testid={`room-wall-${side}`}');
+	    expect(source).toContain("const segment = cabinetWallRunSegment(side, room)");
+	    expect(source).toContain("left: segment.start * ppi");
 	    expect(source).toContain('border: "none"');
-	    expect(source).toContain("const visibleLength = cabinetWallRunLength(side, room) * ppi");
+	    expect(source).toContain("const retainedWall = cabinetWallRunSegment(side, room)");
+	    expect(source).toContain("const visibleLength = retainedWall.length * ppi");
 	  });
 });

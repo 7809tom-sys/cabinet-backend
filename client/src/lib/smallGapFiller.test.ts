@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, type IslandFace, type IslandZone, type PlacedCabinet } from "@/lib/design";
+import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
   appendSmallGapFillerPlacement,
@@ -126,6 +126,64 @@ describe("small-gap filler placement", () => {
 	      remaining: 3,
 	    });
 	    expect(findSmallGapFillerOpportunity(room, [db21], [], db21.uid)).toBeNull();
+	  });
+
+	  it("prompts after a peninsula B-18 starts 12 inches from the turn, filling only the one inch beyond the protected 11-inch corner", () => {
+	    const run = { id: "peninsula-filler-popup", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 60, height: 34.5, cabinetSide: "left" as const };
+	    const room: RoomData = { ...DEFAULT_ROOM, peninsulaRuns: [run] };
+	    const placement = wallPlacementAt(12, 18, 24, run.id as never, room, "left");
+	    const b18: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "peninsula-b18-one-inch-filler",
+	      masterCode: "B-18",
+	      width: 18,
+	      ...placement,
+	    };
+
+	    const opportunity = findSmallGapFillerOpportunity(room, [b18], [], b18.uid)!;
+	    expect(opportunity).toMatchObject({
+	      cabinetUid: b18.uid,
+	      wall: run.id,
+	      cabinetStart: 12,
+	      cabinetSpan: 18,
+	      openingStart: 11,
+	      openingLength: 19,
+	      remaining: 1,
+	    });
+	    expect(automaticSmallGapFillerMode(opportunity)).toBe("left");
+	    expect(smallGapFillerLayout(opportunity, "left")).toEqual({
+	      cabinetStart: 12,
+	      leftWidth: 1,
+	      rightWidth: 0,
+	      pieces: [{ side: "left", start: 11, width: 1 }],
+	    });
+	  });
+
+	  it("splits a bounded peninsula gap evenly between the two adjoining cabinet edges without moving either cabinet", () => {
+	    const run = { id: "peninsula-two-cabinet-gap", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 72, height: 34.5, cabinetSide: "left" as const };
+	    const room: RoomData = { ...DEFAULT_ROOM, peninsulaRuns: [run] };
+	    const leftPlacement = wallPlacementAt(12, 18, 24, run.id as never, room, "left");
+	    const rightPlacement = wallPlacementAt(32, 18, 24, run.id as never, room, "left");
+	    const leftCabinet: PlacedCabinet = { ...cabinet, uid: "bounded-left-b18", ...leftPlacement };
+	    const rightCabinet: PlacedCabinet = { ...cabinet, uid: "bounded-right-b18", ...rightPlacement };
+	    const opportunity = findSmallGapFillerOpportunity(room, [leftCabinet, rightCabinet], [], rightCabinet.uid)!;
+
+	    expect(opportunity).toMatchObject({
+	      remaining: 2,
+	      preferredMode: "split",
+	      boundedCabinetUids: [leftCabinet.uid, rightCabinet.uid],
+	      boundedGapStart: 30,
+	    });
+	    expect(automaticSmallGapFillerMode(opportunity)).toBe("split");
+	    expect(smallGapFillerLayout(opportunity, "split")).toEqual({
+	      cabinetStart: 32,
+	      leftWidth: 1,
+	      rightWidth: 1,
+	      pieces: [
+	        { side: "left", start: 30, width: 1 },
+	        { side: "right", start: 31, width: 1 },
+	      ],
+	    });
 	  });
 
   it("converts a fitted right-drag opening into the same catalog filler choices for cabinets, panels, fillers, and appliances", () => {

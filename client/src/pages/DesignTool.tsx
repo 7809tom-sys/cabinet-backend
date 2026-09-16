@@ -3186,9 +3186,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return byWall;
   }, [placed]);
   /**
-   * Compass establishes the exact parent-wall split point. It never mutates
-   * the closed room shell: a new empty peninsula run is drafted from that point
-   * so cabinets on the original wall stay exactly where they are.
+   * Compass establishes the exact parent-wall split point. The longer original
+   * wall section remains cabinet-ready while the shorter section opens at the
+   * new empty peninsula run, preserving the useful kitchen perimeter.
    */
   const beginPeninsulaFromCompass = useCallback((wall: WallSide, startIn: number) => {
     if (layoutLocked) return;
@@ -5202,10 +5202,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         styleId: styleIdRef.current ?? null,
         fillerPieceGroupId: fillerGroupId,
         fillerBillingRole: index === 0 ? "primary" : "secondary",
-        fillerTotalWidth: opportunity.remaining,
-        fillerPlacementMode: mode,
-        fillerForCabinetUid: cabinet.uid,
-      };
+	        fillerTotalWidth: opportunity.remaining,
+	        fillerPlacementMode: mode,
+	        fillerForCabinetUid: opportunity.boundedCabinetUids
+	          ? (piece.side === "left" ? opportunity.boundedCabinetUids[0] : opportunity.boundedCabinetUids[1])
+	          : cabinet.uid,
+	      };
       return opportunity.islandFace && island
         ? islandFacePlacement(fillerPiece, island, opportunity.islandFace, piece.start)
         : fillerPiece;
@@ -11717,7 +11719,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              <div className="flex items-start justify-between gap-2">
 	                <div>
                   <p className="text-sm font-bold text-[#1a2744]">New straight peninsula</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the selected wall unchanged and starts a straight cabinet-ready peninsula at {formatEighthInches(peninsulaDraft.startOffset)}. Add a 45° continuation only from its free end after creation.</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the longer wall section, opens the shorter section, and starts a straight cabinet-ready peninsula at {formatEighthInches(peninsulaDraft.startOffset)}. Add a 45° continuation only from its free end after creation.</p>
 	                </div>
 	                <button type="button" onClick={() => setPeninsulaDraft(null)} className="text-xs font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
 	              </div>

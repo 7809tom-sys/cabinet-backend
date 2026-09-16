@@ -1209,9 +1209,9 @@ export interface PeninsulaRun {
   startOffset: number;
   /**
    * A primary peninsula turns the parent wall into an open connection at its
-   * attachment. The parent wall remains from its start corner through this
-   * offset; its continuation is open and cannot receive new cabinets. Kept
-   * optional so already-saved peninsula runs follow this default rule.
+   * attachment. The longer original wall section remains available for cabinets
+   * and the shorter section becomes the open connection. Kept optional so
+   * already-saved peninsula runs follow this default rule.
    */
   terminatesParentWall?: boolean;
   /** Locked continuation turn relative to the parent wall. */
@@ -4078,17 +4078,31 @@ export function wallLength(side: WallSide, room: RoomData): number {
 
 /**
  * The usable segment of a cardinal room wall for cabinet placement and plan
- * rendering. A primary peninsula ends its parent wall at the attachment point,
- * leaving the rest of that room edge open. This intentionally does not change
- * `wallLength`: the full room span is still required when moving the primary
- * attachment and measuring the room shell.
+ * rendering. A primary peninsula opens the shorter side of its parent wall at
+ * the attachment point and preserves the longer side for continued cabinet
+ * placement. This intentionally does not change `wallLength`: the full room
+ * span is still required when moving the attachment and measuring the shell.
  */
-export function cabinetWallRunLength(side: WallSide, room: RoomData): number {
+export function cabinetWallRunSegment(side: WallSide, room: RoomData): { start: number; length: number } {
   const fullLength = side === "top" || side === "bottom" ? room.width : room.depth;
   const terminatingOffsets = (room.peninsulaRuns ?? [])
     .filter((run) => !run.parentRunId && run.parentWall === side && run.terminatesParentWall !== false)
     .map((run) => Math.max(0, Math.min(fullLength, Number(run.startOffset) || 0)));
-  return terminatingOffsets.length > 0 ? Math.min(...terminatingOffsets) : fullLength;
+  if (terminatingOffsets.length === 0) return { start: 0, length: fullLength };
+  const split = terminatingOffsets.reduce((best, offset) => {
+    const retained = Math.max(offset, fullLength - offset);
+    const bestRetained = Math.max(best, fullLength - best);
+    return retained > bestRetained ? offset : best;
+  });
+  const prefixLength = split;
+  const suffixLength = fullLength - split;
+  return prefixLength >= suffixLength
+    ? { start: 0, length: prefixLength }
+    : { start: split, length: suffixLength };
+}
+
+export function cabinetWallRunLength(side: WallSide, room: RoomData): number {
+  return cabinetWallRunSegment(side, room).length;
 }
 
 // Clamp an opening to its owning wall in both run and elevation directions.
@@ -5977,9 +5991,12 @@ export function freeSegmentsOnWall(
   const peninsulaRun = peninsulaRunById(room, side);
   const explicitRun = angledCustomWall || Boolean(peninsulaRun);
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = explicitRun
-    ? wallLength(side, room)
-    : cabinetWallRunLength(side, room);
+  const retainedWall = explicitRun
+    ? { start: 0, length: wallLength(side, room) }
+    : cabinetWallRunSegment(side, room);
+  const wallStart = retainedWall.start;
+  const wallEnd = retainedWall.start + retainedWall.length;
+  const wallLen = wallEnd;
 
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
@@ -6052,15 +6069,17 @@ export function freeSegmentsOnWall(
     if (o.side !== side) continue;
     if (candidate && wallCabinetClearsWindow(candidate, o, room, openingClearance)) continue;
     blocked.push({
-      s: Math.max(0, o.offset - openingClearance),
-      e: Math.min(wallLen, o.offset + o.width + openingClearance),
+      s: Math.max(wallStart, o.offset - openingClearance),
+      e: Math.min(wallEnd, o.offset + o.width + openingClearance),
     });
   }
 
   // Merge overlapping/touching blocked intervals.
   blocked.sort((a, b) => a.s - b.s);
   const merged: { s: number; e: number }[] = [];
-  for (const b of blocked) {
+  for (const rawBlock of blocked) {
+    const b = { s: Math.max(wallStart, rawBlock.s), e: Math.min(wallEnd, rawBlock.e) };
+    if (b.e <= b.s + COLLISION_EPSILON_IN) continue;
     const last = merged[merged.length - 1];
     if (last && b.s <= last.e + 0.01) {
       last.e = Math.max(last.e, b.e);
@@ -6071,13 +6090,13 @@ export function freeSegmentsOnWall(
 
   // The free segments are the gaps between merged blocks (and the ends).
   const segments: WallSegment[] = [];
-  let cursor = 0;
+  let cursor = wallStart;
   for (const b of merged) {
     const gap = b.s - cursor;
     if (gap >= minLen) segments.push({ start: cursor, length: Math.round(gap * 100) / 100 });
     cursor = Math.max(cursor, b.e);
   }
-  const tail = wallLen - cursor;
+  const tail = wallEnd - cursor;
   if (tail >= minLen) segments.push({ start: cursor, length: Math.round(tail * 100) / 100 });
 
   return segments;
@@ -6342,7 +6361,9 @@ export function wallDimensions(
   layer: "base" | "wall" = "base"
 ): DimensionSeg[] {
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = cabinetWallRunLength(side, room);
+  const retainedWall = cabinetWallRunSegment(side, room);
+  const wallStart = retainedWall.start;
+  const wallEnd = retainedWall.start + retainedWall.length;
   // Collect cabinets on this wall + layer, sorted by run-axis start.
   const onWall = placed
     .filter((p) => {
@@ -6356,10 +6377,11 @@ export function wallDimensions(
       const span = horizontal ? w : d;
       return { start, span, code: p.masterCode ?? "" };
     })
+    .filter((item) => item.start + item.span > wallStart + COLLISION_EPSILON_IN && item.start < wallEnd - COLLISION_EPSILON_IN)
     .sort((a, b) => a.start - b.start);
 
   const segs: DimensionSeg[] = [];
-  let cursor = 0;
+  let cursor = wallStart;
   for (const c of onWall) {
     const gapLen = c.start - cursor;
     if (gapLen > 0.25) {
@@ -6368,7 +6390,7 @@ export function wallDimensions(
     segs.push({ start: c.start, length: c.span, kind: "cabinet", label: c.code ? `${c.code} (${formatInches(c.span)})` : formatInches(c.span) });
     cursor = c.start + c.span;
   }
-  const tail = wallLen - cursor;
+  const tail = wallEnd - cursor;
   if (tail > 0.25) {
     segs.push({ start: cursor, length: tail, kind: "gap", label: formatInches(tail) });
   }
@@ -6435,8 +6457,9 @@ export function wallPlacementAt(
   }
   const horizontal = side === "top" || side === "bottom";
   const rotation = horizontal ? 0 : 90;
-  const runLength = cabinetWallRunLength(side, room);
-  const clampedAlong = Math.max(0, Math.min(Math.max(0, runLength - width), along));
+  const retainedWall = cabinetWallRunSegment(side, room);
+  const runEnd = retainedWall.start + retainedWall.length;
+  const clampedAlong = Math.max(retainedWall.start, Math.min(Math.max(retainedWall.start, runEnd - width), along));
   // depth runs into the room from the wall.
   let x = 0;
   let y = 0;
@@ -6490,10 +6513,14 @@ export function autoSnapCabinetToNearbyWall(
     }
   };
 
-  addSegment("top", { x: 0, y: 0 }, { x: cabinetWallRunLength("top", room), y: 0 });
-  addSegment("bottom", { x: 0, y: room.depth }, { x: cabinetWallRunLength("bottom", room), y: room.depth });
-  addSegment("left", { x: 0, y: 0 }, { x: 0, y: cabinetWallRunLength("left", room) });
-  addSegment("right", { x: room.width, y: 0 }, { x: room.width, y: cabinetWallRunLength("right", room) });
+  const topWall = cabinetWallRunSegment("top", room);
+  const bottomWall = cabinetWallRunSegment("bottom", room);
+  const leftWall = cabinetWallRunSegment("left", room);
+  const rightWall = cabinetWallRunSegment("right", room);
+  addSegment("top", { x: topWall.start, y: 0 }, { x: topWall.start + topWall.length, y: 0 });
+  addSegment("bottom", { x: bottomWall.start, y: room.depth }, { x: bottomWall.start + bottomWall.length, y: room.depth });
+  addSegment("left", { x: 0, y: leftWall.start }, { x: 0, y: leftWall.start + leftWall.length });
+  addSegment("right", { x: room.width, y: rightWall.start }, { x: room.width, y: rightWall.start + rightWall.length });
 
   for (const wall of room.customWalls ?? []) {
     if (!room.vertices || (wall.lockedAngle !== 45 && wall.lockedAngle !== -45)) continue;
@@ -6771,8 +6798,20 @@ export interface WallSpanMeasure {
 }
 
 // Project a placed item onto the run axis of a wall, returning [start, end] in
-// inches. For top/bottom walls the run axis is X; for left/right it is Y.
-function runSpan(p: PlacedCabinet, side: WallSide): { start: number; end: number } {
+// inches. Peninsula and custom-wall placements carry an explicit along-run
+// offset; using their rotated screen-space AABB would inflate or redirect the
+// measured gap and suppress a valid post-placement filler prompt.
+function runSpan(p: PlacedCabinet, side: WallSide, room?: RoomData): { start: number; end: number } {
+	const explicitOffset = Number(p.wallOffset);
+	const linearWidth = Math.max(0, Number(p.width) || 0);
+	const explicitRun = room && (
+		Boolean(peninsulaRunById(room, side))
+		|| Boolean(room.customWalls?.some((wall) => wall.id === side))
+	);
+	if (explicitRun && p.wallId === side && Number.isFinite(explicitOffset)) {
+		const start = Math.max(0, Math.min(wallLength(side, room), explicitOffset));
+		return { start, end: start + linearWidth };
+	}
   const { w, d } = placedFootprint(p);
   const horizontal = side === "top" || side === "bottom";
   const start = horizontal ? p.x : p.y;
@@ -6790,15 +6829,15 @@ export function wallSpanMeasure(
   side: WallSide
 ): WallSpanMeasure {
   const horizontal = side === "top" || side === "bottom";
-  const wallLen = horizontal ? room.width : room.depth;
-  const me = runSpan(moving, side);
+  const wallLen = wallLength(side, room);
+  const me = runSpan(moving, side, room);
 
   // Neighbors on the same wall + same layer, excluding the moving item itself.
   const neighbors = others
     .filter((o) => o.uid !== moving.uid)
     .filter((o) => o.placement === moving.placement)
     .filter((o) => isAgainstWall(o, side, room))
-    .map((o) => runSpan(o, side));
+    .map((o) => runSpan(o, side, room));
 
   // Previous obstacle: the closest neighbor that ends at/below our start.
   let beforeEdge = 0;
@@ -6878,9 +6917,8 @@ export function wallCabinetFitMeasure(
   side: WallSide = cabinetWall(moving, room),
   openingClearance = WALL_OPENING_CLEARANCE_IN,
 ): WallCabinetFitMeasure {
-  const horizontal = side === "top" || side === "bottom";
-  const wallLen = horizontal ? room.width : room.depth;
-  const me = runSpan(moving, side);
+  const wallLen = wallLength(side, room);
+  const me = runSpan(moving, side, room);
   const requiredSpan = Math.max(0, me.end - me.start);
 	  const peers = others
 	    .filter((other) => other.uid !== moving.uid)
@@ -6937,7 +6975,7 @@ export function wallCabinetFitMeasure(
   let rightOverlap = 0;
   const movingCenter = (me.start + me.end) / 2;
   for (const peer of peers) {
-    const span = runSpan(peer, side);
+    const span = runSpan(peer, side, room);
     const overlap = Math.min(me.end, span.end) - Math.max(me.start, span.start);
     if (overlap <= COLLISION_EPSILON_IN) continue;
     const peerCenter = (span.start + span.end) / 2;
@@ -6959,7 +6997,7 @@ export function wallCabinetFitMeasure(
     if (coordinate <= COLLISION_EPSILON_IN) return "wall start";
     if (coordinate >= wallLen - COLLISION_EPSILON_IN) return "wall end";
     const peer = peers.find((candidate) => {
-      const span = runSpan(candidate, side);
+      const span = runSpan(candidate, side, room);
       const boundary = edge === "before" ? span.end : span.start;
       return Math.abs(boundary - coordinate) <= CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN;
     });
@@ -7681,10 +7719,14 @@ export function nearestRectRoomWallAtPoint(room: Pick<RoomData, "width" | "depth
   const x = Math.max(0, Math.min(room.width, point.x));
   const y = Math.max(0, Math.min(room.depth, point.y));
   const terminatedRoom = room as RoomData;
-  const topOpen = x > cabinetWallRunLength("top", terminatedRoom) + COLLISION_EPSILON_IN;
-  const bottomOpen = x > cabinetWallRunLength("bottom", terminatedRoom) + COLLISION_EPSILON_IN;
-  const leftOpen = y > cabinetWallRunLength("left", terminatedRoom) + COLLISION_EPSILON_IN;
-  const rightOpen = y > cabinetWallRunLength("right", terminatedRoom) + COLLISION_EPSILON_IN;
+  const topWall = cabinetWallRunSegment("top", terminatedRoom);
+  const bottomWall = cabinetWallRunSegment("bottom", terminatedRoom);
+  const leftWall = cabinetWallRunSegment("left", terminatedRoom);
+  const rightWall = cabinetWallRunSegment("right", terminatedRoom);
+  const topOpen = x < topWall.start - COLLISION_EPSILON_IN || x > topWall.start + topWall.length + COLLISION_EPSILON_IN;
+  const bottomOpen = x < bottomWall.start - COLLISION_EPSILON_IN || x > bottomWall.start + bottomWall.length + COLLISION_EPSILON_IN;
+  const leftOpen = y < leftWall.start - COLLISION_EPSILON_IN || y > leftWall.start + leftWall.length + COLLISION_EPSILON_IN;
+  const rightOpen = y < rightWall.start - COLLISION_EPSILON_IN || y > rightWall.start + rightWall.length + COLLISION_EPSILON_IN;
   const distances: Array<{ side: WallSide; distance: number }> = [
     { side: "top", distance: topOpen ? Number.POSITIVE_INFINITY : y },
     { side: "bottom", distance: bottomOpen ? Number.POSITIVE_INFINITY : room.depth - y },

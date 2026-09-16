@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -122,15 +122,25 @@ describe("locked 45-degree cabinet wall placement", () => {
 });
 
 describe("parent-wall termination at a peninsula attachment", () => {
-  it("keeps the full room span for attachment editing but ends the top cabinet wall at the primary peninsula start", () => {
+  it("keeps the full room span for attachment editing and retains the longer wall section after the Compass split", () => {
     expect(wallLength("top", peninsulaRoom)).toBe(144);
-    expect(cabinetWallRunLength("top", peninsulaRoom)).toBe(48);
-    expect(freeSegmentsOnWall("top", peninsulaRoom, [], [], 0.5, 0, "base")).toEqual([{ start: 0, length: 48 }]);
+    expect(cabinetWallRunSegment("top", peninsulaRoom)).toEqual({ start: 48, length: 96 });
+    expect(cabinetWallRunLength("top", peninsulaRoom)).toBe(96);
+    expect(freeSegmentsOnWall("top", peninsulaRoom, [], [], 0.5, 0, "base")).toEqual([{ start: 48, length: 96 }]);
   });
 
-  it("clamps new top-wall cabinets inside the retained parent-wall segment instead of placing them in the open continuation", () => {
-    const spot = wallPlacementAt(96, 30, 24, "top", peninsulaRoom);
-    expect(spot).toMatchObject({ x: 18, y: 0, rotation: 0 });
+  it("clamps new top-wall cabinets inside the retained longer segment instead of placing them in the removed short section", () => {
+    const spot = wallPlacementAt(0, 30, 24, "top", peninsulaRoom);
+    expect(spot).toMatchObject({ x: 48, y: 0, rotation: 0 });
+  });
+
+  it("retains the start-side section when it is longer than the end-side section", () => {
+    const nearEnd: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: peninsulaRoom.peninsulaRuns?.map((run) => ({ ...run, startOffset: 120 })),
+    };
+    expect(cabinetWallRunSegment("top", nearEnd)).toEqual({ start: 0, length: 120 });
+    expect(freeSegmentsOnWall("top", nearEnd, [], [], 0.5, 0, "base")).toEqual([{ start: 0, length: 120 }]);
   });
 
   it("retains the full parent wall when a primary run explicitly keeps it", () => {
@@ -138,6 +148,7 @@ describe("parent-wall termination at a peninsula attachment", () => {
       ...peninsulaRoom,
       peninsulaRuns: peninsulaRoom.peninsulaRuns?.map((run) => ({ ...run, terminatesParentWall: false })),
     };
+    expect(cabinetWallRunSegment("top", retained)).toEqual({ start: 0, length: 144 });
     expect(cabinetWallRunLength("top", retained)).toBe(144);
   });
 });

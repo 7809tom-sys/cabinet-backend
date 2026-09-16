@@ -2057,3 +2057,8 @@
 - [x] Auto-snap cabinets placed within a small wall distance to the selected straight or 45-degree wall while preserving side, overlap, opening, and run ownership safeguards; verify the live Designer route renders after the update
 - [x] Reproduce the reported three-segment peninsula where Plan shows cabinets on the upper straight, 45-degree, and lower straight runs but 3D renders different positions or orientations
 - [x] Make 3D consume the identical normalized peninsula cabinet center, rotation, selected side, wall ownership, and physical footprint used by Plan for every connected segment
+- [x] Change peninsula inside-corner cabinet clearance from 11 inches to 9.5 inches on both adjoining segments across placement, fit guidance, Auto-fill, and Wizard behavior — cancelled before publication at the owner's request
+- [x] Disregard the unpublished 9.5-inch request and preserve the published 11-inch peninsula inside-corner clearance without changing live behavior
+- [x] Restore the filler decision popup after placing B-18 on a peninsula when a valid selected-line filler gap remains, without filling the protected 11-inch inside corner
+- [x] When a fillable peninsula gap is bounded by two cabinets, split the installed filler evenly so half belongs at each adjoining cabinet edge while retaining one catalog-priced filler group
+- [x] When Compass splits a wall, preserve the longer original wall section and remove the shorter section so the kitchen perimeter remains buildable

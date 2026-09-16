@@ -1,9 +1,13 @@
 import {
-  STD,
-  appendCollisionFreePlacements,
-  cabinetWall,
-  isFillerItem,
-  wallCabinetFitMeasure,
+	STD,
+	PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+	appendCollisionFreePlacements,
+	cabinetWall,
+	isFillerItem,
+	peninsulaRunById,
+	wallRunOffset,
+	wallRunSpan,
+	wallCabinetFitMeasure,
   type CabinetWallDragPreview,
   type IslandFace,
   type IslandZone,
@@ -37,6 +41,10 @@ export type SmallGapFillerOpportunity = {
   replacingFillerGroupId?: string;
   /** Fixed-hand one-click preference; explicit user left/right/split still wins. */
   preferredMode?: SmallGapFillerPlacementMode;
+	/** Left/right cabinet owners when the entire remainder is bounded by two cabinets. */
+	boundedCabinetUids?: [string, string];
+	/** Exact along-run start of a bounded two-cabinet gap. */
+	boundedGapStart?: number;
 };
 
 export type SmallGapFillerLayout = {
@@ -128,9 +136,85 @@ export function findSmallGapFillerOpportunity(
   const cabinetStart = measurement.start;
   const cabinetSpan = measurement.end - measurement.start;
   const cabinetEnd = cabinetStart + cabinetSpan;
-  const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
-  const leadingStart = measurement.availableStart;
-  const remaining = installableSmallGapRemainder(measurement.before + measurement.after);
+	const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
+	const leadingStart = measurement.availableStart;
+	const peninsula = peninsulaRunById(room, wall);
+	if (peninsula && layer === "base") {
+		const floorLayerPeer = (item: PlacedCabinet) => item.placement === "base" || item.placement === "appliance" || item.placement === "tall";
+		const boundedNeighbor = placed
+			.filter((item) => item.uid !== cabinet.uid && !isFillerItem(item) && floorLayerPeer(item) && cabinetWall(item, room) === wall)
+			.map((item) => {
+				const start = wallRunOffset(item, wall, room);
+				const end = start + wallRunSpan(item, wall, room);
+				if (end <= cabinetStart + EDGE_EPSILON_IN) return { item, start, end, gapStart: end, gap: cabinetStart - end, before: true };
+				if (start >= cabinetEnd - EDGE_EPSILON_IN) return { item, start, end, gapStart: cabinetEnd, gap: start - cabinetEnd, before: false };
+				return null;
+			})
+			.filter((candidate): candidate is NonNullable<typeof candidate> => candidate != null)
+			.filter((candidate) => installableSmallGapRemainder(candidate.gap) != null)
+			.sort((left, right) => left.gap - right.gap)[0];
+		if (boundedNeighbor && !gapCrossesWallOpening(openings, wall, boundedNeighbor.gapStart, boundedNeighbor.gap)) {
+			const remaining = installableSmallGapRemainder(boundedNeighbor.gap)!;
+			const leftUid = boundedNeighbor.before ? boundedNeighbor.item.uid : cabinet.uid;
+			const rightUid = boundedNeighbor.before ? cabinet.uid : boundedNeighbor.item.uid;
+			return {
+				cabinetUid,
+				wall,
+				layer,
+				cabinetStart,
+				cabinetSpan,
+				openingStart: boundedNeighbor.gapStart,
+				openingLength: remaining,
+				remaining,
+				preferredMode: "split",
+				boundedCabinetUids: [leftUid, rightUid],
+				boundedGapStart: boundedNeighbor.gapStart,
+			};
+		}
+
+		const leadingCornerRemainder = installableSmallGapRemainder(measurement.before);
+		const startsAtProtectedCorner = near(measurement.availableStart, Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, measurement.wallLen));
+		if (
+			leadingCornerRemainder != null
+			&& startsAtProtectedCorner
+			&& !gapCrossesWallOpening(openings, wall, measurement.availableStart, measurement.before)
+		) {
+			return {
+				cabinetUid,
+				wall,
+				layer,
+				cabinetStart,
+				cabinetSpan,
+				openingStart: measurement.availableStart,
+				openingLength: cabinetSpan + leadingCornerRemainder,
+				remaining: leadingCornerRemainder,
+				preferredMode: "left",
+			};
+		}
+
+		const hasConnectedFarCorner = Boolean(room.peninsulaRuns?.some((run) => run.parentRunId === peninsula.id));
+		const trailingCornerRemainder = installableSmallGapRemainder(measurement.after);
+		const endsAtProtectedCorner = hasConnectedFarCorner
+			&& near(measurement.availableEnd, Math.max(0, measurement.wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN));
+		if (
+			trailingCornerRemainder != null
+			&& endsAtProtectedCorner
+			&& !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)
+		) {
+			return {
+				cabinetUid,
+				wall,
+				layer,
+				cabinetStart,
+				cabinetSpan,
+				openingStart: cabinetStart,
+				openingLength: cabinetSpan + trailingCornerRemainder,
+				remaining: trailingCornerRemainder,
+				preferredMode: "right",
+			};
+		}
+	}
+	const remaining = installableSmallGapRemainder(measurement.before + measurement.after);
   // A small clearance on one side is not a filler opportunity when the other
   // side still has room for more cabinets. The entire measured opening must be
   // nearly consumed by this cabinet before the filler choices are offered.
@@ -223,6 +307,19 @@ export function smallGapFillerLayout(
   opportunity: SmallGapFillerOpportunity,
   mode: SmallGapFillerPlacementMode,
 ): SmallGapFillerLayout {
+	if (mode === "split" && opportunity.boundedCabinetUids && opportunity.boundedGapStart != null) {
+		const leftWidth = opportunity.remaining / 2;
+		const rightWidth = opportunity.remaining - leftWidth;
+		return {
+			cabinetStart: opportunity.cabinetStart,
+			leftWidth,
+			rightWidth,
+			pieces: [
+				{ side: "left", start: opportunity.boundedGapStart, width: leftWidth },
+				{ side: "right", start: opportunity.boundedGapStart + leftWidth, width: rightWidth },
+			],
+		};
+	}
   const leftWidth = mode === "left"
     ? opportunity.remaining
     : mode === "split"
