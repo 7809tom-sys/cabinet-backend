@@ -107,12 +107,27 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
   const pricing = args.pricingLines.map((line, index) => ({ line, index, consumed: false }));
   const rows: Omit<MaterialsListRow, "label">[] = [];
 
-  for (const build of args.buildRows.filter((row) => row.qty > 0)) {
+  for (const build of args.buildRows.filter((row) => {
+    if (!(row.qty > 0)) return false;
+    // Design cabinet price-locked lines already include the one-time custom-size
+    // fee in their adjusted unit price. CUSTOM-ADJ remains on the fabrication
+    // build sheet for transparency, but must not become a second priced material
+    // line when authoritative cart pricing is available.
+    if (row.code === "CUSTOM-ADJ" && args.pricingLines.length > 0) return false;
+    return true;
+  })) {
     const sameCode = pricing.filter(({ line }) => line.masterCode === build.code);
-    const exact = sameCode.find(({ line }) => build.color && line.styleLabel === build.color)
+    const lockedBuildPrice = safePrice(build.pricingUnitPrice);
+    const exactLocked = lockedBuildPrice == null ? null : sameCode.find(({ line }) =>
+      (!build.color || line.styleLabel === build.color) &&
+      safePrice(line.unitPrice) != null &&
+      Math.abs(Number(line.unitPrice) - lockedBuildPrice) < 0.0001
+    );
+    const exact = exactLocked
+      ?? sameCode.find(({ line }) => build.color && line.styleLabel === build.color)
       ?? (sameCode.length === 1 ? sameCode[0] : null);
     if (exact) exact.consumed = true;
-    const unitPrice = safePrice(exact?.line.unitPrice ?? build.unitPrice);
+    const unitPrice = safePrice(exact?.line.unitPrice ?? build.pricingUnitPrice ?? build.unitPrice);
     const section = materialsListSectionFor({ code: build.code, description: build.description, category: build.placement, placement: build.placement });
     rows.push({
       sourceUids: build.sourceUids,

@@ -2065,3 +2065,5 @@
 - [x] Show exact installed dimensions for each half of a split peninsula filler in an accessible hover and keyboard-focus tooltip
 - [x] Add a dedicated Undo Compass Split action that restores the immediately previous parent-wall and peninsula state after an accidental split
 - [x] Preview and highlight the exact longer wall section that will be retained while the Compass is hovered or dragged before committing a split
+- [x] Trace the current active Designer price through 2D, 3D, Materials & Parts, cart, save/restore, and checkout and identify any verified identity, tier, quantity, or stale-value mismatch
+- [x] Correct only the verified downstream pricing-path mismatch while preserving authoritative source catalog amounts and unrelated products

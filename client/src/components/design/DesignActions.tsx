@@ -38,6 +38,8 @@ export interface BuildSheetRow {
   color?: string | null;
   qty: number;
   unitPrice: number | null;
+  /** Exact adjusted unit amount locked into Designer cart/checkout pricing. */
+  pricingUnitPrice?: number | null;
   // Per-item discount (negative) or surcharge (positive) percentage. Null = no adjustment.
   discountPct?: number | null;
 }

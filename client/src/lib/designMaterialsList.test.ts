@@ -93,18 +93,131 @@ describe("complete Designer materials list", () => {
       defaultStyleName: "Aura Cream",
     });
 
-    expect(islandWallRows).toContainEqual(expect.objectContaining({
-      code: "W-30-30",
-      section: "cabinet",
+	    expect(islandWallRows).toContainEqual(expect.objectContaining({
+	      code: "W-30-30",
+	      section: "cabinet",
       dimensions: '30" W × 30" H × 12" D',
       qty: 1,
       unitPrice: 315,
       lineTotal: 315,
-      sourceUids: ["island-w3030"],
-    }));
-  });
+	      sourceUids: ["island-w3030"],
+	    }));
+	  });
 
-	it("exports spreadsheet-friendly columns without inventing pending prices", () => {
+	  it("uses the locked adjusted cabinet price without counting CUSTOM-ADJ a second time", () => {
+	    const adjustedRows = buildMaterialsListRows({
+	      buildRows: [
+	        {
+	          sourceUids: ["custom-b24"],
+	          code: "B-24",
+	          description: "24-inch Base Cabinet — custom width 25 inches",
+	          widthIn: 25,
+	          heightIn: 34.5,
+	          depthIn: 24,
+	          placement: "base",
+	          color: "Aura Cream",
+	          qty: 1,
+	          unitPrice: 100,
+	          pricingUnitPrice: 190,
+	          discountPct: -10,
+	        },
+	        {
+	          code: "CUSTOM-ADJ",
+	          description: "Custom size adjustment ($100 per resized cabinet)",
+	          widthIn: 0,
+	          heightIn: 0,
+	          depthIn: 0,
+	          placement: "accessory",
+	          qty: 1,
+	          unitPrice: 100,
+	        },
+	      ],
+	      pricingLines: [
+	        {
+	          masterCode: "B-24",
+	          name: "24-inch Base Cabinet",
+	          styleId: 7,
+	          styleLabel: "Aura Cream",
+	          distributorId: 4,
+	          tier: "homeowner",
+	          unitPrice: 190,
+	          priceLocked: true,
+	          qty: 1,
+	        },
+	      ],
+	      distributorNames: new Map([[4, "Ashford"]]),
+	      defaultDistributorId: 4,
+	      defaultStyleName: "Aura Cream",
+	    });
+
+	    expect(adjustedRows).toContainEqual(expect.objectContaining({
+	      code: "B-24",
+	      unitPrice: 190,
+	      lineTotal: 190,
+	    }));
+	    expect(adjustedRows.some((row) => row.code === "CUSTOM-ADJ")).toBe(false);
+	    expect(materialsListPricedTotal(adjustedRows)).toBe(190);
+	  });
+
+	  it("matches standard and adjusted rows to their exact locked prices when the SKU and style are identical", () => {
+	    const adjustedRows = buildMaterialsListRows({
+	      buildRows: [
+	        {
+	          sourceUids: ["standard-b24"],
+	          code: "B-24",
+	          description: "24-inch Base Cabinet",
+	          widthIn: 24,
+	          heightIn: 34.5,
+	          depthIn: 24,
+	          placement: "base",
+	          color: "Aura Cream",
+	          qty: 1,
+	          unitPrice: 100,
+	          pricingUnitPrice: 100,
+	        },
+	        {
+	          sourceUids: ["custom-b24"],
+	          code: "B-24",
+	          description: "24-inch Base Cabinet — custom width 25 inches",
+	          widthIn: 25,
+	          heightIn: 34.5,
+	          depthIn: 24,
+	          placement: "base",
+	          color: "Aura Cream",
+	          qty: 1,
+	          unitPrice: 100,
+	          pricingUnitPrice: 190,
+	          discountPct: -10,
+	        },
+	        {
+	          code: "CUSTOM-ADJ",
+	          description: "Custom size adjustment ($100 per resized cabinet)",
+	          widthIn: 0,
+	          heightIn: 0,
+	          depthIn: 0,
+	          placement: "accessory",
+	          qty: 1,
+	          unitPrice: 100,
+	        },
+	      ],
+	      pricingLines: [
+	        { masterCode: "B-24", name: "24-inch Base Cabinet", styleId: 7, styleLabel: "Aura Cream", distributorId: 4, tier: "homeowner", unitPrice: 100, priceLocked: true, qty: 1 },
+	        { masterCode: "B-24", name: "24-inch Base Cabinet", styleId: 7, styleLabel: "Aura Cream", distributorId: 4, tier: "homeowner", unitPrice: 190, priceLocked: true, qty: 1 },
+	      ],
+	      distributorNames: new Map([[4, "Ashford"]]),
+	      defaultDistributorId: 4,
+	      defaultStyleName: "Aura Cream",
+	    });
+
+	    expect(adjustedRows.filter((row) => row.code === "B-24").map((row) => [row.unitPrice, row.lineTotal])).toEqual([
+	      [100, 100],
+	      [190, 190],
+	    ]);
+	    expect(adjustedRows.some((row) => row.code === "CUSTOM-ADJ")).toBe(false);
+	    expect(materialsListPricedTotal(adjustedRows)).toBe(290);
+	  });
+
+		it("exports spreadsheet-friendly columns without inventing pending prices", () => {
     const csv = materialsListCsv(rows);
     expect(csv).toContain("No.,Section,Item Code,Description,Category,Distributor,Color / Style,Dimensions,Qty,Unit Price,Line Total,Notes");
 	    expect(csv).toContain('1,Cabinets & cabinet parts,B-24,24-inch Base Cabinet,Cabinet,Ashford,Aura Cream,"24"" W × 34.5"" H × 24"" D",2,300.00,600.00,');

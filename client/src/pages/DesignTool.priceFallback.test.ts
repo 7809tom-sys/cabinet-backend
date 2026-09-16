@@ -24,4 +24,10 @@ describe("Designer verified price fallback", () => {
     expect(source).toContain("clearForeignSavedStyleOverrides(current, lockedDistributorId, styleDistributorIdById)");
     expect(source).toContain("if (lockedDistributorId == null || styleDistributorIdById.size === 0) return;");
   });
+
+  it("shows the same discount and custom-size adjusted cabinet amount used by the locked cart", () => {
+    expect(source).toContain("const adjustedUnitPrice = adjustedDesignUnitPrice(g.sample, g.unitPrice);");
+    expect(source).toContain("const lineTotal = adjustedUnitPrice != null ? adjustedUnitPrice * g.qty : null;");
+    expect(source).toContain("${adjustedUnitPrice.toFixed(2)} ea");
+  });
 });

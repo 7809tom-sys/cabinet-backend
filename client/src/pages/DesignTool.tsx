@@ -63,7 +63,7 @@ import { buildPreSavePlanReview, unsuitableWallCabinetAboveRefrigerator, type Pr
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
-import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
+import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
 import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
@@ -2498,12 +2498,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           widthIn: rotatedSize(p).w,
           heightIn: placedHeight(p),
           depthIn: rotatedSize(p).d,
-          placement: p.placement,
-          swing: sw === "none" ? undefined : sw,
-          qty: 1,
-          unitPrice: closet ? unit : styleId ? unit : null,
-          discountPct: p.discountPct ?? null,
-        });
+	          placement: p.placement,
+	          swing: sw === "none" ? undefined : sw,
+	          qty: 1,
+	          unitPrice: closet ? unit : styleId ? unit : null,
+	          pricingUnitPrice: adjustedDesignUnitPrice(p, closet ? unit : styleId ? unit : null),
+	          discountPct: p.discountPct ?? null,
+	        });
     }
     const rows = Array.from(map.values());
     // Hickory unfinished-end skins: one per exposed end, aggregated by
@@ -12459,10 +12460,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 // sectionItems is passed so move-up/down knows the full list.
                 const renderLine = (g: typeof panelGroups[number], sectionItems: typeof panelGroups) => {
                   const selected = g.uids.includes(selectedUid ?? "");
-                  const rawLineTotal = g.unitPrice != null ? g.unitPrice * g.qty : null;
-                  const lineTotal = rawLineTotal != null && g.discountPct !== 0
-                    ? rawLineTotal * (1 + g.discountPct / 100)
-                    : rawLineTotal;
+                  // Use the identical adjusted unit price already locked into
+                  // 3D, cart, and checkout. This includes the cabinet's
+                  // discount/surcharge and one custom-size fee, so the visible
+                  // line cannot omit the fee or apply the percentage twice.
+                  const adjustedUnitPrice = adjustedDesignUnitPrice(g.sample, g.unitPrice);
+                  const lineTotal = adjustedUnitPrice != null ? adjustedUnitPrice * g.qty : null;
                   const idx = sectionItems.findIndex((s) => s.key === g.key);
                   const canMoveUp = idx > 0;
                   const canMoveDown = idx < sectionItems.length - 1;
@@ -12537,8 +12540,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                           <div className="font-semibold leading-none">
                             {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
                           </div>
-                          {styleId && g.qty > 1 && g.unitPrice != null && (
-                            <div className="text-[9px] text-muted-foreground mt-0.5">${g.unitPrice.toFixed(2)} ea</div>
+                          {styleId && g.qty > 1 && adjustedUnitPrice != null && (
+                            <div className="text-[9px] text-muted-foreground mt-0.5">${adjustedUnitPrice.toFixed(2)} ea</div>
                           )}
                           {g.discountPct !== 0 && (
                             <div className={`text-[9px] font-medium mt-0.5 ${g.discountPct < 0 ? "text-green-600" : "text-amber-600"}`}>
