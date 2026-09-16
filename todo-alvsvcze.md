@@ -2109,3 +2109,6 @@
 - [x] Validate a live rate using an order or saved design with a destination ZIP code and publish the correction
 - [x] Reconfigure the Madison shipping test to use verified WWEX sandbox settings rather than the incomplete production endpoint
 - [x] Run and verify a real WWEX sandbox carrier rate for the Madison test flow without exposing credentials
+- [x] Retrieve and verify the exact pallet dimensions, package contents weight, tare weight, billed weight, and freight class used in the Madison live quote
+- [x] Report the carrier-ready pallet breakdown and flag any source packaging data that needs correction
+- [x] Align the generic freight test path with the validated WWEX freight-class normalization so it does not send unsupported class 75 to the sandbox rate endpoint

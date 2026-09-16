@@ -95,6 +95,8 @@ describe("Operations Freight Test Lab", () => {
     expect(source).toContain('liveProvider: "worldwideexpress" as const');
     expect(source).toContain('wwexEnvironment: "sandbox" as const');
     expect(source).toContain('savedSpeedshipClass ?? "175"');
+    expect(source).toContain('carrierSettings.liveProvider === "worldwideexpress"');
+    expect(source).toContain('const freightClass = carrierSettings.liveProvider');
     expect(source).toContain("customer quotes still require a style ZIP");
     expect(source).toContain("missingOriginStyle");
     expect(source).toContain("distributorName: matchedStyle.distributorName");

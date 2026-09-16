@@ -850,7 +850,12 @@ async function simulateFreight(input: {
     ? { ...settingsRow, liveProvider: "worldwideexpress" as const, wwexEnvironment: "sandbox" as const }
     : settingsRow;
   const savedSpeedshipClass = normalizeSpeedshipFreightClass(settingsRow.freightClass);
-  const freightClass = shouldUseWwexStaging ? savedSpeedshipClass ?? "175" : settingsRow.freightClass;
+  // WWEX only accepts documented Speedship LTL classes. Apply the same
+  // normalization used by customer quotes to every admin test path so an old
+  // stored class such as "75" cannot cause a 422 from the carrier.
+  const freightClass = carrierSettings.liveProvider === "worldwideexpress"
+    ? savedSpeedshipClass ?? "175"
+    : settingsRow.freightClass;
   const freightClassDefaultedForStaging = shouldUseWwexStaging && savedSpeedshipClass == null;
 
   for (const group of styleGroups) {
