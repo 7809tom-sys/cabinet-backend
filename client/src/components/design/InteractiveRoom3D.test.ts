@@ -3124,6 +3124,24 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(nearPerimeter, room)).toMatchObject({ x: 18, z: 33, rotation: Math.PI / 2 });
   });
 
+  it("resolves legacy B-12 swing and centered hardware identically before 3D face construction", () => {
+    const sku = existingCabinetSku({
+      uid: "legacy-b12-hardware",
+      cabinetId: 12,
+      masterCode: "B-12",
+      description: "12 inch base cabinet",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 12,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      hardwarePosition: "center",
+    } as never);
+    expect(sku).toMatchObject({ swing: "left", hardwarePosition: "auto" });
+  });
+
   it("does not invent a range hood in 3D when the saved 2D appliance plan contains only a range", () => {
     expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never])).toEqual({ hasRange: true, hasRangeHood: false, hasOverRangeMicrowave: false, needs2DPlacement: true });
     expect(rangeHoodSceneStatus([{ masterCode: "RANGE-30" } as never, { masterCode: "HOOD-30" } as never])).toEqual({ hasRange: true, hasRangeHood: true, hasOverRangeMicrowave: false, needs2DPlacement: false });

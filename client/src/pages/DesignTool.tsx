@@ -2406,7 +2406,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const restoredRoom = d.room ?? DEFAULT_ROOM;
       const restoredIsland = persisted?.island ?? null;
       const restoredStyle = restoredSavedDesignStyle(d);
-      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedPlaced), restoredRoom)).placed;
+	      // Saved peninsula records can retain stale screen coordinates even when
+	      // their wallId, wallOffset, selected side, and rotation are authoritative.
+	      // Canonicalize them during restore so Plan and 3D receive the same body
+	      // center immediately, rather than waiting for a later catalog action.
+	      const peninsulaNormalizedPlaced = normalizeLegacyPeninsulaCabinets(
+	        normalizeLCornerDepths(normalizedPlaced),
+	        restoredRoom,
+	      );
+	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom)).placed;
       const pricedPlaced = clearForeignSavedStyleOverrides(repairedPlaced, restoredStyle.distributorId, styleDistributorIdById);
       setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, pricedPlaced, restoredRoom) : pricedPlaced);
       setStyleId(restoredStyle.styleId);
@@ -8030,7 +8038,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                ? { ...shelf, placement: "appliance" as const }
 	                : shelf;
 	            });
-            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(normalizeLCornerDepths(normalizedDraft), d.room ?? DEFAULT_ROOM)).placed);
+	            const draftRoom = d.room ?? DEFAULT_ROOM;
+	            const peninsulaNormalizedDraft = normalizeLegacyPeninsulaCabinets(
+	              normalizeLCornerDepths(normalizedDraft),
+	              draftRoom,
+	            );
+	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom)).placed);
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);

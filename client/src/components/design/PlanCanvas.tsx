@@ -3,7 +3,7 @@ import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
-  resolveSwing,
+	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
   cabinetWall, wallSpanMeasure,
@@ -55,6 +55,16 @@ export function nearestIslandFaceInRect(
   ];
   distances.sort((a, b) => a[1] - b[1]);
   return distances[0]![0];
+}
+
+/** Resolve the Plan marker from the same saved-hardware compatibility rule as 3D. */
+export function planCabinetHardwarePosition(cabinet: PlacedCabinet) {
+  const swing = resolveSwing(cabinet);
+  if (swing !== "left" && swing !== "right") return null;
+  const hardwarePosition = resolveCabinetHardwarePosition(cabinet);
+  return hardwarePosition === "auto"
+    ? (swing === "left" ? "right" : "left")
+    : hardwarePosition;
 }
 
 export function planCornerGeometry(cabinet: PlacedCabinet) {
@@ -1915,15 +1925,13 @@ export function PlanCanvas({
                 )}
                 {/* Hinge-side marker: a short bar on the hinge edge of the door
                     face so the shop can see Left vs Right swing at a glance. */}
-                {!p.noDoor && (() => {
-                  const sw = resolveSwing(p);
-                  if (sw !== "left" && sw !== "right") return null;
-                  // Handles sit on the opening (non-hinge) edge; honor an explicit
-                  // override, else default to the side opposite the hinge.
-                  const hardwarePosition = p.hardwarePosition ?? (p.handleSide === "left" || p.handleSide === "right" ? p.handleSide : "auto");
-                  const hSide = hardwarePosition === "auto"
-                    ? (sw === "left" ? "right" : "left")
-                    : hardwarePosition;
+	                {!p.noDoor && (() => {
+	                  const sw = resolveSwing(p);
+	                  if (sw !== "left" && sw !== "right") return null;
+	                  // Resolve legacy center/top overrides exactly as 3D does,
+	                  // then place automatic hardware opposite the saved hinge.
+	                  const hSide = planCabinetHardwarePosition(p);
+	                  if (!hSide) return null;
                   return (
                     <>
                       <div
@@ -1938,13 +1946,13 @@ export function PlanCanvas({
                       {hSide === "paired" ? <>
                         <div className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]" style={{ left: "38%" }} title="Paired door hardware" />
                         <div className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]" style={{ right: "38%" }} title="Paired door hardware" />
-                      </> : <div
-                        className="absolute top-1/2 z-10 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#c89b3c]"
-                        style={{
-                          ...(hSide === "center" ? { left: "50%", marginLeft: -3 } : { [hSide === "left" ? "left" : "right"]: 2 }),
-                        } as React.CSSProperties}
-                        title={hSide === "center" ? "Centered hardware" : hSide === "left" ? t("dt_pc_handle_left") : t("dt_pc_handle_right")}
-                      />
+	                      </> : <div
+	                        className={`absolute z-10 h-1.5 w-1.5 rounded-full bg-[#c89b3c] ${hSide === "top-center" ? "top-0.5 -translate-x-1/2" : "top-1/2 -translate-y-1/2"}`}
+	                        style={{
+	                          ...(hSide === "top-center" ? { left: "50%" } : { [hSide === "left" ? "left" : "right"]: 2 }),
+	                        } as React.CSSProperties}
+	                        title={hSide === "top-center" ? "Top-centered hardware" : hSide === "left" ? t("dt_pc_handle_left") : t("dt_pc_handle_right")}
+	                      />
                       }
                     </>
                   );

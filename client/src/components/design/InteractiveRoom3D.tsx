@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSurface, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSurface, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -6387,7 +6387,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 	    adjustableShelfCount: glassDoorShelfCount(cabinet) || cabinet.adjustableShelfCount || null,
 	    glassDoor: isGlassDoorCabinet(cabinet),
     doorOrientation: cabinet.doorOrientation ?? null,
-    swing: cabinet.swing ?? null,
+	    swing: resolveSwing(cabinet),
     handleSide: cabinet.handleSide === "left" || cabinet.handleSide === "right" ? cabinet.handleSide : null,
     mountBottom: cabinet.mountBottom ?? null,
     hardwarePosition: resolveCabinetHardwarePosition(cabinet),

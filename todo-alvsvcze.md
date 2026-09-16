@@ -2051,3 +2051,5 @@
 - [x] Align every peninsula cabinet back edge flush to its selected straight or 45-degree wall in both Plan and 3D
 - [x] Reserve 12 inches from both sides of every peninsula wall-angle intersection before placing cabinets on either adjoining segment
 - [x] Treat a 24-inch cabinet as the exact maximum nominal fit on a 36-inch segment after its 12-inch corner reserve, and recommend a smaller selected-line cabinet when true geometry cannot fit
+- [x] Correct the reported physical peninsula cabinet back gap so the actual B-18/B-12 bodies touch their selected straight and 45-degree wall segments in both Plan and 3D
+- [x] Make B-12 door and drawer handle placement resolve from one shared rule so Plan and 3D show the same hardware layout
