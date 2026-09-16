@@ -14,7 +14,7 @@ import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeD
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
-import { placedCornerGeometryKind } from "@/lib/design";
+import { peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -3097,7 +3097,7 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
-  it("keeps straight and 45-degree peninsula cabinet backs facing their exact selected run in 3D", () => {
+	  it("keeps straight and 45-degree peninsula cabinet backs facing their exact selected run in 3D", () => {
     const room = {
       width: 144,
       depth: 144,
@@ -3115,14 +3115,59 @@ describe("interactive 3D room scene helpers", () => {
       uid: "angled-b18", cabinetId: 18, masterCode: "B-18", description: "Angled peninsula base", placement: "base",
       x: 42, y: 54, width: 18, depth: 24, height: 34.5, rotation: 225, wallId: "peninsula-angle", wallOffset: 12, peninsulaSide: "right",
     } as never;
-    expect(existingCabinetTransform(straight, room).rotation).toBeCloseTo(Math.PI, 12);
-    expect(existingCabinetTransform(angled, room).rotation).toBeCloseTo(Math.PI * 1.25, 12);
+	    expect(existingCabinetTransform(straight, room).rotation).toBeCloseTo(Math.PI, 12);
+	    expect(existingCabinetTransform(angled, room).rotation).toBeCloseTo(Math.PI * 0.75, 12);
     const nearPerimeter = {
       uid: "near-perimeter-peninsula", cabinetId: 18, masterCode: "B-18", description: "Interior peninsula near perimeter", placement: "base",
       x: 6, y: 24, width: 18, depth: 24, height: 34.5, rotation: 90, wallId: "peninsula-primary", wallOffset: 12, peninsulaSide: "left",
     } as never;
-    expect(existingCabinetTransform(nearPerimeter, room)).toMatchObject({ x: 18, z: 33, rotation: Math.PI / 2 });
-  });
+	    expect(existingCabinetTransform(nearPerimeter, room)).toMatchObject({ x: 18, z: 33, rotation: Math.PI * 1.5 });
+	  });
+
+	  it("renders the same cabinet centers and wall-contacting backs as Plan across a straight-to-45-to-straight peninsula", () => {
+	    const primary = { id: "peninsula-upper", parentWall: "top", startOffset: 30, turn: 90, direction: "right", length: 60, height: 34.5, cabinetSide: "right" } as const;
+	    const diagonal = { id: "peninsula-diagonal", parentRunId: primary.id, startOffset: 0, turn: 45, direction: "left", length: 48, height: 34.5, cabinetSide: "right" } as const;
+	    const lower = { id: "peninsula-lower", parentRunId: diagonal.id, startOffset: 0, turn: 45, direction: "left", length: 60, height: 34.5, cabinetSide: "right" } as const;
+	    const room = { width: 156, depth: 144, ceilingHeight: 96, peninsulaRuns: [primary, diagonal, lower] } as RoomData;
+	    const cases = [
+	      { run: primary, code: "B-18", placement: "base", width: 18, depth: 24, height: 34.5 },
+	      { run: diagonal, code: "W-36-30", placement: "wall", width: 36, depth: 12, height: 30 },
+	      { run: lower, code: "B-18", placement: "base", width: 18, depth: 24, height: 34.5 },
+	    ] as const;
+
+	    cases.forEach(({ run, code, placement, width, depth, height }, index) => {
+	      const wallOffset = 11;
+	      const planPlacement = wallPlacementAt(wallOffset, width, depth, run.id, room, "right");
+	      const cabinet = {
+	        uid: `three-segment-${index}`,
+	        cabinetId: index + 1,
+	        masterCode: code,
+	        description: code,
+	        placement,
+	        width,
+	        depth,
+	        height,
+	        ...planPlacement,
+	      } as PlacedCabinet;
+	      const footprint = placedFootprint(cabinet);
+	      const transform = existingCabinetTransform(cabinet, room);
+	      expect(transform.x).toBeCloseTo(cabinet.x + footprint.w / 2, 12);
+	      expect(transform.z).toBeCloseTo(cabinet.y + footprint.d / 2, 12);
+
+	      const runGeometry = peninsulaRunEndpoints(run, room);
+	      const wallCenter = {
+	        x: runGeometry.start.x + Math.cos(runGeometry.radians) * (wallOffset + width / 2),
+	        z: runGeometry.start.y + Math.sin(runGeometry.radians) * (wallOffset + width / 2),
+	      };
+	      const threeDFront = { x: Math.sin(transform.rotation), z: Math.cos(transform.rotation) };
+	      const cabinetBack = {
+	        x: transform.x - threeDFront.x * depth / 2,
+	        z: transform.z - threeDFront.z * depth / 2,
+	      };
+	      expect(cabinetBack.x).toBeCloseTo(wallCenter.x, 10);
+	      expect(cabinetBack.z).toBeCloseTo(wallCenter.z, 10);
+	    });
+	  });
 
   it("resolves legacy B-12 swing and centered hardware identically before 3D face construction", () => {
     const sku = existingCabinetSku({

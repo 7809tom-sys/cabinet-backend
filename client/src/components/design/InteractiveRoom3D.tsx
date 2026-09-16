@@ -4684,6 +4684,17 @@ export function addCabinet(
 
 export type ThreeDPlacedWall = "back" | "front" | "left" | "right";
 
+/**
+ * Plan rotation is measured clockwise on a screen whose Y axis points down.
+ * Three.js rotation around +Y has the opposite handedness in the X/Z plane, so
+ * explicit non-perimeter placements must mirror the saved angle before their
+ * local +Z front can match the Plan cabinet front.
+ */
+export function threeDPlanRotation(planRotationRadians: number): number {
+	const fullTurn = Math.PI * 2;
+	return ((-planRotationRadians % fullTurn) + fullTurn) % fullTurn;
+}
+
 /** Resolves the room wall that owns a rectangular placed item from its 2D footprint. */
 export function threeDPlacedWall(
   cabinet: PlacedCabinet,
@@ -4749,11 +4760,11 @@ export function threeDRoomFacingRotation(
 		  // selected wall side in its saved rotation. Never re-infer that facing from
 		  // the nearest perimeter wall: doing so turns its front away from the run and
 		  // makes the physical cabinet back appear detached from the peninsula wall.
-		  if (room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId)) return fallbackRotation;
+			  if (room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId)) return threeDPlanRotation(fallbackRotation);
 		  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
 		  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
 		  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
-		  if (explicitAngle === 45 || explicitAngle === 135 || explicitAngle === 225 || explicitAngle === 315) return fallbackRotation;
+			  if (explicitAngle === 45 || explicitAngle === 135 || explicitAngle === 225 || explicitAngle === 315) return threeDPlanRotation(fallbackRotation);
 	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();

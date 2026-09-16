@@ -2055,3 +2055,5 @@
 - [x] Make B-12 door and drawer handle placement resolve from one shared rule so Plan and 3D show the same hardware layout
 - [x] Change peninsula inside-corner cabinet clearance from 12 inches to 11 inches on both adjoining segments and update exact-fit guidance
 - [x] Auto-snap cabinets placed within a small wall distance to the selected straight or 45-degree wall while preserving side, overlap, opening, and run ownership safeguards; verify the live Designer route renders after the update
+- [x] Reproduce the reported three-segment peninsula where Plan shows cabinets on the upper straight, 45-degree, and lower straight runs but 3D renders different positions or orientations
+- [x] Make 3D consume the identical normalized peninsula cabinet center, rotation, selected side, wall ownership, and physical footprint used by Plan for every connected segment
