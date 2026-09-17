@@ -131,7 +131,7 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("const desiredStart = requestedAlong - cabinet.width / 2;");
     expect(designToolSource).toContain("const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;");
     expect(designToolSource).toContain("? nearestAvailableWallStart(segments, desiredStart, cabinet.width)");
-    expect(designToolSource).toContain("wallLength(cabinet.wallId as WallSide, room) - cabinet.width");
+    expect(designToolSource).toContain("wallLength(requestedWallId as WallSide, room) - cabinet.width");
     expect(designToolSource).toContain("shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)");
   });
 
@@ -142,7 +142,7 @@ describe("selected-wall Compass editor", () => {
   });
 
   it("uses the selected custom wall height in 3D while retaining cardinal wall-height fallback", () => {
-    expect(threeDSource).toContain("const customWallHeight = roomOverride?.customWalls?.[index]?.height");
+    expect(threeDSource).toContain("const customWallHeight = customWall?.height");
     expect(threeDSource).toContain("typeof customWallHeight === \"number\" ? customWallHeight : wallHeights[side]");
   });
 });

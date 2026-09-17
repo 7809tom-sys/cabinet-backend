@@ -562,6 +562,7 @@ export function PlanCanvas({
 
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
+  const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
 
   // ─── Mouse-draw room gesture (container-level) ─────────────────────────────
   const onCanvasPointerDown = (e: React.PointerEvent) => {
@@ -1055,21 +1056,46 @@ export function PlanCanvas({
           })(),
         }}
       >
-        {/* A peninsula opens its parent wall at the attachment. Draw the room
-            shell as individual wall segments so that the open continuation is
-            visible rather than appearing as a second wall behind the run. */}
-        {(["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
-          const segment = cabinetWallRunSegment(side, room);
-          const horizontal = side === "top" || side === "bottom";
-          return <div
-            key={`room-wall-${side}`}
-            data-testid={`room-wall-${side}`}
-            className={`pointer-events-none absolute z-[1] bg-[#1a2744] ${horizontal ? "h-[3px]" : "w-[3px]"}`}
-            style={horizontal
-              ? { left: segment.start * ppi, width: segment.length * ppi, top: side === "top" ? 0 : undefined, bottom: side === "bottom" ? 0 : undefined }
-              : { top: segment.start * ppi, height: segment.length * ppi, left: side === "left" ? 0 : undefined, right: side === "right" ? 0 : undefined }}
-          />;
-        })}
+        {hasCustomWallShell ? (
+          <svg className="pointer-events-none absolute inset-0 z-[2] overflow-visible" width={roomPxW} height={roomPxH} aria-label="User measured walls">
+            {room.customWalls!.map((wall) => {
+              const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
+              const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId);
+              if (!start || !end) return null;
+              const x1 = start.x * ppi;
+              const y1 = start.y * ppi;
+              const x2 = end.x * ppi;
+              const y2 = end.y * ppi;
+              const midX = (x1 + x2) / 2;
+              const midY = (y1 + y2) / 2;
+              const length = Math.hypot(end.x - start.x, end.y - start.y);
+              const active = activeWall === wall.id;
+              return <g key={wall.id}>
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={32} strokeLinecap="round" className="pointer-events-auto cursor-pointer" onPointerDown={(event) => onWallPointerDown(event, wall.id as WallSide)} />
+                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
+                <g className="pointer-events-none" transform={`translate(${midX} ${midY})`}>
+                  <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatEighthInches(length)}</text>
+                </g>
+              </g>;
+            })}
+          </svg>
+        ) : (
+          /* A peninsula opens its parent wall at the attachment. Draw the room
+             shell as individual wall segments so the open continuation remains visible. */
+          (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
+            const segment = cabinetWallRunSegment(side, room);
+            const horizontal = side === "top" || side === "bottom";
+            return <div
+              key={`room-wall-${side}`}
+              data-testid={`room-wall-${side}`}
+              className={`pointer-events-none absolute z-[1] bg-[#1a2744] ${horizontal ? "h-[3px]" : "w-[3px]"}`}
+              style={horizontal
+                ? { left: segment.start * ppi, width: segment.length * ppi, top: side === "top" ? 0 : undefined, bottom: side === "bottom" ? 0 : undefined }
+                : { top: segment.start * ppi, height: segment.length * ppi, left: side === "left" ? 0 : undefined, right: side === "right" ? 0 : undefined }}
+            />;
+          })
+        )}
         {peninsulaDraft && (() => {
           const { start, end, radians } = peninsulaRunEndpoints(peninsulaDraft, room);
           const degrees = (radians * 180) / Math.PI;

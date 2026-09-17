@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -17,6 +17,24 @@ const angledRoom: RoomData = {
   ],
   customWalls: [
     { id: "diag", startVertexId: "a", endVertexId: "b", label: "Angled wall", lockedAngle: 45 },
+  ],
+};
+
+const builderRoom: RoomData = {
+  width: 120,
+  depth: 96,
+  ceilingHeight: 96,
+  vertices: [
+    { id: "builder-a", x: 0, y: 0 },
+    { id: "builder-b", x: 120, y: 0 },
+    { id: "builder-c", x: 120, y: 96 },
+    { id: "builder-d", x: 0, y: 96 },
+  ],
+  customWalls: [
+    { id: "builder-top", startVertexId: "builder-a", endVertexId: "builder-b", label: "Wall 1" },
+    { id: "builder-right", startVertexId: "builder-b", endVertexId: "builder-c", label: "Wall 2" },
+    { id: "builder-bottom", startVertexId: "builder-c", endVertexId: "builder-d", label: "Wall 3" },
+    { id: "builder-left", startVertexId: "builder-d", endVertexId: "builder-a", label: "Wall 4" },
   ],
 };
 
@@ -118,6 +136,39 @@ describe("locked 45-degree cabinet wall placement", () => {
     expect(buildMaterialsListRows({ buildRows: [], pricingLines: lines })).toEqual([
       expect.objectContaining({ code: "B-36", qty: 1, unitPrice: 250, section: "cabinet" }),
     ]);
+  });
+});
+
+describe("continuous builder custom wall placement", () => {
+  it("treats every straight generated wall as an explicit cabinet-ready run", () => {
+    expect(isCustomRoomWall(builderRoom, "builder-top")).toBe(true);
+    expect(isCustomRoomWall(builderRoom, "builder-right")).toBe(true);
+    expect(wallLength("builder-bottom" as any, builderRoom)).toBe(120);
+    expect(freeSegmentsOnWall("builder-left" as any, builderRoom, [], [], 0.5, 0, "base")).toEqual([{ start: 0, length: 96 }]);
+  });
+
+  it("places cabinets against all four custom wall bearings with exact wall ownership", () => {
+    expect(wallPlacementAt(0, 30, 24, "builder-top" as any, builderRoom)).toMatchObject({ rotation: 0, wallId: "builder-top", wallOffset: 0 });
+    expect(wallPlacementAt(0, 30, 24, "builder-right" as any, builderRoom)).toMatchObject({ rotation: 90, wallId: "builder-right", wallOffset: 0 });
+    expect(wallPlacementAt(0, 30, 24, "builder-bottom" as any, builderRoom)).toMatchObject({ rotation: 180, wallId: "builder-bottom", wallOffset: 0 });
+    expect(wallPlacementAt(0, 30, 24, "builder-left" as any, builderRoom)).toMatchObject({ rotation: 270, wallId: "builder-left", wallOffset: 0 });
+  });
+
+  it("magnetically snaps a nearby cabinet to a straight custom wall instead of the polygon bounding box", () => {
+    const moving: PlacedCabinet = {
+      uid: "builder-moving",
+      cabinetId: 9,
+      masterCode: "B-30",
+      description: "Builder wall base",
+      placement: "base",
+      x: 40,
+      y: 3,
+      width: 30,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    expect(autoSnapCabinetToNearbyWall(moving, builderRoom, [], [], 6)).toMatchObject({ wallId: "builder-top", rotation: 0 });
   });
 });
 

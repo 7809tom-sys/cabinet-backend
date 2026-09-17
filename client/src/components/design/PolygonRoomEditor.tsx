@@ -293,6 +293,7 @@ export function PolygonRoomEditor({
 
   // Determine if we have more than 4 vertices (user has already split)
   const hasSplits = vertices.length > 4;
+  const isOpenWallPath = customWalls.length < vertices.length;
 
   return (
     <>
@@ -391,14 +392,15 @@ export function PolygonRoomEditor({
         </defs>
 
         <g transform={`translate(${offsetX}, ${offsetY})`}>
-          {/* Room fill */}
-          <polygon
+          {/* A closed shape owns a floor fill. An open measured path renders only
+              the user-entered walls and never invents a final closing edge. */}
+          {!isOpenWallPath && <polygon
             points={verticesToPoints(vertices, ppi)}
             fill="#f8fafc"
             stroke="#1a2744"
             strokeWidth={3}
             fillOpacity={0.98}
-          />
+          />}
 
           {/* Grid lines (12" = 1ft) */}
           <defs>
@@ -419,14 +421,14 @@ export function PolygonRoomEditor({
               <polygon points={verticesToPoints(vertices, ppi)} />
             </clipPath>
           </defs>
-          <rect
+          {!isOpenWallPath && <rect
             x={bounds.minX * ppi}
             y={bounds.minY * ppi}
             width={bounds.width * ppi}
             height={bounds.height * ppi}
             fill="url(#poly-grid)"
             clipPath="url(#poly-clip)"
-          />
+          />}
 
           {/* Wall segments */}
           {customWalls.map((wall) => {

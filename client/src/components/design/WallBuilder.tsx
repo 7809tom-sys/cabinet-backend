@@ -1,0 +1,318 @@
+import { useMemo, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowRight,
+  Check,
+  CornerDownLeft,
+  CornerDownRight,
+  RotateCcw,
+  Ruler,
+  Trash2,
+  Undo2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { parseLengthToInches, formatEighthInches } from "@/lib/design";
+import {
+  appendWallBuilderSegment,
+  checkWallBuilderClosure,
+  WALL_BUILDER_MIN_WALL_IN,
+  wallBuilderGeometry,
+  wallBuilderRoomGeometry,
+  type WallBuilderRoomGeometry,
+  type WallBuilderSegment,
+  type WallBuilderTurn,
+} from "@/lib/polygonRoom";
+
+type TurnChoice = Exclude<WallBuilderTurn, "start">;
+
+interface Props {
+  wallHeightIn: number;
+  blockedReason?: string | null;
+  onApply: (room: WallBuilderRoomGeometry) => void;
+}
+
+const TURN_CHOICES: Array<{
+  value: TurnChoice;
+  label: string;
+  hint: string;
+  icon: typeof ArrowRight;
+}> = [
+  { value: "straight", label: "Straight", hint: "Continue in the same direction", icon: ArrowRight },
+  { value: "left45", label: "45° left", hint: "Turn left exactly 45 degrees", icon: ArrowDownRight },
+  { value: "right45", label: "45° right", hint: "Turn right exactly 45 degrees", icon: ArrowDownRight },
+  { value: "left90", label: "90° left", hint: "Make a square left corner", icon: CornerDownLeft },
+  { value: "right90", label: "90° right", hint: "Make a square right corner", icon: CornerDownRight },
+];
+
+function headingLabel(headingDeg: number): string {
+  const heading = ((Math.round(headingDeg) % 360) + 360) % 360;
+  return ({
+    0: "right",
+    45: "down-right",
+    90: "down",
+    135: "down-left",
+    180: "left",
+    225: "up-left",
+    270: "up",
+    315: "up-right",
+  } as Record<number, string>)[heading] ?? `${heading}°`;
+}
+
+function turnLabel(turn: WallBuilderTurn): string {
+  if (turn === "start") return "Start";
+  if (turn === "straight") return "Straight";
+  if (turn === "left45") return "45° left";
+  if (turn === "right45") return "45° right";
+  if (turn === "left90") return "90° left";
+  return "90° right";
+}
+
+function WallBuilderPreview({ segments }: { segments: WallBuilderSegment[] }) {
+  const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
+  const bounds = useMemo(() => {
+    const xs = geometry.points.map((point) => point.x);
+    const ys = geometry.points.map((point) => point.y);
+    const minX = Math.min(0, ...xs);
+    const maxX = Math.max(1, ...xs);
+    const minY = Math.min(0, ...ys);
+    const maxY = Math.max(1, ...ys);
+    const width = Math.max(36, maxX - minX);
+    const height = Math.max(36, maxY - minY);
+    const padding = Math.max(18, Math.max(width, height) * 0.13);
+    return { minX: minX - padding, minY: minY - padding, width: width + padding * 2, height: height + padding * 2 };
+  }, [geometry.points]);
+  const labelSize = Math.max(6, Math.min(13, Math.max(bounds.width, bounds.height) / 23));
+  const path = geometry.points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+
+  return (
+    <div className="relative min-h-64 overflow-hidden rounded-xl border border-[#d8c7a1] bg-[#fbfaf6] shadow-inner" data-testid="wall-builder-preview">
+      {segments.length === 0 ? (
+        <div className="absolute inset-0 grid place-items-center px-8 text-center text-sm text-muted-foreground">
+          Enter the first wall length. It starts to the right; every next wall continues from its end.
+        </div>
+      ) : (
+        <svg
+          className="h-72 w-full"
+          viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
+          preserveAspectRatio="xMidYMid meet"
+          aria-label="Live continuous wall preview"
+        >
+          <defs>
+            <pattern id="wall-builder-grid" width="12" height="12" patternUnits="userSpaceOnUse">
+              <path d="M 12 0 L 0 0 0 12" fill="none" stroke="#d9e5df" strokeWidth="0.45" />
+            </pattern>
+          </defs>
+          <rect x={bounds.minX} y={bounds.minY} width={bounds.width} height={bounds.height} fill="url(#wall-builder-grid)" />
+          {geometry.closed ? (
+            <path d={`${path} Z`} fill="#d4a75a" fillOpacity="0.13" stroke="none" />
+          ) : null}
+          <path d={path} fill="none" stroke="#1a2744" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {geometry.points.map((point, index) => (
+            <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={index === 0 ? 3.4 : 2.5} fill={index === 0 ? "#b98d3e" : "#1a2744"} stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+          ))}
+          {segments.map((segment, index) => {
+            const start = geometry.points[index];
+            const end = geometry.points[index + 1];
+            const midX = (start.x + end.x) / 2;
+            const midY = (start.y + end.y) / 2;
+            return (
+              <g key={`${segment.headingDeg}-${index}`}>
+                <rect
+                  x={midX - labelSize * 2.2}
+                  y={midY - labelSize * 0.8}
+                  width={labelSize * 4.4}
+                  height={labelSize * 1.5}
+                  rx={labelSize * 0.35}
+                  fill="white"
+                  fillOpacity="0.92"
+                  stroke="#1a2744"
+                  strokeWidth="0.5"
+                />
+                <text x={midX} y={midY + labelSize * 0.25} textAnchor="middle" fontSize={labelSize} fontWeight="700" fill="#1a2744">
+                  {formatEighthInches(segment.lengthIn)}
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      )}
+      {segments.length > 0 ? (
+        <div className="pointer-events-none absolute bottom-2 left-2 rounded-md border bg-white/90 px-2 py-1 text-[10px] font-semibold text-[#1a2744] shadow-sm">
+          {geometry.closed ? "Room closed" : `Open end: ${headingLabel(segments[segments.length - 1].headingDeg)}`}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const [segments, setSegments] = useState<WallBuilderSegment[]>([]);
+  const [lengthText, setLengthText] = useState("120");
+  const [turn, setTurn] = useState<TurnChoice>("right90");
+  const [message, setMessage] = useState<string | null>(null);
+  const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
+  const parsedLength = parseLengthToInches(lengthText);
+  const validLength = parsedLength != null && parsedLength >= WALL_BUILDER_MIN_WALL_IN;
+
+  const addWall = () => {
+    if (!validLength || parsedLength == null) {
+      setMessage(`Enter a wall length of at least ${WALL_BUILDER_MIN_WALL_IN} inches.`);
+      return;
+    }
+    const next = appendWallBuilderSegment(segments, parsedLength, segments.length === 0 ? "start" : turn);
+    if (next.length === segments.length) {
+      setMessage(`Enter a wall length of at least ${WALL_BUILDER_MIN_WALL_IN} inches.`);
+      return;
+    }
+    const nextGeometry = wallBuilderGeometry(next);
+    if (nextGeometry.error) {
+      setMessage(nextGeometry.error);
+      return;
+    }
+    setSegments(next);
+    setMessage(null);
+  };
+
+  const checkClosure = () => {
+    const result = checkWallBuilderClosure(segments);
+    setMessage(result.error ?? "Your measured walls return to the starting point. The room is ready to apply.");
+  };
+
+  const undo = () => {
+    setSegments((current) => current.slice(0, -1));
+    setMessage(null);
+  };
+
+  const apply = () => {
+    if (blockedReason) {
+      setMessage(blockedReason);
+      return;
+    }
+    const result = wallBuilderRoomGeometry(segments, wallHeightIn);
+    if (!result.room) {
+      setMessage(result.error);
+      return;
+    }
+    onApply(result.room);
+    setSegments([]);
+    setMessage(null);
+    setExpanded(false);
+  };
+
+  return (
+    <section className="rounded-xl border-2 border-[#d4a75a]/60 bg-gradient-to-br from-[#fffaf0] via-white to-[#f4f7fb] shadow-sm" data-testid="continuous-wall-builder">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-[#fff8e8]"
+        onClick={() => setExpanded((current) => !current)}
+        aria-expanded={expanded}
+      >
+        <span className="flex min-w-0 items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#1a2744] text-white shadow-sm"><Ruler className="h-5 w-5" /></span>
+          <span className="min-w-0">
+            <span className="block font-serif text-base font-bold text-[#1a2744]">Build walls continuously</span>
+            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">Type each wall length, choose the next turn, and watch the room draw itself.</span>
+          </span>
+        </span>
+        <span className="shrink-0 rounded-full border border-[#d4a75a] bg-white px-3 py-1 text-xs font-bold text-[#765416]">{expanded ? "Hide" : "Open builder"}</span>
+      </button>
+
+      {expanded ? (
+        <div className="grid gap-4 border-t border-[#d8c7a1] p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(19rem,0.85fr)]">
+          <div className="space-y-3">
+            <WallBuilderPreview segments={segments} />
+            {message || geometry.error ? (
+              <p className={`rounded-lg border px-3 py-2 text-xs leading-5 ${geometry.error ? "border-rose-300 bg-rose-50 text-rose-900" : "border-[#d8c7a1] bg-white text-[#654d24]"}`} role="status">
+                {geometry.error ?? message}
+              </p>
+            ) : null}
+            {blockedReason ? <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-950">{blockedReason}</p> : null}
+          </div>
+
+          <div className="space-y-4">
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-sm font-bold text-[#1a2744]">{segments.length === 0 ? "Wall 1" : `Wall ${segments.length + 1}`}</p>
+                  <p className="text-[11px] text-muted-foreground">{segments.length === 0 ? "The first wall starts to the right." : "The new wall begins where the last wall ends."}</p>
+                </div>
+                <span className="rounded-md bg-[#1a2744]/5 px-2 py-1 text-[10px] font-bold text-[#1a2744]">Exact 1/8&quot;</span>
+              </div>
+              <div className="mt-3 space-y-2">
+                <Label htmlFor="continuous-wall-length" className="text-xs font-semibold">Wall length</Label>
+                <Input
+                  id="continuous-wall-length"
+                  value={lengthText}
+                  onChange={(event) => setLengthText(event.target.value)}
+                  onKeyDown={(event) => { if (event.key === "Enter") addWall(); }}
+                  placeholder={'Example: 101", 8\' 5", or 78'}
+                  inputMode="decimal"
+                  aria-invalid={lengthText.trim().length > 0 && !validLength}
+                />
+                <p className="text-[10px] text-muted-foreground">Accepts tape-measure entries such as 126 3/4, 10&apos; 6&quot;, or 78.</p>
+              </div>
+
+              {segments.length > 0 ? (
+                <div className="mt-3">
+                  <Label className="text-xs font-semibold">Turn before this wall</Label>
+                  <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                    {TURN_CHOICES.map((choice) => {
+                      const Icon = choice.icon;
+                      const active = turn === choice.value;
+                      return (
+                        <button
+                          key={choice.value}
+                          type="button"
+                          title={choice.hint}
+                          onClick={() => setTurn(choice.value)}
+                          className={`flex min-h-10 items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition-colors ${active ? "border-[#1a2744] bg-[#1a2744] text-white" : "border-border bg-background text-foreground hover:border-[#d4a75a] hover:bg-[#fff8e8]"}`}
+                        >
+                          <Icon className={`h-4 w-4 shrink-0 ${choice.value === "left45" ? "-scale-y-100" : ""}`} /> {choice.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              <Button type="button" className="mt-3 w-full bg-[#1a2744] text-white hover:bg-[#283c63]" onClick={addWall} disabled={!validLength || geometry.closed} data-testid="add-continuous-wall">
+                <ArrowRight className="mr-1.5 h-4 w-4" /> Add {segments.length === 0 ? "first wall" : "next wall"}
+              </Button>
+            </div>
+
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-bold text-[#1a2744]">Wall list</p>
+                <span className="text-[11px] text-muted-foreground">{segments.length} wall{segments.length === 1 ? "" : "s"}</span>
+              </div>
+              <div className="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">
+                {segments.length === 0 ? <p className="rounded-md bg-muted/50 px-2 py-3 text-center text-xs text-muted-foreground">No walls added yet.</p> : null}
+                {segments.map((segment, index) => (
+                  <div key={`${segment.headingDeg}-${index}`} className="flex items-center justify-between gap-3 rounded-lg bg-muted/45 px-2.5 py-2 text-xs">
+                    <span className="min-w-0"><strong>Wall {index + 1}</strong><span className="ml-1.5 text-muted-foreground">{turnLabel(segment.turn)} · {headingLabel(segment.headingDeg)}</span></span>
+                    <span className="shrink-0 font-bold text-[#1a2744]">{formatEighthInches(segment.lengthIn)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <Button type="button" variant="outline" onClick={undo} disabled={segments.length === 0}><Undo2 className="mr-1.5 h-4 w-4" /> Undo last</Button>
+                <Button type="button" variant="outline" onClick={() => { setSegments([]); setMessage(null); }} disabled={segments.length === 0}><Trash2 className="mr-1.5 h-4 w-4" /> Clear</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#d8c7a1] bg-[#fffaf0] p-3">
+              <p className="text-xs leading-5 text-[#654d24]">Enter <strong>every wall length from your measurements</strong>. You may apply an open connected wall path at any time. Check closure is optional and never adds or changes a wall.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={checkClosure} disabled={segments.length < 3}><RotateCcw className="mr-1.5 h-4 w-4" /> Check closure</Button>
+                <Button type="button" onClick={apply} disabled={segments.length === 0 || Boolean(geometry.error) || Boolean(blockedReason)} data-testid="apply-continuous-wall-room"><Check className="mr-1.5 h-4 w-4" /> Apply walls</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}

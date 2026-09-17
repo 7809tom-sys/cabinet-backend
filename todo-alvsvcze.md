@@ -2143,3 +2143,12 @@
 - [x] Validate the corrected countertop amount after save-refresh and across Designer, Materials & Parts, cart, checkout, TypeScript, tests, and production build
 - [x] Preserve selected price-locked countertop product lines through Order Builder and Order Review totals, tax, and submitted order items without treating them as cabinets or freight pallets
 - [x] Keep presentation-only countertops quote-only and clearly separate from orderable countertop slab pricing
+
+## Continuous Wall Builder — 2020 Design-style room entry
+- [x] Add a simple continuous wall workflow: enter each exact length, then choose Straight, 45° Left/Right, or 90° Left/Right.
+- [x] Show a live plan preview, running wall numbers, dimensions, and current direction while building.
+- [x] Allow undoing the last wall, clearing the draft, optionally checking closure, and applying an open or closed path without disturbing placed cabinets until Apply.
+- [x] Convert the confirmed wall path into cabinet-ready custom room walls selectable for cabinet and item placement.
+- [x] Add desktop and compact/mobile Designer entry points without removing the existing Compass, Room Layout shapes, or other tools.
+- [x] Validate exact 90°/45° geometry, open and closed paths, TypeScript, focused and broad 3D tests, production build, and live browser layout.
+- [ ] Save and publish a WebDev checkpoint automatically after validation.

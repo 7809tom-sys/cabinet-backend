@@ -92,7 +92,7 @@ describe("designer toolbar layout", () => {
 
   it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {
     const sheetStart = source.indexOf("{isMobile && selectedCab && !drawMode && !measureMode && (");
-    const sheetEnd = source.indexOf("<WallPicker onPick={snapSelectedToWall}", sheetStart);
+    const sheetEnd = source.indexOf("<WallPicker", sheetStart);
     const mobileCabinetSheet = source.slice(sheetStart, sheetEnd);
 
     expect(sheetStart).toBeGreaterThan(-1);

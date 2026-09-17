@@ -2630,6 +2630,7 @@ export function activeThreeDRoomGeometry(
   sceneRoomShape: InteractiveRoomScene["roomShape"] | undefined,
 ) {
   if (roomOverride) {
+    if (roomOverride.openWallPath) return null;
     return roomOverride.vertices?.length ? { vertices: roomOverride.vertices } : null;
   }
   return sceneRoomShape?.geometryTemplate ?? null;
@@ -7336,13 +7337,23 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     // screens over cabinetry when a mobile orbit moves the camera through them.
     const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     const roomEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#d1cbc1", roughness: 0.58, metalness: 0.04 });
-    polygon.forEach((start, index) => {
-      const end = polygon[(index + 1) % polygon.length];
+    const explicitWallSegments = roomOverride?.vertices && roomOverride.customWalls?.length
+      ? roomOverride.customWalls.flatMap((customWall) => {
+          const startVertex = roomOverride.vertices!.find((vertex) => vertex.id === customWall.startVertexId);
+          const endVertex = roomOverride.vertices!.find((vertex) => vertex.id === customWall.endVertexId);
+          return startVertex && endVertex ? [{
+            start: new THREE.Vector2(startVertex.x * INCH, -startVertex.y * INCH),
+            end: new THREE.Vector2(endVertex.x * INCH, -endVertex.y * INCH),
+            customWall,
+          }] : [];
+        })
+      : polygon.map((start, index) => ({ start, end: polygon[(index + 1) % polygon.length], customWall: undefined }));
+    explicitWallSegments.forEach(({ start, end, customWall }, index) => {
       const dx = end.x - start.x;
       const dz = -(end.y - start.y);
       const length = Math.hypot(dx, dz);
-      const side = threeDWallSideForPolygonEdge(index, polygon.length, start, end, room);
-      const customWallHeight = roomOverride?.customWalls?.[index]?.height;
+      const side = threeDWallSideForPolygonEdge(index, explicitWallSegments.length, start, end, room);
+      const customWallHeight = customWall?.height;
       const sideWallHeight = (typeof customWallHeight === "number" ? customWallHeight : wallHeights[side]) * INCH;
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);

@@ -136,6 +136,45 @@ describe("plan tape measure", () => {
   });
 });
 
+describe("user measured open wall paths", () => {
+  it("renders the custom wall shell and suppresses the four implicit rectangle walls", () => {
+    const room = {
+      width: 156.154,
+      depth: 55.154,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 101, y: 0 },
+        { id: "c", x: 156.154, y: 55.154 },
+      ],
+      customWalls: [
+        { id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1" },
+        { id: "wall-2", startVertexId: "b", endVertexId: "c", label: "Wall 2", lockedAngle: 45 as const },
+      ],
+    };
+    const markup = renderToStaticMarkup(
+      createElement(
+        LanguageProvider,
+        null,
+        createElement(PlanCanvas, {
+          room,
+          cabinets: [],
+          selectedUid: null,
+          onSelect: () => undefined,
+          onMove: () => undefined,
+          showWallLayer: true,
+          activeWall: "wall-1" as any,
+        }),
+      ),
+    );
+
+    expect(markup).toContain('aria-label="User measured walls"');
+    expect(markup).not.toContain('data-testid="room-wall-top"');
+    expect(markup).not.toContain('data-testid="room-wall-right"');
+  });
+});
+
 describe("plan placement assistance wiring", () => {
   it("keeps best fit and measured valid/invalid drag feedback in the shared canvas", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");

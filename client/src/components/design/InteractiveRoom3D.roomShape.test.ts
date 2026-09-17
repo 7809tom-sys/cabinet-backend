@@ -17,4 +17,9 @@ describe("active 2D room geometry in 3D", () => {
     const vertices = [{ id: "a", x: 0, y: 0 }, { id: "b", x: 144, y: 0 }, { id: "c", x: 144, y: 60 }, { id: "d", x: 60, y: 60 }, { id: "e", x: 60, y: 120 }, { id: "f", x: 0, y: 120 }];
     expect(activeThreeDRoomGeometry({ width: 144, depth: 120, vertices }, lSceneShape)).toEqual({ vertices });
   });
+
+  it("does not turn an open connected wall path into a falsely closed 3D floor polygon", () => {
+    const vertices = [{ id: "a", x: 0, y: 0 }, { id: "b", x: 101, y: 0 }, { id: "c", x: 156.1543, y: 55.1543 }];
+    expect(activeThreeDRoomGeometry({ width: 156.1543, depth: 55.1543, vertices, openWallPath: true }, lSceneShape)).toBeNull();
+  });
 });

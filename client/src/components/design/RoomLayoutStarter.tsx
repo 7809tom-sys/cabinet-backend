@@ -5,6 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { trpc } from "@/lib/trpc";
 import type { RoomData } from "@/lib/design";
+import type { WallBuilderRoomGeometry } from "@/lib/polygonRoom";
+import { WallBuilder } from "./WallBuilder";
 
 export type SeededRoomShape = {
   id: string;
@@ -47,6 +49,9 @@ interface RoomLayoutStarterProps {
   selectedDistributorId?: number | null;
   onApplyRoom: (room: RoomData) => void;
   onLayoutSelected?: (layoutPresetId: string) => void;
+  onApplyContinuousRoom?: (room: WallBuilderRoomGeometry) => void;
+  continuousWallBlockedReason?: string | null;
+  wallHeightIn?: number;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -95,6 +100,9 @@ export function RoomLayoutStarter({
   selectedDistributorId,
   onApplyRoom,
   onLayoutSelected,
+  onApplyContinuousRoom,
+  continuousWallBlockedReason,
+  wallHeightIn = 96,
 }: RoomLayoutStarterProps) {
   const { data, isLoading, error } = trpc.roomLayouts.presets.useQuery({ roomType: "kitchen" });
   const [shapeId, setShapeId] = useState<string | null>(null);
@@ -153,6 +161,17 @@ export function RoomLayoutStarter({
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
+        {onApplyContinuousRoom ? (
+          <section className="space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-[#b98d3e]" /> Choose how to start the room</div>
+            <WallBuilder
+              wallHeightIn={wallHeightIn}
+              blockedReason={continuousWallBlockedReason}
+              onApply={onApplyContinuousRoom}
+            />
+            <div className="flex items-center gap-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">or choose a shape</div>
+          </section>
+        ) : null}
         <section className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-primary" /> 1. Pick a room shape</div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">

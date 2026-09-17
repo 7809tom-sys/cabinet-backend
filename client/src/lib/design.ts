@@ -1184,6 +1184,8 @@ export interface RoomData {
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
   /** Polygon room: wall segments connecting vertices. */
   customWalls?: import("@/lib/polygonRoom").CustomWall[];
+  /** True when customWalls form an intentional connected path rather than a closed perimeter. */
+  openWallPath?: boolean;
   /** Free-standing cabinet-supported runs that leave a room wall as a peninsula. */
   peninsulaRuns?: PeninsulaRun[];
   /**
@@ -5153,7 +5155,7 @@ export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { 
 export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.placement !== "wall" || p.islandFace) return p;
   const side = cabinetWall(p, room);
-  if (isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) return p;
+  if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return p;
   const { x, y } = snapToWall(p, side, room);
   return { ...p, x, y, depthPositionAdjusted: false };
 }
@@ -6040,9 +6042,9 @@ export function freeSegmentsOnWall(
   // clears the opening vertically.
   candidate?: PlacedCabinet,
 ): WallSegment[] {
-  const angledCustomWall = isLockedAngledCustomWall(room, side);
+  const customRoomWall = isCustomRoomWall(room, side);
   const peninsulaRun = peninsulaRunById(room, side);
-  const explicitRun = angledCustomWall || Boolean(peninsulaRun);
+  const explicitRun = customRoomWall || Boolean(peninsulaRun);
   const horizontal = side === "top" || side === "bottom";
   const retainedWall = explicitRun
     ? { start: 0, length: wallLength(side, room) }
@@ -6489,9 +6491,8 @@ export function wallPlacementAt(
       peninsulaSide,
     };
   }
-  const customWall = room.customWalls?.find((wall) => wall.id === side && (wall.lockedAngle === 45 || wall.lockedAngle === -45));
+  const customWall = room.customWalls?.find((wall) => wall.id === side);
   if (customWall && room.vertices) {
-    const lockedAngle: 45 | -45 = customWall.lockedAngle === 45 ? 45 : -45;
     const start = room.vertices.find((vertex) => vertex.id === customWall.startVertexId);
     if (start) {
       const length = polygonWallSegmentLength(customWall, room.vertices);
@@ -6505,7 +6506,8 @@ export function wallPlacementAt(
       };
       const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * inward.x);
       const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * inward.y);
-      return { x: center.x - boundWidth / 2, y: center.y - boundDepth / 2, rotation: lockedAngle, wallId: customWall.id, wallOffset: offset };
+      const rotation = ((Math.round(radians * 180 / Math.PI) % 360) + 360) % 360;
+      return { x: center.x - boundWidth / 2, y: center.y - boundDepth / 2, rotation, wallId: customWall.id, wallOffset: offset };
     }
   }
   const horizontal = side === "top" || side === "bottom";
@@ -6566,20 +6568,21 @@ export function autoSnapCabinetToNearbyWall(
     }
   };
 
-  const topWall = cabinetWallRunSegment("top", room);
-  const bottomWall = cabinetWallRunSegment("bottom", room);
-  const leftWall = cabinetWallRunSegment("left", room);
-  const rightWall = cabinetWallRunSegment("right", room);
-  addSegment("top", { x: topWall.start, y: 0 }, { x: topWall.start + topWall.length, y: 0 });
-  addSegment("bottom", { x: bottomWall.start, y: room.depth }, { x: bottomWall.start + bottomWall.length, y: room.depth });
-  addSegment("left", { x: 0, y: leftWall.start }, { x: 0, y: leftWall.start + leftWall.length });
-  addSegment("right", { x: room.width, y: rightWall.start }, { x: room.width, y: rightWall.start + rightWall.length });
-
-  for (const wall of room.customWalls ?? []) {
-    if (!room.vertices || (wall.lockedAngle !== 45 && wall.lockedAngle !== -45)) continue;
-    const start = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
-    const end = room.vertices.find((vertex) => vertex.id === wall.endVertexId);
-    if (start && end) addSegment(wall.id as WallSide, start, end);
+  if (room.vertices && (room.customWalls?.length ?? 0) > 0) {
+    for (const wall of room.customWalls ?? []) {
+      const start = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
+      const end = room.vertices.find((vertex) => vertex.id === wall.endVertexId);
+      if (start && end) addSegment(wall.id as WallSide, start, end);
+    }
+  } else {
+    const topWall = cabinetWallRunSegment("top", room);
+    const bottomWall = cabinetWallRunSegment("bottom", room);
+    const leftWall = cabinetWallRunSegment("left", room);
+    const rightWall = cabinetWallRunSegment("right", room);
+    addSegment("top", { x: topWall.start, y: 0 }, { x: topWall.start + topWall.length, y: 0 });
+    addSegment("bottom", { x: bottomWall.start, y: room.depth }, { x: bottomWall.start + bottomWall.length, y: room.depth });
+    addSegment("left", { x: 0, y: leftWall.start }, { x: 0, y: leftWall.start + leftWall.length });
+    addSegment("right", { x: room.width, y: rightWall.start }, { x: room.width, y: rightWall.start + rightWall.length });
   }
   for (const run of room.peninsulaRuns ?? []) {
     const endpoints = peninsulaRunEndpoints(run, room);
@@ -6617,15 +6620,20 @@ export function isLockedAngledCustomWall(room: RoomData, wallId?: string | null)
   return Boolean(wallId && room.customWalls?.some((wall) => wall.id === wallId && (wall.lockedAngle === 45 || wall.lockedAngle === -45)));
 }
 
-/** Exact run offset, retaining a released cabinet void on a locked diagonal. */
+/** True for any explicit wall in a polygon room, including cardinal builder walls. */
+export function isCustomRoomWall(room: RoomData, wallId?: string | null): boolean {
+  return Boolean(wallId && room.vertices && room.customWalls?.some((wall) => wall.id === wallId));
+}
+
+/** Exact run offset, retaining a released cabinet void on every explicit custom run. */
 export function wallRunOffset(p: PlacedCabinet, side: string, room: RoomData): number {
-  if ((isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
+  if ((isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
   return side === "top" || side === "bottom" ? p.x : p.y;
 }
 
-/** Along-run cabinet span. Diagonal runs use the true catalog width, not a screen bounding box. */
+/** Along-run cabinet span. Explicit runs use the true catalog width, not a screen bounding box. */
 export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): number {
-  if ((isLockedAngledCustomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
+  if ((isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
   const size = rotatedSize(p);
   return side === "top" || side === "bottom" ? size.w : size.d;
 }

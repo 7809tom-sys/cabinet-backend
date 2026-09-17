@@ -18,6 +18,10 @@ import {
   applyCompassWallEdit,
   mergeWalls,
   verticesToSvgPath,
+  appendWallBuilderSegment,
+  checkWallBuilderClosure,
+  wallBuilderGeometry,
+  wallBuilderRoomGeometry,
 } from "./polygonRoom";
 
 describe("polygonRoom", () => {
@@ -310,6 +314,98 @@ describe("polygonRoom", () => {
       expect(path).toContain("M 0 0");
       expect(path).toContain("L 480 0");
       expect(path).toContain("Z");
+    });
+  });
+
+  describe("continuous Wall Builder", () => {
+    it("draws exact measured 90-degree walls and closes a rectangle", () => {
+      let segments = appendWallBuilderSegment([], 120, "start");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+      segments = appendWallBuilderSegment(segments, 120, "right90");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+
+      const geometry = wallBuilderGeometry(segments);
+      expect(geometry).toMatchObject({ closed: true, error: null });
+      expect(geometry.points.at(-1)).toMatchObject({ x: 0, y: 0 });
+
+      const result = wallBuilderRoomGeometry(segments, 96);
+      expect(result.error).toBeNull();
+      expect(result.room).not.toBeNull();
+      expect(result.room!.vertices).toHaveLength(4);
+      expect(result.room!.customWalls).toHaveLength(4);
+      expect(result.room).toMatchObject({ width: 120, depth: 96, openWallPath: false });
+      expect(result.room!.customWalls.map((wall) => wall.label)).toEqual(["Wall 1", "Wall 2", "Wall 3", "Wall 4"]);
+    });
+
+    it("keeps the supplied 101-inch wall and exact 78-inch 45-degree turn", () => {
+      let segments = appendWallBuilderSegment([], 101, "start");
+      segments = appendWallBuilderSegment(segments, 78, "right45");
+      const geometry = wallBuilderGeometry(segments);
+      expect(geometry.error).toBeNull();
+      expect(segments[1]).toMatchObject({ lengthIn: 78, headingDeg: 45, turn: "right45" });
+      expect(Math.hypot(
+        geometry.points[2].x - geometry.points[1].x,
+        geometry.points[2].y - geometry.points[1].y,
+      )).toBeCloseTo(78, 3);
+      expect(Math.abs(geometry.points[2].x - geometry.points[1].x)).toBeCloseTo(Math.abs(geometry.points[2].y - geometry.points[1].y), 3);
+    });
+
+    it("applies an open connected path with only the walls entered by the user", () => {
+      let segments = appendWallBuilderSegment([], 101, "start");
+      segments = appendWallBuilderSegment(segments, 78, "right45");
+      const result = wallBuilderRoomGeometry(segments, 96);
+      expect(result.error).toBeNull();
+      expect(result.room).toMatchObject({ openWallPath: true });
+      expect(result.room!.vertices).toHaveLength(3);
+      expect(result.room!.customWalls).toHaveLength(2);
+      expect(wallSegmentLength(result.room!.customWalls[0], result.room!.vertices)).toBeCloseTo(101, 3);
+      expect(wallSegmentLength(result.room!.customWalls[1], result.room!.vertices)).toBeCloseTo(78, 3);
+    });
+
+    it("lets an open-path wall be resized later without changing downstream wall lengths", () => {
+      let segments = appendWallBuilderSegment([], 101, "start");
+      segments = appendWallBuilderSegment(segments, 78, "right45");
+      segments = appendWallBuilderSegment(segments, 60, "right90");
+      const built = wallBuilderRoomGeometry(segments, 96).room!;
+      const edited = applyCompassWallEdit(built.customWalls[0].id, {
+        angleStartIn: 0,
+        lengthIn: 120,
+        angle: 90,
+        heightIn: 96,
+      }, built.vertices, built.customWalls)!;
+
+      expect(edited).not.toBeNull();
+      const editedLengths = edited.customWalls.map((wall) => wallSegmentLength(wall, edited.vertices));
+      expect(editedLengths[0]).toBeCloseTo(120, 3);
+      expect(editedLengths[1]).toBeCloseTo(78, 3);
+      expect(editedLengths[2]).toBeCloseTo(60, 3);
+      expect(edited.customWalls[0].endVertexId).toBe(edited.customWalls[1].startVertexId);
+      expect(edited.customWalls[1].endVertexId).toBe(edited.customWalls[2].startVertexId);
+    });
+
+    it("reports an open room without adding or changing a wall", () => {
+      let segments = appendWallBuilderSegment([], 120, "start");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+      const result = checkWallBuilderClosure(segments);
+      expect(result.closed).toBe(false);
+      expect(result.error).toContain("Enter at least three measured walls");
+      expect(segments).toHaveLength(2);
+    });
+
+    it("rejects a self-crossing room outline", () => {
+      const bowTie = [
+        { lengthIn: Math.sqrt(100 ** 2 + 100 ** 2), headingDeg: 45, turn: "start" as const },
+        { lengthIn: 100, headingDeg: 180, turn: "right90" as const },
+        { lengthIn: Math.sqrt(100 ** 2 + 100 ** 2), headingDeg: 315, turn: "right90" as const },
+        { lengthIn: 100, headingDeg: 180, turn: "right90" as const },
+      ];
+      expect(wallBuilderGeometry(bowTie).error).toContain("crosses another wall");
+      expect(wallBuilderRoomGeometry(bowTie).room).toBeNull();
+    });
+
+    it("rounds typed measurements to the nearest eighth inch", () => {
+      const segments = appendWallBuilderSegment([], 101.07, "start");
+      expect(segments[0].lengthIn).toBe(101.125);
     });
   });
 });

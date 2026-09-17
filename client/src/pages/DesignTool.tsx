@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -151,7 +151,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { applyCompassWallEdit, closestWall, positionAlongWall, type CompassWallAngle } from "@/lib/polygonRoom";
+import { applyCompassWallEdit, closestWall, polygonBounds, positionAlongWall, type CompassWallAngle, type WallBuilderRoomGeometry } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -532,7 +532,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
   const [polygonEditMode, setPolygonEditMode] = useState(false);
-  const isPolygonRoom = !!(room.vertices && room.vertices.length >= 3);
+  const isPolygonRoom = Boolean(room.vertices?.length && room.vertices.length >= 2 && room.customWalls?.length);
   const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
   const placedRef = useRef<PlacedCabinet[]>(placed);
   useEffect(() => {
@@ -1060,10 +1060,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       const updated = applyCompassWallEdit(custom.id, { angleStartIn: 0, lengthIn: length, angle: draft.angle, heightIn: height }, room.vertices, room.customWalls);
       if (!updated) {
-        toast.error("This wall could not be updated while preserving the closed room boundary.");
+        toast.error("This wall could not be updated while preserving the connected wall path.");
         return;
       }
-      setRoom((previous) => ({ ...previous, vertices: updated.vertices, customWalls: updated.customWalls }));
+      const bounds = polygonBounds(updated.vertices);
+      setRoom((previous) => ({
+        ...previous,
+        vertices: updated.vertices,
+        customWalls: updated.customWalls,
+        width: Math.max(36, bounds.width),
+        depth: Math.max(36, bounds.height),
+      }));
       setActiveWall(updated.editedWallId as WallSide);
       setWallSettingsOpen(false);
       toast.success(`Updated ${draft.label}.`);
@@ -6306,6 +6313,47 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setIsland((prev) => clampIslandToRoom(prev, next));
   }, []);
 
+  const continuousWallBlockedReason = useMemo(() => {
+    const existingItems = placed.length
+      + openings.length
+      + sinks.length
+      + furniture.length
+      + ponyWalls.length
+      + annotations.length
+      + (island ? 1 : 0)
+      + (room.peninsulaRuns?.length ?? 0);
+    if (existingItems === 0) return null;
+    return `This design already contains ${existingItems} placed item${existingItems === 1 ? "" : "s"}. Clear the current design before applying a new wall outline so cabinets, openings, fixtures, and peninsula runs are never silently moved or deleted.`;
+  }, [annotations.length, furniture.length, island, openings.length, placed.length, ponyWalls.length, room.peninsulaRuns?.length, sinks.length]);
+
+  const applyContinuousWallRoom = useCallback((outline: WallBuilderRoomGeometry) => {
+    if (continuousWallBlockedReason) {
+      toast.error(continuousWallBlockedReason);
+      return;
+    }
+    const nextRoom: RoomData = {
+      ...room,
+      width: outline.width,
+      depth: outline.depth,
+      vertices: outline.vertices,
+      customWalls: outline.customWalls,
+      openWallPath: outline.openWallPath,
+      wallCeilings: undefined,
+      peninsulaRuns: undefined,
+    };
+    applyRoom(nextRoom);
+    setActiveWall(outline.customWalls[0].id as WallSide);
+    setPlacementTarget("wall");
+    setViewMode("plan");
+    setPolygonEditMode(false);
+    setDrawMode(false);
+    setMeasureMode(false);
+    setLayoutStarterOpen(false);
+    setMobilePanel(null);
+    setSelectedLayoutPresetId(null);
+    toast.success(`${outline.customWalls.length} connected walls are ready. Select any wall and begin placing cabinets.`);
+  }, [applyRoom, continuousWallBlockedReason, room, setPlacementTarget]);
+
   const physicalWallSpans = useMemo(
     () => physicalWallMeasurements((phoneMeasureStatus.data?.walls ?? []) as PhysicalRoomMeasurement[]),
     [phoneMeasureStatus.data?.walls],
@@ -6407,11 +6455,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        setCatalogDragPreview(null);
 	        return;
 	      }
-	      const targetAlong = activePeninsulaRun
-	        ? peninsulaRunOffsetAtPoint(activePeninsulaRun, room, center)
-	        : polygonWall && isLockedAngledCustomWall(room, dropWall)
-	        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
-	        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+		      const targetAlong = activePeninsulaRun
+		        ? peninsulaRunOffsetAtPoint(activePeninsulaRun, room, center)
+		        : polygonWall && isCustomRoomWall(room, dropWall)
+		        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
+		        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
         : null;
@@ -6535,7 +6583,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        : null;
 	      if (nearbyWallSnap) requestedCabinet = nearbyWallSnap;
 	      const requestedWallId = requestedCabinet.wallId ?? cabinet.wallId;
-	      if (!nearbyWallSnap && (isLockedAngledCustomWall(room, requestedWallId) || peninsulaRunById(room, requestedWallId))) {
+		      if (!nearbyWallSnap && (isCustomRoomWall(room, requestedWallId) || peninsulaRunById(room, requestedWallId))) {
 	        const peninsula = peninsulaRunById(room, requestedWallId);
 	        const wall = room.customWalls?.find((candidate) => candidate.id === requestedWallId);
 	        if (peninsula || (wall && room.vertices)) {
@@ -6552,8 +6600,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const nextStart = shouldMagnetSnapToRun
             ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
 	            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
-          if (nextStart == null) {
-            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "45° wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
+		          if (nextStart == null) {
+		            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "custom wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
             setPlacementWarning(message);
             toast.error(message);
             return prev;
@@ -6562,9 +6610,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          requestedCabinet = { ...cabinet, ...angledSpot, wallId: requestedWallId, wallOffset: nextStart };
 	        }
 	      }
-	      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
-	        && !isLockedAngledCustomWall(room, requestedCabinet.wallId)
-	        && !peninsulaRunById(room, requestedCabinet.wallId);
+		      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
+		        && !isCustomRoomWall(room, requestedCabinet.wallId)
+		        && !peninsulaRunById(room, requestedCabinet.wallId);
 	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
       const alignedCabinet: PlacedCabinet = snappedPosition
         ? snapCabinetSeamOverlap(
@@ -9048,7 +9096,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <Compass className="h-3.5 w-3.5" /> Drag 45°
         </Button>
 
-        <Button variant="outline" size="sm" className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
+        <Button variant="outline" size="sm" className="hidden shrink-0 lg:inline-flex" onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
         </Button>
         <Button
@@ -14090,6 +14138,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <RoomLayoutStarter
                     selectedStyleId={styleId}
                     selectedDistributorId={selectedStyleDistributorId}
+                    wallHeightIn={room.ceilingHeight ?? 96}
+                    continuousWallBlockedReason={continuousWallBlockedReason}
+                    onApplyContinuousRoom={applyContinuousWallRoom}
                     onApplyRoom={(next) => {
                       applyRoom(next);
                       setPolygonEditMode(Boolean(next.vertices?.length));
@@ -14281,15 +14332,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       </Dialog>
 
       <Dialog open={layoutStarterOpen} onOpenChange={setLayoutStarterOpen}>
-        <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto p-0">
+        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
-            <DialogDescription>Room shapes and starter layouts are loaded from the Cabinet Dealz catalog setup.</DialogDescription>
+            <DialogDescription>Choose an existing room shape or build every connected wall continuously from exact measurements.</DialogDescription>
           </DialogHeader>
           <div className="p-5">
             <RoomLayoutStarter
               selectedStyleId={styleId}
               selectedDistributorId={selectedStyleDistributorId}
+              wallHeightIn={room.ceilingHeight ?? 96}
+              continuousWallBlockedReason={continuousWallBlockedReason}
+              onApplyContinuousRoom={applyContinuousWallRoom}
               onApplyRoom={(next) => {
                 if (layoutLocked) return;
                 applyRoom(next);

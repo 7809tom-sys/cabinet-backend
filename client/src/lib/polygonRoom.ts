@@ -28,6 +28,34 @@ export interface CustomWall {
   height?: number;
 }
 
+export type WallBuilderTurn = "start" | "straight" | "left45" | "right45" | "left90" | "right90";
+
+/** One measured wall in the continuous room-outline builder. */
+export interface WallBuilderSegment {
+  lengthIn: number;
+  /** Absolute plan heading in degrees; always one of the eight 45-degree bearings. */
+  headingDeg: number;
+  /** The deliberate turn made from the prior wall. */
+  turn: WallBuilderTurn;
+}
+
+export interface WallBuilderGeometry {
+  points: Array<{ x: number; y: number }>;
+  closed: boolean;
+  error: string | null;
+}
+
+export interface WallBuilderRoomGeometry {
+  vertices: RoomVertex[];
+  customWalls: CustomWall[];
+  width: number;
+  depth: number;
+  openWallPath: boolean;
+}
+
+export const WALL_BUILDER_MIN_WALL_IN = 6;
+const WALL_BUILDER_EPSILON = 0.01;
+
 // ─── ID Generation ──────────────────────────────────────────────────────────────
 
 let _counter = 0;
@@ -189,6 +217,42 @@ export function applyCompassWallEdit(
   const end = wall ? vertices.find((vertex) => vertex.id === wall.endVertexId) : null;
   if (!wall || !start || !end) return null;
 
+  // An open builder path has one more vertex than wall. Resizing one measured
+  // wall moves its end and translates every following corner by the same delta,
+  // preserving all downstream wall lengths, directions, and clean joins.
+  if (customWalls.length < vertices.length) {
+    const measuredLength = Math.max(6, Math.round((Number(edit.lengthIn) || wallSegmentLength(wall, vertices)) * 8) / 8);
+    const currentBearing = Math.atan2(end.y - start.y, end.x - start.x);
+    const currentDegrees = ((Math.round(currentBearing * 180 / Math.PI) % 360) + 360) % 360;
+    const currentDiagonal: 45 | -45 | null = currentDegrees % 90 === 45
+      ? ((Math.cos(currentBearing) * Math.sin(currentBearing) >= 0 ? 45 : -45) as 45 | -45)
+      : null;
+    const circularDistance = (left: number, right: number) => Math.abs((((left - right) % 360) + 540) % 360 - 180);
+    const requestedDegrees = edit.angle === 90
+      ? (currentDiagonal == null ? currentDegrees : Math.round(currentDegrees / 90) * 90)
+      : edit.angle === currentDiagonal
+      ? currentDegrees
+      : (edit.angle === 45 ? [45, 225] : [135, 315]).reduce((best, candidate) => circularDistance(candidate, currentDegrees) < circularDistance(best, currentDegrees) ? candidate : best);
+    const radians = requestedDegrees * Math.PI / 180;
+    const nextEnd = {
+      x: Math.round((start.x + Math.cos(radians) * measuredLength) * 10000) / 10000,
+      y: Math.round((start.y + Math.sin(radians) * measuredLength) * 10000) / 10000,
+    };
+    const delta = { x: nextEnd.x - end.x, y: nextEnd.y - end.y };
+    const endIndex = vertices.findIndex((vertex) => vertex.id === end.id);
+    if (endIndex < 0) return null;
+    const movedVertices = vertices.map((vertex, vertexIndex) => vertexIndex < endIndex
+      ? vertex
+      : { ...vertex, x: vertex.x + delta.x, y: vertex.y + delta.y });
+    const normalized = normalizeVertices(movedVertices);
+    const nextWalls = customWalls.map((candidate) => candidate.id === wall.id ? {
+      ...candidate,
+      ...(edit.angle === 90 ? { lockedAngle: undefined } : { lockedAngle: edit.angle }),
+      height: Math.max(34.5, Math.min(144, Math.round((Number(edit.heightIn) || wall.height || 96) * 8) / 8)),
+    } : candidate);
+    return { vertices: normalized, customWalls: nextWalls, editedWallId: wall.id };
+  }
+
   const existingLength = Math.max(6, wallSegmentLength(wall, vertices));
   // The Wall length field is the selected wall's measured envelope, never an
   // extension. A 144-inch wall can be shortened, but cannot become longer.
@@ -302,6 +366,207 @@ export function isClockwise(vertices: RoomVertex[]): boolean {
 export function ensureClockwise(vertices: RoomVertex[]): RoomVertex[] {
   if (isClockwise(vertices)) return vertices;
   return [...vertices].reverse();
+}
+
+// ─── Continuous Wall Builder ───────────────────────────────────────────────────
+
+function normalizeWallBuilderHeading(headingDeg: number): number {
+  const snapped = Math.round(headingDeg / 45) * 45;
+  return ((snapped % 360) + 360) % 360;
+}
+
+function wallBuilderTurnDegrees(turn: WallBuilderTurn): number {
+  if (turn === "left45") return -45;
+  if (turn === "right45") return 45;
+  if (turn === "left90") return -90;
+  if (turn === "right90") return 90;
+  return 0;
+}
+
+function wallBuilderLength(lengthIn: number): number {
+  return Math.round((Number(lengthIn) || 0) * 8) / 8;
+}
+
+function wallBuilderPointEqual(
+  left: { x: number; y: number },
+  right: { x: number; y: number },
+  tolerance = WALL_BUILDER_EPSILON,
+): boolean {
+  return Math.abs(left.x - right.x) <= tolerance && Math.abs(left.y - right.y) <= tolerance;
+}
+
+function wallBuilderPointAt(
+  start: { x: number; y: number },
+  headingDeg: number,
+  lengthIn: number,
+): { x: number; y: number } {
+  const radians = normalizeWallBuilderHeading(headingDeg) * Math.PI / 180;
+  const x = Math.round((start.x + Math.cos(radians) * lengthIn) * 10000) / 10000;
+  const y = Math.round((start.y + Math.sin(radians) * lengthIn) * 10000) / 10000;
+  return {
+    x: Math.abs(x) <= WALL_BUILDER_EPSILON ? 0 : x,
+    y: Math.abs(y) <= WALL_BUILDER_EPSILON ? 0 : y,
+  };
+}
+
+/** Adds one measured wall relative to the current run direction. */
+export function appendWallBuilderSegment(
+  segments: WallBuilderSegment[],
+  lengthIn: number,
+  turn: WallBuilderTurn = segments.length === 0 ? "start" : "straight",
+): WallBuilderSegment[] {
+  const measuredLength = wallBuilderLength(lengthIn);
+  if (!Number.isFinite(measuredLength) || measuredLength < WALL_BUILDER_MIN_WALL_IN) return segments;
+  const previousHeading = segments.length > 0 ? segments[segments.length - 1].headingDeg : 0;
+  const effectiveTurn: WallBuilderTurn = segments.length === 0 ? "start" : turn === "start" ? "straight" : turn;
+  const headingDeg = normalizeWallBuilderHeading(previousHeading + wallBuilderTurnDegrees(effectiveTurn));
+  return [...segments, { lengthIn: measuredLength, headingDeg, turn: effectiveTurn }];
+}
+
+/** Returns the continuous path points, beginning at the fixed top-left origin. */
+export function wallBuilderPoints(segments: WallBuilderSegment[]): Array<{ x: number; y: number }> {
+  const points = [{ x: 0, y: 0 }];
+  for (const segment of segments) {
+    points.push(wallBuilderPointAt(points[points.length - 1], segment.headingDeg, segment.lengthIn));
+  }
+  return points;
+}
+
+function wallBuilderOrientation(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  c: { x: number; y: number },
+): number {
+  const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  if (Math.abs(cross) <= WALL_BUILDER_EPSILON) return 0;
+  return cross > 0 ? 1 : -1;
+}
+
+function wallBuilderPointOnSegment(
+  point: { x: number; y: number },
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): boolean {
+  return wallBuilderOrientation(start, end, point) === 0
+    && point.x >= Math.min(start.x, end.x) - WALL_BUILDER_EPSILON
+    && point.x <= Math.max(start.x, end.x) + WALL_BUILDER_EPSILON
+    && point.y >= Math.min(start.y, end.y) - WALL_BUILDER_EPSILON
+    && point.y <= Math.max(start.y, end.y) + WALL_BUILDER_EPSILON;
+}
+
+function wallBuilderSegmentsIntersect(
+  a1: { x: number; y: number },
+  a2: { x: number; y: number },
+  b1: { x: number; y: number },
+  b2: { x: number; y: number },
+): boolean {
+  const o1 = wallBuilderOrientation(a1, a2, b1);
+  const o2 = wallBuilderOrientation(a1, a2, b2);
+  const o3 = wallBuilderOrientation(b1, b2, a1);
+  const o4 = wallBuilderOrientation(b1, b2, a2);
+  if (o1 !== o2 && o3 !== o4) return true;
+  return (o1 === 0 && wallBuilderPointOnSegment(b1, a1, a2))
+    || (o2 === 0 && wallBuilderPointOnSegment(b2, a1, a2))
+    || (o3 === 0 && wallBuilderPointOnSegment(a1, b1, b2))
+    || (o4 === 0 && wallBuilderPointOnSegment(a2, b1, b2));
+}
+
+function wallBuilderSelfIntersects(points: Array<{ x: number; y: number }>, closed: boolean): boolean {
+  const segmentCount = points.length - 1;
+  for (let left = 0; left < segmentCount; left += 1) {
+    for (let right = left + 1; right < segmentCount; right += 1) {
+      const adjacent = right === left + 1 || (closed && left === 0 && right === segmentCount - 1);
+      if (adjacent) continue;
+      if (wallBuilderSegmentsIntersect(points[left], points[left + 1], points[right], points[right + 1])) return true;
+    }
+  }
+  return false;
+}
+
+/** Validates the live outline without changing any room or placed item. */
+export function wallBuilderGeometry(segments: WallBuilderSegment[]): WallBuilderGeometry {
+  const points = wallBuilderPoints(segments);
+  const closed = points.length > 3 && wallBuilderPointEqual(points[0], points[points.length - 1], 0.05);
+  if (segments.some((segment) => !Number.isFinite(segment.lengthIn) || segment.lengthIn < WALL_BUILDER_MIN_WALL_IN)) {
+    return { points, closed, error: `Every wall must be at least ${WALL_BUILDER_MIN_WALL_IN} inches long.` };
+  }
+  const vertices = closed ? points.slice(0, -1) : points;
+  for (let index = 0; index < vertices.length; index += 1) {
+    for (let other = index + 1; other < vertices.length; other += 1) {
+      if (wallBuilderPointEqual(vertices[index], vertices[other])) {
+        return { points, closed, error: "Two corners occupy the same point. Undo the last wall and choose a different turn." };
+      }
+    }
+  }
+  if (wallBuilderSelfIntersects(points, closed)) {
+    return { points, closed, error: "This wall crosses another wall. Undo the last wall and choose a different direction." };
+  }
+  if (closed) {
+    const areaVertices = vertices.map((point, index) => ({ id: `preview-${index}`, ...point }));
+    if (polygonArea(areaVertices) < 36) return { points, closed, error: "The closed room is too small to use." };
+  }
+  return { points, closed, error: null };
+}
+
+/**
+ * Confirms whether the user's own measured walls return to the starting point.
+ * It never adds, changes, or infers a wall length.
+ */
+export function checkWallBuilderClosure(segments: WallBuilderSegment[]): { closed: boolean; error: string | null } {
+  if (segments.length < 3) return { closed: false, error: "Enter at least three measured walls before checking the room." };
+  const geometry = wallBuilderGeometry(segments);
+  if (geometry.error) return { closed: false, error: geometry.error };
+  if (geometry.closed) return { closed: true, error: null };
+  const start = geometry.points[0];
+  const end = geometry.points[geometry.points.length - 1];
+  const remaining = Math.round(dist(start, end) * 8) / 8;
+  return {
+    closed: false,
+    error: `The measured walls do not return to the starting point yet. The open end is ${remaining} inches away. Enter the next wall length and turn from your measurements.`,
+  };
+}
+
+/** Converts the user's connected walls into the existing cabinet-ready custom wall model. */
+export function wallBuilderRoomGeometry(
+  segments: WallBuilderSegment[],
+  wallHeightIn = 96,
+): { room: WallBuilderRoomGeometry | null; error: string | null } {
+  if (segments.length < 1) return { room: null, error: "Enter the first wall length before applying the room." };
+  const geometry = wallBuilderGeometry(segments);
+  if (geometry.error) return { room: null, error: geometry.error };
+
+  const openWallPath = !geometry.closed;
+  let outline = (geometry.closed ? geometry.points.slice(0, -1) : geometry.points)
+    .map((point, index) => ({ id: `wall-builder-${index}`, ...point }));
+  if (geometry.closed && !isClockwise(outline)) outline = [...outline].reverse();
+  const normalized = normalizeVertices(outline).map((point) => ({ ...point, id: genVertexId() }));
+  const height = Math.max(34.5, Math.min(144, Math.round((Number(wallHeightIn) || 96) * 8) / 8));
+  const wallCount = openWallPath ? normalized.length - 1 : normalized.length;
+  const customWalls = normalized.slice(0, wallCount).map((vertex, index) => {
+    const end = normalized[(index + 1) % normalized.length];
+    const dx = end.x - vertex.x;
+    const dy = end.y - vertex.y;
+    const diagonal = Math.abs(dx) > WALL_BUILDER_EPSILON && Math.abs(dy) > WALL_BUILDER_EPSILON;
+    return {
+      id: genWallId(),
+      startVertexId: vertex.id,
+      endVertexId: end.id,
+      label: `Wall ${index + 1}`,
+      ...(diagonal ? { lockedAngle: (dx * dy >= 0 ? 45 : -45) as 45 | -45 } : {}),
+      height,
+    };
+  });
+  const bounds = polygonBounds(normalized);
+  return {
+    room: {
+      vertices: normalized,
+      customWalls,
+      width: Math.max(36, Math.round(bounds.width * 1000) / 1000),
+      depth: Math.max(36, Math.round(bounds.height * 1000) / 1000),
+      openWallPath,
+    },
+    error: null,
+  };
 }
 
 // ─── Split Tool ─────────────────────────────────────────────────────────────────
