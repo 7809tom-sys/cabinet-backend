@@ -2163,3 +2163,12 @@
 - [x] Add desktop and compact/mobile Rotate drawing controls that turn the full custom design 90° clockwise while preserving exact wall lengths, wall IDs, cabinet offsets, doors and windows, sinks, island, furniture, notes, and pony walls.
 - [x] Validate TypeScript, 124 focused tests, 433 broader Designer regressions, production build, diff integrity, and the local Room Layout and Continuous Wall Builder flow.
 - [ ] Save and publish the corrected Designer checkpoint, then verify the production `/design` route receives it.
+
+## Railway health-check deployment repair — 2026-09-17
+
+- [x] Confirm the connected Railway account is not the Manus-managed CabinetDealz service and cannot directly edit its dashboard settings.
+- [x] Confirm the application root `/` returns HTTP 200 and is suitable for deployment health checks.
+- [x] Add a repository-level Railway configuration that overrides the invalid service value with `deploy.healthcheckPath: "/"` and a 300-second timeout.
+- [x] Validate `railway.json` against Railway's official JSON schema and add an automated configuration regression.
+- [x] Pass the new test, TypeScript, production build, and diff integrity checks.
+- [ ] Save the deployment-repair checkpoint, republish, and verify `reaves-way-cabinet-shop.cabinetdealz.com` loads the new deployment.
