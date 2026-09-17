@@ -3254,10 +3254,8 @@ export function wallCabinetClearsWindow(
   if (cabinet.placement !== "wall" || opening.kind !== "window") return false;
   const side = cabinetWall(cabinet, room);
   if (opening.side !== side) return false;
-  const horizontal = side === "top" || side === "bottom";
-  const size = rotatedSize(cabinet);
-  const start = horizontal ? cabinet.x : cabinet.y;
-  const end = start + (horizontal ? size.w : size.d);
+  const start = wallRunOffset(cabinet, side, room);
+  const end = start + wallRunSpan(cabinet, side, room);
   const crossesWindow = start < opening.offset + opening.width - 0.01 && end > opening.offset + 0.01;
   return crossesWindow && elevationBox(cabinet, room).bottom >= opening.sill + opening.height + clearance - 0.01;
 }
@@ -5924,13 +5922,11 @@ export function wallOpeningClearanceViolations(
 ): Set<string> {
   const bad = new Set<string>();
   if (openings.length === 0) return bad;
-  for (const p of placed) {
-    if (p.placement !== "wall") continue;
-    const side = cabinetWall(p, room);
-    const horizontal = side === "top" || side === "bottom";
-    const ps = rotatedSize(p);
-    const cStart = horizontal ? p.x : p.y;
-    const cEnd = cStart + (horizontal ? ps.w : ps.d);
+	  for (const p of placed) {
+	    if (p.placement !== "wall") continue;
+	    const side = cabinetWall(p, room);
+	    const cStart = wallRunOffset(p, side, room);
+	    const cEnd = cStart + wallRunSpan(p, side, room);
     for (const o of openings) {
       if (o.side !== side) continue;
       if (wallCabinetClearsWindow(p, o, room, clearance)) continue;
@@ -5961,14 +5957,12 @@ export function baseOpeningOverlaps(
   const bad = new Set<string>();
   const floorOpenings = openings.filter((o) => blocksFloorRun(o.kind));
   if (floorOpenings.length === 0) return bad;
-  for (const p of placed) {
-    // Floor layer = base + appliance; tall spans the floor too.
-    if (p.placement === "wall") continue;
-    const side = cabinetWall(p, room);
-    const horizontal = side === "top" || side === "bottom";
-    const ps = rotatedSize(p);
-    const cStart = horizontal ? p.x : p.y;
-    const cEnd = cStart + (horizontal ? ps.w : ps.d);
+	  for (const p of placed) {
+	    // Floor layer = base + appliance; tall spans the floor too.
+	    if (p.placement === "wall") continue;
+	    const side = cabinetWall(p, room);
+	    const cStart = wallRunOffset(p, side, room);
+	    const cEnd = cStart + wallRunSpan(p, side, room);
     for (const o of floorOpenings) {
       if (o.side !== side) continue;
       const oStart = o.offset;
@@ -6241,7 +6235,16 @@ export function alternateWallPlacementRecommendation(
   placement: Placement,
   reserveFullHeightAppliances = false,
 ): AlternateWallPlacementRecommendation | null {
-  const orderedWalls: WallSide[] = ["top", "bottom", "left", "right"];
+  // A Continuous Wall Builder room uses its explicit connected segments as the
+  // only real room walls. The rectangular width/depth bounds exist only to size
+  // the canvas; recommending one of those invisible graph edges can place a
+  // cabinet completely outside the user's drawn room.
+  const orderedWalls: WallSide[] = room.customWalls?.length
+    ? [
+        ...room.customWalls.map((wall) => wall.id as WallSide),
+        ...(room.peninsulaRuns ?? []).map((run) => run.id as WallSide),
+      ]
+    : ["top", "bottom", "left", "right"];
   const options = orderedWalls.flatMap((side, order) => {
     if (side === activeWall) return [];
     const spot = paletteActiveWallPlacement(

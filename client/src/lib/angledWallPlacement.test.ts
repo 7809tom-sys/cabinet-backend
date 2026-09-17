@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -170,6 +170,21 @@ describe("continuous builder custom wall placement", () => {
     };
     expect(autoSnapCabinetToNearbyWall(moving, builderRoom, [], [], 6)).toMatchObject({ wallId: "builder-top", rotation: 0 });
   });
+
+	  it("recommends another user-drawn wall instead of an invisible graph boundary", () => {
+	    const recommendation = alternateWallPlacementRecommendation(
+	      "builder-top" as any,
+	      builderRoom,
+	      [],
+	      [],
+	      30,
+	      24,
+	      "base",
+	    );
+	    expect(recommendation).not.toBeNull();
+	    expect(builderRoom.customWalls?.some((wall) => wall.id === recommendation!.side)).toBe(true);
+	    expect(["top", "right", "bottom", "left"]).not.toContain(recommendation!.side);
+	  });
 });
 
 describe("parent-wall termination at a peninsula attachment", () => {

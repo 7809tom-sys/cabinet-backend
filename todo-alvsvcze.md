@@ -2152,3 +2152,14 @@
 - [x] Add desktop and compact/mobile Designer entry points without removing the existing Compass, Room Layout shapes, or other tools.
 - [x] Validate exact 90°/45° geometry, open and closed paths, TypeScript, focused and broad 3D tests, production build, and live browser layout.
 - [x] Save and publish a WebDev checkpoint automatically after validation.
+
+## Continuous Wall Builder placement and rotation follow-up — 2026-09-17
+
+- [x] Test the current production `/design` route and confirm the previously published Wall Builder is not yet deployed because the Railway health-check configuration rejected that deployment.
+- [x] Hide rectangular graph-boundary wall hit zones and dimensions whenever user-drawn custom walls define the room.
+- [x] Restrict active-wall selection, cabinet drop targeting, drag recovery, fit previews, alternate recommendations, and cabinet Snap to wall choices to user-drawn walls plus real peninsula runs.
+- [x] Reattach legacy graph-bound cabinets such as the reported DB18 to the nearest real custom wall when moved or when the drawing is rotated.
+- [x] Place, drag, resize, and render doors and windows on their assigned custom wall in both Plan and 3D, with opening collision clearances measured along the true wall run.
+- [x] Add desktop and compact/mobile Rotate drawing controls that turn the full custom design 90° clockwise while preserving exact wall lengths, wall IDs, cabinet offsets, doors and windows, sinks, island, furniture, notes, and pony walls.
+- [x] Validate TypeScript, 124 focused tests, 433 broader Designer regressions, production build, diff integrity, and the local Room Layout and Continuous Wall Builder flow.
+- [ ] Save and publish the corrected Designer checkpoint, then verify the production `/design` route receives it.

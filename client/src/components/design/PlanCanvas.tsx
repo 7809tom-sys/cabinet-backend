@@ -22,6 +22,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
+import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 
 export type PlanMeasurePoint = { x: number; y: number };
 
@@ -41,6 +42,42 @@ export function planTapeMeasure(a: PlanMeasurePoint, b: PlanMeasurePoint) {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   return { dx, dy, distance: Math.hypot(dx, dy) };
+}
+
+export type PlanOpeningWallFrame = {
+  centerX: number;
+  centerY: number;
+  tangentX: number;
+  tangentY: number;
+  angleDeg: number;
+  wallLength: number;
+};
+
+/**
+ * Resolves a door/window against the same explicit wall segment used by
+ * cabinet placement. The rectangular room bounds are only a drawing viewport
+ * for Continuous Wall Builder rooms and must never become a substitute wall.
+ */
+export function planOpeningWallFrame(opening: WallOpening, room: RoomData): PlanOpeningWallFrame | null {
+  const wall = room.customWalls?.find((candidate) => candidate.id === opening.side);
+  const start = wall && room.vertices?.find((vertex) => vertex.id === wall.startVertexId);
+  const end = wall && room.vertices?.find((vertex) => vertex.id === wall.endVertexId);
+  if (!wall || !start || !end) return null;
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const wallLength = Math.hypot(dx, dy);
+  if (wallLength <= 0.001) return null;
+  const tangentX = dx / wallLength;
+  const tangentY = dy / wallLength;
+  const centerOffset = Math.max(0, Math.min(wallLength, opening.offset + opening.width / 2));
+  return {
+    centerX: start.x + tangentX * centerOffset,
+    centerY: start.y + tangentY * centerOffset,
+    tangentX,
+    tangentY,
+    angleDeg: Math.atan2(dy, dx) * 180 / Math.PI,
+    wallLength,
+  };
 }
 
 export function nearestIslandFaceInRect(
@@ -355,8 +392,11 @@ export function PlanCanvas({
   const onOpeningPointerMove = (e: React.PointerEvent) => {
     const d = openingDrag.current;
     if (!d || !onOpeningChange) return;
+    const customFrame = planOpeningWallFrame(d.orig, room);
     const horizontal = d.orig.side === "top" || d.orig.side === "bottom";
-    const deltaPx = horizontal ? e.clientX - d.startX : e.clientY - d.startY;
+    const deltaPx = customFrame
+      ? (e.clientX - d.startX) * customFrame.tangentX + (e.clientY - d.startY) * customFrame.tangentY
+      : horizontal ? e.clientX - d.startX : e.clientY - d.startY;
     const deltaIn = deltaPx / ppiRef.current;
     if (d.mode === "move") {
       onOpeningChange(clampOpening({ ...d.orig, offset: d.orig.offset + deltaIn }, room));
@@ -897,11 +937,15 @@ export function PlanCanvas({
 	        const rect = roomEl.getBoundingClientRect();
 	        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
 	        const peninsulaHit = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi));
-	        const side = (peninsulaHit?.run.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
+	        const customWall = !peninsulaHit && room.vertices?.length && room.customWalls?.length
+	          ? closestWall(point.x, point.y, room.vertices, room.customWalls)
+	          : null;
+	        const side = (peninsulaHit?.run.id ?? customWall?.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
 	        const placement: "wall" | "base" = catalogDragCabinet.placement === "wall" ? "wall" : "base";
 	        const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
-	        const targetAlong = peninsulaHit?.offset ?? (side === "top" || side === "bottom" ? point.x : point.y);
-	        const gaps = peninsulaHit
+	        const targetAlong = peninsulaHit?.offset
+	          ?? (customWall && room.vertices ? positionAlongWall(point.x, point.y, customWall, room.vertices) : side === "top" || side === "bottom" ? point.x : point.y);
+	        const gaps = peninsulaHit || customWall
 	          ? freeSegmentsOnWall(side, room, cabinets, openings, 0.5, 0, placement).map((segment) => ({
 	              side,
 	              layer: placement,
@@ -922,7 +966,11 @@ export function PlanCanvas({
 	        if (roomEl && onDropNew) {
 	          const rect = roomEl.getBoundingClientRect();
 	          const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
-	          const targetWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id as WallSide | undefined;
+	          const peninsulaWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id;
+	          const customWall = !peninsulaWall && room.vertices?.length && room.customWalls?.length
+	            ? closestWall(point.x, point.y, room.vertices, room.customWalls)?.id
+	            : undefined;
+	          const targetWall = (peninsulaWall ?? customWall) as WallSide | undefined;
 	          onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall);
 	        }
 	        setCatalogDragFit(null);
@@ -1132,9 +1180,17 @@ export function PlanCanvas({
             </div>
           );
         })()}
-        {catalogDragFit && (() => {
+	        {catalogDragFit && (() => {
 	          const { gap } = catalogDragFit;
-	          const horizontal = gap.side === "top" || gap.side === "bottom";
+	          const customWall = room.customWalls?.find((wall) => wall.id === gap.side);
+	          const customStart = customWall && room.vertices?.find((vertex) => vertex.id === customWall.startVertexId);
+	          const customEnd = customWall && room.vertices?.find((vertex) => vertex.id === customWall.endVertexId);
+	          const customLength = customStart && customEnd ? Math.hypot(customEnd.x - customStart.x, customEnd.y - customStart.y) : 0;
+	          const customTangent = customStart && customEnd && customLength > 0
+	            ? { x: (customEnd.x - customStart.x) / customLength, y: (customEnd.y - customStart.y) / customLength }
+	            : null;
+	          const customAngle = customTangent ? Math.atan2(customTangent.y, customTangent.x) * 180 / Math.PI : 0;
+	          const horizontal = Boolean(customTangent) || gap.side === "top" || gap.side === "bottom";
 	          const depthIn = gap.layer === "wall" ? 12 : 24;
 	          const valid = catalogDragFit.status === "valid";
 	          const tooLarge = !valid && catalogDragFit.shortage > 0;
@@ -1146,8 +1202,17 @@ export function PlanCanvas({
 	            .filter((cabinet) => Math.abs(resolvedDesignCabinetDimensions(cabinet).width - gap.length) <= 0.01)
 	            .sort((left, right) => left.masterCode.localeCompare(right.masterCode));
 	          const suggestedFit = exactFits[0] ? { cabinet: exactFits[0], remaining: 0 } : bestFitCatalogOption(gap, layerCandidates);
-          const gapStyle: React.CSSProperties = horizontal
-            ? { left: gap.start * ppi, top: gap.side === "top" ? 0 : roomPxH - depthIn * ppi, width: gap.length * ppi, height: depthIn * ppi }
+	          const gapStyle: React.CSSProperties = customTangent && customStart
+	            ? {
+	                left: (customStart.x + customTangent.x * gap.start) * ppi,
+	                top: (customStart.y + customTangent.y * gap.start) * ppi,
+	                width: gap.length * ppi,
+	                height: depthIn * ppi,
+	                transform: `rotate(${customAngle}deg)`,
+	                transformOrigin: "0 0",
+	              }
+	            : horizontal
+	            ? { left: gap.start * ppi, top: gap.side === "top" ? 0 : roomPxH - depthIn * ppi, width: gap.length * ppi, height: depthIn * ppi }
             : { left: gap.side === "left" ? 0 : roomPxW - depthIn * ppi, top: gap.start * ppi, width: depthIn * ppi, height: gap.length * ppi };
 	          const snapStyle: React.CSSProperties = horizontal
 	            ? { left: (catalogDragFit.snapStart - gap.start) * ppi, top: 0, width: catalogDragFit.requiredSpan * ppi, height: depthIn * ppi }
@@ -1285,7 +1350,7 @@ export function PlanCanvas({
         })}
         {/* Wall bands: touch to select and highlight only. Rendered first so
             they sit beneath cabinets; Room Size owns explicit dimension edits. */}
-        {onSelectWall && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
+        {onSelectWall && !hasCustomWallShell && !measureMode && !drawMode && (["top", "bottom", "left", "right"] as WallSide[]).map((side) => {
           const horizontal = side === "top" || side === "bottom";
           const isActive = activeWall === side;
           const wallLocked = isWallLocked(side);
@@ -1648,6 +1713,7 @@ export function PlanCanvas({
         })}
         {/* Doors & Windows on the room walls */}
         {openings.map((o) => {
+          const customFrame = planOpeningWallFrame(o, room);
           const horizontal = o.side === "top" || o.side === "bottom";
           const isSel = o.uid === selectedOpeningUid;
           const isDoor = o.kind === "door";
@@ -1656,8 +1722,16 @@ export function PlanCanvas({
           const band = 10;
           const lenPx = o.width * ppi;
           const offPx = o.offset * ppi;
-          const style: React.CSSProperties = horizontal
+          const style: React.CSSProperties = customFrame
             ? {
+                left: customFrame.centerX * ppi - lenPx / 2,
+                top: customFrame.centerY * ppi - band / 2,
+                width: lenPx,
+                height: band,
+                transform: `rotate(${customFrame.angleDeg}deg)`,
+                transformOrigin: "center center",
+              }
+            : horizontal ? {
                 left: offPx,
                 width: lenPx,
                 height: band,
@@ -1704,7 +1778,7 @@ export function PlanCanvas({
             >
               <span
                 className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
-                style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
+                style={{ transform: customFrame ? `rotate(${-customFrame.angleDeg}deg)` : horizontal ? "none" : "rotate(-90deg)" }}
               >
                 {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
               </span>
@@ -1716,7 +1790,7 @@ export function PlanCanvas({
                   onPointerUp={onOpeningPointerUp}
                   className="absolute h-3 w-3 rounded-sm bg-[#1a2744] border border-white shadow"
                   style={
-                    horizontal
+                    customFrame || horizontal
                       ? { right: -6, top: "50%", transform: "translateY(-50%)", cursor: "ew-resize" }
                       : { bottom: -6, left: "50%", transform: "translateX(-50%)", cursor: "ns-resize" }
                   }
@@ -2242,7 +2316,7 @@ export function PlanCanvas({
         )}
 
         {/* ─── Auto-dimensions (all walls at once) ───────────────────── */}
-        {autoDimensions && !dragUid && (() => {
+	        {autoDimensions && !hasCustomWallShell && !dragUid && (() => {
           const sides: WallSide[] = ["top", "bottom", "left", "right"];
           const BASE_OFFSET = 22;
           const WALL_OFFSET = 38; // second row for wall cabinets

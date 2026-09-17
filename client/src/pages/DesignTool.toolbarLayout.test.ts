@@ -90,6 +90,13 @@ describe("designer toolbar layout", () => {
     expect(source).toContain("<RoomSizeControl");
   });
 
+	  it("offers one-click whole-drawing rotation only for explicit custom wall rooms", () => {
+	    expect(source).toContain('data-testid="rotate-custom-drawing"');
+	    expect(source).toContain('data-testid="rotate-custom-drawing-mobile"');
+	    expect(source).toContain("onClick={rotateDrawingClockwise}");
+	    expect(source).toContain("rotateCustomPlanClockwise({");
+	  });
+
   it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {
     const sheetStart = source.indexOf("{isMobile && selectedCab && !drawMode && !measureMode && (");
     const sheetEnd = source.indexOf("<WallPicker", sheetStart);

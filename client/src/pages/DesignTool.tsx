@@ -46,6 +46,7 @@ import { trpc } from "@/lib/trpc";
 import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
+import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
 import { canShowCompactWorkspaceMoveControl } from "@/lib/compactWorkspaceMove";
 import {
   preventMobileRoomSheetAutoFocus,
@@ -886,6 +887,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Active wall: the wall the user has highlighted. New items drop onto it, and
   // its on-wall Compass handle can create one exact 45° turn on release.
   const [activeWall, setActiveWall] = useState<WallSide>("top");
+	useEffect(() => {
+	  if (!isPolygonRoom || !room.customWalls?.length) return;
+	  const isDrawnWall = room.customWalls.some((wall) => wall.id === activeWall);
+	  const isPeninsulaWall = room.peninsulaRuns?.some((run) => run.id === activeWall) ?? false;
+	  if (!isDrawnWall && !isPeninsulaWall) setActiveWall(room.customWalls[0].id as WallSide);
+	}, [activeWall, isPolygonRoom, room.customWalls, room.peninsulaRuns]);
   const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
   const [compassSplitUndo, setCompassSplitUndo] = useState<null | {
@@ -1169,6 +1176,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Pony walls — free-standing half-walls (34.5" tall) placed on the floor plan.
   const [ponyWalls, setPonyWalls] = useState<PonyWall[]>([]);
   const [selectedPonyWallUid, setSelectedPonyWallUid] = useState<string | null>(null);
+	const rotateDrawingClockwise = useCallback(() => {
+	  if (layoutLocked) {
+	    toast.info("Unlock the layout before rotating the drawing.");
+	    return;
+	  }
+	  if (!room.vertices?.length || !room.customWalls?.length) return;
+	  const rotated = rotateCustomPlanClockwise({
+	    room,
+	    cabinets: placed,
+	    openings,
+	    sinks,
+	    island,
+	    furniture,
+	    annotations,
+	    ponyWalls,
+	  });
+	  setRoom(rotated.room);
+	  setPlaced(rotated.cabinets);
+	  placedRef.current = rotated.cabinets;
+	  setOpenings(rotated.openings);
+	  setSinks(rotated.sinks);
+	  setIsland(rotated.island);
+	  if (rotated.island?.activeFace) setIslandFace(rotated.island.activeFace);
+	  setFurniture(rotated.furniture);
+	  setAnnotations(rotated.annotations);
+	  setPonyWalls(rotated.ponyWalls);
+	  setPeninsulaDraft(null);
+	  setCompassWallStartIn(null);
+	  toast.success("Drawing rotated 90° clockwise. Wall lengths and cabinet positions were preserved.");
+	}, [annotations, furniture, island, layoutLocked, openings, placed, ponyWalls, room, sinks]);
   // Backsplash material: shown in elevation view between countertop and wall cabinets.
   const [backsplashMaterialId, setBacksplashMaterialId] = useState<string | null>(null);
   // Standard tile ends at upper cabinets; full-height extends only on the same
@@ -6582,6 +6619,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        ? autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)
 	        : null;
 	      if (nearbyWallSnap) requestedCabinet = nearbyWallSnap;
+	      if (
+	        room.vertices?.length
+	        && room.customWalls?.length
+	        && !requestedCabinet.islandFace
+	        && !isCustomRoomWall(room, requestedCabinet.wallId)
+	        && !peninsulaRunById(room, requestedCabinet.wallId)
+	      ) {
+	        const footprint = placedFootprint(requestedCabinet);
+	        const realWall = closestWall(
+	          requestedCabinet.x + footprint.w / 2,
+	          requestedCabinet.y + footprint.d / 2,
+	          room.vertices,
+	          room.customWalls,
+	        );
+	        if (realWall) requestedCabinet = { ...requestedCabinet, wallId: realWall.id as WallSide };
+	      }
 	      const requestedWallId = requestedCabinet.wallId ?? cabinet.wallId;
 		      if (!nearbyWallSnap && (isCustomRoomWall(room, requestedWallId) || peninsulaRunById(room, requestedWallId))) {
 	        const peninsula = peninsulaRunById(room, requestedWallId);
@@ -7747,25 +7800,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     (side: WallSide | string) => {
       if (!selectedUid) return;
       setPlaced((prev) => {
-        const selected = prev.find((cabinet) => cabinet.uid === selectedUid);
-        if (!selected) return prev;
-        const peninsula = peninsulaRunById(room, side);
-        if (!peninsula) {
-          return prev.map((p) => {
-            if (p.uid !== selectedUid) return p;
-            const { x, y } = snapToWall(p, side as WallSide, room);
-            return { ...p, x, y };
-          });
-        }
+	        const selected = prev.find((cabinet) => cabinet.uid === selectedUid);
+	        if (!selected) return prev;
+	        const peninsula = peninsulaRunById(room, side);
+	        const customWall = room.customWalls?.find((wall) => wall.id === side);
+	        if (!peninsula && !customWall) {
+	          return prev.map((p) => {
+	            if (p.uid !== selectedUid) return p;
+	            const { x, y } = snapToWall(p, side as WallSide, room);
+	            return { ...p, x, y, wallId: side as WallSide, wallOffset: undefined };
+	          });
+	        }
 
         const peers = prev.filter((cabinet) => cabinet.uid !== selectedUid);
         const footprint = placedFootprint(selected);
-        const requestedAlong = peninsulaRunOffsetAtPoint(peninsula, room, {
-          x: selected.x + footprint.w / 2,
-          y: selected.y + footprint.d / 2,
-        });
-        const segments = freeSegmentsOnWall(
-          peninsula.id as WallSide,
+	        const requestedAlong = peninsula
+	          ? peninsulaRunOffsetAtPoint(peninsula, room, {
+	              x: selected.x + footprint.w / 2,
+	              y: selected.y + footprint.d / 2,
+	            })
+	          : positionAlongWall(
+	              selected.x + footprint.w / 2,
+	              selected.y + footprint.d / 2,
+	              customWall!,
+	              room.vertices!,
+	            );
+	        const segments = freeSegmentsOnWall(
+	          side as WallSide,
           room,
           peers,
           openings,
@@ -7773,30 +7834,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           0,
           selected.placement,
         );
-        const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);
-        if (along == null) {
-          const message = `${selected.masterCode} does not fit in an open span on this peninsula.`;
+	        const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);
+	        if (along == null) {
+	          const message = `${selected.masterCode} does not fit in an open span on this ${peninsula ? "peninsula" : customWall?.label ?? "wall"}.`;
           setPlacementWarning(message);
           toast.error(message);
           return prev;
         }
         const spot = wallPlacementAt(
           along,
-          selected.width,
-          selected.depth,
-          peninsula.id as WallSide,
-          room,
-          selected.peninsulaSide ?? peninsula.cabinetSide,
-        );
+	          selected.width,
+	          selected.depth,
+	          side as WallSide,
+	          room,
+	          peninsula ? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
+	        );
         const candidate: PlacedCabinet = {
           ...selected,
           ...spot,
-          wallId: peninsula.id,
-          wallOffset: along,
-          peninsulaSide: spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide,
-        };
-        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-          const message = collisionReason(candidate, peers) ?? `${selected.masterCode} cannot snap to this peninsula without overlapping another item.`;
+	          wallId: side as WallSide,
+	          wallOffset: along,
+	          peninsulaSide: peninsula ? spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
+	        };
+	        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+	          const message = collisionReason(candidate, peers) ?? `${selected.masterCode} cannot snap to this ${peninsula ? "peninsula" : customWall?.label ?? "wall"} without overlapping another item.`;
           setPlacementWarning(message);
           toast.error(message);
           return prev;
@@ -9576,6 +9637,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     })
 	                  )}
 	                </div>
+	                {isPolygonRoom && (
+	                  <div className="px-3 pb-3">
+	                    <Button
+	                      type="button"
+	                      variant="outline"
+	                      data-testid="rotate-custom-drawing-mobile"
+	                      onClick={rotateDrawingClockwise}
+	                      disabled={layoutLocked}
+	                      className="w-full justify-start"
+	                    >
+	                      <RotateCw className="mr-2 h-4 w-4" />
+	                      Rotate drawing 90° clockwise
+	                    </Button>
+	                  </div>
+	                )}
 	                {(room.peninsulaRuns ?? []).length > 0 && (
 	                  <div className="flex flex-wrap gap-1 px-3 pb-2">
 	                    {(room.peninsulaRuns ?? []).map((run) => (
@@ -10042,16 +10118,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           >
             <ScanLine className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setAutoDimensions((d) => !d)}
+	          <Button
+	            variant="outline"
+	            size="icon"
+	            onClick={() => setAutoDimensions((d) => !d)}
             title={t("dt_sh_auto_dim")}
             className={`h-7 w-7 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
-          >
-            <Ruler className="h-3.5 w-3.5" />
-          </Button>
-          <Button
+	          >
+	            <Ruler className="h-3.5 w-3.5" />
+	          </Button>
+	          {isPolygonRoom && (
+	            <Button
+	              variant="outline"
+	              size="sm"
+	              data-testid="rotate-custom-drawing"
+	              onClick={rotateDrawingClockwise}
+	              disabled={layoutLocked}
+	              title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
+	              className="h-7 gap-1 px-2 text-[10px] font-bold"
+	            >
+	              <RotateCw className="h-3.5 w-3.5" />
+	              Rotate drawing
+	            </Button>
+	          )}
+	          <Button
             variant="outline"
             size="icon"
             title={t("dt_ann_add")}
@@ -10801,6 +10891,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </div>
                   <WallPicker
                     onPick={snapSelectedToWall}
+	                customTargets={isPolygonRoom && room.customWalls
+	                  ? room.customWalls.map((wall, index) => ({ id: wall.id, label: wall.label || `Wall ${index + 1}` }))
+	                  : undefined}
                     onPickPeninsula={snapSelectedToWall}
                     peninsulaTarget={(() => {
                       const run = peninsulaRunById(room, activeWall);

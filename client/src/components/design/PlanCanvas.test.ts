@@ -3,8 +3,8 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, nearestIslandFaceInRect, planCornerGeometry, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
-import type { PlacedCabinet } from "@/lib/design";
+import { PlanCanvas, nearestIslandFaceInRect, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
   uid: "cabinet",
@@ -173,6 +173,40 @@ describe("user measured open wall paths", () => {
     expect(markup).not.toContain('data-testid="room-wall-top"');
     expect(markup).not.toContain('data-testid="room-wall-right"');
   });
+
+	  it("positions an opening on its assigned diagonal custom wall instead of the graph boundary", () => {
+	    const room: RoomData = {
+	      width: 156.154,
+	      depth: 55.154,
+	      ceilingHeight: 96,
+	      openWallPath: true,
+	      vertices: [
+	        { id: "a", x: 0, y: 0 },
+	        { id: "b", x: 101, y: 0 },
+	        { id: "c", x: 156.154, y: 55.154 },
+	      ],
+	      customWalls: [
+	        { id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1" },
+	        { id: "wall-2", startVertexId: "b", endVertexId: "c", label: "Wall 2", lockedAngle: 45 },
+	      ],
+	    };
+	    const opening = {
+	      uid: "opening-1",
+	      kind: "opening",
+	      label: "Cased Opening 36\"",
+	      side: "wall-2" as any,
+	      offset: 12,
+	      width: 36,
+	      height: 80,
+	      sill: 0,
+	    } satisfies WallOpening;
+
+	    const frame = planOpeningWallFrame(opening, room);
+	    expect(frame).not.toBeNull();
+	    expect(frame!.angleDeg).toBeCloseTo(45, 3);
+	    expect(frame!.centerX).toBeCloseTo(122.213, 3);
+	    expect(frame!.centerY).toBeCloseTo(21.213, 3);
+	  });
 });
 
 describe("plan placement assistance wiring", () => {

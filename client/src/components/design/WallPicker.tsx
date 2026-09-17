@@ -5,6 +5,7 @@ import type { SiteStringKey } from "@/lib/i18n/site";
 
 interface Props {
   onPick: (side: WallSide) => void;
+  customTargets?: Array<{ id: string; label: string }>;
   onPickPeninsula?: (runId: string) => void;
   peninsulaTarget?: { id: string; label: string } | null;
   disabled?: boolean;
@@ -20,13 +21,24 @@ const BUTTONS: { side: WallSide; labelKey: SiteStringKey; Icon: typeof ArrowUp }
 // A compact wall selector shown when a cabinet is selected. Clicking a side
 // snaps the cabinet flush to that wall, so users can place a cabinet on the
 // wall they actually want instead of dragging and hoping it snaps.
-export function WallPicker({ onPick, onPickPeninsula, peninsulaTarget = null, disabled }: Props) {
+export function WallPicker({ onPick, customTargets, onPickPeninsula, peninsulaTarget = null, disabled }: Props) {
   const { t } = useLanguage();
   return (
     <div className="flex items-center gap-1.5">
       <span className="text-[11px] font-medium text-muted-foreground">{t("dt_snap_to_wall")}</span>
-      <div className="flex items-center gap-0.5">
-        {BUTTONS.map(({ side, labelKey, Icon }) => {
+      <div className="flex flex-wrap items-center gap-0.5">
+        {customTargets?.length ? customTargets.map((target) => (
+          <button
+            key={target.id}
+            type="button"
+            disabled={disabled}
+            onClick={() => onPick(target.id as WallSide)}
+            title={`Snap this cabinet to ${target.label}`}
+            className="rounded-md border border-border bg-white px-2 py-1 text-[11px] font-medium text-[#1a2744] transition-colors hover:bg-[#1a2744] hover:text-white disabled:opacity-40 disabled:hover:bg-white disabled:hover:text-[#1a2744]"
+          >
+            {target.label}
+          </button>
+        )) : BUTTONS.map(({ side, labelKey, Icon }) => {
           const label = t(labelKey);
           return (
             <button

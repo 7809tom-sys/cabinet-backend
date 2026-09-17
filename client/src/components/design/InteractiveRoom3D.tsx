@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
+import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -4745,7 +4746,7 @@ export function threeDLegacyWallAnchor(
  */
 export function threeDRoomFacingRotation(
 		  cabinet: PlacedCabinet,
-		  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns">>) | null,
+		  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns" | "customWalls">>) | null,
 		  fallbackRotation = 0,
 	) {
 	  if (cabinet.islandFace) {
@@ -4761,7 +4762,9 @@ export function threeDRoomFacingRotation(
 		  // selected wall side in its saved rotation. Never re-infer that facing from
 		  // the nearest perimeter wall: doing so turns its front away from the run and
 		  // makes the physical cabinet back appear detached from the peninsula wall.
-			  if (room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId)) return threeDPlanRotation(fallbackRotation);
+			  if (room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId) || isCustomRoomWall(room as RoomData, cabinet.wallId)) {
+			    return threeDPlanRotation(fallbackRotation);
+			  }
 		  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
 		  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
 		  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
@@ -4837,7 +4840,7 @@ export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left"
 
 export function existingCabinetTransform(
   cabinet: PlacedCabinet,
-  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns">>) | null,
+  room?: (Pick<RoomData, "ceilingHeight"> & Partial<Pick<RoomData, "width" | "depth" | "peninsulaRuns" | "customWalls">>) | null,
 ) {
   // Placed coordinates are the top-left of the 2D rotation-aware footprint.
   // Using nominal width/depth here offsets rotated runs by up to half a cabinet,
@@ -6323,7 +6326,27 @@ function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
   root.add(group);
 }
 
-export function openingTransform(opening: WallOpening, roomWidth: number, roomDepth: number) {
+export function openingTransform(opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number) {
+  const room = typeof roomOrWidth === "number" ? null : roomOrWidth;
+  const roomWidth = typeof roomOrWidth === "number" ? roomOrWidth : roomOrWidth.width;
+  const roomDepth = typeof roomOrWidth === "number" ? Number(legacyRoomDepth) : roomOrWidth.depth;
+  const customWall = room?.customWalls?.find((wall) => wall.id === opening.side);
+  const start = customWall && room?.vertices?.find((vertex) => vertex.id === customWall.startVertexId);
+  const end = customWall && room?.vertices?.find((vertex) => vertex.id === customWall.endVertexId);
+  if (customWall && start && end) {
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (length > 0.001) {
+      const tangentX = (end.x - start.x) / length;
+      const tangentY = (end.y - start.y) / length;
+      const centerOffset = Math.max(0, Math.min(length, opening.offset + opening.width / 2));
+      const inset = 0.06;
+      return {
+        x: start.x + tangentX * centerOffset - tangentY * inset,
+        z: start.y + tangentY * centerOffset + tangentX * inset,
+        rotation: threeDPlanRotation(polygonWallAngle(customWall, room!.vertices!)),
+      };
+    }
+  }
   const offset = opening.offset + opening.width / 2;
   if (opening.side === "bottom") return { x: offset, z: roomDepth - 0.06, rotation: Math.PI };
   if (opening.side === "left") return { x: 0.06, z: offset, rotation: Math.PI / 2 };
@@ -6331,8 +6354,8 @@ export function openingTransform(opening: WallOpening, roomWidth: number, roomDe
   return { x: offset, z: 0.06, rotation: 0 };
 }
 
-export function addWallOpening(root: THREE.Group, opening: WallOpening, roomWidth: number, roomDepth: number) {
-  const { x, z, rotation } = openingTransform(opening, roomWidth, roomDepth);
+export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number) {
+  const { x, z, rotation } = openingTransform(opening, roomOrWidth, legacyRoomDepth);
   const group = new THREE.Group();
   group.position.set(x * INCH, (opening.sill + opening.height / 2) * INCH, z * INCH);
   group.rotation.y = rotation;
@@ -6537,7 +6560,7 @@ export function threeDDesignParitySnapshot({
       sku: existingCabinetSku(source, room),
       countertopSupported: shouldRenderCountertopOverSceneItem(source),
     })),
-    openings: openings.map((source) => ({ source, transform: openingTransform(source, room.width, room.depth) })),
+	    openings: openings.map((source) => ({ source, transform: openingTransform(source, room) })),
     sinks: sinks.map((source) => ({ source, transform: sinkFixtureTransform(source) })),
     island: island ? { source: island, transform: islandZoneTransform(island) } : null,
     furniture: furniture.map((source) => {
@@ -7455,7 +7478,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    if (backsplashTexture && backsplashSegments.length > 0) {
 	      addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture);
 	    }
-	    for (const opening of openings) addWallOpening(catalogRoot, opening, room.width, room.depth);
+	    for (const opening of openings) addWallOpening(catalogRoot, opening, room);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
 		    if (island) addIslandZone(
 		      catalogRoot,
