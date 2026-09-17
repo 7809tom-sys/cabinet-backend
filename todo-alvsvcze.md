@@ -2167,8 +2167,9 @@
 ## Railway health-check deployment repair — 2026-09-17
 
 - [x] Confirm the connected Railway account is not the Manus-managed CabinetDealz service and cannot directly edit its dashboard settings.
-- [x] Confirm the application root `/` returns HTTP 200 and is suitable for deployment health checks.
-- [x] Add a repository-level Railway configuration that overrides the invalid service value with `deploy.healthcheckPath: "/"` and a 300-second timeout.
+- [x] Retarget this repair to the main `www.cabinetdealz.com` deployment, not the Reaves Way affiliate site.
+- [x] Add a dedicated host-agnostic `/health` endpoint that returns HTTP 200 before redirects, affiliate routing, authentication, and SPA handling.
+- [x] Add a repository-level Railway configuration with `deploy.healthcheckPath: "/health"` and a 300-second timeout, and pass the same `/health` path through WebDev project metadata.
 - [x] Validate `railway.json` against Railway's official JSON schema and add an automated configuration regression.
 - [x] Pass the new test, TypeScript, production build, and diff integrity checks.
-- [ ] Save the deployment-repair checkpoint, republish, and verify `reaves-way-cabinet-shop.cabinetdealz.com` loads the new deployment.
+- [ ] Save the new deployment-repair checkpoint, republish, and verify `www.cabinetdealz.com/health` plus the production `/design` build.
