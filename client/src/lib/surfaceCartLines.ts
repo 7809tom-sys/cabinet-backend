@@ -22,6 +22,11 @@ export type SurfaceCartLine = {
   distributorId: number | null;
   tier: "wholesale" | "contractor" | "homeowner";
   unitPrice: number | null;
+  /** Selected catalog surface prices are locked when the design is sent to cart. */
+  priceLocked: true;
+  /** Distinguishes Pelican surface/fixture products from cabinet catalog lines. */
+  productKind: "surface";
+  category: string;
   qty: number;
   /** When qty was auto-calculated from area, this note explains the math. */
   qtyNote?: string;
@@ -141,6 +146,9 @@ export function buildSurfaceCartLines(
       distributorId: null,
       tier,
       unitPrice: s.sellPrice,
+      priceLocked: true,
+      productKind: "surface",
+      category: s.category,
       qty,
       ...(qtyNote ? { qtyNote } : {}),
     });

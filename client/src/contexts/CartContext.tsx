@@ -34,6 +34,8 @@ export type CartItem = {
   catalogImageUrl?: string | null;
   /** Product category (e.g. "Sinks & Faucets", "Flooring") — used for display grouping */
   category?: string | null;
+  /** Non-cabinet catalog product identity used by checkout and freight filtering. */
+  productKind?: "surface";
 };
 
 // Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply

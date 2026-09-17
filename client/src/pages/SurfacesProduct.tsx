@@ -51,6 +51,8 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
       distributorId: null, // Pelican products bypass distributor lock
       tier: "homeowner",
       unitPrice: data.sellPrice ?? null,
+      priceLocked: true,
+      productKind: "surface",
       qty,
       imageUrl: data.imageUrl ?? null,
       category: data.category,
@@ -314,6 +316,8 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
       distributorId: null,
       tier: "homeowner",
       unitPrice: product.sellPrice,
+      priceLocked: true,
+      productKind: "surface",
       qty: 1,
       imageUrl: product.imageUrl ?? null,
       category: product.category,

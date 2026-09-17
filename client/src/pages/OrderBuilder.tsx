@@ -13,16 +13,7 @@ import { OrderReview, type ReviewLine } from "@/components/order/OrderReview";
 import { BarcodeScanTab } from "@/components/order/BarcodeScanTab";
 import { CART_PREFILL_KEY } from "@/pages/Cart";
 import { useLanguage } from "@/contexts/LanguageContext";
-
-type CartPrefillItem = {
-  code: string;
-  qty: number;
-  styleId?: number | null;
-  distributorId?: number | null;
-  tier?: string | null;
-  unitPrice?: number | null;
-  priceLocked?: boolean;
-};
+import { applyCartCheckoutPrefill, type CartCheckoutPrefillItem } from "@/lib/cartCheckoutPrefill";
 
 type Source = "ocr" | "csv" | "manual" | "barcode";
 
@@ -59,11 +50,11 @@ export default function OrderBuilder() {
       return;
     }
     if (!raw) return;
-    let parsed: CartPrefillItem[] = [];
+    let parsed: CartCheckoutPrefillItem[] = [];
     try {
       const decoded = JSON.parse(raw) as
-        | { items: CartPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null }
-        | CartPrefillItem[]; // legacy format
+        | { items: CartCheckoutPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null }
+        | CartCheckoutPrefillItem[]; // legacy format
       if (Array.isArray(decoded)) {
         parsed = decoded;
       } else {
@@ -82,21 +73,14 @@ export default function OrderBuilder() {
       {
         onSuccess: (result) => {
           setSource("manual");
-          setLines(result.lines.map((line, index) => {
+          const checkoutLines = result.lines.map((line, index) => {
             const cartLine = items[index];
-            return cartLine
-              ? {
-                  ...line,
-                  cartUnitPrice: cartLine.unitPrice ?? null,
-                  cartPriceLocked: cartLine.priceLocked === true,
-                  cartStyleId: cartLine.styleId ?? null,
-                  cartDistributorId: cartLine.distributorId ?? null,
-                  cartTier: cartLine.tier ?? null,
-                }
-              : line;
-          }));
-          toast.success(t("ob_loaded_from_cart", { n: result.lines.length, s: result.lines.length > 1 ? "s" : "" }), {
-            description: t("ob_matched_review", { m: result.matchedCount, u: result.unmatchedCount }),
+            return cartLine ? applyCartCheckoutPrefill(line, cartLine) : line;
+          });
+          setLines(checkoutLines);
+          const recognizedCount = checkoutLines.filter((line) => line.matched).length;
+          toast.success(t("ob_loaded_from_cart", { n: checkoutLines.length, s: checkoutLines.length > 1 ? "s" : "" }), {
+            description: t("ob_matched_review", { m: recognizedCount, u: checkoutLines.length - recognizedCount }),
           });
           setTimeout(() => document.getElementById("order-review")?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
         },

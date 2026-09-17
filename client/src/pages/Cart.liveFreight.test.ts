@@ -6,6 +6,7 @@ const cartSource = readFileSync(resolve(process.cwd(), "client/src/pages/Cart.ts
 const cartContextSource = readFileSync(resolve(process.cwd(), "client/src/contexts/CartContext.tsx"), "utf8");
 const builderSource = readFileSync(resolve(process.cwd(), "client/src/pages/OrderBuilder.tsx"), "utf8");
 const reviewSource = readFileSync(resolve(process.cwd(), "client/src/components/order/OrderReview.tsx"), "utf8");
+const prefillSource = readFileSync(resolve(process.cwd(), "client/src/lib/cartCheckoutPrefill.ts"), "utf8");
 
 describe("cart live freight quoting", () => {
   it("rates eligible cart cabinet items using their exact supplier and style identity", () => {
@@ -24,7 +25,8 @@ describe("cart live freight quoting", () => {
   });
 
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {
-    expect(builderSource).toContain("cartDistributorId: cartLine.distributorId ?? null");
+    expect(builderSource).toContain("applyCartCheckoutPrefill(line, cartLine)");
+    expect(prefillSource).toContain("cartDistributorId: item.distributorId ?? null");
     expect(reviewSource).toContain("distributorId: line.cartDistributorId ?? null");
   });
 

@@ -20,6 +20,7 @@ import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
 import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/affiliateCartPricing";
 import { resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
+import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -222,15 +223,7 @@ export default function Cart() {
     // the correct door style and pricing tier instead of defaulting to Aston Green.
     const firstItem = items[0];
     const prefill = {
-      items: items.map((i) => ({
-        code: i.masterCode,
-        qty: i.qty,
-        styleId: i.styleId,
-        distributorId: i.distributorId,
-        tier: i.tier,
-        unitPrice: liveUnitPrice(i),
-        priceLocked: i.priceLocked === true,
-      })),
+      items: items.map((i) => cartItemToCheckoutPrefill(i, liveUnitPrice(i))),
       styleId: firstItem?.styleId ?? null,
       tier: firstItem?.tier ?? null,
       kitchenDesignId: sourceDesignId,

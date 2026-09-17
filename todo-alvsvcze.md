@@ -2138,3 +2138,8 @@
 - [x] Replace independently trimmed corner slabs with one continuous cabinet-supported countertop footprint that has no interior notch
 - [x] Preserve the stove opening, sink seating, exterior overhang, waterfall placement, and countertop takeoff after restoring the missing section
 - [x] Validate the exact saved-design shape plus mirrored turn and cabinet-side combinations before publication
+- [x] Trace the current saved design countertop area, material, approved unit-price source, and displayed amount through Designer, Materials & Parts, cart, and checkout
+- [x] Correct only the verified countertop quantity or downstream total mismatch without changing any approved countertop or cabinet unit price
+- [x] Validate the corrected countertop amount after save-refresh and across Designer, Materials & Parts, cart, checkout, TypeScript, tests, and production build
+- [x] Preserve selected price-locked countertop product lines through Order Builder and Order Review totals, tax, and submitted order items without treating them as cabinets or freight pallets
+- [x] Keep presentation-only countertops quote-only and clearly separate from orderable countertop slab pricing

@@ -3152,7 +3152,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Countertop measurement (base run + island), shown as a quote request.
   const counter = useMemo(
 	    () => (countertop ? countertopArea(placed, island, island ? islandCountertopVisibleRects(island, placed) : null, room) : null),
-    [countertop, placed, island]
+	    [countertop, placed, island, room]
   );
 
   // Conflicts: an appliance physically running into a cabinet. Highlighted red

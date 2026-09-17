@@ -53,6 +53,15 @@ describe("buildSurfaceCartLines", () => {
     expect(line.qty).toBe(1);
   });
 
+  it("marks selected catalog surfaces as price-locked non-cabinet products", () => {
+    const [line] = buildSurfaceCartLines([faucet], "homeowner");
+    expect(line).toMatchObject({
+      priceLocked: true,
+      productKind: "surface",
+      category: "Sinks & Faucets",
+    });
+  });
+
   it("shows the category (with size when present) as the line label", () => {
     const lines = buildSurfaceCartLines([faucet, floor], "contractor");
     expect(lines[0].styleLabel).toBe("Sinks & Faucets");
@@ -117,6 +126,8 @@ describe("buildSurfaceCartLines — box quantity with overage", () => {
     const [line] = buildSurfaceCartLines([quartzSlab], "homeowner", areas);
     expect(line.qty).toBe(2);
     expect(line.unitPrice).toBe(1200);
+    expect(line.priceLocked).toBe(true);
+    expect(line.productKind).toBe("surface");
     expect(line.qtyNote).toBe("60.0 sq ft ÷ 55.1 sq ft/slab = 2 slabs");
     expect(line.qty * (line.unitPrice ?? 0)).toBe(2400);
   });

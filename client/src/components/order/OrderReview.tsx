@@ -29,8 +29,9 @@ import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
 import { checkoutPresentation } from "@/lib/checkoutPresentation";
 import { resolveCheckoutAlias } from "@/lib/affiliateCheckoutAlias";
-import { isLockedDesignCheckoutPrice, resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
+import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
+import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLinePricing";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -54,6 +55,8 @@ export type ReviewLine = {
   /** Exact supplier line selected in the cart; preserves the live freight origin. */
   cartDistributorId?: number | null;
   cartTier?: string | null;
+  cartProductKind?: "surface" | null;
+  cartCategory?: string | null;
 };
 
 type StyleOption = {
@@ -470,14 +473,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
 
   const pricedLines = useMemo(() => {
     return lines.map((l) => {
-      const unit =
-        l.matched && l.cabinetId != null
-          ? resolveLockedCheckoutUnitPrice({
-              priceLocked: isLockedDesignCheckoutPrice(l),
-              storedUnitPrice: l.cartUnitPrice ?? null,
-              recomputedUnitPrice: priceMap.get(l.cabinetId) ?? null,
-            })
-          : null;
+      const unit = checkoutUnitPriceForLine(
+        l,
+        l.cabinetId != null ? priceMap.get(l.cabinetId) ?? null : null,
+      );
       const linePrice = unit != null ? Number((unit * l.qty).toFixed(2)) : null;
       const unitCost =
         l.matched && l.cabinetId != null ? costMap.get(l.cabinetId) ?? null : null;
@@ -497,7 +496,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         liftgate: liftgateRequired,
       },
       items: pricedLines
-        .filter((line) => line.matched && (line.cabinetId != null || line.masterCode))
+        .filter(isCabinetFreightLine)
         .map((line) => ({
           cabinetId: line.cabinetId,
           masterCode: line.masterCode,
@@ -642,9 +641,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         qty: l.qty,
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
-        styleId: l.cartStyleId ?? selectedStyle?.styleId ?? null,
-        doorStyle: brandedStyleName ?? null,
-        tier: (l.cartTier as Tier | null | undefined) ?? tier,
+        styleId: isSurfaceCheckoutLine(l) ? null : l.cartStyleId ?? selectedStyle?.styleId ?? null,
+        doorStyle: isSurfaceCheckoutLine(l) ? null : brandedStyleName ?? null,
+        tier: resolveCheckoutTier(l.cartTier, accountTier),
         matched: l.matched,
       })),
     });
@@ -795,7 +794,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                     {/* Shared cabinet artwork — same CabinetImage used in the catalog,
                         detail page, cart, and Design Tool palette. Falls back to an
                         accurate to-scale drawing when no catalog image is mapped. */}
-                    {l.matched && (
+                    {l.matched && !isSurfaceCheckoutLine(l) && (
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md border border-border bg-muted/40">
                         <CabinetImage
                           cabinet={{ masterCode: l.masterCode ?? l.rawCode, description: l.description }}
@@ -818,7 +817,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                       {t("or_split_top_auto")}
                     </Badge>
                   )}
-                  {l.matched &&
+                  {l.matched && !isSurfaceCheckoutLine(l) &&
                     requiresFinishMatch({ description: l.description ?? l.masterCode }) &&
                     (() => {
                       const label = finishMatchLabel(brandedStyleName);
@@ -834,7 +833,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                     })()}
                 </TableCell>
                 <TableCell>
-                  {fixingIndex === idx ? null : <ConfidenceBadge line={l} />}
+                  {fixingIndex === idx ? null : isSurfaceCheckoutLine(l) ? (
+                    <Badge variant="secondary" className="text-[10px]">Selected product</Badge>
+                  ) : <ConfidenceBadge line={l} />}
                   {!l.matched && fixingIndex !== idx && (
                     <Button
                       variant="link"
@@ -845,7 +846,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                       <Pencil className="h-3 w-3 mr-1" /> {t("or_fix")}
                     </Button>
                   )}
-                  {l.matched && fixingIndex !== idx && l.pantryTopFor == null && (
+                  {l.matched && !isSurfaceCheckoutLine(l) && fixingIndex !== idx && l.pantryTopFor == null && (
                     <Button
                       variant="link"
                       size="sm"
