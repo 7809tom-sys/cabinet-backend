@@ -2151,4 +2151,4 @@
 - [x] Convert the confirmed wall path into cabinet-ready custom room walls selectable for cabinet and item placement.
 - [x] Add desktop and compact/mobile Designer entry points without removing the existing Compass, Room Layout shapes, or other tools.
 - [x] Validate exact 90°/45° geometry, open and closed paths, TypeScript, focused and broad 3D tests, production build, and live browser layout.
-- [ ] Save and publish a WebDev checkpoint automatically after validation.
+- [x] Save and publish a WebDev checkpoint automatically after validation.
