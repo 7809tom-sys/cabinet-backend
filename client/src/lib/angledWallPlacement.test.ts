@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSurface, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, wallLength, wallPlacementAt } from "./design";
+import { autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -901,6 +901,53 @@ describe("cabinet-supported peninsula runs", () => {
     expect(surface!.x + surface!.width / 2).toBeCloseTo(expectedCenter.x, 6);
     expect(surface!.y + surface!.depth / 2).toBeCloseTo(expectedCenter.y, 6);
     expect(countertopSurfaces([], withSeating)).toEqual([]);
+  });
+
+  it("inherits the root seating overhang across a legacy zero-overhang 45-degree return so the saved B24 corner remains covered", () => {
+    const parent = {
+      id: "peninsula_mu3bq5rw",
+      parentWall: "top" as const,
+      startOffset: 144.875,
+      turn: 90 as const,
+      direction: "left" as const,
+      length: 90,
+      height: 34.5,
+      cabinetSide: "left" as const,
+      countertopSeatingOverhang: 12 as const,
+      countertopWaterfallEnd: true,
+    };
+    const child = {
+      id: "peninsula_return_mu3bvzwj",
+      parentRunId: parent.id,
+      startOffset: 0,
+      turn: 45 as const,
+      direction: "right" as const,
+      length: 36,
+      height: 34.5,
+      cabinetSide: "left" as const,
+      countertopSeatingOverhang: 0 as const,
+    };
+    const room: RoomData = { width: 192, depth: 144, ceilingHeight: 96, peninsulaRuns: [parent, child] };
+    const parentB15 = { ...peninsulaCabinet("saved-b15", 36), ...wallPlacementAt(36, 15, 24, parent.id as any, room, "left"), width: 15, wallId: parent.id, wallOffset: 36, peninsulaSide: "left" as const };
+    const parentB27 = { ...peninsulaCabinet("saved-b27", 51), ...wallPlacementAt(51, 27, 24, parent.id as any, room, "left"), width: 27, wallId: parent.id, wallOffset: 51, peninsulaSide: "left" as const };
+    const childB24 = { ...peninsulaCabinet("saved-b24", 12), ...wallPlacementAt(12, 24, 24, child.id as any, room, "left"), width: 24, wallId: child.id, wallOffset: 12, peninsulaSide: "left" as const };
+
+    expect(peninsulaCountertopSeatingOverhang(parent, room)).toBe(12);
+    expect(peninsulaCountertopSeatingOverhang(child, room)).toBe(12);
+    expect(peninsulaCountertopWaterfallEnd(parent, room)).toBe(false);
+    expect(peninsulaCountertopWaterfallEnd(child, room)).toBe(true);
+    const surfaces = countertopSurfaces([parentB15, parentB27, childB24], room).filter((surface) => surface.peninsulaRunId);
+    const parentSurface = surfaces.find((surface) => surface.peninsulaRunId === parent.id)!;
+    const childSurface = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
+    expect(parentSurface).toMatchObject({ depth: 37.5, miteredEnd: true });
+    expect(childSurface).toMatchObject({ depth: 37.5, miteredStart: true });
+    const parentPolygon = countertopSurfacePlanPolygon(parentSurface);
+    const childPolygon = countertopSurfacePlanPolygon(childSurface);
+    const sharedOuterPoint = parentPolygon.find((point) => childPolygon.some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 0.001));
+    expect(sharedOuterPoint).toBeDefined();
+    const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
+    const terminalWaterfallArea = STD.BASE_HEIGHT * childSurface.depth;
+    expect(countertopArea([parentB15, parentB27, childB24], null, null, room).squareFeet).toBe(Math.ceil(((visibleArea + terminalWaterfallArea) / 144) * 10) / 10);
   });
 
   it("gives each cabinet-supported connected run its own continuous countertop without inventing one for an empty return", () => {

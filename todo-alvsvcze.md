@@ -2134,3 +2134,7 @@
 - [x] Correct the miter half-plane or run-side transform so the slab follows the angled cabinet footprint without excess overhang
 - [x] Validate left/right cabinet sides and 45-degree left/right turns while preserving the sink, stove opening, waterfall, and countertop takeoff
 - [x] Publish only after the exact reported countertop shape, TypeScript, tests, production build, and rendered geometry are verified
+- [x] Reproduce the triangular countertop section still missing above the angled middle peninsula cabinet
+- [x] Replace independently trimmed corner slabs with one continuous cabinet-supported countertop footprint that has no interior notch
+- [x] Preserve the stove opening, sink seating, exterior overhang, waterfall placement, and countertop takeoff after restoring the missing section
+- [x] Validate the exact saved-design shape plus mirrored turn and cabinet-side combinations before publication

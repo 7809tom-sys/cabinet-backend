@@ -111,7 +111,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isLockedAngledCustomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -978,8 +978,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       angle: peninsula?.turn === 45 ? (peninsula.direction === "right" ? 45 : -45) : custom?.lockedAngle === 45 ? 45 : custom?.lockedAngle === -45 ? -45 : 90,
       direction: peninsula?.direction ?? "right",
       cabinetSide: peninsula?.cabinetSide ?? "left",
-      countertopSeatingOverhang: peninsula?.countertopSeatingOverhang === 10 || peninsula?.countertopSeatingOverhang === 12 ? peninsula.countertopSeatingOverhang : 0,
-      countertopWaterfallEnd: peninsula?.countertopWaterfallEnd === true,
+	      countertopSeatingOverhang: peninsula ? peninsulaCountertopSeatingOverhang(peninsula, room) : 0,
+	      countertopWaterfallEnd: peninsula ? peninsulaCountertopWaterfallEnd(peninsula, room) : false,
       startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
@@ -1023,10 +1023,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
       const cappedLength = Math.min(length, peninsulaRunMaxLength(proposed, room));
-      setRoom((previous) => ({
-        ...previous,
-        peninsulaRuns: (previous.peninsulaRuns ?? []).map((run) => run.id === current.id ? { ...proposed, length: cappedLength } : run),
-      }));
+	      setRoom((previous) => {
+	        const runs = previous.peninsulaRuns ?? [];
+	        const rootIdFor = (candidate: PeninsulaRun): string => {
+	          const visited = new Set<string>();
+	          let resolved = candidate;
+	          while (resolved.parentRunId && !visited.has(resolved.id)) {
+	            visited.add(resolved.id);
+	            const parent = runs.find((run) => run.id === resolved.parentRunId);
+	            if (!parent) break;
+	            resolved = parent;
+	          }
+	          return resolved.id;
+	        };
+	        const rootId = rootIdFor(current);
+	        return {
+	          ...previous,
+	          peninsulaRuns: runs.map((run) => {
+	            if (rootIdFor(run) !== rootId) return run;
+	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopWaterfallEnd: draft.countertopWaterfallEnd };
+	            return run.id === current.id ? { ...withContinuousCountertop, ...proposed, length: cappedLength } : withContinuousCountertop;
+	          }),
+	        };
+	      });
       setWallSettingsOpen(false);
       toast.success(`Updated ${current.label ?? "peninsula run"}.`);
       return;
@@ -3397,9 +3416,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       turn,
       direction,
       length: 36,
-      height: parent.height,
-      cabinetSide: parent.cabinetSide ?? "left",
-      label: `Return · ${turn}° ${direction}`,
+	      height: parent.height,
+	      cabinetSide: parent.cabinetSide ?? "left",
+	      countertopSeatingOverhang: peninsulaCountertopSeatingOverhang(parent, room),
+	      countertopWaterfallEnd: peninsulaCountertopWaterfallEnd(parent, room),
+	      label: `Return · ${turn}° ${direction}`,
     };
     const run = { ...candidate, length: Math.max(6, Math.min(36, peninsulaRunMaxLength(candidate, room))) };
     setRoom((current) => ({ ...current, peninsulaRuns: [...(current.peninsulaRuns ?? []), run] }));

@@ -60,6 +60,30 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", exposedFarEnd: true });
   });
 
+  it("inherits a legacy root overhang on the connected 45-degree child and moves the waterfall to the child end", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 192,
+      depth: 144,
+      ceilingHeight: 96,
+      peninsulaRuns: [
+        { id: "saved-parent", parentWall: "top", startOffset: 144.875, turn: 90, direction: "left", length: 90, height: 34.5, cabinetSide: "left", countertopSeatingOverhang: 12, countertopWaterfallEnd: true },
+        { id: "saved-child", parentRunId: "saved-parent", startOffset: 0, turn: 45, direction: "right", length: 36, height: 34.5, cabinetSide: "left", countertopSeatingOverhang: 0, countertopWaterfallEnd: false },
+      ],
+    };
+    const placed = [
+      { uid: "saved-parent-base", cabinetId: 1, masterCode: "B-27", placement: "base", x: 0, y: 0, width: 27, depth: 24, height: 34.5, rotation: 90, wallId: "saved-parent", wallOffset: 51, peninsulaSide: "left" } as PlacedCabinet,
+      { uid: "saved-child-base", cabinetId: 2, masterCode: "B-24", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 135, wallId: "saved-child", wallOffset: 12, peninsulaSide: "left" } as PlacedCabinet,
+    ];
+    addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
+    const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
+    const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
+    expect(slabs).toHaveLength(2);
+    expect(slabs.every((item) => item.userData.seatingOverhangIn === 12)).toBe(true);
+    expect(waterfalls).toHaveLength(1);
+    expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "saved-child", exposedFarEnd: true });
+  });
+
   it("leaves a physical stove opening and keeps the waterfall on only the exposed final slab", () => {
     const root = new THREE.Group();
     const room: RoomData = {

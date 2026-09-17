@@ -1350,6 +1350,54 @@ export function peninsulaRunById(room: RoomData, wallId?: string | null): Penins
 }
 
 /**
+ * A connected peninsula is one countertop path. Its root run owns the seating
+ * projection so a legacy child saved with zero cannot narrow the slab and leave
+ * an uncovered triangular cabinet corner at a 45-degree joint.
+ */
+export function peninsulaCountertopSeatingOverhang(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): 0 | 10 | 12 {
+  const lineage: PeninsulaRun[] = [];
+  const visited = new Set<string>();
+  let current: PeninsulaRun | undefined = run;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    lineage.push(current);
+    current = current.parentRunId
+      ? room.peninsulaRuns?.find((candidate) => candidate.id === current!.parentRunId)
+      : undefined;
+  }
+  const root = lineage[lineage.length - 1];
+  const rootValue = root?.countertopSeatingOverhang;
+  if (rootValue === 0 || rootValue === 10 || rootValue === 12) return rootValue;
+  for (let index = lineage.length - 2; index >= 0; index -= 1) {
+    const value = lineage[index]?.countertopSeatingOverhang;
+    if (value === 10 || value === 12) return value;
+  }
+  return 0;
+}
+
+/** A connected countertop has one exposed far end; move a legacy root flag to the terminal run. */
+export function peninsulaCountertopWaterfallEnd(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): boolean {
+  const runs = room.peninsulaRuns ?? [];
+  if (runs.some((candidate) => candidate.parentRunId === run.id)) return false;
+  const visited = new Set<string>();
+  let current: PeninsulaRun | undefined = run;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    if (current.countertopWaterfallEnd === true) return true;
+    current = current.parentRunId
+      ? runs.find((candidate) => candidate.id === current!.parentRunId)
+      : undefined;
+  }
+  return false;
+}
+
+/**
  * Older saved plans can contain cabinets visibly seated on a peninsula without
  * the explicit `wallId` / `wallOffset` metadata added for connected runs. Those
  * legacy records otherwise look like perimeter cabinets to the free-span and
@@ -4844,7 +4892,7 @@ export function countertopArea(
   for (const surface of peninsulaSurfaces) {
     const run = room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     const reachesFarEnd = (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= (run?.length ?? Number.POSITIVE_INFINITY) - COLLISION_EPSILON_IN;
-    if (run?.countertopWaterfallEnd && reachesFarEnd) waterfallSqIn += STD.BASE_HEIGHT * (COUNTERTOP_DEPTH_IN + (run.countertopSeatingOverhang ?? 0));
+    if (run && peninsulaCountertopWaterfallEnd(run, room ?? { peninsulaRuns: [] }) && reachesFarEnd) waterfallSqIn += STD.BASE_HEIGHT * surface.depth;
   }
   squareIn += waterfallSqIn;
   const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
@@ -7394,9 +7442,7 @@ export function peninsulaCountertopSurface(
   requestedStartIn = 0,
   requestedLengthIn = run.length,
 ): CountertopSurface {
-  const seating = run.countertopSeatingOverhang === 10 || run.countertopSeatingOverhang === 12
-    ? run.countertopSeatingOverhang
-    : 0;
+  const seating = peninsulaCountertopSeatingOverhang(run, room);
   const slabDepth = COUNTERTOP_DEPTH_IN + seating;
   const runLength = Math.max(0, Number(run.length) || 0);
   const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
