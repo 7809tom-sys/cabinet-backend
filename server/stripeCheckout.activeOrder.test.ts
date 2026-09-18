@@ -45,4 +45,12 @@ describe("active order Stripe Checkout", () => {
     expect(webhook).toContain("await fulfillOrder(session.id, paymentIntentId)");
     expect(webhook).toContain('event.id.startsWith("evt_test_")');
   });
+
+  it("allows zero verified freight only for the single temporary payment test item", () => {
+    const orders = source("server/routers/orders.ts");
+    expect(orders).toContain("isTemporaryOneDollarFreeShippingOrder(normalizedLines)");
+    expect(orders).toContain('deliveryMethod === "ship" && hasOnlyTemporaryFreeShippingItems');
+    expect(orders).toContain("freightQuoteVerified = true;");
+    expect(orders).toContain('message: "Request a current shipping quote before submitting this order."');
+  });
 });

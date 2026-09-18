@@ -44,6 +44,7 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { computeFeeStack } from "@shared/pricing";
+import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -743,6 +744,7 @@ export const ordersRouter = router({
           matched: l.matched,
         };
       });
+      const hasOnlyTemporaryFreeShippingItems = isTemporaryOneDollarFreeShippingOrder(normalizedLines);
 
       // Family-lock: a single order must stay within one door-style family.
       // Only enforced on submit (a draft may still be mid-review with mixed lines).
@@ -785,13 +787,17 @@ export const ordersRouter = router({
           });
         }
         const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
-        const expectedItemsHash = freightItemsHash(normalizedLines.map((line) => ({
-          cabinetId: line.cabinetId,
-          masterCode: line.masterCode,
-          styleId: line.styleId ?? input.styleId ?? null,
-          distributorId: null,
-          qty: line.qty,
-        })));
+        const expectedItemsHash = freightItemsHash(
+          normalizedLines
+            .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
+            .map((line) => ({
+              cabinetId: line.cabinetId,
+              masterCode: line.masterCode,
+              styleId: line.styleId ?? input.styleId ?? null,
+              distributorId: null,
+              qty: line.qty,
+            })),
+        );
         const quoteMatchesOrder =
           quote.destinationZip === expectedZip &&
           quote.merchandiseSubtotalCents === Math.max(0, Math.round(total * 100)) &&
@@ -805,6 +811,11 @@ export const ordersRouter = router({
           });
         }
         freightQuoteCents = quote.totalCents;
+        freightQuoteVerified = true;
+      } else if (deliveryMethod === "ship" && hasOnlyTemporaryFreeShippingItems) {
+        // This is a deliberately narrow real-payment smoke-test SKU. Its zero
+        // freight is server-authorized; every ordinary shipping order still
+        // requires a signed current carrier quote below.
         freightQuoteVerified = true;
       } else if (input.deliveryMethod === "ship" && input.submit) {
         throw new TRPCError({

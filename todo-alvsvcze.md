@@ -2236,3 +2236,11 @@
 - [x] Show a clear secure-payment call to action, checkout loading state, and return status without submitting or charging a test card.
 - [x] Verify Stripe configuration mode without exposing credentials; create and inspect a hosted session only, then validate tests, production build, and browser flow.
 - [x] Save and publish a CabinetDealz checkpoint after validation.
+
+## Temporary one-dollar checkout item — free shipping
+
+- [x] Mark only the exact temporary `TEST-ONE-DOLLAR-1789756227567` checkout product as exempt from freight; all ordinary products retain live shipping requirements and pricing.
+- [x] Exclude the test item from Cart and Order Review freight requests, display **Free test shipping**, and permit its zero-dollar verified shipping snapshot through hosted Stripe Checkout.
+- [x] Preserve freight quoting for any mixed cart containing a non-test cabinet; never accept a browser-provided free-shipping amount.
+- [x] Validate test-item-only and mixed-cart freight logic, hosted checkout behavior, TypeScript, build, and browser Cart display.
+- [x] Save and publish a CabinetDealz checkpoint automatically after validation.

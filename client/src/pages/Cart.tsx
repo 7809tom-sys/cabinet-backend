@@ -21,6 +21,7 @@ import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/a
 import { resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
 import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
+import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -169,6 +170,10 @@ export default function Cart() {
     return m;
   }, [items]);
   const isMixedSupplier = supplierGroups.size > 1;
+  const hasOnlyTemporaryFreeShippingItems = useMemo(
+    () => isTemporaryOneDollarFreeShippingOrder(items),
+    [items],
+  );
 
   // A live carrier request uses all cabinet lines already in the cart. Products
   // without a supply line (fixtures, surfaces, and similar add-ons) do not have
@@ -176,7 +181,11 @@ export default function Cart() {
   // request without blocking the customer's cart.
   const cartFreightItems = useMemo(
     () => items
-      .filter((item) => item.distributorId != null && Boolean(item.masterCode))
+      .filter(
+        (item) => item.distributorId != null
+          && Boolean(item.masterCode)
+          && !isTemporaryOneDollarCheckoutTestItem(item),
+      )
       .map((item) => ({
         cabinetId: null,
         masterCode: item.masterCode,
@@ -489,10 +498,21 @@ export default function Cart() {
               <span className="text-muted-foreground inline-flex items-center gap-1">
                 <Truck className="h-3.5 w-3.5" /> {t("crt_shipping")}
               </span>
-              <span className="text-xs text-muted-foreground">{t("crt_shipping_quoted")}</span>
+              <span className={hasOnlyTemporaryFreeShippingItems ? "text-xs font-semibold text-emerald-700" : "text-xs text-muted-foreground"}>
+                {hasOnlyTemporaryFreeShippingItems ? "Free test shipping" : t("crt_shipping_quoted")}
+              </span>
             </div>
           </div>
           <Separator className="my-4" />
+          {hasOnlyTemporaryFreeShippingItems ? (
+            <div role="status" className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950">
+              <p className="font-semibold">Free test shipping</p>
+              <p className="mt-0.5 text-xs text-emerald-800">
+                This temporary one-dollar checkout item is exempt from freight. Other cabinet products still require a current live shipping quote.
+              </p>
+            </div>
+          ) : (
+            <>
           {/* Compact delivery-ZIP check — moved out of the item list so the cart
               list stays clean and readable. */}
           <div className="mb-3">
@@ -581,6 +601,8 @@ export default function Cart() {
               ) : <p className="mt-2 text-xs text-amber-700">{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
             )}
           </div>
+            </>
+          )}
           {outOfRangeCount > 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />

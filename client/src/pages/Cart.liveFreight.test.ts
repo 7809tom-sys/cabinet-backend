@@ -55,4 +55,13 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Carrier estimate only; not guaranteed.");
     expect(cartSource).toContain("Warehouse processing and order preparation occur before pickup.");
   });
+
+  it("exempts only the temporary one-dollar payment test item from freight quoting", () => {
+    expect(cartSource).toContain("isTemporaryOneDollarFreeShippingOrder(items)");
+    expect(cartSource).toContain("!isTemporaryOneDollarCheckoutTestItem(item)");
+    expect(cartSource).toContain("Free test shipping");
+    expect(reviewSource).toContain("hasOnlyTemporaryFreeShippingItems");
+    expect(reviewSource).toContain("!isTemporaryOneDollarCheckoutTestItem(line)");
+    expect(reviewSource).toContain("freight-exempt for this payment-flow test");
+  });
 });

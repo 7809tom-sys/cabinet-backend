@@ -33,6 +33,7 @@ import { installationEstimateDocumentPath } from "@shared/installationEstimateLi
 import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
 import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLinePricing";
 import { getSiteSignInUrl } from "@/const";
+import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -487,6 +488,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   }, [lines, priceMap, costMap]);
 
   const total = pricedLines.reduce((sum, l) => sum + (l.linePrice ?? 0), 0);
+  const hasOnlyTemporaryFreeShippingItems = useMemo(
+    () => isTemporaryOneDollarFreeShippingOrder(pricedLines),
+    [pricedLines],
+  );
 
   const freightInput = useMemo(
     () => ({
@@ -498,6 +503,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       },
       items: pricedLines
         .filter(isCabinetFreightLine)
+        .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
         .map((line) => ({
           cabinetId: line.cabinetId,
           masterCode: line.masterCode,
@@ -601,7 +607,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       toast.error(t("or_valid_email_confirm"));
       return;
     }
-    if (deliveryMethod === "ship" && !freightEstimate.data?.quoteToken) {
+    if (deliveryMethod === "ship" && !hasOnlyTemporaryFreeShippingItems && !freightEstimate.data?.quoteToken) {
       toast.error("A current shipping quote is required before submitting this order.");
       return;
     }
@@ -632,7 +638,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       deliveryMethod,
       deliveryLocationType,
       liftgateRequired: deliveryMethod === "ship" && liftgateRequired,
-      freightQuoteToken: deliveryMethod === "ship" ? freightEstimate.data?.quoteToken : undefined,
+      freightQuoteToken: deliveryMethod === "ship" && !hasOnlyTemporaryFreeShippingItems
+        ? freightEstimate.data?.quoteToken
+        : undefined,
       pickupDistributorId: deliveryMethod === "pickup" ? pickupDistributorId : null,
       taxState: taxState || undefined,
       taxRate: taxInfo?.rate,
@@ -1151,6 +1159,15 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         )}
         {deliveryMethod === "ship" && (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+            {hasOnlyTemporaryFreeShippingItems ? (
+              <div role="status" className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
+                <p className="text-sm font-semibold">Free test shipping</p>
+                <p className="mt-1 text-xs text-emerald-800">
+                  The temporary one-dollar checkout item is freight-exempt for this payment-flow test. Other cabinet products still require a current live shipping quote.
+                </p>
+              </div>
+            ) : (
+              <>
             <div>
               <p className="text-sm font-medium">Delivery location</p>
               <p className="text-xs text-muted-foreground">
@@ -1223,6 +1240,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 {freightEstimate.error?.message ?? freightEstimate.data?.reason ?? "Shipping is not available for this order yet."}
               </div>
+            )}
+              </>
             )}
           </div>
         )}
