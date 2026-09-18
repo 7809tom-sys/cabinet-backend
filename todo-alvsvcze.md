@@ -2244,3 +2244,10 @@
 - [x] Preserve freight quoting for any mixed cart containing a non-test cabinet; never accept a browser-provided free-shipping amount.
 - [x] Validate test-item-only and mixed-cart freight logic, hosted checkout behavior, TypeScript, build, and browser Cart display.
 - [x] Save and publish a CabinetDealz checkpoint automatically after validation.
+
+## Stripe Administration Dashboard — 2026-09-18
+- [x] Expand Administration → Settings → Stripe Payment into an operational dashboard with redacted credential status, checkout mode, a live-readiness checklist, a Stripe Dashboard handoff, a copyable live webhook URL, and recent hosted Checkout activity.
+- [x] Keep raw secret, publishable, and webhook keys out of browser code and the CabinetDealz database; retain Stripe as the authority for card and payout details.
+- [x] Add server-side live/test prefix detection, and validate Admin-only dashboard access and key redaction.
+- [ ] Activate live credentials in the protected project Settings → Payment workspace; built-in Stripe environment secrets cannot be entered through a public or in-app Admin text field.
+- [x] Publish the validated Stripe Administration dashboard checkpoint.

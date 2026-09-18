@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb, getPlatformPricingSettings } from "../db";
@@ -7,6 +7,7 @@ import { paymentSettings, payments, orderRequests } from "../../drizzle/schema";
 import { computeFeeStack } from "@shared/pricing";
 import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
 import { ENV } from "../_core/env";
+import { stripeEnvironmentFromKeys } from "../stripeMode";
 
 // Load the single payment_settings row (seeding an empty default row once).
 async function loadSettingsRow() {
@@ -51,12 +52,7 @@ export const paymentsRouter = router({
     const secretKeyConfigured = Boolean(ENV.stripeSecretKey.trim());
     const publishableKeyConfigured = Boolean(ENV.stripePublishableKey.trim());
     const webhookSecretConfigured = Boolean(ENV.stripeWebhookSecret.trim());
-    const keyForMode = ENV.stripeSecretKey.trim() || ENV.stripePublishableKey.trim();
-    const environment = keyForMode.startsWith("sk_live_") || keyForMode.startsWith("pk_live_")
-      ? "production"
-      : keyForMode.startsWith("sk_test_") || keyForMode.startsWith("pk_test_")
-        ? "test"
-        : "unknown";
+    const environment = stripeEnvironmentFromKeys(ENV.stripeSecretKey, ENV.stripePublishableKey);
 
     return {
       configured: secretKeyConfigured && publishableKeyConfigured,
@@ -65,6 +61,64 @@ export const paymentsRouter = router({
       publishableKeyConfigured,
       environment,
       checkoutMode: "Hosted Checkout" as const,
+    };
+  }),
+
+  // ─── Admin: Stripe operations dashboard (no credentials or payment data) ────
+  adminGetStripeDashboard: adminProcedure.query(async () => {
+    const secretKeyConfigured = Boolean(ENV.stripeSecretKey.trim());
+    const publishableKeyConfigured = Boolean(ENV.stripePublishableKey.trim());
+    const webhookSecretConfigured = Boolean(ENV.stripeWebhookSecret.trim());
+    const environment = stripeEnvironmentFromKeys(ENV.stripeSecretKey, ENV.stripePublishableKey);
+    const db = await getDb();
+    const checkoutRows = db
+      ? await db
+          .select({
+            id: orderRequests.id,
+            requestNumber: orderRequests.requestNumber,
+            status: orderRequests.status,
+            totalAmount: orderRequests.totalAmount,
+            stripeSessionId: orderRequests.stripeSessionId,
+            stripePaymentIntentId: orderRequests.stripePaymentIntentId,
+            paidAt: orderRequests.paidAt,
+            createdAt: orderRequests.createdAt,
+          })
+          .from(orderRequests)
+          .where(isNotNull(orderRequests.stripeSessionId))
+          .orderBy(desc(orderRequests.createdAt))
+          .limit(12)
+      : [];
+
+    const recentCheckout = checkoutRows.map((row) => {
+      const paid = row.status === "confirmed" && Boolean(row.stripePaymentIntentId);
+      return {
+        id: row.id,
+        requestNumber: row.requestNumber,
+        state: paid ? "paid" as const : row.status === "submitted" ? "awaiting_payment" as const : "created" as const,
+        merchandiseCents: Math.max(0, Math.round(Number(row.totalAmount ?? 0) * 100)),
+        createdAt: row.createdAt,
+        paidAt: row.paidAt,
+      };
+    });
+    const paidCheckoutCount = recentCheckout.filter((checkout) => checkout.state === "paid").length;
+    const awaitingPaymentCount = recentCheckout.filter((checkout) => checkout.state === "awaiting_payment").length;
+
+    return {
+      configured: secretKeyConfigured && publishableKeyConfigured,
+      liveReady: secretKeyConfigured && publishableKeyConfigured && webhookSecretConfigured && environment === "production",
+      secretKeyConfigured,
+      publishableKeyConfigured,
+      webhookConfigured: webhookSecretConfigured,
+      environment,
+      checkoutMode: "Hosted Checkout" as const,
+      webhookUrl: "https://www.cabinetdealz.com/api/stripe/webhook",
+      stripeDashboardUrl: "https://dashboard.stripe.com/",
+      recentCheckout,
+      activity: {
+        createdCount: recentCheckout.length,
+        paidCheckoutCount,
+        awaitingPaymentCount,
+      },
     };
   }),
 
