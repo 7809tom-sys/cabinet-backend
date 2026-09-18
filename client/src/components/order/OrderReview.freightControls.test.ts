@@ -31,12 +31,13 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("final pallet dimensions and loaded weight");
   });
 
-  it("shows each Plan A or Plan B style-origin group and passes the exact total to payment", () => {
+  it("shows each Plan A or Plan B style-origin group and persists the exact quote before hosted payment", () => {
     expect(source).toContain('group.source === "live" ? "Plan A live" : "Plan B fallback"');
     expect(source).toContain("freightEstimate.data.rateGroups");
     expect(source).toContain("freightQuoteToken: deliveryMethod === \"ship\" ? freightEstimate.data?.quoteToken : undefined");
-    expect(source).toContain("setSubmittedFreightCents(res.freightCents)");
-    expect(source).toContain("presetFreightCents={submittedFreightCents}");
+    expect(source).toContain("setSubmittedRequestNumber(res.requestNumber)");
+    expect(source).toContain("<PayWithStripe");
+    expect(source).toContain("orderRequestId={submittedId}");
     expect(source).toContain("total + taxAmount + (deliveryMethod === \"ship\" ? freightCents / 100 : 0)");
   });
 });

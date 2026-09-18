@@ -14,6 +14,9 @@ vi.mock("@/lib/trpc", () => ({
       pickupOptions: { useQuery: useQuery({ options: [] }) },
       getTaxRate: { useQuery: useQuery(null) },
     },
+    freight: {
+      estimate: { useQuery: useQuery(null) },
+    },
     orders: {
       touchUpKit: { useQuery: useQuery(null) },
       stylesForCabinets: { useQuery: useQuery([{ styleId: 330007, name: "Hickory Shaker", doorStyle: "Shaker", finish: "Hickory", color: null, coversAll: true, coverage: 1 }]) },

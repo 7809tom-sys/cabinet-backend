@@ -6,11 +6,8 @@
 
 import type { Express, Request, Response } from "express";
 import express from "express";
-import { getStripe } from "./stripe";
+import { fulfillOrder, getStripe } from "./stripe";
 import { ENV } from "./_core/env";
-import { getDb } from "./db";
-import { orderRequests } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
 
 export function registerStripeWebhook(app: Express): void {
   app.post(
@@ -50,28 +47,18 @@ export function registerStripeWebhook(app: Express): void {
         switch (event.type) {
           case "checkout.session.completed": {
             const session = event.data.object as import("stripe").Stripe.Checkout.Session;
-            const orderId = session.metadata?.order_id
-              ? parseInt(session.metadata.order_id, 10)
-              : null;
             const paymentIntentId =
               typeof session.payment_intent === "string"
                 ? session.payment_intent
                 : session.payment_intent?.id ?? null;
 
-            if (orderId) {
-              const db = await getDb();
-              if (db) {
-                await db
-                  .update(orderRequests)
-                  .set({
-                    status: "confirmed",
-                    confirmedAt: new Date(),
-                  })
-                  .where(eq(orderRequests.id, orderId));
-                console.log(
-                  `[Stripe Webhook] Order ${orderId} confirmed (payment_intent=${paymentIntentId ?? "n/a"})`,
-                );
-              }
+            if (session.payment_status === "paid") {
+              await fulfillOrder(session.id, paymentIntentId);
+              console.log(
+                `[Stripe Webhook] Checkout ${session.id} confirmed (payment_intent=${paymentIntentId ?? "n/a"})`,
+              );
+            } else {
+              console.warn(`[Stripe Webhook] Checkout ${session.id} completed without a paid status.`);
             }
             break;
           }

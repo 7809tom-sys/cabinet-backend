@@ -1129,6 +1129,12 @@ export const orderRequests = mysqlTable("order_requests", {
   taxState: varchar("taxState", { length: 2 }),
   taxRate: decimal("taxRate", { precision: 7, scale: 6 }),
   taxAmount: decimal("taxAmount", { precision: 12, scale: 2 }),
+  // Hosted Stripe Checkout is attached to the active order-request workflow.
+  // Store only Stripe resource identifiers required for webhook reconciliation;
+  // the authoritative payment details remain in Stripe.
+  stripeSessionId: varchar("stripeSessionId", { length: 255 }),
+  stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }),
+  paidAt: timestamp("paidAt"),
   // Which distributor line the confirmed PO is routed to (resolved from lines).
   distributorId: int("distributorId"),
   // Audit of the send-to-distributor action: when it was sent + to whom.
@@ -1142,6 +1148,7 @@ export const orderRequests = mysqlTable("order_requests", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({
   kitchenDesignIdx: index("order_requests_kitchen_design_idx").on(t.kitchenDesignId),
+  stripeSessionUnique: uniqueIndex("order_requests_stripe_session_uq").on(t.stripeSessionId),
   kitchenDesignFk: foreignKey({
     name: "order_requests_kitchen_design_fk",
     columns: [t.kitchenDesignId],

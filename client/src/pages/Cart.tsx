@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { Link } from "wouter";
 import {
-  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Check, Loader2, Package, CalendarClock,
+  ShoppingCart, Trash2, Plus, Minus, MapPin, Truck, AlertTriangle, Loader2, Package, CalendarClock, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -599,13 +599,16 @@ export default function Cart() {
               </div>
             </div>
           )}
+          <p className="mb-2 text-center text-xs text-muted-foreground">
+            Review delivery and the final Stripe payment total before placing your order.
+          </p>
           <Button
             className="w-full"
             size="lg"
             onClick={requestOrder}
             disabled={isMixedSupplier}
           >
-            <Check className="mr-1.5 h-4 w-4" /> {t("crt_request_order")}
+            <Lock className="mr-1.5 h-4 w-4" /> Continue to secure checkout
           </Button>
           <Button variant="outline" className="mt-2 w-full bg-background" asChild>
             <Link href={currentAffiliateSlug ? `/store/${currentAffiliateSlug}` : "/catalog"}>{t("crt_continue_shopping")}</Link>

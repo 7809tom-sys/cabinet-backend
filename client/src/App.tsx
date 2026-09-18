@@ -31,6 +31,8 @@ const DesignSession = lazy(() => import("@/pages/DesignSession"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
 const OrderBuilder = lazy(() => import("@/pages/OrderBuilder"));
+const CheckoutSuccess = lazy(() => import("@/pages/CheckoutSuccess"));
+const CheckoutCancelled = lazy(() => import("@/pages/CheckoutCancelled"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminCatalogImport = lazy(() => import("@/pages/AdminCatalogImport"));
 const Storefront = lazy(() => import("@/pages/Storefront"));
@@ -237,6 +239,24 @@ export default function App() {
             <Suspense fallback={<PageLoader />}>
               <AffiliateShell slug={params.slug}>
                 <OrderBuilder />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/checkout/success">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <CheckoutSuccess />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/checkout/cancelled">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <CheckoutCancelled />
               </AffiliateShell>
             </Suspense>
           )}
@@ -521,6 +541,22 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <OrderBuilder />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/checkout/success">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <CheckoutSuccess />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/checkout/cancelled">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <CheckoutCancelled />
             </Suspense>
           </AppLayout>
         </Route>

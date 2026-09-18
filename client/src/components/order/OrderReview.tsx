@@ -23,7 +23,7 @@ import {
   CheckCircle2, AlertTriangle, Trash2, Plus, Minus, Search, Loader2, Pencil, Lock, Truck, MapPin, FileText,
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
-import PayWithCard from "@/components/order/PayWithCard";
+import PayWithStripe from "@/components/order/PayWithStripe";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
@@ -32,6 +32,7 @@ import { resolveCheckoutAlias } from "@/lib/affiliateCheckoutAlias";
 import { installationEstimateDocumentPath } from "@shared/installationEstimateLink";
 import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
 import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLinePricing";
+import { getSiteSignInUrl } from "@/const";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -219,7 +220,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const [deliveryLocationType, setDeliveryLocationType] = useState<"business" | "residential">("business");
   const [liftgateRequired, setLiftgateRequired] = useState(false);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
-  const [submittedFreightCents, setSubmittedFreightCents] = useState(0);
+  const [submittedRequestNumber, setSubmittedRequestNumber] = useState<string | null>(null);
   // Sales tax: customer selects their state; we look up the combined rate.
   const [taxState, setTaxState] = useState<string>("");
   // Referral attribution captured from a storefront visit or ?ref= link.
@@ -575,7 +576,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const createReq = trpc.orders.createRequest.useMutation({
     onSuccess: (res) => {
       setSubmittedId(res.id);
-      setSubmittedFreightCents(res.freightCents);
+      setSubmittedRequestNumber(res.requestNumber);
       if (isAuthenticated) utils.orders.myRequests.invalidate();
       toast.success(t("or_submitted_toast"), {
         description: t("or_submitted_desc"),
@@ -587,6 +588,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   function handleSubmit() {
+    if (!isAuthenticated) {
+      toast.error("Sign in to continue to secure checkout.");
+      window.location.href = getSiteSignInUrl();
+      return;
+    }
     if (lines.length === 0) {
       toast.error(t("or_add_one_first"));
       return;
@@ -649,8 +655,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     });
   }
 
-  // ─── Confirmation screen ──────────────────────────────────────────────────
-  const confirmReq = trpc.orders.confirm.useMutation();
+  // ─── Ready for secure checkout ─────────────────────────────────────────────
   const installationDocument = trpc.installationEstimates.forOrderConfirmation.useQuery(
     { orderRequestId: submittedId ?? 0, customerEmail: email },
     { enabled: submittedId != null && emailValid, retry: false },
@@ -661,27 +666,11 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-950/40">
           <CheckCircle2 className="h-7 w-7 text-emerald-600" />
         </div>
-        <h3 className="font-serif text-2xl font-bold mb-2">{t("or_received_title")}</h3>
+        <h3 className="font-serif text-2xl font-bold mb-2">Order ready for secure checkout</h3>
         <p className="text-muted-foreground max-w-md mx-auto mb-6">
-          {t("or_received_body_a", { n: itemCount })}{" "}
-          <span className="font-medium text-foreground">{email}</span>.
+          Your {itemCount}-item order has been saved. Continue to Stripe to review the final payment total and complete your purchase.
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
-          <Button
-            onClick={() => {
-              confirmReq.mutate(
-                { id: submittedId },
-                {
-                  onSuccess: () => toast.success(t("or_confirmed_toast")),
-                  onError: (e) => toast.error(e.message),
-                }
-              );
-            }}
-            disabled={confirmReq.isPending || confirmReq.isSuccess}
-            className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"
-          >
-            {confirmReq.isSuccess ? t("or_confirmed") : confirmReq.isPending ? t("or_confirming") : t("or_confirm_this")}
-          </Button>
           <Button variant="outline" onClick={onReset}>
             {t("or_start_another")}
           </Button>
@@ -700,14 +689,12 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           </section>
         )}
 
-        {/* Upfront card payment — only renders when payments are configured.
-            Gated on a freight amount being attached (see PayWithCard). */}
+        {/* Hosted payment: all line items and totals are constructed by the
+            server from this stored request, then displayed by Stripe. */}
         <div className="mt-8 text-left max-w-lg mx-auto">
-          <PayWithCard
+          <PayWithStripe
             orderRequestId={submittedId}
-            payerName={name || undefined}
-            payerEmail={email}
-            presetFreightCents={submittedFreightCents}
+            orderNumber={submittedRequestNumber ?? `Order #${submittedId}`}
           />
         </div>
       </div>

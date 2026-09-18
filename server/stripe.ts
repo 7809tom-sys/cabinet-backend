@@ -7,7 +7,7 @@
 import Stripe from "stripe";
 import { ENV } from "./_core/env";
 import { getDb } from "./db";
-import { orders } from "../drizzle/schema";
+import { orderRequests } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 // ─── Stripe client ────────────────────────────────────────────────────────────
@@ -62,6 +62,8 @@ export async function createCheckoutSession(
   const session = await stripe.checkout.sessions.create({
     ui_mode: "hosted_page",
     mode: "payment",
+    client_reference_id: String(input.userId),
+    customer_email: input.customerEmail,
     billing_address_collection: "auto",
     phone_number_collection: { enabled: false },
     automatic_tax: { enabled: false },
@@ -72,19 +74,28 @@ export async function createCheckoutSession(
     line_items: stripeLineItems,
     success_url: input.successUrl,
     cancel_url: input.cancelUrl,
+    metadata: {
+      order_id: String(input.orderId),
+      order_number: input.orderNumber,
+      user_id: String(input.userId),
+      customer_email: input.customerEmail ?? "",
+      customer_name: input.customerName ?? "",
+    },
   });
 
   if (!session.url) {
     throw new Error("Stripe did not return a checkout URL");
   }
 
-  // Persist the session ID on the order so the webhook can look it up
+  // Persist the session ID on the active order request so the webhook can look
+  // it up. `orders` is a retired aggregate path and is deliberately not used
+  // by Cart → Order Review → payment.
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db
-    .update(orders)
+    .update(orderRequests)
     .set({ stripeSessionId: session.id })
-    .where(eq(orders.id, input.orderId));
+    .where(eq(orderRequests.id, input.orderId));
 
   return { url: session.url, sessionId: session.id };
 }
@@ -98,12 +109,11 @@ export async function fulfillOrder(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db
-    .update(orders)
+    .update(orderRequests)
     .set({
-      paymentStatus: "paid",
       status: "confirmed",
       stripePaymentIntentId: paymentIntentId ?? undefined,
       paidAt: new Date(),
     })
-    .where(eq(orders.stripeSessionId, sessionId));
+    .where(eq(orderRequests.stripeSessionId, sessionId));
 }

@@ -9,7 +9,7 @@ import {
   buildOrderEmailText,
   type NetsuiteOrderLine,
 } from "@shared/netsuiteOrder";
-import { getDb, notInConflict } from "../db";
+import { getDb, getPlatformPricingSettings, notInConflict } from "../db";
 import {
   cabinets,
   distributorSkus,
@@ -42,6 +42,8 @@ import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
+import { calcSalesTax } from "@shared/usSalesTax";
+import { computeFeeStack } from "@shared/pricing";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -758,6 +760,14 @@ export const ordersRouter = router({
         (sum, l) => sum + (l.linePrice ?? 0),
         0
       );
+      // The browser may display an estimate while the customer is choosing a
+      // state, but an order stores its rate and amount from the shared server
+      // tax table. This is the amount later sent to Stripe.
+      const taxState = input.taxState?.trim().toUpperCase() || null;
+      const calculatedTax = taxState ? calcSalesTax(total, taxState) : null;
+      if (taxState && !calculatedTax) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Select a valid two-letter US state for sales tax." });
+      }
       const itemCount = normalizedLines.reduce((sum, l) => sum + l.qty, 0);
       const deliveryMethod = input.deliveryMethod ?? "ship";
       const deliveryLocationType = input.deliveryLocationType ?? "business";
@@ -910,9 +920,9 @@ export const ordersRouter = router({
         freightQuoteCents,
         freightQuoteVerified,
         pickupDistributorId: deliveryMethod === "pickup" ? input.pickupDistributorId ?? null : null,
-        taxState: input.taxState ?? null,
-        taxRate: input.taxRate != null ? String(input.taxRate) : null,
-        taxAmount: input.taxAmount != null ? String(input.taxAmount.toFixed(2)) : null,
+        taxState,
+        taxRate: calculatedTax ? String(calculatedTax.taxRate) : null,
+        taxAmount: calculatedTax ? String(calculatedTax.taxAmount.toFixed(2)) : null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
@@ -947,7 +957,7 @@ export const ordersRouter = router({
       // to the distributor with copies to affiliates, and confirmed by the
       // originator/affiliate. That email step is DEFERRED until distributor email
       // is wired. For now we only persist the request.
-      return { id: insertId, freightCents: freightQuoteCents };
+      return { id: insertId, requestNumber, freightCents: freightQuoteCents };
     }),
 
   // ─── Originator confirmation ───────────────────────────────────────────────
@@ -1594,15 +1604,59 @@ export const ordersRouter = router({
       return { deleted: ids.length };
     }),
 
+  // ─── Stripe Checkout return status ────────────────────────────────────────
+  // Stripe redirects with its unguessable session identifier. This public read
+  // intentionally exposes only the confirmation state and money breakdown for
+  // that one checkout session, never customer contact or payment-card data.
+  stripeCheckoutStatus: publicProcedure
+    .input(z.object({ sessionId: z.string().min(8).max(255) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const rows = await db
+        .select()
+        .from(orderRequests)
+        .where(eq(orderRequests.stripeSessionId, input.sessionId))
+        .limit(1);
+      const order = rows[0];
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Checkout session not found." });
+
+      const merchandiseCents = Math.max(0, Math.round(Number(order.totalAmount ?? 0) * 100));
+      const freightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents;
+      const feeStack = computeFeeStack(
+        {
+          cabinetSubtotalCents: merchandiseCents,
+          freightCents,
+          paymentMethod: "card",
+          isAffiliateOrder: order.affiliateId != null,
+        },
+        await getPlatformPricingSettings(),
+      );
+      const salesTaxCents = Math.max(0, Math.round(Number(order.taxAmount ?? 0) * 100));
+      return {
+        requestNumber: order.requestNumber,
+        paid: order.status === "confirmed" && Boolean(order.stripePaymentIntentId),
+        paymentPending: order.status === "submitted",
+        amountCents: feeStack.totalCents + salesTaxCents,
+        breakdown: {
+          merchandiseCents,
+          freightCents,
+          salesTaxCents,
+          damageFeeCents: feeStack.damageFeeCents,
+          techFeeCents: feeStack.techFeeCents,
+          cardFeeCents: feeStack.cardFeeCents,
+        },
+      };
+    }),
+
   // ─── Stripe Checkout Session ──────────────────────────────────────────────
-  // Creates a Stripe Checkout Session for an existing order request and returns
-  // the hosted checkout URL. The frontend opens this in a new tab.
-  createStripeCheckout: publicProcedure
+  // Creates a Stripe-hosted payment page for an existing, submitted order
+  // request. Every chargeable amount comes from the persisted order and current
+  // approved fee settings — never from a browser amount input.
+  createStripeCheckout: protectedProcedure
     .input(
       z.object({
         orderRequestId: z.number().int().positive(),
-        /** Deprecated display value; verified freight is loaded from the order. */
-        freightCents: z.number().int().min(0).optional(),
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -1616,6 +1670,15 @@ export const ordersRouter = router({
         .limit(1);
       const order = rows[0];
       if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      if (order.userId !== ctx.user.id && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "You cannot pay for another customer's order." });
+      }
+      if (order.status === "confirmed") {
+        throw new TRPCError({ code: "CONFLICT", message: "This order has already been paid and confirmed." });
+      }
+      if (order.status !== "submitted") {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Submit the order for review before opening secure checkout." });
+      }
 
       const lineItems = (order.lineItems as OrderLineItem[]) ?? [];
       if (lineItems.length === 0) {
@@ -1631,6 +1694,14 @@ export const ordersRouter = router({
           unitPriceCents: Math.round(((l.unitPrice ?? l.linePrice! / l.qty) * 100)),
           platformSku: l.masterCode ?? undefined,
         }));
+
+      const merchandiseCents = stripeLines.reduce(
+        (sum, line) => sum + line.unitPriceCents * line.quantity,
+        0,
+      );
+      if (merchandiseCents <= 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No priced items are available to charge." });
+      }
 
       const verifiedFreightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents;
       if (order.deliveryMethod === "ship" && !order.freightQuoteVerified) {
@@ -1649,22 +1720,66 @@ export const ordersRouter = router({
         });
       }
 
+      const feeStack = computeFeeStack(
+        {
+          cabinetSubtotalCents: merchandiseCents,
+          freightCents: verifiedFreightCents,
+          paymentMethod: "card",
+          isAffiliateOrder: order.affiliateId != null,
+        },
+        await getPlatformPricingSettings(),
+      );
+      const salesTaxCents = Math.max(0, Math.round(Number(order.taxAmount ?? 0) * 100));
+      if (salesTaxCents > 0) {
+        stripeLines.push({ description: "Sales tax", quantity: 1, unitPriceCents: salesTaxCents });
+      }
+      if (feeStack.damageFeeCents > 0) {
+        stripeLines.push({ description: "Damage coverage", quantity: 1, unitPriceCents: feeStack.damageFeeCents });
+      }
+      if (feeStack.techFeeCents > 0) {
+        stripeLines.push({ description: "Technology fee", quantity: 1, unitPriceCents: feeStack.techFeeCents });
+      }
+      if (feeStack.cardFeeCents > 0) {
+        stripeLines.push({ description: "Card processing fee", quantity: 1, unitPriceCents: feeStack.cardFeeCents });
+      }
+
       if (stripeLines.length === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No priced items to charge" });
       }
 
       const origin = (ctx.req as import("express").Request).headers.origin as string ?? "https://www.cabinetdealz.com";
-      const { url } = await createCheckoutSession({
+      let checkoutPathPrefix = "";
+      if (order.affiliateId) {
+        const affiliateRows = await db
+          .select({ slug: affiliates.slug })
+          .from(affiliates)
+          .where(eq(affiliates.id, order.affiliateId))
+          .limit(1);
+        if (affiliateRows[0]?.slug) checkoutPathPrefix = `/store/${affiliateRows[0].slug}`;
+      }
+      const { url, sessionId } = await createCheckoutSession({
         orderId: order.id,
         orderNumber: order.requestNumber,
         lineItems: stripeLines,
-        customerEmail: order.originatorEmail ?? ctx.user?.email ?? undefined,
-        customerName: order.originatorName ?? ctx.user?.name ?? undefined,
-        userId: ctx.user?.id ?? 0,
-        successUrl: `${origin}/order/${order.id}?payment=success`,
-        cancelUrl: `${origin}/order/${order.id}?payment=cancelled`,
+        customerEmail: order.originatorEmail ?? ctx.user.email ?? undefined,
+        customerName: order.originatorName ?? ctx.user.name ?? undefined,
+        userId: ctx.user.id,
+        successUrl: `${origin}${checkoutPathPrefix}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: `${origin}${checkoutPathPrefix}/checkout/cancelled?order=${order.id}`,
       });
 
-      return { url };
+      return {
+        url,
+        sessionId,
+        amountCents: feeStack.totalCents + salesTaxCents,
+        breakdown: {
+          merchandiseCents,
+          freightCents: verifiedFreightCents,
+          salesTaxCents,
+          damageFeeCents: feeStack.damageFeeCents,
+          techFeeCents: feeStack.techFeeCents,
+          cardFeeCents: feeStack.cardFeeCents,
+        },
+      };
     }),
 });

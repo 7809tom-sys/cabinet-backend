@@ -2228,3 +2228,11 @@
 - [x] Confirm `www.cabinetdealz.com` and the project host are serving Railway fallback responses instead of the application.
 - [x] Remove unsupported repository health-check overrides so a managed deployment does not submit a stale or invalid health-check path.
 - [x] Save the deployment-configuration correction and verify the public domain returns to the active CabinetDealz application.
+
+## Real hosted Stripe Checkout — 2026-09-18
+- [x] Connect the active Cart → Order Review path to the hosted Stripe Checkout session, rather than the legacy request-only flow.
+- [x] Calculate Stripe line items only from server-persisted merchandise, verified freight, sales tax, and approved payment fees; never accept amount input from the browser.
+- [x] Preserve order-request ownership, intent/status tracking, cancellation return, and webhook confirmation for the active order model.
+- [x] Show a clear secure-payment call to action, checkout loading state, and return status without submitting or charging a test card.
+- [x] Verify Stripe configuration mode without exposing credentials; create and inspect a hosted session only, then validate tests, production build, and browser flow.
+- [x] Save and publish a CabinetDealz checkpoint after validation.
