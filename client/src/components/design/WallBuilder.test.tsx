@@ -1,10 +1,17 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { downloadWallBuilderPdf, downloadWallBuilderPng } from "@/lib/wallBuilderExport";
 import { WallBuilder } from "./WallBuilder";
+
+vi.mock("@/lib/wallBuilderExport", () => ({
+  downloadWallBuilderPng: vi.fn(() => Promise.resolve()),
+  downloadWallBuilderPdf: vi.fn(() => Promise.resolve()),
+}));
 
 afterEach(() => {
   cleanup();
+  vi.clearAllMocks();
   vi.useRealTimers();
 });
 
@@ -53,6 +60,57 @@ describe("Continuous Wall Builder", () => {
     expect(screen.getAllByText(/101/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
     expect(screen.getByText(/45° right · down-right/i)).toBeTruthy();
+  });
+
+  it("undoes and redoes multiple wall drawing changes without losing measurements", () => {
+    render(<WallBuilder wallHeightIn={96} onApply={() => undefined} />);
+    openBuilder();
+    setLength("101");
+    addWall();
+    setLength("78");
+    fireEvent.click(screen.getByRole("button", { name: /45° right/i }));
+    addWall();
+
+    expect(screen.getByText("2 walls")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("undo-wall-builder"));
+    expect(screen.getByText("1 wall")).toBeTruthy();
+    expect(screen.getByTestId("redo-wall-builder").hasAttribute("disabled")).toBe(false);
+    fireEvent.click(screen.getByTestId("redo-wall-builder"));
+    expect(screen.getByText("2 walls")).toBeTruthy();
+    expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByTestId("undo-wall-builder"));
+    setLength("60");
+    fireEvent.click(screen.getByRole("button", { name: /90° left/i }));
+    addWall();
+    expect(screen.getByTestId("redo-wall-builder").hasAttribute("disabled")).toBe(true);
+    expect(screen.getAllByText(/60/).length).toBeGreaterThan(0);
+  });
+
+  it("downloads the exact rotated wall layout as PNG or PDF", async () => {
+    render(<WallBuilder wallHeightIn={108} onApply={() => undefined} />);
+    openBuilder();
+    setLength("101");
+    addWall();
+    fireEvent.click(screen.getByTestId("rotate-wall-builder-view"));
+
+    fireEvent.click(screen.getByTestId("export-wall-builder-png"));
+    await waitFor(() => expect(downloadWallBuilderPng).toHaveBeenCalledTimes(1));
+    expect(downloadWallBuilderPng).toHaveBeenCalledWith(
+      [expect.objectContaining({ lengthIn: 101 })],
+      90,
+      108,
+    );
+    expect(screen.getByText("PNG room layout downloaded successfully.")).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId("export-wall-builder-pdf"));
+    await waitFor(() => expect(downloadWallBuilderPdf).toHaveBeenCalledTimes(1));
+    expect(downloadWallBuilderPdf).toHaveBeenCalledWith(
+      [expect.objectContaining({ lengthIn: 101 })],
+      90,
+      108,
+    );
+    expect(screen.getByText("PDF room layout downloaded successfully.")).toBeTruthy();
   });
 
   it("closes, shows saving progress, and applies a measured rectangle atomically", async () => {

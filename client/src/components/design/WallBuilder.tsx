@@ -6,7 +6,10 @@ import {
   CheckCircle2,
   CornerDownLeft,
   CornerDownRight,
+  FileImage,
+  FileText,
   Loader2,
+  Redo2,
   RotateCcw,
   RotateCw,
   Ruler,
@@ -17,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { parseLengthToInches, formatEighthInches } from "@/lib/design";
+import { downloadWallBuilderPdf, downloadWallBuilderPng } from "@/lib/wallBuilderExport";
 import {
   appendWallBuilderSegment,
   checkWallBuilderClosure,
@@ -37,6 +41,12 @@ interface Props {
 }
 
 const WALL_BUILDER_SAVE_FEEDBACK_MS = 450;
+
+interface SegmentHistory {
+  past: WallBuilderSegment[][];
+  present: WallBuilderSegment[];
+  future: WallBuilderSegment[][];
+}
 
 const TURN_CHOICES: Array<{
   value: TurnChoice;
@@ -166,15 +176,27 @@ function WallBuilderPreview({ segments, viewRotationDeg }: { segments: WallBuild
 
 export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const [segments, setSegments] = useState<WallBuilderSegment[]>([]);
+  const [segmentHistory, setSegmentHistory] = useState<SegmentHistory>({ past: [], present: [], future: [] });
   const [lengthText, setLengthText] = useState("120");
   const [turn, setTurn] = useState<TurnChoice>("right90");
   const [message, setMessage] = useState<string | null>(null);
   const [viewRotationDeg, setViewRotationDeg] = useState(0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "success">("idle");
+  const [exportState, setExportState] = useState<"idle" | "png" | "pdf">("idle");
+  const segments = segmentHistory.present;
   const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
   const parsedLength = parseLengthToInches(lengthText);
   const validLength = parsedLength != null && parsedLength >= WALL_BUILDER_MIN_WALL_IN;
+
+  const commitSegments = (next: WallBuilderSegment[]) => {
+    setSegmentHistory((current) => ({
+      past: [...current.past, current.present],
+      present: next,
+      future: [],
+    }));
+    setMessage(null);
+    setSaveState("idle");
+  };
 
   const addWall = () => {
     if (!validLength || parsedLength == null) {
@@ -191,9 +213,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
       setMessage(nextGeometry.error);
       return;
     }
-    setSegments(next);
-    setMessage(null);
-    setSaveState("idle");
+    commitSegments(next);
   };
 
   const checkClosure = () => {
@@ -202,9 +222,49 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   };
 
   const undo = () => {
-    setSegments((current) => current.slice(0, -1));
+    setSegmentHistory((current) => {
+      const previous = current.past[current.past.length - 1];
+      if (!previous) return current;
+      return {
+        past: current.past.slice(0, -1),
+        present: previous,
+        future: [current.present, ...current.future],
+      };
+    });
     setMessage(null);
     setSaveState("idle");
+  };
+
+  const redo = () => {
+    setSegmentHistory((current) => {
+      const next = current.future[0];
+      if (!next) return current;
+      return {
+        past: [...current.past, current.present],
+        present: next,
+        future: current.future.slice(1),
+      };
+    });
+    setMessage(null);
+    setSaveState("idle");
+  };
+
+  const exportLayout = async (format: "png" | "pdf") => {
+    if (segments.length === 0) {
+      setMessage("Add at least one wall before downloading the room layout.");
+      return;
+    }
+    setExportState(format);
+    setMessage(null);
+    try {
+      if (format === "png") await downloadWallBuilderPng(segments, viewRotationDeg, wallHeightIn);
+      else await downloadWallBuilderPdf(segments, viewRotationDeg, wallHeightIn);
+      setMessage(`${format.toUpperCase()} room layout downloaded successfully.`);
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "The room layout file could not be generated.");
+    } finally {
+      setExportState("idle");
+    }
   };
 
   const apply = async () => {
@@ -341,8 +401,24 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
                 ))}
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
-                <Button type="button" variant="outline" onClick={undo} disabled={segments.length === 0}><Undo2 className="mr-1.5 h-4 w-4" /> Undo last</Button>
-                <Button type="button" variant="outline" onClick={() => { setSegments([]); setMessage(null); setSaveState("idle"); }} disabled={segments.length === 0}><Trash2 className="mr-1.5 h-4 w-4" /> Clear</Button>
+                <Button type="button" variant="outline" onClick={undo} disabled={segmentHistory.past.length === 0} data-testid="undo-wall-builder"><Undo2 className="mr-1.5 h-4 w-4" /> Undo</Button>
+                <Button type="button" variant="outline" onClick={redo} disabled={segmentHistory.future.length === 0} data-testid="redo-wall-builder"><Redo2 className="mr-1.5 h-4 w-4" /> Redo</Button>
+                <Button type="button" variant="outline" className="col-span-2" onClick={() => commitSegments([])} disabled={segments.length === 0}><Trash2 className="mr-1.5 h-4 w-4" /> Clear all walls</Button>
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-white p-3 shadow-sm">
+              <div>
+                <p className="text-sm font-bold text-[#1a2744]">Download room layout</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Export the current rotated view with every wall number and exact measurement.</p>
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => exportLayout("png")} disabled={segments.length === 0 || exportState !== "idle"} data-testid="export-wall-builder-png">
+                  {exportState === "png" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileImage className="mr-1.5 h-4 w-4" />} Download PNG
+                </Button>
+                <Button type="button" variant="outline" onClick={() => exportLayout("pdf")} disabled={segments.length === 0 || exportState !== "idle"} data-testid="export-wall-builder-pdf">
+                  {exportState === "pdf" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileText className="mr-1.5 h-4 w-4" />} Download PDF
+                </Button>
               </div>
             </div>
 

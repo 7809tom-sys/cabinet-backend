@@ -2181,3 +2181,11 @@
 - [x] Show an accessible loading spinner while applying the wall layout and a persistent success message when the room layout is saved.
 - [x] Validate the exact preview rotation, far-drag cabinet recovery, run-end containment, save feedback, TypeScript, focused tests, production build, and browser UI.
 - [x] Save and publish a new CabinetDealz checkpoint automatically after validation.
+
+## Continuous Wall Builder history and export — 2026-09-18
+
+- [x] Add multistep **Undo** and **Redo** controls for wall additions and clearing the draft; a new change after Undo must clear the redo branch.
+- [x] Add **Download PNG** and **Download PDF** exports using the current rotated view, exact wall lengths, wall numbers, wall height, and open/closed status.
+- [x] Keep exports self-contained and browser-generated without changing the saved room geometry, cabinet placement, pricing, or materials.
+- [x] Validate history behavior, standalone SVG content, PNG/PDF generation, TypeScript, focused and broader tests, production build, and browser downloads.
+- [x] Save and publish a new CabinetDealz checkpoint automatically after validation.
