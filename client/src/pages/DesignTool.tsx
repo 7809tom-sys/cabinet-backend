@@ -152,7 +152,7 @@ import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
-import { applyCompassWallEdit, closestWall, polygonBounds, positionAlongWall, type CompassWallAngle, type WallBuilderRoomGeometry } from "@/lib/polygonRoom";
+import { applyCompassWallEdit, closestWall, deleteCustomWallSegment, polygonBounds, positionAlongWall, type CompassWallAngle, type WallBuilderRoomGeometry } from "@/lib/polygonRoom";
 import { ElevationView } from "@/components/design/ElevationView";
 import { CornerView, type CornerId } from "@/components/design/CornerView";
 import { IslandElevationView } from "@/components/design/IslandElevationView";
@@ -921,13 +921,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     label: string;
     cabinetCount: number;
   }>(null);
+  const [customWallDeletePrompt, setCustomWallDeletePrompt] = useState<null | {
+    wallId: string;
+    label: string;
+    cabinetCount: number;
+    openingCount: number;
+  }>(null);
   const [wallSettingsDraft, setWallSettingsDraft] = useState<null | {
     wallId: WallSide;
     kind: "standard" | "custom" | "peninsula";
     isReturn: boolean;
     label: string;
-    length: number;
-    height: number;
+    length: number | "";
+    height: number | "";
     angle: CompassWallAngle;
     direction: PeninsulaDirection;
     cabinetSide: PeninsulaCabinetSide;
@@ -1132,6 +1138,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         : `Deleted ${run.label ?? "peninsula"}.`,
     );
   }, [peninsulaDeletePrompt, placed, room]);
+  const requestCustomWallDeletion = useCallback(() => {
+    const draft = wallSettingsDraft;
+    if (!draft || draft.kind !== "custom") return;
+    if ((room.customWalls?.length ?? 0) <= 1) {
+      toast.error("The last remaining wall cannot be deleted. Start a new room layout instead.");
+      return;
+    }
+    setCustomWallDeletePrompt({
+      wallId: draft.wallId,
+      label: draft.label,
+      cabinetCount: placed.filter((cabinet) => cabinetWall(cabinet, room) === draft.wallId).length,
+      openingCount: openings.filter((opening) => opening.side === draft.wallId).length,
+    });
+  }, [openings, placed, room, wallSettingsDraft]);
+  const confirmCustomWallDeletion = useCallback(() => {
+    const prompt = customWallDeletePrompt;
+    if (!prompt || prompt.cabinetCount > 0 || !room.vertices || !room.customWalls) return;
+    const updated = deleteCustomWallSegment(prompt.wallId, room.vertices, room.customWalls);
+    if (!updated) {
+      toast.error("This wall could not be deleted while preserving the other measured walls.");
+      return;
+    }
+    setRoom((previous) => ({ ...previous, ...updated }));
+    setOpenings((previous) => previous.filter((opening) => opening.side !== prompt.wallId));
+    setSelectedOpeningUid(null);
+    setSelectedUid(null);
+    setActiveWall((updated.customWalls[0]?.id ?? "top") as WallSide);
+    setPlacementTarget("wall");
+    setCompassWallStartIn(null);
+    setWallSettingsOpen(false);
+    setCustomWallDeletePrompt(null);
+    toast.success(`Deleted ${prompt.label}. All other measured walls remain unchanged.`);
+  }, [customWallDeletePrompt, room.customWalls, room.vertices]);
   const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
     const run = peninsulaRunById(room, runId);
     if (!run || layoutLocked || run.parentRunId || !run.parentWall) return;
@@ -1840,14 +1879,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, []);
 
   // Doors & windows handlers.
-  const addOpening = useCallback((def: OpeningDef) => {
+  const addOpeningToWall = useCallback((def: OpeningDef, wallId: WallSide) => {
     setOpenings((prev) => {
-      // New openings land on the highlighted active wall; user can drag along any wall edge.
-      const o = makeOpening(def, activeWall, room);
+      const o = makeOpening(def, wallId, room);
       setSelectedOpeningUid(o.uid);
       return [...prev, o];
     });
-  }, [room, activeWall]);
+  }, [room]);
+  const addOpening = useCallback((def: OpeningDef) => {
+    // New toolbar openings land on the highlighted active wall.
+    addOpeningToWall(def, activeWall);
+  }, [activeWall, addOpeningToWall]);
+  const addOpeningFromWallSettings = useCallback((kind: "door" | "window") => {
+    const wallId = wallSettingsDraft?.wallId;
+    if (!wallId) return;
+    const def = OPENINGS.find((candidate) => candidate.key === (kind === "door" ? "interior-door" : "window-std"));
+    if (!def) return;
+    addOpeningToWall(def, wallId);
+    setWallSettingsOpen(false);
+    toast.success(`Added ${def.label} to ${wallSettingsDraft?.label ?? "the selected wall"}. Select it in the plan to drag or resize it.`);
+  }, [addOpeningToWall, wallSettingsDraft]);
   const changeOpening = useCallback((o: WallOpening) => {
     setOpenings((prev) => prev.map((p) => (p.uid === o.uid ? o : p)));
   }, []);
@@ -12269,11 +12320,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <DialogContent data-testid="peninsula-settings-dialog" className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
 	            <DialogHeader className="shrink-0 border-b px-4 py-3">
 	                <DialogTitle>Edit {wallSettingsDraft?.label ?? "wall"}</DialogTitle>
-	                <DialogDescription>Compass creates a peninsula split. These settings edit the selected wall itself.</DialogDescription>
+	                <DialogDescription>Choose any drawn wall, then change its exact attributes, add an opening, or delete only that wall.</DialogDescription>
 	              </DialogHeader>
 	              {wallSettingsDraft && (
 	                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
 	                  <div className="grid gap-3">
+	                  {wallSettingsDraft.kind === "custom" && (room.customWalls?.length ?? 0) > 0 && (
+	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Wall to edit
+	                      <select value={wallSettingsDraft.wallId} onChange={(event) => openWallSettings(event.target.value as WallSide)} className="h-10 rounded-md border border-[#d4a75a] bg-[#fffaf0] px-3 text-sm font-semibold text-[#1a2744]" data-testid="wall-settings-wall-select">
+	                        {room.customWalls?.map((wall) => <option key={wall.id} value={wall.id}>{wall.label ?? wall.id} · {formatEighthInches(wallLength(wall.id as WallSide, room))}</option>)}
+	                      </select>
+	                    </label>
+	                  )}
 	                  {wallSettingsDraft.kind === "peninsula" && (
 	                    <>
 	                      <div className="grid grid-cols-2 gap-2">
@@ -12329,18 +12387,28 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                    </>
 	                  )}
 	                  {wallSettingsDraft.kind === "custom" && (
-	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Locked direction
-	                      <select value={wallSettingsDraft.angle} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, angle: Number(event.target.value) as CompassWallAngle } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-	                        <option value={90}>90° straight</option><option value={45}>45° right</option><option value={-45}>45° left</option>
-	                      </select>
-	                    </label>
+	                    <>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Locked direction
+	                        <select value={wallSettingsDraft.angle} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, angle: Number(event.target.value) as CompassWallAngle } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                          <option value={90}>90° straight</option><option value={45}>45° right</option><option value={-45}>45° left</option>
+	                        </select>
+	                      </label>
+	                      <div className="rounded-lg border border-[#d8c7a1] bg-[#fffaf0] p-3">
+	                        <p className="text-xs font-bold text-[#1a2744]">Doors and windows on this wall</p>
+	                        <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">{openings.filter((opening) => opening.side === wallSettingsDraft.wallId).length} opening{openings.filter((opening) => opening.side === wallSettingsDraft.wallId).length === 1 ? "" : "s"} now. New openings start centered and can be dragged or resized in the plan.</p>
+	                        <div className="mt-2 grid grid-cols-2 gap-2">
+	                          <Button type="button" variant="outline" size="sm" onClick={() => addOpeningFromWallSettings("door")} data-testid="add-door-to-selected-wall"><DoorOpen className="mr-1.5 h-4 w-4" /> Add door</Button>
+	                          <Button type="button" variant="outline" size="sm" onClick={() => addOpeningFromWallSettings("window")} data-testid="add-window-to-selected-wall"><Square className="mr-1.5 h-4 w-4" /> Add window</Button>
+	                        </div>
+	                      </div>
+	                    </>
 	                  )}
 	                  <div className="grid grid-cols-2 gap-2">
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Length (in)
-	                      <Input type="number" min="6" step="0.125" value={wallSettingsDraft.length} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, length: Number(event.target.value) || 6 } : draft)} />
+	                      <Input type="number" min="6" step="0.125" value={wallSettingsDraft.length} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, length: event.target.value === "" ? "" : Number(event.target.value) } : draft)} />
 	                    </label>
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Height (in)
-	                      <Input type="number" min="34.5" max="144" step="0.125" value={wallSettingsDraft.height} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, height: Number(event.target.value) || 34.5 } : draft)} />
+	                      <Input type="number" min="34.5" max="144" step="0.125" value={wallSettingsDraft.height} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, height: event.target.value === "" ? "" : Number(event.target.value) } : draft)} />
 	                    </label>
 	                  </div>
 	                  <p className="text-xs leading-5 text-muted-foreground">Changing a wall’s geometry is blocked while it has cabinets, and a wall cannot be shortened below a mounted cabinet. This keeps every placed cabinet supported and in its existing run.</p>
@@ -12348,6 +12416,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                </div>
 	              )}
 	              <DialogFooter data-testid="peninsula-settings-actions" className="shrink-0 border-t bg-background px-4 py-3 sm:flex-wrap">
+	                {wallSettingsDraft?.kind === "custom" && (
+	                  <Button type="button" variant="destructive" className="mr-auto" data-testid="delete-selected-custom-wall" onClick={requestCustomWallDeletion}>
+	                    <Trash2 className="mr-1.5 h-4 w-4" /> Delete this wall
+	                  </Button>
+	                )}
 	                {wallSettingsDraft?.kind === "peninsula" && (
 	                  <Button
 	                    type="button"
@@ -12445,7 +12518,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              </AlertDialogFooter>
 	            </AlertDialogContent>
 	          </AlertDialog>
-        </div>
+	          <AlertDialog open={customWallDeletePrompt != null} onOpenChange={(open) => { if (!open) setCustomWallDeletePrompt(null); }}>
+	            <AlertDialogContent className="max-w-md" data-testid="custom-wall-delete-dialog">
+	              <AlertDialogHeader>
+	                <AlertDialogTitle>Delete only {customWallDeletePrompt?.label ?? "this wall"}?</AlertDialogTitle>
+	                <AlertDialogDescription>
+	                  {customWallDeletePrompt?.cabinetCount
+	                    ? `${customWallDeletePrompt.label} has ${customWallDeletePrompt.cabinetCount} attached cabinet${customWallDeletePrompt.cabinetCount === 1 ? "" : "s"}. Move or remove those cabinets before deleting this wall. No other wall will be changed.`
+	                    : customWallDeletePrompt?.openingCount
+	                      ? `This removes only ${customWallDeletePrompt.label} and its ${customWallDeletePrompt.openingCount} attached door or window. Every other wall keeps its existing length, height, angle, and position.`
+	                      : `This removes only ${customWallDeletePrompt?.label ?? "the selected wall"}. Every other wall keeps its existing length, height, angle, and position.`}
+	                </AlertDialogDescription>
+	              </AlertDialogHeader>
+	              <AlertDialogFooter>
+	                <AlertDialogCancel>Keep wall</AlertDialogCancel>
+	                <AlertDialogAction disabled={Boolean(customWallDeletePrompt?.cabinetCount)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={confirmCustomWallDeletion} data-testid="confirm-delete-selected-custom-wall">
+	                  <Trash2 className="mr-1.5 h-4 w-4" /> Delete this wall
+	                </AlertDialogAction>
+	              </AlertDialogFooter>
+	            </AlertDialogContent>
+	          </AlertDialog>
+	        </div>
 
         {/* Right: pricing + BOM — inline column on desktop; bottom drawer on mobile */}
         <PricingShell

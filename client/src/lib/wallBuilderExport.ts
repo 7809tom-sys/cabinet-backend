@@ -1,5 +1,5 @@
 import { formatEighthInches } from "./design";
-import { wallBuilderGeometry, type WallBuilderSegment } from "./polygonRoom";
+import { wallBuilderGeometry, wallBuilderMetrics, type WallBuilderSegment } from "./polygonRoom";
 
 const EXPORT_WIDTH = 1400;
 const EXPORT_HEIGHT = 1000;
@@ -39,6 +39,7 @@ export function buildWallBuilderExportSvg(
 ): WallBuilderExportDocument {
   if (segments.length === 0) throw new Error("Add at least one wall before exporting the room layout.");
   const geometry = wallBuilderGeometry(segments);
+  const metrics = wallBuilderMetrics(segments);
   if (geometry.error) throw new Error(geometry.error);
   const points = geometry.points.map((point) => rotatePoint(point, viewRotationDeg));
   const minX = Math.min(...points.map((point) => point.x));
@@ -71,10 +72,10 @@ export function buildWallBuilderExportSvg(
     </g>`;
   }).join("\n");
   const endpointDots = mapped.map((point, index) => `<circle cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="${index === 0 ? 9 : 7}" fill="${index === 0 ? "#d4a75a" : "#1a2744"}" stroke="#ffffff" stroke-width="3"/>`).join("\n");
-  const totalLength = segments.reduce((sum, segment) => sum + segment.lengthIn, 0);
   const status = geometry.closed ? "Closed room" : "Open connected wall path";
   const title = "CabinetDealz Room Layout";
-  const subtitle = `${segments.length} wall${segments.length === 1 ? "" : "s"} · ${formatEighthInches(totalLength)} total · ${formatEighthInches(wallHeightIn)} wall height · ${status}`;
+  const areaLabel = metrics.areaSqFt == null ? "Area pending closure" : `${metrics.areaSqFt.toFixed(1)} sq ft`;
+  const subtitle = `${segments.length} wall${segments.length === 1 ? "" : "s"} · ${formatEighthInches(metrics.perimeterIn)} perimeter · ${areaLabel} · ${formatEighthInches(wallHeightIn)} wall height · ${status}`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${EXPORT_WIDTH}" height="${EXPORT_HEIGHT}" viewBox="0 0 ${EXPORT_WIDTH} ${EXPORT_HEIGHT}" role="img" aria-label="${escapeXml(title)}">
     <defs>

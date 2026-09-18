@@ -20,7 +20,9 @@ import {
   verticesToSvgPath,
   appendWallBuilderSegment,
   checkWallBuilderClosure,
+  deleteCustomWallSegment,
   wallBuilderGeometry,
+  wallBuilderMetrics,
   wallBuilderRoomGeometry,
 } from "./polygonRoom";
 
@@ -335,6 +337,7 @@ describe("polygonRoom", () => {
       expect(result.room!.customWalls).toHaveLength(4);
       expect(result.room).toMatchObject({ width: 120, depth: 96, openWallPath: false });
       expect(result.room!.customWalls.map((wall) => wall.label)).toEqual(["Wall 1", "Wall 2", "Wall 3", "Wall 4"]);
+      expect(wallBuilderMetrics(segments)).toEqual({ perimeterIn: 432, areaSqFt: 80, closed: true });
     });
 
     it("keeps the supplied 101-inch wall and exact 78-inch 45-degree turn", () => {
@@ -348,6 +351,33 @@ describe("polygonRoom", () => {
         geometry.points[2].y - geometry.points[1].y,
       )).toBeCloseTo(78, 3);
       expect(Math.abs(geometry.points[2].x - geometry.points[1].x)).toBeCloseTo(Math.abs(geometry.points[2].y - geometry.points[1].y), 3);
+      expect(wallBuilderMetrics(segments)).toEqual({ perimeterIn: 179, areaSqFt: null, closed: false });
+    });
+
+    it("deletes only Wall 4 and preserves every other measured wall", () => {
+      let segments = appendWallBuilderSegment([], 120, "start");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+      segments = appendWallBuilderSegment(segments, 60, "left45");
+      segments = appendWallBuilderSegment(segments, 48, "right45");
+      segments = appendWallBuilderSegment(segments, 72, "left90");
+      segments = appendWallBuilderSegment(segments, 36, "right45");
+      const built = wallBuilderRoomGeometry(segments, 108).room!;
+      const wall4 = built.customWalls[3];
+      const originalById = new Map(built.customWalls.map((wall) => [wall.id, {
+        wall,
+        length: wallSegmentLength(wall, built.vertices),
+      }]));
+      const deleted = deleteCustomWallSegment(wall4.id, built.vertices, built.customWalls);
+
+      expect(deleted).not.toBeNull();
+      expect(deleted!.openWallPath).toBe(true);
+      expect(deleted!.customWalls).toHaveLength(5);
+      expect(deleted!.customWalls.some((wall) => wall.id === wall4.id || wall.label === "Wall 4")).toBe(false);
+      for (const wall of deleted!.customWalls) {
+        const original = originalById.get(wall.id)!;
+        expect(wall).toEqual(original.wall);
+        expect(wallSegmentLength(wall, deleted!.vertices)).toBeCloseTo(original.length, 3);
+      }
     });
 
     it("applies an open connected path with only the walls entered by the user", () => {

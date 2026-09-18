@@ -26,6 +26,7 @@ import {
   checkWallBuilderClosure,
   WALL_BUILDER_MIN_WALL_IN,
   wallBuilderGeometry,
+  wallBuilderMetrics,
   wallBuilderRoomGeometry,
   type WallBuilderRoomGeometry,
   type WallBuilderSegment,
@@ -185,6 +186,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   const [exportState, setExportState] = useState<"idle" | "png" | "pdf">("idle");
   const segments = segmentHistory.present;
   const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
+  const metrics = useMemo(() => wallBuilderMetrics(segments), [segments]);
   const parsedLength = parseLengthToInches(lengthText);
   const validLength = parsedLength != null && parsedLength >= WALL_BUILDER_MIN_WALL_IN;
 
@@ -327,6 +329,18 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
               </Button>
             </div>
             <WallBuilderPreview segments={segments} viewRotationDeg={viewRotationDeg} />
+            <div className="grid grid-cols-2 gap-2" aria-label="Live room measurements">
+              <div className="rounded-lg border border-[#d8c7a1] bg-white px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Perimeter</p>
+                <p className="mt-1 text-lg font-bold text-[#1a2744]" data-testid="wall-builder-perimeter">{formatEighthInches(metrics.perimeterIn)}</p>
+                <p className="text-[10px] text-muted-foreground">{(metrics.perimeterIn / 12).toFixed(1)} linear ft entered</p>
+              </div>
+              <div className="rounded-lg border border-[#d8c7a1] bg-white px-3 py-2 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Room area</p>
+                <p className="mt-1 text-lg font-bold text-[#1a2744]" data-testid="wall-builder-area">{metrics.areaSqFt == null ? "—" : `${metrics.areaSqFt.toFixed(1)} sq ft`}</p>
+                <p className="text-[10px] text-muted-foreground">{metrics.closed ? "Calculated from the enclosed room" : "Close the walls to calculate"}</p>
+              </div>
+            </div>
             {message || geometry.error ? (
               <p className={`rounded-lg border px-3 py-2 text-xs leading-5 ${geometry.error ? "border-rose-300 bg-rose-50 text-rose-900" : "border-[#d8c7a1] bg-white text-[#654d24]"}`} role="status">
                 {geometry.error ?? message}

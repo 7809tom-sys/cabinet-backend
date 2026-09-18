@@ -2189,3 +2189,14 @@
 - [x] Keep exports self-contained and browser-generated without changing the saved room geometry, cabinet placement, pricing, or materials.
 - [x] Validate history behavior, standalone SVG content, PNG/PDF generation, TypeScript, focused and broader tests, production build, and browser downloads.
 - [x] Save and publish a new CabinetDealz checkpoint automatically after validation.
+
+## Continuous Wall Builder wall attributes and openings — 2026-09-18
+
+- [x] Let **Edit wall** switch directly among every user-drawn wall and expose each wall’s exact length, height, and locked direction.
+- [x] Let the user delete only the selected custom wall (for example, Wall 4) while every other wall keeps its measured endpoints, length, height, angle, label, and position.
+- [x] Block deletion when cabinets are attached; clearly confirm removal of any door or window attached to the selected wall.
+- [x] Add **Add door** and **Add window** actions to the selected drawn wall; place the opening centered and preserve Plan/3D wall orientation.
+- [x] Show live perimeter/entered wall length and enclosed square footage as walls are drawn; open paths must not report a false room area.
+- [x] Include perimeter and enclosed area in PNG/PDF room-layout exports.
+- [x] Validate Wall 4 deletion, wall switching, opening insertion, metrics, TypeScript, focused/broader tests, production build, and browser UI.
+- [x] Save and publish a new CabinetDealz checkpoint automatically after validation.

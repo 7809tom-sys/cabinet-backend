@@ -42,6 +42,9 @@ describe("Continuous Wall Builder", () => {
     expect(screen.getByText(/Wall 2/)).toBeTruthy();
     expect(screen.getByText(/45° right · down-right/i)).toBeTruthy();
     expect(screen.getByLabelText("Live continuous wall preview")).toBeTruthy();
+    expect(screen.getByTestId("wall-builder-perimeter").textContent).toContain("179");
+    expect(screen.getByTestId("wall-builder-area").textContent).toBe("—");
+    expect(screen.getByText("Close the walls to calculate")).toBeTruthy();
   });
 
   it("rotates only the drawing view in exact 90-degree steps", () => {
@@ -130,6 +133,8 @@ describe("Continuous Wall Builder", () => {
     addWall();
 
     expect(screen.getByText("Room closed")).toBeTruthy();
+    expect(screen.getByTestId("wall-builder-perimeter").textContent).toContain("432");
+    expect(screen.getByTestId("wall-builder-area").textContent).toBe("80.0 sq ft");
     fireEvent.click(screen.getByTestId("apply-continuous-wall-room"));
     expect(screen.getByTestId("apply-continuous-wall-room").getAttribute("aria-busy")).toBe("true");
     expect(screen.getByText("Saving your measured wall layout…")).toBeTruthy();

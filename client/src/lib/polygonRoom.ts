@@ -53,6 +53,12 @@ export interface WallBuilderRoomGeometry {
   openWallPath: boolean;
 }
 
+export interface WallBuilderMetrics {
+  perimeterIn: number;
+  areaSqFt: number | null;
+  closed: boolean;
+}
+
 export const WALL_BUILDER_MIN_WALL_IN = 6;
 const WALL_BUILDER_EPSILON = 0.01;
 
@@ -508,6 +514,16 @@ export function wallBuilderGeometry(segments: WallBuilderSegment[]): WallBuilder
   return { points, closed, error: null };
 }
 
+/** Live measured totals. Open paths have a wall-run perimeter but no enclosed area. */
+export function wallBuilderMetrics(segments: WallBuilderSegment[]): WallBuilderMetrics {
+  const geometry = wallBuilderGeometry(segments);
+  const perimeterIn = Math.round(segments.reduce((sum, segment) => sum + segment.lengthIn, 0) * 8) / 8;
+  const areaSqFt = geometry.closed && !geometry.error
+    ? Math.round((polygonArea(geometry.points.slice(0, -1).map((point, index) => ({ id: `metric-${index}`, ...point }))) / 144) * 10) / 10
+    : null;
+  return { perimeterIn, areaSqFt, closed: geometry.closed };
+}
+
 /**
  * Confirms whether the user's own measured walls return to the starting point.
  * It never adds, changes, or infers a wall length.
@@ -566,6 +582,31 @@ export function wallBuilderRoomGeometry(
       openWallPath,
     },
     error: null,
+  };
+}
+
+/**
+ * Remove exactly one drawn wall. The deleted segment becomes the intentional
+ * gap; every remaining wall keeps its original endpoints, length, height, and
+ * label. This never stretches an adjoining wall or silently changes a measure.
+ */
+export function deleteCustomWallSegment(
+  wallId: string,
+  vertices: RoomVertex[],
+  customWalls: CustomWall[],
+): WallBuilderRoomGeometry | null {
+  const wallIndex = customWalls.findIndex((wall) => wall.id === wallId);
+  if (wallIndex < 0 || customWalls.length <= 1) return null;
+  const remainingWalls = customWalls.filter((wall) => wall.id !== wallId);
+  const usedVertexIds = new Set(remainingWalls.flatMap((wall) => [wall.startVertexId, wall.endVertexId]));
+  const remainingVertices = vertices.filter((vertex) => usedVertexIds.has(vertex.id));
+  const bounds = polygonBounds(remainingVertices);
+  return {
+    vertices: remainingVertices,
+    customWalls: remainingWalls,
+    width: Math.max(36, Math.round(bounds.width * 1000) / 1000),
+    depth: Math.max(36, Math.round(bounds.height * 1000) / 1000),
+    openWallPath: true,
   };
 }
 
