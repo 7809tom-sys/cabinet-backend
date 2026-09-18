@@ -2221,3 +2221,10 @@
 - [x] Added catalog and Designer-facing public visibility regression coverage.
 - [x] Validated the form contract, master-catalog mutation, public Catalog query, and 3D Designer picker through TypeScript, live database integration tests, and an authenticated Administration browser check of the Add Item form.
 - [x] Save and publish the completed checkpoint.
+
+## CabinetDealz main-domain Railway fallback recovery — 2026-09-18
+
+- [x] Confirm the local CabinetDealz application and `/health` endpoint are healthy.
+- [x] Confirm `www.cabinetdealz.com` and the project host are serving Railway fallback responses instead of the application.
+- [x] Remove unsupported repository health-check overrides so a managed deployment does not submit a stale or invalid health-check path.
+- [ ] Save the deployment-configuration correction and verify whether the public domain returns to the active CabinetDealz application.
