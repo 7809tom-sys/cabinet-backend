@@ -12,7 +12,7 @@ import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
-import { cabinets, distributors, distributorSkus, distributorCabinetOverrides } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
@@ -142,6 +142,281 @@ export const genericCabinetsRouter = router({
         categories,
         subCategories,
       };
+    }),
+
+  /**
+   * Full master-cabinet detail for the unified Catalog → Add Item / Edit Item form.
+   * Supplier SKU rows stay separate from the master record: the selected source row
+   * controls its actual sell/cost price and public availability.
+   */
+  itemEditorDetail: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+
+      const [item] = await db
+        .select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          subCategory: cabinets.subCategory,
+          width: cabinets.width,
+          height: cabinets.height,
+          depth: cabinets.depth,
+          physicalWidth: cabinets.physicalWidth,
+          weight: cabinets.weight,
+          placementType: cabinets.placementType,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          numberOfFixedShelves: cabinets.numberOfFixedShelves,
+          numberOfAdjShelves: cabinets.numberOfAdjShelves,
+          hingeSide: cabinets.hingeSide,
+          toeKickHeight: cabinets.toeKickHeight,
+          graphicType: cabinets.graphicType,
+          isCornerCabinet: cabinets.isCornerCabinet,
+          cornerSide: cabinets.cornerSide,
+          cornerType: cabinets.cornerType,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          specNotes: cabinets.specNotes,
+          pkgLength: cabinets.pkgLength,
+          pkgWidth: cabinets.pkgWidth,
+          pkgHeight: cabinets.pkgHeight,
+          pkgWeight: cabinets.pkgWeight,
+          sku: cabinets.sku,
+          vendorSku: cabinets.vendorSku,
+          altSku1: cabinets.altSku1,
+          altSku2: cabinets.altSku2,
+          altSku3: cabinets.altSku3,
+          isActive: cabinets.isActive,
+          showInDesigner: cabinets.showInDesigner,
+          showInCatalog: cabinets.showInCatalog,
+        })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      if (!item) throw new Error("Catalog item not found");
+
+      const sources = await db
+        .select({
+          skuId: distributorSkus.id,
+          distributorId: distributorSkus.distributorId,
+          distributorName: distributors.name,
+          styleId: distributorSkus.styleId,
+          styleName: doorStyles.ourName,
+          distributorSku: distributorSkus.distributorSku,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          status: distributorSkus.status,
+        })
+        .from(distributorSkus)
+        .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+        .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+        .where(eq(distributorSkus.cabinetId, input.id))
+        .orderBy(asc(distributors.name), asc(doorStyles.ourName));
+
+      return { item, sources };
+    }),
+
+  /**
+   * Creates or edits one CabinetDealz master cabinet from the complete Catalog form.
+   * A draft is intentionally hidden from catalog/designer. Publishing requires the
+   * category and one source SKU with a price, so a public or Designer item can never
+   * be an unpriced master record with no orderable supplier connection.
+   */
+  saveCatalogItem: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive().optional(),
+        mode: z.enum(["draft", "publish"]),
+        masterCode: z.string().trim().min(1, "SKU is required").max(64),
+        description: z.string().trim().max(4_000).default(""),
+        category: z.string().trim().min(1, "Category is required").max(64),
+        subCategory: z.string().trim().max(128).nullable().optional(),
+        width: z.number().min(0).max(999).nullable().optional(),
+        height: z.number().min(0).max(999).nullable().optional(),
+        depth: z.number().min(0).max(999).nullable().optional(),
+        physicalWidth: z.number().min(0).max(999).nullable().optional(),
+        weight: z.number().min(0).max(10_000).nullable().optional(),
+        placementType: z.string().trim().max(32).nullable().optional(),
+        numberOfDoors: z.number().int().min(0).max(24).nullable().optional(),
+        numberOfDrawers: z.number().int().min(0).max(24).nullable().optional(),
+        numberOfFixedShelves: z.number().int().min(0).max(24).nullable().optional(),
+        numberOfAdjShelves: z.number().int().min(0).max(24).nullable().optional(),
+        hingeSide: z.string().trim().max(16).nullable().optional(),
+        toeKickHeight: z.number().min(0).max(24).nullable().optional(),
+        graphicType: z.string().trim().max(64).nullable().optional(),
+        isCornerCabinet: z.boolean().default(false),
+        cornerSide: z.string().trim().max(16).nullable().optional(),
+        cornerType: z.string().trim().max(50).nullable().optional(),
+        catalogImageUrl: z.string().trim().max(512).nullable().optional(),
+        specNotes: z.string().trim().max(8_000).nullable().optional(),
+        pkgLength: z.number().min(0).max(999).nullable().optional(),
+        pkgWidth: z.number().min(0).max(999).nullable().optional(),
+        pkgHeight: z.number().min(0).max(999).nullable().optional(),
+        pkgWeight: z.number().min(0).max(10_000).nullable().optional(),
+        sku: z.string().trim().max(128).nullable().optional(),
+        vendorSku: z.string().trim().max(128).nullable().optional(),
+        altSku1: z.string().trim().max(128).nullable().optional(),
+        altSku2: z.string().trim().max(128).nullable().optional(),
+        altSku3: z.string().trim().max(128).nullable().optional(),
+        source: z.object({
+          skuId: z.number().int().positive().optional(),
+          distributorId: z.number().int().positive(),
+          styleId: z.number().int().positive(),
+          distributorSku: z.string().trim().min(1).max(128),
+          listPrice: z.number().min(0).max(1_000_000).nullable().optional(),
+          yourCost: z.number().min(0).max(1_000_000).nullable().optional(),
+          isAvailable: z.boolean().default(true),
+        }).nullable().optional(),
+      }),
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+
+      const masterCode = input.masterCode.trim().toUpperCase();
+      const publish = input.mode === "publish";
+      const category = input.category.trim();
+      const description = input.description.trim();
+      if (publish && !description) {
+        throw new Error("Product name or description is required before publishing.");
+      }
+      if (publish && (!input.source || input.source.listPrice == null && input.source.yourCost == null)) {
+        throw new Error("Add a valid List Price or Your Cost before publishing.");
+      }
+
+      const [existing] = input.id == null ? [undefined] : await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      if (input.id && !existing) throw new Error("Catalog item not found.");
+      if (existing && existing.masterCode !== masterCode) {
+        throw new Error("Master SKU cannot be changed after creation. Create a new item or manage a legacy alias instead.");
+      }
+
+      // A master SKU is a platform identity, not a display-only label. Reject
+      // normalized collisions with master codes and aliases before the database
+      // unique constraint has a chance to issue a less useful error.
+      if (!existing) {
+        const [masterRows, aliasRows] = await Promise.all([
+          db.select({ id: cabinets.id, masterCode: cabinets.masterCode, sku: cabinets.sku, vendorSku: cabinets.vendorSku, altSku1: cabinets.altSku1, altSku2: cabinets.altSku2, altSku3: cabinets.altSku3 }).from(cabinets),
+          db.select({ cabinetId: cabinetAliases.cabinetId, alias: cabinetAliases.alias }).from(cabinetAliases),
+        ]);
+        const normalized = normalizeCode(masterCode);
+        const codeCollision = masterRows.some((row) => [row.masterCode, row.sku, row.vendorSku, row.altSku1, row.altSku2, row.altSku3]
+          .some((code) => code != null && normalizeCode(code) === normalized))
+          || aliasRows.some((row) => normalizeCode(row.alias) === normalized);
+        if (codeCollision) throw new Error("This SKU already exists or conflicts with an existing master SKU alias.");
+      }
+
+      const optionalText = (value: string | null | undefined) => value?.trim() || null;
+      const decimalValue = (value: number | null | undefined) => value == null ? null : String(value);
+      const values = {
+        description,
+        category,
+        subCategory: optionalText(input.subCategory),
+        width: decimalValue(input.width),
+        height: decimalValue(input.height),
+        depth: decimalValue(input.depth),
+        physicalWidth: decimalValue(input.physicalWidth),
+        weight: decimalValue(input.weight),
+        placementType: optionalText(input.placementType),
+        numberOfDoors: input.numberOfDoors ?? 0,
+        numberOfDrawers: input.numberOfDrawers ?? 0,
+        numberOfFixedShelves: input.numberOfFixedShelves ?? null,
+        numberOfAdjShelves: input.numberOfAdjShelves ?? null,
+        hingeSide: optionalText(input.hingeSide),
+        toeKickHeight: decimalValue(input.toeKickHeight),
+        graphicType: optionalText(input.graphicType),
+        isCornerCabinet: input.isCornerCabinet,
+        cornerSide: optionalText(input.cornerSide),
+        cornerType: optionalText(input.cornerType),
+        catalogImageUrl: optionalText(input.catalogImageUrl),
+        specNotes: optionalText(input.specNotes),
+        pkgLength: decimalValue(input.pkgLength),
+        pkgWidth: decimalValue(input.pkgWidth),
+        pkgHeight: decimalValue(input.pkgHeight),
+        pkgWeight: decimalValue(input.pkgWeight),
+        sku: optionalText(input.sku),
+        vendorSku: optionalText(input.vendorSku),
+        altSku1: optionalText(input.altSku1),
+        altSku2: optionalText(input.altSku2),
+        altSku3: optionalText(input.altSku3),
+        isActive: publish,
+        showInCatalog: publish,
+        showInDesigner: publish,
+        showIn2020: publish,
+        conflictStatus: "none",
+      };
+
+      const saved = await db.transaction(async (tx) => {
+        let cabinetId = existing?.id;
+        if (cabinetId) {
+          await tx.update(cabinets).set(values).where(eq(cabinets.id, cabinetId));
+        } else {
+          const [result] = await tx.insert(cabinets).values({ masterCode, ...values });
+          cabinetId = Number((result as { insertId: number }).insertId);
+        }
+
+        let sourceSkuId: number | null = null;
+        if (input.source) {
+          const [style] = await tx
+            .select({ id: doorStyles.id })
+            .from(doorStyles)
+            .where(and(eq(doorStyles.id, input.source.styleId), eq(doorStyles.distributorId, input.source.distributorId)))
+            .limit(1);
+          if (!style) throw new Error("Choose a door style that belongs to the selected supplier line.");
+
+          const [sameSupplierSku] = await tx
+            .select({ id: distributorSkus.id, cabinetId: distributorSkus.cabinetId })
+            .from(distributorSkus)
+            .where(and(eq(distributorSkus.distributorId, input.source.distributorId), eq(distributorSkus.styleId, input.source.styleId), eq(distributorSkus.distributorSku, input.source.distributorSku)))
+            .limit(1);
+          if (sameSupplierSku && sameSupplierSku.id !== input.source.skuId && sameSupplierSku.cabinetId !== cabinetId) {
+            throw new Error("This supplier SKU is already connected to another catalog item for the selected line and door style.");
+          }
+
+          const sourceValues = {
+            distributorId: input.source.distributorId,
+            styleId: input.source.styleId,
+            distributorSku: input.source.distributorSku.trim(),
+            listPrice: input.source.listPrice == null ? null : String(input.source.listPrice),
+            yourCost: input.source.yourCost == null ? null : String(input.source.yourCost),
+            isAvailable: input.source.isAvailable,
+            isPublished: publish,
+            status: publish ? "approved" as const : "pending" as const,
+          };
+          if (input.source.skuId) {
+            const [owned] = await tx
+              .select({ id: distributorSkus.id })
+              .from(distributorSkus)
+              .where(and(eq(distributorSkus.id, input.source.skuId), eq(distributorSkus.cabinetId, cabinetId)))
+              .limit(1);
+            if (!owned) throw new Error("The selected supplier price record does not belong to this catalog item.");
+            await tx.update(distributorSkus).set(sourceValues).where(eq(distributorSkus.id, input.source.skuId));
+            sourceSkuId = input.source.skuId;
+          } else if (sameSupplierSku && sameSupplierSku.cabinetId === cabinetId) {
+            await tx.update(distributorSkus).set(sourceValues).where(eq(distributorSkus.id, sameSupplierSku.id));
+            sourceSkuId = sameSupplierSku.id;
+          } else {
+            const [result] = await tx.insert(distributorSkus).values({
+              cabinetId,
+              ...sourceValues,
+              platformSku: `${masterCode}-${input.source.distributorSku.trim()}-${input.source.distributorId}-${input.source.styleId}`.toUpperCase().slice(0, 128),
+            });
+            sourceSkuId = Number((result as { insertId: number }).insertId);
+          }
+        }
+
+        return { cabinetId: cabinetId!, sourceSkuId };
+      });
+
+      return { id: saved.cabinetId, masterCode, sourceSkuId: saved.sourceSkuId, isPublished: publish };
     }),
 
   /**

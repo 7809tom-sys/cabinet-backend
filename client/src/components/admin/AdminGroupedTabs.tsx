@@ -74,6 +74,7 @@ import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
 import CategoriesAdmin from "@/components/admin/CategoriesAdmin";
 import PendingReviewAdmin from "@/components/admin/PendingReviewAdmin";
 import PendingDistributorConnectionsAdmin from "@/components/admin/PendingDistributorConnectionsAdmin";
+import GenericCabinetsAdmin from "@/components/admin/GenericCabinetsAdmin";
 import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
 import PriceShop10x10 from "@/pages/PriceShop10x10";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
@@ -118,7 +119,7 @@ const GROUPS = [
     label: "Products & Catalog",
     icon: Package,
     tabs: [
-      { value: "cabinets", label: "Cabinets" },
+      { value: "cabinets", label: "Catalog" },
       { value: "distributors", label: "Distributors" },
       { value: "catalog-importer", label: "📥 Catalog Importer" },
       { value: "featured", label: "Featured Styles" },
@@ -492,7 +493,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="approved-vendors" className="mt-6"><ApprovedVendorsAdmin /></TabsContent>
 
         {/* Products & Catalog */}
-        <TabsContent value="cabinets" className="mt-6"><AdminTabHelp tab="cabinets" /><CabinetSpreadsheetAdmin /><CabinetLineDownload /></TabsContent>
+        <TabsContent value="cabinets" className="mt-6 space-y-8"><AdminTabHelp tab="cabinets" /><GenericCabinetsAdmin /><CabinetSpreadsheetAdmin /><CabinetLineDownload /></TabsContent>
         <TabsContent value="distributors" className="mt-6 space-y-6"><AdminTabHelp tab="distributors" /><LineBrandingEditor /><DistributorFulfillmentEditor /><DistributorImport /></TabsContent>
         <TabsContent value="catalog-importer" className="mt-6"><CatalogImporterTab /></TabsContent>
         <TabsContent value="featured" className="mt-6"><AdminTabHelp tab="featured" /><FeaturedStylesAdmin /></TabsContent>

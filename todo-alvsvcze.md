@@ -2209,3 +2209,15 @@
 - [x] Keep the default 3D workspace and render the restored room shell through the saved-plan scene instead of switching to an empty starter state.
 - [x] Validate saved custom-wall refresh, TypeScript, focused/broader Designer regressions, production build, and live browser reload.
 - [x] Save and publish the CabinetDealz refresh-restoration checkpoint automatically after validation.
+
+## Catalog Add Item / Edit Item
+
+- [x] Audited the existing Supplier Products and master Cabinet Catalog workflows.
+- [x] Added a single complete master Catalog item form for **Add Item** and **Edit Item**.
+- [x] Added inline validation for master SKU, category, numeric fields, and required priced supplier source before publish.
+- [x] Enforced master-SKU uniqueness across existing master codes and aliases.
+- [x] Kept supplier SKU price and availability as a separate authoritative source record.
+- [x] Added draft and publish semantics; publishing enables Catalog and 3D Designer only with a priced available source.
+- [x] Added catalog and Designer-facing public visibility regression coverage.
+- [x] Validated the form contract, master-catalog mutation, public Catalog query, and 3D Designer picker through TypeScript, live database integration tests, and an authenticated Administration browser check of the Add Item form.
+- [x] Save and publish the completed checkpoint.

@@ -66,6 +66,7 @@ import {
   FolderInput,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CatalogItemFormDialog } from "@/components/admin/CatalogItemFormDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CabinetRow = {
@@ -684,6 +685,7 @@ export default function GenericCabinetsAdmin() {
   const [moveSubCatTarget, setMoveSubCatTarget] = useState<string | null>(null);
   const [moveNewCat, setMoveNewCat] = useState("");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
+  const [itemEditor, setItemEditor] = useState<{ mode: "new" } | { mode: "edit"; id: number } | null>(null);
   const utils = trpc.useUtils();
   const moveCatMut = trpc.genericCabinets.bulkMoveCategory.useMutation({
     onSuccess: (res) => {
@@ -755,6 +757,11 @@ export default function GenericCabinetsAdmin() {
   return (
     <div className="flex gap-0 h-full min-h-[600px]">
       {showZipManager && <DistributorZipManagerDialog onClose={() => setShowZipManager(false)} />}
+      <CatalogItemFormDialog
+        open={itemEditor !== null}
+        cabinetId={itemEditor?.mode === "edit" ? itemEditor.id : null}
+        onOpenChange={(open) => { if (!open) setItemEditor(null); }}
+      />
 
       {/* ── Left: list/table ── */}
       <div className="flex flex-col min-w-0 w-full">
@@ -762,12 +769,15 @@ export default function GenericCabinetsAdmin() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
           <div>
-            <h2 className="text-xl font-bold">Generic Cabinet Catalog</h2>
+            <h2 className="text-xl font-bold">Catalog</h2>
             <p className="text-sm text-muted-foreground">
-              Master cabinet codes — click any row to edit inline
+              Master cabinet items — add a product, save a draft, then publish it to the Catalog and 3D Designer.
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <Button size="sm" onClick={() => setItemEditor({ mode: "new" })}>
+              <Plus className="mr-1.5 h-4 w-4" />Add Item
+            </Button>
             <Button variant="outline" size="sm" onClick={() => setShowZipManager(true)}>
               <MapPin className="h-4 w-4 mr-1.5" />Distributor Zips
             </Button>
@@ -883,7 +893,7 @@ export default function GenericCabinetsAdmin() {
                     selected={selectedIds.has(cab.id)}
                     active={selectedCabinet?.id === cab.id}
                     onSelect={toggleSelect}
-                    onClick={setSelectedCabinet}
+                    onClick={(cabinet) => { setSelectedCabinet(cabinet); setItemEditor({ mode: "edit", id: cabinet.id }); }}
                   />
                 ))}
               </tbody>
@@ -895,7 +905,7 @@ export default function GenericCabinetsAdmin() {
             {rows.map(cab => (
               <div
                 key={cab.id}
-                onClick={() => setSelectedCabinet(cab)}
+                onClick={() => { setSelectedCabinet(cab); setItemEditor({ mode: "edit", id: cab.id }); }}
                 className={cn(
                   "border rounded-xl overflow-hidden bg-card cursor-pointer hover:shadow-md transition-all",
                   selectedCabinet?.id === cab.id && "ring-2 ring-primary"
@@ -934,16 +944,6 @@ export default function GenericCabinetsAdmin() {
           </div>
         )}
       </div>
-
-      {/* ── Cabinet edit dialog (modal) ── */}
-      {selectedCabinet && (
-        <EditDialog
-          key={selectedCabinet.id}
-          cabinet={selectedCabinet}
-          onClose={() => setSelectedCabinet(null)}
-          onSaved={() => utils.genericCabinets.list.invalidate()}
-        />
-      )}
 
       {/* ── Move to Category dialog ── */}
       <Dialog open={moveCatOpen} onOpenChange={setMoveCatOpen}>
