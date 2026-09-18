@@ -151,7 +151,16 @@ export default function StripePaymentSettingsAdmin() {
             <p className="mt-1">
               This Admin page intentionally does not accept or display Stripe secret keys. Store the live secret key, publishable key, and webhook signing secret through the protected project Payment/Secrets form so they never enter browser code or the CabinetDealz database.
             </p>
+            <p className="mt-2 text-xs text-sky-800">
+              Active credential source: <strong>{data.credentialSource === "protected_live_override" ? "protected CabinetDealz live entries" : "managed Stripe sandbox"}</strong>.
+            </p>
           </div>
+          {data.validationMessage && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-medium">Stripe activation status</p>
+              <p className="mt-1">{data.validationMessage}</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -5,18 +5,16 @@
  */
 
 import Stripe from "stripe";
-import { ENV } from "./_core/env";
 import { getDb } from "./db";
 import { orderRequests } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
+import { requireStripeCredentials } from "./stripeConfig";
 
 // ─── Stripe client ────────────────────────────────────────────────────────────
 
 export function getStripe(): Stripe {
-  if (!ENV.stripeSecretKey) {
-    throw new Error("STRIPE_SECRET_KEY is not configured");
-  }
-  return new Stripe(ENV.stripeSecretKey, { apiVersion: "2026-06-24.dahlia" });
+  const credentials = requireStripeCredentials();
+  return new Stripe(credentials.secretKey, { apiVersion: "2026-06-24.dahlia" });
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

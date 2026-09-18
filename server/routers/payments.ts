@@ -7,7 +7,7 @@ import { paymentSettings, payments, orderRequests } from "../../drizzle/schema";
 import { computeFeeStack } from "@shared/pricing";
 import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
 import { ENV } from "../_core/env";
-import { stripeEnvironmentFromKeys } from "../stripeMode";
+import { resolveStripeCredentials } from "../stripeConfig";
 
 // Load the single payment_settings row (seeding an empty default row once).
 async function loadSettingsRow() {
@@ -49,27 +49,21 @@ export const paymentsRouter = router({
 
   // ─── Admin: redacted Stripe status (credentials never leave the server) ──────
   adminGetStripeStatus: adminProcedure.query(() => {
-    const secretKeyConfigured = Boolean(ENV.stripeSecretKey.trim());
-    const publishableKeyConfigured = Boolean(ENV.stripePublishableKey.trim());
-    const webhookSecretConfigured = Boolean(ENV.stripeWebhookSecret.trim());
-    const environment = stripeEnvironmentFromKeys(ENV.stripeSecretKey, ENV.stripePublishableKey);
+    const credentials = resolveStripeCredentials();
 
     return {
-      configured: secretKeyConfigured && publishableKeyConfigured,
-      webhookConfigured: webhookSecretConfigured,
-      secretKeyConfigured,
-      publishableKeyConfigured,
-      environment,
+      configured: credentials.secretKeyConfigured && credentials.publishableKeyConfigured,
+      webhookConfigured: credentials.webhookSecretConfigured,
+      secretKeyConfigured: credentials.secretKeyConfigured,
+      publishableKeyConfigured: credentials.publishableKeyConfigured,
+      environment: credentials.environment,
       checkoutMode: "Hosted Checkout" as const,
     };
   }),
 
   // ─── Admin: Stripe operations dashboard (no credentials or payment data) ────
   adminGetStripeDashboard: adminProcedure.query(async () => {
-    const secretKeyConfigured = Boolean(ENV.stripeSecretKey.trim());
-    const publishableKeyConfigured = Boolean(ENV.stripePublishableKey.trim());
-    const webhookSecretConfigured = Boolean(ENV.stripeWebhookSecret.trim());
-    const environment = stripeEnvironmentFromKeys(ENV.stripeSecretKey, ENV.stripePublishableKey);
+    const credentials = resolveStripeCredentials();
     const db = await getDb();
     const checkoutRows = db
       ? await db
@@ -104,12 +98,14 @@ export const paymentsRouter = router({
     const awaitingPaymentCount = recentCheckout.filter((checkout) => checkout.state === "awaiting_payment").length;
 
     return {
-      configured: secretKeyConfigured && publishableKeyConfigured,
-      liveReady: secretKeyConfigured && publishableKeyConfigured && webhookSecretConfigured && environment === "production",
-      secretKeyConfigured,
-      publishableKeyConfigured,
-      webhookConfigured: webhookSecretConfigured,
-      environment,
+      configured: credentials.secretKeyConfigured && credentials.publishableKeyConfigured,
+      liveReady: credentials.liveReady,
+      secretKeyConfigured: credentials.secretKeyConfigured,
+      publishableKeyConfigured: credentials.publishableKeyConfigured,
+      webhookConfigured: credentials.webhookSecretConfigured,
+      environment: credentials.environment,
+      credentialSource: credentials.source,
+      validationMessage: credentials.validationMessage,
       checkoutMode: "Hosted Checkout" as const,
       webhookUrl: "https://www.cabinetdealz.com/api/stripe/webhook",
       stripeDashboardUrl: "https://dashboard.stripe.com/",

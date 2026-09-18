@@ -7,7 +7,7 @@
 import type { Express, Request, Response } from "express";
 import express from "express";
 import { fulfillOrder, getStripe } from "./stripe";
-import { ENV } from "./_core/env";
+import { requireStripeCredentials } from "./stripeConfig";
 
 export function registerStripeWebhook(app: Express): void {
   app.post(
@@ -23,10 +23,11 @@ export function registerStripeWebhook(app: Express): void {
       let event: ReturnType<typeof getStripe>["webhooks"]["constructEvent"] extends (...args: any[]) => infer R ? R : never;
       try {
         const stripe = getStripe();
+        const credentials = requireStripeCredentials();
         event = stripe.webhooks.constructEvent(
           req.body as Buffer,
           sig as string,
-          ENV.stripeWebhookSecret,
+          credentials.webhookSecret,
         );
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Unknown error";

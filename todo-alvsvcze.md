@@ -2251,3 +2251,11 @@
 - [x] Add server-side live/test prefix detection, and validate Admin-only dashboard access and key redaction.
 - [ ] Activate live credentials in the protected project Settings → Payment workspace; built-in Stripe environment secrets cannot be entered through a public or in-app Admin text field.
 - [x] Publish the validated Stripe Administration dashboard checkpoint.
+
+## Direct protected Stripe live keys — 2026-09-18
+- [x] Add a server-only protected live-key resolver using `CABINETDEALZ_STRIPE_LIVE_SECRET_KEY`, `CABINETDEALZ_STRIPE_LIVE_PUBLISHABLE_KEY`, and `CABINETDEALZ_STRIPE_LIVE_WEBHOOK_SECRET`.
+- [x] Route hosted Checkout creation, webhook signature verification, and Admin readiness through the resolver with a safe managed-test fallback.
+- [x] Make an incomplete or mismatched protected live entry fail closed instead of silently mixing test and live credentials.
+- [ ] Submit all three live values through the protected secret-entry card; the app will then automatically prefer them.
+- [x] Validate live/test detection, credential redaction, hosted Checkout behavior, TypeScript, and the production build.
+- [x] Publish the direct live-key resolver update.
