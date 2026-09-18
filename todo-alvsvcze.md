@@ -2227,4 +2227,4 @@
 - [x] Confirm the local CabinetDealz application and `/health` endpoint are healthy.
 - [x] Confirm `www.cabinetdealz.com` and the project host are serving Railway fallback responses instead of the application.
 - [x] Remove unsupported repository health-check overrides so a managed deployment does not submit a stale or invalid health-check path.
-- [ ] Save the deployment-configuration correction and verify whether the public domain returns to the active CabinetDealz application.
+- [x] Save the deployment-configuration correction and verify the public domain returns to the active CabinetDealz application.
