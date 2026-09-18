@@ -6388,7 +6388,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setLayoutStarterOpen(false);
     setMobilePanel(null);
     setSelectedLayoutPresetId(null);
-    toast.success(`${outline.customWalls.length} connected walls are ready. Select any wall and begin placing cabinets.`);
+    toast.success("Room layout saved successfully", {
+      description: `${outline.customWalls.length} connected walls are ready. Select any wall and begin placing cabinets.`,
+    });
   }, [applyRoom, continuousWallBlockedReason, room, setPlacementTarget]);
 
   const physicalWallSpans = useMemo(

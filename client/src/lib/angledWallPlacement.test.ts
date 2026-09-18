@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -185,6 +185,54 @@ describe("continuous builder custom wall placement", () => {
 	    expect(builderRoom.customWalls?.some((wall) => wall.id === recommendation!.side)).toBe(true);
 	    expect(["top", "right", "bottom", "left"]).not.toContain(recommendation!.side);
 	  });
+
+  it("recovers a far-dragged cabinet onto its owning drawn wall and clamps it before the wall end", () => {
+    const farDragged: PlacedCabinet = {
+      uid: "far-dragged-db18",
+      cabinetId: 18,
+      masterCode: "3-DB18",
+      description: "Drawer base 18",
+      placement: "base",
+      x: 500,
+      y: 400,
+      width: 18,
+      depth: 24,
+      height: 34.5,
+      rotation: 270,
+      wallId: "builder-top" as any,
+      wallOffset: 500,
+    };
+    const contained = containCabinetOnDrawnWalls(farDragged, builderRoom);
+    expect(contained).toMatchObject({
+      wallId: "builder-top",
+      wallOffset: 102,
+      x: 102,
+      y: 0,
+      rotation: 0,
+    });
+  });
+
+  it("replaces stale graph-square ownership with the closest real user-drawn wall", () => {
+    const staleGraphCabinet: PlacedCabinet = {
+      uid: "stale-graph-db18",
+      cabinetId: 18,
+      masterCode: "3-DB18",
+      description: "Drawer base 18",
+      placement: "base",
+      x: -48,
+      y: 30,
+      width: 18,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "top",
+    };
+    const contained = clampCabinetToRoom(staleGraphCabinet, builderRoom);
+    expect(builderRoom.customWalls?.some((wall) => wall.id === contained.wallId)).toBe(true);
+    expect(["top", "right", "bottom", "left"]).not.toContain(contained.wallId);
+    expect(contained.wallOffset).toBeGreaterThanOrEqual(0);
+    expect((contained.wallOffset ?? 0) + contained.width).toBeLessThanOrEqual(wallLength(contained.wallId as any, builderRoom));
+  });
 });
 
 describe("parent-wall termination at a peninsula attachment", () => {

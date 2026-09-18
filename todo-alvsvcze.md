@@ -2173,3 +2173,11 @@
 - [x] Validate `railway.json` against Railway's official JSON schema and add an automated configuration regression.
 - [x] Pass the new test, TypeScript, production build, and diff integrity checks.
 - [ ] Save the new deployment-repair checkpoint, republish, and verify `www.cabinetdealz.com/health` plus the production `/design` build.
+
+## Continuous Wall Builder interaction polish — 2026-09-18
+
+- [x] Add an in-builder **Rotate view** button that turns only the preview 90° at a time without changing entered wall lengths or turns.
+- [x] Force cabinets in a Continuous Wall Builder room to snap to real user-drawn walls and remain clamped within each wall run, never to the graph boundary.
+- [x] Show an accessible loading spinner while applying the wall layout and a persistent success message when the room layout is saved.
+- [x] Validate the exact preview rotation, far-drag cabinet recovery, run-end containment, save feedback, TypeScript, focused tests, production build, and browser UI.
+- [x] Save and publish a new CabinetDealz checkpoint automatically after validation.

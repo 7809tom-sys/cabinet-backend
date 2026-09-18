@@ -1,6 +1,11 @@
 // ─── Kitchen Design geometry & snapping engine ──────────────────────────────
 // All real-world units are INCHES. The canvas converts inches → pixels via PPI.
-import { wallAngle as polygonWallAngle, wallSegmentLength as polygonWallSegmentLength } from "./polygonRoom";
+import {
+  closestWall as closestPolygonWall,
+  positionAlongWall,
+  wallAngle as polygonWallAngle,
+  wallSegmentLength as polygonWallSegmentLength,
+} from "./polygonRoom";
 
 export const STD = {
   BASE_HEIGHT: 34.5,
@@ -6641,11 +6646,45 @@ export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): num
   return side === "top" || side === "bottom" ? size.w : size.d;
 }
 
+/**
+ * Continuous Wall Builder rooms use only their explicit measured segments.
+ * Re-seat stale graph-bound or far-dragged cabinets on the closest real wall,
+ * and let wallPlacementAt clamp the cabinet's full width inside that wall run.
+ */
+export function containCabinetOnDrawnWalls(p: PlacedCabinet, room: RoomData): PlacedCabinet {
+  if (p.islandFace || !room.vertices?.length || !room.customWalls?.length) return p;
+  const footprint = placedFootprint(p);
+  const center = { x: p.x + footprint.w / 2, y: p.y + footprint.d / 2 };
+  const ownedWall = room.customWalls.find((wall) => wall.id === p.wallId);
+  const wall = ownedWall ?? closestPolygonWall(center.x, center.y, room.vertices, room.customWalls);
+  if (!wall) return p;
+  const alongCenter = ownedWall && Number.isFinite(p.wallOffset)
+    ? Number(p.wallOffset) + p.width / 2
+    : positionAlongWall(center.x, center.y, wall, room.vertices);
+  const spot = wallPlacementAt(alongCenter - p.width / 2, p.width, p.depth, wall.id as WallSide, room, p.peninsulaSide);
+  if (
+    p.x === spot.x
+    && p.y === spot.y
+    && p.rotation === spot.rotation
+    && p.wallId === spot.wallId
+    && p.wallOffset === spot.wallOffset
+  ) return p;
+  return {
+    ...p,
+    ...spot,
+    wallId: spot.wallId,
+    wallOffset: spot.wallOffset,
+  };
+}
+
 // ─── In-bounds clamping after a room resize ─────────────────────────────────
 // When the room shrinks (typed or drawn), anything that now sticks out past a
 // wall must be pulled back inside. Keeps the design valid instead of leaving
 // cabinets floating outside the room rectangle.
 export function clampCabinetToRoom(p: PlacedCabinet, room: RoomData): PlacedCabinet {
+  if (!p.islandFace && room.vertices?.length && room.customWalls?.length) {
+    return containCabinetOnDrawnWalls(p, room);
+  }
   // Square footprint for L-corner cabinets so a resize keeps them flush in the
   // corner instead of pulling them in by the shallow stored leg depth.
   const { w, d } = placedFootprint(p);

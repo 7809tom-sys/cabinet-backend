@@ -3,9 +3,12 @@ import {
   ArrowDownRight,
   ArrowRight,
   Check,
+  CheckCircle2,
   CornerDownLeft,
   CornerDownRight,
+  Loader2,
   RotateCcw,
+  RotateCw,
   Ruler,
   Trash2,
   Undo2,
@@ -30,8 +33,10 @@ type TurnChoice = Exclude<WallBuilderTurn, "start">;
 interface Props {
   wallHeightIn: number;
   blockedReason?: string | null;
-  onApply: (room: WallBuilderRoomGeometry) => void;
+  onApply: (room: WallBuilderRoomGeometry) => void | Promise<void>;
 }
+
+const WALL_BUILDER_SAVE_FEEDBACK_MS = 450;
 
 const TURN_CHOICES: Array<{
   value: TurnChoice;
@@ -69,11 +74,23 @@ function turnLabel(turn: WallBuilderTurn): string {
   return "90° right";
 }
 
-function WallBuilderPreview({ segments }: { segments: WallBuilderSegment[] }) {
+function rotatePreviewPoint(point: { x: number; y: number }, rotationDeg: number) {
+  const rotation = ((rotationDeg % 360) + 360) % 360;
+  if (rotation === 90) return { x: -point.y, y: point.x };
+  if (rotation === 180) return { x: -point.x, y: -point.y };
+  if (rotation === 270) return { x: point.y, y: -point.x };
+  return point;
+}
+
+function WallBuilderPreview({ segments, viewRotationDeg }: { segments: WallBuilderSegment[]; viewRotationDeg: number }) {
   const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
+  const displayPoints = useMemo(
+    () => geometry.points.map((point) => rotatePreviewPoint(point, viewRotationDeg)),
+    [geometry.points, viewRotationDeg],
+  );
   const bounds = useMemo(() => {
-    const xs = geometry.points.map((point) => point.x);
-    const ys = geometry.points.map((point) => point.y);
+    const xs = displayPoints.map((point) => point.x);
+    const ys = displayPoints.map((point) => point.y);
     const minX = Math.min(0, ...xs);
     const maxX = Math.max(1, ...xs);
     const minY = Math.min(0, ...ys);
@@ -82,12 +99,12 @@ function WallBuilderPreview({ segments }: { segments: WallBuilderSegment[] }) {
     const height = Math.max(36, maxY - minY);
     const padding = Math.max(18, Math.max(width, height) * 0.13);
     return { minX: minX - padding, minY: minY - padding, width: width + padding * 2, height: height + padding * 2 };
-  }, [geometry.points]);
+  }, [displayPoints]);
   const labelSize = Math.max(6, Math.min(13, Math.max(bounds.width, bounds.height) / 23));
-  const path = geometry.points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const path = displayPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
 
   return (
-    <div className="relative min-h-64 overflow-hidden rounded-xl border border-[#d8c7a1] bg-[#fbfaf6] shadow-inner" data-testid="wall-builder-preview">
+    <div className="relative min-h-64 overflow-hidden rounded-xl border border-[#d8c7a1] bg-[#fbfaf6] shadow-inner" data-testid="wall-builder-preview" data-view-rotation={viewRotationDeg}>
       {segments.length === 0 ? (
         <div className="absolute inset-0 grid place-items-center px-8 text-center text-sm text-muted-foreground">
           Enter the first wall length. It starts to the right; every next wall continues from its end.
@@ -109,12 +126,12 @@ function WallBuilderPreview({ segments }: { segments: WallBuilderSegment[] }) {
             <path d={`${path} Z`} fill="#d4a75a" fillOpacity="0.13" stroke="none" />
           ) : null}
           <path d={path} fill="none" stroke="#1a2744" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-          {geometry.points.map((point, index) => (
+          {displayPoints.map((point, index) => (
             <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={index === 0 ? 3.4 : 2.5} fill={index === 0 ? "#b98d3e" : "#1a2744"} stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           ))}
           {segments.map((segment, index) => {
-            const start = geometry.points[index];
-            const end = geometry.points[index + 1];
+            const start = displayPoints[index];
+            const end = displayPoints[index + 1];
             const midX = (start.x + end.x) / 2;
             const midY = (start.y + end.y) / 2;
             return (
@@ -153,6 +170,8 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   const [lengthText, setLengthText] = useState("120");
   const [turn, setTurn] = useState<TurnChoice>("right90");
   const [message, setMessage] = useState<string | null>(null);
+  const [viewRotationDeg, setViewRotationDeg] = useState(0);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "success">("idle");
   const geometry = useMemo(() => wallBuilderGeometry(segments), [segments]);
   const parsedLength = parseLengthToInches(lengthText);
   const validLength = parsedLength != null && parsedLength >= WALL_BUILDER_MIN_WALL_IN;
@@ -174,6 +193,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
     }
     setSegments(next);
     setMessage(null);
+    setSaveState("idle");
   };
 
   const checkClosure = () => {
@@ -184,9 +204,10 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   const undo = () => {
     setSegments((current) => current.slice(0, -1));
     setMessage(null);
+    setSaveState("idle");
   };
 
-  const apply = () => {
+  const apply = async () => {
     if (blockedReason) {
       setMessage(blockedReason);
       return;
@@ -196,10 +217,16 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
       setMessage(result.error);
       return;
     }
-    onApply(result.room);
-    setSegments([]);
+    setSaveState("saving");
     setMessage(null);
-    setExpanded(false);
+    await new Promise((resolve) => window.setTimeout(resolve, WALL_BUILDER_SAVE_FEEDBACK_MS));
+    try {
+      await onApply(result.room);
+      setSaveState("success");
+    } catch {
+      setSaveState("idle");
+      setMessage("The room layout could not be saved. Please try again.");
+    }
   };
 
   return (
@@ -221,9 +248,25 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
       </button>
 
       {expanded ? (
-        <div className="grid gap-4 border-t border-[#d8c7a1] p-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(19rem,0.85fr)]">
+        <div className="grid gap-4 border-t border-[#d8c7a1] p-4">
           <div className="space-y-3">
-            <WallBuilderPreview segments={segments} />
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 shadow-sm">
+              <div>
+                <p className="text-xs font-bold text-[#1a2744]">Drawing view</p>
+                <p className="text-[10px] text-muted-foreground">Rotate the preview without changing any wall measurement.</p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setViewRotationDeg((current) => (current + 90) % 360)}
+                aria-label="Rotate drawing view 90 degrees clockwise"
+                data-testid="rotate-wall-builder-view"
+              >
+                <RotateCw className="mr-1.5 h-4 w-4" /> Rotate view · {viewRotationDeg}°
+              </Button>
+            </div>
+            <WallBuilderPreview segments={segments} viewRotationDeg={viewRotationDeg} />
             {message || geometry.error ? (
               <p className={`rounded-lg border px-3 py-2 text-xs leading-5 ${geometry.error ? "border-rose-300 bg-rose-50 text-rose-900" : "border-[#d8c7a1] bg-white text-[#654d24]"}`} role="status">
                 {geometry.error ?? message}
@@ -299,7 +342,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
               </div>
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <Button type="button" variant="outline" onClick={undo} disabled={segments.length === 0}><Undo2 className="mr-1.5 h-4 w-4" /> Undo last</Button>
-                <Button type="button" variant="outline" onClick={() => { setSegments([]); setMessage(null); }} disabled={segments.length === 0}><Trash2 className="mr-1.5 h-4 w-4" /> Clear</Button>
+                <Button type="button" variant="outline" onClick={() => { setSegments([]); setMessage(null); setSaveState("idle"); }} disabled={segments.length === 0}><Trash2 className="mr-1.5 h-4 w-4" /> Clear</Button>
               </div>
             </div>
 
@@ -307,8 +350,13 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
               <p className="text-xs leading-5 text-[#654d24]">Enter <strong>every wall length from your measurements</strong>. You may apply an open connected wall path at any time. Check closure is optional and never adds or changes a wall.</p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <Button type="button" variant="outline" onClick={checkClosure} disabled={segments.length < 3}><RotateCcw className="mr-1.5 h-4 w-4" /> Check closure</Button>
-                <Button type="button" onClick={apply} disabled={segments.length === 0 || Boolean(geometry.error) || Boolean(blockedReason)} data-testid="apply-continuous-wall-room"><Check className="mr-1.5 h-4 w-4" /> Apply walls</Button>
+                <Button type="button" onClick={apply} disabled={segments.length === 0 || Boolean(geometry.error) || Boolean(blockedReason) || saveState === "saving" || saveState === "success"} data-testid="apply-continuous-wall-room" aria-busy={saveState === "saving"}>
+                  {saveState === "saving" ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : saveState === "success" ? <CheckCircle2 className="mr-1.5 h-4 w-4" /> : <Check className="mr-1.5 h-4 w-4" />}
+                  {saveState === "saving" ? "Saving room…" : saveState === "success" ? "Room saved" : "Apply walls"}
+                </Button>
               </div>
+              {saveState === "saving" ? <p className="mt-2 text-center text-xs font-semibold text-[#1a2744]" role="status">Saving your measured wall layout…</p> : null}
+              {saveState === "success" ? <p className="mt-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-center text-xs font-semibold text-emerald-900" role="status"><CheckCircle2 className="mr-1 inline h-4 w-4" /> Room layout saved successfully.</p> : null}
             </div>
           </div>
         </div>
