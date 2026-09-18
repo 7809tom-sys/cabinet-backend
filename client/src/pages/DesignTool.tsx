@@ -168,7 +168,7 @@ import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeCon
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
-import { initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
+import { hasDesignedRoomGeometry, initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
 import { catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
@@ -1437,7 +1437,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
   const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
-  const hasPersistedTwoDPlan = placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
+  const hasPersistedRoomLayout = hasDesignedRoomGeometry(room);
+  const hasPersistedTwoDPlan = hasPersistedRoomLayout || placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
   const canLoadCatalogInteractive3d = Boolean(styleId && selectedStyleDistributorId && (placed.length > 0 || selectedLayoutPresetId));
   const canLoadInteractive3d = hasPersistedTwoDPlan || canLoadCatalogInteractive3d;
 
@@ -8231,6 +8232,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const snap = snapshotDraft();
       // Only persist if there is something worth keeping.
       const worthKeeping =
+        hasDesignedRoomGeometry(snap.room) ||
         snap.placed.length > 0 ||
         snap.openings.length > 0 ||
         snap.island != null ||
@@ -8333,7 +8335,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           }
           if (Array.isArray(d.annotations)) setAnnotations(d.annotations as PlanAnnotation[]);
           if (Array.isArray(d.ponyWalls)) setPonyWalls(d.ponyWalls as PonyWall[]);
-          if (Array.isArray(d.placed) && d.placed.length > 0) {
+          if ((d.room && hasDesignedRoomGeometry(d.room as RoomData)) || (Array.isArray(d.placed) && d.placed.length > 0)) {
             toast.success(t("dt_t_restored"));
           }
         }

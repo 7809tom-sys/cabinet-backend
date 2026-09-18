@@ -2200,3 +2200,12 @@
 - [x] Include perimeter and enclosed area in PNG/PDF room-layout exports.
 - [x] Validate Wall 4 deletion, wall switching, opening insertion, metrics, TypeScript, focused/broader tests, production build, and browser UI.
 - [x] Save and publish a new CabinetDealz checkpoint automatically after validation.
+
+## Continuous Wall Builder refresh restoration — 2026-09-18
+
+- [x] Reproduce the blank refreshed canvas where Wall 1–Wall 7 remain in the toolbar but the 3D workspace displays the starter message.
+- [x] Treat measured room geometry and custom wall paths as persisted design content even when the plan has zero cabinets or fixtures.
+- [x] Persist wall-only drafts so a room outline is never discarded merely because no cabinet has been placed yet.
+- [x] Keep the default 3D workspace and render the restored room shell through the saved-plan scene instead of switching to an empty starter state.
+- [x] Validate saved custom-wall refresh, TypeScript, focused/broader Designer regressions, production build, and live browser reload.
+- [x] Save and publish the CabinetDealz refresh-restoration checkpoint automatically after validation.
