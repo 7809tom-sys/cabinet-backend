@@ -213,6 +213,35 @@ describe("continuous builder custom wall placement", () => {
     });
   });
 
+  it("keeps real-corner snapping when the continuous wall path is closed", () => {
+    const moving: PlacedCabinet = {
+      uid: "erb36-closed-room-preview",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    // Wall Builder uses openWallPath=false once a measured chain closes. The
+    // height on each generated wall identifies it as the advanced authoring
+    // model, not a beginner seeded polygon.
+    const closedWallBuilderRoom: RoomData = {
+      ...builderRoom,
+      openWallPath: false,
+      customWalls: builderRoom.customWalls.map((wall) => ({ ...wall, height: 96 })),
+    };
+    expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, closedWallBuilderRoom, [])).toMatchObject({
+      wallId: "builder-top",
+      wallOffset: 0,
+      rotation: 0,
+    });
+  });
+
   it("lets a dragged corner cabinet target the nearest open real corner rather than its old wall", () => {
     const moving: PlacedCabinet = {
       uid: "erb36-drag-preview",

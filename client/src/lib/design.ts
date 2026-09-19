@@ -6402,12 +6402,20 @@ export function nextAvailableRoomCornerPlacement(
   const nearPointTolerance = nearPoint
     ? Math.max(24, Math.max(Number(moving.width) || 0, Number(moving.depth) || 0) + 24)
     : Number.POSITIVE_INFINITY;
-  // Continuous-wall rooms retain their own measured wall identity. Seat a true
+  // Continuous-wall rooms retain their own measured wall identity. Wall Builder
+  // marks an open run with openWallPath, while a completed loop is deliberately
+  // marked false. Its generated walls still carry the measured wall height, which
+  // distinguishes that advanced closed loop from a beginner seeded polygon.
+  const measuredContinuousWallRoom = Boolean(
+    room.openWallPath
+    || room.customWalls?.some((wall) => Number.isFinite(wall.height)),
+  );
+  // Seat a true
   // corner cabinet on an open *real* right-angle vertex rather than dropping it
   // into a graph-square corner. This must not be limited to cardinal walls:
   // users can draw a 90° corner with two diagonals, and it is still a normal
   // flush 90° cabinet corner (not an 11-inch 45° peninsula clearance).
-  if (room.openWallPath && room.vertices?.length && room.customWalls?.length) {
+  if (measuredContinuousWallRoom && room.vertices?.length && room.customWalls?.length) {
     const orderedWalls = [
       ...room.customWalls.filter((wall) => wall.id === activeWall),
       ...room.customWalls.filter((wall) => wall.id !== activeWall),
@@ -6461,14 +6469,20 @@ export function nextAvailableRoomCornerPlacement(
     bottom: [3, 2, 1, 0],
     left: [0, 3, 2, 1],
   };
+  // A legacy polygon may expose a custom wall id before it is classified as a
+  // continuous-wall room. Keep its old rectangular fallback safe rather than
+  // indexing the cardinal-wall order with that id.
+  const standardActiveWall = activeWall === "top" || activeWall === "right" || activeWall === "bottom" || activeWall === "left"
+    ? activeWall
+    : "top";
   const orderedCornerIndexes = nearPoint
-    ? [...orderByWall[activeWall]].sort((left, right) => {
+    ? [...orderByWall[standardActiveWall]].sort((left, right) => {
         const leftCorner = corners[left];
         const rightCorner = corners[right];
         return Math.hypot(leftCorner.x - nearPoint.x, leftCorner.y - nearPoint.y)
           - Math.hypot(rightCorner.x - nearPoint.x, rightCorner.y - nearPoint.y);
       })
-    : orderByWall[activeWall];
+    : orderByWall[standardActiveWall];
   for (const index of orderedCornerIndexes) {
     const corner = corners[index];
     if (nearPoint && Math.hypot(corner.x - nearPoint.x, corner.y - nearPoint.y) > nearPointTolerance) continue;

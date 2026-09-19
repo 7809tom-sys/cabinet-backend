@@ -1,0 +1,11 @@
+{
+  "task_kind": "markdown-to-pdf",
+  "output": "pdf",
+  "signals": ["professional attorney feature brief", "print-ready signing copy"],
+  "hard_constraints": ["clean PDF suitable for printing and signing", "retain cited comparison analysis"],
+  "content_features": {
+    "code_blocks": 0,
+    "defined_terms": 5,
+    "portrait_images": 0
+  }
+}
