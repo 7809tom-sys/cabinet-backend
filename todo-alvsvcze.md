@@ -2328,3 +2328,10 @@
 - [x] Make Plan Canvas recover each rotated measured-wall body from its stored bounding-box origin, preventing a visually offset 45-degree corner body while preserving collision dimensions.
 - [x] Add a **Filler color & finish** selector to the required blind-corner filler prompt. It defaults to the blind-corner cabinet and can copy any placed cabinet’s saved finish/two-tone override into the selected catalog filler.
 - [x] Validate TypeScript, 892 expanded Designer and 3D regressions, local Designer smoke testing, production build, and diff integrity.
+
+## Deferred ERB36 seams and chosen filler placement — 2026-09-19
+
+- [x] Do not propose a filler merely because an ERB36 is seated at a corner; wait until an adjoining left/right cabinet creates an actual installable 1/2–3-inch seam.
+- [x] Recheck every newly placed non-blind cabinet for a real small seam on either side, even when its opposite side remains open for additional cabinets. Retain the 45-degree-only protected peninsula rule and all blind-corner rules.
+- [x] Make the filler dialog explicit: it shows the exact cut size and lets the user choose left, right, or equal split before inserting the catalog filler at a zero-overlap seam; leaving the space open remains available.
+- [x] Validate TypeScript, 913 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.

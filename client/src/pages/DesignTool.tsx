@@ -14739,12 +14739,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}
         onOpenChange={(open) => { if (!open) setSmallGapFillerPrompt(null); }}
       >
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Fill the remaining {formatInches(smallGapFillerPrompt?.remaining ?? 0)}?</DialogTitle>
+	        <DialogContent className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle>Choose filler placement — {formatInches(smallGapFillerPrompt?.remaining ?? 0)}</DialogTitle>
 	        <DialogDescription>
 	          {smallGapFillerDefinition
-	            ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. It remains one priced invoice item even if it is split into two installed pieces.`
+	            ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. Choose the left edge, right edge, or an even split below; CabinetDealz cuts and inserts the selected size at that exact zero-overlap seam.`
 	            : "No active catalog filler is available for this opening."}
 	        </DialogDescription>
 	      </DialogHeader>
@@ -14754,20 +14754,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
 	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
 	      >
-	        <Wand2 className="mr-1.5 h-4 w-4" /> Auto-fill {smallGapFillerDefinition?.masterCode ?? "filler"} · cut {formatInches(smallGapFillerPrompt?.remaining ?? 0)}
+	        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatInches(smallGapFillerPrompt?.remaining ?? 0)}
 	      </Button>
-	      <div className="grid gap-2 sm:grid-cols-3">
-            <Button
-              variant="outline"
-              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !canSplitSmallGapFiller(smallGapFillerPrompt)}
-              onClick={() => applySmallGapFiller("split")}
-              data-testid="small-gap-filler-split"
-            >
-              Split left / right
-            </Button>
-            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")}>Filler on left</Button>
-            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")}>Filler on right</Button>
-          </div>
+	      <div className="rounded-lg border border-[#d9c196] bg-[#fffaf0] p-3">
+	        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler go?</p>
+	        <div className="grid gap-2 sm:grid-cols-3">
+	            <Button
+	              variant="outline"
+	              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !canSplitSmallGapFiller(smallGapFillerPrompt)}
+	              onClick={() => applySmallGapFiller("split")}
+	              data-testid="small-gap-filler-split"
+	              className="h-auto min-h-14 whitespace-normal"
+	            >
+	              Split evenly<br /><span className="text-xs font-normal">{formatInches((smallGapFillerPrompt?.remaining ?? 0) / 2)} each side</span>
+	            </Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler</span></Button>
+	        </div>
+	      </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSmallGapFillerPrompt(null)}>Leave space open</Button>
           </DialogFooter>

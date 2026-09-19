@@ -214,25 +214,63 @@ export function findSmallGapFillerOpportunity(
 			};
 		}
 	}
-	const remaining = installableSmallGapRemainder(measurement.before + measurement.after);
-  // A small clearance on one side is not a filler opportunity when the other
-  // side still has room for more cabinets. The entire measured opening must be
-  // nearly consumed by this cabinet before the filler choices are offered.
-  if (remaining == null) return null;
-  if (gapCrossesWallOpening(openings, wall, leadingStart, measurement.before)) return null;
-  if (gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)) return null;
-  const preferredMode = wallBlindCornerPreferredFillerMode(cabinet, wall);
-  return {
-    cabinetUid,
-    wall,
-    layer,
-    cabinetStart,
-    cabinetSpan,
-    openingStart: leadingStart,
-    openingLength: cabinetSpan + remaining,
-    remaining,
-    ...(preferredMode ? { preferredMode } : {}),
-  };
+		const before = installableSmallGapRemainder(measurement.before);
+		const after = installableSmallGapRemainder(measurement.after);
+		const beforeIsClear = before != null && !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before);
+		const afterIsClear = after != null && !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after);
+		const combined = installableSmallGapRemainder(measurement.before + measurement.after);
+
+	  // When both adjoining seams are small, preserve the established single
+	  // dialog with left/right/split choices. It is one bounded opening and one
+	  // sellable filler line, even when the user elects to install two equal pieces.
+	  if (beforeIsClear && afterIsClear && combined != null) {
+	    const preferredMode = wallBlindCornerPreferredFillerMode(cabinet, wall);
+	    return {
+	      cabinetUid,
+	      wall,
+	      layer,
+	      cabinetStart,
+	      cabinetSpan,
+	      openingStart: leadingStart,
+	      openingLength: cabinetSpan + combined,
+	      remaining: combined,
+	      ...(preferredMode ? { preferredMode } : {}),
+	    };
+	  }
+
+	  // Do not decide an ERB36 filler at the moment the corner cabinet is seated:
+	  // the neighboring runs are not known yet. Once the user places a cabinet
+	  // beside either leg, however, a real 1/2–3" seam needs immediate filler
+	  // guidance even if the cabinet's other side remains open for more cabinets.
+	  // Pick the left seam first for a deterministic prompt; after it is resolved,
+	  // the next cabinet placement/recheck can offer the independent right seam.
+	  if (beforeIsClear) {
+	    return {
+	      cabinetUid,
+	      wall,
+	      layer,
+	      cabinetStart,
+	      cabinetSpan,
+	      openingStart: cabinetStart - before!,
+	      openingLength: cabinetSpan + before!,
+	      remaining: before!,
+	      preferredMode: wallBlindCornerPreferredFillerMode(cabinet, wall) ?? "left",
+	    };
+	  }
+	  if (afterIsClear) {
+	    return {
+	      cabinetUid,
+	      wall,
+	      layer,
+	      cabinetStart,
+	      cabinetSpan,
+	      openingStart: cabinetStart,
+	      openingLength: cabinetSpan + after!,
+	      remaining: after!,
+	      preferredMode: wallBlindCornerPreferredFillerMode(cabinet, wall) ?? "right",
+	    };
+	  }
+	  return null;
 }
 
 /** Uses the selected island face's own run length and neighbors, never a room wall. */

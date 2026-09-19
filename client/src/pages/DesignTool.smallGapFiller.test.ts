@@ -27,11 +27,13 @@ describe("Design Tool small-gap filler workflow", () => {
 	  it("offers leave-open, split, left, and right outcomes", () => {
 	  expect(source).toContain('data-testid="small-gap-filler-auto"');
 	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt))");
-	  expect(source).toContain("Auto-fill {smallGapFillerDefinition?.masterCode");
-    expect(source).toContain("Fill the remaining");
-    expect(source).toContain("Split left / right");
-	    expect(source).toContain("Filler on left");
-	    expect(source).toContain("Filler on right");
+	  expect(source).toContain("Use suggested placement · {smallGapFillerDefinition?.masterCode");
+	    expect(source).toContain("Choose filler placement");
+	    expect(source).toContain("Where should this");
+	    expect(source).toContain("Split evenly");
+	    expect(source).toContain('data-testid="small-gap-filler-left"');
+	    expect(source).toContain('data-testid="small-gap-filler-right"');
+	    expect(source).toContain("cuts and inserts the selected size at that exact zero-overlap seam");
 	    expect(source).toContain("Leave space open");
 	  });
 

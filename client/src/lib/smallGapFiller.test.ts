@@ -20,8 +20,36 @@ const cabinet: PlacedCabinet = {
   x: 0, y: 0, width: 18, depth: 24, height: 34.5, rotation: 0,
 };
 
-describe("small-gap filler placement", () => {
-	it("selects the correct one-click layout for split and one-sided sub-three-inch gaps", () => {
+	describe("small-gap filler placement", () => {
+		it("waits to offer an ERB36-side filler until a neighboring cabinet creates a real small seam", () => {
+		  const erb36: PlacedCabinet = {
+		    ...cabinet,
+		    uid: "erb36-corner",
+		    masterCode: "ERB36",
+		    description: "Easy Reach Corner Base 36",
+		    width: 36,
+		    depth: 24,
+		    rotation: 0,
+		  };
+		  const b18: PlacedCabinet = {
+		    ...cabinet,
+		    uid: "b18-next-to-erb36",
+		    masterCode: "B18",
+		    description: "18 inch Base Cabinet",
+		    x: 38.5,
+		    width: 18,
+		  };
+		  const room = { ...DEFAULT_ROOM, width: 144 };
+		  expect(findSmallGapFillerOpportunity(room, [erb36], [], erb36.uid)).toBeNull();
+		  expect(findSmallGapFillerOpportunity(room, [erb36, b18], [], b18.uid)).toMatchObject({
+		    remaining: 2.5,
+		    openingStart: 36,
+		    openingLength: 20.5,
+		    preferredMode: "left",
+		  });
+		});
+
+		it("selects the correct one-click layout for split and one-sided sub-three-inch gaps", () => {
 	  const baseOpportunity = {
 	    cabinetUid: "cabinet-1",
 	    wall: "top" as const,
@@ -128,9 +156,10 @@ describe("small-gap filler placement", () => {
 	    expect(findSmallGapFillerOpportunity(room, [db21], [], db21.uid)).toBeNull();
 	  });
 
-	  it("prompts after a peninsula B-18 starts 12 inches from the turn, filling only the one inch beyond the protected 11-inch corner", () => {
-	    const run = { id: "peninsula-filler-popup", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 60, height: 34.5, cabinetSide: "left" as const };
-	    const room: RoomData = { ...DEFAULT_ROOM, peninsulaRuns: [run] };
+		  it("prompts after a 45-degree peninsula B-18 starts 12 inches from the turn, filling only the one inch beyond the protected 11-inch corner", () => {
+		    const parent = { id: "peninsula-filler-parent", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "left" as const };
+		    const run = { id: "peninsula-filler-popup", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "right" as const, length: 60, height: 34.5, cabinetSide: "left" as const };
+		    const room: RoomData = { ...DEFAULT_ROOM, peninsulaRuns: [parent, run] };
 	    const placement = wallPlacementAt(12, 18, 24, run.id as never, room, "left");
 	    const b18: PlacedCabinet = {
 	      ...cabinet,
@@ -400,7 +429,7 @@ describe("small-gap filler placement", () => {
     expect(findSmallGapFillerOpportunity(room, [w3642], [], w3642.uid)).toBeNull();
   });
 
-  it("does not prompt for W2442 when a three-quarter-inch clearance exists on one side but 59½ inches remains on the other", () => {
+  it("prompts for the real one-sided W2442 seam even when the opposite side remains open for more cabinets", () => {
     const previousUpper: PlacedCabinet = {
       ...cabinet,
       uid: "previous-upper",
@@ -424,7 +453,12 @@ describe("small-gap filler placement", () => {
       [previousUpper, w2442],
       [],
       w2442.uid,
-    )).toBeNull();
+    )).toMatchObject({
+      remaining: 0.75,
+      openingStart: 60.75,
+      openingLength: 24.75,
+      preferredMode: "left",
+    });
   });
 
   it("does not prompt for an opening larger than three inches", () => {
