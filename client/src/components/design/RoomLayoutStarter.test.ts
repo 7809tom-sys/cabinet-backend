@@ -1,5 +1,26 @@
-import { describe, expect, it } from "vitest";
-import { GUIDED_ROOM_WORKFLOW_STEPS, guidedRoomWorkflowStepState, numberedLayoutTile, roomFromSeededShape, type SeededLayout } from "./RoomLayoutStarter";
+// @vitest-environment jsdom
+
+import { fireEvent, render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { GUIDED_ROOM_WORKFLOW_STEPS, guidedRoomWorkflowStepState, numberedLayoutTile, RoomLayoutStarter, roomFromSeededShape, type SeededLayout } from "./RoomLayoutStarter";
+
+const usePresetsQuery = vi.fn();
+const useEligibleCatalogQuery = vi.fn();
+
+vi.mock("@/lib/trpc", () => ({
+  trpc: {
+    roomLayouts: {
+      presets: { useQuery: (...args: unknown[]) => usePresetsQuery(...args) },
+      eligibleCatalog: { useQuery: (...args: unknown[]) => useEligibleCatalogQuery(...args) },
+    },
+  },
+}));
+
+afterEach(() => {
+  usePresetsQuery.mockReset();
+  useEligibleCatalogQuery.mockReset();
+});
 
 describe("roomFromSeededShape", () => {
   it("keeps the seeded rectangle in the standard RoomData format", () => {
@@ -30,6 +51,7 @@ describe("roomFromSeededShape", () => {
     expect(room.vertices).toHaveLength(6);
     expect(room.customWalls).toHaveLength(6);
     expect(room.vertices?.[2]).toMatchObject({ x: 156, y: 72 });
+    expect(room.openWallPath).toBeUndefined();
   });
 
   it("keeps the guided flow in floorplan, layout, design, summary order", () => {
@@ -47,5 +69,49 @@ describe("roomFromSeededShape", () => {
     expect(numberedLayoutTile(layouts, "one-wall")).toBe(1);
     expect(numberedLayoutTile(layouts, "l-kitchen")).toBe(2);
     expect(numberedLayoutTile(layouts, "missing")).toBeNull();
+  });
+
+  it("keeps beginner room shapes visible by default and reveals the Wall Builder only after choosing advanced mode", () => {
+    usePresetsQuery.mockReturnValue({
+      data: {
+        roomShapes: [{
+          id: "rectangle",
+          name: "Rectangle",
+          description: "A simple four-wall room.",
+          roomType: "kitchen",
+          geometryTemplate: {},
+          defaultDimensions: { width: 144, depth: 120, ceilingHeight: 96 },
+        }],
+        layouts: [{
+          id: "one-wall",
+          roomShapePresetId: "rectangle",
+          name: "One wall",
+          description: "A beginner layout.",
+          minimumWidth: 96,
+          minimumDepth: 96,
+        }],
+      },
+      isLoading: false,
+      error: null,
+    });
+    useEligibleCatalogQuery.mockReturnValue({ data: undefined, isFetching: false });
+
+    render(createElement(RoomLayoutStarter, {
+      selectedStyleId: null,
+      selectedDistributorId: null,
+      onApplyRoom: vi.fn(),
+      onApplyContinuousRoom: vi.fn(),
+    }));
+
+    expect(screen.getByRole("button", { name: /easy room shapes/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /advanced continuous walls/i })).toBeTruthy();
+    expect(screen.getByText(/1\. pick a room shape/i)).toBeTruthy();
+    expect(screen.queryByText(/build walls continuously/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /advanced continuous walls/i }));
+
+    expect(screen.getByRole("button", { name: /open builder/i })).toBeTruthy();
+    expect(screen.queryByText(/1\. pick a room shape/i)).toBeNull();
+    expect(screen.queryByText(/apply room shape and continue/i)).toBeNull();
   });
 });

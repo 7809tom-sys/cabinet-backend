@@ -108,6 +108,7 @@ export function RoomLayoutStarter({
   const [shapeId, setShapeId] = useState<string | null>(null);
   const [layoutId, setLayoutId] = useState<string | null>(null);
   const [workflowStage, setWorkflowStage] = useState<1 | 2 | 3 | 4>(1);
+  const [startMode, setStartMode] = useState<"starter" | "continuous">("starter");
 
   const roomShapes = (data?.roomShapes ?? []) as SeededRoomShape[];
   const layouts = (data?.layouts ?? []) as SeededLayout[];
@@ -162,16 +163,25 @@ export function RoomLayoutStarter({
       </CardHeader>
       <CardContent className="space-y-5">
         {onApplyContinuousRoom ? (
-          <section className="space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold"><Sparkles className="h-4 w-4 text-[#b98d3e]" /> Choose how to start the room</div>
-            <WallBuilder
-              wallHeightIn={wallHeightIn}
-              blockedReason={continuousWallBlockedReason}
-              onApply={onApplyContinuousRoom}
-            />
-            <div className="flex items-center gap-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground before:h-px before:flex-1 before:bg-border after:h-px after:flex-1 after:bg-border">or choose a shape</div>
+          <section className="grid gap-2 sm:grid-cols-2" aria-label="Room design mode">
+            <button type="button" onClick={() => setStartMode("starter")} className={`rounded-xl border p-3 text-left transition-colors ${startMode === "starter" ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border bg-background hover:border-primary/50"}`}>
+              <div className="flex items-center gap-2 text-sm font-semibold"><LayoutPanelTop className="h-4 w-4 text-primary" /> Easy room shapes</div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Beginner-friendly room shapes and starter layouts with the standard cabinet rules.</p>
+            </button>
+            <button type="button" onClick={() => setStartMode("continuous")} className={`rounded-xl border p-3 text-left transition-colors ${startMode === "continuous" ? "border-[#b98d3e] bg-amber-50 ring-1 ring-[#b98d3e]/50" : "border-border bg-background hover:border-[#b98d3e]/50"}`}>
+              <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-[#b98d3e]" /> Advanced continuous walls</div>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Enter every measured wall and exact turn. This advanced mode stays separate from room shapes.</p>
+            </button>
           </section>
         ) : null}
+        {startMode === "continuous" && onApplyContinuousRoom ? (
+          <section className="space-y-2 rounded-xl border border-[#b98d3e]/40 bg-amber-50/40 p-3">
+            <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-[#b98d3e]" /> Build walls continuously</div>
+            <p className="text-xs leading-relaxed text-muted-foreground">Advanced measured-wall mode. Use the wall attributes and exact turns here; beginner room shapes remain unchanged.</p>
+            <WallBuilder wallHeightIn={wallHeightIn} blockedReason={continuousWallBlockedReason} onApply={onApplyContinuousRoom} />
+          </section>
+        ) : (
+          <>
         <section className="space-y-2">
           <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-primary" /> 1. Pick a room shape</div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -226,6 +236,8 @@ export function RoomLayoutStarter({
         }}>
           Apply room shape and continue
         </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );

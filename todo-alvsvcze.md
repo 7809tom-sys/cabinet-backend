@@ -2259,3 +2259,19 @@
 - [ ] Submit all three live values through the protected secret-entry card; the app will then automatically prefer them.
 - [x] Validate live/test detection, credential redaction, hosted Checkout behavior, TypeScript, and the production build.
 - [x] Publish the direct live-key resolver update.
+
+## Designer corner placement and advanced-mode isolation — 2026-09-18
+
+- [x] Limit the 11-inch peninsula inside-corner clearance to true 45-degree turns; retain flush first-cabinet placement at normal 90-degree returns.
+- [x] Reserve the matching far-end clearance only where a connected 45-degree child wall actually creates that inside corner, including short-run fit rejection.
+- [x] Snap ERB36 and other true corner-cabinet placements to available measured right-angle vertices in advanced continuous-wall rooms while retaining their `wallId` and exact `wallOffset`.
+- [x] Reserve the adjoining measured leg of a seated ERB/L/diagonal/corner-drawer cabinet so a straight cabinet such as B12 cannot occupy its physical corner footprint.
+- [x] Keep standard Room Shapes and Starter Layouts as the default Easy room shapes flow, separate from the opt-in Advanced continuous walls flow.
+- [x] Validate the 45-degree/90-degree clearance distinction, custom-wall ERB leg reservation, advanced-corner snap, seeded-layout isolation, TypeScript, focused and broader Designer regressions, production build, and diff integrity.
+- [x] Save and publish the completed Designer corner-rule checkpoint automatically after validation.
+
+## AW1230 canonical angled-wall pricing — 2026-09-18
+
+- [x] Confirmed that `AW-12-30` is an alternate code for canonical `AW1230`, whose existing published supplier pricing remains authoritative.
+- [x] Kept all `AW1230` pricing values unchanged; its 35 published supplier SKU records remain active and visible.
+- [x] Hid duplicate `AW-12-30` from the catalog and Designer, unpublished its conflicting duplicate source rows, and retained a clean `AW-12-30` → `AW1230` alias mapping with no conflict flag.

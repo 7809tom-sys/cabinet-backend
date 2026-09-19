@@ -1237,6 +1237,19 @@ export interface PeninsulaRun {
   label?: string;
 }
 
+/**
+ * The installer clearance belongs only to an acute 45-degree inside turn.
+ * A square 90-degree return is served by normal cabinet footprint collision
+ * and must allow a cabinet to seat directly at its available corner.
+ */
+export function peninsulaRunHas45StartInsideCornerClearance(run: PeninsulaRun): boolean {
+  return Boolean(run.parentRunId && run.turn === 45);
+}
+
+export function peninsulaRunHas45EndInsideCornerClearance(run: PeninsulaRun, room: RoomData): boolean {
+  return Boolean(room.peninsulaRuns?.some((candidate) => candidate.parentRunId === run.id && candidate.turn === 45));
+}
+
 /** Exact room-space line geometry for a persisted peninsula run. */
 export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "width" | "depth">): {
   start: { x: number; y: number };
@@ -2439,16 +2452,20 @@ export function firstCollisionFreePeninsulaPlacement(
   const run = peninsulaRunById(room, side);
   if (!run || width <= 0 || depth <= 0) return null;
   const floorSupported = ["base", "tall", "appliance"].includes(placement);
-  const hasConnectedFarEnd = Boolean(room.peninsulaRuns?.some((candidate) => candidate.parentRunId === run.id));
-  const farInsideCornerClearance = floorSupported && hasConnectedFarEnd ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
-  const maximumOffset = Math.max(0, Number(run.length) - farInsideCornerClearance - width);
+  const has45StartInsideCorner = peninsulaRunHas45StartInsideCornerClearance(run);
+  const has45EndInsideCorner = peninsulaRunHas45EndInsideCornerClearance(run, room);
+  const farInsideCornerClearance = floorSupported && has45EndInsideCorner ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
+  const availableRunLength = Math.max(0, Number(run.length) - farInsideCornerClearance);
+  if (availableRunLength + COLLISION_EPSILON_IN < width) return null;
+  const maximumOffset = Math.max(0, availableRunLength - width);
   const requestedMinimum = Number(bounds?.start);
   const requestedMaximum = Number(bounds?.end);
-  // Every floor-supported peninsula segment begins with an installer clearance
-  // at its joined inside corner. This applies independently to the straight
-  // primary run and each connected continuation, so selecting the next wall
-  // still starts its first cabinet 11 inches after that wall's own corner.
-  const insideCornerClearance = floorSupported ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
+  // Only an acute 45-degree return needs the installer clearance. A 90-degree
+  // corner uses its exact product footprint and stays available for a corner
+  // cabinet or a flush straight-cabinet run.
+  const insideCornerClearance = floorSupported && has45StartInsideCorner
+    ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN
+    : 0;
   const minimumOffset = Math.max(
     insideCornerClearance,
     Number.isFinite(requestedMinimum) ? Math.max(0, requestedMinimum) : 0,
@@ -6055,12 +6072,12 @@ export function freeSegmentsOnWall(
   // Collect blocked [start, end] intervals along the run axis.
   const blocked: { s: number; e: number }[] = [];
   if (peninsulaRun && ["base", "tall", "appliance"].includes(layer)) {
-    blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
-    // When another peninsula segment turns from this run's far endpoint, the
-    // parent and child each need their own 11-inch clear leg at that inside
-    // angle. A free terminal end is not reserved, so a 36-inch one-corner run
-    // still accepts a standard 24-inch cabinet with one inch remaining.
-    if (room.peninsulaRuns?.some((candidate) => candidate.parentRunId === peninsulaRun.id)) {
+    // A child 45-degree run owns the near-end reservation. Its parent reserves
+    // the matching far end. No 11-inch rule applies to a 90-degree return.
+    if (peninsulaRun.parentRunId && peninsulaRun.turn === 45) {
+      blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
+    }
+    if (peninsulaRunHas45EndInsideCornerClearance(peninsulaRun, room)) {
       blocked.push({ s: Math.max(0, wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN), e: wallLen });
     }
   }
@@ -6092,14 +6109,48 @@ export function freeSegmentsOnWall(
     // the adjoining wall so a catalog click/drop starts at the corner's actual
     // edge instead of being created inside it and rejected as a full overlap.
     const assignedWall = cabinetWall(p, room);
-    if (explicitRun && assignedWall !== side) continue;
     const cornerKind = placedCornerGeometryKind(p);
+    const assignedCustomWall = room.customWalls?.find((wall) => wall.id === assignedWall);
+    const targetCustomWall = customRoomWall
+      ? room.customWalls?.find((wall) => wall.id === side)
+      : undefined;
+    const sharedCustomVertex = assignedCustomWall && targetCustomWall
+      ? [assignedCustomWall.startVertexId, assignedCustomWall.endVertexId].find((vertexId) => (
+        vertexId === targetCustomWall.startVertexId || vertexId === targetCustomWall.endVertexId
+      ))
+      : undefined;
+    const seatedAtSharedCustomVertex = (() => {
+      if (!sharedCustomVertex || !assignedCustomWall) return false;
+      const sourceLength = wallLength(assignedWall, room);
+      const sourceStart = wallRunOffset(p, assignedWall, room);
+      const sourceEnd = sourceStart + wallRunSpan(p, assignedWall, room);
+      return sharedCustomVertex === assignedCustomWall.startVertexId
+        ? sourceStart <= 2
+        : sourceEnd >= sourceLength - 2;
+    })();
     const reservesAdjoiningWall = (
       cornerKind === "l-shape" ||
       cornerKind === "diagonal" ||
       cornerKind === "corner-drawer"
-    ) && isAgainstWall(p, side, room);
+    ) && (isAgainstWall(p, side, room) || seatedAtSharedCustomVertex);
+    // Explicit custom runs normally contain only their own cabinets. A true
+    // corner cabinet is the intentional exception: it physically consumes both
+    // adjoining wall legs, including two continuous-wall segments.
+    if (explicitRun && assignedWall !== side && !reservesAdjoiningWall) continue;
     if (assignedWall !== side && !reservesAdjoiningWall) continue;
+    if (assignedWall !== side && reservesAdjoiningWall && targetCustomWall && sharedCustomVertex) {
+      const footprint = placedFootprint(p);
+      const adjacentLeg = cornerKind === "l-shape"
+        ? Math.min(Number(p.width) || STD.BASE_DEPTH, p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH)
+        : Math.min(footprint.w, footprint.d);
+      const targetStartsAtSharedVertex = sharedCustomVertex === targetCustomWall.startVertexId;
+      if (targetStartsAtSharedVertex) {
+        blocked.push({ s: 0, e: Math.min(wallLen, adjacentLeg) });
+      } else {
+        blocked.push({ s: Math.max(0, wallLen - adjacentLeg), e: wallLen });
+      }
+      continue;
+    }
     // A raised short bridge above a sink/window can share the plan projection
     // with a neighboring upper only when its elevation band is genuinely
     // separate. Same-height uppers still reserve their run as before.
@@ -6343,7 +6394,37 @@ export function nextAvailableRoomCornerPlacement(
   activeWall: WallSide,
   room: RoomData,
   placed: readonly PlacedCabinet[],
-): { x: number; y: number; rotation: number } | null {
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  // Continuous-wall rooms retain their own measured wall identity. For their
+  // cardinal 90-degree vertices, seat a true corner cabinet on an open vertex
+  // rather than dropping it into a graph-square corner. Diagonal corner
+  // cabinets retain the dedicated angled-wall placement flow because their
+  // non-rectangular body geometry is product-specific.
+  if (room.openWallPath && room.vertices?.length && room.customWalls?.length) {
+    const orderedWalls = [
+      ...room.customWalls.filter((wall) => wall.id === activeWall),
+      ...room.customWalls.filter((wall) => wall.id !== activeWall),
+    ];
+    for (const wall of orderedWalls) {
+      const angle = polygonWallAngle(wall, room.vertices);
+      const cardinal = Math.abs(Math.sin(angle * 2)) < 1e-6;
+      if (!cardinal) continue;
+      const length = polygonWallSegmentLength(wall, room.vertices);
+      for (const endpoint of ["start", "end"] as const) {
+        const vertexId = endpoint === "start" ? wall.startVertexId : wall.endVertexId;
+        const adjoining = room.customWalls.find((candidate) => candidate.id !== wall.id && (
+          candidate.startVertexId === vertexId || candidate.endVertexId === vertexId
+        ));
+        if (!adjoining) continue;
+        const adjoiningAngle = polygonWallAngle(adjoining, room.vertices);
+        if (Math.abs(Math.cos(angle - adjoiningAngle)) > 1e-6) continue;
+        const offset = endpoint === "start" ? 0 : Math.max(0, length - moving.width);
+        const spot = wallPlacementAt(offset, moving.width, moving.depth, wall.id as WallSide, room);
+        const candidate = { ...moving, ...spot, wallId: wall.id, wallOffset: offset };
+        if (!hasCollision(candidate, [...placed])) return spot;
+      }
+    }
+  }
   const footprint = placedFootprint(moving);
   const corners = [
     { x: 0, y: 0 },

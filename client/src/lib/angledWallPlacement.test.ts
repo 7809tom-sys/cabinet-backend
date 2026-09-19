@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -152,6 +152,48 @@ describe("continuous builder custom wall placement", () => {
     expect(wallPlacementAt(0, 30, 24, "builder-right" as any, builderRoom)).toMatchObject({ rotation: 90, wallId: "builder-right", wallOffset: 0 });
     expect(wallPlacementAt(0, 30, 24, "builder-bottom" as any, builderRoom)).toMatchObject({ rotation: 180, wallId: "builder-bottom", wallOffset: 0 });
     expect(wallPlacementAt(0, 30, 24, "builder-left" as any, builderRoom)).toMatchObject({ rotation: 270, wallId: "builder-left", wallOffset: 0 });
+  });
+
+  it("reserves a seated ERB corner cabinet's adjoining custom-wall leg before placing a straight cabinet", () => {
+    const topRightSpot = wallPlacementAt(84, 36, 24, "builder-top" as any, builderRoom);
+    const erb: PlacedCabinet = {
+      uid: "erb36-top-right",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      ...topRightSpot,
+      rotation: 90,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      wallId: "builder-top",
+      wallOffset: 84,
+    };
+    expect(freeSegmentsOnWall("builder-right" as any, builderRoom, [erb], [], 0.5, 0, "base")).toEqual([
+      { start: 24, length: 72 },
+    ]);
+  });
+
+  it("snaps an ERB corner cabinet to the first available right-angle vertex in advanced continuous-wall mode", () => {
+    const moving: PlacedCabinet = {
+      uid: "erb36-preview",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, { ...builderRoom, openWallPath: true }, [])).toMatchObject({
+      wallId: "builder-top",
+      wallOffset: 0,
+      rotation: 0,
+    });
   });
 
   it("magnetically snaps a nearby cabinet to a straight custom wall instead of the polygon bounding box", () => {
@@ -599,7 +641,7 @@ describe("cabinet-supported peninsula runs", () => {
     expect(spot).toMatchObject({ wallId: run.id, wallOffset: 12 });
   });
 
-  it("keeps cabinets 11 inches from both legs of a peninsula angle intersection", () => {
+  it("keeps 11 inches only on the 45-degree leg while the primary 90-degree run remains flush", () => {
     const primary = peninsulaRoom.peninsulaRuns![0];
     const child: PeninsulaRun = {
       id: "peninsula-next-wall",
@@ -614,14 +656,14 @@ describe("cabinet-supported peninsula runs", () => {
     const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, child] };
     expect(firstCollisionFreePeninsulaPlacement(primary.id as any, room, [], 18, 24, "base")).toMatchObject({
       wallId: primary.id,
-      wallOffset: 11,
+      wallOffset: 0,
     });
     expect(firstCollisionFreePeninsulaPlacement(child.id as any, room, [], 18, 24, "base")).toMatchObject({
       wallId: child.id,
       wallOffset: 11,
     });
     expect(freeSegmentsOnWall(primary.id as any, room, [], [], 1, 0, "base")).toEqual([
-      { start: 11, length: primary.length - 22 },
+      { start: 0, length: primary.length - 11 },
     ]);
     expect(freeSegmentsOnWall(child.id as any, room, [], [], 1, 0, "base")).toEqual([
       { start: 11, length: child.length - 11 },
@@ -782,7 +824,32 @@ describe("cabinet-supported peninsula runs", () => {
     const next = wallPlacementAt(0, 30, 24, "peninsula-90-right" as any, peninsulaRoom);
     const candidate = { ...peninsulaCabinet("new-b12", 0), ...next, wallId: next.wallId, wallOffset: next.wallOffset };
     expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
-    expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 11, length: 19 });
+    expect(freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base")).toContainEqual({ start: 0, length: 30 });
+  });
+
+  it("keeps the 11-inch installer clearance only for a connected 45-degree inside corner", () => {
+    const primary = { ...peninsulaRoom.peninsulaRuns![0], id: "primary-90", length: 72 };
+    const rightAngleChild: PeninsulaRun = {
+      id: "right-angle-child",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 90,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+    };
+    const rightAngleRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, rightAngleChild] };
+    expect(firstCollisionFreePeninsulaPlacement(rightAngleChild.id as any, rightAngleRoom, [], 24, 24, "base")).toMatchObject({
+      wallId: rightAngleChild.id,
+      wallOffset: 0,
+    });
+
+    const diagonalChild = { ...rightAngleChild, id: "diagonal-child", turn: 45 as const };
+    const diagonalRoom: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, diagonalChild] };
+    expect(firstCollisionFreePeninsulaPlacement(diagonalChild.id as any, diagonalRoom, [], 24, 24, "base")).toMatchObject({
+      wallId: diagonalChild.id,
+      wallOffset: PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+    });
   });
 
   it("recovers a legacy peninsula cabinet that still carries its original parent-wall owner", () => {
@@ -790,7 +857,7 @@ describe("cabinet-supported peninsula runs", () => {
     const normalized = normalizeLegacyPeninsulaCabinets([staleParentWallOwner], peninsulaRoom);
     expect(normalized[0]).toMatchObject({ wallId: "peninsula-90-right", wallOffset: 30, peninsulaSide: "left", rotation: 90 });
     const opening = freeSegmentsOnWall("peninsula-90-right" as any, peninsulaRoom, normalized, [], 0.5, 0, "base");
-    expect(opening).toContainEqual({ start: 11, length: 19 });
+    expect(opening).toContainEqual({ start: 0, length: 30 });
   });
 
   it("repairs a parent-wall peninsula cabinet whose saved rotation is still the old perimeter-wall rotation", () => {
@@ -802,7 +869,7 @@ describe("cabinet-supported peninsula runs", () => {
     expect(cabinetCollisionDetail(candidate, normalized)).toBeNull();
     expect(paletteActiveWallPlacement("peninsula-90-right" as any, peninsulaRoom, normalized, [], 30, 24, "base")).toMatchObject({
       wallId: "peninsula-90-right",
-      wallOffset: 60,
+      wallOffset: 0,
       rotation: 90,
     });
   });
