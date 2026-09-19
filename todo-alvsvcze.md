@@ -2419,3 +2419,9 @@
 - [x] Allow the originating affiliate owner, as well as an administrator, to create a Kitchen Package directly from the completed design.
 - [x] Replace the visible Designer action copy with **Publish as Kitchen Package** and remove the misleading Admin-only label. The package is created privately, then its owner controls storefront publication from Kitchen Packages.
 - [x] Validate TypeScript, 8 focused Kitchen Package freshness/publish/order-rail tests, production build, and diff integrity.
+
+## Cabinet Edit override-field visibility — 2026-09-19
+
+- [x] Move Distributor Dimension Overrides into the same scrollable Cabinet Edit workspace as Description, category, dimensions, and all master fields; the fixed Save footer no longer divides or hides the active edit form.
+- [x] When a distributor row’s **Edit** action is selected, automatically bring the actual width, height, depth, package, weight, and note inputs into view and label the active editor clearly.
+- [x] Validate TypeScript, four focused Cabinet Detail regressions, production build, and diff integrity.

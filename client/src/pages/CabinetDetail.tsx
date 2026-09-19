@@ -578,6 +578,20 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [connectionSku, setConnectionSku] = useState<string>("");
   const [confirmMasterSaveOpen, setConfirmMasterSaveOpen] = useState(false);
 
+  // The distributor override editor is deliberately within the same scrollable
+  // form as the master fields. When a row is selected, take the editor into
+  // view so its actual inputs are never hidden below the modal footer.
+  useEffect(() => {
+    if (overrideDistId === null || !editOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("distributor-override-editor")?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [editOpen, overrideDistId]);
+
   // Pre-fill form when dialog opens
   useEffect(() => {
     if (editOpen && cabinet) {
@@ -2143,8 +2157,6 @@ export default function CabinetDetail({ masterCode }: Props) {
                 />
                 <p className="text-[10px] text-muted-foreground">Shown on the public cabinet detail page. Edit to customize for this cabinet.</p>
               </div>
-            </div>
-
             {/* ── Distributor-specific dimension overrides (admin only) ── */}
             {isOwner && cabinet?.id && (
               <div className="space-y-3 border-t border-dashed border-amber-500/40 pt-4">
@@ -2287,9 +2299,12 @@ export default function CabinetDetail({ masterCode }: Props) {
                 )}
                 {/* Add / edit override form */}
                 {overrideDistId !== null ? (
-                  <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-2">
-                    <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                      Override for: {(distCoverage ?? []).find((d) => d.distributorId === overrideDistId)?.name ?? `Dist #${overrideDistId}`}
+                  <div id="distributor-override-editor" className="rounded-md border-2 border-amber-500/40 bg-amber-500/5 p-3 space-y-2 shadow-sm">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+                        Editing dimensions for {(distCoverage ?? []).find((d) => d.distributorId === overrideDistId)?.name ?? `Dist #${overrideDistId}`}
+                      </div>
+                      <Badge variant="outline" className="border-amber-500/40 bg-background text-[10px] text-amber-800">Fields below</Badge>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       {(["width","height","depth","physicalWidth","weight","pkgLength","pkgWidth","pkgHeight","pkgWeight"] as const).map((field) => (
@@ -2377,6 +2392,7 @@ export default function CabinetDetail({ masterCode }: Props) {
                 )}
               </div>
             )}
+            </div>
 
             <DialogFooter className="gap-2 shrink-0 border-t border-border pt-4">
               {showCabinetAttentionReturn && (
