@@ -318,6 +318,11 @@ export const distributors = mysqlTable("distributors", {
   shippingFreeFreightThresholdCents: int("shippingFreeFreightThresholdCents"),
   shippingZipRates: json("shippingZipRates").$type<Array<{ zipPrefix: string; feeCents: number }>>(),
   shippingExceptions: text("shippingExceptions"),
+  // Vendor inventory forecast: null intentionally means "TBD / not configured".
+  // Rates are basis points (for example 6000 = 60%) and may only be edited by an admin.
+  inventoryForecastCloseRateBps: int("inventoryForecastCloseRateBps"),
+  inventoryForecastLowRateBps: int("inventoryForecastLowRateBps"),
+  inventoryForecastHighRateBps: int("inventoryForecastHighRateBps"),
   leadTimeDays: int("leadTimeDays").default(7),
   // ─── Fulfillment / order routing ───────────────────────────────────────────
   // Where confirmed purchase orders for this line are SENT. orderEmail is the
@@ -624,6 +629,9 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   wholesalePrice: decimal("wholesalePrice", { precision: 10, scale: 2 }),
   contractorPrice: decimal("contractorPrice", { precision: 10, scale: 2 }),
   homeownerPrice: decimal("homeownerPrice", { precision: 10, scale: 2 }),
+  // Optional vendor-fed current inventory. Null means the supplier has not
+  // supplied on-hand data; zero remains a valid reported inventory level.
+  onHandQty: int("onHandQty"),
   isAvailable: boolean("isAvailable").default(true).notNull(),
   isPublished: boolean("isPublished").default(true).notNull(), // distributor visibility toggle
   // SKU-level image (per cabinet + door style). Falls back to door-style image, then drawing.

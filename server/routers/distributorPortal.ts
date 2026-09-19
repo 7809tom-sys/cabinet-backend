@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { and, eq, inArray, desc, sql } from "drizzle-orm";
+import { and, eq, inArray, desc, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { distributorProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -9,11 +9,17 @@ import {
   distributorSkus,
   doorStyles,
   orderRequests,
+  kitchenDesigns,
   aiServiceRequests,
 } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
+import {
+  inventoryForecastRow,
+  isForecastRateBps,
+  type ForecastRateBand,
+} from "@shared/inventoryForecast";
 
 /**
  * Resolve the supply line this request operates on.
@@ -41,6 +47,31 @@ function resolveLineId(
 }
 
 const MAX_DESIGN_TOOL_PICKS = 8;
+
+const monthOffset = (months: number) => {
+  const date = new Date();
+  date.setMonth(date.getMonth() - months);
+  return date;
+};
+
+function placedCabinetQuantity(value: unknown): number {
+  if (!value || typeof value !== "object") return 1;
+  const source = value as { quantity?: unknown; qty?: unknown };
+  const qty = Number(source.quantity ?? source.qty ?? 1);
+  return Number.isFinite(qty) && qty > 0 ? Math.max(1, Math.round(qty)) : 1;
+}
+
+function formatForecastRates(line: {
+  inventoryForecastCloseRateBps: number | null;
+  inventoryForecastLowRateBps: number | null;
+  inventoryForecastHighRateBps: number | null;
+}): ForecastRateBand {
+  return {
+    baseRateBps: line.inventoryForecastCloseRateBps,
+    lowRateBps: line.inventoryForecastLowRateBps,
+    highRateBps: line.inventoryForecastHighRateBps,
+  };
+}
 
 export const distributorPortalRouter = router({
   /** The line this user manages: neutral label, counts, lead time. No real brand leaks. */
@@ -112,6 +143,182 @@ export const distributorPortalRouter = router({
       };
     }),
 
+  /**
+   * Active saved-design pipeline for a vendor line. Only 30/90/180-day views
+   * capped at the six-month active window contribute demand. A linked confirmed
+   * or paid order closes a design; a seven-month-old unsold design is listed
+   * solely in the optional dead-design view and never affects inventory demand.
+   */
+  inventoryForecast: distributorProcedure
+    .input(z.object({
+      distributorId: z.number().optional(),
+      days: z.union([z.literal(30), z.literal(90), z.literal(180)]).default(180),
+      includeDead: z.boolean().default(false),
+    }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+      const days = input?.days ?? 180;
+      const sixMonthsAgo = monthOffset(6);
+      const requestedSince = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const activeSince = requestedSince > sixMonthsAgo ? requestedSince : sixMonthsAgo;
+      const deadBefore = monthOffset(7);
+
+      const [line, activeDesigns, deadCandidates, skuRows] = await Promise.all([
+        db.select({
+          id: distributors.id,
+          name: distributors.name,
+          inventoryForecastCloseRateBps: distributors.inventoryForecastCloseRateBps,
+          inventoryForecastLowRateBps: distributors.inventoryForecastLowRateBps,
+          inventoryForecastHighRateBps: distributors.inventoryForecastHighRateBps,
+        }).from(distributors).where(eq(distributors.id, lineId)).limit(1),
+        db.select({
+          id: kitchenDesigns.id,
+          name: kitchenDesigns.name,
+          affiliateId: kitchenDesigns.affiliateId,
+          selectedStyleId: kitchenDesigns.selectedStyleId,
+          placedCabinets: kitchenDesigns.placedCabinets,
+          updatedAt: kitchenDesigns.updatedAt,
+        }).from(kitchenDesigns).where(and(
+          eq(kitchenDesigns.selectedDistributorId, lineId),
+          gte(kitchenDesigns.updatedAt, activeSince),
+        )),
+        input?.includeDead
+          ? db.select({
+              id: kitchenDesigns.id,
+              name: kitchenDesigns.name,
+              affiliateId: kitchenDesigns.affiliateId,
+              selectedStyleId: kitchenDesigns.selectedStyleId,
+              placedCabinets: kitchenDesigns.placedCabinets,
+              updatedAt: kitchenDesigns.updatedAt,
+            }).from(kitchenDesigns).where(and(
+              eq(kitchenDesigns.selectedDistributorId, lineId),
+              lte(kitchenDesigns.updatedAt, deadBefore),
+            )).orderBy(desc(kitchenDesigns.updatedAt)).limit(250)
+          : Promise.resolve([]),
+        db.select({
+          cabinetId: distributorSkus.cabinetId,
+          styleId: distributorSkus.styleId,
+          distributorSku: distributorSkus.distributorSku,
+          masterCode: cabinets.masterCode,
+          onHandQty: distributorSkus.onHandQty,
+        }).from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(and(eq(distributorSkus.distributorId, lineId), eq(distributorSkus.isAvailable, true))),
+      ]);
+      const lineRow = line[0];
+      if (!lineRow) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
+
+      const allDesignIds = activeDesigns.concat(deadCandidates).map((design) => design.id);
+      const closedDesignIds = new Set<number>();
+      if (allDesignIds.length > 0) {
+        const sales = await db.select({ kitchenDesignId: orderRequests.kitchenDesignId })
+          .from(orderRequests)
+          .where(and(
+            inArray(orderRequests.kitchenDesignId, allDesignIds),
+            or(eq(orderRequests.status, "confirmed"), isNotNull(orderRequests.paidAt)),
+          ));
+        sales.forEach((sale) => { if (sale.kitchenDesignId != null) closedDesignIds.add(sale.kitchenDesignId); });
+      }
+
+      const exactSku = new Map<string, typeof skuRows[number]>();
+      const fallbackSku = new Map<number, typeof skuRows[number]>();
+      const stockByMaster = new Map<string, { known: boolean; total: number; vendorSkus: Set<string> }>();
+      for (const sku of skuRows) {
+        if (sku.cabinetId == null) continue;
+        exactSku.set(`${sku.cabinetId}:${sku.styleId}`, sku);
+        if (!fallbackSku.has(sku.cabinetId)) fallbackSku.set(sku.cabinetId, sku);
+        const stock = stockByMaster.get(sku.masterCode) ?? { known: true, total: 0, vendorSkus: new Set<string>() };
+        stock.known = stock.known && sku.onHandQty != null;
+        stock.total += sku.onHandQty ?? 0;
+        stock.vendorSkus.add(sku.distributorSku);
+        stockByMaster.set(sku.masterCode, stock);
+      }
+
+      const demand = new Map<string, { masterCode: string; vendorSkus: Set<string>; qty: number; designs: Set<number>; affiliates: Set<number> }>();
+      for (const design of activeDesigns) {
+        if (closedDesignIds.has(design.id)) continue;
+        for (const placed of design.placedCabinets ?? []) {
+          const cabinetId = Number((placed as { cabinetId?: unknown }).cabinetId);
+          if (!Number.isInteger(cabinetId) || cabinetId <= 0) continue;
+          const sku = design.selectedStyleId == null
+            ? fallbackSku.get(cabinetId)
+            : (exactSku.get(`${cabinetId}:${design.selectedStyleId}`) ?? fallbackSku.get(cabinetId));
+          if (!sku) continue;
+          const row = demand.get(sku.masterCode) ?? { masterCode: sku.masterCode, vendorSkus: new Set<string>(), qty: 0, designs: new Set<number>(), affiliates: new Set<number>() };
+          row.vendorSkus.add(sku.distributorSku);
+          row.qty += placedCabinetQuantity(placed);
+          row.designs.add(design.id);
+          if (design.affiliateId != null) row.affiliates.add(design.affiliateId);
+          demand.set(sku.masterCode, row);
+        }
+      }
+
+      const rates = formatForecastRates(lineRow);
+      const rows = Array.from(demand.values()).map((demandRow) => {
+        const stock = stockByMaster.get(demandRow.masterCode);
+        return inventoryForecastRow({
+          masterCode: demandRow.masterCode,
+          vendorSku: Array.from(demandRow.vendorSkus).sort().join(" / "),
+          openDesignQty: demandRow.qty,
+          openDesignCount: demandRow.designs.size,
+          affiliateCount: demandRow.affiliates.size,
+          onHandQty: stock?.known ? stock.total : null,
+        }, rates);
+      }).sort((a, b) => b.openDesignQty - a.openDesignQty || a.masterCode.localeCompare(b.masterCode));
+
+      return {
+        lineName: lineRow.name,
+        days,
+        activeSince,
+        deadBefore,
+        rates,
+        rateConfigured: isForecastRateBps(rates.baseRateBps),
+        openDesignCount: activeDesigns.filter((design) => !closedDesignIds.has(design.id)).length,
+        closedDesignCount: activeDesigns.filter((design) => closedDesignIds.has(design.id)).length,
+        rows,
+        deadDesigns: input?.includeDead
+          ? deadCandidates.filter((design) => !closedDesignIds.has(design.id)).map((design) => ({
+              id: design.id,
+              name: design.name,
+              affiliateId: design.affiliateId,
+              lastActivityAt: design.updatedAt,
+              placedCabinetCount: (design.placedCabinets ?? []).length,
+            }))
+          : [],
+      };
+    }),
+
+  /** Admin-owned close-rate controls. Null is intentionally shown as TBD. */
+  updateInventoryForecastRates: distributorProcedure
+    .input(z.object({
+      distributorId: z.number().positive(),
+      baseRateBps: z.number().int().min(0).max(10000).nullable(),
+      lowRateBps: z.number().int().min(0).max(10000).nullable(),
+      highRateBps: z.number().int().min(0).max(10000).nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      if (!ctx.isAdmin) throw new TRPCError({ code: "FORBIDDEN", message: "Only an administrator can set the inventory close-rate forecast." });
+      if (input.baseRateBps == null && (input.lowRateBps != null || input.highRateBps != null)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Set a base close rate before using low or high forecast bands." });
+      }
+      if (input.baseRateBps != null && input.lowRateBps != null && input.lowRateBps > input.baseRateBps) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The low rate cannot exceed the base close rate." });
+      }
+      if (input.baseRateBps != null && input.highRateBps != null && input.highRateBps < input.baseRateBps) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The high rate cannot be below the base close rate." });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.update(distributors).set({
+        inventoryForecastCloseRateBps: input.baseRateBps,
+        inventoryForecastLowRateBps: input.baseRateBps == null ? null : input.lowRateBps,
+        inventoryForecastHighRateBps: input.baseRateBps == null ? null : input.highRateBps,
+      }).where(eq(distributors.id, input.distributorId));
+      return { updated: true };
+    }),
+
   /** This line's catalog: one row per SKU with cabinet info + visibility state. */
   catalog: distributorProcedure
     .input(
@@ -166,6 +373,7 @@ export const distributorPortalRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
+          onHandQty: distributorSkus.onHandQty,
           isPublished: distributorSkus.isPublished,
           isAvailable: distributorSkus.isAvailable,
           imageUrl: distributorSkus.imageUrl,
@@ -481,6 +689,26 @@ export const distributorPortalRouter = router({
         .set(updates as any)
         .where(eq(distributorSkus.id, input.skuId));
       return { skuId: input.skuId, updated: Object.keys(updates) };
+    }),
+
+  /** Optional vendor-supplied stock feed for the inventory forecast. */
+  updateOnHandInventory: distributorProcedure
+    .input(z.object({
+      distributorId: z.number().optional(),
+      skuId: z.number().positive(),
+      onHandQty: z.number().int().min(0).nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const [owned] = await db.select({ id: distributorSkus.id })
+        .from(distributorSkus)
+        .where(and(eq(distributorSkus.id, input.skuId), eq(distributorSkus.distributorId, lineId)))
+        .limit(1);
+      if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "That product is not in your line." });
+      await db.update(distributorSkus).set({ onHandQty: input.onHandQty }).where(eq(distributorSkus.id, input.skuId));
+      return { skuId: input.skuId, onHandQty: input.onHandQty };
     }),
 
   // ─── Image Upload (instant) ───────────────────────────────────────────────────

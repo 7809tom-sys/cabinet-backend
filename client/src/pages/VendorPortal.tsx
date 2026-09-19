@@ -26,6 +26,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { csvEscape } from "@shared/inventoryForecast";
 
 // ─── Admin Distributor Context ───────────────────────────────────────────────
 const AdminDistributorContext = createContext<number | undefined>(undefined);
@@ -417,6 +418,7 @@ function CatalogPage() {
   const [search, setSearch] = useState("");
   const [onlyHidden, setOnlyHidden] = useState(false);
   const [editingPrice, setEditingPrice] = useState<{ skuId: number; field: string; value: string } | null>(null);
+  const [editingOnHand, setEditingOnHand] = useState<{ skuId: number; value: string } | null>(null);
   const [showNewProduct, setShowNewProduct] = useState(false);
   const [showCsvUpload, setShowCsvUpload] = useState(false);
   const catalogInput = useMemo(
@@ -449,6 +451,16 @@ function CatalogPage() {
       utils.distributorPortal.catalog.invalidate();
       toast.success("Price updated");
       setEditingPrice(null);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const updateOnHand = trpc.distributorPortal.updateOnHandInventory.useMutation({
+    onSuccess: () => {
+      void utils.distributorPortal.catalog.invalidate();
+      void utils.distributorPortal.inventoryForecast.invalidate();
+      toast.success("On-hand inventory updated");
+      setEditingOnHand(null);
     },
     onError: (err) => toast.error(err.message),
   });
@@ -580,6 +592,7 @@ function CatalogPage() {
                 <TableHead className="text-right">List</TableHead>
                 <TableHead className="text-right">Wholesale</TableHead>
                 <TableHead className="text-right">Contractor</TableHead>
+                <TableHead className="text-right">On hand</TableHead>
                 <TableHead className="text-center">Visible</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-20">Actions</TableHead>
@@ -625,6 +638,15 @@ function CatalogPage() {
                       {money(item.contractorPrice)}
                     </button>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <button
+                      className="text-sm hover:underline cursor-pointer"
+                      onClick={() => setEditingOnHand({ skuId: item.skuId, value: item.onHandQty == null ? "" : String(item.onHandQty) })}
+                      title="Set current on-hand inventory for this vendor SKU"
+                    >
+                      {item.onHandQty == null ? "—" : item.onHandQty.toLocaleString()}
+                    </button>
+                  </TableCell>
                   <TableCell className="text-center">
                     <Switch
                       checked={item.isPublished}
@@ -661,7 +683,7 @@ function CatalogPage() {
               ))}
               {catalog.data?.items.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No products found matching your filters.
                   </TableCell>
                 </TableRow>
@@ -720,6 +742,37 @@ function CatalogPage() {
               >
                 {updatePrice.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {editingOnHand && (
+        <Dialog open onOpenChange={() => setEditingOnHand(null)}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Set on-hand inventory</DialogTitle></DialogHeader>
+            <p className="text-sm text-muted-foreground">Leave blank when this vendor has no inventory feed. Zero is a valid reported quantity.</p>
+            <Input
+              type="number"
+              min="0"
+              step="1"
+              value={editingOnHand.value}
+              onChange={(event) => setEditingOnHand({ ...editingOnHand, value: event.target.value })}
+              placeholder="No inventory feed"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingOnHand(null)}>Cancel</Button>
+              <Button
+                disabled={updateOnHand.isPending}
+                onClick={() => updateOnHand.mutate({
+                  ...(adminDistId ? { distributorId: adminDistId } : {}),
+                  skuId: editingOnHand.skuId,
+                  onHandQty: editingOnHand.value.trim() === "" ? null : Number(editingOnHand.value),
+                })}
+              >
+                {updateOnHand.isPending ? "Saving…" : "Save inventory"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1532,11 +1585,65 @@ function GalleryPage() {
 // ─── Vendor Analytics Page ───────────────────────────────────────────────────
 function VendorAnalyticsPage() {
   const adminDistId = useAdminDistributorId();
+  const { user } = useAuth();
   const [days, setDays] = useState(60);
+  const [inventoryDays, setInventoryDays] = useState<30 | 90 | 180>(180);
+  const [showDeadDesigns, setShowDeadDesigns] = useState(false);
+  const [baseRatePercent, setBaseRatePercent] = useState("");
+  const [lowRatePercent, setLowRatePercent] = useState("");
+  const [highRatePercent, setHighRatePercent] = useState("");
   const summary = trpc.analytics.summary.useQuery({ days, ...(adminDistId ? { distributorId: adminDistId } : {}) });
   const forecast = trpc.analytics.savedPlanForecast.useQuery({ days, ...(adminDistId ? { distributorId: adminDistId } : {}) });
+  const inventoryForecast = trpc.distributorPortal.inventoryForecast.useQuery({
+    days: inventoryDays,
+    includeDead: showDeadDesigns,
+    ...(adminDistId ? { distributorId: adminDistId } : {}),
+  });
+  const utils = trpc.useUtils();
+  const updateRates = trpc.distributorPortal.updateInventoryForecastRates.useMutation({
+    onSuccess: () => {
+      void utils.distributorPortal.inventoryForecast.invalidate();
+      toast.success("Inventory forecast rate saved");
+    },
+    onError: (error) => toast.error(error.message || "Could not save the forecast rate"),
+  });
 
-  if (summary.isLoading || forecast.isLoading) {
+  useEffect(() => {
+    const rates = inventoryForecast.data?.rates;
+    if (!rates) return;
+    setBaseRatePercent(rates.baseRateBps == null ? "" : String(rates.baseRateBps / 100));
+    setLowRatePercent(rates.lowRateBps == null ? "" : String(rates.lowRateBps / 100));
+    setHighRatePercent(rates.highRateBps == null ? "" : String(rates.highRateBps / 100));
+  }, [inventoryForecast.data?.rates.baseRateBps, inventoryForecast.data?.rates.lowRateBps, inventoryForecast.data?.rates.highRateBps]);
+
+  const exportInventoryForecast = useCallback(() => {
+    const inventory = inventoryForecast.data;
+    if (!inventory) return;
+    const header = ["Master SKU", "Vendor ordering SKU", "Open designs (qty)", "Open designs", "Affiliates", "Projected sell-through", "Low", "High", "Suggested stock", "On hand", "Status", "Notes"];
+    const rows = inventory.rows.map((row) => [
+      row.masterCode,
+      row.vendorSku,
+      row.openDesignQty,
+      row.openDesignCount,
+      row.affiliateCount,
+      row.projectedSellThrough,
+      row.lowProjectedSellThrough,
+      row.highProjectedSellThrough,
+      row.suggestedStock,
+      row.onHandQty,
+      row.stockStatus,
+      row.stockStatus === "demand_only" ? "Vendor inventory feed not provided" : row.stockStatus === "rate_tbd" ? "Close rate TBD by administrator" : "",
+    ]);
+    const csv = [header, ...rows].map((row) => row.map(csvEscape).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `inventory-forecast-${inventory.lineName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${inventoryDays}d.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }, [inventoryForecast.data, inventoryDays]);
+
+  if (summary.isLoading || forecast.isLoading || inventoryForecast.isLoading) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-24 w-full" />)}
@@ -1546,7 +1653,18 @@ function VendorAnalyticsPage() {
 
   const data = summary.data;
   const savedPlanForecast = forecast.data;
-  if (!data || !savedPlanForecast) return <p className="text-muted-foreground">No analytics data available.</p>;
+  const inventory = inventoryForecast.data;
+  if (!data || !savedPlanForecast || !inventory) return <p className="text-muted-foreground">No analytics data available.</p>;
+  const isAdmin = user?.role === "admin";
+  const toBps = (value: string) => value.trim() === "" ? null : Math.round(Number(value) * 100);
+  const statusLabel: Record<string, string> = { short: "Short", ok: "OK", over: "Over", demand_only: "Demand only", rate_tbd: "Rate TBD" };
+  const statusClass: Record<string, string> = {
+    short: "border-red-200 bg-red-50 text-red-800",
+    ok: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    over: "border-amber-200 bg-amber-50 text-amber-800",
+    demand_only: "border-slate-200 bg-slate-50 text-slate-700",
+    rate_tbd: "border-violet-200 bg-violet-50 text-violet-800",
+  };
 
   return (
     <div className="space-y-6">
@@ -1641,6 +1759,39 @@ function VendorAnalyticsPage() {
         {savedPlanForecast.unresolvedCabinetQty > 0 && (
           <p className="text-xs text-muted-foreground">{savedPlanForecast.unresolvedCabinetQty.toLocaleString()} cabinet unit{savedPlanForecast.unresolvedCabinetQty === 1 ? "" : "s"} could not be matched to a current vendor SKU and are excluded from the SKU demand list.</p>
         )}
+      </section>
+
+      <section className="space-y-4" aria-labelledby="inventory-forecast-heading">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h3 id="inventory-forecast-heading" className="text-lg font-semibold">Design → Inventory forecast</h3>
+            <p className="text-sm text-muted-foreground">Master-SKU demand from active open designs only. Designs closed by a confirmed or paid order are excluded; unsold designs at least seven months old are dead and never inflate the forecast.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Select value={String(inventoryDays)} onValueChange={(value) => setInventoryDays(Number(value) as 30 | 90 | 180)}>
+              <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+              <SelectContent><SelectItem value="30">Last 30 days</SelectItem><SelectItem value="90">Last 90 days</SelectItem><SelectItem value="180">Last 180 days</SelectItem></SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" onClick={exportInventoryForecast} disabled={inventory.rows.length === 0}><Download className="mr-1.5 h-4 w-4" />Export CSV</Button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Open active designs</p><p className="text-3xl font-bold">{inventory.openDesignCount}</p><p className="mt-1 text-xs text-muted-foreground">Since {new Date(inventory.activeSince).toLocaleDateString()}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Closed designs excluded</p><p className="text-3xl font-bold">{inventory.closedDesignCount}</p><p className="mt-1 text-xs text-muted-foreground">Confirmed or paid orders are not pipeline demand.</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-sm text-muted-foreground">Close-rate factor</p><p className="text-3xl font-bold">{inventory.rateConfigured ? `${(inventory.rates.baseRateBps! / 100).toFixed(1)}%` : "TBD"}</p><p className="mt-1 text-xs text-muted-foreground">{inventory.rateConfigured ? "Administrator-configured, not assumed." : "Set by an administrator before projected units are calculated."}</p></CardContent></Card>
+        </div>
+
+        {isAdmin && adminDistId && <Card className="border-violet-200 bg-violet-50/40"><CardHeader className="pb-3"><CardTitle className="text-base">Administrator forecast rate</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-4 md:items-end"><Label className="space-y-1"><span>Low close rate (%)</span><Input type="number" min="0" max="100" step="0.1" value={lowRatePercent} onChange={(event) => setLowRatePercent(event.target.value)} placeholder="Optional" /></Label><Label className="space-y-1"><span>Base close rate (%)</span><Input type="number" min="0" max="100" step="0.1" value={baseRatePercent} onChange={(event) => setBaseRatePercent(event.target.value)} placeholder="TBD" /></Label><Label className="space-y-1"><span>High close rate (%)</span><Input type="number" min="0" max="100" step="0.1" value={highRatePercent} onChange={(event) => setHighRatePercent(event.target.value)} placeholder="Optional" /></Label><Button disabled={updateRates.isPending} onClick={() => updateRates.mutate({ distributorId: adminDistId, baseRateBps: toBps(baseRatePercent), lowRateBps: toBps(lowRatePercent), highRateBps: toBps(highRatePercent) })}>{updateRates.isPending ? "Saving…" : "Save rates"}</Button></CardContent></Card>}
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-3 pb-3"><div><CardTitle className="text-base">Vendor inventory requirements</CardTitle><p className="mt-1 text-xs text-muted-foreground">Vendor ordering SKU is an alias for the master nomenclature code. On-hand is shown only when the vendor has supplied inventory.</p></div><Button variant="ghost" size="sm" onClick={() => setShowDeadDesigns((value) => !value)}>{showDeadDesigns ? "Hide dead designs" : "View dead designs"}</Button></CardHeader>
+          <CardContent className="p-0">
+            {inventory.rows.length === 0 ? <div className="p-5 text-sm text-muted-foreground">No open vendor-matched designs in this active window. Dead designs are excluded from demand.</div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Master SKU</TableHead><TableHead>Vendor ordering SKU</TableHead><TableHead className="text-right">Open designs (qty)</TableHead><TableHead className="text-right">Projected sell-through</TableHead><TableHead className="text-right">Suggested stock</TableHead><TableHead className="text-right">On hand</TableHead><TableHead>Status</TableHead><TableHead>Notes</TableHead></TableRow></TableHeader><TableBody>{inventory.rows.map((row) => <TableRow key={row.masterCode}><TableCell className="font-medium">{row.masterCode}</TableCell><TableCell className="font-mono text-xs">{row.vendorSku}</TableCell><TableCell className="text-right">{row.openDesignQty} <span className="text-xs text-muted-foreground">({row.openDesignCount})</span></TableCell><TableCell className="text-right">{row.projectedSellThrough == null ? "TBD" : <><span>{row.projectedSellThrough}</span>{row.lowProjectedSellThrough != null && row.highProjectedSellThrough != null && <span className="block text-xs text-muted-foreground">{row.lowProjectedSellThrough}–{row.highProjectedSellThrough}</span>}</>}</TableCell><TableCell className="text-right">{row.suggestedStock ?? "TBD"}</TableCell><TableCell className="text-right">{row.onHandQty ?? "—"}</TableCell><TableCell><Badge variant="outline" className={statusClass[row.stockStatus]}>{statusLabel[row.stockStatus]}</Badge></TableCell><TableCell className="text-xs text-muted-foreground">{row.stockStatus === "demand_only" ? "On-hand feed not provided" : row.stockStatus === "rate_tbd" ? "Administrator rate is TBD" : `${row.affiliateCount} affiliate${row.affiliateCount === 1 ? "" : "s"} in pipeline`}</TableCell></TableRow>)}</TableBody></Table></div>}
+          </CardContent>
+        </Card>
+
+        {showDeadDesigns && <Card className="border-slate-200"><CardHeader className="pb-3"><CardTitle className="text-base">Dead designs — excluded from forecast</CardTitle><p className="text-xs text-muted-foreground">Unsold designs with last activity on or before {new Date(inventory.deadBefore).toLocaleDateString()}.</p></CardHeader><CardContent>{inventory.deadDesigns.length === 0 ? <p className="text-sm text-muted-foreground">No unsold designs meet the seven-month dead cutoff.</p> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Design</TableHead><TableHead>Last activity</TableHead><TableHead className="text-right">Placed cabinets</TableHead></TableRow></TableHeader><TableBody>{inventory.deadDesigns.map((design) => <TableRow key={design.id}><TableCell>{design.name}</TableCell><TableCell>{new Date(design.lastActivityAt).toLocaleDateString()}</TableCell><TableCell className="text-right">{design.placedCabinetCount}</TableCell></TableRow>)}</TableBody></Table></div>}</CardContent></Card>}
       </section>
 
       {/* Summary card */}

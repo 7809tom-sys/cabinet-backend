@@ -2383,3 +2383,12 @@
 - [x] Add a consistent flat-panel drawing path to the generic structural line-art library and make WSV codes prefer code-keyed panel assets over arbitrary family photos. AI line art is accepted only after visual validation that its type and dimensions match the code and its style is reusable across the library.
 - [x] Add the protected **Admin → Distributors → Distributor fulfillment & pickup** shipping overlay: warehouse name/address, one or more origin ZIPs, live carrier, fixed-by-ZIP/all-locations, or threshold rules, ZIP override table, and exception text. The customer freight resolver uses distributor warehouses when a style has no origin and applies configured distributor fixed/threshold freight before a carrier request; the resulting shipping label is preserved for cart and invoice snapshots.
 - [x] Apply migration `0150_conscious_quasimodo.sql`; validate WSV-24/30/36/42 data and current published catalog state in the database (zero published unpriced items), TypeScript, 45 focused catalog/alias/nomenclature/line-art/shipping/freight tests, production build, and diff integrity.
+
+## Vendor Design → Inventory forecast — 2026-09-19
+
+- [x] Add a protected Vendor Portal Analytics report that rolls active saved-design demand to **master nomenclature SKU** and shows the vendor’s actual ordering SKU, open design quantity/count, affiliate count, projected sell-through, suggested stock, optional on-hand inventory, status, and notes.
+- [x] Limit demand to the requested 30/90/180-day view capped at a six-month activity window. Linked confirmed or paid orders close a design and exclude it from open demand. Unsold designs at least seven months old are excluded by default and available only in the explicit **Dead designs** tab.
+- [x] Add admin-only low/base/high close-rate settings per distributor. The default is deliberately **TBD** (null), never a guessed percentage; forecasts remain unprojected until an administrator sets the factor.
+- [x] Add CSV export containing the displayed master code, vendor SKU, demand, close-rate bands, recommended stock, on-hand stock, status, and explanation.
+- [x] Add optional vendor-owned `onHandQty` feed in **Vendor Portal → My Catalog**. Blank means no feed; zero is a valid reported value. The forecast aggregates vendor on-hand figures by master SKU and calls out `Demand only` when no inventory is supplied.
+- [x] Apply migration `0151_clear_layla_miller.sql`; validate TypeScript, 16 focused calculation/router/report regressions, production build, and diff integrity.
