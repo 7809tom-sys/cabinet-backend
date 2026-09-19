@@ -11,10 +11,10 @@ describe("Design Tool Drop to countertop", () => {
     expect(start).toBeGreaterThan(-1);
     const callback = source.slice(start, end);
     expect(callback).toContain("placedRef.current");
-    expect(callback).toContain("countertopMountedCabinet(current)");
-    expect(callback).toContain("wallCabinetVerticalMoveLimit(candidate, room)");
-    expect(callback).toContain("STD.COUNTERTOP_HEIGHT + elevationBox(candidate, room).height");
-    expect(callback).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
+	    expect(callback).toContain("countertopMountedCabinet(current)");
+	    expect(callback).toContain("wallCabinetVerticalMoveLimit(candidate, room)");
+	    expect(callback).toContain("STD.COUNTERTOP_HEIGHT + elevationBox(candidate, room).height");
+	    expect(callback).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)");
     expect(callback).toContain("wallCabinetPlacementReason(candidate, room, peers, openings)");
     expect(callback).toContain("commitThreeDCabinetCandidate(currentPlaced, uid, candidate)");
     expect(callback).toContain("placedRef.current = nextPlaced");

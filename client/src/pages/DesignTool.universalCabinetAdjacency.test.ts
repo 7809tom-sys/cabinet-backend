@@ -26,7 +26,7 @@ describe("universal exact-zero cabinet adjacency routing", () => {
 	  it("keeps an explicit 3D D-pad increment exact while rejecting any resulting positive overlap", () => {
 	    const threeDPath = sourceBetween("const moveCabinetFrom3D = useCallback", "const resetMountHeight");
 	    expect(threeDPath).not.toContain("snapCabinetSeamOverlap(");
-	    expect(threeDPath).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
+	    expect(threeDPath).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)");
 	    expect(threeDPath).toContain("return commit(candidate, delta)");
 	  });
 

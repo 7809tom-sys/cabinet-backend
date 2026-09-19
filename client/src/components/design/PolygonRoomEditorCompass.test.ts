@@ -100,7 +100,7 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).toContain("const peninsula = peninsulaRunById(room, side);");
     expect(designToolSource).toContain("const segments = freeSegmentsOnWall(");
     expect(designToolSource).toContain("const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);");
-    expect(designToolSource).toContain("wallId: peninsula.id");
+    expect(designToolSource).toContain("wallId: side as WallSide");
     expect(designToolSource).toContain("onPickPeninsula={snapSelectedToWall}");
   });
 
@@ -128,11 +128,12 @@ describe("selected-wall Compass editor", () => {
   });
 
   it("applies the cabinet magnet to peninsula and connected-return runs while retaining collision protection", () => {
-    expect(designToolSource).toContain("const desiredStart = requestedAlong - cabinet.width / 2;");
-    expect(designToolSource).toContain("const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;");
-    expect(designToolSource).toContain("? nearestAvailableWallStart(segments, desiredStart, cabinet.width)");
-    expect(designToolSource).toContain("wallLength(requestedWallId as WallSide, room) - cabinet.width");
-    expect(designToolSource).toContain("shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)");
+    expect(designToolSource).toContain("const explicitCornerOffset = target?.wallId === requestedWallId");
+    expect(designToolSource).toContain("const desiredStart = explicitCornerOffset ?? (requestedAlong - cabinet.width / 2);");
+	    expect(designToolSource).toContain("const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;");
+	    expect(designToolSource).toContain("? nearestAvailableWallStart(segments, desiredStart, cabinet.width)");
+	    expect(designToolSource).toContain("wallLength(requestedWallId as WallSide, room) - cabinet.width");
+	    expect(designToolSource).toContain("shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode, room)");
   });
 
   it("blocks a geometry edit before a cabinet can become orphaned", () => {

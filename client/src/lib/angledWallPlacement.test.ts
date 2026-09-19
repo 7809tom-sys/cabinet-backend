@@ -305,6 +305,62 @@ describe("continuous builder custom wall placement", () => {
     });
   });
 
+  it("blocks a B12 from entering the adjoining diagonal leg reserved by a seated ERB36", () => {
+    const diagonalRightAngleRoom: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "diagonal-a", x: 0, y: 0 },
+        { id: "diagonal-corner", x: 100, y: 100 },
+        { id: "diagonal-b", x: 50, y: 150 },
+      ],
+      customWalls: [
+        { id: "diagonal-first", startVertexId: "diagonal-a", endVertexId: "diagonal-corner", label: "Wall 1", lockedAngle: 45, height: 96 },
+        { id: "diagonal-second", startVertexId: "diagonal-corner", endVertexId: "diagonal-b", label: "Wall 2", lockedAngle: 45, height: 96 },
+      ],
+    };
+    const erbSeed: PlacedCabinet = {
+      uid: "diagonal-erb36-seated",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    const erbSpot = nextAvailableRoomCornerPlacement(erbSeed, "diagonal-second" as any, diagonalRightAngleRoom, []);
+    expect(erbSpot).toMatchObject({ wallId: "diagonal-second", wallOffset: 0 });
+    const erb: PlacedCabinet = { ...erbSeed, ...erbSpot!, wallId: erbSpot!.wallId, wallOffset: erbSpot!.wallOffset };
+    const b12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 12, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
+    const b12: PlacedCabinet = {
+      uid: "diagonal-b12-over-erb",
+      cabinetId: 12,
+      masterCode: "B12",
+      description: "12 inch Base Cabinet",
+      placement: "base",
+      ...b12Spot,
+      width: 12,
+      depth: 24,
+      height: 34.5,
+      wallId: b12Spot.wallId,
+      wallOffset: b12Spot.wallOffset,
+    };
+    expect(cabinetPlacementCollisionDetail(b12, [erb], diagonalRightAngleRoom)?.cabinet.uid).toBe(erb.uid);
+    expect(shouldBlockPlacementCollision(b12, [erb], false, diagonalRightAngleRoom)).toBe(true);
+
+    // The rotated ERB36 footprint also occupies the diagonal's physical body;
+    // leave the exact measured clear span before expecting a B12 to fit.
+    const clearB12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 60, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
+    const clearB12 = { ...b12, ...clearB12Spot, wallOffset: clearB12Spot.wallOffset };
+    expect(shouldBlockPlacementCollision(clearB12, [erb], false, diagonalRightAngleRoom)).toBe(false);
+  });
+
   it("magnetically snaps a nearby cabinet to a straight custom wall instead of the polygon bounding box", () => {
     const moving: PlacedCabinet = {
       uid: "builder-moving",

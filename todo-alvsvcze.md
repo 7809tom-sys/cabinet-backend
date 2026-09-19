@@ -2292,3 +2292,11 @@
 - [x] Keep all move paths guarded by physical collision detection; assert that a B12 aimed at ERB36 is rejected while the ERB reserves the adjoining wall leg.
 - [x] Add a Beginner-mode first-cabinet quick tutorial after a starter room is applied, including wall choice, Catalog placement, drag/snap behavior, and zero-overlap guidance.
 - [x] Browser-verify the Beginner Room Layout flow and the complete first-cabinet tutorial overlay.
+
+## Direct ERB36 corner-drop and overlap protection — 2026-09-19
+
+- [x] Route direct canvas drops of true corner base/wall cabinets through the nearest real measured-wall vertex resolver rather than preserving raw pointer coordinates.
+- [x] Preserve the resolved custom `wallId` and exact `wallOffset` so an ERB36 is seated at the selected vertex and remains draggable to another real corner.
+- [x] Add continuous-wall shared-vertex collision reservation for ERB/L/diagonal/corner-drawer cabinets, preventing an adjoining B12 from entering the physical corner leg.
+- [x] Make all plan, nudge, 3D movement, snap-to-wall, and countertop placement guards use measured-room collision context.
+- [x] Validate 114 focused Designer regressions, TypeScript, production build, diff integrity, and local browser verification of the Beginner/Advanced Room Layout switch.

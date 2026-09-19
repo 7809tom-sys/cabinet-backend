@@ -2360,6 +2360,60 @@ function usesFortyFiveDegreePeninsulaJoinBodyCheck(moving: PlacedCabinet, other:
 }
 
 /**
+ * A true corner cabinet seated at a shared measured-wall vertex consumes a leg
+ * of the adjoining wall even when the two rotated screen bounding boxes do not
+ * intersect. This covers an ERB36 at a diagonal 90-degree vertex: a B12 at
+ * offset 0 on the adjoining diagonal must not occupy the ERB's cabinet leg.
+ */
+function customWallCornerReservationCollision(
+  corner: PlacedCabinet,
+  neighbor: PlacedCabinet,
+  blockedBy: PlacedCabinet,
+  room: RoomData,
+): CabinetCollisionDetail | null {
+  const kind = placedCornerGeometryKind(corner);
+  if (kind !== "l-shape" && kind !== "diagonal" && kind !== "corner-drawer") return null;
+  if (!room.vertices?.length || !room.customWalls?.length) return null;
+  if (!corner.wallId || !neighbor.wallId || corner.wallId === neighbor.wallId) return null;
+  if (!isCustomRoomWall(room, corner.wallId) || !isCustomRoomWall(room, neighbor.wallId)) return null;
+
+  const cornerWall = room.customWalls.find((wall) => wall.id === corner.wallId);
+  const neighborWall = room.customWalls.find((wall) => wall.id === neighbor.wallId);
+  if (!cornerWall || !neighborWall) return null;
+  const sharedVertex = [cornerWall.startVertexId, cornerWall.endVertexId].find((vertexId) => (
+    vertexId === neighborWall.startVertexId || vertexId === neighborWall.endVertexId
+  ));
+  if (!sharedVertex) return null;
+
+  const cornerLength = wallLength(corner.wallId as WallSide, room);
+  const cornerStart = wallRunOffset(corner, corner.wallId, room);
+  const cornerEnd = cornerStart + wallRunSpan(corner, corner.wallId, room);
+  const seatedAtSharedVertex = sharedVertex === cornerWall.startVertexId
+    ? cornerStart <= COLLISION_EPSILON_IN
+    : cornerEnd >= cornerLength - COLLISION_EPSILON_IN;
+  if (!seatedAtSharedVertex) return null;
+
+  const footprint = placedFootprint(corner);
+  const adjacentLeg = kind === "l-shape"
+    ? Math.min(Number(corner.width) || STD.BASE_DEPTH, corner.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH)
+    : Math.min(footprint.w, footprint.d);
+  const neighborStartsAtSharedVertex = sharedVertex === neighborWall.startVertexId;
+  const neighborLength = wallLength(neighbor.wallId as WallSide, room);
+  const reservedStart = neighborStartsAtSharedVertex ? 0 : Math.max(0, neighborLength - adjacentLeg);
+  const reservedEnd = neighborStartsAtSharedVertex ? Math.min(neighborLength, adjacentLeg) : neighborLength;
+  const neighborStart = wallRunOffset(neighbor, neighbor.wallId, room);
+  const neighborEnd = neighborStart + wallRunSpan(neighbor, neighbor.wallId, room);
+  const overlap = Math.min(neighborEnd, reservedEnd) - Math.max(neighborStart, reservedStart);
+  if (overlap <= COLLISION_EPSILON_IN) return null;
+  return {
+    cabinet: blockedBy,
+    overlapX: overlap,
+    overlapY: Math.min(Math.max(0, Number(corner.depth) || 0), Math.max(0, Number(neighbor.depth) || 0)),
+    penetration: overlap,
+  };
+}
+
+/**
  * Placement-time collision calculation. Only a 45-degree peninsula joining an
  * L-corner on its own parent wall uses true plan bodies; all other pairs retain
  * the established generic collision behavior.
@@ -2371,6 +2425,12 @@ export function cabinetPlacementCollisionDetail(
 ): CabinetCollisionDetail | null {
   if (!room) return cabinetCollisionDetail(moving, others);
   for (const other of others) {
+    // Test both directions so a shared-corner reservation is enforced whether
+    // the straight cabinet or the ERB/L/diagonal cabinet is moving.
+    const movingCornerReservation = customWallCornerReservationCollision(moving, other, other, room);
+    if (movingCornerReservation) return movingCornerReservation;
+    const otherCornerReservation = customWallCornerReservationCollision(other, moving, other, room);
+    if (otherCornerReservation) return otherCornerReservation;
     const detail = cabinetCollisionDetail(moving, [other]);
     if (!detail) continue;
     if (usesFortyFiveDegreePeninsulaJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
@@ -2587,8 +2647,13 @@ export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[], 
 }
 
 /** Custom placement cannot bypass same-category base/base or wall/wall physical overlap. */
-export function shouldBlockPlacementCollision(moving: PlacedCabinet, others: PlacedCabinet[], customPlacement = false): boolean {
-  const detail = cabinetCollisionDetail(moving, others);
+export function shouldBlockPlacementCollision(
+  moving: PlacedCabinet,
+  others: PlacedCabinet[],
+  customPlacement = false,
+  room?: RoomData,
+): boolean {
+  const detail = cabinetPlacementCollisionDetail(moving, others, room);
   if (!detail) return false;
   if (detail.cabinet.placement === moving.placement && (moving.placement === "base" || moving.placement === "wall")) return true;
   return !customPlacement;

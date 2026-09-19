@@ -6,12 +6,12 @@ describe("Design Tool vertical wall-cabinet movement", () => {
     const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
     expect(source).toContain("repairWallCabinetPlanSeamForVerticalMove");
 	    const repairCall = "repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom, mountBottomAdjusted: true }, room, peers, openings)";
-    const repairIndex = source.indexOf(repairCall);
-    expect(repairIndex).toBeGreaterThan(-1);
-    const verticalMoveCallback = source.slice(repairIndex, repairIndex + 2400);
-    expect(verticalMoveCallback).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
-    expect(verticalMoveCallback.indexOf(repairCall)).toBeLessThan(
-      verticalMoveCallback.indexOf("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)"),
+	    const repairIndex = source.indexOf(repairCall);
+	    expect(repairIndex).toBeGreaterThan(-1);
+	    const verticalMoveCallback = source.slice(repairIndex, repairIndex + 2400);
+	    expect(verticalMoveCallback).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)");
+	    expect(verticalMoveCallback.indexOf(repairCall)).toBeLessThan(
+	      verticalMoveCallback.indexOf("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)"),
     );
   });
 
@@ -25,7 +25,7 @@ describe("Design Tool vertical wall-cabinet movement", () => {
 	    expect(callbackSource).toContain("x: Math.round((cabinet.x + delta.x) * 8) / 8");
 	    expect(callbackSource).not.toContain("snapCabinetSeamOverlap(");
 	    expect(callbackSource).toContain("cannot move ${direction}; it would extend beyond the room boundary");
-	    expect(callbackSource).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode)");
+	    expect(callbackSource).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)");
 	  });
 
 	  it("computes one synchronous host result, advances the live placement ref before rendering, and does not remount the 3D viewer for placement changes", () => {

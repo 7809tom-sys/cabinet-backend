@@ -6513,9 +6513,56 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const dropWall = (activePeninsulaRun?.id ?? polygonWall?.id ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
       const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
       const dimensions = resolvedDesignCabinetDimensions(data);
-      const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
-      const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
-      const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
+	      const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
+	      const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
+	      const placement = forceAccessory ? accessoryPlacement(data) : data.placement;
+	      // Canvas drops carry X/Y coordinates, which previously bypassed the
+	      // catalog-click corner resolver and left an ERB36 floating near a
+	      // diagonal vertex. A true corner cabinet must instead use the nearest
+	      // available measured 90-degree vertex on the real wall path.
+	      const requiresRoomCorner = !forceAccessory
+	        && !isBlindCorner(data.masterCode, data.description)
+	        && isCornerCabinet(data.masterCode, data.description)
+	        && (placement === "base" || placement === "wall");
+	      if (requiresRoomCorner) {
+	        const cornerSpot = nextAvailableRoomCornerPlacement({
+	          uid: `corner-drop-preview-${data.id}`,
+	          cabinetId: data.id,
+	          masterCode: data.masterCode,
+	          description: data.description,
+	          placement,
+	          x: center.x,
+	          y: center.y,
+	          width,
+	          depth,
+	          height: dimensions.height,
+	          rotation: 0,
+	          cornerType: data.cornerType ?? null,
+	        }, dropWall, room, placedRef.current, center);
+	        if (!cornerSpot) {
+	          const message = `${data.masterCode} cannot snap here because the nearest real corner is occupied or does not have a clear footprint.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          dragDataRef.current = null;
+	          setCatalogDragPreview(null);
+	          return;
+	        }
+	        addCabinet(
+	          data,
+	          cornerSpot.x,
+	          cornerSpot.y,
+	          forceAccessory,
+	          cornerSpot.rotation,
+	          true,
+	          undefined,
+	          undefined,
+	          false,
+	          { wallId: cornerSpot.wallId as WallSide, wallOffset: cornerSpot.wallOffset ?? 0 },
+	        );
+	        dragDataRef.current = null;
+	        setCatalogDragPreview(null);
+	        return;
+	      }
 	      // The selected peninsula is an explicit, one-click placement target. A
 	      // direct catalog drop must therefore use the same first-clear resolver as
 	      // a catalog click; otherwise the pointer gap calculation can place a
@@ -6748,11 +6795,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
         )
         : requestedCabinet;
-	      const movedCabinet: PlacedCabinet = {
-	        ...alignedCabinet,
-	        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
-	      };
-      if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode)) {
+      const movedCabinet: PlacedCabinet = {
+        ...alignedCabinet,
+        ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
+      };
+      if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode, room)) {
         const message = wallCabinetPlacementReason(movedCabinet, room, peers, openings) ?? collisionReason(movedCabinet, peers) ?? `${cabinet.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
@@ -6972,8 +7019,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      const peers = clamped.filter((p) => p.uid !== selectedUid);
 			      const seatedCandidate = rawCandidate ? snapWallCabinetToOwningWall(rawCandidate, room) : rawCandidate;
 			      const candidate = seatedCandidate ? snapCabinetSeamOverlap(seatedCandidate, peers) : seatedCandidate;
-	      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode)) {
-	        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
+		      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode, room)) {
+		        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
         setPlacementWarning(message);
         toast.error(message);
         return prev;
@@ -7031,12 +7078,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const isKneeDrawer = current?.placement === "baseTop" && isKneeDrawerItem(current);
 	      if (!current || (current.placement !== "wall" && !isKneeDrawer)) return prev;
 	      const limit = current.placement === "wall" ? wallCabinetVerticalMoveLimit(current, room) : null;
-	      const bounded = isKneeDrawer
-	        ? Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.round(mountBottom * 8) / 8))
-	        : Math.max(0, Math.min(limit!.maxBottom, Math.round(mountBottom * 8) / 8));
-	      const candidate = { ...current, mountBottom: bounded, mountBottomAdjusted: true };
+		      const bounded = isKneeDrawer
+		        ? Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.round(mountBottom * 8) / 8))
+		        : Math.max(0, Math.min(limit!.maxBottom, Math.round(mountBottom * 8) / 8));
+		      const candidate = { ...current, mountBottom: bounded, mountBottomAdjusted: true };
       const peers = prev.filter((p) => p.uid !== uid);
-      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
         const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} cannot move there because it would overlap another item.`;
         setPlacementWarning(message);
         toast.error(message);
@@ -7129,12 +7176,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      const peers = peersWithoutLinkedFiller;
 	      const candidate = repairWallCabinetPlanSeamForVerticalMove({ ...cabinet, mountBottom: nextBottom, mountBottomAdjusted: true }, room, peers, openings);
-	      if (!candidate) {
-	        const failedCandidate = { ...cabinet, mountBottom: nextBottom };
-	        return blocked(wallCabinetPlacementReason(failedCandidate, room, peers, openings) ?? collisionReason(failedCandidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
-	      }
-	      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-	        return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
+		      if (!candidate) {
+		        const failedCandidate = { ...cabinet, mountBottom: nextBottom };
+		        return blocked(wallCabinetPlacementReason(failedCandidate, room, peers, openings) ?? collisionReason(failedCandidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
+		      }
+		      if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
+		        return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
 	      }
 	      return commit(candidate);
 	    }
@@ -7154,11 +7201,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    // otherwise snap back to its starting position and appear nonfunctional.
 	    // Room bounds and positive-overlap collision checks below remain strict.
 	    const footprint = rotatedSize(candidate);
-	    if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
-	      return blocked(`${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`);
-	    }
-	    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-	      return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
+		    if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
+		      return blocked(`${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`);
+		    }
+		    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
+		      return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
 	    }
 	    return commit(candidate, delta);
 	  }, [catalogFillers, customPlacementMode, room]);
@@ -7923,15 +7970,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          room,
 	          peninsula ? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
 	        );
-        const candidate: PlacedCabinet = {
-          ...selected,
-          ...spot,
-	          wallId: side as WallSide,
-	          wallOffset: along,
-	          peninsulaSide: peninsula ? spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
+	        const candidate: PlacedCabinet = {
+	          ...selected,
+	          ...spot,
+		          wallId: side as WallSide,
+		          wallOffset: along,
+		          peninsulaSide: peninsula ? spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
 	        };
-	        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
-	          const message = collisionReason(candidate, peers) ?? `${selected.masterCode} cannot snap to this ${peninsula ? "peninsula" : customWall?.label ?? "wall"} without overlapping another item.`;
+	        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
+	          const message = collisionReason(candidate, peers, room) ?? `${selected.masterCode} cannot snap to this ${peninsula ? "peninsula" : customWall?.label ?? "wall"} without overlapping another item.`;
           setPlacementWarning(message);
           toast.error(message);
           return prev;
@@ -8020,9 +8067,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
     const peers = currentPlaced.filter((cabinet) => cabinet.uid !== uid);
-    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode)) {
+    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
       const message = wallCabinetPlacementReason(candidate, room, peers, openings)
-        ?? collisionReason(candidate, peers)
+        ?? collisionReason(candidate, peers, room)
         ?? `${current.masterCode} cannot sit on the countertop because it would overlap another item.`;
       setPlacementWarning(message);
       toast.error(message);
