@@ -92,12 +92,14 @@ type CabinetRow = {
   stainColor: string | null;
   constructionMethod: string | null;
   conflictStatus: string;
-  showInDesigner: boolean;
-  showInCatalog: boolean;
-  isActive: boolean;
+	showInDesigner: boolean;
+	showInCatalog: boolean;
+	isActive: boolean;
+	/** Exact alias from the current search that resolved to this master code. */
+	matchedAlias: string | null;
 };
 
-type DraftState = Omit<CabinetRow, "id" | "masterCode" | "conflictStatus">;
+type DraftState = Omit<CabinetRow, "id" | "masterCode" | "conflictStatus" | "matchedAlias">;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function toDraft(cab: CabinetRow): DraftState {
@@ -601,17 +603,37 @@ function CabinetTableRow({
           {selected ? <CheckSquare className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
         </button>
       </td>
-      <td className="px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          {cabinet.catalogImageUrl ? (
-            <img src={cabinet.catalogImageUrl} alt="" className="h-8 w-8 object-contain rounded border bg-muted/30 shrink-0" />
-          ) : (
+	      <td className="px-3 py-2.5">
+	        <div className="flex flex-wrap items-center gap-2">
+	          {cabinet.catalogImageUrl ? (
+	            <img src={cabinet.catalogImageUrl} alt="" className="h-8 w-8 object-contain rounded border bg-muted/30 shrink-0" />
+	          ) : (
             <div className="h-8 w-8 rounded border bg-muted/30 flex items-center justify-center shrink-0">
               <Package className="h-4 w-4 text-muted-foreground/40" />
             </div>
-          )}
-          <span className="font-mono font-semibold text-sm">{cabinet.masterCode}</span>
-        </div>
+	          )}
+	          <div className="min-w-0">
+	            <span className="font-mono font-semibold text-sm">{cabinet.masterCode}</span>
+	            {cabinet.matchedAlias && (
+	              <TooltipProvider>
+	                <Tooltip>
+	                  <TooltipTrigger asChild>
+	                    <Badge
+	                      variant="outline"
+	                      aria-label={`Search alias ${cabinet.matchedAlias} resolves to master ${cabinet.masterCode}`}
+	                      className="ml-2 border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] font-medium text-sky-800"
+	                    >
+	                      Alias {cabinet.matchedAlias} → {cabinet.masterCode}
+	                    </Badge>
+	                  </TooltipTrigger>
+	                  <TooltipContent>
+	                    This search used an alias. {cabinet.masterCode} is the canonical master item.
+	                  </TooltipContent>
+	                </Tooltip>
+	              </TooltipProvider>
+	            )}
+	          </div>
+	        </div>
       </td>
       <td className="px-3 py-2.5 max-w-[220px]">
         <span className="text-sm truncate block">{cabinet.description || <span className="text-muted-foreground italic text-xs">No description</span>}</span>
@@ -918,9 +940,18 @@ export default function GenericCabinetsAdmin() {
                     <Package className="h-8 w-8 text-muted-foreground/30" />
                   )}
                 </div>
-                <div className="p-3">
-                  <div className="font-mono font-bold text-sm">{cab.masterCode}</div>
-                  <div className="text-xs text-muted-foreground truncate mt-0.5">{cab.description || "—"}</div>
+	                <div className="p-3">
+	                  <div className="font-mono font-bold text-sm">{cab.masterCode}</div>
+	                  {cab.matchedAlias && (
+	                    <Badge
+	                      variant="outline"
+	                      aria-label={`Search alias ${cab.matchedAlias} resolves to master ${cab.masterCode}`}
+	                      className="mt-1 border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] font-medium text-sky-800"
+	                    >
+	                      Alias {cab.matchedAlias} → {cab.masterCode}
+	                    </Badge>
+	                  )}
+	                  <div className="text-xs text-muted-foreground truncate mt-0.5">{cab.description || "—"}</div>
                   <div className="flex gap-1 mt-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{cab.category}</Badge>
                     <span className={cn("h-2 w-2 rounded-full mt-1", cab.isActive ? "bg-green-500" : "bg-muted-foreground/30")} />

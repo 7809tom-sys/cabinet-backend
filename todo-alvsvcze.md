@@ -2357,3 +2357,10 @@
 - [x] Update the Admin Catalog and attention query to use the same predicate rather than independent raw alias filters, so the behavior is consistent for every SKU.
 - [x] Confirm the current data resolves **AW-12-30 → AW1230** with AW1230 as the single active/listed and priced master; no authoritative price, distributor SKU, order, or customer data was changed.
 - [x] Validate database visibility, TypeScript, 91 catalog/storefront/Designer/alias/pricing regressions, production build, and diff integrity.
+
+## Catalog alias-resolution search indicator — 2026-09-19
+
+- [x] Update the exact Admin Catalog screen (Catalog → master cabinet items) so a search for a registered alias returns the one canonical master item, never a second legacy-master row.
+- [x] Render an accessible blue alias badge directly in both table and grid search results: `Alias <searched code> → <canonical master>`, with a tooltip explaining that the displayed code is the canonical item.
+- [x] Return `matchedAlias` only for an exact normalized registered alias search; normal master-code and description searches remain uncluttered.
+- [x] Verify the live catalog mapping **AW-12-30 → AW1230** through the admin tRPC query. Validate TypeScript, 71 Catalog/alias/pricing regressions, production build, and diff integrity.

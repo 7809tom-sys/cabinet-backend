@@ -10,9 +10,9 @@
  */
 import { and, asc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { z } from "zod";
-import { getDb } from "../db";
+import { getDb, isCanonicalCabinetMaster } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
-import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles, skuMasterAliases } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 
@@ -36,15 +36,21 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) return { rows: [], total: 0, categories: [], subCategories: [] };
 
-      const conditions = [];
+	      // A Catalog row is always the one live canonical master. Retired duplicate
+	      // rows remain available for historical price/order records, but their alias
+	      // search routes resolve to this canonical result instead of a second row.
+	      const conditions = [isCanonicalCabinetMaster()];
+	      const normalizedAlias = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinetAliases.alias}, '-', ''), ' ', ''), '_', ''))`;
+	      const normalizedMasterAlias = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
+	      let normalizedCodeSearch = "";
 
-      if (input.search) {
-        const search = input.search.trim();
-        const like_ = `%${search}%`;
-        const normalizedCodeSearch = normalizeCode(search);
-        const normalizedLike = `%${normalizedCodeSearch}%`;
-        conditions.push(
-          or(
+	      if (input.search) {
+	        const search = input.search.trim();
+	        const like_ = `%${search}%`;
+	        normalizedCodeSearch = normalizeCode(search);
+	        const normalizedLike = `%${normalizedCodeSearch}%`;
+	        conditions.push(
+	          or(
             like(cabinets.masterCode, like_),
             sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.description, like_),
@@ -54,12 +60,22 @@ export const genericCabinetsRouter = router({
             sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.vendorSku}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
             like(cabinets.altSku1, like_),
             sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku1}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
-            like(cabinets.altSku2, like_),
-            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku2}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
-            like(cabinets.altSku3, like_),
-            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku3}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`
-          )
-        );
+	            like(cabinets.altSku2, like_),
+	            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku2}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
+	            like(cabinets.altSku3, like_),
+	            sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.altSku3}, '-', ''), ' ', ''), '_', '')) LIKE ${normalizedLike}`,
+	            sql`EXISTS (
+	              SELECT 1 FROM cabinet_aliases
+	              WHERE cabinet_aliases.cabinetId = ${cabinets.id}
+	                AND ${normalizedAlias} LIKE ${normalizedLike}
+	            )`,
+	            sql`EXISTS (
+	              SELECT 1 FROM sku_master_aliases
+	              WHERE sku_master_aliases.masterCode = ${cabinets.masterCode}
+	                AND ${normalizedMasterAlias} LIKE ${normalizedLike}
+	            )`
+	          )!
+	        );
       }
 
       if (input.category) {
@@ -126,10 +142,34 @@ export const genericCabinetsRouter = router({
         new Set(catResult.map((r) => r.subCategory).filter(Boolean))
       ) as string[];
 
-      return {
-        rows: rows.map((r) => ({
-          ...r,
-          width: r.width?.toString() ?? null,
+	      const matchedAliasByCabinetId = new Map<number, string>();
+	      if (normalizedCodeSearch) {
+	        const [directAliasMatches, masterAliasMatches] = await Promise.all([
+	          db
+	            .select({ cabinetId: cabinetAliases.cabinetId, alias: cabinetAliases.alias })
+	            .from(cabinetAliases)
+	            .where(sql`${normalizedAlias} = ${normalizedCodeSearch}`),
+	          db
+	            .select({ masterCode: skuMasterAliases.masterCode, alias: skuMasterAliases.aliasCode })
+	            .from(skuMasterAliases)
+	            .where(sql`${normalizedMasterAlias} = ${normalizedCodeSearch}`),
+	        ]);
+	        const visibleIds = new Set(rows.map((row) => row.id));
+	        const visibleByMasterCode = new Map(rows.map((row) => [row.masterCode, row.id]));
+	        for (const alias of directAliasMatches) {
+	          if (visibleIds.has(alias.cabinetId)) matchedAliasByCabinetId.set(alias.cabinetId, alias.alias);
+	        }
+	        for (const alias of masterAliasMatches) {
+	          const cabinetId = visibleByMasterCode.get(alias.masterCode);
+	          if (cabinetId != null) matchedAliasByCabinetId.set(cabinetId, alias.alias);
+	        }
+	      }
+
+	      return {
+	        rows: rows.map((r) => ({
+	          ...r,
+	          matchedAlias: matchedAliasByCabinetId.get(r.id) ?? null,
+	          width: r.width?.toString() ?? null,
           height: r.height?.toString() ?? null,
           depth: r.depth?.toString() ?? null,
           weight: r.weight?.toString() ?? null,
