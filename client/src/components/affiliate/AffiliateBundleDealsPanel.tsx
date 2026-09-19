@@ -92,6 +92,11 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
                   >
                     {bundle.isPublished ? <><Eye className="h-2.5 w-2.5 mr-1" />Published</> : <><EyeOff className="h-2.5 w-2.5 mr-1" />Unpublished</>}
                   </Badge>
+                  {bundle.currentPriceStatus !== "current" && (
+                    <Badge variant="outline" className="border-amber-500/50 bg-amber-50 text-amber-800 text-[10px]">
+                      Needs refresh
+                    </Badge>
+                  )}
                 </div>
                 {bundle.description && (
                   <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{bundle.description}</p>
@@ -108,6 +113,9 @@ export function AffiliateBundleDealsPanel({ affiliateId }: { affiliateId: number
                       <DollarSign className="h-3 w-3" />
                       {parseFloat(bundle.homeownerPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
+                  )}
+                  {bundle.currentPriceStatus === "needs_refresh" && bundle.currentHomeownerPrice && (
+                    <span className="text-amber-700">Current BOM: ${Number(bundle.currentHomeownerPrice).toFixed(2)}</span>
                   )}
                   {bundle.roomWidthInches && bundle.roomDepthInches && (
                     <span className="text-muted-foreground/60">

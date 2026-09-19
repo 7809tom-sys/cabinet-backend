@@ -2406,3 +2406,10 @@
 - [x] Correct the Designer’s **Save as Kitchen Package** handoff copy: affiliate-owned packages are saved privately, then published or unpublished by their owner from Affiliate Dashboard → Kitchen Packages, without an unnecessary Admin-only handoff.
 - [x] Correct the white-label Kitchen Packages collection query so an affiliate storefront receives its own published packages (and permitted global packages), not the main-site collection.
 - [x] Retain the existing package snapshot behavior: a saved Kitchen Package carries its completed design snapshot/BOM, current customer-facing price resolution, plan image, and the normal checkout flow. Package checkout therefore enters the same official order rail above.
+
+## Kitchen Package freshness guard — 2026-09-19
+
+- [x] Compare every published Kitchen Package’s saved customer price with the currently resolvable, canonical master-SKU BOM price at read time.
+- [x] Mark a package **Needs refresh** when the current supplier price, available mapping, or required price line differs from its saved storefront total; mark it incomplete when its current BOM cannot be priced.
+- [x] Block stale or incomplete packages from loading into Designer/checkout until the owner refreshes and republishes. Affiliate Dashboard displays the current BOM total; the white-label storefront clearly marks the package and disables its action.
+- [x] Validate TypeScript, 11 focused package-price/order-rail tests, production build, and diff integrity.

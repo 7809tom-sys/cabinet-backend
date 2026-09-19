@@ -157,14 +157,21 @@ async function withCurrentBundleHomeownerPrices<T extends BundlePricingRow>(
       candidates,
       surfaceCandidates,
     });
+    const savedHomeownerPrice = publishedBundlePrice(row.homeownerPrice);
+    const currentHomeownerPrice = livePrice.total?.toFixed(2) ?? null;
+    const currentPriceStatus = currentHomeownerPrice === null
+      ? "incomplete" as const
+      : savedHomeownerPrice === null || Number(savedHomeownerPrice) !== Number(currentHomeownerPrice)
+        ? "needs_refresh" as const
+        : "current" as const;
     return {
       ...row,
-      // The approved saved package amount is what a customer selected. Live
-      // catalog repricing remains diagnostic metadata only; it must never
-      // replace the package price that flows into Designer and checkout.
-      homeownerPrice: publishedBundlePrice(row.homeownerPrice),
-      currentHomeownerPrice: livePrice.total?.toFixed(2) ?? null,
-      currentPriceStatus: livePrice.total === null ? "incomplete" as const : "current" as const,
+      // A package intentionally keeps its approved storefront amount. A cost,
+      // price, or SKU mapping change therefore requires its owner to refresh
+      // the package instead of silently changing a shopper's kit total.
+      homeownerPrice: savedHomeownerPrice,
+      currentHomeownerPrice,
+      currentPriceStatus,
       currentPriceMissingItemCount: livePrice.missingItemCount,
       fixtureCount: bundleSurfaceIds(row.designSnapshot as BundleSnapshotLike).length,
     };
@@ -804,6 +811,14 @@ export const priceShopRouter = router({
         .limit(1);
       if (!row) throw new TRPCError({ code: "NOT_FOUND" });
       const [pricedBundle] = await withCurrentBundleHomeownerPrices(db, [row]);
+      if (pricedBundle.currentPriceStatus !== "current") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: pricedBundle.currentPriceStatus === "needs_refresh"
+            ? "This Kitchen Package needs the affiliate to refresh its price or SKU mapping before checkout."
+            : "This Kitchen Package has an incomplete current BOM and cannot be checked out.",
+        });
+      }
       return pricedBundle;
     }),
 });

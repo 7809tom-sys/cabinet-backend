@@ -201,15 +201,18 @@ export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string 
                           {bundle.fixtureCount} fixture{bundle.fixtureCount === 1 ? "" : "s"}
                         </span>
                       )}
+                      {bundle.currentPriceStatus !== "current" && (
+                        <Badge variant="outline" className="border-amber-500/50 bg-amber-50 text-amber-800">Needs affiliate refresh</Badge>
+                      )}
                     </div>
 
                     <Button
                       className="w-full gap-2 bg-[#d4a75a] hover:bg-[#c49648] text-white"
                       onClick={() => handleLoadBundle(bundle.id)}
-                      disabled={loadingId === bundle.id}
+                      disabled={loadingId === bundle.id || bundle.currentPriceStatus !== "current"}
                     >
                       <Wand2 className="h-4 w-4" />
-                      {loadingId === bundle.id ? "Loading…" : "Customize & Order"}
+                      {loadingId === bundle.id ? "Loading…" : bundle.currentPriceStatus !== "current" ? "Temporarily unavailable" : "Customize & Order"}
                       <ChevronRight className="h-3.5 w-3.5 ml-auto" />
                     </Button>
                   </div>
