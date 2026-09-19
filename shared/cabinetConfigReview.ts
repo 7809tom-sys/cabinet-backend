@@ -1,20 +1,22 @@
 export type CabinetConfigReviewCandidate = {
   isActive: boolean | null | undefined;
   configVerified: boolean | null | undefined;
+  hasPositivePublishedPrice?: boolean | null | undefined;
 };
 
 export const CABINET_ATTENTION_SEARCH_PLACEHOLDER = "Search cabinet name or SKU…";
 
 /** True when a cabinet needs an administrator configuration review. */
 export function needsCabinetConfigAttention(candidate: CabinetConfigReviewCandidate): boolean {
-  return candidate.isActive === false || candidate.configVerified !== true;
+  return candidate.isActive === false || candidate.configVerified !== true || candidate.hasPositivePublishedPrice !== true;
 }
 
 /** Status labels for the review queue. A cabinet may require both corrections. */
-export function cabinetConfigAttentionReasons(candidate: CabinetConfigReviewCandidate): Array<"Inactive" | "Unverified"> {
-  const reasons: Array<"Inactive" | "Unverified"> = [];
+export function cabinetConfigAttentionReasons(candidate: CabinetConfigReviewCandidate): Array<"Inactive" | "Unverified" | "Price required"> {
+  const reasons: Array<"Inactive" | "Unverified" | "Price required"> = [];
   if (candidate.isActive === false) reasons.push("Inactive");
   if (candidate.configVerified !== true) reasons.push("Unverified");
+  if (candidate.hasPositivePublishedPrice !== true) reasons.push("Price required");
   return reasons;
 }
 

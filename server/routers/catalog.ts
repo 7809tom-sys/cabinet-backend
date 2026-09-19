@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
-import { getDb, notInConflict, isCanonicalCabinetMaster, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
+import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
   cabinets,
   cabinetAliases,
@@ -2560,7 +2560,11 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.configVerified, false));
       }
       if (input.attentionOnly) {
-        conditions.push(sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`);
+        conditions.push(sql`(
+          ${cabinets.isActive} = false
+          OR ${cabinets.configVerified} = false
+          OR NOT ${hasPositivePublishedCabinetPrice()}
+        )`);
       }
       if (input.distributorId) {
         conditions.push(sql`EXISTS (
@@ -2645,6 +2649,7 @@ export const cabinetsRouter = router({
             showInDesigner: cabinets.showInDesigner,
             showIn2020: cabinets.showIn2020,
             isActive: cabinets.isActive,
+            hasPositivePublishedPrice: hasPositivePublishedCabinetPrice(),
             distributorNames: sql<string | null>`(
               SELECT GROUP_CONCAT(
                 DISTINCT COALESCE(NULLIF(d.brandName, ''), d.name)
@@ -2723,7 +2728,11 @@ export const cabinetsRouter = router({
       .where(
         and(
 	          isCanonicalCabinetMaster(),
-          sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`
+          sql`(
+            ${cabinets.isActive} = false
+            OR ${cabinets.configVerified} = false
+            OR NOT ${hasPositivePublishedCabinetPrice()}
+          )`
         )
       )
       .orderBy(sql`COALESCE(NULLIF(${distributors.brandName}, ''), ${distributors.name})`);
@@ -2860,12 +2869,21 @@ export const cabinetsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      if (input.isActive === true) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Create the item as a Draft, then publish it through Catalog after an available positive supplier price is saved.",
+        });
+      }
       const [result] = await db.insert(cabinets).values({
         masterCode: input.masterCode,
         category: input.category,
         subCategory: input.subCategory ?? null,
         description: input.description ?? "",
-        isActive: input.isActive ?? true,
+        isActive: false,
+        showInCatalog: false,
+        showInDesigner: false,
+        showIn2020: false,
       });
       const cabinetId = (result as any).insertId as number;
       let skuId: number | undefined;

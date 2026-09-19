@@ -24,6 +24,11 @@ import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
+import {
+  normalizeDistributorZipRates,
+  shippingRuleCanQuote,
+  type DistributorShippingRuleMode,
+} from "@shared/distributorShipping";
 
 const execFileAsync = promisify(execFile);
 
@@ -407,6 +412,13 @@ export const distributorImportRouter = router({
         isActive: distributors.isActive,
         leadTimeDays: distributors.leadTimeDays,
         warehouseZips: distributors.warehouseZips,
+        warehouseName: distributors.warehouseName,
+        warehouseAddress: distributors.warehouseAddress,
+        shippingRuleMode: distributors.shippingRuleMode,
+        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+        shippingZipRates: distributors.shippingZipRates,
+        shippingExceptions: distributors.shippingExceptions,
         orderEmail: distributors.orderEmail,
         ccEmails: distributors.ccEmails,
         fulfillmentMode: distributors.fulfillmentMode,
@@ -437,6 +449,17 @@ export const distributorImportRouter = router({
         pickupZip: z.string().trim().max(16).optional(),
         pickupAddress: z.string().trim().max(512).optional(),
         pickupRadiusMiles: z.number().int().min(1).max(1000).optional(),
+        warehouseName: z.string().trim().max(128).optional(),
+        warehouseAddress: z.string().trim().max(512).optional(),
+        warehouseZips: z.array(z.string().trim().regex(/^\d{5}$/)).min(1).max(12).optional(),
+        shippingRuleMode: z.enum(["live", "fixed", "threshold"]).optional(),
+        shippingFlatFreightFeeCents: z.number().int().min(0).max(100000000).nullable().optional(),
+        shippingFreeFreightThresholdCents: z.number().int().min(0).max(100000000).nullable().optional(),
+        shippingZipRates: z.array(z.object({
+          zipPrefix: z.string().trim().regex(/^\d{3,5}$/),
+          feeCents: z.number().int().min(0).max(100000000),
+        })).max(100).optional(),
+        shippingExceptions: z.string().trim().max(2000).optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -464,6 +487,36 @@ export const distributorImportRouter = router({
       if (input.pickupZip !== undefined) patch.pickupZip = input.pickupZip.trim() || null;
       if (input.pickupAddress !== undefined) patch.pickupAddress = input.pickupAddress.trim() || null;
       if (input.pickupRadiusMiles !== undefined) patch.pickupRadiusMiles = input.pickupRadiusMiles;
+
+      const requestedRuleMode = input.shippingRuleMode as DistributorShippingRuleMode | undefined;
+      const requestedZipRates = input.shippingZipRates === undefined
+        ? undefined
+        : normalizeDistributorZipRates(input.shippingZipRates);
+      if (requestedRuleMode !== undefined) patch.shippingRuleMode = requestedRuleMode;
+      if (input.shippingFlatFreightFeeCents !== undefined) patch.shippingFlatFreightFeeCents = input.shippingFlatFreightFeeCents;
+      if (input.shippingFreeFreightThresholdCents !== undefined) patch.shippingFreeFreightThresholdCents = input.shippingFreeFreightThresholdCents;
+      if (requestedZipRates !== undefined) patch.shippingZipRates = requestedZipRates;
+      if (input.shippingExceptions !== undefined) patch.shippingExceptions = input.shippingExceptions.trim() || null;
+      if (input.warehouseName !== undefined) patch.warehouseName = input.warehouseName.trim() || null;
+      if (input.warehouseAddress !== undefined) patch.warehouseAddress = input.warehouseAddress.trim() || null;
+      if (input.warehouseZips !== undefined) patch.warehouseZips = Array.from(new Set(input.warehouseZips.map((zip) => zip.trim())));
+
+      const currentRule = requestedRuleMode ?? "live";
+      if (currentRule !== "live") {
+        const canQuote = shippingRuleCanQuote({
+          mode: currentRule,
+          flatFeeCents: input.shippingFlatFreightFeeCents ?? null,
+          freeThresholdCents: input.shippingFreeFreightThresholdCents ?? null,
+          zipRates: requestedZipRates ?? [],
+          exceptions: input.shippingExceptions ?? null,
+        });
+        if (!canQuote) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A fixed or threshold shipping rule needs a fixed fee or at least one ZIP rate.",
+          });
+        }
+      }
 
       if (Object.keys(patch).length === 0) return { id: input.distributorId, updated: false };
       await db.update(distributors).set(patch).where(eq(distributors.id, input.distributorId));

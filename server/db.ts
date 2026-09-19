@@ -28,11 +28,33 @@ export function isCanonicalCabinetMaster() {
     )`;
 }
 
+/**
+ * A customer-facing cabinet must have at least one live supplier source with a
+ * positive list price or a positive cost from which the controlled price ladder
+ * can derive a sell price. This keeps incomplete imported records visible to
+ * administrators, but prevents $0.00 products from reaching Catalog, Designer,
+ * cart, or invoices.
+ */
+export function hasPositivePublishedCabinetPrice() {
+  return sql`EXISTS (
+    SELECT 1
+    FROM distributor_skus sellable_price
+    WHERE sellable_price.cabinetId = ${cabinets.id}
+      AND sellable_price.isAvailable = true
+      AND sellable_price.isPublished = true
+      AND (COALESCE(sellable_price.listPrice, 0) > 0 OR COALESCE(sellable_price.yourCost, 0) > 0)
+  )`;
+}
+
 // Shared public-catalog predicate: exclude both items held in admin "conflict"
 // and retired duplicate masters from catalog, storefront, Designer, order, OCR,
 // and price-shop queries. Each alias continues to resolve to its canonical item.
 export function notInConflict() {
-  return and(ne(cabinets.conflictStatus, "conflict"), isCanonicalCabinetMaster());
+  return and(
+    ne(cabinets.conflictStatus, "conflict"),
+    isCanonicalCabinetMaster(),
+    hasPositivePublishedCabinetPrice(),
+  );
 }
 
 let _db: ReturnType<typeof drizzle> | null = null;

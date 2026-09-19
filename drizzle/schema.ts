@@ -309,6 +309,15 @@ export const distributors = mysqlTable("distributors", {
   tariffRate: decimal("tariffRate", { precision: 5, scale: 4 }).default("0").notNull(),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }).default("0").notNull(),
   warehouseZips: json("warehouseZips").$type<string[]>(),
+  // Distributor shipping overlay. The master catalog remains product truth; each
+  // distributor supplies only its fulfillment location and freight policy.
+  warehouseName: varchar("warehouseName", { length: 128 }),
+  warehouseAddress: varchar("warehouseAddress", { length: 512 }),
+  shippingRuleMode: mysqlEnum("shippingRuleMode", ["live", "fixed", "threshold"]).default("live").notNull(),
+  shippingFlatFreightFeeCents: int("shippingFlatFreightFeeCents"),
+  shippingFreeFreightThresholdCents: int("shippingFreeFreightThresholdCents"),
+  shippingZipRates: json("shippingZipRates").$type<Array<{ zipPrefix: string; feeCents: number }>>(),
+  shippingExceptions: text("shippingExceptions"),
   leadTimeDays: int("leadTimeDays").default(7),
   // ─── Fulfillment / order routing ───────────────────────────────────────────
   // Where confirmed purchase orders for this line are SENT. orderEmail is the

@@ -27,6 +27,7 @@ type ReviewCabinet = {
   height: string | null;
   isActive: boolean | null;
   configVerified: boolean | null;
+  hasPositivePublishedPrice: boolean | null;
   distributorNames: string | null;
   catalogImageUrl: string | null;
   numberOfDoors: number | null;
@@ -95,7 +96,8 @@ export default function CabinetConfigReviewQueueAdmin() {
 
       <p className="text-sm text-muted-foreground">
         This queue contains every master cabinet that is <strong className="text-foreground">inactive</strong>,
-        <strong className="text-foreground"> unverified</strong>, or both. Use <strong className="text-foreground">Edit Config</strong>{" "}
+        <strong className="text-foreground"> unverified</strong>, or missing a <strong className="text-foreground">positive published price</strong>.
+        Use <strong className="text-foreground">Edit Config</strong>{" "}
         to open that exact record directly in Cabinet Config.
       </p>
 
@@ -142,7 +144,7 @@ export default function CabinetConfigReviewQueueAdmin() {
       ) : rows.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
           <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
-          No inactive or unverified cabinet records match this search.
+          No inactive, unverified, or unpriced cabinet records match this search.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">

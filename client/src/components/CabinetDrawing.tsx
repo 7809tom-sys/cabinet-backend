@@ -100,6 +100,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <CornerDrawerBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "accessory-strip":
       return <AccessoryStrip x={x} y={y} w={w} h={h} fill={fill} />;
+    case "panel":
+      return <FlatPanelFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "glass-door":
       return <GlassDoorFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "pantry":
@@ -686,6 +688,44 @@ function AccessoryStrip({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet
         strokeWidth={0.8}
         strokeDasharray="3 3"
       />
+    </g>
+  );
+}
+
+// Flat skin/end/veneer panel: a clean structural elevation. Unlike a door box,
+// it never renders handles, drawers, doors, or a finish-specific appearance.
+function FlatPanelFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const verticalGrain = cabinet.grainDirection !== "horizontal";
+  const grainCount = Math.max(3, Math.min(7, Math.round((verticalGrain ? w : h) / 18)));
+  return (
+    <g data-cabinet-drawing="flat-panel">
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      {Array.from({ length: grainCount }).map((_, index) => {
+        const ratio = (index + 1) / (grainCount + 1);
+        return verticalGrain ? (
+          <line
+            key={index}
+            x1={x + w * ratio}
+            y1={y + 4}
+            x2={x + w * ratio}
+            y2={y + h - 4}
+            stroke={STROKE_LIGHT}
+            strokeWidth={0.65}
+            opacity={0.55}
+          />
+        ) : (
+          <line
+            key={index}
+            x1={x + 4}
+            y1={y + h * ratio}
+            x2={x + w - 4}
+            y2={y + h * ratio}
+            stroke={STROKE_LIGHT}
+            strokeWidth={0.65}
+            opacity={0.55}
+          />
+        );
+      })}
     </g>
   );
 }

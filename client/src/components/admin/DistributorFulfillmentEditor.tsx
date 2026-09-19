@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -18,6 +19,26 @@ import { toast } from "sonner";
 import { Truck, Mail, MapPin } from "lucide-react";
 
 type FulfillmentMode = "email" | "netsuite_email" | "netsuite_api";
+type ShippingRuleMode = "live" | "fixed" | "threshold";
+
+type ShippingZipRate = { zipPrefix: string; feeCents: number };
+
+function parseZipRateLines(value: string): ShippingZipRate[] {
+  return value
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .flatMap((line) => {
+      const match = line.match(/^(\d{3,5})\s*(?:=|,|:)\s*\$?([\d,]+(?:\.\d{1,2})?)$/);
+      if (!match) return [];
+      const feeCents = Math.round(Number(match[2].replace(/,/g, "")) * 100);
+      return Number.isInteger(feeCents) && feeCents >= 0 ? [{ zipPrefix: match[1], feeCents }] : [];
+    });
+}
+
+function zipRateLines(value: ShippingZipRate[] | null | undefined): string {
+  return (value ?? []).map((rate) => `${rate.zipPrefix} = ${(rate.feeCents / 100).toFixed(2)}`).join("\n");
+}
 
 const MODE_HELP: Record<FulfillmentMode, string> = {
   email: "Email a purchase order (PDF-style text) plus a NetSuite-ready CSV to the distributor.",
@@ -47,6 +68,14 @@ export default function DistributorFulfillmentEditor() {
   const [pickupZip, setPickupZip] = useState("");
   const [pickupAddress, setPickupAddress] = useState("");
   const [pickupRadiusMiles, setPickupRadiusMiles] = useState("100");
+  const [warehouseName, setWarehouseName] = useState("");
+  const [warehouseAddress, setWarehouseAddress] = useState("");
+  const [warehouseZips, setWarehouseZips] = useState("");
+  const [shippingRuleMode, setShippingRuleMode] = useState<ShippingRuleMode>("live");
+  const [flatFreightDollars, setFlatFreightDollars] = useState("");
+  const [freeFreightThresholdDollars, setFreeFreightThresholdDollars] = useState("");
+  const [zipRateLinesDraft, setZipRateLinesDraft] = useState("");
+  const [shippingExceptions, setShippingExceptions] = useState("");
 
   const selected = useMemo(
     () => dists?.find((d) => String(d.id) === selectedId),
@@ -63,6 +92,14 @@ export default function DistributorFulfillmentEditor() {
     setPickupZip(selected.pickupZip ?? "");
     setPickupAddress(selected.pickupAddress ?? "");
     setPickupRadiusMiles(String(selected.pickupRadiusMiles ?? 100));
+    setWarehouseName(selected.warehouseName ?? "");
+    setWarehouseAddress(selected.warehouseAddress ?? "");
+    setWarehouseZips((selected.warehouseZips ?? []).join(", "));
+    setShippingRuleMode((selected.shippingRuleMode as ShippingRuleMode) ?? "live");
+    setFlatFreightDollars(selected.shippingFlatFreightFeeCents != null ? (selected.shippingFlatFreightFeeCents / 100).toFixed(2) : "");
+    setFreeFreightThresholdDollars(selected.shippingFreeFreightThresholdCents != null ? (selected.shippingFreeFreightThresholdCents / 100).toFixed(2) : "");
+    setZipRateLinesDraft(zipRateLines(selected.shippingZipRates));
+    setShippingExceptions(selected.shippingExceptions ?? "");
   }, [selected]);
 
   const save = trpc.distributorAdmin.updateFulfillment.useMutation({
@@ -75,7 +112,14 @@ export default function DistributorFulfillmentEditor() {
 
   const radiusNum = Number(pickupRadiusMiles);
   const radiusValid = Number.isFinite(radiusNum) && radiusNum >= 1 && radiusNum <= 1000;
-  const canSave = Boolean(selectedId) && !save.isPending && (!pickupEnabled || radiusValid);
+  const shippingZips = warehouseZips.split(/[\s,]+/).map((zip) => zip.trim()).filter(Boolean);
+  const warehouseZipsValid = shippingZips.length > 0 && shippingZips.every((zip) => /^\d{5}$/.test(zip));
+  const zipRates = parseZipRateLines(zipRateLinesDraft);
+  const flatFreightFeeCents = flatFreightDollars.trim() === "" ? null : Math.round(Number(flatFreightDollars) * 100);
+  const freeFreightThresholdCents = freeFreightThresholdDollars.trim() === "" ? null : Math.round(Number(freeFreightThresholdDollars) * 100);
+  const hasConfiguredFixedRule = zipRates.length > 0 || (flatFreightFeeCents != null && Number.isInteger(flatFreightFeeCents) && flatFreightFeeCents >= 0);
+  const shippingRuleValid = shippingRuleMode === "live" || hasConfiguredFixedRule;
+  const canSave = Boolean(selectedId) && !save.isPending && warehouseZipsValid && shippingRuleValid && (!pickupEnabled || radiusValid);
 
   return (
     <Card>
@@ -176,6 +220,66 @@ export default function DistributorFulfillmentEditor() {
                   </div>
                 </div>
 
+                {/* Warehouse and shipping policy */}
+                <div className="rounded-lg border p-4 space-y-4">
+                  <div className="flex items-start gap-2">
+                    <Truck className="mt-0.5 h-4 w-4" />
+                    <div>
+                      <p className="text-sm font-medium">Distributor warehouse & shipping rule</p>
+                      <p className="text-xs text-muted-foreground">This overlay controls fulfillment origin and the freight policy shown in cart and on the invoice. Catalog identity, images, dimensions, and prices remain master-controlled.</p>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Warehouse name</Label>
+                      <Input value={warehouseName} onChange={(event) => setWarehouseName(event.target.value)} placeholder="Dallas distribution center" maxLength={128} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Warehouse ZIPs <span className="text-destructive">*</span></Label>
+                      <Input value={warehouseZips} onChange={(event) => setWarehouseZips(event.target.value)} placeholder="75001, 30301" />
+                      <p className="text-xs text-muted-foreground">One or more five-digit origins, separated by commas. The nearest origin is used.</p>
+                    </div>
+                    <div className="space-y-1.5 sm:col-span-2">
+                      <Label>Warehouse address or service region</Label>
+                      <Input value={warehouseAddress} onChange={(event) => setWarehouseAddress(event.target.value)} placeholder="123 Warehouse Rd, Dallas, TX 75001" maxLength={512} />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="space-y-1.5">
+                      <Label>Shipping rule</Label>
+                      <Select value={shippingRuleMode} onValueChange={(value) => setShippingRuleMode(value as ShippingRuleMode)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="live">Live carrier quote</SelectItem>
+                          <SelectItem value="fixed">Fixed freight by ZIP / all locations</SelectItem>
+                          <SelectItem value="threshold">Fixed freight with free-freight threshold</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {shippingRuleMode !== "live" && <div className="space-y-1.5">
+                      <Label>Default freight ($)</Label>
+                      <Input type="number" min="0" step="0.01" value={flatFreightDollars} onChange={(event) => setFlatFreightDollars(event.target.value)} placeholder="299.00" />
+                    </div>}
+                    {shippingRuleMode === "threshold" && <div className="space-y-1.5">
+                      <Label>Free freight at order total ($)</Label>
+                      <Input type="number" min="0" step="0.01" value={freeFreightThresholdDollars} onChange={(event) => setFreeFreightThresholdDollars(event.target.value)} placeholder="5000.00" />
+                    </div>}
+                  </div>
+                  {shippingRuleMode !== "live" && <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>ZIP / zone overrides</Label>
+                      <Textarea value={zipRateLinesDraft} onChange={(event) => setZipRateLinesDraft(event.target.value)} placeholder={"750 = 199.00\n90210 = 249.00"} className="min-h-24 font-mono text-sm" />
+                      <p className="text-xs text-muted-foreground">Optional. Use a 3–5 digit ZIP prefix and freight dollars. The most specific match wins.</p>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Exceptions / customer message</Label>
+                      <Textarea value={shippingExceptions} onChange={(event) => setShippingExceptions(event.target.value)} placeholder="Remote areas, liftgate, appointment delivery, or surcharge policy." className="min-h-24" maxLength={2000} />
+                    </div>
+                  </div>}
+                  {!warehouseZipsValid && <p className="text-xs text-destructive">Enter at least one five-digit warehouse ZIP.</p>}
+                  {!shippingRuleValid && <p className="text-xs text-destructive">A fixed or threshold rule needs a default freight amount or a valid ZIP override.</p>}
+                </div>
+
                 {/* Pickup */}
                 <div className="rounded-lg border p-4 space-y-4">
                   <div className="flex items-center justify-between">
@@ -240,6 +344,14 @@ export default function DistributorFulfillmentEditor() {
                         pickupZip: pickupZip.trim(),
                         pickupAddress: pickupAddress.trim(),
                         pickupRadiusMiles: radiusValid ? radiusNum : 100,
+                        warehouseName: warehouseName.trim(),
+                        warehouseAddress: warehouseAddress.trim(),
+                        warehouseZips: shippingZips,
+                        shippingRuleMode,
+                        shippingFlatFreightFeeCents: flatFreightFeeCents,
+                        shippingFreeFreightThresholdCents: freeFreightThresholdCents,
+                        shippingZipRates: zipRates,
+                        shippingExceptions: shippingExceptions.trim(),
                       })
                     }
                   >

@@ -15,6 +15,11 @@ import { adminProcedure, router } from "../_core/trpc";
 import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles, skuMasterAliases } from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import {
+  catalogNomenclatureIssueMessage,
+  catalogNomenclatureIssues,
+  hasPositiveCatalogPrice,
+} from "../../shared/catalogNomenclature";
 
 export const genericCabinetsRouter = router({
   /**
@@ -325,8 +330,24 @@ export const genericCabinetsRouter = router({
       if (publish && !description) {
         throw new Error("Product name or description is required before publishing.");
       }
-      if (publish && (!input.source || input.source.listPrice == null && input.source.yourCost == null)) {
-        throw new Error("Add a valid List Price or Your Cost before publishing.");
+      if (publish && (!input.source || !input.source.isAvailable || !hasPositiveCatalogPrice([input.source.listPrice, input.source.yourCost]))) {
+        throw new Error("Add a positive List Price or Your Cost on an available supplier source before publishing.");
+      }
+      if (publish) {
+        const truthIssues = catalogNomenclatureIssues({
+          masterCode,
+          description,
+          category,
+          subCategory: input.subCategory,
+          placementType: input.placementType,
+          width: input.width,
+          height: input.height,
+          depth: input.depth,
+          catalogImageUrl: input.catalogImageUrl,
+        });
+        if (truthIssues.length > 0) {
+          throw new Error(`Cannot publish ${masterCode}: ${catalogNomenclatureIssueMessage(truthIssues)}.`);
+        }
       }
 
       const [existing] = input.id == null ? [undefined] : await db
@@ -588,6 +609,65 @@ export const genericCabinetsRouter = router({
       }
 
       if (Object.keys(update).length === 0) return { ok: true };
+
+      const requiresPublicPrice = input.isActive === true || input.showInCatalog === true || input.showInDesigner === true;
+      const changesTruthFields = input.description !== undefined
+        || input.category !== undefined
+        || input.subCategory !== undefined
+        || input.width !== undefined
+        || input.height !== undefined
+        || input.depth !== undefined
+        || input.catalogImageUrl !== undefined
+        || requiresPublicPrice;
+      if (changesTruthFields) {
+        const [current] = await db
+          .select({
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            placementType: cabinets.placementType,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            catalogImageUrl: cabinets.catalogImageUrl,
+          })
+          .from(cabinets)
+          .where(eq(cabinets.id, id))
+          .limit(1);
+        if (!current) throw new Error("Catalog item not found");
+
+        const truthIssues = catalogNomenclatureIssues({
+          masterCode: current.masterCode,
+          description: input.description ?? current.description,
+          category: input.category ?? current.category,
+          subCategory: input.subCategory === undefined ? current.subCategory : input.subCategory,
+          placementType: current.placementType,
+          width: input.width === undefined ? current.width : update.width as string | null,
+          height: input.height === undefined ? current.height : update.height as string | null,
+          depth: input.depth === undefined ? current.depth : update.depth as string | null,
+          catalogImageUrl: input.catalogImageUrl === undefined ? current.catalogImageUrl : input.catalogImageUrl,
+        });
+        if (truthIssues.length > 0) {
+          throw new Error(`Catalog truth rule: ${catalogNomenclatureIssueMessage(truthIssues)}.`);
+        }
+
+        if (requiresPublicPrice) {
+          const [sellableSource] = await db
+            .select({ id: distributorSkus.id })
+            .from(distributorSkus)
+            .where(and(
+              eq(distributorSkus.cabinetId, id),
+              eq(distributorSkus.isAvailable, true),
+              eq(distributorSkus.isPublished, true),
+              sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+            ))
+            .limit(1);
+          if (!sellableSource) {
+            throw new Error("A positive published supplier price is required before a cabinet can be active in Catalog or Designer.");
+          }
+        }
+      }
       await db.update(cabinets).set(update).where(eq(cabinets.id, id));
       // Aliases are purely informational cross-references.
       // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.

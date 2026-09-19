@@ -47,6 +47,11 @@ import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
+import {
+  resolveDistributorShippingRule,
+  type DistributorShippingRuleMode,
+  type DistributorZipRate,
+} from "@shared/distributorShipping";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -454,6 +459,9 @@ type StyleFreightGroup = {
   label: string;
   originZip: string;
   flatFreightFeeCents: number | null;
+  /** Explicit distributor fixed/threshold rule; style Plan B remains a fallback. */
+  distributorRuleFeeCents: number | null;
+  distributorRuleLabel: string | null;
   usedOperationsOriginFallback: boolean;
   missingOriginStyle: {
     id: number;
@@ -500,6 +508,7 @@ type FreightSimulationGroup = {
 async function resolveStyleFreightGroups(input: {
   destinationZip: string;
   items: FreightItemInput[];
+  merchandiseSubtotalCents: number;
   explicitDistributorId?: number | null;
   fallbackOriginZip: string;
   /** Operations-only test escape hatch; customer quotes still require a style ZIP. */
@@ -530,6 +539,12 @@ async function resolveStyleFreightGroups(input: {
     warehouseZip: string | null;
     warehouseZips: string[] | null;
     flatFreightFeeCents: number | null;
+    distributorWarehouseZips: string[] | null;
+    shippingRuleMode: DistributorShippingRuleMode;
+    shippingFlatFreightFeeCents: number | null;
+    shippingFreeFreightThresholdCents: number | null;
+    shippingZipRates: DistributorZipRate[] | null;
+    shippingExceptions: string | null;
   };
   const styleById = new Map<number, StyleMeta>();
   const candidatesByCabinet = new Map<number, StyleMeta[]>();
@@ -545,6 +560,12 @@ async function resolveStyleFreightGroups(input: {
         warehouseZip: doorStyles.warehouseZip,
         warehouseZips: doorStyles.warehouseZips,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+        distributorWarehouseZips: distributors.warehouseZips,
+        shippingRuleMode: distributors.shippingRuleMode,
+        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+        shippingZipRates: distributors.shippingZipRates,
+        shippingExceptions: distributors.shippingExceptions,
       })
       .from(doorStyles)
       .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
@@ -564,6 +585,12 @@ async function resolveStyleFreightGroups(input: {
         warehouseZip: doorStyles.warehouseZip,
         warehouseZips: doorStyles.warehouseZips,
         flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+        distributorWarehouseZips: distributors.warehouseZips,
+        shippingRuleMode: distributors.shippingRuleMode,
+        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+        shippingZipRates: distributors.shippingZipRates,
+        shippingExceptions: distributors.shippingExceptions,
       })
       .from(distributorSkus)
       .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
@@ -604,15 +631,19 @@ async function resolveStyleFreightGroups(input: {
       matchedStyle?.warehouseZips,
       matchedStyle?.warehouseZip,
     );
-    const usedOperationsOriginFallback = Boolean(matchedStyle && styleOriginZips.length === 0);
-    if (matchedStyle && styleOriginZips.length === 0 && !input.allowMissingStyleOriginFallback) {
+    const distributorOriginZips = matchedStyle?.distributorWarehouseZips?.filter(
+      (zip): zip is string => typeof zip === "string" && /^\d{5}$/.test(zip),
+    ) ?? [];
+    const originZips = styleOriginZips.length > 0 ? styleOriginZips : distributorOriginZips;
+    const usedOperationsOriginFallback = Boolean(matchedStyle && originZips.length === 0);
+    if (matchedStyle && originZips.length === 0 && !input.allowMissingStyleOriginFallback) {
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: `${matchedStyle.aliasName || matchedStyle.ourName} does not have a Shipping Origin ZIP in Featured Door Styles.`,
       });
     }
-    const originZip = styleOriginZips.length > 0
-      ? await chooseNearestDoorStyleOriginZip(input.destinationZip, styleOriginZips)
+    const originZip = originZips.length > 0
+      ? await chooseNearestDoorStyleOriginZip(input.destinationZip, originZips)
       : await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip);
     const key = matchedStyle
       ? `style:${matchedStyle.id}:${originZip}`
@@ -623,11 +654,22 @@ async function resolveStyleFreightGroups(input: {
       continue;
     }
     const styleLabel = matchedStyle?.aliasName || matchedStyle?.ourName;
+    const distributorRule = matchedStyle
+      ? resolveDistributorShippingRule({
+          mode: matchedStyle.shippingRuleMode,
+          flatFeeCents: matchedStyle.shippingFlatFreightFeeCents,
+          freeThresholdCents: matchedStyle.shippingFreeFreightThresholdCents,
+          zipRates: matchedStyle.shippingZipRates ?? [],
+          exceptions: matchedStyle.shippingExceptions,
+        }, input.destinationZip, input.merchandiseSubtotalCents)
+      : { fixedFeeCents: null, label: null, matchedZipPrefix: null };
     groups.set(key, {
       key,
       label: `${styleLabel || "Configured supply line"} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
       originZip,
       flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
+      distributorRuleFeeCents: distributorRule.fixedFeeCents,
+      distributorRuleLabel: distributorRule.label,
       usedOperationsOriginFallback,
       missingOriginStyle: usedOperationsOriginFallback && matchedStyle
         ? {
@@ -839,6 +881,7 @@ async function simulateFreight(input: {
   const styleGroups = await resolveStyleFreightGroups({
     destinationZip,
     items: input.items,
+    merchandiseSubtotalCents: input.merchandiseSubtotalCents,
     fallbackOriginZip: settings.originZip,
     allowMissingStyleOriginFallback: input.allowMissingStyleOriginFallback,
   });
@@ -1183,8 +1226,19 @@ export const freightRouter = router({
         ? normalizeSpeedshipFreightClass(settingsRow?.freightClass) ?? "175"
         : settingsRow?.freightClass ?? "175";
 
-      // ── CARRIER QUOTE: one shipment per authoritative style origin ──────────
-      if (liveProvider !== "estimator" && settingsRow) {
+      // ── QUOTE: one shipment per authoritative style/distributor origin ─────
+      // A configured distributor fixed/threshold rule is authoritative and takes
+      // precedence over a carrier call. Unconfigured lines remain live-only.
+      const styleGroups = settingsRow
+        ? await resolveStyleFreightGroups({
+            destinationZip: input.destinationZip,
+            items: input.items,
+            merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+            explicitDistributorId: input.distributorId,
+            fallbackOriginZip: settings.originZip,
+          })
+        : [];
+      if (settingsRow && (liveProvider !== "estimator" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
         const isKitchen = isKitchenOrder(load.units, settingsRow.kitchenMinCabinets);
@@ -1203,12 +1257,6 @@ export const freightRouter = router({
           };
         }
 
-        const styleGroups = await resolveStyleFreightGroups({
-          destinationZip: input.destinationZip,
-          items: input.items,
-          explicitDistributorId: input.distributorId,
-          fallbackOriginZip: settings.originZip,
-        });
         const rateGroups: FreightRateGroup[] = [];
         const shipmentGroups: FreightShipmentGroup[] = [];
         const failedGroups: string[] = [];
@@ -1237,9 +1285,20 @@ export const freightRouter = router({
               weightLbs: pallet.weightLbs,
               contentsWeightLbs: pallet.contentsWeightLbs,
               contentsCubicFt: pallet.contentsCubicFt,
-            })),
+          })),
           };
           shipmentGroups.push(shipmentGroup);
+          if (group.distributorRuleFeeCents != null) {
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label} · ${group.distributorRuleLabel ?? "Distributor fixed freight"}`,
+              originZip: group.originZip,
+              source: "plan_b",
+              baseAmountCents: group.distributorRuleFeeCents,
+              palletCount: plan.palletCount,
+            });
+            continue;
+          }
           const liveReq: LiveRateRequest = {
             fromZip: group.originZip,
             toZip: input.destinationZip,
@@ -1299,7 +1358,7 @@ export const freightRouter = router({
           };
         }
 
-        const quote = combineStyleFreightGroups({
+        const quoted = combineStyleFreightGroups({
           groups: rateGroups,
           settings,
           accessorials: input.accessorials,
@@ -1308,6 +1367,18 @@ export const freightRouter = router({
           isKitchen,
           kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
         });
+        const allDistributorRulesFree = styleGroups.length > 0 && styleGroups.every((group) => group.distributorRuleFeeCents === 0);
+        const quote = allDistributorRulesFree
+          ? {
+              ...quoted,
+              totalCents: 0,
+              freightBeforeMarkupCents: 0,
+              markupCents: 0,
+              damageFeeCents: 0,
+              freeFreightApplied: true,
+              lines: [{ label: "Distributor free-freight threshold", amountCents: 0 }],
+            }
+          : quoted;
         return attachFreightQuoteToken({ ...quote, shipmentGroups }, input);
       }
 
