@@ -588,6 +588,8 @@ interface Props {
   temporaryPreviewCounter?: { current: number; total: number };
   /** Changes whenever the host swaps a temporary preview recommendation. */
   temporaryPreviewTransitionKey?: string | null;
+  /** One-shot visual cue for catalog fillers safely inserted into a measured seam. */
+  fillerInsertionTransition?: { uids: string[]; key: number } | null;
   /** Renders directly inside the main designer canvas rather than a standalone preview shell. */
   embedded?: boolean;
   /** Draws the complete authoritative 2D plan as a subdued floor reference beneath full-opacity 3D geometry. */
@@ -6828,7 +6830,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -7558,7 +7560,51 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     };
 	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
-  useEffect(() => {
+	  // A catalog filler has already passed geometry/collision validation before this
+	  // cue runs. Animate only its visual group, so the final coordinates and the
+	  // saved plan remain authoritative while the user sees it settle into the seam.
+	  useEffect(() => {
+	    if (!fillerInsertionTransition || typeof window === "undefined") return undefined;
+	    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return undefined;
+	    const root = catalogRootRef.current;
+	    if (!root) return undefined;
+	    const requested = new Set(fillerInsertionTransition.uids);
+	    const targets = root.children.filter((node) => requested.has(String(node.userData.placedUid)));
+	    if (targets.length === 0) return undefined;
+
+	    const origins = targets.map((target) => ({
+	      target,
+	      position: target.position.clone(),
+	      scale: target.scale.clone(),
+	    }));
+	    for (const { target, position, scale } of origins) {
+	      target.position.set(position.x, position.y - 0.045, position.z);
+	      target.scale.set(scale.x * 0.9, scale.y * 0.9, scale.z * 0.9);
+	    }
+    const durationMs = 280;
+    let frame = 0;
+    let startedAt = 0;
+    const animate = (now: number) => {
+      if (!startedAt) startedAt = now;
+      const progress = Math.min(1, (now - startedAt) / durationMs);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      for (const { target, position, scale } of origins) {
+        target.position.set(position.x, position.y - 0.045 * (1 - eased), position.z);
+        target.scale.set(scale.x * (0.9 + 0.1 * eased), scale.y * (0.9 + 0.1 * eased), scale.z * (0.9 + 0.1 * eased));
+      }
+      if (progress < 1) frame = window.requestAnimationFrame(animate);
+    };
+    frame = window.requestAnimationFrame(animate);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      for (const { target, position, scale } of origins) {
+        target.position.copy(position);
+        target.scale.copy(scale);
+      }
+    };
+	  }, [fillerInsertionTransition?.key]);
+
+	  useEffect(() => {
     const root = catalogRootRef.current;
     const removeOutline = () => {
       const current = attributesOutlineRef.current;

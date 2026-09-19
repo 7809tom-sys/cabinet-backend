@@ -553,12 +553,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
+  /** Optional user-entered installed filler width; null keeps the exact measured seam. */
+  const [smallGapFillerCustomWidth, setSmallGapFillerCustomWidth] = useState<number | null>(null);
+  /** One-shot 3D visual cue emitted after a catalog filler is actually inserted. */
+  const [fillerInsertionTransition, setFillerInsertionTransition] = useState<{ uids: string[]; key: number } | null>(null);
   const [blindCornerFillerPrompt, setBlindCornerFillerPrompt] = useState<{
     blindUid: string;
     fillerUid: string;
     /** Cabinet whose resolved color/finish should be copied onto this filler. */
     finishSourceUid: string;
   } | null>(null);
+  useEffect(() => {
+    setSmallGapFillerCustomWidth(smallGapFillerPrompt?.remaining ?? null);
+  }, [smallGapFillerPrompt?.cabinetUid, smallGapFillerPrompt?.remaining]);
 	  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
 	    cabinet: DesignCabinet;
 	    forceAccessory: boolean;
@@ -1687,10 +1694,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setBlindCornerFillerPrompt(null);
     toast.success(`${candidate.masterCode} selected for ${selectedBlind.masterCode}; matched to ${finishSource.masterCode}'s color and finish, then cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`);
   }, [blindCornerFillerOptions, blindCornerFillerPrompt]);
+  const selectedSmallGapFillerCut = useMemo(() => {
+    if (!smallGapFillerPrompt) return 0;
+    const requested = smallGapFillerCustomWidth ?? smallGapFillerPrompt.remaining;
+    return Math.round(requested * 8) / 8;
+  }, [smallGapFillerCustomWidth, smallGapFillerPrompt]);
+  const selectedSmallGapFillerCutIsValid = Boolean(
+    smallGapFillerPrompt
+    && selectedSmallGapFillerCut >= SMALL_GAP_FILLER_MIN_IN - 0.001
+    && selectedSmallGapFillerCut <= smallGapFillerPrompt.remaining + 0.001,
+  );
   const smallGapFillerDefinition = useMemo(() => {
-    if (!smallGapFillerPrompt) return null;
-    return catalogFillerForGap(catalogFillers, smallGapFillerPrompt.remaining, smallGapFillerPrompt.layer);
-  }, [catalogFillers, smallGapFillerPrompt]);
+    if (!smallGapFillerPrompt || !selectedSmallGapFillerCutIsValid) return null;
+    return catalogFillerForGap(catalogFillers, selectedSmallGapFillerCut, smallGapFillerPrompt.layer);
+  }, [catalogFillers, selectedSmallGapFillerCut, selectedSmallGapFillerCutIsValid, smallGapFillerPrompt]);
   const pricingIdForPlacedCabinet = useCallback(
     (cabinet: PlacedCabinet) => catalogFillerPricingId(cabinet, catalogFillers) ?? pricingCabinetIdFor(cabinet),
     [catalogFillers, pricingCabinetIdFor],
@@ -1751,7 +1768,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       } else if (remaining > SMALL_GAP_FILLER_MAX_IN) {
         toast.info(`The measured opening has ${formatEighthInches(remaining)} remaining. Add another cabinet or use the gap tools before fitting a filler.`);
       } else {
-        toast.info("No eligible ½-inch to 3-inch filler opening was found beside this cabinet.");
+        toast.info("No eligible ½-inch to 6-inch cabinet seam was found beside this cabinet.");
       }
       return;
     }
@@ -5338,7 +5355,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    [addCabinet, cabinetsLocked, catalogFillers, room, t]
 	  );
 
-	const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode, overrideOpportunity?: SmallGapFillerOpportunity) => {
+	const applySmallGapFiller = useCallback((mode: SmallGapFillerPlacementMode, overrideOpportunity?: SmallGapFillerOpportunity, requestedCutWidth?: number) => {
 	  const requestedOpportunity = overrideOpportunity ?? smallGapFillerPrompt;
 	  const committedPlaced = placedRef.current;
 	  const requestedCabinet = requestedOpportunity
@@ -5352,12 +5369,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      ? findIslandSmallGapFillerOpportunity(island, committedPlaced, requestedCabinet.uid)
 	      : findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)
 	    : null);
-	  const fillerDef = opportunity
-	    ? catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)
+	  const cutWidth = requestedCutWidth == null ? opportunity?.remaining ?? 0 : Math.round(requestedCutWidth * 8) / 8;
+	  const cutIsValid = opportunity != null
+	    && cutWidth >= SMALL_GAP_FILLER_MIN_IN - 0.001
+	    && cutWidth <= opportunity.remaining + 0.001;
+	  const cutOpportunity = opportunity && cutIsValid ? { ...opportunity, remaining: cutWidth } : null;
+	  const fillerDef = cutOpportunity
+	    ? catalogFillerForGap(catalogFillers, cutOpportunity.remaining, cutOpportunity.layer)
 	    : null;
-	    if (!opportunity || !fillerDef) {
+	    if (!cutOpportunity || !fillerDef) {
 	      toast.info(requestedCabinet
-	        ? `${requestedCabinet.masterCode} now fills its committed opening. No filler is needed.`
+	        ? `Choose an installable filler cut from ${formatInches(SMALL_GAP_FILLER_MIN_IN)} through ${formatInches(opportunity?.remaining ?? 0)}.`
 	        : "The selected cabinet opening is no longer available for filler placement.");
 	      setSmallGapFillerPrompt(null);
 	      return;
@@ -5366,23 +5388,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.info(t("dt_gap_locked"));
       return;
     }
-    if (mode === "split" && !canSplitSmallGapFiller(opportunity)) {
+	    if (mode === "split" && !canSplitSmallGapFiller(cutOpportunity)) {
       toast.error("This opening is too narrow to split into two installable filler pieces.");
       return;
     }
-	    const workingPlaced = opportunity.replacingFillerGroupId
-	      ? committedPlaced.filter((item) => item.fillerPieceGroupId !== opportunity.replacingFillerGroupId)
+	    const workingPlaced = cutOpportunity.replacingFillerGroupId
+	      ? committedPlaced.filter((item) => item.fillerPieceGroupId !== cutOpportunity.replacingFillerGroupId)
 	      : committedPlaced;
-    const cabinet = workingPlaced.find((item) => item.uid === opportunity.cabinetUid);
+	  const cabinet = workingPlaced.find((item) => item.uid === cutOpportunity.cabinetUid);
     if (!cabinet) {
       setSmallGapFillerPrompt(null);
       return;
     }
-    const layout = smallGapFillerLayout(opportunity, mode);
-    const movedCabinet: PlacedCabinet = opportunity.islandFace && island
-      ? islandFacePlacement(cabinet, island, opportunity.islandFace, layout.cabinetStart)
-      : (() => {
-          const cabinetSpot = wallPlacementAt(layout.cabinetStart, opportunity.cabinetSpan, cabinet.depth, opportunity.wall, room);
+	  const layout = smallGapFillerLayout(cutOpportunity, mode);
+	  const movedCabinet: PlacedCabinet = cutOpportunity.islandFace && island
+	    ? islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)
+	    : (() => {
+	        const cabinetSpot = wallPlacementAt(layout.cabinetStart, cutOpportunity.cabinetSpan, cabinet.depth, cutOpportunity.wall, room);
           return { ...cabinet, x: cabinetSpot.x, y: cabinetSpot.y, rotation: cabinetSpot.rotation };
         })();
     const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
@@ -5391,17 +5413,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
 
-    const fillerGroupId = opportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
-    const fillerDepth = dim(fillerDef.depth, opportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-    const fillerHeight = installedFillerVerticalSpec(
-      opportunity.layer,
-      dim(fillerDef.height, opportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
-    ).storedHeight;
-    const catalogWidth = dim(fillerDef.width, opportunity.remaining);
+	  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
+	  const fillerDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+	  const fillerHeight = installedFillerVerticalSpec(
+	    cutOpportunity.layer,
+	    dim(fillerDef.height, cutOpportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+	  ).storedHeight;
+	  const catalogWidth = dim(fillerDef.width, cutOpportunity.remaining);
     const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {
-      const wallSpot = opportunity.islandFace && island
-        ? null
-        : wallPlacementAt(piece.start, piece.width, fillerDepth, opportunity.wall, room);
+	    const wallSpot = cutOpportunity.islandFace && island
+	      ? null
+	      : wallPlacementAt(piece.start, piece.width, fillerDepth, cutOpportunity.wall, room);
       const installationNote = mode === "split"
         ? ` — ${piece.side} half ${formatInches(piece.width)}`
         : ` — install on ${piece.side}`;
@@ -5409,10 +5431,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         uid: makeUid(),
         cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
-        description: `${fittedCatalogFillerDescription(fillerDef, opportunity.remaining)}${installationNote}`,
+	      description: `${fittedCatalogFillerDescription(fillerDef, cutOpportunity.remaining)}${installationNote}`,
         category: fillerDef.category ?? "Filler",
         subCategory: fillerDef.subCategory ?? "Filler",
-        placement: opportunity.layer,
+	      placement: cutOpportunity.layer,
         x: wallSpot?.x ?? 0,
         y: wallSpot?.y ?? 0,
         width: piece.width,
@@ -5428,14 +5450,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         styleId: styleIdRef.current ?? null,
         fillerPieceGroupId: fillerGroupId,
         fillerBillingRole: index === 0 ? "primary" : "secondary",
-	        fillerTotalWidth: opportunity.remaining,
-	        fillerPlacementMode: mode,
-	        fillerForCabinetUid: opportunity.boundedCabinetUids
-	          ? (piece.side === "left" ? opportunity.boundedCabinetUids[0] : opportunity.boundedCabinetUids[1])
-	          : cabinet.uid,
-	      };
-      return opportunity.islandFace && island
-        ? islandFacePlacement(fillerPiece, island, opportunity.islandFace, piece.start)
+	      fillerTotalWidth: cutOpportunity.remaining,
+	      fillerPlacementMode: mode,
+	      fillerForCabinetUid: cutOpportunity.boundedCabinetUids
+	        ? (piece.side === "left" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1])
+	        : cabinet.uid,
+	    };
+	    return cutOpportunity.islandFace && island
+	      ? islandFacePlacement(fillerPiece, island, cutOpportunity.islandFace, piece.start)
         : fillerPiece;
     });
     const result = appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces);
@@ -5452,9 +5474,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
 	    placedRef.current = result.placed;
 	    setPlaced(result.placed);
-    setSelectedUid(movedCabinet.uid);
-    setSmallGapFillerPrompt(null);
-    toast.success(`${fillerDef.masterCode} added as one catalog filler with ${formatInches(opportunity.remaining)} installed ${mode === "split" ? "equally left and right" : `on the ${mode}`}.`);
+	    setFillerInsertionTransition({ uids: pieces.map((piece) => piece.uid), key: Date.now() });
+	    setSelectedUid(movedCabinet.uid);
+	    setSmallGapFillerPrompt(null);
+	    toast.success(`${fillerDef.masterCode} added as one catalog filler with ${formatInches(cutOpportunity.remaining)} installed ${mode === "split" ? "equally left and right" : `on the ${mode}`}.`);
 	}, [cabinetsLocked, catalogFillers, island, openings, room, setSinks, smallGapFillerPrompt, t]);
 
 		  const previewSmartGap = useCallback((gap: WallGap, candidate: DesignCabinet | null, needsFiller: boolean, choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }> = [{ cabinet: candidate, needsFiller }], index = 0) => {
@@ -9296,6 +9319,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      temporaryPreviewCounter={smartGapPreviewPosition ?? undefined}
 	      onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreviewPosition(null); setSmartGapPreview([]); } : undefined}
 	      temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
+	      fillerInsertionTransition={fillerInsertionTransition}
 	    />;
   };
 
@@ -14740,36 +14764,59 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onOpenChange={(open) => { if (!open) setSmallGapFillerPrompt(null); }}
       >
 	        <DialogContent className="max-w-lg">
-	          <DialogHeader>
-	            <DialogTitle>Choose filler placement — {formatInches(smallGapFillerPrompt?.remaining ?? 0)}</DialogTitle>
+	        <DialogHeader>
+	          <DialogTitle>Choose filler placement — {formatInches(smallGapFillerPrompt?.remaining ?? 0)}</DialogTitle>
 	        <DialogDescription>
 	          {smallGapFillerDefinition
 	            ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. Choose the left edge, right edge, or an even split below; CabinetDealz cuts and inserts the selected size at that exact zero-overlap seam.`
 	            : "No active catalog filler is available for this opening."}
 	        </DialogDescription>
 	      </DialogHeader>
+	      <div className="rounded-lg border bg-muted/30 p-3">
+	        <label htmlFor="small-gap-filler-custom-width" className="text-sm font-semibold text-foreground">Custom cut width</label>
+	        <div className="mt-2 flex items-center gap-2">
+	          <Input
+	            id="small-gap-filler-custom-width"
+	            data-testid="small-gap-filler-custom-width"
+	            type="number"
+	            inputMode="decimal"
+	            min={SMALL_GAP_FILLER_MIN_IN}
+	            max={smallGapFillerPrompt?.remaining ?? 0}
+	            step={0.125}
+	            value={smallGapFillerCustomWidth ?? ""}
+	            onChange={(event) => {
+	              const raw = event.target.value;
+	              setSmallGapFillerCustomWidth(raw === "" ? null : Number(raw));
+	            }}
+	            className="max-w-32 bg-background"
+	          />
+	          <span className="text-sm text-muted-foreground">inches</span>
+	        </div>
+	        <p className="mt-1 text-xs text-muted-foreground">Choose any cut from {formatInches(SMALL_GAP_FILLER_MIN_IN)} through {formatInches(smallGapFillerPrompt?.remaining ?? 0)} in 1/8-inch increments. A smaller cut leaves the balance open.</p>
+	        {!selectedSmallGapFillerCutIsValid && <p className="mt-1 text-xs font-medium text-destructive">Enter a cut inside the measured seam before choosing a placement.</p>}
+	      </div>
 	      <Button
 	        data-testid="small-gap-filler-auto"
-	        disabled={!smallGapFillerPrompt || !smallGapFillerDefinition}
-	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
+	        disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid}
+	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut); }}
 	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
 	      >
-	        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatInches(smallGapFillerPrompt?.remaining ?? 0)}
+	        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatInches(selectedSmallGapFillerCut)}
 	      </Button>
 	      <div className="rounded-lg border border-[#d9c196] bg-[#fffaf0] p-3">
-	        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler go?</p>
+	        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatInches(selectedSmallGapFillerCut)} filler go?</p>
 	        <div className="grid gap-2 sm:grid-cols-3">
 	            <Button
 	              variant="outline"
-	              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !canSplitSmallGapFiller(smallGapFillerPrompt)}
-	              onClick={() => applySmallGapFiller("split")}
+	              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid || !canSplitSmallGapFiller({ remaining: selectedSmallGapFillerCut })}
+	              onClick={() => applySmallGapFiller("split", undefined, selectedSmallGapFillerCut)}
 	              data-testid="small-gap-filler-split"
 	              className="h-auto min-h-14 whitespace-normal"
 	            >
-	              Split evenly<br /><span className="text-xs font-normal">{formatInches((smallGapFillerPrompt?.remaining ?? 0) / 2)} each side</span>
+	              Split evenly<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut / 2)} each side</span>
 	            </Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("left")} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler</span></Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition} onClick={() => applySmallGapFiller("right")} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(smallGapFillerPrompt?.remaining ?? 0)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onClick={() => applySmallGapFiller("left", undefined, selectedSmallGapFillerCut)} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onClick={() => applySmallGapFiller("right", undefined, selectedSmallGapFillerCut)} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
 	        </div>
 	      </div>
           <DialogFooter>
@@ -15024,6 +15071,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                temporaryPreviewCounter={smartGapPreviewPosition ?? undefined}
 	                onClearTemporaryPreview={smartGapPreview.length > 0 ? () => { smartGapPreviewSessionRef.current = null; setSmartGapPreviewPosition(null); setSmartGapPreview([]); } : undefined}
 	                temporaryPreviewTransitionKey={smartGapPreview[0]?.uid ?? null}
+	                fillerInsertionTransition={fillerInsertionTransition}
 	              />
             ) : (
               <div className="flex h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the 3D preview.</div>

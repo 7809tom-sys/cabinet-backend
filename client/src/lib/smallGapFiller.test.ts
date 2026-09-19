@@ -3,9 +3,10 @@ import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/l
 import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
-  appendSmallGapFillerPlacement,
-  automaticSmallGapFillerMode,
-  findSmallGapFillerOpportunity,
+	appendSmallGapFillerPlacement,
+	automaticSmallGapFillerMode,
+	canSplitSmallGapFiller,
+	findSmallGapFillerOpportunity,
   findIslandSmallGapFillerOpportunity,
   installedFillerVerticalSpec,
   installedSmallGapFillerEditOpportunity,
@@ -139,9 +140,22 @@ const cabinet: PlacedCabinet = {
     });
   });
 
-  it("detects a three-inch or smaller trailing opening after placement", () => {
+  it("detects a six-inch-or-smaller trailing opening after placement", () => {
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 20.5 }, [cabinet], [], cabinet.uid);
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
+  });
+
+  it("prompts for a six-inch cabinet-to-cabinet seam and retains left/right/split placement choices", () => {
+    const left: PlacedCabinet = { ...cabinet, uid: "left-b18", masterCode: "B18", width: 18, x: 0 };
+    const right: PlacedCabinet = { ...cabinet, uid: "right-b18", masterCode: "B18", width: 18, x: 24 };
+    const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 96 }, [left, right], [], right.uid);
+    expect(opportunity).toMatchObject({
+      remaining: 6,
+      openingStart: 18,
+      openingLength: 24,
+      preferredMode: "left",
+    });
+    expect(canSplitSmallGapFiller(opportunity!)).toBe(true);
   });
 
 	  it("prompts for DB18 in a 21-inch opening but suppresses the prompt after an exact-fit DB21 replacement", () => {
@@ -249,7 +263,7 @@ const cabinet: PlacedCabinet = {
     }
   });
 
-  it("does not offer a dragged-object filler when the bounded remainder exceeds three inches", () => {
+  it("offers a dragged-object filler through six inches and rejects larger remainders", () => {
     const preview = {
       wall: "top" as const,
       snapped: false,
@@ -267,7 +281,11 @@ const cabinet: PlacedCabinet = {
         status: "valid" as const,
       },
     };
-    expect(smallGapFillerOpportunityFromDragPreview("cabinet", preview)).toBeNull();
+    expect(smallGapFillerOpportunityFromDragPreview("cabinet", preview)).toMatchObject({ remaining: 4, openingLength: 16 });
+    expect(smallGapFillerOpportunityFromDragPreview("cabinet", {
+      ...preview,
+      fit: { ...preview.fit, gap: { ...preview.fit.gap, length: 18.125 }, availableSpan: 18.125, after: 6.125 },
+    })).toBeNull();
   });
 
   it("offers the exact two-and-a-half-inch filler remainder between a moved B-12 and a perpendicular corner cabinet", () => {
@@ -461,8 +479,8 @@ const cabinet: PlacedCabinet = {
     });
   });
 
-  it("does not prompt for an opening larger than three inches", () => {
-    expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 21.125 }, [cabinet], [], cabinet.uid)).toBeNull();
+  it("does not prompt for an opening larger than six inches", () => {
+    expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 24.125 }, [cabinet], [], cabinet.uid)).toBeNull();
   });
 
   it("places full-left, full-right, and split fillers with exact zero-overlap seams", () => {

@@ -26,7 +26,7 @@ describe("Design Tool small-gap filler workflow", () => {
 
 	  it("offers leave-open, split, left, and right outcomes", () => {
 	  expect(source).toContain('data-testid="small-gap-filler-auto"');
-	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt))");
+	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut)");
 	  expect(source).toContain("Use suggested placement · {smallGapFillerDefinition?.masterCode");
 	    expect(source).toContain("Choose filler placement");
 	    expect(source).toContain("Where should this");
@@ -37,13 +37,23 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source).toContain("Leave space open");
 	  });
 
+	  it("allows a bounded custom cut and sends inserted filler UIDs to the 3D transition", () => {
+	    expect(source).toContain('data-testid="small-gap-filler-custom-width"');
+	    expect(source).toContain("Custom cut width");
+	    expect(source).toContain("selectedSmallGapFillerCut >= SMALL_GAP_FILLER_MIN_IN");
+	    expect(source).toContain("selectedSmallGapFillerCut <= smallGapFillerPrompt.remaining");
+	    expect(source).toContain("applySmallGapFiller(\"left\", undefined, selectedSmallGapFillerCut)");
+	    expect(source).toContain("setFillerInsertionTransition({ uids: pieces.map((piece) => piece.uid), key: Date.now() })");
+	    expect(source.match(/fillerInsertionTransition=\{fillerInsertionTransition\}/g)).toHaveLength(2);
+	  });
+
 	  it("rechecks the committed run before applying a filler so an exact-fit replacement cannot use a stale prompt", () => {
 	    const applyStart = source.indexOf("const applySmallGapFiller = useCallback");
 	    const applyEnd = source.indexOf("const previewSmartGap", applyStart);
 	    const applySource = source.slice(applyStart, applyEnd);
 	    expect(applySource).toContain("const committedPlaced = placedRef.current");
 	    expect(applySource).toContain("findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
-	    expect(applySource).toContain("now fills its committed opening. No filler is needed.");
+	    expect(applySource).toContain("Choose an installable filler cut from");
 	    expect(applySource).toContain("placedRef.current = result.placed");
 	  });
 
@@ -54,7 +64,7 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("setSmallGapFillerPrompt(opportunity)");
     expect(source).toContain("installedSmallGapFillerEditOpportunity(room, placed, openings, cabinetUid, island)");
     expect(source).toContain("findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)");
-    expect(source).toContain("islandFacePlacement(cabinet, island, opportunity.islandFace, layout.cabinetStart)");
+	    expect(source).toContain("islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)");
     expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
     expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(2);
     expect(source).toContain("if (!openFillerAttributes(uid)) requestSmallGapFiller(uid)");
@@ -65,12 +75,12 @@ describe("Design Tool small-gap filler workflow", () => {
   });
 
 	  it("preserves exact placement and one purchased filler identity", () => {
-    expect(source).toContain("smallGapFillerLayout(opportunity, mode)");
-    expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
-	    expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
-	    expect(source).toContain("fillerForCabinetUid: opportunity.boundedCabinetUids");
-	    expect(source).toContain("piece.side === \"left\" ? opportunity.boundedCabinetUids[0] : opportunity.boundedCabinetUids[1]");
-	    expect(source).toContain("opportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");
+	  expect(source).toContain("smallGapFillerLayout(cutOpportunity, mode)");
+	  expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
+		  expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
+		  expect(source).toContain("fillerForCabinetUid: cutOpportunity.boundedCabinetUids");
+		  expect(source).toContain("piece.side === \"left\" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1]");
+		  expect(source).toContain("cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");
 		    expect(source).toContain("removeCabinetAndReleaseVoid(selectedUid)");
 		  });
 });

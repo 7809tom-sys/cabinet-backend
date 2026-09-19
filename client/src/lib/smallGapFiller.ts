@@ -21,7 +21,8 @@ import { isWallBlindCornerCabinet } from "@/lib/cabinetGraphics";
 
 const EDGE_EPSILON_IN = 0.001;
 export const SMALL_GAP_FILLER_MIN_IN = 0.5;
-export const SMALL_GAP_FILLER_MAX_IN = 3;
+/** A cabinet-to-cabinet seam up to six inches can be intentionally filled. */
+export const SMALL_GAP_FILLER_MAX_IN = 6;
 export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.5;
 
 export type SmallGapFillerPlacementMode = "left" | "right" | "split";
@@ -117,7 +118,7 @@ export function wallBlindCornerPreferredFillerMode(
   return wall === "top" || wall === "right" ? "left" : "right";
 }
 
-/** Detects only a real post-placement bounded opening with 3 inches or less total remainder. */
+/** Detects a real post-placement cabinet seam with an installable six-inch-or-less remainder. */
 export function findSmallGapFillerOpportunity(
   room: RoomData,
   placed: readonly PlacedCabinet[],
@@ -240,7 +241,7 @@ export function findSmallGapFillerOpportunity(
 
 	  // Do not decide an ERB36 filler at the moment the corner cabinet is seated:
 	  // the neighboring runs are not known yet. Once the user places a cabinet
-	  // beside either leg, however, a real 1/2–3" seam needs immediate filler
+  // beside either leg, however, a real 1/2–6" seam needs immediate filler
 	  // guidance even if the cabinet's other side remains open for more cabinets.
 	  // Pick the left seam first for a deterministic prompt; after it is resolved,
 	  // the next cabinet placement/recheck can offer the independent right seam.

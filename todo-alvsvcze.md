@@ -2335,3 +2335,10 @@
 - [x] Recheck every newly placed non-blind cabinet for a real small seam on either side, even when its opposite side remains open for additional cabinets. Retain the 45-degree-only protected peninsula rule and all blind-corner rules.
 - [x] Make the filler dialog explicit: it shows the exact cut size and lets the user choose left, right, or equal split before inserting the catalog filler at a zero-overlap seam; leaving the space open remains available.
 - [x] Validate TypeScript, 913 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
+
+## Six-inch cabinet seams, custom filler cuts, and 3D insertion — 2026-09-19
+
+- [x] Extend post-placement cabinet-to-cabinet filler opportunities from 3 inches to **6 inches** while keeping the 1/2-inch minimum, physical collision checks, and all blind-corner-specific 3-inch requirements.
+- [x] Add a bounded custom-cut width field to the placement dialog. The user can select any 1/8-inch increment from 1/2 inch through the measured seam; left, right, and equal-split choices insert only that selected catalog-backed cut and leave any balance open.
+- [x] Add a 280ms reduced-motion-aware 3D transition that lifts/scales only the successfully inserted filler mesh and eases it into its authoritative seam position.
+- [x] Validate TypeScript, 916 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
