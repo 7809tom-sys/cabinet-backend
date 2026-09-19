@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, snapPosition, orientToWall, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, nextAvailableRoomCornerPlacement, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -195,7 +195,7 @@ interface Props {
   /** Cabinet currently controlled by an open Attributes panel. This receives a stronger, non-destructive visual cue than ordinary selection. */
   attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
-  onMove: (uid: string, x: number, y: number, rotation?: number) => void;
+  onMove: (uid: string, x: number, y: number, rotation?: number, exactWallDrag?: boolean, target?: { wallId?: string; wallOffset?: number }) => void;
   onDelete?: (uid: string) => void;
   // Rotate the selected cabinet 90° in place (touch-friendly on-canvas handle).
   onRotate?: (uid: string) => void;
@@ -840,6 +840,31 @@ export function PlanCanvas({
       const rawY = py / ppi;
 
       let candidate: PlacedCabinet = { ...cabinet, x: rawX, y: rawY };
+      // True corner cabinets get an intentional, generous corner target while
+      // dragging. This avoids the old experience where the user had to hunt for
+      // an exact pixel on the wall and guarantees that the target retains its
+      // measured wall identity instead of falling back to the graph boundary.
+      if (isCornerCabinet(cabinet.masterCode, cabinet.description)) {
+        const cornerSpot = nextAvailableRoomCornerPlacement(
+          candidate,
+          cabinetWall(cabinet, room),
+          room,
+          cabinets.filter((item) => item.uid !== cabinet.uid),
+          { x: (e.clientX - roomRect.left) / ppi, y: (e.clientY - roomRect.top) / ppi },
+        );
+        if (cornerSpot) {
+          setHoverSnap(true);
+          onMove(
+            dragUid,
+            cornerSpot.x,
+            cornerSpot.y,
+            cornerSpot.rotation,
+            true,
+            { wallId: cornerSpot.wallId, wallOffset: cornerSpot.wallOffset },
+          );
+          return;
+        }
+      }
       // Auto-rotate: if the cabinet is meeting a wall, turn it so its back is to
       // that wall BEFORE snapping, so the snapped x/y use the turned footprint.
       // Include appliances in the others list so dragged cabinets push against

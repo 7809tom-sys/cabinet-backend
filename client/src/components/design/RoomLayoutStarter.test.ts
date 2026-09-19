@@ -115,4 +115,41 @@ describe("roomFromSeededShape", () => {
     expect(screen.queryByText(/1\. pick a room shape/i)).toBeNull();
     expect(screen.queryByText(/apply room shape and continue/i)).toBeNull();
   });
+
+  it("signals that the first-cabinet guide should open after applying a beginner room", () => {
+    usePresetsQuery.mockReturnValue({
+      data: {
+        roomShapes: [{
+          id: "rectangle",
+          name: "Rectangle",
+          description: "A simple four-wall room.",
+          roomType: "kitchen",
+          geometryTemplate: {},
+          defaultDimensions: { width: 144, depth: 120, ceilingHeight: 96 },
+        }],
+        layouts: [{
+          id: "one-wall",
+          roomShapePresetId: "rectangle",
+          name: "One wall",
+          description: "A beginner layout.",
+          minimumWidth: 96,
+          minimumDepth: 96,
+        }],
+      },
+      isLoading: false,
+      error: null,
+    });
+    useEligibleCatalogQuery.mockReturnValue({ data: undefined, isFetching: false });
+    const onBeginnerRoomApplied = vi.fn();
+
+    render(createElement(RoomLayoutStarter, {
+      selectedStyleId: null,
+      selectedDistributorId: null,
+      onApplyRoom: vi.fn(),
+      onBeginnerRoomApplied,
+    }));
+
+    fireEvent.click(screen.getByRole("button", { name: /apply room shape and continue/i }));
+    expect(onBeginnerRoomApplied).toHaveBeenCalledTimes(1);
+  });
 });

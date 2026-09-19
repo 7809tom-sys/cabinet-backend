@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -173,6 +173,23 @@ describe("continuous builder custom wall placement", () => {
     expect(freeSegmentsOnWall("builder-right" as any, builderRoom, [erb], [], 0.5, 0, "base")).toEqual([
       { start: 24, length: 72 },
     ]);
+
+    const b12Spot = wallPlacementAt(0, 12, 24, "builder-right" as any, builderRoom);
+    const b12: PlacedCabinet = {
+      uid: "b12-over-erb",
+      cabinetId: 12,
+      masterCode: "B12",
+      description: "12 inch Base Cabinet",
+      placement: "base",
+      ...b12Spot,
+      width: 12,
+      depth: 24,
+      height: 34.5,
+      wallId: "builder-right",
+      wallOffset: 0,
+    };
+    expect(cabinetPlacementCollisionDetail(b12, [erb], builderRoom)?.cabinet.uid).toBe(erb.uid);
+    expect(shouldBlockPlacementCollision(b12, [erb])).toBe(true);
   });
 
   it("snaps an ERB corner cabinet to the first available right-angle vertex in advanced continuous-wall mode", () => {
@@ -194,6 +211,31 @@ describe("continuous builder custom wall placement", () => {
       wallOffset: 0,
       rotation: 0,
     });
+  });
+
+  it("lets a dragged corner cabinet target the nearest open real corner rather than its old wall", () => {
+    const moving: PlacedCabinet = {
+      uid: "erb36-drag-preview",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "builder-top",
+      wallOffset: 0,
+    };
+    const room = { ...builderRoom, openWallPath: true };
+    expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, room, [], { x: 120, y: 96 })).toMatchObject({
+      wallId: "builder-right",
+      wallOffset: 60,
+      rotation: 90,
+    });
+    expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, room, [], { x: 60, y: 48 })).toBeNull();
   });
 
   it("snaps an ERB to a real 90-degree vertex made from diagonal continuous walls without an 11-inch gap", () => {

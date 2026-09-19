@@ -50,6 +50,8 @@ interface RoomLayoutStarterProps {
   selectedDistributorId?: number | null;
   onApplyRoom: (room: RoomData) => void;
   onLayoutSelected?: (layoutPresetId: string) => void;
+  /** Shows the lightweight first-cabinet guide after a beginner room is applied. */
+  onBeginnerRoomApplied?: () => void;
   onApplyContinuousRoom?: (room: WallBuilderRoomGeometry) => void;
   continuousWallBlockedReason?: string | null;
   wallHeightIn?: number;
@@ -101,6 +103,7 @@ export function RoomLayoutStarter({
   selectedDistributorId,
   onApplyRoom,
   onLayoutSelected,
+  onBeginnerRoomApplied,
   onApplyContinuousRoom,
   continuousWallBlockedReason,
   wallHeightIn = 96,
@@ -250,6 +253,7 @@ export function RoomLayoutStarter({
           if (!selectedShape || !selectedLayout) return;
           onApplyRoom(roomFromSeededShape(selectedShape));
           onLayoutSelected?.(selectedLayout.id);
+          onBeginnerRoomApplied?.();
           setWorkflowStage(4);
         }}>
           Apply room shape and continue

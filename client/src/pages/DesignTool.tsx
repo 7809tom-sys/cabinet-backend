@@ -526,6 +526,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [createPhoneMeasureSession, user]);
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
+  const [beginnerFirstCabinetGuideOpen, setBeginnerFirstCabinetGuideOpen] = useState(false);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
   const [requestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
   const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
@@ -6666,7 +6667,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPlacementWarning(null);
   }, [addCabinet, peninsulaFitRecommendation, room]);
 
-			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false) => {
+			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false, target?: { wallId?: string; wallOffset?: number }) => {
 		    setPlaced((prev) => {
 		      const cabinet = prev.find((p) => p.uid === uid);
 		      if (!cabinet) return prev;
@@ -6675,7 +6676,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        ? prev.filter((item) => item.uid !== uid && refrigeratorAssemblyMemberRole(item, cabinet, room)).map((item) => item.uid)
 		        : []);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid));
-	      let requestedCabinet = snapWallCabinetToOwningWall({ ...cabinet, x, y, ...(rotation != null ? { rotation } : {}) }, room);
+		      let requestedCabinet = snapWallCabinetToOwningWall({
+		        ...cabinet,
+		        x,
+		        y,
+		        ...(rotation != null ? { rotation } : {}),
+		        ...(target?.wallId ? { wallId: target.wallId as WallSide, wallOffset: target.wallOffset ?? 0 } : {}),
+		      }, room);
 	      const peers = workingPrev.filter((p) => p.uid !== uid);
 	      const nearbyWallSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
 	        ? autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)
@@ -6710,11 +6717,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           // perimeter walls. With the magnet on, resolve the closest clear span;
           // with it off, retain the deliberate along-run position and let the
           // collision guard reject any real overlap.
-          const desiredStart = requestedAlong - cabinet.width / 2;
-          const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;
-          const nextStart = shouldMagnetSnapToRun
-            ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
-	            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
+	          const explicitCornerOffset = target?.wallId === requestedWallId && Number.isFinite(target?.wallOffset)
+	            ? Math.max(0, Number(target?.wallOffset))
+	            : null;
+	          const desiredStart = explicitCornerOffset ?? (requestedAlong - cabinet.width / 2);
+	          const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;
+	          const nextStart = explicitCornerOffset != null
+	            ? explicitCornerOffset
+	            : shouldMagnetSnapToRun
+	            ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
+		            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
 		          if (nextStart == null) {
 		            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "custom wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
             setPlacementWarning(message);
@@ -14345,11 +14357,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       setDrawMode(false);
                       setMeasureMode(false);
                     }}
-                    onLayoutSelected={(layoutPresetId) => {
-                      setSelectedLayoutPresetId(layoutPresetId);
-                      toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
-                    }}
-                  />
+	                    onLayoutSelected={(layoutPresetId) => {
+	                      setSelectedLayoutPresetId(layoutPresetId);
+	                      toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
+	                    }}
+	                    onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(true)}
+	                  />
                   {selectedLayoutPresetId ? (
                     <Button className="mt-3 w-full" variant="outline" onClick={() => { setMobilePanel(null); setViewMode("threeD"); }} disabled={!canLoadInteractive3d || interactive3dLoading}>
                       <Boxes className="mr-1.5 h-4 w-4" /> Open interactive 3D preview
@@ -14549,13 +14562,48 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 setDrawMode(false);
                 setMeasureMode(false);
               }}
-              onLayoutSelected={(layoutPresetId) => {
-                setSelectedLayoutPresetId(layoutPresetId);
-                setLayoutStarterOpen(false);
-                toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
-              }}
-            />
+	              onLayoutSelected={(layoutPresetId) => {
+	                setSelectedLayoutPresetId(layoutPresetId);
+	                setLayoutStarterOpen(false);
+	                toast.success("Room shape applied. Choose cabinets from your active catalog to continue.");
+	              }}
+	              onBeginnerRoomApplied={() => setBeginnerFirstCabinetGuideOpen(true)}
+	            />
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={beginnerFirstCabinetGuideOpen} onOpenChange={setBeginnerFirstCabinetGuideOpen}>
+        <DialogContent data-testid="beginner-first-cabinet-guide" className="max-w-lg overflow-hidden p-0">
+          <DialogHeader className="border-b bg-gradient-to-br from-primary/10 via-background to-amber-50 px-5 py-5">
+            <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm"><Sparkles className="h-5 w-5" /></div>
+            <DialogTitle className="font-serif text-xl">Place your first cabinet</DialogTitle>
+            <DialogDescription>Three simple steps. CabinetDealz keeps cabinet edges touching—not overlapping.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 px-5 py-4">
+            <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+              <div><p className="text-sm font-semibold">Choose the highlighted wall</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Use the Wall menu above the drawing to choose Back, Right, Front, or Left. The selected wall is the cabinet target.</p></div>
+            </div>
+            <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+              <div><p className="text-sm font-semibold">Choose a cabinet from Catalog</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Start with a Base cabinet. Click it to add it to the selected wall, or drag it over a clear wall opening.</p></div>
+            </div>
+            <div className="flex gap-3 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+              <div><p className="text-sm font-semibold">Move safely after placement</p><p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">Drag a cabinet to reposition it. Drag a corner cabinet near another open corner to snap it there. Green/flush cues mean it fits; a cabinet will not overlap another cabinet.</p></div>
+            </div>
+            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-950"><Magnet className="mt-0.5 h-4 w-4 shrink-0" />Automatic snapping is on by default. Edge-to-edge cabinet contact is allowed; physical overlap is blocked.</div>
+          </div>
+          <DialogFooter className="border-t bg-muted/20 px-5 py-4 sm:justify-between">
+            <Button variant="ghost" onClick={() => setBeginnerFirstCabinetGuideOpen(false)}>I’ll explore first</Button>
+            <Button onClick={() => {
+              setBeginnerFirstCabinetGuideOpen(false);
+              setPaletteType("base");
+              if (panelDrawerMode) setMobilePanel("catalog");
+              toast.info("Choose a base cabinet, then click or drag it onto the highlighted wall.");
+            }}><SquareDashedMousePointer className="mr-1.5 h-4 w-4" />Open Base Cabinet Catalog</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

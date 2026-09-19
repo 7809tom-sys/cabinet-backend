@@ -2284,3 +2284,11 @@
 - [x] Add a placement confirmation that states whether the cabinet seated flush at a 45/90-degree corner or retained the true 45-degree clearance.
 - [x] Replace the Room Layout mode cards with an accessible Beginner/Advanced toggle and a reduced-motion-aware transition; Wall Builder remains opt-in and separate from beginner shapes.
 - [x] Browser-verify the local Designer opens in Easy room shapes and that switching Advanced reveals Build walls continuously.
+
+## Corner cabinet drag, collision protection, and beginner guidance — 2026-09-19
+
+- [x] Add a direct drag target for true corner cabinets: dragging ERB36/other corner cabinets near an open measured vertex resolves and preserves the destination `wallId`, `wallOffset`, and orientation.
+- [x] Restrict advanced continuous-wall corner drops to real measured 90-degree vertices; never fall back to an invisible rectangular graph corner.
+- [x] Keep all move paths guarded by physical collision detection; assert that a B12 aimed at ERB36 is rejected while the ERB reserves the adjoining wall leg.
+- [x] Add a Beginner-mode first-cabinet quick tutorial after a starter room is applied, including wall choice, Catalog placement, drag/snap behavior, and zero-overlap guidance.
+- [x] Browser-verify the Beginner Room Layout flow and the complete first-cabinet tutorial overlay.

@@ -6394,7 +6394,14 @@ export function nextAvailableRoomCornerPlacement(
   activeWall: WallSide,
   room: RoomData,
   placed: readonly PlacedCabinet[],
+  nearPoint?: { x: number; y: number },
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  // A direct drag can nominate a nearby corner. Limit that gesture to the
+  // cabinet's own footprint plus a forgiving 24-inch target halo so dropping
+  // near one corner never relocates a cabinet to an unrelated open corner.
+  const nearPointTolerance = nearPoint
+    ? Math.max(24, Math.max(Number(moving.width) || 0, Number(moving.depth) || 0) + 24)
+    : Number.POSITIVE_INFINITY;
   // Continuous-wall rooms retain their own measured wall identity. Seat a true
   // corner cabinet on an open *real* right-angle vertex rather than dropping it
   // into a graph-square corner. This must not be limited to cardinal walls:
@@ -6408,8 +6415,20 @@ export function nextAvailableRoomCornerPlacement(
     for (const wall of orderedWalls) {
       const angle = polygonWallAngle(wall, room.vertices);
       const length = polygonWallSegmentLength(wall, room.vertices);
-      for (const endpoint of ["start", "end"] as const) {
+      const endpoints = [...(["start", "end"] as const)].sort((left, right) => {
+        if (!nearPoint) return 0;
+        const leftVertexId = left === "start" ? wall.startVertexId : wall.endVertexId;
+        const rightVertexId = right === "start" ? wall.startVertexId : wall.endVertexId;
+        const leftVertex = room.vertices!.find((vertex) => vertex.id === leftVertexId);
+        const rightVertex = room.vertices!.find((vertex) => vertex.id === rightVertexId);
+        const leftDistance = leftVertex ? Math.hypot(leftVertex.x - nearPoint.x, leftVertex.y - nearPoint.y) : Number.POSITIVE_INFINITY;
+        const rightDistance = rightVertex ? Math.hypot(rightVertex.x - nearPoint.x, rightVertex.y - nearPoint.y) : Number.POSITIVE_INFINITY;
+        return leftDistance - rightDistance;
+      });
+      for (const endpoint of endpoints) {
         const vertexId = endpoint === "start" ? wall.startVertexId : wall.endVertexId;
+        const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
+        if (nearPoint && (!vertex || Math.hypot(vertex.x - nearPoint.x, vertex.y - nearPoint.y) > nearPointTolerance)) continue;
         const adjoining = room.customWalls.find((candidate) => candidate.id !== wall.id && (
           candidate.startVertexId === vertexId || candidate.endVertexId === vertexId
         ));
@@ -6424,6 +6443,10 @@ export function nextAvailableRoomCornerPlacement(
         if (!hasCollision(candidate, [...placed])) return spot;
       }
     }
+    // Continuous-wall rooms have no invisible graph-square corners. If no
+    // measured right-angle vertex is open, report no corner rather than falling
+    // through to a fake rectangular boundary.
+    return null;
   }
   const footprint = placedFootprint(moving);
   const corners = [
@@ -6438,8 +6461,17 @@ export function nextAvailableRoomCornerPlacement(
     bottom: [3, 2, 1, 0],
     left: [0, 3, 2, 1],
   };
-  for (const index of orderByWall[activeWall]) {
+  const orderedCornerIndexes = nearPoint
+    ? [...orderByWall[activeWall]].sort((left, right) => {
+        const leftCorner = corners[left];
+        const rightCorner = corners[right];
+        return Math.hypot(leftCorner.x - nearPoint.x, leftCorner.y - nearPoint.y)
+          - Math.hypot(rightCorner.x - nearPoint.x, rightCorner.y - nearPoint.y);
+      })
+    : orderByWall[activeWall];
+  for (const index of orderedCornerIndexes) {
     const corner = corners[index];
+    if (nearPoint && Math.hypot(corner.x - nearPoint.x, corner.y - nearPoint.y) > nearPointTolerance) continue;
     const unrotated = { ...moving, ...corner };
     const candidate = { ...unrotated, rotation: cornerRotationForPlaced(unrotated, room) };
     if (!hasCollision(candidate, [...placed])) return { x: candidate.x, y: candidate.y, rotation: candidate.rotation };
