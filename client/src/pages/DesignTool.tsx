@@ -8894,7 +8894,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     onError: (e) => toast.error("Rename failed", { description: e.message }),
   });
   const [loadSignal, setLoadSignal] = useState(0);
-  // Kitchen Package save dialog (admin only)
+  // Kitchen Package save dialog. The server scopes non-admin creators to their
+  // own affiliate storefront, so an affiliate can publish without an admin relay.
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
   const [bundleName, setBundleName] = useState("");
   const [bundleDesc, setBundleDesc] = useState("");
@@ -8907,7 +8908,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           await uploadBundleFloorPlanMut.mutateAsync({ bundleId: res.id, imageBase64: floorPlanDataUrl });
         }
       } catch { /* floor plan upload is best-effort */ }
-      toast.success("Kitchen Package saved!", { description: `"${bundleName}" — ID #${res.id}. Go to Admin → Kitchen Packages to publish it.` });
+      toast.success("Kitchen Package saved!", { description: `"${bundleName}" — ID #${res.id}. Open Kitchen Packages in your dashboard to publish it.` });
       setBundleDialogOpen(false);
       setBundleName("");
       setBundleDesc("");
@@ -15236,7 +15237,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 {total > 0 && <div className="flex justify-between"><span>Homeowner price:</span><span className="font-medium text-foreground">${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>}
                 {activeStyleName && <div className="flex justify-between"><span>Style:</span><span className="font-medium text-foreground">{activeStyleName}</span></div>}
               </div>
-              <p className="text-xs text-muted-foreground">The package will be saved as <strong>unpublished</strong>. Go to Admin → Kitchen Packages to review and publish it.</p>
+              <p className="text-xs text-muted-foreground">The package will be saved as <strong>unpublished</strong>. Review and publish it from <strong>Kitchen Packages</strong> in your affiliate dashboard.</p>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setBundleDialogOpen(false)}>Cancel</Button>

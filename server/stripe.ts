@@ -110,6 +110,7 @@ export async function fulfillOrder(
     .update(orderRequests)
     .set({
       status: "confirmed",
+      orderRailStatus: "affiliate_review",
       stripePaymentIntentId: paymentIntentId ?? undefined,
       paidAt: new Date(),
     })

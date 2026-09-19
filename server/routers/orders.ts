@@ -987,6 +987,64 @@ export const ordersRouter = router({
       return { id: input.id, status: "confirmed" as const };
     }),
 
+  /** Affiliate approval releases a paid customer order to its supply line. */
+  affiliateApproveForInventory: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, input.id)).limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      if (!order.affiliateId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Only affiliate orders use this approval rail." });
+      const access = await resolveAffiliateAccess(db, ctx.user);
+      if (ctx.user.role !== "admin" && (!access || access.affiliateId !== order.affiliateId || !access.isOwner)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the originating affiliate can approve this order." });
+      }
+      if (order.status !== "confirmed" || !order.stripePaymentIntentId) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "A paid Stripe checkout is required before affiliate review." });
+      }
+      if (order.orderRailStatus !== "affiliate_review") {
+        throw new TRPCError({ code: "CONFLICT", message: "This order is not awaiting affiliate review." });
+      }
+      const [style] = order.styleId
+        ? await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles).where(eq(doorStyles.id, order.styleId)).limit(1)
+        : [];
+      if (!style?.distributorId) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "No distributor line could be resolved for this order." });
+      const now = new Date();
+      await db.update(orderRequests).set({
+        distributorId: style.distributorId,
+        orderRailStatus: "distributor_inventory_check",
+        affiliateReviewedAt: now,
+        affiliateReviewedByUserId: ctx.user.id,
+      }).where(eq(orderRequests.id, order.id));
+      return { id: order.id, orderRailStatus: "distributor_inventory_check" as const };
+    }),
+
+  /** Final affiliate sign-off authorizes fulfillment after the distributor invoice. */
+  affiliateApproveDistributorInvoice: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [order] = await db.select().from(orderRequests).where(eq(orderRequests.id, input.id)).limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+      const access = await resolveAffiliateAccess(db, ctx.user);
+      if (!order.affiliateId || (ctx.user.role !== "admin" && (!access || access.affiliateId !== order.affiliateId || !access.isOwner))) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the originating affiliate can approve this distributor invoice." });
+      }
+      if (order.orderRailStatus !== "affiliate_invoice_review" || !order.distributorInventoryConfirmedAt) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Distributor inventory confirmation and updated invoice are required first." });
+      }
+      const now = new Date();
+      await db.update(orderRequests).set({
+        orderRailStatus: "fulfillment_authorized",
+        affiliateInvoiceApprovedAt: now,
+        affiliateInvoiceApprovedByUserId: ctx.user.id,
+        fulfillmentAuthorizedAt: now,
+      }).where(eq(orderRequests.id, order.id));
+      return { id: order.id, orderRailStatus: "fulfillment_authorized" as const };
+    }),
+
   // ─── Read one request ──────────────────────────────────────────────────────
   byId: publicProcedure
     .input(z.object({ id: z.number() }))

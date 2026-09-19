@@ -309,6 +309,7 @@ function statusBadge(status: string) {
 
 export default function AffiliateDashboard() {
   const { isAuthenticated, loading, user } = useAuth();
+  const utils = trpc.useUtils();
   // Admin "View as" support: ?viewAs=<affiliateId> lets admins see any affiliate's dashboard
   const params = typeof window !== "undefined" ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const viewAsId = params.get("viewAs");
@@ -371,6 +372,18 @@ export default function AffiliateDashboard() {
   const myAccess = trpc.affiliates.myAccess.useQuery(undefined, {
     enabled: isAuthenticated && !isAdmin && !isAdminViewAs,
     retry: false,
+  });
+  const refreshOrderRail = () => {
+    void utils.affiliates.myReferrals.invalidate();
+    void utils.affiliates.adminReferrals.invalidate();
+  };
+  const approveForInventory = trpc.orders.affiliateApproveForInventory.useMutation({
+    onSuccess: () => { refreshOrderRail(); toast.success("Approved and routed to the distributor inventory check."); },
+    onError: (error) => toast.error(error.message),
+  });
+  const approveDistributorInvoice = trpc.orders.affiliateApproveDistributorInvoice.useMutation({
+    onSuccess: () => { refreshOrderRail(); toast.success("Updated distributor invoice approved. Fulfillment is authorized."); },
+    onError: (error) => toast.error(error.message),
   });
   const access = isAdmin || isAdminViewAs
     ? { isOwner: true, accessCrm: true, accessDesigner: true }
@@ -580,6 +593,7 @@ export default function AffiliateDashboard() {
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Total</TableHead>
                       <TableHead className="text-right">Commission</TableHead>
+                      <TableHead>Order rail</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -596,12 +610,23 @@ export default function AffiliateDashboard() {
                             {o.createdAt ? new Date(o.createdAt).toLocaleDateString() : "—"}
                           </TableCell>
                           <TableCell className="text-sm">{o.originatorName || o.originatorEmail || "—"}</TableCell>
-                          <TableCell>{statusBadge(o.status)}</TableCell>
+                          <TableCell className="space-y-1">{statusBadge(o.status)}<div className="text-xs text-muted-foreground">{String(o.orderRailStatus ?? "awaiting_payment").replaceAll("_", " ")}</div></TableCell>
                           <TableCell className="text-right tabular-nums">
                             {total != null ? `$${total.toFixed(2)}` : "—"}
                           </TableCell>
                           <TableCell className="text-right tabular-nums font-medium">
                             {commission != null ? `$${commission.toFixed(2)}` : "—"}
+                          </TableCell>
+                          <TableCell>
+                            {o.orderRailStatus === "affiliate_review" && access.isOwner && (
+                              <Button size="sm" disabled={approveForInventory.isPending} onClick={() => approveForInventory.mutate({ id: o.id })}>Approve for inventory</Button>
+                            )}
+                            {o.orderRailStatus === "affiliate_invoice_review" && access.isOwner && (
+                              <div className="space-y-1"><p className="text-xs text-muted-foreground">Invoice {o.distributorInvoiceReference}: {o.distributorInvoiceAmount == null ? "—" : `$${Number(o.distributorInvoiceAmount).toFixed(2)}`}</p><Button size="sm" disabled={approveDistributorInvoice.isPending} onClick={() => approveDistributorInvoice.mutate({ id: o.id })}>Approve fulfillment</Button></div>
+                            )}
+                            {o.orderRailStatus === "distributor_inventory_check" && <span className="text-xs text-muted-foreground">Waiting for distributor</span>}
+                            {o.orderRailStatus === "fulfillment_authorized" && <span className="text-xs font-medium text-emerald-700">Fulfillment authorized</span>}
+                            {o.orderRailStatus === "awaiting_payment" && <span className="text-xs text-muted-foreground">Awaiting Stripe payment</span>}
                           </TableCell>
                         </TableRow>
                       );

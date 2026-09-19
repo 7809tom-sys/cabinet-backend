@@ -1065,6 +1065,13 @@
       "when": 1789839040566,
       "tag": "0151_clear_layla_miller",
       "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "5",
+      "when": 1789840066633,
+      "tag": "0152_stiff_blindfold",
+      "breakpoints": true
     }
   ]
 }

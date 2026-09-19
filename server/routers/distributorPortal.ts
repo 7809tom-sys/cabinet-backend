@@ -1019,13 +1019,47 @@ export const distributorPortalRouter = router({
           itemCount: orderRequests.itemCount,
           totalAmount: orderRequests.totalAmount,
           source: orderRequests.source,
+          orderRailStatus: orderRequests.orderRailStatus,
+          distributorInvoiceReference: orderRequests.distributorInvoiceReference,
+          distributorInvoiceAmount: orderRequests.distributorInvoiceAmount,
+          distributorInvoiceNotes: orderRequests.distributorInvoiceNotes,
           createdAt: orderRequests.createdAt,
         })
         .from(orderRequests)
-        .where(and(inArray(orderRequests.styleId, styleIds), eq(orderRequests.status, "submitted")))
+        .where(and(eq(orderRequests.distributorId, lineId), eq(orderRequests.orderRailStatus, "distributor_inventory_check")))
         .orderBy(desc(orderRequests.createdAt))
         .limit(input.limit);
       return rows;
+    }),
+
+  /** Distributor confirms inventory and returns the updated invoice to the affiliate. */
+  confirmInventoryAndInvoice: distributorProcedure
+    .input(z.object({
+      distributorId: z.number().optional(),
+      orderId: z.number().int().positive(),
+      invoiceReference: z.string().trim().min(1).max(128),
+      invoiceAmount: z.number().nonnegative(),
+      invoiceNotes: z.string().trim().max(4_000).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+      const [order] = await db.select().from(orderRequests).where(and(eq(orderRequests.id, input.orderId), eq(orderRequests.distributorId, lineId))).limit(1);
+      if (!order) throw new TRPCError({ code: "NOT_FOUND", message: "This order is not routed to your supply line." });
+      if (order.orderRailStatus !== "distributor_inventory_check") {
+        throw new TRPCError({ code: "CONFLICT", message: "This order is not awaiting an inventory check." });
+      }
+      const now = new Date();
+      await db.update(orderRequests).set({
+        orderRailStatus: "affiliate_invoice_review",
+        distributorInventoryConfirmedAt: now,
+        distributorInvoiceReference: input.invoiceReference,
+        distributorInvoiceAmount: input.invoiceAmount.toFixed(2),
+        distributorInvoiceNotes: input.invoiceNotes || null,
+        distributorInvoiceReceivedAt: now,
+      }).where(eq(orderRequests.id, order.id));
+      return { id: order.id, orderRailStatus: "affiliate_invoice_review" as const };
     }),
 
   // ─── Door Style Image Update (instant) ────────────────────────────────────────

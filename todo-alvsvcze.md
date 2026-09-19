@@ -2392,3 +2392,17 @@
 - [x] Add CSV export containing the displayed master code, vendor SKU, demand, close-rate bands, recommended stock, on-hand stock, status, and explanation.
 - [x] Add optional vendor-owned `onHandQty` feed in **Vendor Portal → My Catalog**. Blank means no feed; zero is a valid reported value. The forecast aggregates vendor on-hand figures by master SKU and calls out `Demand only` when no inventory is supplied.
 - [x] Apply migration `0151_clear_layla_miller.sql`; validate TypeScript, 16 focused calculation/router/report regressions, production build, and diff integrity.
+
+## Official affiliate–distributor order rail — 2026-09-19
+
+- [x] Add a durable, auditable order-rail state machine: `awaiting_payment → affiliate_review → distributor_inventory_check → affiliate_invoice_review → fulfillment_authorized`. Stripe Checkout payment is confirmed first; payment alone can never authorize physical fulfillment.
+- [x] Give the originating affiliate, and only that affiliate or an admin, two explicit gates in Affiliate Dashboard → Orders: **Approve for inventory** after paid checkout and **Approve fulfillment** only after the distributor has returned a confirmed inventory check and updated invoice.
+- [x] Give the resolved distributor a guarded Distributor Portal queue containing only routed orders that await inventory confirmation. The distributor must enter an updated invoice reference and amount before the order returns to the affiliate for final approval.
+- [x] Preserve the existing Stripe charge model and do not automate distributor or affiliate transfers. The rail records approvals and invoices; funds remain subject to the existing operational payout process and do not bypass any review step.
+- [x] Add and apply migration `0152_stiff_blindfold.sql`, which places historical confirmed paid orders into Affiliate Review and leaves unpaid orders awaiting payment. Validate TypeScript, 6 focused order-rail UI/state regressions, production build, and diff integrity.
+
+## Kitchen Package storefront ownership — 2026-09-19
+
+- [x] Correct the Designer’s **Save as Kitchen Package** handoff copy: affiliate-owned packages are saved privately, then published or unpublished by their owner from Affiliate Dashboard → Kitchen Packages, without an unnecessary Admin-only handoff.
+- [x] Correct the white-label Kitchen Packages collection query so an affiliate storefront receives its own published packages (and permitted global packages), not the main-site collection.
+- [x] Retain the existing package snapshot behavior: a saved Kitchen Package carries its completed design snapshot/BOM, current customer-facing price resolution, plan image, and the normal checkout flow. Package checkout therefore enters the same official order rail above.

@@ -1152,6 +1152,26 @@ export const orderRequests = mysqlTable("order_requests", {
   stripeSessionId: varchar("stripeSessionId", { length: 255 }),
   stripePaymentIntentId: varchar("stripePaymentIntentId", { length: 255 }),
   paidAt: timestamp("paidAt"),
+  // Official order rail: payment is confirmed by Stripe, but physical
+  // fulfillment cannot begin until the affiliate and distributor complete
+  // their separate review steps.
+  orderRailStatus: mysqlEnum("orderRailStatus", [
+    "awaiting_payment",
+    "affiliate_review",
+    "distributor_inventory_check",
+    "affiliate_invoice_review",
+    "fulfillment_authorized",
+  ]).default("awaiting_payment").notNull(),
+  affiliateReviewedAt: timestamp("affiliateReviewedAt"),
+  affiliateReviewedByUserId: int("affiliateReviewedByUserId"),
+  distributorInventoryConfirmedAt: timestamp("distributorInventoryConfirmedAt"),
+  distributorInvoiceReference: varchar("distributorInvoiceReference", { length: 128 }),
+  distributorInvoiceAmount: decimal("distributorInvoiceAmount", { precision: 12, scale: 2 }),
+  distributorInvoiceNotes: text("distributorInvoiceNotes"),
+  distributorInvoiceReceivedAt: timestamp("distributorInvoiceReceivedAt"),
+  affiliateInvoiceApprovedAt: timestamp("affiliateInvoiceApprovedAt"),
+  affiliateInvoiceApprovedByUserId: int("affiliateInvoiceApprovedByUserId"),
+  fulfillmentAuthorizedAt: timestamp("fulfillmentAuthorizedAt"),
   // Which distributor line the confirmed PO is routed to (resolved from lines).
   distributorId: int("distributorId"),
   // Audit of the send-to-distributor action: when it was sent + to whom.

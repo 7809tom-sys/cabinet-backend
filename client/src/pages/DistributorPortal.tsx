@@ -70,6 +70,14 @@ export default function DistributorPortal() {
   const orders = trpc.distributorPortal.orders.useQuery(distInput ?? {}, {
     enabled: canAccess && (isDistributor || !!adminLineId),
   });
+  const [invoiceDrafts, setInvoiceDrafts] = useState<Record<number, { reference: string; amount: string; notes: string }>>({});
+  const confirmInventory = trpc.distributorPortal.confirmInventoryAndInvoice.useMutation({
+    onSuccess: () => {
+      void utils.distributorPortal.orders.invalidate();
+      toast.success("Inventory confirmed and updated invoice sent to affiliate review.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const setVisibility = trpc.distributorPortal.setVisibility.useMutation({
     onMutate: async (vars) => {
@@ -348,6 +356,38 @@ export default function DistributorPortal() {
                         <div className="text-xs text-muted-foreground">
                           {new Date(o.createdAt).toLocaleDateString()}
                         </div>
+                      </div>
+                      <div className="w-full grid gap-2 border-t pt-3 sm:grid-cols-[1fr_8rem_1fr_auto]">
+                        <Input
+                          aria-label={`Updated invoice reference for ${o.requestNumber}`}
+                          placeholder="Updated invoice #"
+                          value={invoiceDrafts[o.id]?.reference ?? ""}
+                          onChange={(event) => setInvoiceDrafts((drafts) => ({ ...drafts, [o.id]: { reference: event.target.value, amount: drafts[o.id]?.amount ?? "", notes: drafts[o.id]?.notes ?? "" } }))}
+                        />
+                        <Input
+                          aria-label={`Updated invoice amount for ${o.requestNumber}`}
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          placeholder="Amount"
+                          value={invoiceDrafts[o.id]?.amount ?? ""}
+                          onChange={(event) => setInvoiceDrafts((drafts) => ({ ...drafts, [o.id]: { reference: drafts[o.id]?.reference ?? "", amount: event.target.value, notes: drafts[o.id]?.notes ?? "" } }))}
+                        />
+                        <Input
+                          aria-label={`Inventory notes for ${o.requestNumber}`}
+                          placeholder="Inventory / invoice notes (optional)"
+                          value={invoiceDrafts[o.id]?.notes ?? ""}
+                          onChange={(event) => setInvoiceDrafts((drafts) => ({ ...drafts, [o.id]: { reference: drafts[o.id]?.reference ?? "", amount: drafts[o.id]?.amount ?? "", notes: event.target.value } }))}
+                        />
+                        <Button
+                          disabled={confirmInventory.isPending || !invoiceDrafts[o.id]?.reference || invoiceDrafts[o.id]?.amount === ""}
+                          onClick={() => confirmInventory.mutate({
+                            ...(distInput ?? {}), orderId: o.id,
+                            invoiceReference: invoiceDrafts[o.id]?.reference ?? "",
+                            invoiceAmount: Number(invoiceDrafts[o.id]?.amount ?? 0),
+                            invoiceNotes: invoiceDrafts[o.id]?.notes || undefined,
+                          })}
+                        >Confirm inventory</Button>
                       </div>
                     </div>
                   ))}

@@ -16,10 +16,13 @@ function publicOrigin(): string {
 
 export default function BundleDeals({ affiliateSlug }: { affiliateSlug?: string }) {
   const [, navigate] = useLocation();
-  const bundles = trpc.priceShop.listPublishedBundles.useQuery();
   const affiliate = trpc.affiliates.bySlug.useQuery(
     { slug: affiliateSlug ?? "" },
     { enabled: Boolean(affiliateSlug), retry: false },
+  );
+  const bundles = trpc.priceShop.listPublishedBundles.useQuery(
+    affiliateSlug ? { affiliateId: affiliate.data?.id } : undefined,
+    { enabled: !affiliateSlug || Boolean(affiliate.data?.id), retry: false },
   );
   const [loadingId, setLoadingId] = useState<number | null>(null);
   const [failedFloorPlans, setFailedFloorPlans] = useState<Set<number>>(() => new Set());
