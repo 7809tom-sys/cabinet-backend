@@ -319,6 +319,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     retry: false,
   });
   const canAffiliatePriceShop = !!affiliateSlug && affiliatePriceAccess.data?.isOwner === true;
+  const canPublishKitchenPackage = isAdmin || canAffiliatePriceShop;
   const affiliatePrimary = affiliateBrand?.primaryColor || "#1a2b4a";
   const affiliateAccent = affiliateBrand?.accentColor || "#c9a227";
   const affiliateStyleName = useCallback(
@@ -10070,7 +10071,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <Upload className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">Import Existing Design</span>
                   </button>
-                  {isAdmin && (
+                  {canPublishKitchenPackage && (
                     <button
                       disabled={placed.length === 0}
                       onClick={() => {
@@ -10080,7 +10081,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-purple-700 hover:bg-purple-50 transition-colors disabled:opacity-50"
                     >
                       <PackageOpen className="h-4 w-4 shrink-0" />
-                      <span className="flex-1 text-left">Save as Kitchen Package</span>
+                      <span className="flex-1 text-left">Publish as Kitchen Package</span>
                     </button>
                   )}
                   {canAffiliatePriceShop && (
@@ -10532,15 +10533,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              >
 	                <Square className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_countertop_btn")}
 	              </DropdownMenuItem>
-	              {isAdmin && (
+		              {canPublishKitchenPackage && (
                 <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuLabel className="text-xs text-muted-foreground">Admin</DropdownMenuLabel>
+	                  <DropdownMenuSeparator />
+	                  <DropdownMenuLabel className="text-xs text-muted-foreground">Kitchen Package</DropdownMenuLabel>
                   <DropdownMenuItem
                     onSelect={() => setBundleDialogOpen(true)}
                     className="text-purple-600 font-medium"
                   >
-                    <PackageOpen className="h-3.5 w-3.5 mr-2" /> Save as Kitchen Package
+	                    <PackageOpen className="h-3.5 w-3.5 mr-2" /> Publish as Kitchen Package
                   </DropdownMenuItem>
 	                </>
 	              )}
@@ -15197,16 +15198,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         </DialogContent>
       </Dialog>
 
-      {/* Kitchen Package save dialog (admin only) */}
-      {isAdmin && (
+      {/* Kitchen Package publication is limited to its originating affiliate or admin. */}
+      {canPublishKitchenPackage && (
         <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <PackageOpen className="h-5 w-5 text-purple-600" /> Save as Kitchen Package
+                <PackageOpen className="h-5 w-5 text-purple-600" /> Publish as Kitchen Package
               </DialogTitle>
               <DialogDescription>
-                Save this design as a publishable Kitchen Package. Customers can browse it and load it into the designer to customize.
+                Create a private Kitchen Package snapshot from this completed design. Publish it from Kitchen Packages when its customer price and BOM are ready.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3">
@@ -15247,7 +15248,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 className="gap-1.5 bg-purple-600 hover:bg-purple-700 text-white"
               >
                 <PackageOpen className={`h-4 w-4${saveBundleMut.isPending ? " animate-spin" : ""}`} />
-                Save Kitchen Package
+                Create Kitchen Package
               </Button>
             </DialogFooter>
           </DialogContent>

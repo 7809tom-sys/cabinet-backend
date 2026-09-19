@@ -2413,3 +2413,9 @@
 - [x] Mark a package **Needs refresh** when the current supplier price, available mapping, or required price line differs from its saved storefront total; mark it incomplete when its current BOM cannot be priced.
 - [x] Block stale or incomplete packages from loading into Designer/checkout until the owner refreshes and republishes. Affiliate Dashboard displays the current BOM total; the white-label storefront clearly marks the package and disables its action.
 - [x] Validate TypeScript, 11 focused package-price/order-rail tests, production build, and diff integrity.
+
+## Affiliate Kitchen Package publish action — 2026-09-19
+
+- [x] Allow the originating affiliate owner, as well as an administrator, to create a Kitchen Package directly from the completed design.
+- [x] Replace the visible Designer action copy with **Publish as Kitchen Package** and remove the misleading Admin-only label. The package is created privately, then its owner controls storefront publication from Kitchen Packages.
+- [x] Validate TypeScript, 8 focused Kitchen Package freshness/publish/order-rail tests, production build, and diff integrity.
