@@ -102,6 +102,11 @@ export function installableSmallGapRemainder(value: number): number | null {
   return rounded >= SMALL_GAP_FILLER_MIN_IN && rounded <= SMALL_GAP_FILLER_MAX_IN ? rounded : null;
 }
 
+/** The optimal filler consumes the entire measured cabinet-to-cabinet seam. */
+export function optimalSmallGapFillerCut(opportunity: Pick<SmallGapFillerOpportunity, "remaining">): number | null {
+  return installableSmallGapRemainder(opportunity.remaining);
+}
+
 function gapCrossesWallOpening(openings: readonly WallOpening[], wall: WallSide, start: number, length: number) {
   const end = start + length;
   return openings.some((opening) => opening.side === wall

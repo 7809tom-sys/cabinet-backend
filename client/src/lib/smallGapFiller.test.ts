@@ -7,10 +7,11 @@ import {
 	automaticSmallGapFillerMode,
 	canSplitSmallGapFiller,
 	findSmallGapFillerOpportunity,
-  findIslandSmallGapFillerOpportunity,
-  installedFillerVerticalSpec,
-  installedSmallGapFillerEditOpportunity,
-  removePlacedCabinetGroup,
+	findIslandSmallGapFillerOpportunity,
+	installedFillerVerticalSpec,
+	installedSmallGapFillerEditOpportunity,
+	optimalSmallGapFillerCut,
+	removePlacedCabinetGroup,
   smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
   wallBlindCornerPreferredFillerMode,
@@ -64,9 +65,15 @@ const cabinet: PlacedCabinet = {
 	  expect(automaticSmallGapFillerMode(baseOpportunity)).toBe("split");
 		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("left");
 		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("right");
-	});
+		});
 
-	it("places a start-corner WBC-27-42 filler on the blind side, to the left of its door", () => {
+		it("recommends the full measured seam as the optimal filler cut", () => {
+		  expect(optimalSmallGapFillerCut({ remaining: 6 })).toBe(6);
+		  expect(optimalSmallGapFillerCut({ remaining: 2.375 })).toBe(2.375);
+		  expect(optimalSmallGapFillerCut({ remaining: 6.125 })).toBeNull();
+		});
+
+		it("places a start-corner WBC-27-42 filler on the blind side, to the left of its door", () => {
 		const wbc: PlacedCabinet = {
 			...cabinet,
 			uid: "wbc-start",

@@ -327,6 +327,8 @@ interface Props {
   smartGapCandidates?: DesignCabinet[];
   /** Approved current unit prices keyed by active catalog cabinet ID. */
   smartGapCandidatePrices?: Map<number, number>;
+  /** Non-interactive ghost pieces showing where the active filler choice will be inserted. */
+  fillerGapPreview?: readonly PlacedCabinet[];
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
   onPlaceFiller?: (gap: WallGap) => void;
   /** Place a cabinet + auto-sized filler in a gap as a combo. */
@@ -387,6 +389,7 @@ export function PlanCanvas({
   catalogFillerCandidates = [],
   smartGapCandidates = [],
   smartGapCandidatePrices,
+	  fillerGapPreview = [],
   onFillGap,
   onPlaceFiller,
   onFillGapWithCabAndFiller,
@@ -1878,7 +1881,32 @@ export function PlanCanvas({
           );
         })}
 
-        {cabinets
+	        {fillerGapPreview.map((preview) => {
+	          const { lockedAngledRun, bodyW, bodyD, bodyLeft, bodyTop } = planCabinetRenderFrame(preview);
+	          return (
+	            <div
+	              key={`filler-gap-preview-${preview.uid}`}
+	              data-testid="plan-filler-gap-preview"
+	              className="pointer-events-none absolute z-[35] flex items-center justify-center overflow-visible rounded-sm border-2 border-dashed border-amber-500 bg-amber-300/35 shadow-[0_0_0_3px_rgba(251,191,36,0.25),0_0_18px_rgba(245,158,11,0.48)] motion-safe:animate-pulse"
+	              style={{
+	                left: bodyLeft * ppi,
+	                top: bodyTop * ppi,
+	                width: Math.max(2, bodyW * ppi),
+	                height: Math.max(2, bodyD * ppi),
+	                transform: lockedAngledRun ? `rotate(${preview.rotation}deg)` : undefined,
+	                transformOrigin: lockedAngledRun ? "center" : undefined,
+	                animationDuration: "1.2s",
+	              }}
+	              title={`Filler preview — ${formatInches(preview.width)} will be inserted here`}
+	            >
+	              <span className="whitespace-nowrap rounded bg-amber-700 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
+	                Filler {formatInches(preview.width)}
+	              </span>
+	            </div>
+	          );
+	        })}
+
+	        {cabinets
           .filter((c) => (showWallLayer ? true : c.placement !== "wall"))
           .map((p) => {
             const { lockedAngledRun, bodyW, bodyD, bodyLeft, bodyTop } = planCabinetRenderFrame(p);

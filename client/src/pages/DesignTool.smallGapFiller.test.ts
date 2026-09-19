@@ -47,6 +47,17 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source.match(/fillerInsertionTransition=\{fillerInsertionTransition\}/g)).toHaveLength(2);
 	  });
 
+	  it("highlights the selected filler placement and recommends the full measured seam", () => {
+	    expect(source).toContain("const smallGapFillerPlanPreview = useMemo<PlacedCabinet[]>");
+	    expect(source).toContain("fillerGapPreview={smallGapFillerPlanPreview}");
+	    expect(source.match(/fillerGapPreview=\{smallGapFillerPlanPreview\}/g)).toHaveLength(2);
+	    expect(source).toContain("optimalSmallGapFillerCut(smallGapFillerPrompt)");
+	    expect(source).toContain('data-testid="small-gap-filler-optimal-suggestion"');
+	    expect(source).toContain("Use optimal size");
+	    expect(source).toContain("The gold highlighted gap on the plan shows the current choice");
+	    expect(source).toContain("setSmallGapFillerPreviewMode(\"split\")");
+	  });
+
 	  it("rechecks the committed run before applying a filler so an exact-fit replacement cannot use a stale prompt", () => {
 	    const applyStart = source.indexOf("const applySmallGapFiller = useCallback");
 	    const applyEnd = source.indexOf("const previewSmartGap", applyStart);

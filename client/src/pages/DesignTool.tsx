@@ -79,6 +79,7 @@ import {
   installedSmallGapFillerEditOpportunity,
   installedFillerVerticalSpec,
   installableSmallGapRemainder,
+	optimalSmallGapFillerCut,
 	  removePlacedCabinetGroup,
 	  smallGapFillerOpportunityFromDragPreview,
   smallGapFillerLayout,
@@ -555,6 +556,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
   /** Optional user-entered installed filler width; null keeps the exact measured seam. */
   const [smallGapFillerCustomWidth, setSmallGapFillerCustomWidth] = useState<number | null>(null);
+  /** Controls the non-destructive highlighted filler location while the dialog is open. */
+  const [smallGapFillerPreviewMode, setSmallGapFillerPreviewMode] = useState<SmallGapFillerPlacementMode | null>(null);
   /** One-shot 3D visual cue emitted after a catalog filler is actually inserted. */
   const [fillerInsertionTransition, setFillerInsertionTransition] = useState<{ uids: string[]; key: number } | null>(null);
   const [blindCornerFillerPrompt, setBlindCornerFillerPrompt] = useState<{
@@ -565,6 +568,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   } | null>(null);
   useEffect(() => {
     setSmallGapFillerCustomWidth(smallGapFillerPrompt?.remaining ?? null);
+    setSmallGapFillerPreviewMode(smallGapFillerPrompt ? automaticSmallGapFillerMode(smallGapFillerPrompt) : null);
   }, [smallGapFillerPrompt?.cabinetUid, smallGapFillerPrompt?.remaining]);
 	  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
 	    cabinet: DesignCabinet;
@@ -1699,6 +1703,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const requested = smallGapFillerCustomWidth ?? smallGapFillerPrompt.remaining;
     return Math.round(requested * 8) / 8;
   }, [smallGapFillerCustomWidth, smallGapFillerPrompt]);
+  const optimalSmallGapFillerWidth = useMemo(
+    () => smallGapFillerPrompt ? optimalSmallGapFillerCut(smallGapFillerPrompt) : null,
+    [smallGapFillerPrompt],
+  );
   const selectedSmallGapFillerCutIsValid = Boolean(
     smallGapFillerPrompt
     && selectedSmallGapFillerCut >= SMALL_GAP_FILLER_MIN_IN - 0.001
@@ -1708,6 +1716,48 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (!smallGapFillerPrompt || !selectedSmallGapFillerCutIsValid) return null;
     return catalogFillerForGap(catalogFillers, selectedSmallGapFillerCut, smallGapFillerPrompt.layer);
   }, [catalogFillers, selectedSmallGapFillerCut, selectedSmallGapFillerCutIsValid, smallGapFillerPrompt]);
+  const optimalSmallGapFillerDefinition = useMemo(() => {
+    if (!smallGapFillerPrompt || optimalSmallGapFillerWidth == null) return null;
+    return catalogFillerForGap(catalogFillers, optimalSmallGapFillerWidth, smallGapFillerPrompt.layer);
+  }, [catalogFillers, optimalSmallGapFillerWidth, smallGapFillerPrompt]);
+  const smallGapFillerPlanPreview = useMemo<PlacedCabinet[]>(() => {
+    if (!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid || !smallGapFillerPreviewMode) return [];
+    const layout = smallGapFillerLayout({ ...smallGapFillerPrompt, remaining: selectedSmallGapFillerCut }, smallGapFillerPreviewMode);
+    const depth = dim(smallGapFillerDefinition.depth, smallGapFillerPrompt.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+    const height = installedFillerVerticalSpec(
+      smallGapFillerPrompt.layer,
+      dim(smallGapFillerDefinition.height, smallGapFillerPrompt.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+    ).storedHeight;
+    return layout.pieces.map((piece, index) => {
+      const spot = smallGapFillerPrompt.islandFace && island
+        ? null
+        : wallPlacementAt(piece.start, piece.width, depth, smallGapFillerPrompt.wall, room);
+      const preview: PlacedCabinet = {
+        uid: `filler-gap-preview-${smallGapFillerPrompt.cabinetUid}-${smallGapFillerPreviewMode}-${index}`,
+        cabinetId: smallGapFillerDefinition.id,
+        masterCode: smallGapFillerDefinition.masterCode,
+        description: `Preview ${formatInches(piece.width)} filler`,
+        category: "Filler",
+        subCategory: "Filler",
+        placement: smallGapFillerPrompt.layer,
+        x: spot?.x ?? 0,
+        y: spot?.y ?? 0,
+        width: piece.width,
+        nominalWidth: Number(smallGapFillerDefinition.width) || selectedSmallGapFillerCut,
+        depth,
+        nominalDepth: depth,
+        height,
+        nominalHeight: height,
+        rotation: spot?.rotation ?? 0,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+        ...(spot?.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide } : {}),
+      };
+      return smallGapFillerPrompt.islandFace && island
+        ? islandFacePlacement(preview, island, smallGapFillerPrompt.islandFace, piece.start)
+        : preview;
+    });
+  }, [island, room, selectedSmallGapFillerCut, selectedSmallGapFillerCutIsValid, smallGapFillerDefinition, smallGapFillerPreviewMode, smallGapFillerPrompt]);
   const pricingIdForPlacedCabinet = useCallback(
     (cabinet: PlacedCabinet) => catalogFillerPricingId(cabinet, catalogFillers) ?? pricingCabinetIdFor(cabinet),
     [catalogFillers, pricingCabinetIdFor],
@@ -12100,6 +12150,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            <PlanCanvas onPreviewGap={previewSmartGap}
 	              room={room}
 	              catalogDragCabinet={catalogDragPreview}
+	              fillerGapPreview={smallGapFillerPlanPreview}
 	              automaticSnapping={automaticSnapping}
 	              smartGapCandidates={smartGapCatalogCandidates}
 	              smartGapCandidatePrices={smartGapCandidatePrices}
@@ -12326,6 +12377,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                <PlanCanvas onPreviewGap={previewSmartGap}
 	                  room={room}
 	                  catalogDragCabinet={catalogDragPreview}
+	                  fillerGapPreview={smallGapFillerPlanPreview}
 	                  automaticSnapping={automaticSnapping}
 	                  smartGapCandidates={smartGapCatalogCandidates}
 	                  smartGapCandidatePrices={smartGapCandidatePrices}
@@ -14772,6 +14824,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            : "No active catalog filler is available for this opening."}
 	        </DialogDescription>
 	      </DialogHeader>
+	      {optimalSmallGapFillerWidth != null && optimalSmallGapFillerDefinition && (
+	        <div data-testid="small-gap-filler-optimal-suggestion" className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-950">
+	          <div className="flex flex-wrap items-center justify-between gap-2">
+	            <div><span className="font-semibold">Recommended: </span>{optimalSmallGapFillerDefinition.masterCode} cut to {formatInches(optimalSmallGapFillerWidth)} closes the full measured wall seam.</div>
+	            <Button size="sm" variant="outline" className="border-emerald-500 bg-white text-emerald-800 hover:bg-emerald-100" onClick={() => {
+	              setSmallGapFillerCustomWidth(optimalSmallGapFillerWidth);
+	              setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt!));
+	            }}>Use optimal size</Button>
+	          </div>
+	        </div>
+	      )}
 	      <div className="rounded-lg border bg-muted/30 p-3">
 	        <label htmlFor="small-gap-filler-custom-width" className="text-sm font-semibold text-foreground">Custom cut width</label>
 	        <div className="mt-2 flex items-center gap-2">
@@ -14798,6 +14861,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      <Button
 	        data-testid="small-gap-filler-auto"
 	        disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid}
+	        onMouseEnter={() => { if (smallGapFillerPrompt) setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
+	        onFocus={() => { if (smallGapFillerPrompt) setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
 	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut); }}
 	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
 	      >
@@ -14805,18 +14870,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      </Button>
 	      <div className="rounded-lg border border-[#d9c196] bg-[#fffaf0] p-3">
 	        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatInches(selectedSmallGapFillerCut)} filler go?</p>
+	        <p className="mb-2 text-xs text-[#765416]">The gold highlighted gap on the plan shows the current choice before anything is inserted.</p>
 	        <div className="grid gap-2 sm:grid-cols-3">
 	            <Button
 	              variant="outline"
 	              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid || !canSplitSmallGapFiller({ remaining: selectedSmallGapFillerCut })}
-	              onClick={() => applySmallGapFiller("split", undefined, selectedSmallGapFillerCut)}
+	              onMouseEnter={() => setSmallGapFillerPreviewMode("split")}
+	              onFocus={() => setSmallGapFillerPreviewMode("split")}
+	              onClick={() => { setSmallGapFillerPreviewMode("split"); applySmallGapFiller("split", undefined, selectedSmallGapFillerCut); }}
 	              data-testid="small-gap-filler-split"
 	              className="h-auto min-h-14 whitespace-normal"
 	            >
 	              Split evenly<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut / 2)} each side</span>
 	            </Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onClick={() => applySmallGapFiller("left", undefined, selectedSmallGapFillerCut)} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onClick={() => applySmallGapFiller("right", undefined, selectedSmallGapFillerCut)} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("left")} onFocus={() => setSmallGapFillerPreviewMode("left")} onClick={() => { setSmallGapFillerPreviewMode("left"); applySmallGapFiller("left", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("right")} onFocus={() => setSmallGapFillerPreviewMode("right")} onClick={() => { setSmallGapFillerPreviewMode("right"); applySmallGapFiller("right", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
 	        </div>
 	      </div>
           <DialogFooter>

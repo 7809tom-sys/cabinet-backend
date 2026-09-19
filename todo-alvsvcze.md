@@ -2331,7 +2331,7 @@
 
 ## Deferred ERB36 seams and chosen filler placement — 2026-09-19
 
-- [x] Do not propose a filler merely because an ERB36 is seated at a corner; wait until an adjoining left/right cabinet creates an actual installable 1/2–3-inch seam.
+- [x] Do not propose a filler merely because an ERB36 is seated at a corner; wait until an adjoining left/right cabinet creates an actual installable seam (later expanded from 1/2–3 inches to 1/2–6 inches).
 - [x] Recheck every newly placed non-blind cabinet for a real small seam on either side, even when its opposite side remains open for additional cabinets. Retain the 45-degree-only protected peninsula rule and all blind-corner rules.
 - [x] Make the filler dialog explicit: it shows the exact cut size and lets the user choose left, right, or equal split before inserting the catalog filler at a zero-overlap seam; leaving the space open remains available.
 - [x] Validate TypeScript, 913 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
@@ -2342,3 +2342,10 @@
 - [x] Add a bounded custom-cut width field to the placement dialog. The user can select any 1/8-inch increment from 1/2 inch through the measured seam; left, right, and equal-split choices insert only that selected catalog-backed cut and leave any balance open.
 - [x] Add a 280ms reduced-motion-aware 3D transition that lifts/scales only the successfully inserted filler mesh and eases it into its authoritative seam position.
 - [x] Validate TypeScript, 916 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
+
+## Filler gap highlighting and optimal recommendation — 2026-09-19
+
+- [x] Render each current filler choice as a non-interactive gold dashed ghost directly in the 2D plan before installation, including left, right, and split layouts; the highlighted piece follows real wall, custom-wall, island-face, and rotated geometry.
+- [x] Update the highlighted preview immediately when the user hovers or keyboards through left, right, split, or the suggested placement controls, without changing saved cabinets or materials.
+- [x] Compute the optimal catalog-backed cut from the exact measured seam (rounded to an installable 1/8 inch) and offer a one-click **Use optimal size** recommendation that closes the full remaining wall space.
+- [x] Validate local Designer workspace loading, TypeScript, 919 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
