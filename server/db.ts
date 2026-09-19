@@ -1,15 +1,37 @@
 import crypto from "node:crypto";
-import { eq, sql, ne } from "drizzle-orm";
+import { and, eq, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, cabinets, vendorLines, distributors } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
-// Shared predicate: exclude products held in admin "conflict" (Needs Review)
-// status from every public-facing query (catalog, storefront, Design Tool
-// palette, order/ocr code matching). Conflict items live only in the admin
-// back office until an admin reviews and clears them.
+/**
+ * A retired duplicate keeps its historical database record, supplier price rows,
+ * and order references, but its master code must never be emitted as a second
+ * product when its alias mapping resolves to a live canonical cabinet. Checking
+ * the target cabinet (rather than only the source record) lets historic alias
+ * cycles coexist temporarily without hiding their live canonical record. The
+ * retired code remains discoverable through the canonical cabinet's alias map.
+ */
+export function isCanonicalCabinetMaster() {
+  return sql`NOT EXISTS (
+      SELECT 1
+      FROM sku_master_aliases canonical_sku_alias
+      INNER JOIN cabinets canonical_cabinet
+        ON canonical_cabinet.masterCode = canonical_sku_alias.masterCode
+      WHERE canonical_sku_alias.aliasCode = ${cabinets.masterCode}
+        AND (
+          canonical_cabinet.isActive = true
+          OR canonical_cabinet.showInCatalog = true
+          OR canonical_cabinet.showInDesigner = true
+        )
+    )`;
+}
+
+// Shared public-catalog predicate: exclude both items held in admin "conflict"
+// and retired duplicate masters from catalog, storefront, Designer, order, OCR,
+// and price-shop queries. Each alias continues to resolve to its canonical item.
 export function notInConflict() {
-  return ne(cabinets.conflictStatus, "conflict");
+  return and(ne(cabinets.conflictStatus, "conflict"), isCanonicalCabinetMaster());
 }
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -320,7 +342,7 @@ export async function updatePlatformPricingSettings(
 // were seeded equal across tiers and are not authoritative), so a Split Pantry
 // prices exactly like adding its two parts individually.
 import { pantryBundles, distributorSkus, doorStyles } from "../drizzle/schema";
-import { and, inArray } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 
 export type SplitPantryPartPrices = {
   masterCode: string;

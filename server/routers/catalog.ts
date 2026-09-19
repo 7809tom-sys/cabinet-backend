@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
-import { getDb, notInConflict, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
+import { getDb, notInConflict, isCanonicalCabinetMaster, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
   cabinets,
   cabinetAliases,
@@ -2544,13 +2544,11 @@ export const cabinetsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { rows: [], total: 0 };
-      const conditions: SQL[] = [
-        // Exclude cabinets that have been merged into another cabinet.
-        // When cabinet X is merged into Y, X's masterCode is stored as aliasCode
-        // in sku_master_aliases. These merged records should only appear as aliases
-        // under the surviving (master) cabinet record, not as top-level list items.
-        sql`${cabinets.masterCode} NOT IN (SELECT aliasCode FROM sku_master_aliases)`,
-      ];
+	      const conditions: SQL[] = [
+	        // Retired duplicates remain in the database for price/order history, but
+	        // appear only as aliases under the canonical master in every admin list.
+	        isCanonicalCabinetMaster(),
+	      ];
       if (input.unconfiguredOnly) {
         conditions.push(
           sql`(${cabinets.numberOfDoors} IS NULL AND ${cabinets.numberOfDrawers} IS NULL AND ${cabinets.numberOfFixedShelves} IS NULL AND ${cabinets.numberOfAdjShelves} IS NULL)`
@@ -2724,7 +2722,7 @@ export const cabinetsRouter = router({
       .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
       .where(
         and(
-          sql`${cabinets.masterCode} NOT IN (SELECT aliasCode FROM sku_master_aliases)`,
+	          isCanonicalCabinetMaster(),
           sql`(${cabinets.isActive} = false OR ${cabinets.configVerified} = false)`
         )
       )

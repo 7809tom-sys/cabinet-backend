@@ -2349,3 +2349,11 @@
 - [x] Update the highlighted preview immediately when the user hovers or keyboards through left, right, split, or the suggested placement controls, without changing saved cabinets or materials.
 - [x] Compute the optimal catalog-backed cut from the exact measured seam (rounded to an installable 1/8 inch) and offer a one-click **Use optimal size** recommendation that closes the full remaining wall space.
 - [x] Validate local Designer workspace loading, TypeScript, 919 expanded Designer/3D/collision/filler regressions, production build, and diff integrity.
+
+## Universal canonical SKU listing — 2026-09-19
+
+- [x] Treat a code that resolves to a live canonical master through `sku_master_aliases` as an alias everywhere it is listed; its historical cabinet record and supplier pricing remain preserved, but it cannot be emitted as a second master product.
+- [x] Route public catalog, style catalog, storefront, Designer, price-shop, order, OCR, and admin Catalog visibility through one shared canonical-master predicate. The rule checks the alias target is a live canonical product, protecting valid legacy records while historical alias cycles are unwound.
+- [x] Update the Admin Catalog and attention query to use the same predicate rather than independent raw alias filters, so the behavior is consistent for every SKU.
+- [x] Confirm the current data resolves **AW-12-30 → AW1230** with AW1230 as the single active/listed and priced master; no authoritative price, distributor SKU, order, or customer data was changed.
+- [x] Validate database visibility, TypeScript, 91 catalog/storefront/Designer/alias/pricing regressions, production build, and diff integrity.

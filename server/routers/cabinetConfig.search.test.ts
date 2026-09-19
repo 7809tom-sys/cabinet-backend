@@ -22,12 +22,21 @@ function adminContext(): TrpcContext {
 }
 
 describe("Cabinet Configuration identifier search and distributor removal safeguards", () => {
-  it("finds a canonical cabinet when searching an existing master SKU alias", async () => {
-    const caller = appRouter.createCaller(adminContext());
-    const result = await caller.cabinets.adminListCabinetConfig({ page: 0, limit: 10, search: "B-24" });
+	it("finds a canonical cabinet when searching an existing master SKU alias", async () => {
+	  const caller = appRouter.createCaller(adminContext());
+	  const result = await caller.cabinets.adminListCabinetConfig({ page: 0, limit: 10, search: "B-24" });
 
-    expect(result.rows.some((row) => row.masterCode === "B24")).toBe(true);
-  });
+	  expect(result.rows.some((row) => row.masterCode === "B24")).toBe(true);
+	});
+
+	it("returns a single canonical row when a retired master code is an alias", async () => {
+	  const caller = appRouter.createCaller(adminContext());
+	  const result = await caller.cabinets.adminListCabinetConfig({ page: 0, limit: 20, search: "AW1230" });
+	  const matchingAngleWalls = result.rows.filter((row) => ["AW1230", "AW-12-30"].includes(row.masterCode));
+
+	  expect(matchingAngleWalls).toHaveLength(1);
+	  expect(matchingAngleWalls[0]?.masterCode).toBe("AW1230");
+	});
 
   it("retains master-code partial searching alongside aliases", async () => {
     const caller = appRouter.createCaller(adminContext());
@@ -45,4 +54,3 @@ describe("Cabinet Configuration identifier search and distributor removal safegu
     expect(source).not.toContain("delete(distributorSkus)");
   });
 });
-

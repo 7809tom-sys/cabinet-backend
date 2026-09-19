@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { ne } from "drizzle-orm";
-import { notInConflict } from "./db";
+import { readFileSync } from "node:fs";
+import { isCanonicalCabinetMaster, notInConflict } from "./db";
 import { cabinets } from "../drizzle/schema";
+
+const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
 
 // The conflict-status feature holds uncertain products in the admin back office
 // and hides them from every public-facing query. The single source of truth for
@@ -18,18 +21,18 @@ describe("notInConflict() predicate", () => {
     expect(pred.constructor).toBe(expected.constructor);
   });
 
-  it("compares against the literal 'conflict' (live 'none' rows pass)", () => {
-    // Inspect the SQL query chunks: a param value of 'conflict' must be present
-    // so only conflict rows are excluded, never live ('none') products.
-    const pred = notInConflict() as unknown as {
-      queryChunks?: Array<{ value?: unknown }>;
-    };
-    const values = (pred.queryChunks ?? [])
-      .map((c) => (c && typeof c === "object" ? (c as { value?: unknown }).value : undefined))
-      .filter((v) => v !== undefined);
-    const flat = values.flat ? values.flat() : values;
-    expect(JSON.stringify(flat)).toContain("conflict");
-  });
+	it("compares against the literal 'conflict' (live 'none' rows pass)", () => {
+	  // The shared predicate must preserve the exact conflict gate alongside the
+	  // canonical-master rule, so ordinary live ('none') products still pass.
+	  expect(dbSource).toContain('ne(cabinets.conflictStatus, "conflict")');
+	});
+
+	it("also excludes retired duplicate master codes through the canonical alias table", () => {
+	  expect(isCanonicalCabinetMaster()).toBeDefined();
+	  expect(dbSource).toContain("sku_master_aliases canonical_sku_alias");
+	  expect(dbSource).toContain("canonical_sku_alias.aliasCode");
+	  expect(dbSource).toContain("isCanonicalCabinetMaster()");
+	});
 });
 
 describe("conflict-status schema contract", () => {

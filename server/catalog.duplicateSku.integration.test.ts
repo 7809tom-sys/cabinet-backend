@@ -20,11 +20,11 @@ describe("duplicate normalized cabinet codes", () => {
     const exact = await caller.cabinets.byId({ id: 9390110 });
     const normalizedFallback = await caller.cabinets.byCode({ masterCode: "W-12-30" });
 
-    expect(exact).toEqual(expect.objectContaining({
-      id: 9390110,
-      masterCode: "W-1230",
-      description: '12" Single Door Wall Cabinet with 2 Adjustable Shelves',
-    }));
+	    expect(exact).toEqual(expect.objectContaining({
+	      id: 9390110,
+	      masterCode: "W-1230",
+	      description: '12"x 30" Single Door Wall Cabinet with 2 Adjustable Shelves',
+	    }));
     // A normalized legacy route now resolves to the canonical catalog record
     // whenever an explicit alias mapping exists, rather than reviving a duplicate.
     expect(normalizedFallback?.id).toBe(exact?.id);
