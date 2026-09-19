@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -359,6 +359,49 @@ describe("continuous builder custom wall placement", () => {
     const clearB12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 60, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
     const clearB12 = { ...b12, ...clearB12Spot, wallOffset: clearB12Spot.wallOffset };
     expect(shouldBlockPlacementCollision(clearB12, [erb], false, diagonalRightAngleRoom)).toBe(false);
+  });
+
+  it("gives ERB36 collision guidance and aligns a selected upper to the same measured corner", () => {
+    const room: RoomData = {
+      ...builderRoom,
+      openWallPath: true,
+      customWalls: builderRoom.customWalls.map((wall) => ({ ...wall, height: 96 })),
+    };
+    const erbSeed: PlacedCabinet = {
+      uid: "erb36-upper-anchor",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    const erbSpot = nextAvailableRoomCornerPlacement(erbSeed, "builder-top" as any, room, []);
+    expect(erbSpot).toMatchObject({ wallId: "builder-top", wallOffset: 0 });
+    const erb: PlacedCabinet = { ...erbSeed, ...erbSpot!, wallId: erbSpot!.wallId, wallOffset: erbSpot!.wallOffset };
+    const upperSpot = selectedCornerBaseWallPlacement(erb, room, 24, 12, 30, [erb], []);
+    expect(upperSpot).toMatchObject({ x: 0, y: 0, rotation: 0, wallId: "builder-top", wallOffset: 0 });
+
+    const b12: PlacedCabinet = {
+      uid: "b12-over-erb",
+      cabinetId: 12,
+      masterCode: "B12",
+      description: "12 inch Base Cabinet",
+      placement: "base",
+      x: 6,
+      y: 0,
+      width: 12,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "builder-top",
+      wallOffset: 6,
+    };
+    expect(collisionReason(b12, [erb], room)).toContain("Corner protected: ERB36 is snapped into this corner.");
   });
 
   it("magnetically snaps a nearby cabinet to a straight custom wall instead of the polygon bounding box", () => {

@@ -19,4 +19,17 @@ describe("Design Tool direct corner cabinet drops", () => {
     expect(handler).toContain("wallId: cornerSpot.wallId as WallSide");
     expect(handler).toContain("wallOffset: cornerSpot.wallOffset ?? 0");
   });
+
+  it("aligns a selected wall cabinet directly above the selected ERB36 corner base", () => {
+    const addStart = source.indexOf("const addCabinet = useCallback");
+    const addEnd = source.indexOf("const addManualFiller", addStart);
+    expect(addStart).toBeGreaterThan(-1);
+    expect(addEnd).toBeGreaterThan(addStart);
+    const addPath = source.slice(addStart, addEnd);
+
+    expect(addPath).toContain("selectedCornerBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)");
+    expect(addPath).toContain("} else if (selectedCornerUpperSpot) {");
+    expect(addPath).toContain("spot = selectedCornerUpperSpot;");
+    expect(addPath).toContain("aligned directly above ${selectedCornerBaseTarget.masterCode}'s corner");
+  });
 });

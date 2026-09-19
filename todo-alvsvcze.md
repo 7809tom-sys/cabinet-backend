@@ -2300,3 +2300,10 @@
 - [x] Add continuous-wall shared-vertex collision reservation for ERB/L/diagonal/corner-drawer cabinets, preventing an adjoining B12 from entering the physical corner leg.
 - [x] Make all plan, nudge, 3D movement, snap-to-wall, and countertop placement guards use measured-room collision context.
 - [x] Validate 114 focused Designer regressions, TypeScript, production build, diff integrity, and local browser verification of the Beginner/Advanced Room Layout switch.
+
+## ERB36 corner feedback and upper alignment — 2026-09-19
+
+- [x] Add a persistent green border and soft glow with `ERB36 · locked` badge and hover confirmation when an ERB36 is seated flush at a real corner.
+- [x] Show a brief, specific corner-protection tooltip when a cabinet would overlap the snapped ERB36; the message directs the user to the next clear wall span.
+- [x] Align a selected upper wall cabinet to the same exact measured wall endpoint and orientation directly above a selected ERB36, including continuous-wall custom and diagonal paths.
+- [x] Validate TypeScript, 95 focused corner/Plan Canvas/drag regressions, full selected Designer regressions, production build, and diff integrity.

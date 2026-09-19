@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, nextAvailableRoomCornerPlacement, snapPosition, orientToWall, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -1856,14 +1856,16 @@ export function PlanCanvas({
             const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
             const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
             const lbl = readableLabel(faceFill);
-            const collides = hasCollision(p, cabinets);
+            const collides = cabinetPlacementCollisionDetail(p, cabinets, room) != null;
             const inConflict = conflictUids?.has(p.uid) ?? false;
             const splitFillerTooltip = splitFillerDimensionTooltip(p);
             const cornerPlacement = cabinetCornerPlacementInfo(p, room);
+            const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
+              && cornerPlacement?.placement === "flush";
             const cornerPlacementTooltip = cornerPlacement
               ? cornerPlacement.placement === "clearance"
                 ? `${cornerPlacement.angle}° inside corner · ${cornerPlacement.clearanceIn}" required clearance`
-                : `${cornerPlacement.angle}° corner · seated flush (0" corner clearance)`
+                : `${cornerPlacement.angle}° corner · seated flush (0" corner clearance)${isSeatedErb36 ? " · ERB36 corner snap confirmed" : ""}`
               : null;
             return (
               <div
@@ -1890,7 +1892,7 @@ export function PlanCanvas({
                       }
                     : undefined
                 }
-                className={`group absolute transition-shadow ${
+                className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
                 } ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
@@ -1905,6 +1907,8 @@ export function PlanCanvas({
                     ? "2.5px solid #dc2626"
                     : isAttributesTarget
                     ? "3px solid #a87f33"
+                    : isSeatedErb36
+                    ? "2.5px solid #16a34a"
                     : isSelected
                     ? "2px solid #1a2744"
                     : collides
@@ -1916,6 +1920,8 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
                     : isAttributesTarget
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
+                    : isSeatedErb36
+                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
@@ -1928,6 +1934,7 @@ export function PlanCanvas({
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
+                data-corner-snap-confirmed={isSeatedErb36 ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
                   {cornerPlacement && (
@@ -1938,7 +1945,7 @@ export function PlanCanvas({
                     >
                       {cornerPlacement.placement === "clearance"
                         ? `45° · ${cornerPlacement.clearanceIn}\" clear`
-                        : `${cornerPlacement.angle}° · flush`}
+                        : isSeatedErb36 ? "ERB36 · locked" : `${cornerPlacement.angle}° · flush`}
                     </span>
                   )}
                   {isAttributesTarget && (

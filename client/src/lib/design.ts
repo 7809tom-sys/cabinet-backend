@@ -2643,6 +2643,11 @@ export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[], 
   const conflicting = detail.cabinet;
   const category = conflicting.placement === "wall" ? "wall cabinet" : conflicting.placement === "base" ? "base cabinet" : "item";
   const overlap = formatEighthInches(detail.penetration);
+  const normalizedCode = conflicting.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const seatedFlushCorner = room ? cabinetCornerPlacementInfo(conflicting, room)?.placement === "flush" : false;
+  if (normalizedCode === "ERB36" && seatedFlushCorner) {
+    return `Corner protected: ${conflicting.masterCode} is snapped into this corner. ${moving.masterCode} would overlap its reserved adjoining leg by ${overlap}. Move it to the next clear wall span; edge-to-edge contact is allowed, but physical overlap must be 0".`;
+  }
   return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}, by ${overlap}. Edge-to-edge contact is allowed; physical overlap must be 0".`;
 }
 
@@ -3189,6 +3194,63 @@ export function selectedLowerCabinetWallPlacement(
   ));
   if (!exactProjectionIsClear || hasCollision(candidate, placed)) return null;
   return centeredSpot;
+}
+
+/**
+ * Seats a wall cabinet directly above a selected true corner base. The upper
+ * shares the actual corner endpoint—not merely the base's screen bounding box—
+ * so ERB36/diagonal corners stay aligned on custom, cardinal, and diagonal
+ * continuous walls. A regular upper keeps its 12-inch depth while its outer
+ * edge remains flush with the same vertex as the floor corner cabinet.
+ */
+export function selectedCornerBaseWallPlacement(
+  selected: PlacedCabinet | null | undefined,
+  room: RoomData,
+  width: number,
+  depth: number,
+  height: number,
+  placed: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  if (!selected || selected.placement !== "base") return null;
+  if (!isCornerCabinet(selected.masterCode, selected.description) || isBlindCorner(selected.masterCode, selected.description)) return null;
+
+  const side = cabinetWall(selected, room);
+  const runLength = wallLength(side, room);
+  const selectedStart = wallRunOffset(selected, side, room);
+  const selectedEnd = selectedStart + wallRunSpan(selected, side, room);
+  const cornerAtRunEnd = selectedEnd >= runLength - COLLISION_EPSILON_IN;
+  const alignedStart = cornerAtRunEnd ? Math.max(0, runLength - width) : 0;
+  const spot = wallPlacementAt(alignedStart, width, depth, side, room);
+  const candidate: PlacedCabinet = {
+    ...selected,
+    uid: "__selected-corner-base-wall-target__",
+    masterCode: "SELECTED-CORNER-BASE-WALL-TARGET",
+    placement: "wall",
+    ...spot,
+    width,
+    depth,
+    height,
+    wallId: spot.wallId ?? selected.wallId,
+    wallOffset: spot.wallOffset ?? alignedStart,
+  };
+  const available = freeSegmentsOnWall(
+    side,
+    room,
+    placed,
+    openings,
+    width,
+    WALL_OPENING_CLEARANCE_IN,
+    "wall",
+    false,
+    candidate,
+  );
+  const exactCornerProjectionIsClear = available.some((segment) => (
+    alignedStart >= segment.start - COLLISION_EPSILON_IN
+    && alignedStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+  ));
+  if (!exactCornerProjectionIsClear || cabinetPlacementCollisionDetail(candidate, placed, room)) return null;
+  return spot;
 }
 
 /**

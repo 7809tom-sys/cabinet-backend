@@ -96,7 +96,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -3921,6 +3921,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const selectedLowerSpot = accPlacement === "wall" && !isFloatingShelf && !selectedSinkSpot
         ? selectedLowerCabinetWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
         : null;
+      const selectedCornerUpperSpot = accPlacement === "wall" && !isFloatingShelf && !selectedSinkSpot
+        ? selectedCornerBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
+        : null;
+      const selectedCornerBaseTarget = selectedCornerUpperSpot ? selectedLowerTarget : null;
       const automaticLowerMatch = accPlacement === "wall" && !isFloatingShelf && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
@@ -4004,6 +4008,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        spot = selectedSinkSpot;
         preserveResolvedPlacement = true;
         explicitSelectedSinkTarget = true;
+	      } else if (selectedCornerUpperSpot) {
+	        spot = selectedCornerUpperSpot;
+	        preserveResolvedPlacement = true;
       } else if (selectedLowerSpot) {
         spot = selectedLowerSpot;
         preserveResolvedPlacement = true;
@@ -4585,7 +4592,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            : `${finalCab.masterCode} is seated flush at the ${cornerPlacement.angle}° corner (0" clearance).`,
 	        );
 	      }
-		      placedRef.current = committedRun;
+	      if (selectedCornerBaseTarget) {
+	        toast.success(`${finalCab.masterCode} aligned directly above ${selectedCornerBaseTarget.masterCode}'s corner.`);
+	      }
+	      placedRef.current = committedRun;
 		      setPlaced(() => committedRun);
 		      const glassStackerCandidates = glassStackerBulkPlacementCandidates(
 		        committedRun,
@@ -11793,6 +11803,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
+	              {/\bCorner protected:\s*ERB36\b/i.test(placementWarning) && (
+	                <div
+	                  data-testid="erb36-corner-protection-tooltip"
+	                  className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-700/30 bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-950"
+	                >
+	                  <TriangleAlert className="h-3.5 w-3.5" />
+	                  ERB36 corner is locked — choose the next clear wall span.
+	                </div>
+	              )}
 	              {/(?:\bdoor\b|\bwindow\b)/i.test(placementWarning) && (
 	                <div
 	                  data-testid="opening-clearance-block-tooltip"
