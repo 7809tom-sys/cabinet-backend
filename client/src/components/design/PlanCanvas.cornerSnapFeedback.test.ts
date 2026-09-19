@@ -20,6 +20,14 @@ describe("PlanCanvas protected-corner snap feedback", () => {
     expect(source).toContain("`${p.masterCode} · locked`");
   });
 
+  it("exposes an interactive unlock action and keeps subsequent dragging out of forced corner targeting", () => {
+    expect(source).toContain('data-testid="corner-snap-unlock-tooltip"');
+    expect(source).toContain('data-testid="unlock-corner-snap"');
+    expect(source).toContain("onUnlockCorner(p.uid);");
+    expect(source).toContain("&& !cabinet.cornerSnapUnlocked");
+    expect(source).toContain("!p.cornerSnapUnlocked");
+  });
+
   it("uses room-aware collision geometry for the visible conflict state", () => {
     expect(source).toContain("cabinetPlacementCollisionDetail(p, cabinets, room) != null");
   });

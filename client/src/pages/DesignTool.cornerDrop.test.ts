@@ -38,4 +38,18 @@ describe("Design Tool direct corner cabinet drops", () => {
     expect(source).toContain("Blind corner is locked — its required filler and adjoining leg stay protected.");
     expect(source).toContain("(?:BBC|WBC|BBL|BBR|WBL|WBR)");
   });
+
+  it("lets an individual snapped corner be unlocked without changing global cabinet locks", () => {
+    expect(source).toContain("const unlockCornerSnap = useCallback((uid: string) => {");
+    expect(source).toContain("cornerSnapUnlocked: true");
+    expect(source).toContain("Its required corner filler was removed; drag the cabinet to a new clear position.");
+    expect(source).toContain("onUnlockCorner={unlockCornerSnap}");
+  });
+
+  it("prompts for a sellable stock filler after a blind corner is seated", () => {
+    expect(source).toContain("setBlindCornerFillerPrompt({ blindUid: finalCab.uid, fillerUid: requiredFiller.uid });");
+    expect(source).toContain("Select the required blind-corner filler");
+    expect(source).toContain("Install cut to {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}.");
+    expect(source).toContain("selectRequiredBlindCornerFiller(option.id)");
+  });
 });

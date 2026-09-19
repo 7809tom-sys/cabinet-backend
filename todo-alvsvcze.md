@@ -2314,3 +2314,10 @@
 - [x] Extend protected-corner collision guidance to blind bases, identifying their reserved cabinet body and required filler while preserving edge-to-edge placement.
 - [x] Add a dedicated Blind corner is locked warning tooltip whenever placement would overlap a snapped BBC/WBC/BBL/BBR/WBL/WBR cabinet.
 - [x] Validate TypeScript, 73 focused blind-corner/ERB/Plan Canvas regressions, expanded Designer regressions, production build, and diff integrity.
+
+## Corner unlock and required blind-filler selection — 2026-09-19
+
+- [x] Add an interactive **Unlock** action to the green corner-snap hover panel. Unlocking detaches only that cabinet from forced corner targeting, preserves physical collision protection, and lets the next drag use normal wall placement.
+- [x] Safely remove a BBC/WBC's dependent required filler when it is unlocked so a filler is never orphaned after the cabinet leaves the corner.
+- [x] Prompt immediately after a blind corner seats successfully, listing active sellable filler stock sizes and retaining the required installed **3-inch** clearance; a selected stock filler is persisted as the priced catalog identity and cut to 3 inches.
+- [x] Validate TypeScript, 540 focused Designer geometry/filler/collision regressions, a local Designer workspace smoke test, production build, and diff integrity.

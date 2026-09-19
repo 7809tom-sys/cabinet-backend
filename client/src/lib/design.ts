@@ -474,6 +474,12 @@ export interface PlacedCabinet {
   // so the administrator can enter the manufacturer's min/max pull.
   pullMin?: number | null;
   pullMax?: number | null;
+  /**
+   * User intentionally detached this cabinet from its automatic corner vertex.
+   * The cabinet remains fully collision-protected but does not re-acquire the
+   * green locked-corner state or force a corner target during a subsequent drag.
+   */
+  cornerSnapUnlocked?: boolean;
   // Per-cabinet finish/door-style override for TWO-TONE designs. When set, this
   // cabinet uses this styleId instead of the design's default finish — e.g. a
   // white perimeter with a contrasting island/uppers. Must belong to the same

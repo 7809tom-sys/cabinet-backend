@@ -66,7 +66,7 @@ import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliate
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
-import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription } from "@/lib/catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MIN_IN,
@@ -96,7 +96,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -553,6 +553,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [catalogDragPreview, setCatalogDragPreview] = useState<DesignCabinet | null>(null);
   const smartGapPreviewSessionRef = useRef<{ gap: WallGap; choices: Array<{ cabinet: DesignCabinet | null; needsFiller: boolean }>; index: number } | null>(null);
   const [smallGapFillerPrompt, setSmallGapFillerPrompt] = useState<SmallGapFillerOpportunity | null>(null);
+  const [blindCornerFillerPrompt, setBlindCornerFillerPrompt] = useState<{
+    blindUid: string;
+    fillerUid: string;
+  } | null>(null);
 	  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
 	    cabinet: DesignCabinet;
 	    forceAccessory: boolean;
@@ -1644,6 +1648,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
     [threeDAccessoryCatalog],
   );
+  const blindCornerFillerOptions = useMemo<CatalogFillerCandidate[]>(() => (
+    catalogFillers
+      .filter(isCatalogFiller)
+      .filter((candidate) => Number(candidate.width) + 0.001 >= BLIND_CORNER_FILLER_WIDTH_IN)
+      .sort((left, right) => Number(left.width) - Number(right.width) || left.masterCode.localeCompare(right.masterCode))
+  ), [catalogFillers]);
+  const selectRequiredBlindCornerFiller = useCallback((candidateId: number) => {
+    const prompt = blindCornerFillerPrompt;
+    const candidate = blindCornerFillerOptions.find((option) => option.id === candidateId);
+    if (!prompt || !candidate) return;
+    const selectedBlind = placedRef.current.find((cabinet) => cabinet.uid === prompt.blindUid);
+    const selectedFiller = placedRef.current.find((cabinet) => cabinet.uid === prompt.fillerUid);
+    if (!selectedBlind || !selectedFiller || !isBlindCorner(selectedBlind.masterCode, selectedBlind.description)) {
+      setBlindCornerFillerPrompt(null);
+      toast.error("The blind-corner filler is no longer available to update.");
+      return;
+    }
+    const stockWidth = Number(candidate.width);
+    const next = placedRef.current.map((cabinet) => cabinet.uid === prompt.fillerUid ? {
+      ...cabinet,
+      cabinetId: candidate.id,
+      masterCode: candidate.masterCode,
+      description: `${fittedCatalogFillerDescription(candidate, BLIND_CORNER_FILLER_WIDTH_IN)} — required ${selectedBlind.masterCode} clearance`,
+      category: candidate.category ?? "Filler",
+      subCategory: candidate.subCategory ?? "Filler",
+      nominalWidth: Number.isFinite(stockWidth) && stockWidth > 0 ? stockWidth : BLIND_CORNER_FILLER_WIDTH_IN,
+      catalogImageUrl: candidate.catalogImageUrl ?? null,
+    } : cabinet);
+    placedRef.current = next;
+    setPlaced(next);
+    setBlindCornerFillerPrompt(null);
+    toast.success(`${candidate.masterCode} selected for ${selectedBlind.masterCode}; install it cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`);
+  }, [blindCornerFillerOptions, blindCornerFillerPrompt]);
   const smallGapFillerDefinition = useMemo(() => {
     if (!smallGapFillerPrompt) return null;
     return catalogFillerForGap(catalogFillers, smallGapFillerPrompt.remaining, smallGapFillerPrompt.layer);
@@ -4596,8 +4633,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        toast.success(`${finalCab.masterCode} aligned directly above ${selectedCornerBaseTarget.masterCode}'s corner.`);
 	      }
 	      placedRef.current = committedRun;
-		      setPlaced(() => committedRun);
-		      const glassStackerCandidates = glassStackerBulkPlacementCandidates(
+	      setPlaced(() => committedRun);
+	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description) && blindCornerSnapInfo(finalCab, room)?.placement === "flush") {
+	        const requiredFiller = committedRun.find((item) => item.fillerPieceGroupId === requiredBlindCornerFillerGroupId(finalCab));
+	        if (requiredFiller) {
+	          setBlindCornerFillerPrompt({ blindUid: finalCab.uid, fillerUid: requiredFiller.uid });
+	          setMobilePanel(null);
+	        }
+	      }
+	      const glassStackerCandidates = glassStackerBulkPlacementCandidates(
 		        committedRun,
 		        finalCab.uid,
 		        room,
@@ -6979,6 +7023,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
     removeCabinetsAndReleaseVoid([uid]);
   }, [removeCabinetsAndReleaseVoid]);
+
+  const unlockCornerSnap = useCallback((uid: string) => {
+    if (cabinetsLocked) {
+      toast.info("Cabinets are locked — click Lock Cabs before changing a corner snap.");
+      return;
+    }
+    const target = placedRef.current.find((cabinet) => cabinet.uid === uid);
+    if (!target || !isCornerCabinet(target.masterCode, target.description)) return;
+    const requiredFillerGroup = isBlindCorner(target.masterCode, target.description)
+      ? requiredBlindCornerFillerGroupId(target)
+      : null;
+    const next = placedRef.current
+      .filter((cabinet) => !requiredFillerGroup || cabinet.fillerPieceGroupId !== requiredFillerGroup)
+      .map((cabinet) => cabinet.uid === uid ? { ...cabinet, cornerSnapUnlocked: true } : cabinet);
+    placedRef.current = next;
+    setPlaced(next);
+    setSelectedUid(uid);
+    setPlacementWarning(null);
+    setBlindCornerFillerPrompt(null);
+    toast.success(
+      requiredFillerGroup
+        ? `${target.masterCode} unlocked. Its required corner filler was removed; drag the cabinet to a new clear position.`
+        : `${target.masterCode} unlocked. Drag it to a new clear position.`,
+    );
+  }, [cabinetsLocked]);
 
   const deleteSelected = () => {
     // Cabinet selection takes priority; otherwise delete a selected sink,
@@ -12007,6 +12076,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onMove={moveCabinet}
               onDelete={deleteCabinet}
               onRotate={rotateCabinet}
+	              onUnlockCorner={unlockCornerSnap}
               onOpenAttributes={openAttributes}
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
@@ -12230,9 +12300,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  attributesTargetUid={attributesTargetUid}
 	                  onSelect={selectCabinet}
                   onMove={moveCabinet}
-                  onDelete={deleteCabinet}
-                  onRotate={rotateCabinet}
-                  onOpenAttributes={openAttributes}
+	                  onDelete={deleteCabinet}
+	                  onRotate={rotateCabinet}
+	                  onUnlockCorner={unlockCornerSnap}
+	                  onOpenAttributes={openAttributes}
                   onDropNew={handleDropNew}
                   showWallLayer={showWallLayer}
                   measureMode={measureMode}
@@ -14577,6 +14648,55 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          </AlertDialogFooter>
 	        </AlertDialogContent>
 	      </AlertDialog>
+
+	      <Dialog
+	        open={!!blindCornerFillerPrompt}
+	        onOpenChange={(open) => { if (!open) setBlindCornerFillerPrompt(null); }}
+	      >
+	        <DialogContent className="max-w-lg">
+	          <DialogHeader>
+	            <DialogTitle>Select the required blind-corner filler</DialogTitle>
+	            <DialogDescription>
+	              {(() => {
+	                const blind = blindCornerFillerPrompt ? placed.find((cabinet) => cabinet.uid === blindCornerFillerPrompt.blindUid) : null;
+	                return blind
+	                  ? `${blind.masterCode} is seated at the corner. Choose the sellable stock filler to install cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`
+	                  : `Choose the sellable stock filler to install cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`;
+	              })()}
+	            </DialogDescription>
+	          </DialogHeader>
+	          <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+	            {blindCornerFillerOptions.map((option) => {
+	              const activeFiller = blindCornerFillerPrompt
+	                ? placed.find((cabinet) => cabinet.uid === blindCornerFillerPrompt.fillerUid)
+	                : null;
+	              const selected = activeFiller?.cabinetId === option.id;
+	              const stockWidth = Number(option.width);
+	              return (
+	                <Button
+	                  key={option.id}
+	                  type="button"
+	                  data-testid={`blind-corner-filler-option-${option.id}`}
+	                  variant={selected ? "default" : "outline"}
+	                  className="h-auto min-h-16 justify-start whitespace-normal p-3 text-left"
+	                  onClick={() => selectRequiredBlindCornerFiller(option.id)}
+	                >
+	                  <span className="block">
+	                    <span className="block font-semibold">{option.masterCode} · {formatInches(stockWidth)} stock</span>
+	                    <span className="mt-0.5 block text-[11px] font-normal opacity-80">Install cut to {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}.</span>
+	                  </span>
+	                </Button>
+	              );
+	            })}
+	          </div>
+	          {blindCornerFillerOptions.length === 0 && (
+	            <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">No active catalog filler can cover the required {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.</p>
+	          )}
+	          <DialogFooter>
+	            <Button variant="ghost" onClick={() => setBlindCornerFillerPrompt(null)}>Keep the automatic filler</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
 	      <Dialog
 	        open={!!smallGapFillerPrompt && !sinkBaseDialog && !fridgeDialog && !ovenDialog}

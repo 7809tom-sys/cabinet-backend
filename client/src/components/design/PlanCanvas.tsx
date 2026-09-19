@@ -199,6 +199,8 @@ interface Props {
   onDelete?: (uid: string) => void;
   // Rotate the selected cabinet 90° in place (touch-friendly on-canvas handle).
   onRotate?: (uid: string) => void;
+  /** Detaches a confirmed corner cabinet so the next drag uses ordinary wall placement. */
+  onUnlockCorner?: (uid: string) => void;
   // Right-click a cabinet to open its per-cabinet attributes dialog.
   onOpenAttributes?: (uid: string) => void;
 	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean, targetWall?: WallSide) => void;
@@ -327,7 +329,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 }
 
 export function PlanCanvas({
-  room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onOpenAttributes, onDropNew, onDropToFloor,
+  room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
 	  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
 	  islandDepthTransition = null,
 	  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
@@ -844,7 +846,7 @@ export function PlanCanvas({
       // dragging. This avoids the old experience where the user had to hunt for
       // an exact pixel on the wall and guarantees that the target retains its
       // measured wall identity instead of falling back to the graph boundary.
-      if (isCornerCabinet(cabinet.masterCode, cabinet.description)) {
+      if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
         const cornerSpot = nextAvailableRoomCornerPlacement(
           candidate,
           cabinetWall(cabinet, room),
@@ -1863,8 +1865,9 @@ export function PlanCanvas({
             const blindCornerPlacement = blindCornerSnapInfo(p, room);
             const cornerStatus = cornerPlacement ?? blindCornerPlacement;
             const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
-              && cornerPlacement?.placement === "flush";
-            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush";
+              && cornerPlacement?.placement === "flush"
+              && !p.cornerSnapUnlocked;
+            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush" && !p.cornerSnapUnlocked;
             const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
             const cornerPlacementTooltip = cornerStatus
               ? cornerStatus.placement === "clearance"
@@ -2239,6 +2242,28 @@ export function PlanCanvas({
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   </div>
                 )}
+              {isSeatedProtectedCorner && onUnlockCorner && !cabinetsLocked && (
+                <div
+                  role="tooltip"
+                  data-testid="corner-snap-unlock-tooltip"
+                  className="pointer-events-none absolute inset-x-1 bottom-1 z-50 flex items-center justify-between gap-1 rounded-md border border-emerald-200 bg-emerald-950 px-1.5 py-1 text-[8px] font-semibold leading-3 text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 group-focus-within:pointer-events-auto group-focus-within:opacity-100"
+                >
+                  <span className="mr-2">Corner snap confirmed</span>
+                  <button
+                    type="button"
+                    data-testid="unlock-corner-snap"
+                    aria-label={`Unlock ${p.masterCode} corner snap so it can be moved`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onUnlockCorner(p.uid);
+                    }}
+                    className="pointer-events-auto shrink-0 rounded border border-emerald-200/70 bg-white px-1.5 py-0.5 text-[9px] font-bold text-emerald-950 shadow-sm transition hover:bg-emerald-50 active:scale-[0.97]"
+                  >
+                    Unlock
+                  </button>
+                </div>
+              )}
               </div>
             );
           })}

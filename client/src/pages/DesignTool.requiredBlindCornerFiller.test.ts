@@ -77,8 +77,8 @@ describe("Design Tool mandatory blind-corner filler transactions", () => {
 	  });
 
 	  it("uses linked BBC assembly removal for selected, canvas, and grouped deletions", () => {
-	    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, selectedUid)");
-	    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(prev, uid)");
+	    expect(source).toContain("const removeCabinetsAndReleaseVoid = useCallback");
+	    expect(source).toContain("removeCabinetsAndReleaseVoid([uid])");
 	    expect(source).toContain("uids.reduce(");
 	    expect(source).toContain("removePlacedCabinetWithRequiredBlindCornerFiller(current, uid)");
 	  });
