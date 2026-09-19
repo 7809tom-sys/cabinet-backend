@@ -74,7 +74,10 @@ async function resolveDesignPriceAliases<T extends { masterCode: string }>(
     .select({ alias: cabinetAliases.alias, canonicalMasterCode: cabinets.masterCode })
     .from(cabinetAliases)
     .innerJoin(cabinets, eq(cabinets.id, cabinetAliases.cabinetId))
-    .where(and(inArray(aliasCanon, normalizedCodes), eq(cabinets.isActive, true), notInConflict()));
+    // A saved design can legitimately reference a retired master that still owns
+    // its historical supplier-price rows. Resolve that route for pricing, but
+    // never use a cabinet held in an actual conflict as a price authority.
+    .where(and(inArray(aliasCanon, normalizedCodes), ne(cabinets.conflictStatus, "conflict")));
   return canonicalizeDesignPriceItems(items, [...verifiedLegacyDesignPriceAliases, ...aliases]);
 }
 
@@ -2573,6 +2576,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const canonicalItems = await resolveDesignPriceAliases(db, input.items);
       const masterCodes = Array.from(new Set(canonicalItems.map((i) => i.masterCode)));
       const styleIds = Array.from(new Set(canonicalItems.map((i) => i.styleId)));
+	      const retiredLegacyPriceCodes = Array.from(new Set(
+	        canonicalItems
+	          .filter((item) => item.requestedMasterCode !== item.masterCode)
+	          .map((item) => item.masterCode),
+	      ));
       const rows = await db
         .select({
           masterCode: cabinets.masterCode,
@@ -2591,8 +2599,12 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           and(
             inArray(cabinets.masterCode, masterCodes),
             inArray(distributorSkus.styleId, styleIds),
-            eq(cabinets.isActive, true),
-            notInConflict(),
+	          or(
+	            and(eq(cabinets.isActive, true), notInConflict()),
+	            ...(retiredLegacyPriceCodes.length > 0
+	              ? [inArray(cabinets.masterCode, retiredLegacyPriceCodes)]
+	              : []),
+	          )!,
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
           )

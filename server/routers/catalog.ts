@@ -3303,10 +3303,38 @@ export const cabinetsRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Both cabinets must have master codes" });
       }
 
-      // Create alias record: aliasCode points to masterCode
-      await db.insert(cabinetAliases)
-        .values({ cabinetId: input.masterCabinetId, alias: aliasCode })
-        .onDuplicateKeyUpdate({ set: { cabinetId: input.masterCabinetId } });
+	      // Record the approved master relationship as well as the route alias. Both
+	      // layers are needed: Catalog lists suppress the retired master row, while
+	      // old design/order links continue to resolve to the canonical cabinet.
+	      const [existingMasterAlias] = await db
+	        .select({ id: skuMasterAliases.id, masterCode: skuMasterAliases.masterCode })
+	        .from(skuMasterAliases)
+	        .where(eq(skuMasterAliases.aliasCode, aliasCode))
+	        .limit(1);
+	      if (existingMasterAlias && existingMasterAlias.masterCode !== masterCode) {
+	        throw new TRPCError({
+	          code: "CONFLICT",
+	          message: `${aliasCode} already resolves to ${existingMasterAlias.masterCode}; resolve that alias conflict before merging.`,
+	        });
+	      }
+	      if (!existingMasterAlias) {
+	        await db.insert(skuMasterAliases).values({
+	          aliasCode,
+	          masterCode,
+	          conflictStatus: "ok",
+	          notes: `Approved cabinet merge: ${aliasCode} → ${masterCode}`,
+	        });
+	      }
+
+	      await db.insert(cabinetAliases)
+	        .values({ cabinetId: input.masterCabinetId, alias: aliasCode })
+	        .onDuplicateKeyUpdate({ set: { cabinetId: input.masterCabinetId } });
+
+	      // Keep the historical cabinet and supplier price rows untouched, but prevent
+	      // the retired source from appearing as an independently selectable product.
+	      await db.update(cabinets)
+	        .set({ isActive: false, showInCatalog: false, showInDesigner: false })
+	        .where(eq(cabinets.id, input.aliasCabinetId));
 
       return { 
         ok: true,

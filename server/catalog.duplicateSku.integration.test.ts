@@ -72,16 +72,31 @@ describe("duplicate normalized cabinet codes", () => {
     expect(styles.length).toBeGreaterThan(0);
   });
 
-  it("resolves 3DB21 as the explicit alias of canonical master 3-DB21", async () => {
-    const caller = appRouter.createCaller({} as any);
-    const canonical = await caller.cabinets.byCode({ masterCode: "3-DB21" });
+	it("resolves 3DB21 as the explicit alias of canonical master 3-DB21", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const canonical = await caller.cabinets.byCode({ masterCode: "3-DB21" });
     const alias = await caller.cabinets.byCode({ masterCode: "3DB21" });
 
     expect(canonical).toEqual(expect.objectContaining({ id: 9390031, masterCode: "3-DB21" }));
-    expect(alias).toEqual(canonical);
-  });
+	  expect(alias).toEqual(canonical);
+	});
 
-  it("keeps duplicate legacy codes separate from an existing canonical master during an attempted rename", async () => {
+	it("resolves W2430 to the canonical W-24-30 record without moving supplier price rows", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const canonical = await caller.cabinets.byCode({ masterCode: "W-24-30" });
+	  const alias = await caller.cabinets.byCode({ masterCode: "W2430" });
+
+	  expect(canonical).toEqual(expect.objectContaining({
+	    id: 9390126,
+	    masterCode: "W-24-30",
+	  }));
+	  expect(alias).toEqual(canonical);
+
+	  const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
+	  expect(styles.length).toBeGreaterThan(0);
+	});
+
+	it("keeps duplicate legacy codes separate from an existing canonical master during an attempted rename", async () => {
     const caller = appRouter.createCaller({ user: { id: 1, role: "admin" } } as any);
 
     await expect(caller.cabinets.adminUpdateCabinet({

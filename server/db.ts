@@ -19,6 +19,7 @@ export function isCanonicalCabinetMaster() {
       INNER JOIN cabinets canonical_cabinet
         ON canonical_cabinet.masterCode = canonical_sku_alias.masterCode
       WHERE canonical_sku_alias.aliasCode = ${cabinets.masterCode}
+	        AND canonical_sku_alias.conflictStatus = 'ok'
         AND (
           canonical_cabinet.isActive = true
           OR canonical_cabinet.showInCatalog = true

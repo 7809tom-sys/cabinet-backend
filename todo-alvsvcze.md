@@ -2364,3 +2364,13 @@
 - [x] Render an accessible blue alias badge directly in both table and grid search results: `Alias <searched code> → <canonical master>`, with a tooltip explaining that the displayed code is the canonical item.
 - [x] Return `matchedAlias` only for an exact normalized registered alias search; normal master-code and description searches remain uncluttered.
 - [x] Verify the live catalog mapping **AW-12-30 → AW1230** through the admin tRPC query. Validate TypeScript, 71 Catalog/alias/pricing regressions, production build, and diff integrity.
+
+## Catalog-wide canonical alias reconciliation — 2026-09-19
+
+- [x] Audit every approved master alias against its source cabinet, canonical cabinet, route alias, catalog visibility, Designer visibility, and normalized master-code duplicates.
+- [x] Reconcile 95 approved aliases whose retired source rows were still visible: route each legacy code to its verified canonical cabinet and retire only the duplicate record from Catalog and Designer. Historical supplier price rows and order references remain on their original records.
+- [x] Repair the remaining normalized duplicate, **W2430 → W-24-30**, after matching category, dimensions, and product description. The source retains its 3 supplier SKU rows; the 64-row canonical source remains unchanged.
+- [x] Reconcile nine stale master-alias targets to their already verified active route master rather than guessing a new price authority. The audit now reports zero visible approved alias sources, zero missing safe routes, zero unresolved normalized duplicate groups, and zero held alias conflicts.
+- [x] Make future Admin merges write both the master-alias and route-alias layers, reject contradictory master mappings, and retire the duplicate visibility without moving prices.
+- [x] Keep legacy saved-design pricing available through retired records when required, while still excluding actual conflict-status products from pricing authority.
+- [x] Validate TypeScript, 72 catalog/storefront/Designer/price/alias regressions, production build, database reconciliation invariants, and diff integrity.

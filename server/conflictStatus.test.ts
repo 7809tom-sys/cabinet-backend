@@ -31,6 +31,7 @@ describe("notInConflict() predicate", () => {
 	  expect(isCanonicalCabinetMaster()).toBeDefined();
 	  expect(dbSource).toContain("sku_master_aliases canonical_sku_alias");
 	  expect(dbSource).toContain("canonical_sku_alias.aliasCode");
+	  expect(dbSource).toContain("canonical_sku_alias.conflictStatus = 'ok'");
 	  expect(dbSource).toContain("isCanonicalCabinetMaster()");
 	});
 });
