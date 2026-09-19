@@ -2275,3 +2275,12 @@
 - [x] Confirmed that `AW-12-30` is an alternate code for canonical `AW1230`, whose existing published supplier pricing remains authoritative.
 - [x] Kept all `AW1230` pricing values unchanged; its 35 published supplier SKU records remain active and visible.
 - [x] Hid duplicate `AW-12-30` from the catalog and Designer, unpublished its conflicting duplicate source rows, and retained a clean `AW-12-30` → `AW1230` alias mapping with no conflict flag.
+
+## Advanced diagonal-corner snap and Room Layout switch — 2026-09-19
+
+- [x] Extend advanced continuous-wall corner snapping to every **true 90-degree measured vertex**, including a 90-degree corner formed by two diagonal wall runs; no 11-inch offset is applied at those corners.
+- [x] Keep the 11-inch rule reserved only for the actual inside end of a connected 45-degree peninsula turn; 90-degree and ordinary diagonal-corner seating stays flush.
+- [x] Add an explicit plan badge and hover text for a seated cabinet: `90° · flush`, `45° · flush`, or the applicable `45° · 11" clear` condition.
+- [x] Add a placement confirmation that states whether the cabinet seated flush at a 45/90-degree corner or retained the true 45-degree clearance.
+- [x] Replace the Room Layout mode cards with an accessible Beginner/Advanced toggle and a reduced-motion-aware transition; Wall Builder remains opt-in and separate from beginner shapes.
+- [x] Browser-verify the local Designer opens in Easy room shapes and that switching Advanced reveals Build walls continuously.

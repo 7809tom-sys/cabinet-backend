@@ -96,7 +96,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -4576,6 +4576,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setFailedWallFit(null);
 	      justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
+	      const cornerPlacement = requestedIslandFace ? null : cabinetCornerPlacementInfo(finalCab, room);
+	      if (cornerPlacement) {
+	        toast.success(
+	          cornerPlacement.placement === "clearance"
+	            ? `${finalCab.masterCode} is seated at a 45° inside corner with ${cornerPlacement.clearanceIn}" clearance.`
+	            : `${finalCab.masterCode} is seated flush at the ${cornerPlacement.angle}° corner (0" clearance).`,
+	        );
+	      }
 		      placedRef.current = committedRun;
 		      setPlaced(() => committedRun);
 		      const glassStackerCandidates = glassStackerBulkPlacementCandidates(

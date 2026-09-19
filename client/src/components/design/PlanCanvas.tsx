@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, snapPosition, orientToWall, hasCollision,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, snapPosition, orientToWall, hasCollision,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -1834,6 +1834,12 @@ export function PlanCanvas({
             const collides = hasCollision(p, cabinets);
             const inConflict = conflictUids?.has(p.uid) ?? false;
             const splitFillerTooltip = splitFillerDimensionTooltip(p);
+            const cornerPlacement = cabinetCornerPlacementInfo(p, room);
+            const cornerPlacementTooltip = cornerPlacement
+              ? cornerPlacement.placement === "clearance"
+                ? `${cornerPlacement.angle}° inside corner · ${cornerPlacement.clearanceIn}" required clearance`
+                : `${cornerPlacement.angle}° corner · seated flush (0" corner clearance)`
+              : null;
             return (
               <div
                 key={p.uid}
@@ -1893,12 +1899,23 @@ export function PlanCanvas({
                   transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
                   transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
-                title={splitFillerTooltip ?? `${p.masterCode} — ${p.description}`}
+                title={splitFillerTooltip ?? cornerPlacementTooltip ?? `${p.masterCode} — ${p.description}`}
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+                  {cornerPlacement && (
+                    <span
+                      data-testid="corner-placement-indicator"
+                      className={`pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow ${cornerPlacement.placement === "clearance" ? "bg-[#9a6717]" : "bg-emerald-700"}`}
+                      title={cornerPlacementTooltip ?? undefined}
+                    >
+                      {cornerPlacement.placement === "clearance"
+                        ? `45° · ${cornerPlacement.clearanceIn}\" clear`
+                        : `${cornerPlacement.angle}° · flush`}
+                    </span>
+                  )}
                   {isAttributesTarget && (
                     <span data-testid="plan-cabinet-attributes-target" className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full border border-amber-200 bg-[#1a2744] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse">Editing</span>
                   )}

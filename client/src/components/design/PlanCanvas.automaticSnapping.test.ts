@@ -8,7 +8,9 @@ describe("PlanCanvas automatic replacement placement", () => {
   it("uses the explicit toolbar snapping choice rather than an incidental Shift key for catalog drops", () => {
     expect(source).toContain("automaticSnapping = true");
     expect(source).toContain("setCatalogDragFreehand(!automaticSnapping)");
-    expect(source).toContain("const targetWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id as WallSide | undefined");
+    expect(source).toContain("const peninsulaWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id");
+    expect(source).toContain("const customWall = !peninsulaWall && room.vertices?.length && room.customWalls?.length");
+    expect(source).toContain("const targetWall = (peninsulaWall ?? customWall) as WallSide | undefined");
     expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
   });
 

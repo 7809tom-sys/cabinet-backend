@@ -3,6 +3,7 @@ import { CheckCircle2, LayoutPanelTop, Loader2, Ruler, Sparkles } from "lucide-r
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/lib/trpc";
 import type { RoomData } from "@/lib/design";
 import type { WallBuilderRoomGeometry } from "@/lib/polygonRoom";
@@ -163,17 +164,34 @@ export function RoomLayoutStarter({
       </CardHeader>
       <CardContent className="space-y-5">
         {onApplyContinuousRoom ? (
-          <section className="grid gap-2 sm:grid-cols-2" aria-label="Room design mode">
-            <button type="button" onClick={() => setStartMode("starter")} className={`rounded-xl border p-3 text-left transition-colors ${startMode === "starter" ? "border-primary bg-primary/10 ring-1 ring-primary" : "border-border bg-background hover:border-primary/50"}`}>
-              <div className="flex items-center gap-2 text-sm font-semibold"><LayoutPanelTop className="h-4 w-4 text-primary" /> Easy room shapes</div>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Beginner-friendly room shapes and starter layouts with the standard cabinet rules.</p>
-            </button>
-            <button type="button" onClick={() => setStartMode("continuous")} className={`rounded-xl border p-3 text-left transition-colors ${startMode === "continuous" ? "border-[#b98d3e] bg-amber-50 ring-1 ring-[#b98d3e]/50" : "border-border bg-background hover:border-[#b98d3e]/50"}`}>
-              <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-[#b98d3e]" /> Advanced continuous walls</div>
-              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Enter every measured wall and exact turn. This advanced mode stays separate from room shapes.</p>
-            </button>
+          <section className="rounded-xl border bg-background/80 p-3 shadow-sm" aria-label="Room design mode">
+            <div className="flex items-center gap-3">
+              <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg transition-colors duration-200 ${startMode === "continuous" ? "bg-amber-100 text-[#9a6717]" : "bg-primary/10 text-primary"}`}>
+                {startMode === "continuous" ? <Ruler className="h-4 w-4" /> : <LayoutPanelTop className="h-4 w-4" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-sm font-semibold">{startMode === "continuous" ? "Advanced continuous walls" : "Easy room shapes"}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-wide ${startMode === "continuous" ? "text-[#9a6717]" : "text-primary"}`}>{startMode === "continuous" ? "Advanced" : "Beginner"}</span>
+                </div>
+                <p className="text-xs leading-relaxed text-muted-foreground">{startMode === "continuous" ? "Enter each measured wall and exact turn. Beginner room shapes remain unchanged." : "Choose a friendly room shape and starter layout using the standard cabinet rules."}</p>
+              </div>
+              <div className="flex shrink-0 flex-col items-center gap-1">
+                <Switch
+                  checked={startMode === "continuous"}
+                  onCheckedChange={(advanced) => setStartMode(advanced ? "continuous" : "starter")}
+                  aria-label="Use advanced continuous walls"
+                />
+                <span className="text-[9px] font-medium text-muted-foreground">Advanced</span>
+              </div>
+            </div>
+            <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border bg-muted/30 text-xs font-semibold" aria-hidden="true">
+              <span className={`flex items-center gap-1.5 px-2.5 py-2 transition-colors duration-200 ${startMode === "starter" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><LayoutPanelTop className="h-3.5 w-3.5" /> Easy shapes</span>
+              <span className={`flex items-center justify-end gap-1.5 px-2.5 py-2 text-right transition-colors duration-200 ${startMode === "continuous" ? "bg-[#b98d3e] text-white" : "text-muted-foreground"}`}>Continuous walls <Ruler className="h-3.5 w-3.5" /></span>
+            </div>
           </section>
         ) : null}
+        <div key={startMode} className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-200">
         {startMode === "continuous" && onApplyContinuousRoom ? (
           <section className="space-y-2 rounded-xl border border-[#b98d3e]/40 bg-amber-50/40 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-[#b98d3e]" /> Build walls continuously</div>
@@ -238,6 +256,7 @@ export function RoomLayoutStarter({
         </Button>
           </>
         )}
+        </div>
       </CardContent>
     </Card>
   );

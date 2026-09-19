@@ -103,13 +103,14 @@ describe("roomFromSeededShape", () => {
       onApplyContinuousRoom: vi.fn(),
     }));
 
-    expect(screen.getByRole("button", { name: /easy room shapes/i })).toBeTruthy();
-    expect(screen.getByRole("button", { name: /advanced continuous walls/i })).toBeTruthy();
+    expect(screen.getByText(/easy room shapes/i)).toBeTruthy();
+    expect(screen.getByRole("switch", { name: /use advanced continuous walls/i }).getAttribute("data-state")).toBe("unchecked");
     expect(screen.getByText(/1\. pick a room shape/i)).toBeTruthy();
     expect(screen.queryByText(/build walls continuously/i)).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: /advanced continuous walls/i }));
+    fireEvent.click(screen.getByRole("switch", { name: /use advanced continuous walls/i }));
 
+    expect(screen.getByRole("switch", { name: /use advanced continuous walls/i }).getAttribute("data-state")).toBe("checked");
     expect(screen.getByRole("button", { name: /open builder/i })).toBeTruthy();
     expect(screen.queryByText(/1\. pick a room shape/i)).toBeNull();
     expect(screen.queryByText(/apply room shape and continue/i)).toBeNull();

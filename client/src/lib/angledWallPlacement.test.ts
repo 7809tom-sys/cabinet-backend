@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -193,6 +193,44 @@ describe("continuous builder custom wall placement", () => {
       wallId: "builder-top",
       wallOffset: 0,
       rotation: 0,
+    });
+  });
+
+  it("snaps an ERB to a real 90-degree vertex made from diagonal continuous walls without an 11-inch gap", () => {
+    const diagonalRightAngleRoom: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "diagonal-a", x: 0, y: 0 },
+        { id: "diagonal-corner", x: 100, y: 100 },
+        { id: "diagonal-b", x: 50, y: 150 },
+      ],
+      customWalls: [
+        { id: "diagonal-first", startVertexId: "diagonal-a", endVertexId: "diagonal-corner", label: "Wall 1", lockedAngle: 45 },
+        { id: "diagonal-second", startVertexId: "diagonal-corner", endVertexId: "diagonal-b", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const erb: PlacedCabinet = {
+      uid: "diagonal-erb36-preview",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    const spot = nextAvailableRoomCornerPlacement(erb, "diagonal-second" as any, diagonalRightAngleRoom, []);
+    expect(spot).toMatchObject({ wallId: "diagonal-second", wallOffset: 0 });
+    expect(cabinetCornerPlacementInfo({ ...erb, ...spot!, wallId: spot!.wallId, wallOffset: spot!.wallOffset }, diagonalRightAngleRoom)).toEqual({
+      angle: 90,
+      placement: "flush",
+      clearanceIn: 0,
     });
   });
 

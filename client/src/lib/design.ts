@@ -6395,11 +6395,11 @@ export function nextAvailableRoomCornerPlacement(
   room: RoomData,
   placed: readonly PlacedCabinet[],
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
-  // Continuous-wall rooms retain their own measured wall identity. For their
-  // cardinal 90-degree vertices, seat a true corner cabinet on an open vertex
-  // rather than dropping it into a graph-square corner. Diagonal corner
-  // cabinets retain the dedicated angled-wall placement flow because their
-  // non-rectangular body geometry is product-specific.
+  // Continuous-wall rooms retain their own measured wall identity. Seat a true
+  // corner cabinet on an open *real* right-angle vertex rather than dropping it
+  // into a graph-square corner. This must not be limited to cardinal walls:
+  // users can draw a 90° corner with two diagonals, and it is still a normal
+  // flush 90° cabinet corner (not an 11-inch 45° peninsula clearance).
   if (room.openWallPath && room.vertices?.length && room.customWalls?.length) {
     const orderedWalls = [
       ...room.customWalls.filter((wall) => wall.id === activeWall),
@@ -6407,8 +6407,6 @@ export function nextAvailableRoomCornerPlacement(
     ];
     for (const wall of orderedWalls) {
       const angle = polygonWallAngle(wall, room.vertices);
-      const cardinal = Math.abs(Math.sin(angle * 2)) < 1e-6;
-      if (!cardinal) continue;
       const length = polygonWallSegmentLength(wall, room.vertices);
       for (const endpoint of ["start", "end"] as const) {
         const vertexId = endpoint === "start" ? wall.startVertexId : wall.endVertexId;
@@ -6417,6 +6415,8 @@ export function nextAvailableRoomCornerPlacement(
         ));
         if (!adjoining) continue;
         const adjoiningAngle = polygonWallAngle(adjoining, room.vertices);
+        // Direction can be reversed at a shared vertex; a zero dot product is
+        // still the only condition for a true 90° vertex.
         if (Math.abs(Math.cos(angle - adjoiningAngle)) > 1e-6) continue;
         const offset = endpoint === "start" ? 0 : Math.max(0, length - moving.width);
         const spot = wallPlacementAt(offset, moving.width, moving.depth, wall.id as WallSide, room);
@@ -6445,6 +6445,65 @@ export function nextAvailableRoomCornerPlacement(
     if (!hasCollision(candidate, [...placed])) return { x: candidate.x, y: candidate.y, rotation: candidate.rotation };
   }
   return null;
+}
+
+export type CabinetCornerPlacementInfo = {
+  angle: 45 | 90;
+  placement: "flush" | "clearance";
+  clearanceIn: number;
+};
+
+/**
+ * Describes a cabinet seated at a measured corner endpoint. Both the placement
+ * confirmation and plan badge use this helper so a flush 90° corner can never
+ * be described as an 11-inch clearance placement.
+ */
+export function cabinetCornerPlacementInfo(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+): CabinetCornerPlacementInfo | null {
+  const side = cabinet.wallId ?? cabinetWall(cabinet, room);
+  const run = peninsulaRunById(room, side as WallSide);
+  if (run) {
+    const length = Math.max(0, Number(run.length) || 0);
+    const offset = Math.max(0, Number(cabinet.wallOffset) || 0);
+    const startClearance = peninsulaRunHas45StartInsideCornerClearance(run)
+      ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN
+      : 0;
+    const endClearance = peninsulaRunHas45EndInsideCornerClearance(run, room)
+      ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN
+      : 0;
+    const nearStart = offset <= startClearance + COLLISION_EPSILON_IN;
+    const nearEnd = offset + Math.max(0, Number(cabinet.width) || 0) >= length - endClearance - COLLISION_EPSILON_IN;
+    if (!nearStart && !nearEnd) return null;
+    const has45Clearance = (nearStart && peninsulaRunHas45StartInsideCornerClearance(run))
+      || (nearEnd && peninsulaRunHas45EndInsideCornerClearance(run, room));
+    return has45Clearance
+      ? { angle: 45, placement: "clearance", clearanceIn: PENINSULA_INSIDE_CORNER_CLEARANCE_IN }
+      : { angle: 90, placement: "flush", clearanceIn: 0 };
+  }
+
+  const customWalls = room.customWalls;
+  const wall = customWalls?.find((candidate) => candidate.id === side);
+  if (!wall || !customWalls || !room.vertices || cabinet.wallOffset == null) return null;
+  const length = polygonWallSegmentLength(wall, room.vertices);
+  const offset = Math.max(0, Number(cabinet.wallOffset) || 0);
+  const endpoint = offset <= COLLISION_EPSILON_IN
+    ? wall.startVertexId
+    : offset + Math.max(0, Number(cabinet.width) || 0) >= length - COLLISION_EPSILON_IN
+      ? wall.endVertexId
+      : null;
+  if (!endpoint) return null;
+  const adjoining = customWalls.find((candidate) => candidate.id !== wall.id && (
+    candidate.startVertexId === endpoint || candidate.endVertexId === endpoint
+  ));
+  if (!adjoining) return null;
+  const wallAngle = polygonWallAngle(wall, room.vertices);
+  const adjoiningAngle = polygonWallAngle(adjoining, room.vertices);
+  const dotMagnitude = Math.abs(Math.cos(wallAngle - adjoiningAngle));
+  if (dotMagnitude <= 1e-6) return { angle: 90, placement: "flush", clearanceIn: 0 };
+  const diagonal = Math.abs(dotMagnitude - Math.SQRT1_2) <= 1e-6;
+  return diagonal ? { angle: 45, placement: "flush", clearanceIn: 0 } : null;
 }
 
 /**
