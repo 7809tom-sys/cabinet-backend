@@ -32,4 +32,10 @@ describe("Design Tool direct corner cabinet drops", () => {
     expect(addPath).toContain("spot = selectedCornerUpperSpot;");
     expect(addPath).toContain("aligned directly above ${selectedCornerBaseTarget.masterCode}'s corner");
   });
+
+  it("shows a dedicated warning tooltip when a snapped blind corner is protected", () => {
+    expect(source).toContain('data-testid="blind-corner-protection-tooltip"');
+    expect(source).toContain("Blind corner is locked — its required filler and adjoining leg stay protected.");
+    expect(source).toContain("(?:BBC|WBC|BBL|BBR|WBL|WBR)");
+  });
 });

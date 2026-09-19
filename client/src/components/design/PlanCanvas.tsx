@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
-  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
+  PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, blindCornerSnapInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -1860,12 +1860,16 @@ export function PlanCanvas({
             const inConflict = conflictUids?.has(p.uid) ?? false;
             const splitFillerTooltip = splitFillerDimensionTooltip(p);
             const cornerPlacement = cabinetCornerPlacementInfo(p, room);
+            const blindCornerPlacement = blindCornerSnapInfo(p, room);
+            const cornerStatus = cornerPlacement ?? blindCornerPlacement;
             const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
               && cornerPlacement?.placement === "flush";
-            const cornerPlacementTooltip = cornerPlacement
-              ? cornerPlacement.placement === "clearance"
-                ? `${cornerPlacement.angle}° inside corner · ${cornerPlacement.clearanceIn}" required clearance`
-                : `${cornerPlacement.angle}° corner · seated flush (0" corner clearance)${isSeatedErb36 ? " · ERB36 corner snap confirmed" : ""}`
+            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush";
+            const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
+            const cornerPlacementTooltip = cornerStatus
+              ? cornerStatus.placement === "clearance"
+                ? `${cornerStatus.angle}° inside corner · ${cornerStatus.clearanceIn}" required clearance`
+                : `${cornerStatus.angle}° corner · seated flush (0" corner clearance)${isSeatedErb36 ? " · ERB36 corner snap confirmed" : isSeatedBlindCorner ? ` · ${p.masterCode} blind-corner snap confirmed` : ""}`
               : null;
             return (
               <div
@@ -1907,7 +1911,7 @@ export function PlanCanvas({
                     ? "2.5px solid #dc2626"
                     : isAttributesTarget
                     ? "3px solid #a87f33"
-                    : isSeatedErb36
+                    : isSeatedProtectedCorner
                     ? "2.5px solid #16a34a"
                     : isSelected
                     ? "2px solid #1a2744"
@@ -1920,7 +1924,7 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
                     : isAttributesTarget
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
-                    : isSeatedErb36
+                    : isSeatedProtectedCorner
                     ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
@@ -1934,18 +1938,18 @@ export function PlanCanvas({
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
-                data-corner-snap-confirmed={isSeatedErb36 ? "true" : undefined}
+                data-corner-snap-confirmed={isSeatedProtectedCorner ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
-                  {cornerPlacement && (
+                  {cornerStatus && (
                     <span
                       data-testid="corner-placement-indicator"
-                      className={`pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow ${cornerPlacement.placement === "clearance" ? "bg-[#9a6717]" : "bg-emerald-700"}`}
+                      className={`pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow ${cornerStatus.placement === "clearance" ? "bg-[#9a6717]" : "bg-emerald-700"}`}
                       title={cornerPlacementTooltip ?? undefined}
                     >
-                      {cornerPlacement.placement === "clearance"
-                        ? `45° · ${cornerPlacement.clearanceIn}\" clear`
-                        : isSeatedErb36 ? "ERB36 · locked" : `${cornerPlacement.angle}° · flush`}
+                      {cornerStatus.placement === "clearance"
+                        ? `45° · ${cornerStatus.clearanceIn}\" clear`
+                        : isSeatedErb36 ? "ERB36 · locked" : isSeatedBlindCorner ? `${p.masterCode} · locked` : `${cornerStatus.angle}° · flush`}
                     </span>
                   )}
                   {isAttributesTarget && (

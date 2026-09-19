@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -402,6 +402,46 @@ describe("continuous builder custom wall placement", () => {
       wallOffset: 6,
     };
     expect(collisionReason(b12, [erb], room)).toContain("Corner protected: ERB36 is snapped into this corner.");
+  });
+
+  it("confirms a seated BBC42 blind corner and protects its cabinet body and filler zone", () => {
+    const room: RoomData = { ...builderRoom, openWallPath: true };
+    const bbc42: PlacedCabinet = {
+      uid: "bbc42-corner-anchor",
+      cabinetId: 42,
+      masterCode: "BBC42",
+      description: "42 inch Blind Corner Base Cabinet",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 42,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "builder-top",
+      wallOffset: 0,
+      pullMin: 3,
+      pullMax: 6,
+    };
+    expect(blindCornerSnapInfo(bbc42, room)).toEqual({ angle: 90, placement: "flush", clearanceIn: 0 });
+
+    const b12: PlacedCabinet = {
+      uid: "b12-over-bbc42",
+      cabinetId: 12,
+      masterCode: "B12",
+      description: "12 inch Base Cabinet",
+      placement: "base",
+      x: 30,
+      y: 0,
+      width: 12,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      wallId: "builder-top",
+      wallOffset: 30,
+    };
+    expect(cabinetPlacementCollisionDetail(b12, [bbc42], room)?.cabinet.uid).toBe(bbc42.uid);
+    expect(collisionReason(b12, [bbc42], room)).toContain("Corner protected: BBC42 is snapped into this blind corner.");
   });
 
   it("magnetically snaps a nearby cabinet to a straight custom wall instead of the polygon bounding box", () => {

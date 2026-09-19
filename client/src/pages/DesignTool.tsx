@@ -11812,6 +11812,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  ERB36 corner is locked — choose the next clear wall span.
 	                </div>
 	              )}
+	              {/\bCorner protected:\s*(?:BBC|WBC|BBL|BBR|WBL|WBR)[A-Z0-9-]*\b/i.test(placementWarning) && (
+	                <div
+	                  data-testid="blind-corner-protection-tooltip"
+	                  className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-emerald-700/30 bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-950"
+	                >
+	                  <TriangleAlert className="h-3.5 w-3.5" />
+	                  Blind corner is locked — its required filler and adjoining leg stay protected.
+	                </div>
+	              )}
 	              {/(?:\bdoor\b|\bwindow\b)/i.test(placementWarning) && (
 	                <div
 	                  data-testid="opening-clearance-block-tooltip"

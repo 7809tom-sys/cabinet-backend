@@ -2645,8 +2645,12 @@ export function collisionReason(moving: PlacedCabinet, others: PlacedCabinet[], 
   const overlap = formatEighthInches(detail.penetration);
   const normalizedCode = conflicting.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
   const seatedFlushCorner = room ? cabinetCornerPlacementInfo(conflicting, room)?.placement === "flush" : false;
+  const seatedBlindCorner = room ? blindCornerSnapInfo(conflicting, room)?.placement === "flush" : false;
   if (normalizedCode === "ERB36" && seatedFlushCorner) {
     return `Corner protected: ${conflicting.masterCode} is snapped into this corner. ${moving.masterCode} would overlap its reserved adjoining leg by ${overlap}. Move it to the next clear wall span; edge-to-edge contact is allowed, but physical overlap must be 0".`;
+  }
+  if (isBlindCorner(conflicting.masterCode, conflicting.description) && seatedBlindCorner) {
+    return `Corner protected: ${conflicting.masterCode} is snapped into this blind corner. ${moving.masterCode} would overlap its cabinet body or required filler by ${overlap}. Move it to the next clear wall span; edge-to-edge contact is allowed, but physical overlap must be 0".`;
   }
   return `Cannot place ${moving.masterCode} here: it overlaps ${conflicting.masterCode}, another ${category}, by ${overlap}. Edge-to-edge contact is allowed; physical overlap must be 0".`;
 }
@@ -6677,6 +6681,39 @@ export function cabinetCornerPlacementInfo(
   if (dotMagnitude <= 1e-6) return { angle: 90, placement: "flush", clearanceIn: 0 };
   const diagonal = Math.abs(dotMagnitude - Math.SQRT1_2) <= 1e-6;
   return diagonal ? { angle: 45, placement: "flush", clearanceIn: 0 } : null;
+}
+
+/**
+ * Identifies a blind corner cabinet that is locked to a real corner endpoint.
+ * Blind bases are rectangular—not L-shaped—but their physical body and required
+ * filler reserve the adjoining run. Keep this separate from true-corner geometry
+ * so BBC42 receives confirmation feedback without changing its 42 by 24 footprint.
+ */
+export function blindCornerSnapInfo(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+): CabinetCornerPlacementInfo | null {
+  if (!isBlindCorner(cabinet.masterCode, cabinet.description)) return null;
+  const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+  const length = wallLength(side, room);
+  if (length <= COLLISION_EPSILON_IN) return null;
+  const offset = cabinet.wallOffset != null
+    ? Math.max(0, Number(cabinet.wallOffset) || 0)
+    : wallRunOffset(cabinet, side, room);
+  const span = wallRunSpan(cabinet, side, room);
+  const atStart = offset <= COLLISION_EPSILON_IN;
+  const atEnd = offset + span >= length - COLLISION_EPSILON_IN;
+  if (!atStart && !atEnd) return null;
+
+  const wall = room.customWalls?.find((candidate) => candidate.id === side);
+  if (wall && room.vertices) {
+    const endpoint = atStart ? wall.startVertexId : wall.endVertexId;
+    const hasAdjoiningWall = room.customWalls?.some((candidate) => candidate.id !== wall.id && (
+      candidate.startVertexId === endpoint || candidate.endVertexId === endpoint
+    ));
+    if (!hasAdjoiningWall) return null;
+  }
+  return { angle: 90, placement: "flush", clearanceIn: 0 };
 }
 
 /**

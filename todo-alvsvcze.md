@@ -2307,3 +2307,10 @@
 - [x] Show a brief, specific corner-protection tooltip when a cabinet would overlap the snapped ERB36; the message directs the user to the next clear wall span.
 - [x] Align a selected upper wall cabinet to the same exact measured wall endpoint and orientation directly above a selected ERB36, including continuous-wall custom and diagonal paths.
 - [x] Validate TypeScript, 95 focused corner/Plan Canvas/drag regressions, full selected Designer regressions, production build, and diff integrity.
+
+## Blind-corner snap feedback and protection — 2026-09-19
+
+- [x] Extend green confirmed-snap border, soft glow, locked badge, and hover confirmation to a BBC42 or other blind corner seated at a real measured endpoint without changing its rectangular 42-by-24 footprint.
+- [x] Extend protected-corner collision guidance to blind bases, identifying their reserved cabinet body and required filler while preserving edge-to-edge placement.
+- [x] Add a dedicated Blind corner is locked warning tooltip whenever placement would overlap a snapped BBC/WBC/BBL/BBR/WBL/WBR cabinet.
+- [x] Validate TypeScript, 73 focused blind-corner/ERB/Plan Canvas regressions, expanded Designer regressions, production build, and diff integrity.
