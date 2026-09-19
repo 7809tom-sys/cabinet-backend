@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { placedCornerGeometryKind, type PlacedCabinet } from "@/lib/design";
-import { planCabinetClipPath, planCornerGeometry, planDiagonalFrontPath, planLazySusanTwoFrontPath } from "./PlanCanvas";
+import { planCabinetClipPath, planCabinetRenderFrame, planCornerGeometry, planDiagonalFrontPath, planLazySusanTwoFrontPath } from "./PlanCanvas";
 
 describe("PlanCanvas shared corner geometry", () => {
   it("uses the persisted WDC2430 diagonal classification instead of drawing a square or triangle", () => {
@@ -95,5 +95,37 @@ describe("PlanCanvas shared corner geometry", () => {
     });
     expect(planCabinetClipPath(bec24, { width: 144, depth: 120 })).toBeUndefined();
     expect(planDiagonalFrontPath(bec24, { width: 144, depth: 120 })).toBeUndefined();
+  });
+
+  it("centers a diagonally seated ERB36 on its rotated physical footprint so one rear corner reaches the shared vertex", () => {
+    const side = 36;
+    const diagonalBound = side * Math.SQRT2;
+    const erb: PlacedCabinet = {
+      uid: "erb36-diagonal-corner",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      // Bounding-box origin for a 36×36 body rotated 135° around (74.544, 100).
+      x: 74.5441558772843 - diagonalBound / 2,
+      y: 100 - diagonalBound / 2,
+      width: side,
+      depth: side,
+      height: 34.5,
+      rotation: 135,
+      wallId: "measured-diagonal-wall",
+      wallOffset: 0,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+    };
+    const frame = planCabinetRenderFrame(erb);
+    expect(frame).toMatchObject({ lockedAngledRun: true, bodyW: side, bodyD: side });
+    const center = { x: frame.bodyLeft + frame.bodyW / 2, y: frame.bodyTop + frame.bodyD / 2 };
+    const radians = erb.rotation * Math.PI / 180;
+    const vertices = [-1, 1].flatMap((xSign) => [-1, 1].map((ySign) => ({
+      x: center.x + (xSign * side / 2) * Math.cos(radians) - (ySign * side / 2) * Math.sin(radians),
+      y: center.y + (xSign * side / 2) * Math.sin(radians) + (ySign * side / 2) * Math.cos(radians),
+    })));
+    expect(vertices.some((vertex) => Math.hypot(vertex.x - 100, vertex.y - 100) < 0.001)).toBe(true);
   });
 });

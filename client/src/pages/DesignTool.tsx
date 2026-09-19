@@ -556,6 +556,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [blindCornerFillerPrompt, setBlindCornerFillerPrompt] = useState<{
     blindUid: string;
     fillerUid: string;
+    /** Cabinet whose resolved color/finish should be copied onto this filler. */
+    finishSourceUid: string;
   } | null>(null);
 	  const [alternateWallRecommendation, setAlternateWallRecommendation] = useState<{
 	    cabinet: DesignCabinet;
@@ -1665,6 +1667,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.error("The blind-corner filler is no longer available to update.");
       return;
     }
+    // Default to the blind cabinet itself, but let the prompt intentionally
+    // copy any placed cabinet's finish for a two-tone or matched-finish design.
+    const finishSource = placedRef.current.find((cabinet) => cabinet.uid === prompt.finishSourceUid) ?? selectedBlind;
     const stockWidth = Number(candidate.width);
     const next = placedRef.current.map((cabinet) => cabinet.uid === prompt.fillerUid ? {
       ...cabinet,
@@ -1675,11 +1680,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       subCategory: candidate.subCategory ?? "Filler",
       nominalWidth: Number.isFinite(stockWidth) && stockWidth > 0 ? stockWidth : BLIND_CORNER_FILLER_WIDTH_IN,
       catalogImageUrl: candidate.catalogImageUrl ?? null,
+      styleId: finishSource.styleId ?? null,
     } : cabinet);
     placedRef.current = next;
     setPlaced(next);
     setBlindCornerFillerPrompt(null);
-    toast.success(`${candidate.masterCode} selected for ${selectedBlind.masterCode}; install it cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`);
+    toast.success(`${candidate.masterCode} selected for ${selectedBlind.masterCode}; matched to ${finishSource.masterCode}'s color and finish, then cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`);
   }, [blindCornerFillerOptions, blindCornerFillerPrompt]);
   const smallGapFillerDefinition = useMemo(() => {
     if (!smallGapFillerPrompt) return null;
@@ -4637,7 +4643,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description) && blindCornerSnapInfo(finalCab, room)?.placement === "flush") {
 	        const requiredFiller = committedRun.find((item) => item.fillerPieceGroupId === requiredBlindCornerFillerGroupId(finalCab));
 	        if (requiredFiller) {
-	          setBlindCornerFillerPrompt({ blindUid: finalCab.uid, fillerUid: requiredFiller.uid });
+	          setBlindCornerFillerPrompt({
+	            blindUid: finalCab.uid,
+	            fillerUid: requiredFiller.uid,
+	            finishSourceUid: finalCab.uid,
+	          });
 	          setMobilePanel(null);
 	        }
 	      }
@@ -14664,8 +14674,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  : `Choose the sellable stock filler to install cut to the required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} clearance.`;
 	              })()}
 	            </DialogDescription>
-	          </DialogHeader>
-	          <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+		          </DialogHeader>
+		          {blindCornerFillerPrompt && (() => {
+		            const blind = placed.find((cabinet) => cabinet.uid === blindCornerFillerPrompt.blindUid) ?? null;
+		            const finishSources = placed.filter((cabinet) => (
+		              cabinet.uid !== blindCornerFillerPrompt.fillerUid
+		              && !isFillerItem(cabinet)
+		            ));
+		            return (
+		              <div className="rounded-lg border border-[#d9c196] bg-[#fffaf0] p-3">
+		                <label htmlFor="blind-corner-filler-finish-source" className="text-sm font-semibold text-[#1a2744]">Filler color &amp; finish</label>
+		                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">The filler will copy the selected cabinet’s saved finish, including a two-tone override.</p>
+		                <Select
+		                  value={blindCornerFillerPrompt.finishSourceUid}
+		                  onValueChange={(finishSourceUid) => setBlindCornerFillerPrompt((current) => current ? { ...current, finishSourceUid } : current)}
+		                >
+		                  <SelectTrigger id="blind-corner-filler-finish-source" data-testid="blind-corner-filler-finish-source" className="mt-2 h-10 bg-white text-left">
+		                    <SelectValue placeholder="Choose a cabinet finish" />
+		                  </SelectTrigger>
+		                  <SelectContent>
+		                    {blind && <SelectItem value={blind.uid}>Match {blind.masterCode} (blind corner)</SelectItem>}
+		                    {finishSources.filter((cabinet) => cabinet.uid !== blind?.uid).map((cabinet) => (
+		                      <SelectItem key={cabinet.uid} value={cabinet.uid}>Match {cabinet.masterCode} — placed cabinet</SelectItem>
+		                    ))}
+		                  </SelectContent>
+		                </Select>
+		              </div>
+		            );
+		          })()}
+		          <div className="grid max-h-64 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
 	            {blindCornerFillerOptions.map((option) => {
 	              const activeFiller = blindCornerFillerPrompt
 	                ? placed.find((cabinet) => cabinet.uid === blindCornerFillerPrompt.fillerUid)

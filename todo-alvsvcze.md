@@ -2321,3 +2321,10 @@
 - [x] Safely remove a BBC/WBC's dependent required filler when it is unlocked so a filler is never orphaned after the cabinet leaves the corner.
 - [x] Prompt immediately after a blind corner seats successfully, listing active sellable filler stock sizes and retaining the required installed **3-inch** clearance; a selected stock filler is persisted as the priced catalog identity and cut to 3 inches.
 - [x] Validate TypeScript, 540 focused Designer geometry/filler/collision regressions, a local Designer workspace smoke test, production build, and diff integrity.
+
+## Physical diagonal corner seating and filler finish matching — 2026-09-19
+
+- [x] Correct real continuous-wall vertex placement so ERB/L/diagonal corner cabinets resolve using their physical square plan footprint rather than a shallow catalog depth; a diagonal ERB36 now reaches the selected shared wall vertex in both the 2D and 3D Designer.
+- [x] Make Plan Canvas recover each rotated measured-wall body from its stored bounding-box origin, preventing a visually offset 45-degree corner body while preserving collision dimensions.
+- [x] Add a **Filler color & finish** selector to the required blind-corner filler prompt. It defaults to the blind-corner cabinet and can copy any placed cabinet’s saved finish/two-tone override into the selected catalog filler.
+- [x] Validate TypeScript, 892 expanded Designer and 3D regressions, local Designer smoke testing, production build, and diff integrity.

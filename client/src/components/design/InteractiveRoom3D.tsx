@@ -4874,8 +4874,22 @@ export function existingCabinetTransform(
       : cabinet.placement === "underCabinet"
         ? WALL_BOTTOM - numberValue(cabinet.height, 6)
         : 0;
-  let x = cabinet.x + width / 2;
-  let z = cabinet.y + depth / 2;
+  // A locked 45° measured-wall placement stores the axis-aligned rotated-body
+  // origin. Corner products use a square physical footprint, so recover the
+  // rotated envelope center before creating their 3D body; otherwise an ERB36
+  // looks offset from the same vertex it correctly occupies in the plan.
+  const normalizedSavedRotation = ((Math.round(savedRotation) % 360) + 360) % 360;
+  const lockedAngledCorner = Boolean(
+    cabinet.wallId
+    && cabinet.wallOffset != null
+    && sharedKind !== "standard"
+    && [45, 135, 225, 315].includes(normalizedSavedRotation),
+  );
+  const angledRadians = normalizedSavedRotation * Math.PI / 180;
+  const rotatedBoundWidth = Math.abs(width * Math.cos(angledRadians)) + Math.abs(depth * Math.sin(angledRadians));
+  const rotatedBoundDepth = Math.abs(width * Math.sin(angledRadians)) + Math.abs(depth * Math.cos(angledRadians));
+  let x = cabinet.x + (lockedAngledCorner ? rotatedBoundWidth : width) / 2;
+  let z = cabinet.y + (lockedAngledCorner ? rotatedBoundDepth : depth) / 2;
   // Older saved designs sometimes carry a small perpendicular gap even though
   // their end-run cabinet is intended to sit on the closest wall. Keep explicit
   // Move In/Move Out adjustments intact, but seat legacy end runs flush so their

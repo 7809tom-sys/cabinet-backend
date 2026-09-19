@@ -47,9 +47,17 @@ describe("Design Tool direct corner cabinet drops", () => {
   });
 
   it("prompts for a sellable stock filler after a blind corner is seated", () => {
-    expect(source).toContain("setBlindCornerFillerPrompt({ blindUid: finalCab.uid, fillerUid: requiredFiller.uid });");
+    expect(source).toContain("finishSourceUid: finalCab.uid");
     expect(source).toContain("Select the required blind-corner filler");
     expect(source).toContain("Install cut to {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}.");
     expect(source).toContain("selectRequiredBlindCornerFiller(option.id)");
+  });
+
+  it("can match a blind-corner filler’s color and finish to the blind cabinet or another placed cabinet", () => {
+    expect(source).toContain("Filler color &amp; finish");
+    expect(source).toContain('data-testid="blind-corner-filler-finish-source"');
+    expect(source).toContain("Match {blind.masterCode} (blind corner)");
+    expect(source).toContain("Match {cabinet.masterCode} — placed cabinet");
+    expect(source).toContain("styleId: finishSource.styleId ?? null");
   });
 });

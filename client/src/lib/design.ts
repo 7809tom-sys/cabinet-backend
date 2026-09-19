@@ -6547,6 +6547,11 @@ export function nextAvailableRoomCornerPlacement(
     room.openWallPath
     || room.customWalls?.some((wall) => Number.isFinite(wall.height)),
   );
+  // ERB/L/diagonal corner products are physically square corner envelopes even
+  // when a catalog line stores a shallow straight-run depth. Resolve a real
+  // custom-wall vertex using that physical footprint so its corner reaches the
+  // shared measured-wall point rather than visibly floating alongside it.
+  const physicalFootprint = placedFootprint(moving);
   // Seat a true
   // corner cabinet on an open *real* right-angle vertex rather than dropping it
   // into a graph-square corner. This must not be limited to cardinal walls:
@@ -6582,8 +6587,8 @@ export function nextAvailableRoomCornerPlacement(
         // Direction can be reversed at a shared vertex; a zero dot product is
         // still the only condition for a true 90° vertex.
         if (Math.abs(Math.cos(angle - adjoiningAngle)) > 1e-6) continue;
-        const offset = endpoint === "start" ? 0 : Math.max(0, length - moving.width);
-        const spot = wallPlacementAt(offset, moving.width, moving.depth, wall.id as WallSide, room);
+        const offset = endpoint === "start" ? 0 : Math.max(0, length - physicalFootprint.w);
+        const spot = wallPlacementAt(offset, physicalFootprint.w, physicalFootprint.d, wall.id as WallSide, room);
         const candidate = { ...moving, ...spot, wallId: wall.id, wallOffset: offset };
         if (!hasCollision(candidate, [...placed])) return spot;
       }
@@ -6593,7 +6598,7 @@ export function nextAvailableRoomCornerPlacement(
     // through to a fake rectangular boundary.
     return null;
   }
-  const footprint = placedFootprint(moving);
+  const footprint = physicalFootprint;
   const corners = [
     { x: 0, y: 0 },
     { x: Math.max(0, room.width - footprint.w), y: 0 },

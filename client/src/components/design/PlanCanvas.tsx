@@ -24,6 +24,44 @@ import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/cata
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
 import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 
+export type PlanCabinetRenderFrame = {
+  lockedAngledRun: boolean;
+  bodyW: number;
+  bodyD: number;
+  bodyLeft: number;
+  bodyTop: number;
+};
+
+/**
+ * Saved cabinet coordinates are the bounding-box origin of the fully rotated
+ * physical body. CSS rotation, however, works from an unrotated body rectangle.
+ * Recover that rectangle's center so an ERB36 on a 45-degree measured wall has
+ * its actual rear corner exactly on the selected shared vertex in plan view.
+ */
+export function planCabinetRenderFrame(p: PlacedCabinet): PlanCabinetRenderFrame {
+  const footprint = placedFootprint(p);
+  const normalizedRotation = ((Math.round(p.rotation) % 360) + 360) % 360;
+  const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 135, 225, 315].includes(normalizedRotation));
+  if (!lockedAngledRun) {
+    return { lockedAngledRun: false, bodyW: footprint.w, bodyD: footprint.d, bodyLeft: p.x, bodyTop: p.y };
+  }
+  const cornerKind = placedCornerGeometryKind(p);
+  // Use nominal rectangular dimensions for a straight cabinet, but preserve the
+  // full square physical envelope for ERB/L/diagonal corner products.
+  const bodyW = cornerKind === "standard" ? Math.max(0.01, p.width) : footprint.w;
+  const bodyD = cornerKind === "standard" ? Math.max(0.01, p.depth) : footprint.d;
+  const radians = normalizedRotation * Math.PI / 180;
+  const boundW = Math.abs(bodyW * Math.cos(radians)) + Math.abs(bodyD * Math.sin(radians));
+  const boundD = Math.abs(bodyW * Math.sin(radians)) + Math.abs(bodyD * Math.cos(radians));
+  return {
+    lockedAngledRun: true,
+    bodyW,
+    bodyD,
+    bodyLeft: p.x + (boundW - bodyW) / 2,
+    bodyTop: p.y + (boundD - bodyD) / 2,
+  };
+}
+
 export type PlanMeasurePoint = { x: number; y: number };
 
 /** A quarter-inch increment keeps the on-screen tape precise without visual jitter. */
@@ -1843,12 +1881,7 @@ export function PlanCanvas({
         {cabinets
           .filter((c) => (showWallLayer ? true : c.placement !== "wall"))
           .map((p) => {
-            const { w, d } = placedFootprint(p);
-            const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 135, 225, 315].includes(((Math.round(p.rotation) % 360) + 360) % 360));
-            const bodyW = lockedAngledRun ? p.width : w;
-            const bodyD = lockedAngledRun ? p.depth : d;
-            const bodyLeft = lockedAngledRun ? p.x + (w - bodyW) / 2 : p.x;
-            const bodyTop = lockedAngledRun ? p.y + (d - bodyD) / 2 : p.y;
+            const { lockedAngledRun, bodyW, bodyD, bodyLeft, bodyTop } = planCabinetRenderFrame(p);
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isAttributesTarget = p.uid === attributesTargetUid;

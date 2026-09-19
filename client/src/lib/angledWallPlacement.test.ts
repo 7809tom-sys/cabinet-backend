@@ -298,6 +298,12 @@ describe("continuous builder custom wall placement", () => {
     };
     const spot = nextAvailableRoomCornerPlacement(erb, "diagonal-second" as any, diagonalRightAngleRoom, []);
     expect(spot).toMatchObject({ wallId: "diagonal-second", wallOffset: 0 });
+    // The real ERB36 body is a 36×36 physical corner envelope even though
+    // catalog depth can be recorded as 24". Its rotated bounding box is placed
+    // so the body—not just an abstract wall offset—reaches the vertex at 100,100.
+    expect(spot!.x).toBeCloseTo(100 - 36 * Math.SQRT2, 8);
+    expect(spot!.y).toBeCloseTo(100 - 36 * Math.SQRT2 / 2, 8);
+    expect(spot!.rotation).toBe(135);
     expect(cabinetCornerPlacementInfo({ ...erb, ...spot!, wallId: spot!.wallId, wallOffset: spot!.wallOffset }, diagonalRightAngleRoom)).toEqual({
       angle: 90,
       placement: "flush",
@@ -354,9 +360,9 @@ describe("continuous builder custom wall placement", () => {
     expect(cabinetPlacementCollisionDetail(b12, [erb], diagonalRightAngleRoom)?.cabinet.uid).toBe(erb.uid);
     expect(shouldBlockPlacementCollision(b12, [erb], false, diagonalRightAngleRoom)).toBe(true);
 
-    // The rotated ERB36 footprint also occupies the diagonal's physical body;
+    // The physically seated ERB36 reserves the diagonal's actual corner body;
     // leave the exact measured clear span before expecting a B12 to fit.
-    const clearB12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 60, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
+    const clearB12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 72, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
     const clearB12 = { ...b12, ...clearB12Spot, wallOffset: clearB12Spot.wallOffset };
     expect(shouldBlockPlacementCollision(clearB12, [erb], false, diagonalRightAngleRoom)).toBe(false);
   });
