@@ -18,6 +18,7 @@ import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import {
   catalogNomenclatureIssueMessage,
   catalogNomenclatureIssues,
+  canonicalCatalogMasterCode,
   designerFriendlyDescription,
   hasPositiveCatalogPrice,
 } from "../../shared/catalogNomenclature";
@@ -324,7 +325,12 @@ export const genericCabinetsRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
 
-      const masterCode = input.masterCode.trim().toUpperCase();
+      // ADA is positional nomenclature, not a second cabinet identity. Always
+      // store a new master using ADA-<structural-code>; a distributor can retain
+      // B12ADA as its own supplier SKU or an approved legacy master alias.
+      const enteredMasterCode = input.masterCode.trim().toUpperCase();
+      const masterCode = canonicalCatalogMasterCode(enteredMasterCode);
+      const positionalAdaAlias = enteredMasterCode !== masterCode ? enteredMasterCode : null;
       const publish = input.mode === "publish";
       const category = input.category.trim();
       const description = designerFriendlyDescription({
@@ -482,6 +488,41 @@ export const genericCabinetsRouter = router({
               platformSku: `${masterCode}-${input.source.distributorSku.trim()}-${input.source.distributorId}-${input.source.styleId}`.toUpperCase().slice(0, 128),
             });
             sourceSkuId = Number((result as { insertId: number }).insertId);
+          }
+        }
+
+        // Preserve the supplier/user's positional ADA spelling as a route to
+        // this canonical master. The alias is written in the same transaction
+        // as the supplier source, so B12ADA can never become a detached second
+        // cabinet or a non-searchable code after saving.
+        if (positionalAdaAlias) {
+          const [existingMasterAlias] = await tx
+            .select({ masterCode: skuMasterAliases.masterCode })
+            .from(skuMasterAliases)
+            .where(eq(skuMasterAliases.aliasCode, positionalAdaAlias))
+            .limit(1);
+          if (existingMasterAlias && existingMasterAlias.masterCode !== masterCode) {
+            throw new Error(`The ADA spelling ${positionalAdaAlias} already routes to ${existingMasterAlias.masterCode}.`);
+          }
+          if (!existingMasterAlias) {
+            await tx.insert(skuMasterAliases).values({
+              aliasCode: positionalAdaAlias,
+              masterCode,
+              notes: "ADA position-only spelling registered during catalog save.",
+              conflictStatus: "ok",
+            });
+          }
+
+          const [existingCabinetAlias] = await tx
+            .select({ cabinetId: cabinetAliases.cabinetId })
+            .from(cabinetAliases)
+            .where(eq(cabinetAliases.alias, positionalAdaAlias))
+            .limit(1);
+          if (existingCabinetAlias && existingCabinetAlias.cabinetId !== cabinetId) {
+            throw new Error(`The ADA spelling ${positionalAdaAlias} is already connected to another cabinet.`);
+          }
+          if (!existingCabinetAlias) {
+            await tx.insert(cabinetAliases).values({ cabinetId, alias: positionalAdaAlias });
           }
         }
 

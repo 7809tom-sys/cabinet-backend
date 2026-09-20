@@ -2465,3 +2465,8 @@
 - [x] Add a consistent, code-keyed technical roll-out shelf badge to generic cabinet line art. The lower-corner icon uses shelf rails and the exact `#RS` count, with accessible text; `B18FH2RS` displays 2, `B121RS` displays 1, and a normal `B12` displays no badge.
 - [x] Keep missing-price masters out of **Cabinet Attention** entirely, including records hidden for missing price. They now appear only in **Unpriced Items**, while Cabinet Attention remains for priced inactive or unverified configuration records.
 - [x] Qualify price and Unpriced Items supplier subqueries to preserve correct cabinet correlation. Validate TypeScript, 120 focused rollout/catalog/price/admin regressions, production build, the live queue separation, and diff integrity.
+
+- [x] Treat ADA as a positional accessibility marker: `ADA-B12` and `B12ADA` resolve to the same canonical product identity while preserving the supplier’s original ordering SKU.
+- [x] Consolidate eight fact-matched ADA prefix/suffix pairs into canonical ADA-prefix masters, retain all verified positive source price rows and distributor overlays, normalize their code-true designer-friendly descriptions, and retire duplicate visible masters.
+- [x] Quarantine the incompatible `ADA-3VDB15` / `3VDB15ADA` source pair as a conflict rather than cross-aliasing a 21-inch, three-drawer vanity base to a 24-inch, 34.5-inch zero-drawer row.
+- [x] Add ADA-aware catalog save/import canonicalization, legacy/public/Design Tool alias search, technical three-drawer line art for either ADA code position, and no-price/alias/conflict regressions.

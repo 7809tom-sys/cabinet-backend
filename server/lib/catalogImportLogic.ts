@@ -15,6 +15,7 @@ import { eq, and } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import type { PafProduct } from "./pafXmlParser";
 import { mapCategory, mapPlacementType } from "./pafXmlParser";
+import { canonicalCatalogMasterCode, parseCatalogNomenclature } from "../../shared/catalogNomenclature";
 
 export interface ImportStats {
   created: number;
@@ -167,11 +168,28 @@ export async function importPafProducts(
         continue;
       }
 
-      const code = product.code.toUpperCase();
-      const mappedCategory = mapCategory(product.category);
+      // The supplier spelling stays on distributor_skus.distributorSku, while
+      // the platform master normalizes a positional ADA marker. This prevents a
+      // later B12ADA import from creating a second physical cabinet beside
+      // ADA-B12.
+      const sourceCode = product.code.toUpperCase();
+      const code = canonicalCatalogMasterCode(sourceCode);
+      const codeFacts = parseCatalogNomenclature(sourceCode);
+      const mappedCategory = codeFacts.isAdaAccessible ? "ADA" : mapCategory(product.category);
       const mappedPlacementType = mapPlacementType(code, product.category);
 
-      const existing = resolveExisting(code);
+      const aliasedMasterCode = masterByAlias.get(sourceCode);
+      const aliasedCabinetId = cabinetIdByAlias.get(sourceCode);
+      if (sourceCode !== code && aliasedMasterCode && aliasedMasterCode !== code) {
+        stats.skipped++;
+        stats.errors.push({
+          code: "ADA_ALIAS_CONFLICT",
+          message: `${sourceCode} already routes to ${aliasedMasterCode}; it cannot be imported as ${code} without review.`,
+        });
+        continue;
+      }
+
+      const existing = resolveExisting(code) ?? resolveExisting(sourceCode);
 
       let cabinetId: number;
       let imageResolved = false;
@@ -194,7 +212,7 @@ export async function importPafProducts(
 
         if (!existing.catalogImageUrl) {
           // Use uploaded image URL if provided, otherwise try sibling resolution
-          const img = (product as any).catalogImageUrl || resolveSiblingImage(code);
+          const img = (product as any).catalogImageUrl || resolveSiblingImage(code) || resolveSiblingImage(sourceCode);
           if (img) { patch.catalogImageUrl = img; imageResolved = true; }
         }
 
@@ -206,7 +224,7 @@ export async function importPafProducts(
       } else {
         // ── INSERT new cabinet ───────────────────────────────────────────────
         // Use uploaded image URL if provided, otherwise try sibling resolution
-        const img = (product as any).catalogImageUrl || resolveSiblingImage(code);
+        const img = (product as any).catalogImageUrl || resolveSiblingImage(code) || resolveSiblingImage(sourceCode);
         if (img) imageResolved = true;
 
         await db.insert(cabinets).values({
@@ -252,6 +270,34 @@ export async function importPafProducts(
 
       if (imageResolved) stats.imagesResolved++;
 
+      // Preserve B12ADA (or any other suffix/prefix spelling) as a durable
+      // search/legacy-design route to ADA-B12, while keeping the original code
+      // untouched as the supplier's ordering SKU below.
+      if (sourceCode !== code && !aliasedMasterCode) {
+        if (aliasedCabinetId != null && aliasedCabinetId !== cabinetId) {
+          stats.skipped++;
+          stats.errors.push({
+            code: "ADA_CABINET_ALIAS_CONFLICT",
+            message: `${sourceCode} is already connected to a different cabinet and needs review.`,
+          });
+          continue;
+        }
+        await db.insert(skuMasterAliases).values({
+          aliasCode: sourceCode,
+          masterCode: code,
+          notes: "ADA position-only spelling registered during catalog import.",
+          conflictStatus: "ok",
+        });
+        masterByAlias.set(sourceCode, code);
+        const siblingCodes = aliasesByMaster.get(code) ?? [];
+        siblingCodes.push(sourceCode);
+        aliasesByMaster.set(code, siblingCodes);
+        if (aliasedCabinetId == null) {
+          await db.insert(cabinetAliases).values({ cabinetId, alias: sourceCode });
+          cabinetIdByAlias.set(sourceCode, cabinetId);
+        }
+      }
+
       // ── Upsert distributor SKU ───────────────────────────────────────────────
       if (defaultStyleId) {
         const skuKey = `${cabinetId}-${defaultStyleId}`;
@@ -261,7 +307,7 @@ export async function importPafProducts(
           if (!preservePricing && product.listPrice) {
             await db
               .update(distributorSkus)
-              .set({ distributorSku: code })
+              .set({ distributorSku: sourceCode })
               .where(eq(distributorSkus.id, existingSku.id));
           }
         } else {
@@ -269,8 +315,8 @@ export async function importPafProducts(
             cabinetId,
             distributorId,
             styleId: defaultStyleId,
-            platformSku: `${code}-${distributorId}`,
-            distributorSku: code,
+            platformSku: `${code}-${sourceCode}-${distributorId}`.slice(0, 128),
+            distributorSku: sourceCode,
             isAvailable: true,
             isPublished: true,
             status: "approved",

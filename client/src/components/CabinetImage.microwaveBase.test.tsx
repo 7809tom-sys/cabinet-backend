@@ -106,4 +106,27 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
     );
     expect(standardBaseMarkup).not.toContain("data-rollout-shelf-indicator");
   });
+
+  it("renders the same code-keyed ADA drawer front whether ADA is prefix or suffix", () => {
+    for (const masterCode of ["ADA-3DB15", "3DB15ADA"]) {
+      const markup = renderToStaticMarkup(
+        createElement(CabinetImage, {
+          cabinet: {
+            masterCode,
+            description: '15" × 32.5" × 24" ADA Three-Drawer Base Cabinet',
+            category: "ADA",
+            subCategory: "ADA Base",
+            width: 15,
+            height: 32.5,
+            depth: 24,
+            numberOfDoors: 0,
+            numberOfDrawers: 3,
+            catalogImageUrl: "https://example.com/incorrect-vendor-ada-thumbnail.webp",
+          },
+        }),
+      );
+      expect(markup).toContain('data-cabinet-drawing="drawer-base"');
+      expect(markup).not.toContain("incorrect-vendor-ada-thumbnail.webp");
+    }
+  });
 });

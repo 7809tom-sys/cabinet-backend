@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogNomenclatureIssues,
+  canonicalCatalogMasterCode,
   designerFriendlyDescription,
   hasPositiveCatalogPrice,
   parseCatalogNomenclature,
@@ -154,5 +155,46 @@ describe("catalog nomenclature truth", () => {
       width: 18,
       numberOfDrawers: 1,
     })).toContain("drawer-layout-mismatch");
+  });
+
+  it("treats ADA position as identity-neutral while preserving the ADA cabinet facts", () => {
+    expect(canonicalCatalogMasterCode("ADA-B12")).toBe("ADA-B12");
+    expect(canonicalCatalogMasterCode("B12ADA")).toBe("ADA-B12");
+    expect(canonicalCatalogMasterCode("  3DB15-ADA ")).toBe("ADA-3DB15");
+
+    for (const masterCode of ["ADA-B12", "B12ADA"]) {
+      expect(parseCatalogNomenclature(masterCode)).toMatchObject({
+        family: "ada",
+        canonicalMasterCode: "ADA-B12",
+        isAdaAccessible: true,
+        adaCoreCode: "B12",
+        expectedCategory: "ADA",
+        expectedSubCategory: "ADA Base",
+        expectedWidth: 12,
+        expectedHeight: 32.5,
+        expectedDepth: 24,
+      });
+    }
+  });
+
+  it("generates identical designer-friendly ADA descriptions for either code position", () => {
+    const facts = {
+      width: 12,
+      height: 32.5,
+      depth: 24,
+      numberOfDoors: 1,
+      numberOfDrawers: 1,
+      numberOfAdjShelves: 1,
+    };
+    expect(designerFriendlyDescription({ masterCode: "ADA-B12", ...facts }))
+      .toBe('12" × 32.5" × 24" ADA Accessible Base Cabinet — 1 Door, 1 Drawer, 1 Shelf');
+    expect(designerFriendlyDescription({ masterCode: "B12ADA", ...facts }))
+      .toBe(designerFriendlyDescription({ masterCode: "ADA-B12", ...facts }));
+    expect(designerFriendlyDescription({
+      masterCode: "3DB15ADA",
+      width: 15,
+      height: 32.5,
+      depth: 24,
+    })).toBe('15" × 32.5" × 24" ADA Three-Drawer Base Cabinet');
   });
 });

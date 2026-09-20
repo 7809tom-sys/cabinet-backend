@@ -95,6 +95,28 @@ describe("duplicate normalized cabinet codes", () => {
 	  expect(styles.length).toBeGreaterThan(0);
 	});
 
+	it("resolves verified ADA prefix and suffix codes to one priced canonical cabinet", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const canonical = await caller.cabinets.byCode({ masterCode: "ADA-B12" });
+	  const suffix = await caller.cabinets.byCode({ masterCode: "B12ADA" });
+
+	  expect(canonical).toEqual(expect.objectContaining({
+	    masterCode: "ADA-B12",
+	    description: '12" × 32.5" × 24" ADA Accessible Base Cabinet — 1 Door, 1 Drawer, 1 Shelf',
+	  }));
+	  expect(suffix).toEqual(canonical);
+
+	  const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
+	  expect(styles.length).toBeGreaterThan(0);
+	  expect(styles.every((style) => (style.listPrice ?? style.yourCost ?? 0) > 0)).toBe(true);
+	});
+
+	it("holds mismatched ADA vanity-drawer positional codes instead of cross-family aliasing them", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  await expect(caller.cabinets.byCode({ masterCode: "ADA-3VDB15" })).resolves.toBeNull();
+	  await expect(caller.cabinets.byCode({ masterCode: "3VDB15ADA" })).resolves.toBeNull();
+	});
+
 	it("keeps duplicate legacy codes separate from an existing canonical master during an attempted rename", async () => {
     const caller = appRouter.createCaller({ user: { id: 1, role: "admin" } } as any);
 

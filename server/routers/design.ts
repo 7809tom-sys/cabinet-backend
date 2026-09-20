@@ -4,7 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
-import { cabinets, cabinetAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -263,6 +263,29 @@ export const designRouter = router({
       const availableCabinetIds = new Set(availableSkuRows.map((r) => r.cabinetId));
       const availableRows = rows.filter((r) => availableCabinetIds.has(r.id));
 
+      // An approved master alias is a genuine search route, not a second cabinet.
+      // This lets a designer type either ADA-B12 or B12ADA while the palette
+      // returns only the canonical priced cabinet and its current source rows.
+      const aliasMatchedMasterCodes = new Set<string>();
+      if (input?.search) {
+        const normalizedSearch = normalizeCode(input.search);
+        if (normalizedSearch) {
+          const aliasCanon = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
+          const aliases = await db
+            .select({ masterCode: skuMasterAliases.masterCode })
+            .from(skuMasterAliases)
+            .where(and(
+              eq(skuMasterAliases.conflictStatus, "ok"),
+              sql`${aliasCanon} LIKE ${`%${normalizedSearch}%`}`,
+            ));
+          for (const alias of aliases) aliasMatchedMasterCodes.add(alias.masterCode);
+        }
+      }
+      const matchesSearch = (row: { masterCode: string; description: string | null }) =>
+        !input?.search
+        || aliasMatchedMasterCodes.has(row.masterCode)
+        || matchesPartialCabinetSearch(row.masterCode, row.description, input.search);
+
       // Accessories/trim (countertop support brackets, hardware, fillers, glass
       // doors sold separately, decorative legs, crown/light-rail molding, end
       // panels, roll-out trays, etc.) are NOT placeable cabinet boxes — they are
@@ -309,7 +332,7 @@ export const designRouter = router({
             return { ...rest, pullMin: null as number | null, pullMax: null as number | null, placement: "accessory" as const };
           });
         if (input?.search) {
-          accessories = accessories.filter((r) => matchesPartialCabinetSearch(r.masterCode, r.description, input.search!));
+          accessories = accessories.filter(matchesSearch);
         }
         return accessories;
       }
@@ -372,7 +395,7 @@ export const designRouter = router({
         filtered = filtered.filter((r) => r.placement === input.placement);
       }
       if (input?.search) {
-        filtered = filtered.filter((r) => matchesPartialCabinetSearch(r.masterCode, r.description, input.search!));
+        filtered = filtered.filter(matchesSearch);
       }
 
       // Order every bucket small -> large by width so the palette reads the way

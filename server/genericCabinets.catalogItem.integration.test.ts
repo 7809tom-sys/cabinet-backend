@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributors, distributorSkus, doorStyles } from "../drizzle/schema";
+import { cabinets, cabinetAliases, distributors, distributorSkus, doorStyles, skuMasterAliases } from "../drizzle/schema";
 
 function adminContext(): TrpcContext {
   return {
@@ -144,5 +144,83 @@ describe("genericCabinets.saveCatalogItem", () => {
     await expect(caller.genericCabinets.saveCatalogItem({
       mode: "draft", masterCode: "BLOCKED-CATALOG-ITEM", description: "Blocked", category: "Base",
     })).rejects.toThrow();
+  });
+
+  it("normalizes a positional ADA suffix to the same canonical ADA master code", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (!line) return;
+    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles).where(eq(doorStyles.distributorId, line.id)).limit(1);
+    if (!style) return;
+
+    const caller = appRouter.createCaller(adminContext());
+    const stamp = Date.now();
+    const suffixCode = `B99ADA`;
+    const canonicalCode = "ADA-B99";
+    let cabinetId: number | null = null;
+    try {
+      const created = await caller.genericCabinets.saveCatalogItem({
+        mode: "publish",
+        masterCode: suffixCode,
+        description: "Supplier ADA base cabinet",
+        category: "ADA",
+        subCategory: "ADA Base",
+        width: 99,
+        height: 32.5,
+        depth: 24,
+        placementType: "base",
+        numberOfDoors: 2,
+        numberOfDrawers: 1,
+        source: {
+          distributorId: line.id,
+          styleId: style.id,
+          distributorSku: `ADAB99-${stamp}`,
+          listPrice: 125.5,
+          isAvailable: true,
+        },
+      });
+      cabinetId = created.id;
+      expect(created.masterCode).toBe(canonicalCode);
+
+      const [stored] = await db
+        .select({ masterCode: cabinets.masterCode, description: cabinets.description })
+        .from(cabinets)
+        .where(eq(cabinets.id, cabinetId))
+        .limit(1);
+      expect(stored?.masterCode).toBe(canonicalCode);
+      expect(stored?.description).toBe('99" × 32.5" × 24" ADA Accessible Base Cabinet — 2 Doors, 1 Drawer');
+
+      const palette = await caller.design.placeableCabinets({
+        placement: "base",
+        distributorId: line.id,
+        styleId: style.id,
+        search: suffixCode,
+      });
+      expect(palette).toEqual(expect.arrayContaining([
+        expect.objectContaining({ id: cabinetId, masterCode: canonicalCode }),
+      ]));
+
+      await expect(caller.genericCabinets.saveCatalogItem({
+        mode: "draft",
+        masterCode: canonicalCode,
+        description: "Duplicate ADA cabinet",
+        category: "ADA",
+        source: {
+          distributorId: line.id,
+          styleId: style.id,
+          distributorSku: `ADAB99-DUP-${stamp}`,
+          listPrice: 125.5,
+          isAvailable: true,
+        },
+      })).rejects.toThrow("already exists or conflicts");
+    } finally {
+      if (cabinetId != null) {
+        await db.delete(distributorSkus).where(eq(distributorSkus.cabinetId, cabinetId));
+        await db.delete(cabinetAliases).where(eq(cabinetAliases.cabinetId, cabinetId));
+        await db.delete(skuMasterAliases).where(eq(skuMasterAliases.aliasCode, suffixCode));
+        await db.delete(cabinets).where(eq(cabinets.id, cabinetId));
+      }
+    }
   });
 });

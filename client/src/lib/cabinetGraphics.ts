@@ -289,6 +289,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const desc = lc(cab.description);
   const graphic = lc(cab.graphicType);
   const hay = `${sub} ${desc} ${code}`;
+  const nomenclature = parseCatalogNomenclature(cab.masterCode ?? "");
 
   // Chrome Tray 33/36 are shelf-mounted lazy-Susan inserts for matching ERB
   // easy-reach corner cabinets. The normalized code defines the compatibility,
@@ -435,6 +436,16 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // description omits the cabinet's zero-door count.
   if (/microwave base|base microwave/.test(hay) || /^(?:bmc|mb|bmw)[-_]?\d/.test(code)) {
     return "microwave-base";
+  }
+
+  // ADA is a positional accessibility modifier, not a replacement face layout.
+  // ADA-3DB15 and 3DB15ADA therefore use the same three-drawer elevation;
+  // generic ADA bases still retain the neutral ADA-height door-box drawing below.
+  if (
+    nomenclature.isAdaAccessible
+    && (nomenclature.adaProductKind === "three-drawer-base" || nomenclature.adaProductKind === "three-drawer-vanity-base")
+  ) {
+    return "drawer-base";
   }
 
   // Glass-front wall cabinets.

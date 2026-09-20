@@ -172,6 +172,41 @@ describe("cabinetDrawingType", () => {
     expect(cabinetAltText(regularBase)).toContain("1 drawer and 1 roll-out shelf");
   });
 
+  it("uses the same accessible drawer-base drawing for either ADA code position", () => {
+    const commonAdaDrawerFacts = {
+      description: '15" × 32.5" × 24" ADA Three-Drawer Base Cabinet',
+      category: "ADA",
+      subCategory: "ADA Base",
+      width: 15,
+      height: 32.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 3,
+    };
+    for (const masterCode of ["ADA-3DB15", "3DB15ADA"]) {
+      const cabinet = { masterCode, ...commonAdaDrawerFacts };
+      expect(cabinetDrawingType(cabinet)).toBe("drawer-base");
+      expect(resolveDoorDrawerCounts(cabinet)).toEqual({ doors: 0, drawers: 3 });
+      expect(baseSubGroup(cabinet)).toBe("specialty");
+    }
+
+    for (const masterCode of ["ADA-B12", "B12ADA"]) {
+      const cabinet = {
+        masterCode,
+        description: '12" × 32.5" × 24" ADA Accessible Base Cabinet — 1 Door, 1 Drawer, 1 Shelf',
+        category: "ADA",
+        subCategory: "ADA Base",
+        width: 12,
+        height: 32.5,
+        depth: 24,
+        numberOfDoors: 1,
+        numberOfDrawers: 1,
+      };
+      expect(cabinetDrawingType(cabinet)).toBe("ada");
+      expect(resolveDoorDrawerCounts(cabinet)).toEqual({ doors: 1, drawers: 1 });
+    }
+  });
+
   it("classifies a glass wall cabinet as glass-door", () => {
     const cab: CabinetLike = {
       masterCode: "W-30-GD",

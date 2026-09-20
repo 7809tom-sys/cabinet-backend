@@ -1242,8 +1242,26 @@ export const cabinetsRouter = router({
         const search = input.search.trim();
         const normalizedCodeSearch = normalizeCode(search);
         const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
+        const normalizedMasterAlias = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
+        const aliasRows = normalizedCodeSearch
+          ? await db
+            .select({ masterCode: skuMasterAliases.masterCode })
+            .from(skuMasterAliases)
+            .where(and(
+              eq(skuMasterAliases.conflictStatus, "ok"),
+              sql`${normalizedMasterAlias} LIKE ${`%${normalizedCodeSearch}%`}`,
+            ))
+          : [];
+        const aliasedMasterCodes = Array.from(new Set(aliasRows.map((row) => row.masterCode)));
         conds.push(
-          sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
+          aliasedMasterCodes.length > 0
+            ? or(
+              sql`${cabinets.masterCode} LIKE ${`%${search}%`}`,
+              sql`${cabinets.description} LIKE ${`%${search}%`}`,
+              sql`${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`}`,
+              inArray(cabinets.masterCode, aliasedMasterCodes),
+            )!
+            : sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
         );
       }
 
@@ -1349,6 +1367,31 @@ export const cabinetsRouter = router({
           .select()
           .from(cabinets)
           .where(and(eq(cabinets.id, alias.cabinetId), notInConflict()))
+          .limit(1);
+        if (canonical) return scrubCabinet(canonical);
+      }
+
+      // Master-code aliases are structural catalog routes (for example,
+      // B12ADA → ADA-B12). Resolve them before any direct legacy master row so
+      // the public catalog never reintroduces a second product identity.
+      const masterAliasCanon = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
+      const [masterAlias] = await db
+        .select({ masterCode: skuMasterAliases.masterCode })
+        .from(skuMasterAliases)
+        .where(and(
+          eq(skuMasterAliases.conflictStatus, "ok"),
+          or(
+            eq(skuMasterAliases.aliasCode, input.masterCode),
+            eq(skuMasterAliases.aliasCode, normalizedCode),
+            sql`${masterAliasCanon} = ${normalizedCode}`,
+          ),
+        ))
+        .limit(1);
+      if (masterAlias) {
+        const [canonical] = await db
+          .select()
+          .from(cabinets)
+          .where(and(eq(cabinets.masterCode, masterAlias.masterCode), notInConflict()))
           .limit(1);
         if (canonical) return scrubCabinet(canonical);
       }

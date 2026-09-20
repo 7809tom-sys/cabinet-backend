@@ -9,11 +9,14 @@ export type CatalogNomenclatureFamily =
   | "wall-plate-rack"
   | "chrome-tray"
   | "tall"
+  | "ada"
   | "unknown";
 
 export type CatalogNomenclature = {
   code: string;
   normalizedCode: string;
+  /** One durable code identity used for aliases and master creation when normalized. */
+  canonicalMasterCode?: string;
   family: CatalogNomenclatureFamily;
   expectedCategory?: string;
   expectedSubCategory?: string;
@@ -27,6 +30,12 @@ export type CatalogNomenclature = {
   isFullHeightBase?: boolean;
   /** Exact drawer count when the nomenclature unambiguously defines one. */
   expectedDrawerCount?: number;
+  /** ADA may be written before or after the structural cabinet code. */
+  isAdaAccessible?: boolean;
+  /** Structural code after removing the positional ADA marker. */
+  adaCoreCode?: string;
+  /** Only confirmed ADA core patterns receive a product-specific description. */
+  adaProductKind?: "base" | "three-drawer-base" | "three-drawer-vanity-base" | "vanity-sink-base" | "sink-base";
   expectedDescriptionTerms: string[];
 };
 
@@ -105,6 +114,29 @@ function joinProductDetails(details: Array<string | null>): string {
 }
 
 /**
+ * ADA is a positional marker, not a different physical cabinet code. The
+ * canonical platform form always places it first, so ADA-B12 and B12ADA resolve
+ * to the same master identity while the distributor's original SKU stays on its
+ * supplier line.
+ */
+export function canonicalCatalogMasterCode(masterCode: string): string {
+  const code = masterCode.trim().toUpperCase();
+  const normalized = code.replace(/[^A-Z0-9]/g, "");
+  const adaCore = normalized.startsWith("ADA") && normalized.length > 3
+    ? normalized.slice(3)
+    : normalized.endsWith("ADA") && normalized.length > 3
+      ? normalized.slice(0, -3)
+      : null;
+  return adaCore ? `ADA-${adaCore}` : code;
+}
+
+function positionalAdaCore(normalizedCode: string): string | null {
+  if (normalizedCode.startsWith("ADA") && normalizedCode.length > 3) return normalizedCode.slice(3);
+  if (normalizedCode.endsWith("ADA") && normalizedCode.length > 3) return normalizedCode.slice(0, -3);
+  return null;
+}
+
+/**
  * Recognizes product-family facts encoded directly in a master code. The parsed
  * facts are deliberately conservative: only families with an unambiguous code
  * convention impose fixed dimensions or category rules. Unknown codes remain
@@ -113,6 +145,101 @@ function joinProductDetails(details: Array<string | null>): string {
 export function parseCatalogNomenclature(masterCode: string): CatalogNomenclature {
   const code = masterCode.trim().toUpperCase();
   const normalizedCode = code.replace(/[^A-Z0-9]/g, "");
+
+  // ADA is a position-only code marker: ADA-B12 and B12ADA identify the same
+  // accessible cabinet. The structural core controls geometry while the ADA
+  // marker controls category, public wording, and the canonical alias route.
+  const adaCoreCode = positionalAdaCore(normalizedCode);
+  if (adaCoreCode) {
+    const adaBase = {
+      code,
+      normalizedCode,
+      canonicalMasterCode: `ADA-${adaCoreCode}`,
+      isAdaAccessible: true,
+      adaCoreCode,
+      expectedCategory: "ADA",
+      expectedPlacement: "base" as const,
+    };
+    const adaThreeDrawerBase = adaCoreCode.match(/^3DB(\d{2})$/);
+    if (adaThreeDrawerBase) {
+      return {
+        ...adaBase,
+        family: "ada",
+        expectedSubCategory: "ADA Base",
+        expectedWidth: Number(adaThreeDrawerBase[1]),
+        expectedHeight: 32.5,
+        expectedDepth: 24,
+        expectedDrawerCount: 3,
+        adaProductKind: "three-drawer-base",
+        expectedDescriptionTerms: ["ada", "three", "drawer", "base"],
+      };
+    }
+
+    const adaVanityDrawerBase = adaCoreCode.match(/^3VDB(\d{2})$/);
+    if (adaVanityDrawerBase) {
+      return {
+        ...adaBase,
+        family: "ada",
+        expectedSubCategory: "ADA Vanity",
+        expectedWidth: Number(adaVanityDrawerBase[1]),
+        expectedHeight: 32.5,
+        expectedDepth: 21,
+        expectedDrawerCount: 3,
+        adaProductKind: "three-drawer-vanity-base",
+        expectedDescriptionTerms: ["ada", "three", "drawer", "vanity", "base"],
+      };
+    }
+
+    const adaBaseCabinet = adaCoreCode.match(/^B(\d{2})$/);
+    if (adaBaseCabinet) {
+      return {
+        ...adaBase,
+        family: "ada",
+        expectedSubCategory: "ADA Base",
+        expectedWidth: Number(adaBaseCabinet[1]),
+        expectedHeight: 32.5,
+        expectedDepth: 24,
+        adaProductKind: "base",
+        expectedDescriptionTerms: ["ada", "base", "cabinet"],
+      };
+    }
+
+    const adaVanitySinkBase = adaCoreCode.match(/^VS(\d{2})$/);
+    if (adaVanitySinkBase) {
+      return {
+        ...adaBase,
+        family: "ada",
+        expectedSubCategory: "ADA Vanity",
+        expectedWidth: Number(adaVanitySinkBase[1]),
+        expectedHeight: 32.5,
+        expectedDepth: 21,
+        adaProductKind: "vanity-sink-base",
+        expectedDescriptionTerms: ["ada", "vanity", "sink", "base"],
+      };
+    }
+
+    const adaSinkBase = adaCoreCode.match(/^SB(\d{2})R$/);
+    if (adaSinkBase) {
+      return {
+        ...adaBase,
+        family: "ada",
+        expectedSubCategory: "ADA Sink Base",
+        expectedWidth: Number(adaSinkBase[1]),
+        expectedHeight: 32.5,
+        expectedDepth: 24,
+        adaProductKind: "sink-base",
+        expectedDescriptionTerms: ["ada", "removable", "sink", "base"],
+      };
+    }
+
+    // Preserve the canonical ADA identity for a new specialty core without
+    // guessing dimensions, doors, shelves, category, or artwork.
+    return {
+      ...adaBase,
+      family: "ada",
+      expectedDescriptionTerms: ["ada"],
+    };
+  }
 
   // Full-height base: B18FH2RS = 18-inch base, no utility drawer, two
   // roll-out shelves. Width is optional so the generic BFH2RS notation can be
@@ -357,6 +484,26 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
   const shelves = countLabel(shelfCount, "Shelf", "Shelves");
 
   switch (nomenclature.family) {
+    case "ada": {
+      if (!nomenclature.adaProductKind) return null;
+      const doorDetail = countLabel(input.numberOfDoors, "Door");
+      const drawerDetail = countLabel(input.numberOfDrawers, "Drawer");
+      const adaDetails = [doorDetail, drawerDetail, shelves];
+      switch (nomenclature.adaProductKind) {
+        case "three-drawer-base":
+          return `${dimensions ?? ""}${dimensions ? " " : ""}ADA Three-Drawer Base Cabinet`;
+        case "three-drawer-vanity-base":
+          return `${dimensions ?? ""}${dimensions ? " " : ""}ADA Three-Drawer Vanity Base Cabinet`;
+        case "base":
+          return `${dimensions ?? ""}${dimensions ? " " : ""}ADA Accessible Base Cabinet${joinProductDetails(adaDetails)}`;
+        case "vanity-sink-base":
+          return `${dimensions ?? ""}${dimensions ? " " : ""}ADA Vanity Sink Base Cabinet${joinProductDetails([doorDetail, shelves])}`;
+        case "sink-base":
+          return `${dimensions ?? ""}${dimensions ? " " : ""}ADA Removable Sink Base Cabinet`;
+        default:
+          return null;
+      }
+    }
     case "base": {
       if (nomenclature.rollOutShelfCount == null) return null;
       const rollOutShelves = countLabel(nomenclature.rollOutShelfCount, "Roll-Out Shelf", "Roll-Out Shelves");
