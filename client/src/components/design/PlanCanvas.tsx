@@ -701,12 +701,20 @@ export function PlanCanvas({
   };
 
   // ─── Wall selection ────────────────────────────────────────────────────────
-  // A wall is a first-class selectable object. Moving a pointer while selecting
-  // it must never resize the room, change its angle, or open its attributes.
-  // Those edits are intentionally limited to their explicit controls.
+  // A wall is a first-class selectable object. A normal touch only selects it;
+  // a right-click (or equivalent context-menu gesture) opens the explicit wall
+  // Attributes dialog. Moving a pointer while selecting must never resize the
+  // room or change its geometry.
   const onWallPointerDown = (e: React.PointerEvent, side: WallSide) => {
     e.stopPropagation();
     onSelectWall?.(side);
+  };
+
+  const onWallContextMenu = (event: React.MouseEvent, side: WallSide) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectWall?.(side);
+    onOpenWallSettings?.(side);
   };
 
   const compassStartForWall = useCallback((side: WallSide) => {
@@ -1187,7 +1195,23 @@ export function PlanCanvas({
               const length = Math.hypot(end.x - start.x, end.y - start.y);
               const active = activeWall === wall.id;
               return <g key={wall.id}>
-                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={32} strokeLinecap="round" className="pointer-events-auto cursor-pointer" onPointerDown={(event) => onWallPointerDown(event, wall.id as WallSide)} />
+                <line
+                  data-testid="custom-wall-context-target"
+                  x1={x1}
+                  y1={y1}
+                  x2={x2}
+                  y2={y2}
+                  stroke="transparent"
+                  strokeWidth={32}
+                  strokeLinecap="round"
+                  className="pointer-events-auto cursor-pointer"
+                  aria-label={`Right-click ${wall.label ?? "wall"} for Attributes`}
+                  onPointerDown={(event) => onWallPointerDown(event, wall.id as WallSide)}
+                  onContextMenu={(event) => onWallContextMenu(event, wall.id as WallSide)}
+                  onDoubleClick={(event) => onWallContextMenu(event, wall.id as WallSide)}
+                >
+                  <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
+                </line>
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
                 <g className="pointer-events-none" transform={`translate(${midX} ${midY})`}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
@@ -1448,13 +1472,15 @@ export function PlanCanvas({
             <div
               key={`wall-${side}`}
               onPointerDown={(e) => onWallPointerDown(e, side)}
+              onContextMenu={(event) => onWallContextMenu(event, side)}
+              onDoubleClick={(event) => onWallContextMenu(event, side)}
               className="absolute z-[5] flex items-center justify-center transition-colors"
               style={{
                 ...wstyle,
                 background: isActive ? "rgba(212,167,90,0.55)" : "transparent",
                 boxShadow: isActive ? "inset 0 0 0 2px #d4a75a" : undefined,
               }}
-              title={t("dt_pc_wall_target", { wall: wallLabel[side] })}
+              title={`${t("dt_pc_wall_target", { wall: wallLabel[side] })} · Right-click for Attributes`}
             >
               {showCompassRetainedPreview && (
                 <div

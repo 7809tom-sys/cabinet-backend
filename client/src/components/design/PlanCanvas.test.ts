@@ -165,13 +165,27 @@ describe("user measured open wall paths", () => {
           onMove: () => undefined,
           showWallLayer: true,
           activeWall: "wall-1" as any,
+          onSelectWall: () => undefined,
+          onOpenWallSettings: () => undefined,
         }),
       ),
     );
 
     expect(markup).toContain('aria-label="User measured walls"');
+    expect(markup).toContain('data-testid="custom-wall-context-target"');
+    expect(markup).toContain('Right-click Wall 1 for Attributes');
     expect(markup).not.toContain('data-testid="room-wall-top"');
     expect(markup).not.toContain('data-testid="room-wall-right"');
+  });
+
+  it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("const onWallContextMenu = (event: React.MouseEvent, side: WallSide) => {");
+    expect(source).toContain("onOpenWallSettings?.(side);");
+    expect(source).toContain('data-testid="custom-wall-context-target"');
+    expect(source).toContain("onContextMenu={(event) => onWallContextMenu(event, wall.id as WallSide)}");
+    expect(source).toContain("onContextMenu={(event) => onWallContextMenu(event, side)}");
   });
 
 	  it("positions an opening on its assigned diagonal custom wall instead of the graph boundary", () => {
