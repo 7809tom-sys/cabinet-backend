@@ -97,6 +97,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <BlindCornerFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "diagonal-corner":
       return <DiagonalCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "end-angle":
+      return <BaseEndAngleFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "l-corner":
       return <LCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "corner-drawer-base":
@@ -139,6 +141,51 @@ function Box({ x, y, w, h, fill }: { x: number; y: number; w: number; h: number;
       stroke={STROKE}
       strokeWidth={1.6}
     />
+  );
+}
+
+/**
+ * BEC24 is a 30-inch base end cabinet: one standard door box and one exposed
+ * 45-degree end panel. The end panel is structural, not a second door or a
+ * room-corner footprint. This neutral technical elevation mirrors the source
+ * specification rather than a finish-specific vendor image.
+ */
+function BaseEndAngleFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet">) {
+  const inset = 4;
+  const angleW = Math.max(8, w * 0.24);
+  const faceX = x + angleW;
+  const faceW = w - angleW;
+  const bevel = Math.min(h * 0.12, 12);
+  return (
+    <g data-base-end-angle-front="true">
+      <polygon
+        points={`${x + angleW},${y} ${x + w},${y} ${x + w},${y + h} ${x + angleW},${y + h} ${x},${y + h - bevel} ${x},${y + bevel}`}
+        fill={fill}
+        stroke={STROKE}
+        strokeWidth={1.6}
+        strokeLinejoin="round"
+      />
+      <polygon
+        points={`${x + angleW},${y} ${x + angleW},${y + h} ${x},${y + h - bevel} ${x},${y + bevel}`}
+        fill={PANEL_FILL}
+        stroke={STROKE_LIGHT}
+        strokeWidth={1}
+        strokeLinejoin="round"
+        data-base-end-angle-panel="true"
+      />
+      <rect
+        x={faceX + inset}
+        y={y + inset}
+        width={faceW - inset * 2}
+        height={h - inset * 2}
+        rx={1.5}
+        fill={PANEL_FILL}
+        stroke={STROKE_LIGHT}
+        strokeWidth={1}
+        data-base-end-single-door="true"
+      />
+      <circle cx={faceX + faceW - inset * 2.4} cy={y + h / 2} r={1.35} fill={STROKE} />
+    </g>
   );
 }
 

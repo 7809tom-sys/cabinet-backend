@@ -29,3 +29,7 @@ The following changes were applied only where a live CabinetDealz canonical mast
 - `RS18` through `RS36` now represent the individual Type A roll-out shelf insert dimensions and hardware facts. Exact source aliases such as `RS18-Type A` resolve to their existing canonical master.
 
 The reports in `docs/capital-spec-audit/` identify the remaining unmatched codes and source conflicts that were deliberately left untouched pending exact canonical ownership and code-keyed image provenance.
+
+## BEC24 correction source — page 54
+
+The Capital/U.S. Cabinet Depot Specification Manual V8 page 54 labels **BEC24** as **Specialty Bases — Base End Cabinet**. The authoritative table lists **Cabinet Dimensions: 30 in W × 34½ in H × 24 in D** and **Door Dimensions: 17½ in W × 29 in H × ¾ in D**. The accompanying technical drawing shows a 30-inch base end cabinet with a single **45° angled end**, not a 24 × 24 diagonal/corner box and not two equal 12-inch return faces. The pricing grid on page 20 lists BEC24 at $695/$767/$806/$799 across its four documented Capital price groups.

@@ -1959,13 +1959,13 @@ describe("interactive 3D room scene helpers", () => {
     })).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
   });
 
-  it("carries saved end-return and open-front Cabinet Config profiles into 3D specialty geometry", () => {
+  it("preserves source-correct BEC24 and open-front Cabinet Config profiles in 3D", () => {
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "CDB36", description: "36 inch Corner Drawer Base Cabinet", graphicType: "corner-drawer-base", customProfile: "corner-drawer-base", facePattern: null, cornerType: "l-shape",
     })).toEqual({ kind: "corner-drawer", pattern: null });
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "BEC-24", description: "Base End Cabinet", graphicType: "base_end_return", customProfile: "end-angle", facePattern: null, cornerType: null,
-    })).toEqual({ kind: "end-return", pattern: null });
+    })).toEqual({ kind: "standard", pattern: null });
     expect(resolvedThreeDSpecialtyProfile({
       masterCode: "WRC-30", description: "Wine Rack", graphicType: null, customProfile: null, facePattern: "lattice", cornerType: null,
     })).toEqual({ kind: "face-pattern", pattern: "lattice" });
@@ -2417,9 +2417,9 @@ describe("interactive 3D room scene helpers", () => {
     const wallLegs = wallLCorner.children.filter((node) => node.userData.lCornerCarcass) as THREE.Mesh[];
     expect(wallLegs.map((leg) => (leg.geometry as THREE.BoxGeometry).parameters).map((parameters) => Math.min(parameters.width, parameters.depth)).sort()).toEqual([1, 1]);
     expect(nodes.filter((node) => node.userData.cornerDrawerFace)).toHaveLength(3);
-    expect(nodes.filter((node) => node.userData.nonCornerEndReturnDoor)).toHaveLength(2);
-    expect(nodes.filter((node) => node.userData.nonCornerEndReturnBody)).toHaveLength(1);
-    expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(1);
+    expect(nodes.filter((node) => node.userData.nonCornerEndReturnDoor)).toHaveLength(0);
+    expect(nodes.filter((node) => node.userData.nonCornerEndReturnBody)).toHaveLength(0);
+    expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(0);
     expect(nodes.filter((node) => node.userData.lCornerCountertop)).toHaveLength(4);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
@@ -2500,7 +2500,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(diagnostics.mapped.map((cabinet) => cabinet.masterCode)).toEqual(["CDB36", "BMC30", "DW-24", "W-30-42", "BEC-24"]);
     expect(resolvedThreeDFaceLayout(diagnostics.mapped[1]!)).toEqual({ hasConfiguredOpening: true, doorCount: 0, drawerCount: 1 });
     expect(resolvedThreeDSpecialtyProfile(diagnostics.mapped[0]!)).toEqual({ kind: "corner-drawer", pattern: null });
-    expect(resolvedThreeDSpecialtyProfile(diagnostics.mapped[4]!)).toEqual({ kind: "end-return", pattern: null });
+    expect(resolvedThreeDSpecialtyProfile(diagnostics.mapped[4]!)).toEqual({ kind: "standard", pattern: null });
     expect(shouldRenderCountertopOverSceneItem("appliance", diagnostics.mapped[2]!.masterCode)).toBe(true);
     expect(existingCabinetTransform(placed[3])).toMatchObject({ x: 15, z: 42, bottom: 54 });
   });
@@ -5345,13 +5345,13 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDShakerFramePose(0.4, 0, 0.066, -Math.PI / 4)).toEqual({ x: 0.4, y: 0, z: 0.066, rotationY: -Math.PI / 4 });
   });
 
-  it("physically builds selected-style Shaker frame groups on standard, tall, diagonal, and end-return faces", () => {
+  it("physically builds selected-style Shaker frame groups on standard, tall, diagonal, and BEC24 source faces", () => {
     const profile = { doorStyle: "Shaker", doorPanelType: "Recessed Panel" };
     const fixtures = [
       { masterCode: "B-24", description: "Base Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 1, expectedRotations: [0, 0, 0] },
       { masterCode: "T-24", description: "Tall Cabinet", placementType: "tall", width: 24, height: 84, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, expectedRotations: [0, 0] },
       { masterCode: "WDC2430", description: "Diagonal Wall Corner", placementType: "wall", width: 24, height: 30, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "diagonal", expectedRotations: [Math.PI / 4, Math.PI / 4] },
-      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 24, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [-Math.PI / 4, Math.PI / 4] },
+      { masterCode: "BEC-24", description: "Base End Cabinet", placementType: "base", width: 30, height: 34.5, depth: 24, numberOfDoors: 1, numberOfDrawers: 0, customProfile: "base_end_return", expectedRotations: [0] },
     ];
 
     for (const fixture of fixtures) {
@@ -5514,7 +5514,9 @@ describe("interactive 3D room scene helpers", () => {
     expect(pose.x * pose.normalX + pose.z * pose.normalZ).toBeGreaterThan(0.026);
   });
 
-  it("normalizes saved BA-24 and BEC-24 records into the supplied rear-apex two-24-inch-side diagram form without refreshed profile metadata", () => {
+  // Retained only as historical documentation of the pre-source import model.
+  // Capital page 54 proves BEC24 is not the two-face 24-inch return in this test.
+  it.skip("retired: normalizes saved BA-24 and BEC-24 records into the supplied rear-apex two-24-inch-side diagram form without refreshed profile metadata", () => {
     for (const masterCode of ["BA-24", "BEC-24"]) {
       const sku = {
         distributorSkuId: -24,
@@ -5609,7 +5611,8 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
-  it("keeps a saved BEC-24 on its placement record while rendering the diagram-defined rear-apex two-face end form", () => {
+  // Retained only as historical documentation of the pre-source import model.
+  it.skip("retired: keeps a saved BEC-24 on its placement record while rendering the diagram-defined rear-apex two-face end form", () => {
     const base = {
       uid: "base-run-24", cabinetId: 11, masterCode: "B-24", description: '24" Base Cabinet', placement: "base",
       x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0,
@@ -5649,6 +5652,34 @@ describe("interactive 3D room scene helpers", () => {
     const rightApex = rightDoor.localToWorld(new THREE.Vector3(-8.45 / 12 / 2, 0, 0));
     expect(leftApex.distanceTo(rightApex)).toBeLessThan(0.08);
     expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
+  });
+
+  it("keeps BEC24 as its 30-inch one-door base body instead of resurrecting the retired two-face return mesh", () => {
+    const sku = {
+      distributorSkuId: -24,
+      cabinetId: 9390014,
+      masterCode: "BEC-24",
+      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
+      placementType: "base",
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+      customProfile: "base_end_return",
+    } as never;
+    expect(resolvedThreeDSpecialtyProfile(sku)).toEqual({ kind: "standard", pattern: null });
+
+    const root = new THREE.Group();
+    addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
+    const retiredFaces: THREE.Object3D[] = [];
+    const standardDoors: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.nonCornerEndReturnDoor) retiredFaces.push(node);
+      if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront) standardDoors.push(node);
+    });
+    expect(retiredFaces).toHaveLength(0);
+    expect(standardDoors).toHaveLength(1);
   });
 
   it("keeps standard configured doors and drawers fully outside their physical carcass face without overhanging its width", () => {

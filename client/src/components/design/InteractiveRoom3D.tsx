@@ -2716,6 +2716,12 @@ export function resolvedThreeDFaceLayout(input: {
 
 export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "cornerGeometryKind" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
+  const normalizedCode = (sku.masterCode ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+  // Capital's BEC24 source specification is a 30 × 34½ × 24 base end cabinet
+  // with a single 45-degree exposed end and one door. Its former 24-inch,
+  // two-face return profile was an imported error, so never let stale Config
+  // metadata turn this exact code back into the retired diamond/end-return mesh.
+  if (normalizedCode === "BEC24") return { kind: "standard" as const, pattern: null };
   if (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? "")) return { kind: "farmhouse-sink" as const, pattern: null };
   // AW1230, AW1236, and AW1242 are one angled-wall family. Catalog rows do
   // not consistently store diagonal corner metadata, so code/description must

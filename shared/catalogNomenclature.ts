@@ -11,6 +11,7 @@ export type CatalogNomenclatureFamily =
   | "wall-microwave-kit"
   | "shelf-insert"
   | "roll-out-shelf"
+  | "base-end-cabinet"
   | "tall"
   | "ada"
   | "unknown";
@@ -245,6 +246,27 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
       ...adaBase,
       family: "ada",
       expectedDescriptionTerms: ["ada"],
+    };
+  }
+
+  // Capital / U.S. Cabinet Depot BEC24 is the one documented base-end
+  // cabinet in this catalog family. Its suffix is not its width: the source
+  // specification fixes its cabinet box at 30 × 34½ × 24 with one 17½-inch
+  // door and a single 45-degree angled end.
+  if (normalizedCode === "BEC24") {
+    return {
+      code,
+      normalizedCode,
+      family: "base-end-cabinet",
+      expectedCategory: "Base",
+      expectedSubCategory: "Base End Cabinet",
+      expectedPlacement: "base",
+      expectedWidth: 30,
+      expectedHeight: 34.5,
+      expectedDepth: 24,
+      expectedDoorCount: 1,
+      expectedDrawerCount: 0,
+      expectedDescriptionTerms: ["base", "end", "cabinet", "angled", "door"],
     };
   }
 
@@ -597,6 +619,8 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
       const drawerDetail = nomenclature.isFullHeightBase ? "No Drawer" : "1 Drawer";
       return `${dimensions ?? ""}${dimensions ? " " : ""}${baseName}${joinProductDetails([drawerDetail, rollOutShelves])}`;
     }
+    case "base-end-cabinet":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Base End Cabinet — 45° Angled End, 1 Door`;
     case "wall-skin-veneer":
       return dimensions ? `${dimensions} Wall Skin / Scribe Veneer Panel` : "Wall Skin / Scribe Veneer Panel";
     case "chrome-tray": {

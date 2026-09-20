@@ -61,6 +61,29 @@ describe("CabinetImage approved catalog art priority", () => {
     expect(markup).toContain('data-cabinet-drawing="plate-rack"');
   });
 
+  it("replaces the legacy BEC24 24-by-24 thumbnail with the source-true angled-end drawing", () => {
+    const markup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: {
+          masterCode: "BEC-24",
+          description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
+          category: "Base",
+          subCategory: "Base End Cabinet",
+          width: 30,
+          height: 34.5,
+          depth: 24,
+          numberOfDoors: 1,
+          numberOfDrawers: 0,
+          catalogImageUrl: "https://example.com/legacy-bec24-24x24-thumbnail.webp",
+        },
+      }),
+    );
+
+    expect(markup).not.toContain("legacy-bec24-24x24-thumbnail.webp");
+    expect(markup).toContain('data-base-end-angle-front="true"');
+    expect(markup).toContain('data-base-end-single-door="true"');
+  });
+
   it("falls back to the WMS open cabinet-kit drawing rather than a double-door wall cabinet", () => {
     const markup = renderToStaticMarkup(
       createElement(CabinetImage, {

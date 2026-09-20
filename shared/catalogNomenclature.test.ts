@@ -115,6 +115,34 @@ describe("catalog nomenclature truth", () => {
       .toBe("Chrome Tray Insert for ERB36 Easy-Reach Corner Cabinet");
   });
 
+  it("preserves the Capital-specified BEC24 base-end cabinet instead of guessing a 24-inch corner box", () => {
+    expect(parseCatalogNomenclature("BEC-24")).toMatchObject({
+      family: "base-end-cabinet",
+      expectedCategory: "Base",
+      expectedSubCategory: "Base End Cabinet",
+      expectedPlacement: "base",
+      expectedWidth: 30,
+      expectedHeight: 34.5,
+      expectedDepth: 24,
+      expectedDoorCount: 1,
+      expectedDrawerCount: 0,
+    });
+    expect(designerFriendlyDescription({ masterCode: "BEC24" }))
+      .toBe('30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door');
+    expect(catalogNomenclatureIssues({
+      masterCode: "BEC24",
+      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
+      category: "Base",
+      subCategory: "Base End Cabinet",
+      placementType: "base",
+      width: 30,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+    })).toEqual([]);
+  });
+
   it("preserves the Capital WMS cabinet-kit and individual shelf-insert distinction", () => {
     expect(parseCatalogNomenclature("WMS3018")).toMatchObject({
       family: "wall-microwave-kit",

@@ -101,11 +101,11 @@ describe("cabinetDrawingType", () => {
     })).toEqual({ doors: 0, drawers: 0 });
     expect(resolveDoorDrawerCounts({
       masterCode: "BEC-24",
-      description: '24" Base End Cabinet',
-      numberOfDoors: 2,
+      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
+      numberOfDoors: 1,
       numberOfDrawers: 0,
       graphicType: "end-angle",
-    })).toEqual({ doors: 2, drawers: 0 });
+    })).toEqual({ doors: 1, drawers: 0 });
   });
 
   it("classifies an all-drawer base as drawer-base", () => {
@@ -229,21 +229,21 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("diagonal-corner");
   });
 
-  it("classifies BEC-24's explicit end-angle Config as a non-corner 45-degree two-door end cabinet", () => {
+  it("classifies BEC-24's source-specified end-angle Config as a non-corner one-door end cabinet", () => {
     const cab: CabinetLike = {
       masterCode: "BEC-24",
-      description: '24" Base End Cabinet — 45° Angled Front',
+      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
       category: "Base",
       subCategory: "Base End Cabinet",
-      width: "24",
+      width: "30",
       height: "34.5",
       depth: "24",
-      numberOfDoors: 2,
+      numberOfDoors: 1,
       isCornerCabinet: false,
       graphicType: "end-angle",
     };
     expect(cabinetDrawingType(cab)).toBe("end-angle");
-    expect(cabinetTypeLabel(cab)).toBe("Base End Cabinet — 45° Angled Front");
+    expect(cabinetTypeLabel(cab)).toBe("Base End Cabinet — 45° Angled End");
     expect(cabinetAltText(cab)).toContain("base end cabinet with angled outer face");
     expect(baseSubGroup(cab)).toBe("specialty");
   });
@@ -255,37 +255,37 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType({ ...base, cornerType: "lazy-susan" })).toBe("l-corner");
   });
 
-  it("uses one explicit angled-front end-cabinet rule for both BA-24 and BEC-24", () => {
-    for (const masterCode of ["BA-24", "BEC-24"]) {
+  it("uses the exact BEC24 angled-end source facts rather than a generic return profile", () => {
+    for (const masterCode of ["BEC-24"]) {
       const cabinet = {
         masterCode,
-        description: '24" Base End Cabinet — 45° Angled Front',
+        description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
         category: "Base",
         subCategory: "Base End Cabinet",
-        width: 24,
+        width: 30,
         height: 34.5,
         depth: 24,
-        numberOfDoors: 2,
+        numberOfDoors: 1,
         numberOfDrawers: 0,
         isCornerCabinet: false,
         graphicType: "end-angle",
       };
       expect(cabinetDrawingType(cabinet)).toBe("end-angle");
-      expect(cabinetTypeLabel(cabinet)).toBe("Base End Cabinet — 45° Angled Front");
-      expect(resolveDoorDrawerCounts(cabinet)).toEqual({ doors: 2, drawers: 0 });
+      expect(cabinetTypeLabel(cabinet)).toBe("Base End Cabinet — 45° Angled End");
+      expect(resolveDoorDrawerCounts(cabinet)).toEqual({ doors: 1, drawers: 0 });
     }
   });
 
   it("upgrades legacy BEC base_end_return metadata to the same single 45-degree end face", () => {
     expect(cabinetDrawingType({
       masterCode: "BEC-24",
-      description: '24" Base End Cabinet — 45° Angled Front',
+      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
       category: "Base",
       subCategory: "Base End Cabinet",
-      width: 24,
+      width: 30,
       height: 34.5,
       depth: 24,
-      numberOfDoors: 2,
+      numberOfDoors: 1,
       numberOfDrawers: 0,
       graphicType: "base_end_return",
     })).toBe("end-angle");

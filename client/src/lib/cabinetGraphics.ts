@@ -318,11 +318,12 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   if (graphic === "end-angle" || graphic === "base_end_angle") {
     return "end-angle";
   }
-  // Canonical BEC / BA is a 24-inch *end-of-run* cabinet. Some already-saved
-  // records still carry the historic `base_end_return` graphic token, which
-  // drew two folded 12-inch faces. Reinterpret only this confirmed family as
-  // its one physical 45-degree end face; leave generic end-return profiles
-  // available for unrelated Cabinet Config records.
+  // Canonical BEC24 is the source-specified 30 × 34½ × 24 end-of-run cabinet
+  // with one 45-degree angled end and one door. Some already-saved records
+  // still carry the historic `base_end_return` graphic token, which drew two
+  // folded 12-inch faces. Reinterpret only this confirmed family as its one
+  // physical angled end; leave generic end-return profiles for unrelated
+  // Cabinet Config records.
   if (
     (/^(?:base_)?end[_-]?return$/.test(graphic) || graphic === "base_end_return")
     && (/^(?:bec|ba)[-_]?\d/.test(code) || /base end (?:cabinet|angle)/.test(`${sub} ${desc}`))
@@ -387,10 +388,9 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
     return "corner-drawer-base";
   }
 
-  // BEC / BA are explicit 24-by-24 end-of-run cabinets. Their body mates to
-  // the existing 24-inch base run and the exposed end is one 45-degree,
-  // 17-inch face carrying two approximately 8½-inch doors—never a room corner
-  // or two folded 12-inch return faces.
+  // BEC24 is the exact source-specified 30-inch base end cabinet. Its body
+  // mates to a base run and its exposed end is one 45-degree angled panel with
+  // a single 17½-inch door—never a room corner or two folded return faces.
   if (
     /base end corner|base end cabinet|end corner return|base end angle/.test(sub) ||
     /^(?:bec|ba)[-_]?\d/.test(code) ||
@@ -638,7 +638,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
-  if (type === "end-angle") return "Base End Cabinet — 45° Angled Front";
+  if (type === "end-angle") return "Base End Cabinet — 45° Angled End";
   if (type === "end-return") return "Base End Corner Cabinet";
   if (type === "l-corner") return /lazy susan/.test(desc) ? `Lazy Susan ${placement}` : `Corner ${placement}`;
   if (type === "corner-drawer-base") return `Corner Drawer ${placement}`;
