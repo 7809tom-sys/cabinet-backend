@@ -1254,7 +1254,7 @@ export const cabinetsRouter = router({
     )
     .query(async ({ input }) => {
       const db = await getDb();
-      if (!db) return { items: [], total: 0 };
+      if (!db) return { items: [], total: 0, categoryCounts: {} as Record<string, number> };
 
       const sourceConds = [
         eq(distributorSkus.styleId, input.styleId),
@@ -1322,19 +1322,28 @@ export const cabinetsRouter = router({
           || aliasMatchedMasterCodes.has(row.masterCode);
       };
 
-      const rows = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
-        .map(({ master }) => master)
-        .filter(matchesFilters);
+      const resolved = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
+        .map(({ master }) => master);
+      const allByCabinet = new Map<number, (typeof resolved)[number]>();
+      for (const row of resolved) if (!allByCabinet.has(row.id)) allByCabinet.set(row.id, row);
 
-      const byCabinet = new Map<number, (typeof rows)[number]>();
-      for (const r of rows) if (!byCabinet.has(r.id)) byCabinet.set(r.id, r);
-      const distinct = Array.from(byCabinet.values()).sort((a, b) =>
-        (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true })
-      );
+      // Category pills are scoped to this exact door style's currently
+      // sellable catalog. An empty category must never appear as a dead tab.
+      const categoryCounts: Record<string, number> = {};
+      for (const row of Array.from(allByCabinet.values())) {
+        const category = row.category?.trim();
+        if (category) categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
+      }
+
+      const distinct = Array.from(allByCabinet.values())
+        .filter(matchesFilters)
+        .sort((a, b) =>
+          (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true })
+        );
 
       const total = distinct.length;
       const page = distinct.slice(input.offset, input.offset + input.limit);
-      return { items: page, total };
+      return { items: page, total, categoryCounts };
     }),
 
   categories: publicProcedure.query(async () => {

@@ -33,6 +33,8 @@ describe("canonical master with style-specific supplier overlay", () => {
       expect.objectContaining({ masterCode: "B24", id: 9360006 }),
     ]));
     expect(publicStyleCatalog.items.some((item) => item.masterCode === "B-24")).toBe(false);
+    expect(publicStyleCatalog.categoryCounts.Base).toBeGreaterThan(0);
+    expect(Object.values(publicStyleCatalog.categoryCounts).every((count) => count > 0)).toBe(true);
 
     // The canonical detail page must still resolve the Aston Green source
     // overlay when a shopper opens the card, not only when browsing the family.

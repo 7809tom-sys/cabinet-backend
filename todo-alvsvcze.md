@@ -2494,3 +2494,7 @@
 - [x] Synchronize all stored retail/homeowner, contractor, and wholesale tier columns from the durable source cost (`yourCost`, then adjusted/list price) using the current published 65% / 29% / 25% tier margins; verified 0 stale prices across 15,996 cost-backed supplier rows.
 - [x] Make the Admin → Pricing & Margins save action refresh those stored tier prices automatically and show the synchronized row count, so exports, admin price audits, legacy pages, and customer-facing price calculations remain aligned without compounding previous wholesale sell prices.
 - [x] Add a live integration regression that saves unchanged current margins and verifies persisted wholesale, contractor, and retail values equal the durable cost times each configured tier multiplier.
+
+- [x] Show Cabinet Detail category pills only for categories with at least one currently available, published, positive-priced cabinet in the selected door style; unavailable category labels no longer become empty "No cabinets found" filters.
+- [x] Return authoritative style-scoped category counts from the catalog procedure, reset an unavailable route category to All after availability loads, and preserve the product’s own category/type label in its detail information.
+- [x] Add category count and UI filter regressions; verify Classic Cream has 198 sellable cabinets and only its populated category counts are offered.

@@ -51,6 +51,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { buildProductJsonLd } from "@/lib/seo/jsonLd";
 import { translateSpec } from "@/lib/i18n/specPhrases";
+import { nonEmptyStyleCategories } from "@/lib/catalogCategories";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
 import {
@@ -2483,8 +2484,25 @@ function StyleCategoryNav({
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
 
-  // Categories to show as pills — loaded from DB with fallback
-  const { categoryNames: categories } = useDynamicCategories();
+  // Category names come from the platform taxonomy, but the pills are only
+  // shown when this selected door style has at least one sellable product in
+  // that category. This prevents dead, empty category labels.
+  const { categoryNames } = useDynamicCategories();
+  const categories = useMemo(
+    () => nonEmptyStyleCategories(categoryNames, data?.categoryCounts),
+    [categoryNames, data],
+  );
+
+  // A detail route can open a product whose category is not carried by the
+  // chosen style. Once availability loads, fall back to All instead of leaving
+  // the visitor in an empty category result.
+  useEffect(() => {
+    if (!data || activeCategory === null) return;
+    if ((data.categoryCounts?.[activeCategory] ?? 0) === 0) {
+      setActiveCategory(null);
+      setPage(0);
+    }
+  }, [activeCategory, data]);
 
   return (
     <div className="mb-4">
