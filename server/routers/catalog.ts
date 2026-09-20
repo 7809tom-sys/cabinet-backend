@@ -17,6 +17,13 @@ import {
   costChangeLog,
   doorStyleCorrections,
   distributorCabinetOverrides,
+  designLayoutZoneSelections,
+  codeAliases,
+  cabinet3dPreviews,
+  cartItems,
+  orderItems,
+  kitchenDesigns,
+  productViews,
   skuMasterAliases,
   pantryBundles,
 } from "../../drizzle/schema";
@@ -1988,6 +1995,28 @@ export const cabinetsRouter = router({
           patch.configVerifiedByName = null;
         }
       }
+      const requiresPublicPrice = input.isActive === true
+        || input.showInCatalog === true
+        || input.showInDesigner === true
+        || input.showIn2020 === true;
+      if (requiresPublicPrice) {
+        const [sellableSource] = await db
+          .select({ id: distributorSkus.id })
+          .from(distributorSkus)
+          .where(and(
+            eq(distributorSkus.cabinetId, input.id),
+            eq(distributorSkus.isAvailable, true),
+            eq(distributorSkus.isPublished, true),
+            sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+          ))
+          .limit(1);
+        if (!sellableSource) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "A positive published supplier price is required before this item can be active in Catalog or Designer.",
+          });
+        }
+      }
       if (Object.keys(patch).length === 0) return { ok: true };
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
@@ -2710,6 +2739,126 @@ export const cabinetsRouter = router({
         db.select({ count: sql<number>`count(*)` }).from(cabinets).where(where),
       ]);
       return { rows, total: Number(countRows[0]?.count ?? 0) };
+    }),
+
+  // ── Admin: Unpriced master records ───────────────────────────────────────
+  // This is deliberately separate from Cabinet Attention: an item with a
+  // distributor connection needs a price entered; an item with no distributor
+  // connection is invalid master data and can be removed safely from this queue.
+  adminListUnpricedCabinets: adminProcedure
+    .input(z.object({
+      page: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(200).default(100),
+      search: z.string().trim().optional(),
+      unlinkedOnly: z.boolean().default(false),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0 };
+
+      const conditions: SQL[] = [
+        isCanonicalCabinetMaster(),
+        sql`NOT ${hasPositivePublishedCabinetPrice()}`,
+      ];
+      if (input.unlinkedOnly) {
+        conditions.push(sql`NOT EXISTS (
+          SELECT 1 FROM distributor_skus unpriced_supplier_link
+          WHERE unpriced_supplier_link.cabinetId = ${cabinets.id}
+        )`);
+      }
+      const search = input.search?.trim();
+      if (search) {
+        const like = `%${search}%`;
+        const normalizedCodeSearch = normalizeCode(search);
+        conditions.push(sql`(
+          ${cabinets.masterCode} LIKE ${like}
+          OR ${cabinets.description} LIKE ${like}
+          OR UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', '')) LIKE ${`%${normalizedCodeSearch}%`}
+        )`);
+      }
+      const where = and(...conditions);
+      const [rows, countRows] = await Promise.all([
+        db.select({
+          id: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          width: cabinets.width,
+          height: cabinets.height,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          isActive: cabinets.isActive,
+          supplierSkuCount: sql<number>`(
+            SELECT COUNT(*) FROM distributor_skus unpriced_supplier_count
+            WHERE unpriced_supplier_count.cabinetId = ${cabinets.id}
+          )`,
+          distributorNames: sql<string | null>`(
+            SELECT GROUP_CONCAT(
+              DISTINCT COALESCE(NULLIF(unpriced_distributors.brandName, ''), unpriced_distributors.name)
+              ORDER BY COALESCE(NULLIF(unpriced_distributors.brandName, ''), unpriced_distributors.name)
+              SEPARATOR ' | '
+            )
+            FROM distributor_skus unpriced_skus
+            INNER JOIN distributors unpriced_distributors ON unpriced_distributors.id = unpriced_skus.distributorId
+            WHERE unpriced_skus.cabinetId = ${cabinets.id}
+          )`,
+        })
+          .from(cabinets)
+          .where(where)
+          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .limit(input.limit)
+          .offset(input.page * input.limit),
+        db.select({ count: sql<number>`COUNT(*)` }).from(cabinets).where(where),
+      ]);
+      return { rows, total: Number(countRows[0]?.count ?? 0) };
+    }),
+
+  /**
+   * Removes only an invalid, unpriced master with no distributor SKU connection.
+   * Orders, carts, saved layout zones, and any now-linked supplier item are hard
+   * stops, so this action cannot erase a historical or sellable product.
+   */
+  adminDeleteUnlinkedUnpricedCabinet: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      const [cabinet] = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.id))
+        .limit(1);
+      if (!cabinet) throw new TRPCError({ code: "NOT_FOUND", message: "Catalog item not found" });
+
+      const [supplierLink, orderReference, cartReference, zoneReference, savedDesignReference, costLogReference, productViewReference] = await Promise.all([
+        db.select({ id: distributorSkus.id }).from(distributorSkus).where(eq(distributorSkus.cabinetId, input.id)).limit(1),
+        db.select({ id: orderItems.id }).from(orderItems).where(eq(orderItems.cabinetId, input.id)).limit(1),
+        db.select({ id: cartItems.id }).from(cartItems).where(eq(cartItems.cabinetId, input.id)).limit(1),
+        db.select({ id: designLayoutZoneSelections.id }).from(designLayoutZoneSelections).where(eq(designLayoutZoneSelections.cabinetId, input.id)).limit(1),
+        db.select({ id: kitchenDesigns.id }).from(kitchenDesigns).where(
+          sql`JSON_SEARCH(COALESCE(${kitchenDesigns.placedCabinets}, JSON_ARRAY()), 'one', ${String(input.id)}) IS NOT NULL`,
+        ).limit(1),
+        db.select({ id: costChangeLog.id }).from(costChangeLog).where(eq(costChangeLog.cabinetId, input.id)).limit(1),
+        db.select({ id: productViews.id }).from(productViews).where(eq(productViews.cabinetId, input.id)).limit(1),
+      ]);
+      if (supplierLink) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This item has a distributor link. Add a positive supplier price instead of deleting it." });
+      }
+      if (orderReference || cartReference || zoneReference || savedDesignReference || costLogReference || productViewReference) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This item is referenced by an order, cart, saved design, audit record, or product view and cannot be deleted." });
+      }
+
+      await db.transaction(async (tx) => {
+        await tx.delete(cabinetAliases).where(eq(cabinetAliases.cabinetId, input.id));
+        await tx.delete(codeAliases).where(eq(codeAliases.cabinetId, input.id));
+        await tx.delete(distributorCabinetOverrides).where(eq(distributorCabinetOverrides.cabinetId, input.id));
+        await tx.delete(cabinetDistributorEligibility).where(eq(cabinetDistributorEligibility.cabinetId, input.id));
+        await tx.delete(cabinet3dPreviews).where(eq(cabinet3dPreviews.cabinetId, input.id));
+        await tx.delete(skuMasterAliases).where(eq(skuMasterAliases.masterCode, cabinet.masterCode));
+        await tx.delete(cabinets).where(eq(cabinets.id, input.id));
+      });
+
+      return { ok: true, masterCode: cabinet.masterCode };
     }),
 
   // ── Admin: Distributor lines represented in the Cabinet Attention queue ──

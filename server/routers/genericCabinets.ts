@@ -268,9 +268,9 @@ export const genericCabinetsRouter = router({
 
   /**
    * Creates or edits one CabinetDealz master cabinet from the complete Catalog form.
-   * A draft is intentionally hidden from catalog/designer. Publishing requires the
-   * category and one source SKU with a price, so a public or Designer item can never
-   * be an unpriced master record with no orderable supplier connection.
+   * A draft is intentionally hidden from catalog/designer. Every saved item requires
+   * an available supplier source with a positive price so the master catalog never
+   * accumulates an unpriced product that could later be exposed by mistake.
    */
   saveCatalogItem: adminProcedure
     .input(
@@ -330,8 +330,8 @@ export const genericCabinetsRouter = router({
       if (publish && !description) {
         throw new Error("Product name or description is required before publishing.");
       }
-      if (publish && (!input.source || !input.source.isAvailable || !hasPositiveCatalogPrice([input.source.listPrice, input.source.yourCost]))) {
-        throw new Error("Add a positive List Price or Your Cost on an available supplier source before publishing.");
+      if (!input.source || !input.source.isAvailable || !hasPositiveCatalogPrice([input.source.listPrice, input.source.yourCost])) {
+        throw new Error("Every catalog item needs an available supplier source with a positive List Price or Your Cost before it can be saved.");
       }
       if (publish) {
         const truthIssues = catalogNomenclatureIssues({

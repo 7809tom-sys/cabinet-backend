@@ -60,25 +60,24 @@ describe("duplicate normalized cabinet codes", () => {
     expect(noDashAlias).toEqual(canonical);
   });
 
-  it("resolves 3DB12 as the legacy alias of canonical 3-DB12", async () => {
-    const caller = appRouter.createCaller({} as any);
-    const canonical = await caller.cabinets.byCode({ masterCode: "3-DB12" });
-    const alias = await caller.cabinets.byCode({ masterCode: "3DB12" });
+	it("keeps an unpriced 3DB12 canonical and alias out of public lookup", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const canonical = await caller.cabinets.byCode({ masterCode: "3-DB12" });
+	  const alias = await caller.cabinets.byCode({ masterCode: "3DB12" });
 
-    expect(canonical).toEqual(expect.objectContaining({ id: 9390028, masterCode: "3-DB12" }));
-    expect(alias).toEqual(canonical);
+	  // The aliases remain in the Admin catalog for configuration, but the
+	  // customer-facing lookup must never expose a sellable $0 product.
+	  expect(canonical).toBeNull();
+	  expect(alias).toBeNull();
+	});
 
-    const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
-    expect(styles.length).toBeGreaterThan(0);
-  });
-
-	it("resolves 3DB21 as the explicit alias of canonical master 3-DB21", async () => {
+	it("keeps an unpriced 3DB21 canonical and alias out of public lookup", async () => {
 	  const caller = appRouter.createCaller({} as any);
 	  const canonical = await caller.cabinets.byCode({ masterCode: "3-DB21" });
-    const alias = await caller.cabinets.byCode({ masterCode: "3DB21" });
+	  const alias = await caller.cabinets.byCode({ masterCode: "3DB21" });
 
-    expect(canonical).toEqual(expect.objectContaining({ id: 9390031, masterCode: "3-DB21" }));
-	  expect(alias).toEqual(canonical);
+	  expect(canonical).toBeNull();
+	  expect(alias).toBeNull();
 	});
 
 	it("resolves W2430 to the canonical W-24-30 record without moving supplier price rows", async () => {

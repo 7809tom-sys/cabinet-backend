@@ -34,6 +34,14 @@ describe("notInConflict() predicate", () => {
 	  expect(dbSource).toContain("canonical_sku_alias.conflictStatus = 'ok'");
 	  expect(dbSource).toContain("isCanonicalCabinetMaster()");
 	});
+
+	it("suppresses an approved alias when its canonical master has a supplier source", () => {
+	  // A canonical item may legitimately remain in Cabinet Attention while it is
+	  // unverified or inactive. Its approved aliases must still resolve to that
+	  // supplier-backed master instead of appearing as false unlinked products.
+	  expect(dbSource).toContain("FROM distributor_skus canonical_supplier_sku");
+	  expect(dbSource).toContain("canonical_supplier_sku.cabinetId = canonical_cabinet.id");
+	});
 });
 
 describe("conflict-status schema contract", () => {

@@ -2425,3 +2425,19 @@
 - [x] Move Distributor Dimension Overrides into the same scrollable Cabinet Edit workspace as Description, category, dimensions, and all master fields; the fixed Save footer no longer divides or hides the active edit form.
 - [x] When a distributor row’s **Edit** action is selected, automatically bring the actual width, height, depth, package, weight, and note inputs into view and label the active editor clearly.
 - [x] Validate TypeScript, four focused Cabinet Detail regressions, production build, and diff integrity.
+
+## Verified distributor nomenclature aliases — 2026-09-19
+
+- [x] Audit every unlinked master against real distributor-linked masters using exact normalized nomenclature (hyphens, spaces, and underscores ignored), without guessing across distinct product codes or dimensions.
+- [x] Add 13 verified legacy code aliases to both canonical-resolution layers: `B-39 → B39`, `B12 → B-12`, `B15 → B-15`, `B18 → B-18`, `B21 → B-21`, `BBC36 → BBC-36`, `U188424 → U-18-84-24`, `U189624 → U-18-96-24`, `W0936 → W-0936`, `W0942 → W-0942`, `W1230 → W-1230`, `W1236 → W-1236`, and `W1242 → W-1242`.
+- [x] Preserve all distributor SKU rows, pricing, availability, historical orders, and design references; only retire duplicate master visibility so an exact alias search returns one canonical item with its linked distributor lines.
+- [x] Keep remaining no-linked-distributor rows separate when no real, verified supplier counterpart exists (for example, the shown full-height `B-39FH`, `B-42FH`, and `B-48FH` codes have no matching supplier source in the current data and must not be guessed into an alias).
+- [x] Complete the follow-up exact-format sweep across all canonical routes. The audit reports zero remaining unlinked master codes with a verified normalized distributor-linked counterpart; supplier-priced canonical masters remain visible while retired duplicate aliases are suppressed.
+
+## Unpriced Items administration and strict catalog gate — 2026-09-19
+
+- [x] Add **Admin → Products & Catalog → Unpriced Items**, a dedicated queue for masters lacking an available published positive supplier price, separate from the broader Cabinet Attention queue.
+- [x] Separate linked items from invalid master records: linked rows offer **Add price** and show their distributor lines; unlinked rows offer a guarded **Delete item** action. The server rechecks that the record has no distributor link, order, cart, or saved-layout reference before cleanup.
+- [x] Make every new master save—draft or published—require an available distributor source with a positive List Price or Your Cost. Keep existing public activation guards in both unified Catalog and legacy inline edit paths so no unpriced master can become active in Catalog, Designer, or 2020 views.
+- [x] Preserve valid historical and operational data: deletion removes only unlinked invalid masters plus their local aliases, overrides, eligibility records, and generated previews. It refuses any item with a supplier SKU, cart, order, or saved design reference.
+- [x] Validate TypeScript, 33 focused catalog/canonical/unpriced regressions, production build, and diff integrity.

@@ -7,10 +7,13 @@ import { ENV } from './_core/env';
 /**
  * A retired duplicate keeps its historical database record, supplier price rows,
  * and order references, but its master code must never be emitted as a second
- * product when its alias mapping resolves to a live canonical cabinet. Checking
- * the target cabinet (rather than only the source record) lets historic alias
- * cycles coexist temporarily without hiding their live canonical record. The
- * retired code remains discoverable through the canonical cabinet's alias map.
+ * product when its alias mapping resolves to a canonical cabinet with a real
+ * supplier source. Configuration review may deliberately keep the canonical
+ * master inactive, but that must not surface a duplicate alias as falsely
+ * "No linked distributor" in Cabinet Attention. Checking the target cabinet
+ * (rather than only the source record) lets historic alias cycles coexist
+ * temporarily without hiding their live canonical record. The retired code
+ * remains discoverable through the canonical cabinet's alias map.
  */
 export function isCanonicalCabinetMaster() {
   return sql`NOT EXISTS (
@@ -24,6 +27,11 @@ export function isCanonicalCabinetMaster() {
           canonical_cabinet.isActive = true
           OR canonical_cabinet.showInCatalog = true
           OR canonical_cabinet.showInDesigner = true
+          OR EXISTS (
+            SELECT 1
+            FROM distributor_skus canonical_supplier_sku
+            WHERE canonical_supplier_sku.cabinetId = canonical_cabinet.id
+          )
         )
     )`;
 }
