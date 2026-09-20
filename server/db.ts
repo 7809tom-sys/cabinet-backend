@@ -308,6 +308,46 @@ export async function updatePricingSettings(
   }
 }
 
+/**
+ * Synchronize the stored wholesale, contractor, and homeowner/retail columns
+ * with the current tier markups. Public storefront pricing is already derived
+ * at read time, but administration, exports, and legacy workflows also read
+ * these persisted columns and must see the same numbers.
+ *
+ * Cost is deliberately taken only from the durable source columns — `yourCost`
+ * (the distributor multiplier result), `adjustedListPrice`, or `listPrice`.
+ * A previously calculated wholesale sell price is never used as the next base,
+ * so repeated recalculations cannot compound a markup.
+ */
+export async function recalculateStoredTierPrices(
+  settings?: Pick<
+    PricingSettings,
+    "homeownerMarkupBps" | "contractorMarkupBps" | "wholesaleMarkupBps"
+  >,
+): Promise<{ updated: number }> {
+  const db = await getDb();
+  if (!db) return { updated: 0 };
+  const activeSettings = settings ?? await getPricingSettings();
+  const homeownerMultiplier = Number(activeSettings.homeownerMarkupBps) / 10000;
+  const contractorMultiplier = Number(activeSettings.contractorMarkupBps) / 10000;
+  const wholesaleMultiplier = Number(activeSettings.wholesaleMarkupBps) / 10000;
+  const durableCost = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
+  const [eligible] = await db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(distributorSkus)
+    .where(sql`${durableCost} IS NOT NULL`);
+
+  await db
+    .update(distributorSkus)
+    .set({
+      wholesalePrice: sql`ROUND(${durableCost} * ${wholesaleMultiplier}, 2)`,
+      contractorPrice: sql`ROUND(${durableCost} * ${contractorMultiplier}, 2)`,
+      homeownerPrice: sql`ROUND(${durableCost} * ${homeownerMultiplier}, 2)`,
+    })
+    .where(sql`${durableCost} IS NOT NULL`);
+  return { updated: Number(eligible?.count ?? 0) };
+}
+
 // ─── Platform fee system (price ladder + order fee stack) ──────────────────────
 import {
   platformPricingSettings,

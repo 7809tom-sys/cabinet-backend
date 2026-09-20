@@ -2490,3 +2490,7 @@
 - [x] Resolve multi-step alias chains and punctuation-only format loops (for example `B12` ↔ `B-12`) to the final valid master without producing duplicate cards; malformed cross-product alias loops remain quarantined.
 - [x] Keep an active, positive-priced source master visible when its registered alias target was retired or absent, rather than dropping the real sellable product. Applied consistently to Catalog, Family, white-label storefront, recommendations, Cabinet Detail style prices, and Designer.
 - [x] Recovered the six remaining Shaker Gray source rows behind format/stale aliases, raising the verified live-preview family count from 254 to 260, including `3-DB12` and `3-DB21`; source price/finish/SKU values were not modified.
+
+- [x] Synchronize all stored retail/homeowner, contractor, and wholesale tier columns from the durable source cost (`yourCost`, then adjusted/list price) using the current published 65% / 29% / 25% tier margins; verified 0 stale prices across 15,996 cost-backed supplier rows.
+- [x] Make the Admin → Pricing & Margins save action refresh those stored tier prices automatically and show the synchronized row count, so exports, admin price audits, legacy pages, and customer-facing price calculations remain aligned without compounding previous wholesale sell prices.
+- [x] Add a live integration regression that saves unchanged current margins and verifies persisted wholesale, contractor, and retail values equal the durable cost times each configured tier multiplier.

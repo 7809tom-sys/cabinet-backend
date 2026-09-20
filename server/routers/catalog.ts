@@ -4,7 +4,7 @@ import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { storagePut } from "../storage";
 import { TRPCError } from "@trpc/server";
-import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
+import { getDb, notInConflict, isCanonicalCabinetMaster, hasPositivePublishedCabinetPrice, getPricingSettings, updatePricingSettings, recalculateStoredTierPrices, getPlatformPricingSettings, updatePlatformPricingSettings } from "../db";
 import {
   cabinets,
   cabinetAliases,
@@ -3862,7 +3862,9 @@ export const pricingRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       await updatePricingSettings(input, ctx.user?.openId);
-      return await getPricingSettings();
+      const settings = await getPricingSettings();
+      const recalculation = await recalculateStoredTierPrices(settings);
+      return { ...settings, recalculation };
     }),
 
   // ─── Platform fee system (price ladder + order fee stack) ────────────────

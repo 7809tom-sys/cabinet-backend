@@ -49,8 +49,13 @@ export default function MarginsAdmin() {
   }, [data]);
 
   const saveMargins = trpc.pricing.adminUpdateMargins.useMutation({
-    onSuccess: () => {
-      toast.success("Margins saved");
+    onSuccess: (result) => {
+      const refreshed = result.recalculation?.updated ?? 0;
+      toast.success(
+        refreshed > 0
+          ? `Margins saved — refreshed ${refreshed.toLocaleString()} retail, contractor, and wholesale tier prices.`
+          : "Margins saved",
+      );
       utils.pricing.adminGetMargins.invalidate();
     },
     onError: (e) => toast.error(e.message || "Failed to save margins"),
