@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getDb, isCanonicalCabinetMaster, notInConflict, getPlatformPricingSettings } from "../db";
+import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -271,7 +271,6 @@ export const designRouter = router({
             eq(cabinets.isActive, true),
             eq(cabinets.showInDesigner, true),
             ne(cabinets.conflictStatus, "conflict"),
-            isCanonicalCabinetMaster(),
           )),
       ]);
 

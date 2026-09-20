@@ -942,7 +942,6 @@ export const doorStylesRouter = router({
             eq(cabinets.isActive, true),
             eq(cabinets.showInCatalog, true),
             ne(cabinets.conflictStatus, "conflict"),
-            isCanonicalCabinetMaster(),
           )),
       ]);
 
@@ -1303,7 +1302,6 @@ export const cabinetsRouter = router({
             eq(cabinets.isActive, true),
             eq(cabinets.showInCatalog, true),
             ne(cabinets.conflictStatus, "conflict"),
-            isCanonicalCabinetMaster(),
           )),
       ]);
 

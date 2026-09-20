@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, isCanonicalCabinetMaster, notInConflict, getPricingSettings } from "../db";
+import { getDb, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import {
   cabinets,
@@ -451,7 +451,6 @@ export const storefrontRouter = router({
             eq(cabinets.isActive, true),
             eq(cabinets.showInCatalog, true),
             ne(cabinets.conflictStatus, "conflict"),
-            isCanonicalCabinetMaster(),
           )),
       ]);
 
@@ -601,7 +600,6 @@ export const storefrontRouter = router({
             eq(cabinets.isActive, true),
             eq(cabinets.showInCatalog, true),
             ne(cabinets.conflictStatus, "conflict"),
-            isCanonicalCabinetMaster(),
           )),
       ]);
       const allRows = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
