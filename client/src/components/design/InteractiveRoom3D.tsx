@@ -1965,13 +1965,16 @@ export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "placementType" 
   return sku.catalogImageUrl?.trim() || null;
 }
 
-/** A supplied full-door sample already contains its real rail/stile profile. */
+/**
+ * A Door Style sample supplies finish/color—not a cabinet's complete physical
+ * construction. Shaker selections therefore always receive real raised rails
+ * and stiles around a recessed center panel. This keeps a cropped sample from
+ * flattening every door and drawer in the 3D Designer.
+ */
 export function threeDUsesPhysicalShakerRails(profileKind: string, hasSuppliedDoorSample: boolean): boolean {
-  if (profileKind !== "shaker") return false;
-  // A supplied full-door sample already contains its real rail/stile profile
-  // visually. Physical rails would double the detail and create artifacts.
-  if (hasSuppliedDoorSample) return false;
-  return true;
+  // A supplied sample changes only the material map, never the Shaker geometry.
+  void hasSuppliedDoorSample;
+  return profileKind === "shaker";
 }
 
 export function threeDVisibleMaterialMode(doorSampleUrl: string | null | undefined, textureState: "not-requested" | "loading" | "loaded" | "failed") {
@@ -3219,9 +3222,9 @@ export function addCabinet(
 	      materialOnlyNoDoorGeometry: true,
 	    };
 	  }
-  // The active catalog sample is applied to actual door and drawer panels. The
-  // physical rails and stiles stay slightly darker and untextured so the chosen
-  // Shaker or raised profile remains visibly constructed instead of flat.
+  // The active catalog sample is applied to actual door and drawer faces.
+  // Shaker rails and stiles remain physical meshes over those faces, preserving
+  // the selected Door Style's recessed-panel construction in the 3D Designer.
   const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
 	  const faceMaterial = new THREE.MeshPhysicalMaterial({
 	    color: faceColor,

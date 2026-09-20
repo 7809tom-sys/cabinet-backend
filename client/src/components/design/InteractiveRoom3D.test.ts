@@ -927,8 +927,11 @@ describe("interactive 3D room scene helpers", () => {
       .toBe("https://cdn.example.com/default-style.jpg");
   });
 
-  it("does not paint generic Shaker rails over a supplied complete CabinetDealz door sample", () => {
-    expect(threeDUsesPhysicalShakerRails("shaker", true)).toBe(false);
+  it("keeps physical Shaker rails when a selected door sample supplies the finish", () => {
+    // A sample is a material/profile reference, not a full cabinet-front mesh.
+    // The rail-and-stile geometry must remain visible for painted Shaker doors
+    // and drawers with or without a selected sample image.
+    expect(threeDUsesPhysicalShakerRails("shaker", true)).toBe(true);
     expect(threeDUsesPhysicalShakerRails("shaker", false)).toBe(true);
     expect(threeDUsesPhysicalShakerRails("flat", true)).toBe(false);
   });
