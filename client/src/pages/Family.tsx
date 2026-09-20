@@ -126,6 +126,12 @@ function FamilyCabinetCard({
     contractorPrice: item.contractorPrice,
     homeownerPrice: item.homeownerPrice,
   });
+  const sourceListPrice = item.listPrice == null ? null : Number(item.listPrice);
+  const showsSourceListPrice =
+    unitPrice != null &&
+    sourceListPrice != null &&
+    Number.isFinite(sourceListPrice) &&
+    Math.abs(sourceListPrice - unitPrice) > 0.004;
 
   function handleAdd() {
     const res = addItem({
@@ -221,6 +227,11 @@ function FamilyCabinetCard({
                 <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
                   {tierLabel(tier)}
                 </div>
+                {showsSourceListPrice && (
+                  <div className="text-[10px] text-muted-foreground">
+                    {lang === "es" ? "Precio de lista:" : "List price:"} {fmtPrice(sourceListPrice)}
+                  </div>
+                )}
               </>
             ) : (
               <div className="text-xs leading-snug text-muted-foreground">

@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { getDb } from "./db";
-import { distributorSkus, doorStyles } from "../drizzle/schema";
+import { getDb, getPricingSettings } from "./db";
+import { distributors, distributorSkus, doorStyles } from "../drizzle/schema";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -38,7 +38,14 @@ describe("Capital pricing-grid door styles", () => {
     expect(styles.every((style) => style.isActive && style.status === "purchasable")).toBe(true);
 
     const priceRows = await db
-      .select({ styleCode: doorStyles.styleCode, listPrice: distributorSkus.listPrice, isAvailable: distributorSkus.isAvailable, isPublished: distributorSkus.isPublished })
+      .select({
+        styleCode: doorStyles.styleCode,
+        listPrice: distributorSkus.listPrice,
+        yourCost: distributorSkus.yourCost,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+      })
       .from(distributorSkus)
       .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
       .where(and(
@@ -48,6 +55,19 @@ describe("Capital pricing-grid door styles", () => {
       ));
     expect(Object.fromEntries(priceRows.map((row) => [row.styleCode, String(row.listPrice)]))).toEqual(GRID_PRICE_FOR_B12);
     expect(priceRows.every((row) => row.isAvailable && row.isPublished)).toBe(true);
+    const [capital] = await db
+      .select({ costMultiplier: distributors.costMultiplier })
+      .from(distributors)
+      .where(eq(distributors.id, CAPITAL_DISTRIBUTOR_ID));
+    expect(Number(capital?.costMultiplier)).toBeCloseTo(0.3);
+    const pricingSettings = await getPricingSettings();
+    for (const row of priceRows) {
+      expect(Number(row.yourCost)).toBeCloseTo(Number(row.listPrice) * Number(capital?.costMultiplier), 2);
+      expect(Number(row.homeownerPrice)).toBeCloseTo(
+        Math.round((Number(row.yourCost) * (Number(pricingSettings.homeownerMarkupBps) / 10000 + 1e-8) * 100)) / 100,
+        2,
+      );
+    }
 
     const caller = appRouter.createCaller(publicCtx());
     const sellableStyles = await caller.doorStyles.list();
