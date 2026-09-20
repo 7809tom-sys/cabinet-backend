@@ -57,7 +57,21 @@ export function glassStackerUidsForRemoval(placed: readonly PlacedCabinet[]): st
 
 function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: PlacedCabinet): PlacedCabinet {
   const dimensions = resolvedDesignCabinetDimensions(catalog);
-  const { mountBottom: _mountBottom, mountBottomAdjusted: _mountBottomAdjusted, stackedOnCabinetUid: _stackedOnCabinetUid, ...base } = source;
+  // Preserve the selected finish/style but never copy the source cabinet's
+  // corner geometry onto a different catalog stacker. A DCW source must not
+  // make a listed straight W stacker render as a diagonal cabinet.
+  const {
+    mountBottom: _mountBottom,
+    mountBottomAdjusted: _mountBottomAdjusted,
+    stackedOnCabinetUid: _stackedOnCabinetUid,
+    cornerType: _cornerType,
+    isCornerCabinet: _isCornerCabinet,
+    cornerSnapUnlocked: _cornerSnapUnlocked,
+    pullMin: _pullMin,
+    pullMax: _pullMax,
+    blindPull: _blindPull,
+    ...base
+  } = source;
   return {
     ...base,
     uid: `glass-stacker-bulk-${parent.uid}`,
@@ -80,6 +94,10 @@ function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: Pla
     peninsulaSide: parent.peninsulaSide,
     numberOfDoors: catalog.numberOfDoors,
     numberOfDrawers: catalog.numberOfDrawers,
+    isCornerCabinet: catalog.isCornerCabinet ?? null,
+    cornerType: catalog.cornerType ?? null,
+    pullMin: catalog.pullMin ?? null,
+    pullMax: catalog.pullMax ?? null,
     catalogImageUrl: catalog.catalogImageUrl ?? null,
     fixedShelfCount: (catalog as any).numberOfFixedShelves ?? null,
     adjustableShelfCount: (catalog as any).numberOfAdjShelves ?? null,
@@ -300,6 +318,35 @@ export function glassStackerBulkCeilingBlocksAtHeight(
   });
 }
 
+/**
+ * Candidates are normally rebuilt from the catalog just before the dialog
+ * opens. This final guard also handles a prompt held open across a hot reload
+ * or design restore, so stale diagonal metadata cannot alter a straight W
+ * stacker's shape during the actual write.
+ */
+function normalizeStackerGeometryForApply(stacker: PlacedCabinet): PlacedCabinet {
+  const family = glassStackerFamily(stacker);
+  if (family === "W") {
+    return {
+      ...stacker,
+      isCornerCabinet: false,
+      cornerType: null,
+      pullMin: null,
+      pullMax: null,
+      blindPull: null,
+      cornerSnapUnlocked: undefined,
+    };
+  }
+  if (family === "WDC") {
+    return {
+      ...stacker,
+      isCornerCabinet: true,
+      cornerType: stacker.cornerType ?? "diagonal",
+    };
+  }
+  return stacker;
+}
+
 export function applyGlassStackerBulkPlacement(
   placed: PlacedCabinet[],
   candidates: GlassStackerBulkPlacementCandidate[],
@@ -311,7 +358,7 @@ export function applyGlassStackerBulkPlacement(
   const additional = candidates.flatMap((candidate) => {
     if (existingParents.has(candidate.parentUid)) return [];
     existingParents.add(candidate.parentUid);
-    return [{ ...candidate.stacker, uid: makeUid() }];
+    return [{ ...normalizeStackerGeometryForApply(candidate.stacker), uid: makeUid() }];
   });
   return [...placed, ...additional];
 }

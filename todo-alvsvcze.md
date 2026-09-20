@@ -2526,3 +2526,5 @@
 - [x] Remove the unsafe same-width fallback that could copy the selected diagonal glass cabinet above an unrelated straight wall cabinet when the correct catalog item was unavailable.
 - [x] Show the exact parent-to-stacker mapping in the confirmation dialog before anything is added, so the designer can see, for example, `W2430 → W2412GD` and `WDC2430 → DCW2412GD` separately.
 - [x] Add a regression for same-width diagonal versus straight parents and validate 452 focused Designer/placement regressions plus TypeScript.
+
+- [x] Correct bulk glass-stacker placement after confirmation: the chosen catalog stacker now owns its own corner metadata, so a straight `W2412GD` cannot inherit diagonal geometry from the original `DCW2412GD` source. The final apply path also normalizes stale prompt candidates defensively.

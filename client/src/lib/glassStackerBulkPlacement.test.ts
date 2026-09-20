@@ -125,6 +125,69 @@ describe("glass stacker bulk placement", () => {
     expect(candidates.some((candidate) => candidate.parentUid === straightWall.uid)).toBe(false);
   });
 
+  it("uses the chosen catalog stacker's own geometry instead of leaking a diagonal source shape", () => {
+    const sourceParent = wall("diagonal-source-parent", "WDC2430", 24, { x: 0, depth: 24, cornerType: "diagonal" });
+    const straightParent = wall("straight-parent", "W2430", 24, { x: 36 });
+    const source = wall("diagonal-source", "DCW2412GD", 24, {
+      description: "Diagonal corner wall glass stacker",
+      x: 0,
+      depth: 24,
+      height: 12,
+      glassDoor: true,
+      cornerType: "diagonal",
+      isCornerCabinet: true,
+      mountBottom: 84,
+      stackedOnCabinetUid: sourceParent.uid,
+    });
+    const candidates = glassStackerBulkPlacementCandidates(
+      [sourceParent, straightParent, source],
+      source.uid,
+      room,
+      [catalog("W2412GD", 24)],
+    );
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        parentUid: straightParent.uid,
+        stacker: expect.objectContaining({
+          masterCode: "W2412GD",
+          cornerType: null,
+          isCornerCabinet: null,
+        }),
+      }),
+    ]);
+
+    const applied = applyGlassStackerBulkPlacement([sourceParent, straightParent, source], candidates, () => "new-straight-stacker");
+    expect(applied.find((cabinet) => cabinet.uid === "new-straight-stacker")).toMatchObject({
+      masterCode: "W2412GD",
+      cornerType: null,
+      isCornerCabinet: false,
+      stackedOnCabinetUid: straightParent.uid,
+    });
+  });
+
+  it("clears stale diagonal geometry before applying a straight stacker candidate", () => {
+    const parent = wall("straight-parent", "W2430", 24);
+    const staleCandidate = {
+      parentUid: parent.uid,
+      parentCode: parent.masterCode,
+      stacker: wall("stale-preview", "W2412GD", 24, {
+        description: "Glass wall stacker",
+        height: 12,
+        glassDoor: true,
+        cornerType: "diagonal",
+        isCornerCabinet: true,
+        stackedOnCabinetUid: parent.uid,
+      }),
+    };
+    const applied = applyGlassStackerBulkPlacement([parent], [staleCandidate], () => "normalized-straight-stacker");
+    expect(applied.find((cabinet) => cabinet.uid === "normalized-straight-stacker")).toMatchObject({
+      masterCode: "W2412GD",
+      cornerType: null,
+      isCornerCabinet: false,
+    });
+  });
+
   it("offers only the selected vendor's 12-to-24-inch stacker heights that fit eligible wall cabinets", () => {
     const firstParent = wall("parent-30", "W3030", 30, { x: 0 });
     const secondParent = wall("parent-24", "W2430", 24, { x: 30 });
