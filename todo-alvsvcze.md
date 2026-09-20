@@ -2482,3 +2482,7 @@
 - [x] Restore all 125 non-conflict canonical masters that already have an available, published, positive-priced supplier source to Catalog, Designer, and 2020 visibility; aliases remain search routes only.
 - [x] Preserve the layered catalog model: every style/distributor retains its own supplier SKU, availability, price, and finish while the canonical master supplies only shared code-true dimensions, description, and generic image.
 - [x] Add a live regression that fails if a positively priced canonical master is hidden by a visibility flag; retain zero active unpriced exposure.
+
+- [x] Restore every positive, published supplier source row that sits behind an approved alias into the matching active canonical master for public Catalog, Family, white-label storefront, Cabinet Detail pricing, and the Designer palette—without moving or changing source SKUs, prices, styles, finishes, availability, or historical records.
+- [x] Keep one shopper-facing cabinet per canonical code; the canonical master supplies dimensions, designer-friendly description, and generic image, while each style/distributor overlay retains its own price and finish. Conflicted and zero/null-price source rows remain excluded.
+- [x] Add end-to-end coverage for the retired `B-24` → canonical `B24` Aston Green source line across Family, storefront, detail price selection, search, and Designer placement; verify source-overlay recommendations also return only family-valid items.

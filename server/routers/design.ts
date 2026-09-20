@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
+import { getDb, isCanonicalCabinetMaster, notInConflict, getPlatformPricingSettings } from "../db";
 import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -20,6 +20,7 @@ import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
+import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import {
   relevantCategories,
   selectRecommendations,
@@ -202,51 +203,15 @@ export const designRouter = router({
       const db = await getDb();
       if (!db) return [];
 
-      const rows = await db
-        .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          placementType: cabinets.placementType,
-          numberOfDoors: cabinets.numberOfDoors,
-          numberOfDrawers: cabinets.numberOfDrawers,
-          numberOfFixedShelves: cabinets.numberOfFixedShelves,
-          numberOfAdjShelves: cabinets.numberOfAdjShelves,
-          isCornerCabinet: cabinets.isCornerCabinet,
-          catalogImageUrl: cabinets.catalogImageUrl,
-          specImageUrl: cabinets.specImageUrl,
-          graphicType: cabinets.graphicType,
-          minPull: cabinets.minPull,
-          maxPull: cabinets.maxPull,
-          openingWidth: cabinets.openingWidth,
-          openingHeight: cabinets.openingHeight,
-          openingType: cabinets.openingType,
-          doorHeight: cabinets.doorHeight,
-          drawerHeight: cabinets.drawerHeight,
-          doorOrientation: cabinets.doorOrientation,
-          doorsPerRow: cabinets.doorsPerRow,
-          layoutSpec: cabinets.layoutSpec,
-          drawerLayout: cabinets.drawerLayout,
-          cornerType: cabinets.cornerType,
-          facePattern: cabinets.facePattern,
-          glassDoorAddonCode: cabinets.glassDoorAddonCode,
-        })
-        .from(cabinets)
-        // showInDesigner=false hides a cabinet from the Kitchen Designer palette
-        // without removing it from the public catalog or pricing.
-        .where(and(eq(cabinets.isActive, true), notInConflict(), eq(cabinets.showInDesigner, true)));
-
       // Availability gate: a cabinet is only offered in the designer if it has
-      // at least one published + available distributor SKU. If a specific
-      // line/style is selected, the SKU must match that exact combination.
+      // at least one positive, published, available distributor SKU. If a
+      // specific line/style is selected, the SKU must match that exact
+      // combination. The row can be attached to a retired source alias; its
+      // configuration is resolved to the active canonical master below.
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
       ];
       if (input?.distributorId) {
         skuConditions.push(eq(distributorSkus.distributorId, input.distributorId));
@@ -256,12 +221,65 @@ export const designRouter = router({
       if (input?.styleId) {
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
-      const availableSkuRows = await db
-        .select({ cabinetId: distributorSkus.cabinetId })
+      const sourceRows = await db
+        .select({ sourceMasterCode: cabinets.masterCode })
         .from(distributorSkus)
-        .where(and(...skuConditions));
-      const availableCabinetIds = new Set(availableSkuRows.map((r) => r.cabinetId));
-      const availableRows = rows.filter((r) => availableCabinetIds.has(r.id));
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
+
+      const [aliases, masterRows] = await Promise.all([
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            placementType: cabinets.placementType,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            numberOfFixedShelves: cabinets.numberOfFixedShelves,
+            numberOfAdjShelves: cabinets.numberOfAdjShelves,
+            isCornerCabinet: cabinets.isCornerCabinet,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            specImageUrl: cabinets.specImageUrl,
+            graphicType: cabinets.graphicType,
+            minPull: cabinets.minPull,
+            maxPull: cabinets.maxPull,
+            openingWidth: cabinets.openingWidth,
+            openingHeight: cabinets.openingHeight,
+            openingType: cabinets.openingType,
+            doorHeight: cabinets.doorHeight,
+            drawerHeight: cabinets.drawerHeight,
+            doorOrientation: cabinets.doorOrientation,
+            doorsPerRow: cabinets.doorsPerRow,
+            layoutSpec: cabinets.layoutSpec,
+            drawerLayout: cabinets.drawerLayout,
+            cornerType: cabinets.cornerType,
+            facePattern: cabinets.facePattern,
+            glassDoorAddonCode: cabinets.glassDoorAddonCode,
+          })
+          .from(cabinets)
+          .where(and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.showInDesigner, true),
+            ne(cabinets.conflictStatus, "conflict"),
+            isCanonicalCabinetMaster(),
+          )),
+      ]);
+
+      const byCanonicalId = new Map<number, (typeof masterRows)[number]>();
+      for (const { master } of resolveCanonicalCatalogSources(sourceRows, aliases, masterRows)) {
+        if (!byCanonicalId.has(master.id)) byCanonicalId.set(master.id, master);
+      }
+      const availableRows = Array.from(byCanonicalId.values());
 
       // An approved master alias is a genuine search route, not a second cabinet.
       // This lets a designer type either ADA-B12 or B12ADA while the palette

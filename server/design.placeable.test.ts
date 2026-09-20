@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributorSkus } from "../drizzle/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { cabinets, distributorSkus, skuMasterAliases } from "../drizzle/schema";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { resolveCanonicalCatalogSources } from "./lib/canonicalCatalogSources";
 
 function publicCtx(): TrpcContext {
   return {
@@ -11,6 +12,29 @@ function publicCtx(): TrpcContext {
     req: { protocol: "https", headers: {} } as TrpcContext["req"],
     res: { clearCookie: () => {} } as unknown as TrpcContext["res"],
   };
+}
+
+async function canonicalIdsForLiveSourceRows(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  conditions: Parameters<typeof and>,
+) {
+  const sourceRows = await db
+    .select({ sourceMasterCode: cabinets.masterCode })
+    .from(distributorSkus)
+    .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+    .where(and(
+      ...conditions,
+      sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+      sql`${cabinets.conflictStatus} <> 'conflict'`,
+    ));
+  const [aliases, masters] = await Promise.all([
+    db
+      .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+      .from(skuMasterAliases)
+      .where(eq(skuMasterAliases.conflictStatus, "ok")),
+    db.select({ id: cabinets.id, masterCode: cabinets.masterCode }).from(cabinets),
+  ]);
+  return new Set(resolveCanonicalCatalogSources(sourceRows, aliases, masters).map(({ master }) => master.id));
 }
 
 describe("design.placeableCabinets availability filter", () => {
@@ -27,19 +51,12 @@ describe("design.placeableCabinets availability filter", () => {
     expect(Array.isArray(base)).toBe(true);
     expect(base.length).toBeGreaterThan(0);
 
-    // Every returned cabinet must have at least one available + published SKU.
-    const ids = base.map((c) => c.id);
-    const skuRows = await db
-      .select({ cabinetId: distributorSkus.cabinetId })
-      .from(distributorSkus)
-      .where(
-        and(
-          inArray(distributorSkus.cabinetId, ids),
-          eq(distributorSkus.isAvailable, true),
-          eq(distributorSkus.isPublished, true)
-        )
-      );
-    const purchasable = new Set(skuRows.map((r) => r.cabinetId));
+    // Every returned canonical master must have at least one available,
+    // published, positive supplier row — directly or through an approved alias.
+    const purchasable = await canonicalIdsForLiveSourceRows(db, [
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.isPublished, true),
+    ]);
     for (const c of base) {
       expect(purchasable.has(c.id), `${c.masterCode} should be purchasable`).toBe(true);
     }
@@ -250,23 +267,15 @@ describe("design.placeableCabinets availability filter", () => {
     // color within the locked line).
     const locked = await caller.design.placeableCabinets({ placement: "base", distributorId });
     expect(Array.isArray(locked)).toBe(true);
-    const ids = locked.map((c) => c.id);
-    if (ids.length === 0) return;
+    if (locked.length === 0) return;
 
     // Every cabinet in the locked palette must be carried by the locked
-    // distributor (no cabinet leaks in from another supply line).
-    const rows = await db
-      .select({ cabinetId: distributorSkus.cabinetId })
-      .from(distributorSkus)
-      .where(
-        and(
-          inArray(distributorSkus.cabinetId, ids),
-          eq(distributorSkus.distributorId, distributorId),
-          eq(distributorSkus.isAvailable, true),
-          eq(distributorSkus.isPublished, true)
-        )
-      );
-    const carriedByLocked = new Set(rows.map((r) => r.cabinetId));
+    // distributor (directly or under a retired alias source record).
+    const carriedByLocked = await canonicalIdsForLiveSourceRows(db, [
+      eq(distributorSkus.distributorId, distributorId),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.isPublished, true),
+    ]);
     for (const c of locked) {
       expect(
         carriedByLocked.has(c.id),
@@ -303,21 +312,13 @@ describe("design.placeableCabinets availability filter", () => {
         caller.design.placeableCabinets({ placement: "tall", styleId: styleA }),
       ])
     ).flat();
-    const idsA = paletteA.map((c) => c.id);
-    if (idsA.length === 0) return;
+    if (paletteA.length === 0) return;
 
-    const liveForA = await db
-      .select({ cabinetId: distributorSkus.cabinetId })
-      .from(distributorSkus)
-      .where(
-        and(
-          inArray(distributorSkus.cabinetId, idsA),
-          eq(distributorSkus.styleId, styleA),
-          eq(distributorSkus.isAvailable, true),
-          eq(distributorSkus.isPublished, true)
-        )
-      );
-    const carriedByA = new Set(liveForA.map((r) => r.cabinetId));
+    const carriedByA = await canonicalIdsForLiveSourceRows(db, [
+      eq(distributorSkus.styleId, styleA),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.isPublished, true),
+    ]);
     for (const c of paletteA) {
       expect(
         carriedByA.has(c.id),
@@ -349,21 +350,13 @@ describe("design.placeableCabinets availability filter", () => {
     expect(Array.isArray(scoped)).toBe(true);
 
     // Every scoped cabinet must have an available SKU for THIS exact combination.
-    const ids = scoped.map((c) => c.id);
-    if (ids.length === 0) return;
-    const rows = await db
-      .select({ cabinetId: distributorSkus.cabinetId })
-      .from(distributorSkus)
-      .where(
-        and(
-          inArray(distributorSkus.cabinetId, ids),
-          eq(distributorSkus.distributorId, distributorId),
-          eq(distributorSkus.styleId, styleId),
-          eq(distributorSkus.isAvailable, true),
-          eq(distributorSkus.isPublished, true)
-        )
-      );
-    const okForCombo = new Set(rows.map((r) => r.cabinetId));
+    if (scoped.length === 0) return;
+    const okForCombo = await canonicalIdsForLiveSourceRows(db, [
+      eq(distributorSkus.distributorId, distributorId),
+      eq(distributorSkus.styleId, styleId),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.isPublished, true),
+    ]);
     for (const c of scoped) {
       expect(okForCombo.has(c.id), `${c.masterCode} available for combo`).toBe(true);
     }

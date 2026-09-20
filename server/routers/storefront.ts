@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { eq, and, sql, inArray, gte, lte, isNull, or } from "drizzle-orm";
+import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
-import { getDb, notInConflict, getPricingSettings } from "../db";
+import { getDb, isCanonicalCabinetMaster, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
 import {
   cabinets,
@@ -12,8 +12,10 @@ import {
   affiliateStyleBranding,
   affiliateBannerSchedules,
   affiliatePromoDiscounts,
+  skuMasterAliases,
 } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
 // RULE: a shopping/quote session is locked to ONE distributor + ONE cabinet
@@ -392,14 +394,13 @@ export const storefrontRouter = router({
         }
       }
 
-      const conditions = [
-        eq(cabinets.isActive, true),
-        notInConflict(),
+      const sourceConditions = [
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+        ne(cabinets.conflictStatus, "conflict"),
       ];
-      if (input.category) conditions.push(eq(cabinets.category, input.category));
       // The Accessory tab uses virtual group labels ("Trim & Molding" /
       // "Accessories") rather than raw subCategory values. Resolve those to a
       // group-membership filter; all other categories use exact subCategory.
@@ -407,93 +408,88 @@ export const storefrontRouter = router({
         input.category === "Accessory" &&
         (input.subCategory === ACCESSORY_GROUPS.TRIM ||
           input.subCategory === ACCESSORY_GROUPS.GENERAL);
-      if (input.subCategory && !isAccessoryGroupLabel) {
-        conditions.push(eq(cabinets.subCategory, input.subCategory));
-      }
-      if (input.search) {
-        const search = input.search.trim();
-        const normalizedCodeSearch = normalizeCode(search);
-        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        conditions.push(
-          sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
-      }
 
-      const baseSelect = {
-        id: cabinets.id,
-        masterCode: cabinets.masterCode,
-        description: cabinets.description,
-        category: cabinets.category,
-        subCategory: cabinets.subCategory,
-        width: cabinets.width,
-        height: cabinets.height,
-        depth: cabinets.depth,
-        graphicType: cabinets.graphicType,
-        isCornerCabinet: cabinets.isCornerCabinet,
-        platformSku: distributorSkus.platformSku,
-        homeownerPrice: distributorSkus.homeownerPrice,
-        listPrice: distributorSkus.listPrice,
-        imageUrl: distributorSkus.imageUrl,
-        catalogImageUrl: cabinets.catalogImageUrl,
-        // Cost columns — the base the per-tier markup multiplies. Never shipped
-        // raw to the client; only used server-side to compute the sell price.
-        wholesalePrice: distributorSkus.wholesalePrice,
-        adjustedListPrice: distributorSkus.adjustedListPrice,
-        yourCost: distributorSkus.yourCost,
+      const sourceRows = await db
+        .select({
+          sourceMasterCode: cabinets.masterCode,
+          platformSku: distributorSkus.platformSku,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          listPrice: distributorSkus.listPrice,
+          imageUrl: distributorSkus.imageUrl,
+          catalogImageUrl: cabinets.catalogImageUrl,
+          // Cost columns — the base the per-tier markup multiplies. Never shipped
+          // raw to the client; only used server-side to compute the sell price.
+          wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          yourCost: distributorSkus.yourCost,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...sourceConditions));
+
+      const [aliases, masters] = await Promise.all([
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            graphicType: cabinets.graphicType,
+            isCornerCabinet: cabinets.isCornerCabinet,
+            catalogImageUrl: cabinets.catalogImageUrl,
+          })
+          .from(cabinets)
+          .where(and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.showInCatalog, true),
+            ne(cabinets.conflictStatus, "conflict"),
+            isCanonicalCabinetMaster(),
+          )),
+      ]);
+
+      const search = input.search?.trim() ?? "";
+      const normalizedSearch = normalizeCode(search);
+      const matchesFilter = (row: (typeof masters)[number] & { sourceMasterCode: string | null }) => {
+        if (input.category && row.category !== input.category) return false;
+        if (input.subCategory) {
+          if (isAccessoryGroupLabel) {
+            if (accessoryGroupFor(row) !== input.subCategory) return false;
+          } else if (row.subCategory !== input.subCategory) return false;
+        }
+        if (!search) return true;
+        return row.masterCode.includes(search)
+          || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
+          || normalizeCode(row.masterCode).includes(normalizedSearch);
       };
 
-      // When filtering by an Accessory group label, the group maps to several
-      // subCategories, so we fetch all Accessory rows for the family and filter
-      // by group in memory (the Accessory set is small), then paginate.
-      if (isAccessoryGroupLabel) {
-        const allRows = await db
-          .select(baseSelect)
-          .from(cabinets)
-          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-          .where(and(...conditions))
-          .orderBy(cabinets.category, cabinets.masterCode);
-        const grouped = allRows.filter(
-          (r) => accessoryGroupFor(r) === input.subCategory
-        );
-        const psAcc = await getPricingSettings();
-        const pricedAcc = grouped
-          .slice(input.offset, input.offset + input.limit)
-          .map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
-            ...r,
-            // Retail = cost base × homeowner markup (matches the admin tab). We
-            // strip the raw cost columns from the client payload.
-            homeownerPrice:
-              sellPriceForTier(
-                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
-                psAcc,
-                "homeowner"
-              )?.toFixed(2) ?? null,
-          }));
-        return {
-          items: pricedAcc,
-          total: grouped.length,
-        };
+      // One storefront card per canonical master, with the selected family's
+      // lowest valid source price. The source SKU/image remains a style overlay.
+      const resolvedRows = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
+        .map(({ source, master }) => ({ ...source, ...master }));
+      const byCabinet = new Map<number, typeof resolvedRows[number]>();
+      for (const row of resolvedRows) {
+        if (!matchesFilter(row)) continue;
+        const existing = byCabinet.get(row.id);
+        const cost = Number(row.yourCost ?? row.wholesalePrice ?? row.listPrice ?? Infinity);
+        const existingCost = existing ? Number(existing.yourCost ?? existing.wholesalePrice ?? existing.listPrice ?? Infinity) : Infinity;
+        if (!existing || cost < existingCost) byCabinet.set(row.id, row);
       }
-
-      const rows = await db
-        .select(baseSelect)
-        .from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(...conditions))
-        .orderBy(cabinets.category, cabinets.masterCode)
-        .limit(input.limit)
-        .offset(input.offset);
-
-      const countRows = await db
-        .select({ count: sql<number>`COUNT(DISTINCT ${cabinets.id})` })
-        .from(cabinets)
-        .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(...conditions));
+      const rows = Array.from(byCabinet.values()).sort((a, b) =>
+        `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }),
+      );
 
       // Apply the platform homeowner tier markup so the displayed retail price
       // reflects the admin's Pricing & Margins setting (0% => unchanged).
       const ps = await getPricingSettings();
-      const priced = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
+      const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
         // Retail = cost base × homeowner markup (matches the admin tab). The raw
         // cost columns are stripped from the client payload.
@@ -507,7 +503,7 @@ export const storefrontRouter = router({
 
       return {
         items: priced,
-        total: Number(countRows[0]?.count ?? 0),
+        total: rows.length,
       };
     }),
 
@@ -565,63 +561,77 @@ export const storefrontRouter = router({
         return { keywords: [intent], fallbackCategories: ["Base"] };
       })();
 
-      const baseConditions = [
-        eq(cabinets.isActive, true),
-        notInConflict(),
+      const sourceConditions = [
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+        ne(cabinets.conflictStatus, "conflict"),
       ];
 
-      const cols = {
-        id: cabinets.id,
-        masterCode: cabinets.masterCode,
-        description: cabinets.description,
-        category: cabinets.category,
-        subCategory: cabinets.subCategory,
-        width: cabinets.width,
-        platformSku: distributorSkus.platformSku,
-        homeownerPrice: distributorSkus.homeownerPrice,
-        listPrice: distributorSkus.listPrice,
-        wholesalePrice: distributorSkus.wholesalePrice,
-        adjustedListPrice: distributorSkus.adjustedListPrice,
-        yourCost: distributorSkus.yourCost,
+      const sourceRows = await db
+        .select({
+          sourceMasterCode: cabinets.masterCode,
+          platformSku: distributorSkus.platformSku,
+          homeownerPrice: distributorSkus.homeownerPrice,
+          listPrice: distributorSkus.listPrice,
+          wholesalePrice: distributorSkus.wholesalePrice,
+          adjustedListPrice: distributorSkus.adjustedListPrice,
+          yourCost: distributorSkus.yourCost,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(and(...sourceConditions));
+      const [aliases, masters] = await Promise.all([
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+          })
+          .from(cabinets)
+          .where(and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.showInCatalog, true),
+            ne(cabinets.conflictStatus, "conflict"),
+            isCanonicalCabinetMaster(),
+          )),
+      ]);
+      const allRows = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
+        .map(({ source, master }) => ({ ...source, ...master }));
+      const matchesIntent = (row: typeof allRows[number], categories?: string[], keywords?: string[]) => {
+        if (categories?.length && !categories.includes(row.category ?? "")) return false;
+        const description = row.description?.toLowerCase() ?? "";
+        return !keywords?.length || keywords.some((keyword) => description.includes(keyword));
+      };
+      const canonicalRows = (rows: typeof allRows) => {
+        const byId = new Map<number, typeof allRows[number]>();
+        for (const row of rows) {
+          const existing = byId.get(row.id);
+          const cost = Number(row.yourCost ?? row.wholesalePrice ?? row.listPrice ?? Infinity);
+          const existingCost = existing ? Number(existing.yourCost ?? existing.wholesalePrice ?? existing.listPrice ?? Infinity) : Infinity;
+          if (!existing || cost < existingCost) byId.set(row.id, row);
+        }
+        return Array.from(byId.values()).sort((a, b) => a.masterCode.localeCompare(b.masterCode, undefined, { numeric: true }));
       };
 
-      const runQuery = async (conds: typeof baseConditions) =>
-        db
-          .select(cols)
-          .from(cabinets)
-          .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-          .where(and(...conds))
-          .orderBy(cabinets.masterCode)
-          .limit(input.limit);
-
-      const conditions = [...baseConditions];
-      if (wants.categories && wants.categories.length) {
-        conditions.push(inArray(cabinets.category, wants.categories));
-      }
-      if (wants.keywords && wants.keywords.length) {
-        const ors = wants.keywords.map(
-          (k) => sql`${cabinets.description} LIKE ${`%${k}%`}`
-        );
-        conditions.push(sql`(${sql.join(ors, sql` OR `)})`);
-      }
-
-      let rows = await runQuery(conditions);
-
+      let rows = canonicalRows(allRows.filter((row) => matchesIntent(row, wants.categories, wants.keywords)));
       // If nothing matched (e.g. an unusual phrasing), fall back to the most
       // relevant category for the line so the recommender is never empty.
       if (rows.length === 0 && wants.fallbackCategories?.length) {
-        rows = await runQuery([
-          ...baseConditions,
-          inArray(cabinets.category, wants.fallbackCategories),
-        ]);
+        rows = canonicalRows(allRows.filter((row) => matchesIntent(row, wants.fallbackCategories)));
       }
 
       // Retail = cost base × homeowner markup; strip raw cost columns.
       const psRec = await getPricingSettings();
-      const items = rows.map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
+      const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
         ...r,
         homeownerPrice:
           sellPriceForTier(

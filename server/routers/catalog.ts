@@ -40,6 +40,7 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { priceLadder } from "@shared/pricing";
+import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -889,18 +890,7 @@ export const doorStylesRouter = router({
 
       const rows = await db
         .select({
-          cabinetId: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          numberOfDoors: cabinets.numberOfDoors,
-          numberOfDrawers: cabinets.numberOfDrawers,
-          graphicType: cabinets.graphicType,
-          catalogImageUrl: cabinets.catalogImageUrl,
+          sourceMasterCode: cabinets.masterCode,
           listPrice: distributorSkus.listPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
@@ -918,15 +908,53 @@ export const doorStylesRouter = router({
             eq(distributorSkus.styleId, input.styleId),
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
-            eq(cabinets.isActive, true),
-            notInConflict()
+            sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+            ne(cabinets.conflictStatus, "conflict"),
           )
         );
 
+      // A supplier row may be attached to a retired punctuation/format alias
+      // such as B12 while the canonical product is B-12. Keep the row's
+      // style/finish/SKU/price attributes intact, but project it onto the
+      // canonical master for catalog identity, dimensions, and line art.
+      const [aliases, masters] = await Promise.all([
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            cabinetId: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            graphicType: cabinets.graphicType,
+            catalogImageUrl: cabinets.catalogImageUrl,
+          })
+          .from(cabinets)
+          .where(and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.showInCatalog, true),
+            ne(cabinets.conflictStatus, "conflict"),
+            isCanonicalCabinetMaster(),
+          )),
+      ]);
+
+      const canonicalRows = resolveCanonicalCatalogSources(rows, aliases, masters).map(({ source, master }) => ({
+        ...source,
+        ...master,
+      }));
+
       // Collapse to one row per cabinet (a cabinet may be carried by multiple
       // supply lines in the same style). Prefer the lowest contractor price.
-      const byCabinet = new Map<number, (typeof rows)[number]>();
-      for (const r of rows) {
+      const byCabinet = new Map<number, (typeof canonicalRows)[number]>();
+      for (const r of canonicalRows) {
         const existing = byCabinet.get(r.cabinetId);
         if (!existing) {
           byCabinet.set(r.cabinetId, r);
@@ -1229,65 +1257,76 @@ export const cabinetsRouter = router({
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
 
-      const conds = [
+      const sourceConds = [
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
-        eq(cabinets.isActive, true),
-        notInConflict(),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+        ne(cabinets.conflictStatus, "conflict"),
       ];
-      if (input.category) conds.push(eq(cabinets.category, input.category));
-      if (input.subCategory) conds.push(eq(cabinets.subCategory, input.subCategory));
-      if (input.search) {
-        const search = input.search.trim();
-        const normalizedCodeSearch = normalizeCode(search);
-        const normalizedMasterCode = sql`UPPER(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''))`;
-        const normalizedMasterAlias = sql`UPPER(REPLACE(REPLACE(REPLACE(${skuMasterAliases.aliasCode}, '-', ''), ' ', ''), '_', ''))`;
-        const aliasRows = normalizedCodeSearch
-          ? await db
-            .select({ masterCode: skuMasterAliases.masterCode })
-            .from(skuMasterAliases)
-            .where(and(
-              eq(skuMasterAliases.conflictStatus, "ok"),
-              sql`${normalizedMasterAlias} LIKE ${`%${normalizedCodeSearch}%`}`,
-            ))
-          : [];
-        const aliasedMasterCodes = Array.from(new Set(aliasRows.map((row) => row.masterCode)));
-        conds.push(
-          aliasedMasterCodes.length > 0
-            ? or(
-              sql`${cabinets.masterCode} LIKE ${`%${search}%`}`,
-              sql`${cabinets.description} LIKE ${`%${search}%`}`,
-              sql`${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`}`,
-              inArray(cabinets.masterCode, aliasedMasterCodes),
-            )!
-            : sql`(${cabinets.masterCode} LIKE ${`%${search}%`} OR ${cabinets.description} LIKE ${`%${search}%`} OR ${normalizedMasterCode} LIKE ${`%${normalizedCodeSearch}%`})`
-        );
-      }
 
-      // Pull all matching cabinet rows for this style (a cabinet may have
-      // multiple SKUs across lines in the same style) then collapse to one row
-      // per cabinet before paginating, so counts/pages reflect distinct items.
-      const rows = await db
+      // Pull all viable source rows for this style. A source can sit under a
+      // retired format alias; it is resolved to its canonical master below so
+      // the style keeps its own price/SKU while the shopper sees one product.
+      const sourceRows = await db
         .select({
-          id: cabinets.id,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          subCategory: cabinets.subCategory,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          numberOfDoors: cabinets.numberOfDoors,
-          numberOfDrawers: cabinets.numberOfDrawers,
-          graphicType: cabinets.graphicType,
-          catalogImageUrl: cabinets.catalogImageUrl,
-          placementType: cabinets.placementType,
-          isCornerCabinet: cabinets.isCornerCabinet,
+          sourceMasterCode: cabinets.masterCode,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(...conds));
+        .where(and(...sourceConds));
+
+      const [aliases, masters] = await Promise.all([
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            id: cabinets.id,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            subCategory: cabinets.subCategory,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            numberOfDoors: cabinets.numberOfDoors,
+            numberOfDrawers: cabinets.numberOfDrawers,
+            graphicType: cabinets.graphicType,
+            catalogImageUrl: cabinets.catalogImageUrl,
+            placementType: cabinets.placementType,
+            isCornerCabinet: cabinets.isCornerCabinet,
+          })
+          .from(cabinets)
+          .where(and(
+            eq(cabinets.isActive, true),
+            eq(cabinets.showInCatalog, true),
+            ne(cabinets.conflictStatus, "conflict"),
+            isCanonicalCabinetMaster(),
+          )),
+      ]);
+
+      const search = input.search?.trim() ?? "";
+      const normalizedSearch = normalizeCode(search);
+      const aliasMatchedMasterCodes = new Set(
+        aliases
+          .filter((alias) => normalizedSearch.length > 0 && normalizeCode(alias.aliasCode).includes(normalizedSearch))
+          .map((alias) => alias.masterCode),
+      );
+      const matchesFilters = (row: (typeof masters)[number]) => {
+        if (input.category && row.category !== input.category) return false;
+        if (input.subCategory && row.subCategory !== input.subCategory) return false;
+        if (!search) return true;
+        return row.masterCode.includes(search)
+          || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
+          || normalizeCode(row.masterCode).includes(normalizedSearch)
+          || aliasMatchedMasterCodes.has(row.masterCode);
+      };
+
+      const rows = resolveCanonicalCatalogSources(sourceRows, aliases, masters)
+        .map(({ master }) => master)
+        .filter(matchesFilters);
 
       const byCabinet = new Map<number, (typeof rows)[number]>();
       for (const r of rows) if (!byCabinet.has(r.id)) byCabinet.set(r.id, r);
@@ -3630,7 +3669,10 @@ export const pricingRouter = router({
         const aliasRows = await db
           .select({ aliasCode: skuMasterAliases.aliasCode })
           .from(skuMasterAliases)
-          .where(eq(skuMasterAliases.masterCode, masterCode));
+          .where(and(
+            eq(skuMasterAliases.masterCode, masterCode),
+            eq(skuMasterAliases.conflictStatus, "ok"),
+          ));
 
         if (aliasRows.length > 0) {
           const aliasCodes = aliasRows.map((a) => a.aliasCode);
@@ -3692,9 +3734,13 @@ export const pricingRouter = router({
               : inArray(distributorSkus.cabinetId, allCabinetIds),
             eq(distributorSkus.isAvailable, true),
             eq(distributorSkus.isPublished, true),
+            sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
             eq(doorStyles.isActive, true),
             eq(distributors.isActive, true),
-            notInConflict()
+            // Alias source records are deliberately retired from product
+            // listings, but their exact supplier price/style overlays remain
+            // valid for the active canonical detail page.
+            ne(cabinets.conflictStatus, "conflict"),
           )
         );
 
