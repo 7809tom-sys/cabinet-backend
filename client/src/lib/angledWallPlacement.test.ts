@@ -242,6 +242,40 @@ describe("continuous builder custom wall placement", () => {
     });
   });
 
+  it("uses actual legacy custom walls even when old saved data has no mode or height metadata", () => {
+    const moving: PlacedCabinet = {
+      uid: "erb36-legacy-continuous-preview",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+    };
+    // This is the shape produced by older saved Continuous Wall Builder plans:
+    // explicit vertices/walls but no `openWallPath` and no stored wall heights.
+    expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, builderRoom, [])).toMatchObject({
+      wallId: "builder-top",
+      wallOffset: 0,
+      x: 0,
+      y: 0,
+      rotation: 0,
+    });
+
+    const noTrueCorner: RoomData = {
+      width: 144,
+      depth: 120,
+      vertices: [{ id: "a", x: 20, y: 20 }, { id: "b", x: 120, y: 20 }],
+      customWalls: [{ id: "legacy-single-wall", startVertexId: "a", endVertexId: "b", label: "Wall 1" }],
+    };
+    // Never invent a graph-boundary corner when the user has drawn only one wall.
+    expect(nextAvailableRoomCornerPlacement(moving, "legacy-single-wall" as any, noTrueCorner, [])).toBeNull();
+  });
+
   it("lets a dragged corner cabinet target the nearest open real corner rather than its old wall", () => {
     const moving: PlacedCabinet = {
       uid: "erb36-drag-preview",

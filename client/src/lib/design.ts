@@ -6545,14 +6545,13 @@ export function nextAvailableRoomCornerPlacement(
   const nearPointTolerance = nearPoint
     ? Math.max(24, Math.max(Number(moving.width) || 0, Number(moving.depth) || 0) + 24)
     : Number.POSITIVE_INFINITY;
-  // Continuous-wall rooms retain their own measured wall identity. Wall Builder
-  // marks an open run with openWallPath, while a completed loop is deliberately
-  // marked false. Its generated walls still carry the measured wall height, which
-  // distinguishes that advanced closed loop from a beginner seeded polygon.
-  const measuredContinuousWallRoom = Boolean(
-    room.openWallPath
-    || room.customWalls?.some((wall) => Number.isFinite(wall.height)),
-  );
+  // An explicit wall graph is authoritative.  Older saved Continuous Wall
+  // Builder plans can predate both `openWallPath` and a persisted wall height;
+  // treating those plans as a rectangular room makes a corner cabinet snap to
+  // an invisible canvas edge instead of to two real measured walls. Beginner
+  // Room Shapes remain on the rectangle path because they do not carry explicit
+  // vertices/customWalls at all.
+  const hasExplicitMeasuredWallPath = Boolean(room.vertices?.length && room.customWalls?.length);
   // ERB/L/diagonal corner products are physically square corner envelopes even
   // when a catalog line stores a shallow straight-run depth. Resolve a real
   // custom-wall vertex using that physical footprint so its corner reaches the
@@ -6563,7 +6562,7 @@ export function nextAvailableRoomCornerPlacement(
   // into a graph-square corner. This must not be limited to cardinal walls:
   // users can draw a 90° corner with two diagonals, and it is still a normal
   // flush 90° cabinet corner (not an 11-inch 45° peninsula clearance).
-  if (measuredContinuousWallRoom && room.vertices?.length && room.customWalls?.length) {
+  if (hasExplicitMeasuredWallPath && room.vertices?.length && room.customWalls?.length) {
     const orderedWalls = [
       ...room.customWalls.filter((wall) => wall.id === activeWall),
       ...room.customWalls.filter((wall) => wall.id !== activeWall),
@@ -6585,18 +6584,20 @@ export function nextAvailableRoomCornerPlacement(
         const vertexId = endpoint === "start" ? wall.startVertexId : wall.endVertexId;
         const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
         if (nearPoint && (!vertex || Math.hypot(vertex.x - nearPoint.x, vertex.y - nearPoint.y) > nearPointTolerance)) continue;
-        const adjoining = room.customWalls.find((candidate) => candidate.id !== wall.id && (
-          candidate.startVertexId === vertexId || candidate.endVertexId === vertexId
-        ));
+        // A wall can have more than one neighbor after an edit/split. Select an
+        // actual perpendicular neighbor, rather than accepting the first
+        // collinear segment and incorrectly abandoning an otherwise valid 90°
+        // corner.
+        const adjoining = room.customWalls.find((candidate) => candidate.id !== wall.id
+          && (candidate.startVertexId === vertexId || candidate.endVertexId === vertexId)
+          && Math.abs(Math.cos(angle - polygonWallAngle(candidate, room.vertices!))) <= 1e-6);
         if (!adjoining) continue;
-        const adjoiningAngle = polygonWallAngle(adjoining, room.vertices);
-        // Direction can be reversed at a shared vertex; a zero dot product is
-        // still the only condition for a true 90° vertex.
-        if (Math.abs(Math.cos(angle - adjoiningAngle)) > 1e-6) continue;
         const offset = endpoint === "start" ? 0 : Math.max(0, length - physicalFootprint.w);
         const spot = wallPlacementAt(offset, physicalFootprint.w, physicalFootprint.d, wall.id as WallSide, room);
         const candidate = { ...moving, ...spot, wallId: wall.id, wallOffset: offset };
-        if (!hasCollision(candidate, [...placed])) return spot;
+        // Include the custom-wall corner reservation, so a B12 cannot occupy
+        // the adjoining ERB leg merely because their plan AABBs meet cleanly.
+        if (!cabinetPlacementCollisionDetail(candidate, [...placed], room)) return spot;
       }
     }
     // Continuous-wall rooms have no invisible graph-square corners. If no

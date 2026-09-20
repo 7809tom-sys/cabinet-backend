@@ -6998,7 +6998,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    });
 	  }, [catalogFillers, setSinks, room, island, openings, customPlacementMode, automaticSnapping]);
 
-		  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
+			  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
 		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
 		    // A 3D move should use the same cabinet magnet as the plan whenever it is
 		    // enabled. This turns a near or partially overlapping drop into an exact
@@ -7017,6 +7017,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    }
 		    if (opportunity) setMobilePanel(null);
 		  }, [applySmallGapFiller, automaticSnapping, moveCabinet]);
+
+  // Exact run-coordinate placement is intentionally separate from screen-space
+  // dragging. It preserves the selected custom/peninsula wall identity and
+  // bypasses magnetic seam attraction, while `moveCabinet` remains the single
+  // authority for bounds, collisions, sink fixtures, refrigerator assemblies,
+  // and blind-corner fillers.
+  const setCabinetWallOffset = useCallback((uid: string, requestedOffsetIn: number) => {
+    if (cabinetsLocked) {
+      toast.error("Cabinets are locked. Unlock the layout before changing a measured position.");
+      return;
+    }
+    const cabinet = placedRef.current.find((item) => item.uid === uid);
+    if (!cabinet || cabinet.islandFace) return;
+    if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
+      toast.error(`${cabinet.masterCode} is locked to its seated corner. Use Unlock first before moving it along a wall.`);
+      return;
+    }
+    const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+    const runLength = wallLength(side, room);
+    if (!Number.isFinite(runLength) || runLength <= 0) return;
+    const maximumOffset = Math.max(0, runLength - cabinet.width);
+    const offset = Math.max(0, Math.min(maximumOffset, Math.round(requestedOffsetIn * 8) / 8));
+    const spot = wallPlacementAt(offset, cabinet.width, cabinet.depth, side, room, cabinet.peninsulaSide);
+    moveCabinet(uid, spot.x, spot.y, spot.rotation, true, { wallId: side, wallOffset: offset });
+  }, [cabinetsLocked, moveCabinet, room]);
 
   const swingSelected = () => {
     if (!selectedUid) return;
@@ -7405,6 +7430,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [attrUid, setAttrUid] = useState<string | null>(null);
   const [attrOpen, setAttrOpen] = useState(false);
   const attributesTargetUid = attrOpen ? attrUid : null;
+	  const cabinetWallPosition = useMemo(() => {
+	    const cabinet = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    if (!cabinet || cabinet.islandFace) return null;
+	    // A protected corner's precise position is its snapped vertex. It must be
+	    // explicitly unlocked before a measured run offset can detach it.
+	    if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) return null;
+	    const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+	    const length = wallLength(side, room);
+	    if (!Number.isFinite(length) || length <= 0) return null;
+	    const peninsula = peninsulaRunById(room, side);
+	    const customWall = room.customWalls?.find((wall) => wall.id === side);
+	    const usesExplicitOffset = Boolean((peninsula || customWall) && cabinet.wallId === side && Number.isFinite(cabinet.wallOffset));
+	    const offset = usesExplicitOffset
+	      ? Math.max(0, Number(cabinet.wallOffset) || 0)
+	      : side === "top" || side === "bottom" ? cabinet.x : cabinet.y;
+	    const label = peninsula?.label ?? customWall?.label ?? WALL_LABELS[side as keyof typeof WALL_LABELS] ?? String(side);
+	    return {
+	      wallLabel: label,
+	      wallLengthIn: length,
+	      offsetIn: Math.max(0, Math.min(Math.max(0, length - cabinet.width), offset)),
+	      maxOffsetIn: Math.max(0, length - cabinet.width),
+	    };
+	  }, [attrUid, placed, room]);
 	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
 	  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
 	  const [floatingShelfAttrUid, setFloatingShelfAttrUid] = useState<string | null>(null);
@@ -14120,9 +14168,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         onSetDepth={(_uid, v) => setCustomDepth(v)}
 	        mountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet && (cabinet.placement === "wall" || (cabinet.placement === "baseTop" && isKneeDrawerItem(cabinet))) ? elevationBox(cabinet, room).bottom : null; })() : null}
 	        maxMountBottom={attrUid ? (() => { const cabinet = placed.find((p) => p.uid === attrUid); return cabinet?.placement === "baseTop" && isKneeDrawerItem(cabinet) ? KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN : cabinet ? wallCabinetVerticalMoveLimit(cabinet, room).maxBottom : 0; })() : 0}
-        onSetMountBottom={setMountBottomFor}
+	        onSetMountBottom={setMountBottomFor}
 	        onMoveInOut={(uid, direction, distanceIn) => moveCabinetFrom3D(uid, direction, distanceIn)}
-        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
+	        wallPosition={cabinetWallPosition}
+	        onSetWallOffset={setCabinetWallOffset}
+	        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
         onSetHandleSide={setHandleSideFor}

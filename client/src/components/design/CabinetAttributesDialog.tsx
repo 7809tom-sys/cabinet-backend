@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Minus, Plus, DoorOpen, DoorClosed, Droplets, GitMerge, Link2, AlertTriangle, CircleHelp } from "lucide-react";
 import {
@@ -132,6 +132,133 @@ export function CabinetDepthMoveControls({
   );
 }
 
+export type CabinetWallPosition = {
+  /** Human-readable selected run name, e.g. "Wall 2" or "Peninsula return". */
+  wallLabel: string;
+  /** Full measured length of the selected wall run, in inches. */
+  wallLengthIn: number;
+  /** Cabinet's exact measured start offset from this wall's start vertex. */
+  offsetIn: number;
+  /** Largest offset that keeps the entire cabinet on the measured run. */
+  maxOffsetIn: number;
+};
+
+/**
+ * Exact along-wall placement for a cabinet or appliance.  A wall can be
+ * horizontal, vertical, or diagonal, so the controls deliberately use the
+ * wall's measured start/end—not screen-relative left/right directions.
+ */
+export function CabinetWallPositionControls({
+  position,
+  onSetOffset,
+}: {
+  position: CabinetWallPosition;
+  onSetOffset: (offsetIn: number) => void;
+}) {
+  const [offsetText, setOffsetText] = useState(String(Math.round(position.offsetIn * 8) / 8));
+  const [movementText, setMovementText] = useState("1");
+  useEffect(() => {
+    setOffsetText(String(Math.round(position.offsetIn * 8) / 8));
+  }, [position.offsetIn]);
+
+  const movementDistance = normalizedCabinetDepthMoveDistance(movementText);
+  const clampOffset = (value: number) => Math.max(0, Math.min(position.maxOffsetIn, Math.round(value * 8) / 8));
+  const commitOffset = () => {
+    const parsed = parsedCabinetDepthMoveDistance(offsetText);
+    if (parsed == null) {
+      setOffsetText(String(Math.round(position.offsetIn * 8) / 8));
+      return;
+    }
+    const next = clampOffset(parsed);
+    onSetOffset(next);
+    setOffsetText(String(next));
+  };
+  const nudge = (direction: "start" | "end") => {
+    const next = clampOffset(position.offsetIn + (direction === "start" ? -movementDistance : movementDistance));
+    onSetOffset(next);
+  };
+  const center = () => onSetOffset(clampOffset(position.maxOffsetIn / 2));
+
+  return (
+    <div className="space-y-2" data-testid="cabinet-wall-position-controls">
+      <div className="rounded-md border border-amber-200 bg-amber-50/60 px-2.5 py-2 text-xs text-amber-950">
+        <span className="font-semibold">Selected run: {position.wallLabel}</span>
+        <span className="text-amber-900/80"> · {Math.round(position.wallLengthIn * 8) / 8}″ measured</span>
+      </div>
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          Position from wall start corner
+          <span className="flex items-center gap-1">
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={offsetText}
+              className="h-9 w-24 text-center font-mono text-sm"
+              aria-label="Cabinet position from wall start in inches"
+              onChange={(event) => setOffsetText(event.target.value)}
+              onBlur={commitOffset}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") (event.target as HTMLInputElement).blur();
+              }}
+            />
+            <span className="text-xs">in.</span>
+          </span>
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-muted-foreground">
+          Movement distance
+          <span className="flex items-center gap-1">
+            <Input
+              type="text"
+              inputMode="decimal"
+              value={movementText}
+              className="h-9 w-20 text-center font-mono text-sm"
+              aria-label="Cabinet movement distance in inches"
+              onChange={(event) => setMovementText(event.target.value)}
+              onBlur={() => setMovementText(String(movementDistance))}
+            />
+            <span className="text-xs">in.</span>
+          </span>
+        </label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          aria-label="Move cabinet toward wall start"
+          title={`Move ${movementDistance} inches toward ${position.wallLabel}'s start corner`}
+          disabled={position.offsetIn <= 0.001}
+          onClick={() => nudge("start")}
+        >
+          Toward start −{movementDistance}″
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          aria-label="Move cabinet toward wall end"
+          title={`Move ${movementDistance} inches toward ${position.wallLabel}'s end corner`}
+          disabled={position.offsetIn >= position.maxOffsetIn - 0.001}
+          onClick={() => nudge("end")}
+        >
+          Toward end +{movementDistance}″
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9"
+          aria-label="Center cabinet on wall"
+          onClick={center}
+        >
+          Center on run
+        </Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">Use wall start/end because this measured wall may be vertical or diagonal. Position is kept to the nearest ⅛ inch and remains collision-safe.</p>
+    </div>
+  );
+}
+
 // A single dimension stepper (−/value/+) used inside the dialog.
 function Dim({
   label,
@@ -217,6 +344,8 @@ export interface CabinetAttributesDialogProps {
   maxMountBottom?: number;
   onSetMountBottom?: (uid: string, v: number) => void;
 	  onMoveInOut?: (uid: string, direction: "in" | "out", distanceIn: number) => void;
+  wallPosition?: CabinetWallPosition | null;
+  onSetWallOffset?: (uid: string, offsetIn: number) => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -272,6 +401,8 @@ export function CabinetAttributesDialog({
   maxMountBottom,
   onSetMountBottom,
   onMoveInOut,
+  wallPosition,
+  onSetWallOffset,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -336,8 +467,9 @@ export function CabinetAttributesDialog({
   const kneeDrawerBaseBodyAlignBottom = isKneeDrawer
     ? Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, STD.BASE_HEIGHT - placedHeight(cabinet)))
     : null;
-  const canMoveMount = (cabinet.placement === "wall" || isKneeDrawer) && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
+	  const canMoveMount = (cabinet.placement === "wall" || isKneeDrawer) && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
+  const canMoveAlongWall = Boolean(wallPosition && typeof onSetWallOffset === "function");
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   return (
@@ -595,17 +727,27 @@ export function CabinetAttributesDialog({
             </section>
           )}
 
-          {canMoveInOut && (
-            <section className="space-y-2 border-t border-border pt-4">
+	          {canMoveInOut && (
+	            <section className="space-y-2 border-t border-border pt-4">
               <div>
                 <h4 className="text-sm font-semibold">Depth position</h4>
                 <p className="text-[11px] text-muted-foreground">Choose an exact distance, then move this cabinet toward the wall or into the room.</p>
               </div>
               <CabinetDepthMoveControls onMove={(direction, distanceIn) => onMoveInOut?.(uid, direction, distanceIn)} />
-            </section>
-          )}
+	            </section>
+	          )}
 
-          {isIslandWallCabinet && (
+              {canMoveAlongWall && wallPosition && (
+                <section className="space-y-2 border-t border-border pt-4">
+                  <div>
+                    <h4 className="text-sm font-semibold">Exact position on wall</h4>
+                    <p className="text-[11px] text-muted-foreground">Type the measured position from the selected wall’s start corner, or move by a known distance toward its start or end.</p>
+                  </div>
+                  <CabinetWallPositionControls position={wallPosition} onSetOffset={(offsetIn) => onSetWallOffset?.(uid, offsetIn)} />
+                </section>
+              )}
+
+	          {isIslandWallCabinet && (
             <section className="space-y-2 border-t border-border pt-4" data-testid="island-wall-cabinet-base-treatment">
               <div className="flex items-start gap-1.5">
                 <div>

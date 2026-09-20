@@ -25,11 +25,11 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
         <DialogHeader>
           <DialogTitle>Window attributes</DialogTitle>
           <DialogDescription>
-            Move this window along its {opening.side} wall or raise and lower its sill. All measurements are in inches.
+            Enter its exact position from the selected wall’s start corner, or move it by a measured increment toward that wall’s start or end. All measurements are in inches.
           </DialogDescription>
         </DialogHeader>
         <label className="grid max-w-[14rem] gap-1.5 text-sm font-medium">
-          Movement distance in inches
+          Exact movement increment in inches
           <input
             type="number"
             inputMode="decimal"

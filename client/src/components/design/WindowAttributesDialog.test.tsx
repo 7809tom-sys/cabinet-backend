@@ -41,4 +41,26 @@ describe("WindowAttributesDialog", () => {
     fireEvent.click(screen.getByLabelText("Move toward start of wall"));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uid: "window-1", offset: 51.5 }));
   });
+
+  it("commits a typed position from the start of a measured custom wall", () => {
+    const onChange = vi.fn();
+    render(createElement(LanguageProvider, null, createElement(WindowAttributesDialog, {
+      opening: { uid: "window-custom-1", kind: "window", label: 'Window 36"', side: "wall-1" as any, offset: 18, width: 36, height: 36, sill: 42 },
+      room: {
+        width: 144,
+        depth: 120,
+        vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 144, y: 0 }],
+        customWalls: [{ id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1", height: 96 }],
+      },
+      open: true,
+      onOpenChange: () => undefined,
+      onChange,
+      onDelete: () => undefined,
+    })));
+
+    const position = screen.getByLabelText("Inches from the wall corner");
+    fireEvent.change(position, { target: { value: "70.125" } });
+    fireEvent.blur(position);
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uid: "window-custom-1", side: "wall-1", offset: 70.125 }));
+  });
 });
