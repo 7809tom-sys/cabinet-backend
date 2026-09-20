@@ -2470,3 +2470,11 @@
 - [x] Consolidate eight fact-matched ADA prefix/suffix pairs into canonical ADA-prefix masters, retain all verified positive source price rows and distributor overlays, normalize their code-true designer-friendly descriptions, and retire duplicate visible masters.
 - [x] Quarantine the incompatible `ADA-3VDB15` / `3VDB15ADA` source pair as a conflict rather than cross-aliasing a 21-inch, three-drawer vanity base to a 24-inch, 34.5-inch zero-drawer row.
 - [x] Add ADA-aware catalog save/import canonicalization, legacy/public/Design Tool alias search, technical three-drawer line art for either ADA code position, and no-price/alias/conflict regressions.
+
+- [x] Restore approved, master-code-keyed generic catalog drawings as the first-choice storefront image; keep the deterministic SVG library only as a reliable missing/failed-image fallback.
+- [x] Store the verified WMS3018 30 × 18 × 12 wall microwave shelf technical drawing against its canonical master, correct its shopper-facing type/alt text, and prevent the fallback from rendering it as a double-door wall cabinet.
+
+- [x] Use the uploaded Capital Specification Book V8 as a structural source of truth, without importing or altering its reference pricing.
+- [x] Restore approved master-code image priority, retain deterministic SVG line art as a safe missing-image fallback, and correct the exact `WMS3018` cabinet-kit / `WMSSHELF` shelf-insert distinction with dedicated generic shelf-insert art.
+- [x] Apply only exact source-code repairs: WMS shelf insert, O339624 oven configuration, four-door utility roll-out kit facts, BAM/COV/FBM/LRM/SHM mouldings, BSV/BDEP/VDEP panels, CBT/CLDL accessories, and RS18–RS36 Type A roll-out shelf dimensions/hardware. No price or availability value was changed.
+- [x] Register exact `RS##-Type A` source aliases; retain unmatched, near-code, and image-provenance-uncertain products unchanged rather than inferring a master, alias, or image.

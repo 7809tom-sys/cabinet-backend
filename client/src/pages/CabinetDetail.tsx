@@ -1066,7 +1066,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
               {(selectedRow?.distributorImageUrl || cabinet.catalogImageUrl)
-                ? "Catalog illustration — front elevation"
+                ? "Catalog illustration — code-specific technical drawing"
                 : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
             {/* Admin: scoped image replace button */}

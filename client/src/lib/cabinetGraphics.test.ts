@@ -329,6 +329,40 @@ describe("cabinetDrawingType", () => {
     })).toBe("face-pattern");
   });
 
+  it("classifies WMS3018 as an open wall microwave cabinet kit rather than a door cabinet", () => {
+    const wms = {
+      masterCode: "WMS3018",
+      description: '30" × 18" × 12" Wall Microwave Cabinet Kit with 26½" × ¾" × 17" Shelf Insert',
+      category: "Wall",
+      subCategory: "Microwave Wall",
+      width: 30,
+      height: 18,
+      depth: 12,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } satisfies CabinetLike;
+    expect(cabinetDrawingType(wms)).toBe("wall-microwave-kit");
+    expect(cabinetTypeLabel(wms)).toBe("Wall Microwave Cabinet Kit");
+    expect(cabinetAltText(wms)).toContain("open wall microwave cabinet kit with shelf insert");
+  });
+
+  it("keeps the separately sold WMSSHELF insert distinct from the WMS3018 cabinet kit", () => {
+    const shelf = {
+      masterCode: "WMSSHELF",
+      description: '26½" × ¾" × 17" Wall Microwave Cabinet Shelf Insert',
+      category: "Accessory",
+      subCategory: "Shelf Insert",
+      width: 26.5,
+      height: 0.75,
+      depth: 17,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } satisfies CabinetLike;
+    expect(cabinetDrawingType(shelf)).toBe("shelf-insert");
+    expect(cabinetTypeLabel(shelf)).toBe("Microwave Cabinet Shelf Insert");
+    expect(cabinetAltText(shelf)).toContain("individual shelf insert for a wall microwave cabinet kit");
+  });
+
   it("classifies crown molding as accessory-strip", () => {
     const cab: CabinetLike = {
       masterCode: "CM-96",

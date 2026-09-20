@@ -15,6 +15,8 @@ export type CabinetDrawingType =
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
   | "lazy-susan-tray" // shelf-mounted Chrome Tray insert for ERB easy-reach cabinets
+  | "wall-microwave-kit" // WMS: open wall microwave cabinet kit with shelf insert
+  | "shelf-insert" // WMSSHELF: individual WMS kit shelf insert
   | "accessory-strip" // moldings, fillers, shelves (thin)
   | "panel" // flat panels: skin panels, end panels, plywood panels (grain direction)
   | "decorative-door" // decorative door panels: match door style, go on island backs / cabinet sides
@@ -296,6 +298,19 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // so render one neutral, reusable technical tray instead of generic trim.
   if (/^chrometray(?:33|36)$/.test(code.replace(/[^a-z0-9]/g, ""))) {
     return "lazy-susan-tray";
+  }
+
+  // WMSSHELF is the separately sold shelf insert for WMS3018. Its code is not
+  // interchangeable with the full microwave cabinet kit.
+  if (/^wmsshelf$/.test(code.replace(/[^a-z0-9]/g, ""))) {
+    return "shelf-insert";
+  }
+
+  // WMS3018 is an open 30 × 18 × 12 wall microwave cabinet kit with an
+  // individual shelf insert. It is not a two-door wall box; its code owns the
+  // open frame and lower shelf platform.
+  if (/^wms\d+$/.test(code.replace(/[^a-z0-9]/g, "")) || /wall microwave cabinet kit/.test(hay)) {
+    return "wall-microwave-kit";
   }
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
@@ -618,6 +633,8 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
     return drawers > 0 ? `${drawers}-Drawer ${placement}` : `Drawer ${placement}`;
   }
   if (type === "microwave-base") return "Microwave Base Cabinet";
+  if (type === "wall-microwave-kit") return "Wall Microwave Cabinet Kit";
+  if (type === "shelf-insert") return "Microwave Cabinet Shelf Insert";
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
@@ -705,6 +722,8 @@ export function cabinetAltText(cab: CabinetLike): string {
     vanity: "vanity cabinet",
     ada: "ADA-compliant cabinet",
     "lazy-susan-tray": "shelf-mounted chrome tray insert for an easy-reach corner cabinet",
+    "wall-microwave-kit": "open wall microwave cabinet kit with shelf insert",
+    "shelf-insert": "individual shelf insert for a wall microwave cabinet kit",
     "accessory-strip": "accessory / trim",
     "panel": "flat panel (skin panel / end panel)",
     "decorative-door": "decorative door panel",

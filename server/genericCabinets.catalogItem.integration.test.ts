@@ -146,6 +146,37 @@ describe("genericCabinets.saveCatalogItem", () => {
     })).rejects.toThrow();
   });
 
+  it("blocks publishing a four-door roll-out utility kit with a non-source door layout", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (!line) return;
+    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles).where(eq(doorStyles.distributorId, line.id)).limit(1);
+    if (!style) return;
+
+    const caller = appRouter.createCaller(adminContext());
+    await expect(caller.genericCabinets.saveCatalogItem({
+      mode: "publish",
+      masterCode: "U2490244RS",
+      description: "Supplier utility cabinet",
+      category: "Tall",
+      subCategory: "Utility Roll-Out Cabinet Kit",
+      width: 24,
+      height: 90,
+      depth: 24,
+      placementType: "tall",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      source: {
+        distributorId: line.id,
+        styleId: style.id,
+        distributorSku: `BAD-U2490244RS-${Date.now()}`,
+        listPrice: 125.5,
+        isAvailable: true,
+      },
+    })).rejects.toThrow("door layout conflicts with the nomenclature code");
+  });
+
   it("normalizes a positional ADA suffix to the same canonical ADA master code", async () => {
     const db = await getDb();
     if (!db) return;

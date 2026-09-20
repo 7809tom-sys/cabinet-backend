@@ -8,6 +8,9 @@ export type CatalogNomenclatureFamily =
   | "wall-blind-corner"
   | "wall-plate-rack"
   | "chrome-tray"
+  | "wall-microwave-kit"
+  | "shelf-insert"
+  | "roll-out-shelf"
   | "tall"
   | "ada"
   | "unknown";
@@ -30,6 +33,8 @@ export type CatalogNomenclature = {
   isFullHeightBase?: boolean;
   /** Exact drawer count when the nomenclature unambiguously defines one. */
   expectedDrawerCount?: number;
+  /** Exact door count when the nomenclature unambiguously defines one. */
+  expectedDoorCount?: number;
   /** ADA may be written before or after the structural cabinet code. */
   isAdaAccessible?: boolean;
   /** Structural code after removing the positional ADA marker. */
@@ -48,6 +53,7 @@ export type CatalogTruthInput = {
   width?: number | string | null | undefined;
   height?: number | string | null | undefined;
   depth?: number | string | null | undefined;
+  numberOfDoors?: number | null | undefined;
   numberOfDrawers?: number | null | undefined;
   catalogImageUrl?: string | null | undefined;
 };
@@ -70,6 +76,7 @@ export type CatalogTruthIssue =
   | "width-mismatch"
   | "height-mismatch"
   | "depth-mismatch"
+  | "door-layout-mismatch"
   | "drawer-layout-mismatch";
 
 const EPSILON = 0.01;
@@ -312,6 +319,66 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
     };
   }
 
+  // Capital Spec Book V8 p.68: WMS3018 is a complete 30 × 18 × 12 wall
+  // microwave cabinet kit, while WMSSHELF is its separately sold shelf insert.
+  // These are exact product codes, not interchangeable wall-shelf labels.
+  if (normalizedCode === "WMS3018") {
+    return {
+      code,
+      normalizedCode,
+      family: "wall-microwave-kit",
+      expectedCategory: "Wall",
+      expectedSubCategory: "Wall Microwave Cabinet Kit",
+      expectedPlacement: "wall",
+      expectedWidth: 30,
+      expectedHeight: 18,
+      expectedDepth: 12,
+      expectedDescriptionTerms: ["wall", "microwave", "cabinet", "kit"],
+    };
+  }
+
+  if (normalizedCode === "WMSSHELF") {
+    return {
+      code,
+      normalizedCode,
+      family: "shelf-insert",
+      expectedCategory: "Accessory",
+      expectedSubCategory: "Shelf Insert",
+      expectedPlacement: "accessory",
+      expectedWidth: 26.5,
+      expectedHeight: 0.75,
+      expectedDepth: 17,
+      expectedDescriptionTerms: ["microwave", "shelf", "insert"],
+    };
+  }
+
+  // Capital Spec Book V8 p.87: Type A roll-out shelf inserts. The source code
+  // may be written RS18-Type A while the canonical platform code is RS18.
+  const typeARolloutShelf = normalizedCode.match(/^RS(18|21|24|27|30|33|36)(?:TYPEA)?$/);
+  if (typeARolloutShelf) {
+    const shelfWidths: Record<string, number> = {
+      "18": 13.375,
+      "21": 16.375,
+      "24": 19.5,
+      "27": 22.5,
+      "30": 25.375,
+      "33": 28.375,
+      "36": 31.375,
+    };
+    return {
+      code,
+      normalizedCode,
+      family: "roll-out-shelf",
+      expectedCategory: "Accessory",
+      expectedSubCategory: "Roll-Out Shelf",
+      expectedPlacement: "accessory",
+      expectedWidth: shelfWidths[typeARolloutShelf[1]],
+      expectedHeight: 3.375,
+      expectedDepth: 20.4375,
+      expectedDescriptionTerms: ["roll-out", "shelf", "type", "a"],
+    };
+  }
+
   const diagonalWall = normalizedCode.match(/^DCW(\d{2})(\d{2})$/);
   if (diagonalWall) {
     return {
@@ -369,6 +436,25 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
       expectedHeight: Number(angleWall[2]),
       expectedDepth: 12,
       expectedDescriptionTerms: ["angle", "wall"],
+    };
+  }
+
+  const utilityRollOutTall = normalizedCode.match(/^U(\d{2})(\d{2})(\d{2})4RS$/);
+  if (utilityRollOutTall) {
+    return {
+      code,
+      normalizedCode,
+      family: "tall",
+      expectedCategory: "Tall",
+      expectedSubCategory: "Utility Roll-Out Cabinet Kit",
+      expectedPlacement: "tall",
+      expectedWidth: Number(utilityRollOutTall[1]),
+      expectedHeight: Number(utilityRollOutTall[2]),
+      expectedDepth: Number(utilityRollOutTall[3]),
+      expectedDoorCount: 4,
+      expectedDrawerCount: 0,
+      rollOutShelfCount: 4,
+      expectedDescriptionTerms: ["utility", "cabinet", "kit", "roll-out", "shelf"],
     };
   }
 
@@ -517,6 +603,12 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
       const size = nomenclature.normalizedCode.replace("CHROMETRAY", "");
       return `Chrome Tray Insert for ERB${size} Easy-Reach Corner Cabinet`;
     }
+    case "wall-microwave-kit":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Microwave Cabinet Kit with 26½\" × ¾\" × 17\" Shelf Insert`;
+    case "shelf-insert":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Microwave Cabinet Shelf Insert`;
+    case "roll-out-shelf":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Roll-Out Shelf, Type A`;
     case "diagonal-corner-wall":
       return `${dimensions ?? ""}${dimensions ? " " : ""}Diagonal Corner Wall Cabinet${joinProductDetails([door, shelves])}`;
     case "wall-blind-corner":
@@ -528,6 +620,9 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
     case "wall":
       return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Cabinet${joinProductDetails([door, shelves])}`;
     case "tall":
+      if (nomenclature.rollOutShelfCount === 4) {
+        return `${dimensions ?? ""}${dimensions ? " " : ""}Four-Door Utility Cabinet Kit — 4 Roll-Out Shelves`;
+      }
       if (nomenclature.normalizedCode.startsWith("U")) {
         return `${dimensions ?? ""}${dimensions ? " " : ""}Tall Pantry Cabinet${joinProductDetails([door, shelves])}`;
       }
@@ -559,6 +654,9 @@ export function catalogNomenclatureIssues(input: CatalogTruthInput): CatalogTrut
   if (!matches(input.width, nomenclature.expectedWidth)) issues.push("width-mismatch");
   if (!matches(input.height, nomenclature.expectedHeight)) issues.push("height-mismatch");
   if (!matches(input.depth, nomenclature.expectedDepth)) issues.push("depth-mismatch");
+  if (nomenclature.expectedDoorCount != null && input.numberOfDoors != null && input.numberOfDoors !== nomenclature.expectedDoorCount) {
+    issues.push("door-layout-mismatch");
+  }
   if (nomenclature.expectedDrawerCount != null && input.numberOfDrawers != null && input.numberOfDrawers !== nomenclature.expectedDrawerCount) {
     issues.push("drawer-layout-mismatch");
   }
@@ -574,6 +672,7 @@ export function catalogNomenclatureIssueMessage(issues: CatalogTruthIssue[]): st
     "width-mismatch": "width conflicts with the nomenclature code",
     "height-mismatch": "height conflicts with the nomenclature code",
     "depth-mismatch": "depth conflicts with the nomenclature code",
+    "door-layout-mismatch": "door layout conflicts with the nomenclature code",
     "drawer-layout-mismatch": "drawer layout conflicts with the nomenclature code",
   };
   return issues.map((issue) => labels[issue]).join("; ");

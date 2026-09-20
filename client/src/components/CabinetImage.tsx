@@ -1,27 +1,50 @@
+import { useEffect, useState } from "react";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { type CabinetLike } from "@/lib/cabinetGraphics";
+import { cabinetAltText, type CabinetLike } from "@/lib/cabinetGraphics";
 
 interface CabinetImageProps {
   cabinet: CabinetLike;
-  /** Optional door/finish color applied only to the neutral structural drawing. */
+  /** Optional door/finish color applied only to the code-drawn fallback. */
   finishColor?: string;
   className?: string;
   /**
-   * Retained for caller compatibility. Distributor image URLs are deliberately
-   * not used for catalog product art: a master code has one structural drawing
-   * across every distributor, finish, and door style.
+   * An explicitly approved distributor-line image for the selected detail view.
+   * Catalog cards continue to use the canonical master image so a finish never
+   * changes the structural product identity.
    */
   overrideImageUrl?: string | null;
 }
 
 /**
- * Renders the code-keyed CabinetDealz technical line-art library. The drawing is
- * deterministic from master code, dimensions, and authored cabinet structure;
- * legacy catalogImageUrl and distributor override thumbnails cannot replace it
- * with finish-specific or structurally mismatched imagery.
+ * Displays the approved neutral catalog drawing assigned to the canonical master
+ * code. When a detail view has an explicitly approved distributor override, that
+ * selected-line drawing takes precedence. The deterministic CabinetDrawing library
+ * remains the dependable fallback for a missing or failed catalog asset; it does
+ * not replace approved product artwork.
  */
-export function CabinetImage({ cabinet, finishColor, className }: CabinetImageProps) {
-  return <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />;
+export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
+  const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
+  const [failed, setFailed] = useState(false);
+
+  // Reset the error state whenever a new master or approved image is selected.
+  useEffect(() => {
+    setFailed(false);
+  }, [url, cabinet.masterCode]);
+
+  if (!url || failed) {
+    return <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />;
+  }
+
+  return (
+    <img
+      src={url}
+      alt={cabinetAltText(cabinet)}
+      className={className}
+      loading="lazy"
+      onError={() => setFailed(true)}
+      style={{ objectFit: "contain" }}
+    />
+  );
 }
 
 export default CabinetImage;

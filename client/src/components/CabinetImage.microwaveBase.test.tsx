@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CabinetImage } from "./CabinetImage";
 
-describe("CabinetImage code-keyed generic drawing authority", () => {
-  it("does not display a stale two-door catalog thumbnail for zero-door BMC30", () => {
+describe("CabinetImage approved catalog art priority", () => {
+  it("shows the approved master technical image before using a drawing fallback", () => {
     const markup = renderToStaticMarkup(
       createElement(CabinetImage, {
         cabinet: {
@@ -16,16 +16,16 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
           numberOfDrawers: 1,
           openingType: "top",
           drawerHeight: 12,
-          catalogImageUrl: "https://example.com/stale-two-door-base.webp",
+          catalogImageUrl: "https://example.com/approved-microwave-base-line-art.webp",
         },
       }),
     );
 
-    expect(markup).toContain('data-cabinet-drawing="microwave-base"');
-    expect(markup).not.toContain("stale-two-door-base.webp");
+    expect(markup).toContain("approved-microwave-base-line-art.webp");
+    expect(markup).not.toContain("data-cabinet-drawing");
   });
 
-  it("uses the Chrome Tray master-code drawing instead of a distributor thumbnail", () => {
+  it("uses an explicitly approved selected-line detail image before the master image", () => {
     const markup = renderToStaticMarkup(
       createElement(CabinetImage, {
         cabinet: {
@@ -33,18 +33,18 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
           description: "Chrome Tray Insert for ERB33 Easy-Reach Corner Cabinet",
           category: "Accessory",
           subCategory: "Lazy Susan Insert",
-          catalogImageUrl: "https://example.com/wrong-vendor-photo.webp",
+          catalogImageUrl: "https://example.com/approved-master-tray.webp",
         },
-        overrideImageUrl: "https://example.com/finish-specific-tray.webp",
+        overrideImageUrl: "https://example.com/approved-selected-line-tray.webp",
       }),
     );
 
-    expect(markup).toContain('data-cabinet-drawing="lazy-susan-tray"');
-    expect(markup).not.toContain("wrong-vendor-photo.webp");
-    expect(markup).not.toContain("finish-specific-tray.webp");
+    expect(markup).toContain("approved-selected-line-tray.webp");
+    expect(markup).not.toContain("approved-master-tray.webp");
+    expect(markup).not.toContain("data-cabinet-drawing");
   });
 
-  it("renders PR3015 as open plate-rack line art rather than a door cabinet", () => {
+  it("falls back to PR3015 plate-rack technical line art only when no approved image exists", () => {
     const markup = renderToStaticMarkup(
       createElement(CabinetImage, {
         cabinet: {
@@ -54,16 +54,56 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
           width: 30,
           height: 15,
           depth: 12,
-          catalogImageUrl: "https://example.com/incorrect-closed-door-cabinet.webp",
         },
       }),
     );
 
     expect(markup).toContain('data-cabinet-drawing="plate-rack"');
-    expect(markup).not.toContain("incorrect-closed-door-cabinet.webp");
   });
 
-  it("renders the exact code-owned roll-out shelf count as a technical badge", () => {
+  it("falls back to the WMS open cabinet-kit drawing rather than a double-door wall cabinet", () => {
+    const markup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: {
+          masterCode: "WMS3018",
+          description: '30" × 18" × 12" Wall Microwave Cabinet Kit with 26½" × ¾" × 17" Shelf Insert',
+          category: "Wall",
+          subCategory: "Microwave Wall",
+          width: 30,
+          height: 18,
+          depth: 12,
+          numberOfDoors: 0,
+          numberOfDrawers: 0,
+        },
+      }),
+    );
+
+    expect(markup).toContain('data-cabinet-drawing="wall-microwave-kit"');
+    expect(markup).not.toContain('data-cabinet-drawing="standard-door"');
+  });
+
+  it("renders the separately sold WMS shelf insert without a cabinet box", () => {
+    const markup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: {
+          masterCode: "WMSSHELF",
+          description: '26½" × ¾" × 17" Wall Microwave Cabinet Shelf Insert',
+          category: "Accessory",
+          subCategory: "Shelf Insert",
+          width: 26.5,
+          height: 0.75,
+          depth: 17,
+          numberOfDoors: 0,
+          numberOfDrawers: 0,
+        },
+      }),
+    );
+
+    expect(markup).toContain('data-cabinet-drawing="shelf-insert"');
+    expect(markup).not.toContain('data-cabinet-drawing="wall-microwave-kit"');
+  });
+
+  it("renders the exact code-owned roll-out shelf count on fallback technical art", () => {
     const fullHeightMarkup = renderToStaticMarkup(
       createElement(CabinetImage, {
         cabinet: {
@@ -107,7 +147,7 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
     expect(standardBaseMarkup).not.toContain("data-rollout-shelf-indicator");
   });
 
-  it("renders the same code-keyed ADA drawer front whether ADA is prefix or suffix", () => {
+  it("falls back to the same ADA drawer technical art whether ADA is prefix or suffix", () => {
     for (const masterCode of ["ADA-3DB15", "3DB15ADA"]) {
       const markup = renderToStaticMarkup(
         createElement(CabinetImage, {
@@ -121,12 +161,10 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
             depth: 24,
             numberOfDoors: 0,
             numberOfDrawers: 3,
-            catalogImageUrl: "https://example.com/incorrect-vendor-ada-thumbnail.webp",
           },
         }),
       );
       expect(markup).toContain('data-cabinet-drawing="drawer-base"');
-      expect(markup).not.toContain("incorrect-vendor-ada-thumbnail.webp");
     }
   });
 });

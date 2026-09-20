@@ -359,6 +359,7 @@ export const genericCabinetsRouter = router({
           width: input.width,
           height: input.height,
           depth: input.depth,
+          numberOfDoors: input.numberOfDoors,
           numberOfDrawers: input.numberOfDrawers,
           catalogImageUrl: input.catalogImageUrl,
         });

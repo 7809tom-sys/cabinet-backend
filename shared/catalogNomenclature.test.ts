@@ -115,6 +115,69 @@ describe("catalog nomenclature truth", () => {
       .toBe("Chrome Tray Insert for ERB36 Easy-Reach Corner Cabinet");
   });
 
+  it("preserves the Capital WMS cabinet-kit and individual shelf-insert distinction", () => {
+    expect(parseCatalogNomenclature("WMS3018")).toMatchObject({
+      family: "wall-microwave-kit",
+      expectedCategory: "Wall",
+      expectedSubCategory: "Wall Microwave Cabinet Kit",
+      expectedWidth: 30,
+      expectedHeight: 18,
+      expectedDepth: 12,
+    });
+    expect(designerFriendlyDescription({ masterCode: "WMS3018" }))
+      .toBe('30" × 18" × 12" Wall Microwave Cabinet Kit with 26½" × ¾" × 17" Shelf Insert');
+
+    expect(parseCatalogNomenclature("WMSSHELF")).toMatchObject({
+      family: "shelf-insert",
+      expectedCategory: "Accessory",
+      expectedWidth: 26.5,
+      expectedHeight: 0.75,
+      expectedDepth: 17,
+    });
+    expect(designerFriendlyDescription({ masterCode: "WMSSHELF" }))
+      .toBe('26.5" × 0.75" × 17" Wall Microwave Cabinet Shelf Insert');
+  });
+
+  it("normalizes Capital Type A roll-out shelf source facts", () => {
+    expect(parseCatalogNomenclature("RS18-Type A")).toMatchObject({
+      family: "roll-out-shelf",
+      expectedCategory: "Accessory",
+      expectedWidth: 13.375,
+      expectedHeight: 3.375,
+      expectedDepth: 20.4375,
+    });
+    expect(designerFriendlyDescription({ masterCode: "RS36" }))
+      .toBe('31.375" × 3.375" × 20.4375" Roll-Out Shelf, Type A');
+  });
+
+  it("preserves the four-door and four-roll-out facts encoded in a utility kit code", () => {
+    expect(parseCatalogNomenclature("U2490244RS")).toMatchObject({
+      family: "tall",
+      expectedCategory: "Tall",
+      expectedSubCategory: "Utility Roll-Out Cabinet Kit",
+      expectedWidth: 24,
+      expectedHeight: 90,
+      expectedDepth: 24,
+      expectedDoorCount: 4,
+      expectedDrawerCount: 0,
+      rollOutShelfCount: 4,
+    });
+    expect(designerFriendlyDescription({ masterCode: "U2490244RS" }))
+      .toBe('24" × 90" × 24" Four-Door Utility Cabinet Kit — 4 Roll-Out Shelves');
+    expect(catalogNomenclatureIssues({
+      masterCode: "U2490244RS",
+      description: '24" × 90" × 24" Four-Door Utility Cabinet Kit — 4 Roll-Out Shelves',
+      category: "Tall",
+      subCategory: "Utility Roll-Out Cabinet Kit",
+      placementType: "tall",
+      width: 24,
+      height: 90,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    })).toContain("door-layout-mismatch");
+  });
+
   it("distinguishes full-height roll-out bases from regular drawer bases", () => {
     expect(parseCatalogNomenclature("B18FH2RS")).toMatchObject({
       family: "base",

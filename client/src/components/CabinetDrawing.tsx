@@ -103,6 +103,10 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <CornerDrawerBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "lazy-susan-tray":
       return <LazySusanTrayFront x={x} y={y} w={w} h={h} fill={fill} />;
+    case "wall-microwave-kit":
+      return <WallMicrowaveShelfFront x={x} y={y} w={w} h={h} fill={fill} />;
+    case "shelf-insert":
+      return <ShelfInsertFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "accessory-strip":
       return <AccessoryStrip x={x} y={y} w={w} h={h} fill={fill} />;
     case "panel":
@@ -738,6 +742,44 @@ function LazySusanTrayFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cab
       })}
       <line x1={arcX + pad} y1={arcY - pad} x2={arcX + radius - pad} y2={arcY - pad} stroke={STROKE_LIGHT} strokeWidth={1} />
       <line x1={arcX + pad} y1={arcY - pad} x2={arcX + pad} y2={arcY - radius + pad} stroke={STROKE_LIGHT} strokeWidth={1} />
+    </g>
+  );
+}
+
+// WMS cabinet kit: an open wall frame with its lower shelf platform. This remains
+// a fallback for when an approved WMS code-keyed technical image is not present,
+// so it must never resemble a closed two-door wall cabinet.
+function WallMicrowaveShelfFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet">) {
+  const inset = Math.max(4, Math.min(8, w * 0.1));
+  const frame = Math.max(2, Math.min(5, w * 0.055));
+  const shelfY = y + h * 0.66;
+  const trayH = Math.max(8, h * 0.2);
+  const trayW = w - inset * 2;
+  return (
+    <g data-cabinet-drawing="wall-microwave-kit">
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      <rect x={x + inset} y={y + inset} width={w - inset * 2} height={Math.max(2, shelfY - y - inset)} fill={PANEL_FILL} stroke={STROKE_LIGHT} strokeWidth={1} />
+      <line x1={x + frame} y1={shelfY} x2={x + w - frame} y2={shelfY} stroke={STROKE} strokeWidth={1.6} />
+      <rect x={x + inset} y={shelfY + frame} width={trayW} height={trayH} rx={Math.min(3, trayH / 3)} fill="#94a3b8" stroke={STROKE} strokeWidth={1.4} />
+      <line x1={x + inset + frame} y1={shelfY + trayH * 0.55} x2={x + w - inset - frame} y2={shelfY + trayH * 0.55} stroke="#e2e8f0" strokeWidth={1} />
+      <line x1={x + frame} y1={y + frame} x2={x + frame} y2={y + h - frame} stroke={STROKE} strokeWidth={1.2} />
+      <line x1={x + w - frame} y1={y + frame} x2={x + w - frame} y2={y + h - frame} stroke={STROKE} strokeWidth={1.2} />
+    </g>
+  );
+}
+
+// Stand-alone WMSSHELF insert: a shallow framed shelf/pull-out platform. It
+// deliberately has no cabinet sides or doors, so it cannot be mistaken for the
+// full WMS3018 microwave cabinet kit.
+function ShelfInsertFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet">) {
+  const inset = Math.max(3, Math.min(7, w * 0.06));
+  const railH = Math.max(1.3, h * 0.22);
+  return (
+    <g data-cabinet-drawing="shelf-insert">
+      <rect x={x + inset} y={y + inset} width={w - inset * 2} height={h - inset * 2} rx={1.5} fill={PANEL_FILL} stroke={STROKE} strokeWidth={1.4} />
+      <rect x={x + inset} y={y + h - inset - railH} width={w - inset * 2} height={railH} rx={1} fill={fill} stroke={STROKE} strokeWidth={1.2} />
+      <line x1={x + inset * 2} y1={y + inset * 2} x2={x + w - inset * 2} y2={y + inset * 2} stroke={STROKE_LIGHT} strokeWidth={1} />
+      <line x1={x + inset * 2} y1={y + h * 0.52} x2={x + w - inset * 2} y2={y + h * 0.52} stroke={STROKE_LIGHT} strokeWidth={1} />
     </g>
   );
 }
