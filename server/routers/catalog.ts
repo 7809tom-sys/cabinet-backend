@@ -218,6 +218,43 @@ export const doorStylesRouter = router({
       return filterStylesByAvailability(rows, available);
     }),
 
+  // Manufacturer specification references are intentionally separate from the
+  // sellable style list. They educate shoppers about documented future or
+  // price-pending finishes without making them selectable in Catalog, cart, or
+  // the Designer before a positive published supplier source exists.
+  specificationReferences: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select({
+        id: doorStyles.id,
+        distributorId: doorStyles.distributorId,
+        styleCode: doorStyles.styleCode,
+        ourName: doorStyles.ourName,
+        aliasName: doorStyles.aliasName,
+        doorStyle: doorStyles.doorStyle,
+        woodSpecies: doorStyles.woodSpecies,
+        finish: doorStyles.finish,
+        color: doorStyles.color,
+        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+        railWidth: doorStyles.railWidth,
+        stileWidth: doorStyles.stileWidth,
+        centerRailWidth: doorStyles.centerRailWidth,
+        profileNotes: doorStyles.profileNotes,
+        profileDescription: doorStyles.profileDescription,
+        specificationStatus: doorStyles.specificationStatus,
+        sourceSpecification: doorStyles.sourceSpecification,
+      })
+      .from(doorStyles)
+      .where(and(
+        ne(doorStyles.specificationStatus, "purchasable"),
+        isNotNull(doorStyles.sourceSpecification),
+      ))
+      .orderBy(asc(doorStyles.doorStyle), asc(doorStyles.ourName));
+  }),
+
   byId: publicProcedure
     .input(z.object({ id: z.number() }))
     .query(async ({ input }) => {

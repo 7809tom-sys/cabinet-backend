@@ -402,6 +402,11 @@ export const doorStyles = mysqlTable("door_styles", {
   centerRailWidth: decimal("centerRailWidth", { precision: 4, scale: 2 }), // center/mid rail (if any)
   profileNotes: varchar("profileNotes", { length: 256 }),                // free-text e.g. "Ogee profile", "Beaded inner edge"
   profileDescription: text("profileDescription"),                        // long-form educational description shown on public Door Styles page
+  // A verified manufacturer specification may describe a future/price-pending
+  // finish before a sellable supplier line is published. Keep that source fact
+  // visible on the Door Styles page without letting it enter Catalog or Designer.
+  specificationStatus: mysqlEnum("specificationStatus", ["purchasable", "availability_pending", "coming_soon"]).default("purchasable").notNull(),
+  sourceSpecification: varchar("sourceSpecification", { length: 512 }),
   // Corner swatch: angled close-up photo of the door corner showing profile, grain, and color.
   // Used in Featured Door Styles section and as texture reference in the 2D designer.
   cornerSwatchImageUrl: varchar("cornerSwatchImageUrl", { length: 512 }),

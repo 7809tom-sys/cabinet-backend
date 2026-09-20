@@ -39,6 +39,8 @@ interface DoorStyle {
   centerRailWidth?: string | number | null;
   profileNotes?: string | null;
   profileDescription?: string | null;
+  specificationStatus?: "purchasable" | "availability_pending" | "coming_soon" | null;
+  sourceSpecification?: string | null;
 }
 
 /** Returns the public-facing display name: aliasName → featuredLabel → ourName → styleCode */
@@ -49,6 +51,12 @@ function displayName(style: DoorStyle): string {
 function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: string | null }) {
   const { t } = useLanguage();
   const [showDoor, setShowDoor] = useState(false);
+  const isSpecificationReference = Boolean(
+    style.specificationStatus && style.specificationStatus !== "purchasable",
+  );
+  const availabilityLabel = style.specificationStatus === "coming_soon"
+    ? "Coming soon"
+    : "Specification reference";
   // Room scene is the featured image; door sample is the secondary toggle view
   const roomScene = style.roomSceneImageUrl || null;
   const doorSample = style.doorSampleImageUrl || null;
@@ -101,6 +109,11 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
               {t("ds_builder_grade")}
             </span>
           )}
+          {isSpecificationReference && (
+            <span className="absolute top-2 right-2 z-10 text-[10px] font-semibold uppercase tracking-wide text-sky-950 bg-sky-200/95 px-2 py-0.5 rounded-full shadow-sm">
+              {availabilityLabel}
+            </span>
+          )}
 
           <div className="p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -142,6 +155,9 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
               )}
               {style.isBuilderGrade && (
                 <Badge className="text-xs bg-amber-300 text-amber-950 hover:bg-amber-300">{t("ds_builder_grade")}</Badge>
+              )}
+              {isSpecificationReference && (
+                <Badge className="text-xs bg-sky-100 text-sky-900 hover:bg-sky-100">{availabilityLabel}</Badge>
               )}
             </DialogTitle>
           </DialogHeader>
@@ -229,16 +245,28 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
             {t("ds_builder_grade_note")}
           </div>
         )}
+        {isSpecificationReference && (
+          <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+            {style.specificationStatus === "coming_soon"
+              ? "This finish is documented by the manufacturer as coming soon. It is not yet available to order."
+              : "This finish is documented by the manufacturer. It will become available to order only after a verified positive supplier price is published."}
+            {style.sourceSpecification ? ` Source: ${style.sourceSpecification}.` : ""}
+          </div>
+        )}
 
         </div>
         {/* Sticky footer with the CTA button — always visible */}
         <div className="px-6 py-4 border-t border-border shrink-0 bg-background">
-          <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
-            <Button className="w-full" size="lg">
-              {t("ds_shop_collection", { name: displayName(style) })}
-              <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </Link>
+          {isSpecificationReference ? (
+            <p className="text-center text-sm text-muted-foreground">Not available for catalog, cart, or Designer selection yet.</p>
+          ) : (
+            <Link href={`/family/${encodeURIComponent(style.styleCode)}`}>
+              <Button className="w-full" size="lg">
+                {t("ds_shop_collection", { name: displayName(style) })}
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Button>
+            </Link>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -308,6 +336,7 @@ export default function DoorStyles() {
   }, [selectedType]);
 
   const { data: styles, isLoading } = trpc.doorStyles.list.useQuery();
+  const { data: specificationReferences } = trpc.doorStyles.specificationReferences.useQuery();
   // Admin-curated featured set (80/20 merchandising), ordered by rank, max 30.
   const { data: featuredData } = trpc.doorStyles.featured.useQuery();
 
@@ -642,6 +671,24 @@ export default function DoorStyles() {
             </div>
           )}
         </>
+      )}
+      {!isLoading && (specificationReferences?.length ?? 0) > 0 && (
+        <section className="mt-12 rounded-2xl border border-sky-200 bg-sky-50/40 p-5 md:p-6">
+          <div className="mb-5 max-w-3xl">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-serif text-xl font-bold text-foreground">Capital Collection reference finishes</h2>
+              <Badge className="bg-sky-100 text-sky-900 hover:bg-sky-100">Not yet orderable</Badge>
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              These documented manufacturer finishes are shown for specification planning only. They are kept out of the catalog, cart, and Designer until an available supplier line has a verified positive price.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {(specificationReferences as DoorStyle[]).map((style) => (
+              <StyleCard key={style.id} style={style} seriesName={seriesById.get(style.distributorId ?? -1) ?? null} />
+            ))}
+          </div>
+        </section>
       )}
       {/* ── Door Style Profile Guide ─────────────────────────────────────────── */}
       <div id="profile-guide" className="mt-16 border-t border-border pt-12">
