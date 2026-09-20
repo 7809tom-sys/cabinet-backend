@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeThreeDRoomGeometry, openingTransform, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { activeThreeDRoomGeometry, openingTransform, threeDMeasuredRoomPolygon, threeDMeasuredWallSegments, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import type { RoomData, WallOpening } from "@/lib/design";
 
 const lSceneShape: NonNullable<InteractiveRoomScene["roomShape"]> = {
@@ -22,6 +22,49 @@ describe("active 2D room geometry in 3D", () => {
   it("does not turn an open connected wall path into a falsely closed 3D floor polygon", () => {
     const vertices = [{ id: "a", x: 0, y: 0 }, { id: "b", x: 101, y: 0 }, { id: "c", x: 156.1543, y: 55.1543 }];
     expect(activeThreeDRoomGeometry({ width: 156.1543, depth: 55.1543, vertices, openWallPath: true }, lSceneShape)).toBeNull();
+  });
+
+  it("keeps a measured custom wall path at its exact plan vertices and preserves diagonal orientation", () => {
+    const room: RoomData = {
+      width: 156.154,
+      depth: 155.154,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 101, y: 0 },
+        { id: "c", x: 156.154, y: 55.154 },
+      ],
+      customWalls: [
+        { id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1", height: 96 },
+        { id: "wall-2", startVertexId: "b", endVertexId: "c", label: "Wall 2", lockedAngle: 45, height: 108 },
+      ],
+    };
+
+    const [straight, diagonal] = threeDMeasuredWallSegments(room);
+    expect(straight).toMatchObject({ id: "wall-1", length: expect.closeTo(101 / 12), rotationY: expect.closeTo(0), heightIn: 96 });
+    expect(straight.start).toMatchObject({ x: expect.closeTo(0), y: expect.closeTo(0) });
+    expect(straight.end).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
+    expect(diagonal).toMatchObject({ id: "wall-2", length: expect.closeTo(Math.hypot(55.154, 55.154) / 12), rotationY: expect.closeTo(Math.PI / 4), heightIn: 108 });
+    expect(diagonal.start).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
+    expect(diagonal.end).toMatchObject({ x: expect.closeTo(156.154 / 12), y: expect.closeTo(-55.154 / 12) });
+  });
+
+  it("uses measured inch vertices for a closed custom floor instead of rescaling them as template ratios", () => {
+    const room: RoomData = {
+      width: 144,
+      depth: 120,
+      ceilingHeight: 96,
+      vertices: [{ id: "a", x: 12, y: 8 }, { id: "b", x: 132, y: 8 }, { id: "c", x: 132, y: 112 }, { id: "d", x: 12, y: 112 }],
+    };
+    const polygon = threeDMeasuredRoomPolygon(room, room.width, room.depth);
+
+    expect(polygon.map((point) => [point.x, point.y])).toEqual([
+      [expect.closeTo(1), expect.closeTo(-8 / 12)],
+      [expect.closeTo(11), expect.closeTo(-8 / 12)],
+      [expect.closeTo(11), expect.closeTo(-112 / 12)],
+      [expect.closeTo(1), expect.closeTo(-112 / 12)],
+    ]);
   });
 
 	  it("places and faces an opening on its exact custom wall instead of the rectangular room bound", () => {

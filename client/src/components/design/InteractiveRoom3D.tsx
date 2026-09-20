@@ -2607,6 +2607,61 @@ function roomPolygon(geometryTemplate: unknown, width: number, depth: number) {
     : [new THREE.Vector2(0, 0), new THREE.Vector2(width * INCH, 0), new THREE.Vector2(width * INCH, -depth * INCH), new THREE.Vector2(0, -depth * INCH)];
 }
 
+/**
+ * Converts the saved measured-plan vertices directly into the Three.js X/Z
+ * plane.  Saved RoomData vertices are already inches; unlike a starter-layout
+ * geometry template they must never be multiplied by room width/depth again.
+ */
+export function threeDMeasuredRoomPolygon(room: RoomData | undefined, fallbackWidth: number, fallbackDepth: number) {
+  const vertices = room?.vertices ?? [];
+  if (vertices.length >= 3 && !room?.openWallPath) {
+    return vertices.map((vertex) => new THREE.Vector2(vertex.x * INCH, -vertex.y * INCH));
+  }
+  return [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(fallbackWidth * INCH, 0),
+    new THREE.Vector2(fallbackWidth * INCH, -fallbackDepth * INCH),
+    new THREE.Vector2(0, -fallbackDepth * INCH),
+  ];
+}
+
+export type ThreeDMeasuredWallSegment = {
+  id: string;
+  start: THREE.Vector2;
+  end: THREE.Vector2;
+  length: number;
+  /** Local +X must follow the saved plan tangent after the Y-down → Z-up conversion. */
+  rotationY: number;
+  heightIn?: number;
+};
+
+/**
+ * One authoritative transform for user-measured walls.  Plan Y points down;
+ * Three.js Z points toward the viewer, so the position flips plan Y while the
+ * wall's local X rotation preserves the original plan tangent.  This avoids
+ * mirrored diagonal wall planes in the 3D view.
+ */
+export function threeDMeasuredWallSegments(room: RoomData | undefined): ThreeDMeasuredWallSegment[] {
+  if (!room?.vertices?.length || !room.customWalls?.length) return [];
+  return room.customWalls.flatMap((customWall) => {
+    const startVertex = room.vertices!.find((vertex) => vertex.id === customWall.startVertexId);
+    const endVertex = room.vertices!.find((vertex) => vertex.id === customWall.endVertexId);
+    if (!startVertex || !endVertex) return [];
+    const planDx = endVertex.x - startVertex.x;
+    const planDy = endVertex.y - startVertex.y;
+    const lengthIn = Math.hypot(planDx, planDy);
+    if (lengthIn <= 0.001) return [];
+    return [{
+      id: customWall.id,
+      start: new THREE.Vector2(startVertex.x * INCH, -startVertex.y * INCH),
+      end: new THREE.Vector2(endVertex.x * INCH, -endVertex.y * INCH),
+      length: lengthIn * INCH,
+      rotationY: Math.atan2(planDy, planDx),
+      heightIn: customWall.height,
+    }];
+  });
+}
+
 export function normalizeThreeDPlanarUv<T extends THREE.BufferGeometry>(geometry: T): T {
   geometry.computeBoundingBox();
   const bounds = geometry.boundingBox;
@@ -7335,7 +7390,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    const countertopUpstandSegments = renderExistingDesign
 	      ? threeDCountertopUpstandSegments(placed, openings, backsplashRoom, countertopBacksplashHeightIn)
 	      : [];
-	    const polygon = roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
+    // Measured room vertices are absolute inches. Starter-layout templates use
+    // normalized points, so keep their conversion separate from the saved-plan
+    // path to prevent a custom room's floor and walls from being rescaled.
+    const polygon = roomOverride?.vertices?.length
+      ? threeDMeasuredRoomPolygon(roomOverride, room.width, room.depth)
+      : roomPolygon(activeThreeDRoomGeometry(roomOverride, scene.roomShape), room.width, room.depth);
 	    const floorShape = new THREE.Shape(polygon);
 	    const floorGeometry = normalizeThreeDPlanarUv(new THREE.ExtrudeGeometry(floorShape, { depth: 0.08, bevelEnabled: false }));
 	    const floorMaterial = new THREE.MeshPhysicalMaterial({
@@ -7385,39 +7445,43 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     // screens over cabinetry when a mobile orbit moves the camera through them.
     const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     const roomEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#d1cbc1", roughness: 0.58, metalness: 0.04 });
-    const explicitWallSegments = roomOverride?.vertices && roomOverride.customWalls?.length
-      ? roomOverride.customWalls.flatMap((customWall) => {
-          const startVertex = roomOverride.vertices!.find((vertex) => vertex.id === customWall.startVertexId);
-          const endVertex = roomOverride.vertices!.find((vertex) => vertex.id === customWall.endVertexId);
-          return startVertex && endVertex ? [{
-            start: new THREE.Vector2(startVertex.x * INCH, -startVertex.y * INCH),
-            end: new THREE.Vector2(endVertex.x * INCH, -endVertex.y * INCH),
-            customWall,
-          }] : [];
-        })
-      : polygon.map((start, index) => ({ start, end: polygon[(index + 1) % polygon.length], customWall: undefined }));
-    explicitWallSegments.forEach(({ start, end, customWall }, index) => {
-      const dx = end.x - start.x;
-      const dz = -(end.y - start.y);
-      const length = Math.hypot(dx, dz);
+    const measuredWallSegments = threeDMeasuredWallSegments(roomOverride);
+    const explicitWallSegments = measuredWallSegments.length
+      ? measuredWallSegments.map((segment) => ({
+          start: segment.start,
+          end: segment.end,
+          customWall: roomOverride?.customWalls?.find((wall) => wall.id === segment.id),
+          length: segment.length,
+          rotationY: segment.rotationY,
+          heightIn: segment.heightIn,
+        }))
+      : polygon.map((start, index) => ({
+          start,
+          end: polygon[(index + 1) % polygon.length],
+          customWall: undefined,
+          length: start.distanceTo(polygon[(index + 1) % polygon.length]),
+          rotationY: Math.atan2(-(polygon[(index + 1) % polygon.length].y - start.y), polygon[(index + 1) % polygon.length].x - start.x),
+          heightIn: undefined,
+        }));
+    explicitWallSegments.forEach(({ start, end, customWall, length, rotationY, heightIn }, index) => {
       const side = threeDWallSideForPolygonEdge(index, explicitWallSegments.length, start, end, room);
-      const customWallHeight = customWall?.height;
+      const customWallHeight = heightIn ?? customWall?.height;
       const sideWallHeight = (typeof customWallHeight === "number" ? customWallHeight : wallHeights[side]) * INCH;
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
       wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);
-      wall.rotation.y = Math.atan2(dz, dx);
-      wall.userData = { roomWall: true, physicalWallSide: side, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side] };
+      wall.rotation.y = rotationY;
+      wall.userData = { roomWall: true, physicalWallSide: side, customWallId: customWall?.id ?? null, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side] };
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);
       baseboard.position.set((start.x + end.x) / 2, 0.04, (-start.y + -end.y) / 2);
-      baseboard.rotation.y = Math.atan2(dz, dx);
-      baseboard.userData = { roomBaseboard: true, architecturalContextDetail: true };
+      baseboard.rotation.y = rotationY;
+      baseboard.userData = { roomBaseboard: true, customWallId: customWall?.id ?? null, architecturalContextDetail: true };
       threeScene.add(baseboard);
       const ceilingEdge = new THREE.Mesh(new THREE.BoxGeometry(length, 0.035, 0.035), roomEdgeMaterial);
       ceilingEdge.position.set((start.x + end.x) / 2, sideWallHeight - 0.018, (-start.y + -end.y) / 2);
-      ceilingEdge.rotation.y = Math.atan2(dz, dx);
-      ceilingEdge.userData = { roomCeilingEdge: true, architecturalContextDetail: true };
+      ceilingEdge.rotation.y = rotationY;
+      ceilingEdge.userData = { roomCeilingEdge: true, customWallId: customWall?.id ?? null, architecturalContextDetail: true };
       threeScene.add(ceilingEdge);
     });
     // Keep the floor visually warm and uncluttered; physical room edges and

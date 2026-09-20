@@ -2535,3 +2535,8 @@
 
 - [x] Restore right-click wall Attributes in the 2D Designer. Right-clicking any measured/custom wall line now selects that exact wall and opens the existing **Edit Wall** dialog, with its exact length, height, locked direction, door/window controls, and one-wall delete action; standard rectangle walls have the same right-click route. A normal click still only selects the wall and never changes its geometry.
 - [x] Add a double-click fallback for touchpad users and an explicit “Right-click … for Attributes” accessible hint on each custom wall hit region. Validate PlanCanvas and Wall Attributes regressions (19 tests), TypeScript, and production build.
+
+- [x] Correct custom/continuous wall rendering in the 3D Designer: saved plan vertices are now treated as measured inches (not scaled again as normalized template coordinates), and every 3D wall plane, baseboard, and ceiling edge shares the same plan-to-3D transform.
+- [x] Correct diagonal wall orientation after the 2D Y-down → 3D Z-up conversion, so a 45° or custom-angle segment follows the same start vertex, end vertex, length, and direction as the Floor Plan instead of mirroring across the room.
+- [x] Preserve the fallback rectangular floor only for an intentionally open wall path; never infer additional physical walls from that construction surface. Closed custom rooms use their exact saved vertex polygon.
+- [x] Add measured straight/diagonal path and measured-floor regression coverage; validate 336 focused 3D tests, TypeScript, production build, and diff integrity.
