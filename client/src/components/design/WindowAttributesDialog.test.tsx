@@ -22,6 +22,8 @@ describe("WindowAttributesDialog", () => {
     expect(screen.getByLabelText("Move window up 1 inch")).toBeTruthy();
     expect(screen.getByLabelText("Move toward start of wall")).toBeTruthy();
     expect(screen.getByLabelText("Move toward end of wall")).toBeTruthy();
+    expect(screen.getByLabelText("Window position reference")).toBeTruthy();
+    expect(screen.getByLabelText("Window distance from wall start / left in inches")).toBeTruthy();
   });
 
   it("moves the authoritative window by the selected eighth-inch distance", () => {
@@ -58,9 +60,28 @@ describe("WindowAttributesDialog", () => {
       onDelete: () => undefined,
     })));
 
-    const position = screen.getByLabelText("Inches from the wall corner");
+    const position = screen.getByLabelText("Window distance from wall start / left in inches");
     fireEvent.change(position, { target: { value: "70.125" } });
     fireEvent.blur(position);
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uid: "window-custom-1", side: "wall-1", offset: 70.125 }));
+  });
+
+  it("converts a typed wall-end/right measurement into the same authoritative start offset", () => {
+    const onChange = vi.fn();
+    render(createElement(LanguageProvider, null, createElement(WindowAttributesDialog, {
+      opening: { uid: "window-end-1", kind: "window", label: 'Window 36"', side: "top", offset: 18, width: 36, height: 36, sill: 42 },
+      room: { width: 144, depth: 120, ceilingHeight: 96 },
+      open: true,
+      onOpenChange: () => undefined,
+      onChange,
+      onDelete: () => undefined,
+    })));
+
+    fireEvent.change(screen.getByLabelText("Window position reference"), { target: { value: "end" } });
+    const position = screen.getByLabelText("Window distance from wall end / right in inches");
+    fireEvent.change(position, { target: { value: "20.125" } });
+    fireEvent.blur(position);
+    // 144-inch wall − 36-inch window = 108-inch usable run; 108 − 20.125 = 87.875.
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uid: "window-end-1", offset: 87.875 }));
   });
 });

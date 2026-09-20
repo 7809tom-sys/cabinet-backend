@@ -16,19 +16,20 @@ interface Props {
 // in addition to dragging the resize handle on the canvas. Doors keep a fixed
 // 80" tall standard, so only windows expose a height field.
 //
-// It ALSO exposes a "Position on wall" control — nudge left/right buttons, a
-// numeric "from corner" inches field, and a Center button — so the opening can
-// be moved precisely without dragging. Dragging is hard on a phone, so these
-// tap targets are the reliable way to reposition a door/window there.
+// It ALSO exposes a "Position on wall" control — start/end (left/right)
+// reference selection, a numeric exact-distance field, nudge buttons, and a
+// Center button — so the opening can be moved precisely without dragging.
+// Dragging is hard on a phone, so these tap targets are the reliable way to
+// reposition a door/window there.
 export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementIncrementIn = 1 }: Props) {
   const { t } = useLanguage();
   // Windows and cased openings expose Height + Sill (sizeable like a doorway);
   // doors stay a standard 80" tall so only their width is editable.
   const showHeightSill = opening.kind === "window" || opening.kind === "opening";
-  const wallLen = Math.round(wallLength(opening.side, room));
+  const wallLen = Math.round(wallLength(opening.side, room) * 8) / 8;
   const maxW = wallLen;
   // The largest valid offset keeps the whole opening on the wall.
-  const maxOffset = Math.max(0, Math.round(wallLen - opening.width));
+  const maxOffset = Math.max(0, Math.round((wallLen - opening.width) * 8) / 8);
   const wallCeilingIn = wallCeilingMin(room, opening.side);
   const moveIncrement = Math.max(0.125, Math.round(movementIncrementIn * 8) / 8);
   const moveIncrementLabel = Math.abs(moveIncrement - 1) < 0.001 ? "1 inch" : formatEighthInches(moveIncrement);
@@ -38,15 +39,22 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
   const [widthText, setWidthText] = useState(String(Math.round(opening.width)));
   const [heightText, setHeightText] = useState(String(Math.round(opening.height)));
   const [sillText, setSillText] = useState(String(Math.round(opening.sill)));
-  const [offsetText, setOffsetText] = useState(String(Math.round(opening.offset)));
+  const [positionReference, setPositionReference] = useState<"start" | "end">("start");
+  const measuredDistance = positionReference === "start"
+    ? opening.offset
+    : Math.max(0, maxOffset - opening.offset);
+  const formatMeasuredDistance = (value: number) => String(Math.round(value * 8) / 8);
+  const [offsetText, setOffsetText] = useState(formatMeasuredDistance(measuredDistance));
 
   // Re-sync when a different opening is selected or the canvas drag changes it.
   useEffect(() => {
     setWidthText(String(Math.round(opening.width)));
     setHeightText(String(Math.round(opening.height)));
     setSillText(String(Math.round(opening.sill)));
-    setOffsetText(String(Math.round(opening.offset)));
-  }, [opening.uid, opening.width, opening.height, opening.sill, opening.offset]);
+    setOffsetText(formatMeasuredDistance(positionReference === "start"
+      ? opening.offset
+      : Math.max(0, maxOffset - opening.offset)));
+  }, [opening.uid, opening.width, opening.height, opening.sill, opening.offset, maxOffset, positionReference]);
 
   const commitWidth = () => {
     const n = parseFloat(widthText);
@@ -80,20 +88,24 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
   };
 
   // ── Position on wall ──────────────────────────────────────────────────────
-  // `offset` is inches from the wall's start corner (left for top/bottom walls,
-  // top for left/right walls). clampOpening keeps it on the wall.
+  // `offset` is stored as inches from the wall's start corner. A user can enter
+  // the same location from the opposite end; the conversion preserves the
+  // opening's near edge at either measured wall reference.
   const setOffset = (raw: number) => {
     const next = clampOpening({ ...opening, offset: raw }, room);
     onChange(next);
-    setOffsetText(String(Math.round(next.offset)));
+    const nextMeasurement = positionReference === "start"
+      ? next.offset
+      : Math.max(0, maxOffset - next.offset);
+    setOffsetText(formatMeasuredDistance(nextMeasurement));
   };
   const nudge = (delta: number) => setOffset(opening.offset + delta);
   const commitOffset = () => {
     const n = parseFloat(offsetText);
     if (Number.isFinite(n) && n >= 0) {
-      setOffset(n);
+      setOffset(positionReference === "start" ? n : maxOffset - n);
     } else {
-      setOffsetText(String(Math.round(opening.offset)));
+      setOffsetText(formatMeasuredDistance(measuredDistance));
     }
   };
   const centerOnWall = () => setOffset(Math.max(0, (wallLen - opening.width) / 2));
@@ -190,9 +202,22 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
 
       <div className="h-4 w-px bg-border" />
 
-      {/* Position on wall — nudge / type / center. Easy to tap on a phone. */}
-      <div className="flex items-center gap-1">
+      {/* Position on wall — select a start/end (left/right) reference, then type
+          or nudge the exact measurement. Start/end remains authoritative on
+          vertical and diagonal walls where literal left/right would be ambiguous. */}
+      <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-[11px] font-medium text-muted-foreground">{t("dt_op_position")}</span>
+        <label className="sr-only" htmlFor={`opening-position-reference-${opening.uid}`}>Window position reference</label>
+        <select
+          id={`opening-position-reference-${opening.uid}`}
+          value={positionReference}
+          onChange={(event) => setPositionReference(event.target.value as "start" | "end")}
+          aria-label="Window position reference"
+          className="h-7 rounded-md border border-border bg-white px-1.5 text-[11px] font-medium text-[#1a2744] focus:outline-none focus:ring-1 focus:ring-[#a87f33]"
+        >
+          <option value="start">Wall start / left</option>
+          <option value="end">Wall end / right</option>
+        </select>
         <button
           type="button"
           onClick={() => nudge(-moveIncrement)}
@@ -214,8 +239,8 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
-          title={t("dt_op_from_corner")}
-          aria-label={t("dt_op_from_corner")}
+          title={`Exact distance from wall ${positionReference === "start" ? "start / left" : "end / right"}`}
+          aria-label={`Window distance from wall ${positionReference === "start" ? "start / left" : "end / right"} in inches`}
           className={fieldClass}
         />
         <span className="text-foreground/60 text-[11px]">{t("dt_op_in")}</span>
