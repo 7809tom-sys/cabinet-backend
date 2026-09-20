@@ -308,6 +308,10 @@ export const distributors = mysqlTable("distributors", {
   freightMultiplier: decimal("freightMultiplier", { precision: 5, scale: 4 }).default("0").notNull(),
   tariffRate: decimal("tariffRate", { precision: 5, scale: 4 }).default("0").notNull(),
   shippingRate: decimal("shippingRate", { precision: 5, scale: 4 }).default("0").notNull(),
+  // Determines the public customer price for the line. The default retains the
+  // platform's controlled cost-plus tier ladder; source_list preserves the
+  // distributor's verified published list price exactly as retail.
+  retailPriceBasis: mysqlEnum("retailPriceBasis", ["cost_plus_tier", "source_list"]).default("cost_plus_tier").notNull(),
   warehouseZips: json("warehouseZips").$type<string[]>(),
   // Distributor shipping overlay. The master catalog remains product truth; each
   // distributor supplies only its fulfillment location and freight policy.

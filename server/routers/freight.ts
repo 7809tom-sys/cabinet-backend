@@ -1142,8 +1142,10 @@ async function savedDesignFreightInput(designId: number) {
       wholesalePrice: distributorSkus.wholesalePrice,
       adjustedListPrice: distributorSkus.adjustedListPrice,
       listPrice: distributorSkus.listPrice,
+      retailPriceBasis: distributors.retailPriceBasis,
     })
     .from(distributorSkus)
+    .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
     .where(and(
       inArray(distributorSkus.cabinetId, Array.from(new Set(requestedLines.map((line) => line.cabinetId)))),
       inArray(distributorSkus.styleId, Array.from(new Set(requestedLines.map((line) => line.styleId)))),

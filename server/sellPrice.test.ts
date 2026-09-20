@@ -56,6 +56,17 @@ describe("sellPriceForTier", () => {
     expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(268.29);
   });
 
+  it("uses an explicitly selected source list as homeowner retail while keeping trade tiers cost-based", () => {
+    const row = {
+      yourCost: "149.10",
+      listPrice: "497.00",
+      retailPriceBasis: "source_list" as const,
+    };
+    expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(497);
+    expect(sellPriceForTier(row, SETTINGS, "contractor")).toBe(192.34);
+    expect(sellPriceForTier(row, SETTINGS, "wholesale")).toBe(186.38);
+  });
+
   it("ignores the global default markup entirely", () => {
     // Even if a caller passed a settings object that somehow carried a global,
     // sellPriceForTier only reads the per-tier bps.

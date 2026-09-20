@@ -1,0 +1,1 @@
+ALTER TABLE `distributors` ADD `retailPriceBasis` enum('cost_plus_tier','source_list') DEFAULT 'cost_plus_tier' NOT NULL;

@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import { and, eq, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, cabinets, vendorLines, distributors } from "../drizzle/schema";
+import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 /**
@@ -332,6 +332,7 @@ export async function recalculateStoredTierPrices(
   const contractorMultiplier = Number(activeSettings.contractorMarkupBps) / 10000;
   const wholesaleMultiplier = Number(activeSettings.wholesaleMarkupBps) / 10000;
   const durableCost = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
+  const verifiedSourceList = sql`COALESCE(${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
   const [eligible] = await db
     .select({ count: sql<number>`COUNT(*)` })
     .from(distributorSkus)
@@ -342,7 +343,19 @@ export async function recalculateStoredTierPrices(
     .set({
       wholesalePrice: sql`ROUND(${durableCost} * ${wholesaleMultiplier}, 2)`,
       contractorPrice: sql`ROUND(${durableCost} * ${contractorMultiplier}, 2)`,
-      homeownerPrice: sql`ROUND(${durableCost} * ${homeownerMultiplier}, 2)`,
+      // A distributor may designate its verified source list as retail. This
+      // preserves that published price exactly for customers while wholesale and
+      // contractor tiers still use the real acquisition-cost ladder.
+      homeownerPrice: sql`CASE
+        WHEN EXISTS (
+          SELECT 1
+          FROM distributors retail_source
+          WHERE retail_source.id = ${distributorSkus.distributorId}
+            AND retail_source.retailPriceBasis = 'source_list'
+        ) AND ${verifiedSourceList} > 0
+        THEN ROUND(${verifiedSourceList}, 2)
+        ELSE ROUND(${durableCost} * ${homeownerMultiplier}, 2)
+      END`,
     })
     .where(sql`${durableCost} IS NOT NULL`);
   return { updated: Number(eligible?.count ?? 0) };
@@ -412,7 +425,7 @@ export async function updatePlatformPricingSettings(
 // summing the two REAL part SKUs' tier prices (the stored bundle price columns
 // were seeded equal across tiers and are not authoritative), so a Split Pantry
 // prices exactly like adding its two parts individually.
-import { pantryBundles, distributorSkus, doorStyles } from "../drizzle/schema";
+import { pantryBundles, doorStyles } from "../drizzle/schema";
 import { inArray } from "drizzle-orm";
 
 export type SplitPantryPartPrices = {
@@ -425,6 +438,7 @@ export type SplitPantryPartPrices = {
   contractorPrice: string | null;
   homeownerPrice: string | null;
   yourCost: string | null;
+  retailPriceBasis: "cost_plus_tier" | "source_list";
 };
 
 export type SplitPantryBundleRow = {
@@ -459,9 +473,11 @@ async function loadPartPrices(
       contractorPrice: distributorSkus.contractorPrice,
       homeownerPrice: distributorSkus.homeownerPrice,
       yourCost: distributorSkus.yourCost,
+      retailPriceBasis: distributors.retailPriceBasis,
     })
     .from(distributorSkus)
     .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+    .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
     .where(
       and(
         eq(distributorSkus.distributorId, distributorId),

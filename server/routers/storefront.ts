@@ -422,9 +422,11 @@ export const storefrontRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...sourceConditions));
 
       const [aliases, masters] = await Promise.all([
@@ -485,16 +487,16 @@ export const storefrontRouter = router({
         `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }),
       );
 
-      // Apply the platform homeowner tier markup so the displayed retail price
-      // reflects the admin's Pricing & Margins setting (0% => unchanged).
+      // Resolve customer retail from the distributor's policy: cost plus the
+      // homeowner markup by default, or its verified source list when selected.
       const ps = await getPricingSettings();
-      const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
+      const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => ({
         ...r,
-        // Retail = cost base × homeowner markup (matches the admin tab). The raw
-        // cost columns are stripped from the client payload.
+        // Raw cost columns stay server-side; homeowner retail follows the source
+        // line's configured policy.
         homeownerPrice:
           sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
             ps,
             "homeowner"
           )?.toFixed(2) ?? null,
@@ -577,9 +579,11 @@ export const storefrontRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...sourceConditions));
       const [aliases, masters] = await Promise.all([
         db
@@ -627,13 +631,13 @@ export const storefrontRouter = router({
         rows = canonicalRows(allRows.filter((row) => matchesIntent(row, wants.fallbackCategories)));
       }
 
-      // Retail = cost base × homeowner markup; strip raw cost columns.
+      // Resolve retail by source policy and strip raw cost columns.
       const psRec = await getPricingSettings();
-      const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, ...r }) => ({
+      const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => ({
         ...r,
         homeownerPrice:
           sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice },
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
             psRec,
             "homeowner"
           )?.toFixed(2) ?? null,
@@ -679,9 +683,11 @@ export const storefrontRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(
           and(
             eq(cabinets.isActive, true),
@@ -697,14 +703,14 @@ export const storefrontRouter = router({
 
       const g = rows[0];
       if (!g) return null;
-      // Retail = cost base × homeowner markup; strip raw cost columns.
+      // Resolve retail by source policy and strip raw cost columns.
       const psG = await getPricingSettings();
-      const { wholesalePrice, adjustedListPrice, yourCost, ...rest } = g;
+      const { wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...rest } = g;
       return {
         ...rest,
         homeownerPrice:
           sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice },
+            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice, retailPriceBasis },
             psG,
             "homeowner"
           )?.toFixed(2) ?? rest.homeownerPrice,

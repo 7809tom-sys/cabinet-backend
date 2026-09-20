@@ -51,6 +51,7 @@ function partPrices(p: SplitPantryPartPrices | null): {
   homeownerPrice: string | null;
   adjustedListPrice: string | null;
   listPrice: string | null;
+  retailPriceBasis: "cost_plus_tier" | "source_list";
 } {
   return {
     yourCost: p?.yourCost ?? null,
@@ -59,6 +60,7 @@ function partPrices(p: SplitPantryPartPrices | null): {
     homeownerPrice: p?.homeownerPrice ?? null,
     adjustedListPrice: p?.adjustedListPrice ?? null,
     listPrice: p?.listPrice ?? null,
+    retailPriceBasis: p?.retailPriceBasis ?? "cost_plus_tier",
   };
 }
 

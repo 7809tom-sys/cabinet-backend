@@ -2260,9 +2260,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(
           and(
             eq(cabinets.isActive, true),
@@ -2548,9 +2550,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           yourCost: distributorSkus.yourCost,
           wholesalePrice: distributorSkus.wholesalePrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(
           inArray(cabinets.masterCode, masterCodes),
           inArray(distributorSkus.styleId, styleIds),
@@ -2632,9 +2636,11 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(
           and(
             inArray(cabinets.masterCode, masterCodes),

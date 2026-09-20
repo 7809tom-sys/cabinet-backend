@@ -381,6 +381,7 @@ export const ordersRouter = router({
         wholesalePrice: distributorSkus.wholesalePrice,
         adjustedListPrice: distributorSkus.adjustedListPrice,
         listPrice: distributorSkus.listPrice,
+        retailPriceBasis: distributors.retailPriceBasis,
       };
       const gate = and(
         eq(cabinets.isActive, true),
@@ -395,6 +396,7 @@ export const ordersRouter = router({
           .select(cols)
           .from(cabinets)
           .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+          .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
           .where(extra ? and(gate, extra) : gate)
           .orderBy(cabinets.masterCode);
         return rows;
@@ -505,8 +507,10 @@ export const ordersRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(
           and(
             inArray(distributorSkus.cabinetId, input.cabinetIds),

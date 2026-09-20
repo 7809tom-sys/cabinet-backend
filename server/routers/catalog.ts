@@ -909,10 +909,9 @@ export const doorStylesRouter = router({
       if (!db) return { style: null, items: [] };
 
       // Price entitlement: guests/homeowners see retail; approved pros see the
-      // tier the owner assigned them; admin sees all. Sell prices are ALWAYS
-      // computed from the cost base × per-tier markup (never the raw stored
-      // price columns) so the markup can't be double-applied or fall back to
-      // list price. This mirrors `stylesForCabinet` above.
+      // tier the owner assigned them; admin sees all. Retail is normally cost ×
+      // homeowner markup, but a distributor may explicitly designate its verified
+      // source list as the customer retail price. Trade tiers remain cost-based.
       const viewerTier = resolveStorefrontTier(ctx.user);
       const isAdmin = ctx.user?.role === "admin";
       const ps = await getPricingSettings();
@@ -937,9 +936,11 @@ export const doorStylesRouter = router({
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
           distributorId: distributorSkus.distributorId,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
         .where(
           and(
             eq(distributorSkus.styleId, input.styleId),
@@ -1021,6 +1022,7 @@ export const doorStylesRouter = router({
             wholesalePrice: r.wholesalePrice,
             adjustedListPrice: r.adjustedListPrice,
             listPrice: r.listPrice,
+            retailPriceBasis: r.retailPriceBasis,
           };
           const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
           const sellContractor = sellPriceForTier(costRow, ps, "contractor");
@@ -2540,6 +2542,7 @@ export const cabinetsRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           yourCost: distributorSkus.yourCost,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         .from(cabinets)
         .innerJoin(
@@ -2551,6 +2554,7 @@ export const cabinetsRouter = router({
             eq(distributorSkus.isAvailable, true)
           )
         )
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(
           and(
             eq(cabinets.isActive, true),
@@ -2574,6 +2578,7 @@ export const cabinetsRouter = router({
             wholesalePrice: r.wholesalePrice,
             adjustedListPrice: r.adjustedListPrice,
             listPrice: r.listPrice,
+            retailPriceBasis: r.retailPriceBasis,
           };
           const contractorPrice = sellPriceForTier(costRow, ps, "contractor");
           const homeownerPrice = sellPriceForTier(costRow, ps, "homeowner");
@@ -3752,6 +3757,7 @@ export const pricingRouter = router({
           skuImageUrl: distributorSkus.imageUrl,
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
+          retailPriceBasis: distributors.retailPriceBasis,
           // Shipping pkg dims: distributor override first, fall back to master cabinet
           pkgLength: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgLength}, ${cabinets.pkgLength})`,
           pkgWidth: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWidth}, ${cabinets.pkgWidth})`,
@@ -3807,15 +3813,14 @@ export const pricingRouter = router({
 
       return Array.from(byStyle.values())
         .map((r) => {
-          // Sell prices are ALWAYS computed from our cost base × the per-tier
-          // markup (matches the admin Margins tab). We never surface the stored,
-          // pre-marked-up price columns to the customer, so the markup can't be
-          // double-applied. The cost base itself stays entitlement-gated below.
+          // Trade tiers are computed from cost. Homeowner retail is computed the
+          // same way unless this source line explicitly uses its verified list.
           const costRow = {
             wholesalePrice: r.wholesalePrice,
             adjustedListPrice: r.adjustedListPrice,
             yourCost: r.yourCost,
             listPrice: r.listPrice,
+            retailPriceBasis: r.retailPriceBasis,
           };
           const sellHomeowner = sellPriceForTier(costRow, ps, "homeowner");
           const sellContractor = sellPriceForTier(costRow, ps, "contractor");
@@ -3969,6 +3974,7 @@ export const pricingRouter = router({
         costMultiplier: distributors.costMultiplier,
         baseMultiplier: distributors.baseMultiplier,
         freightMultiplier: distributors.freightMultiplier,
+        retailPriceBasis: distributors.retailPriceBasis,
         skuCount: sql<number>`COUNT(${distributorSkus.id})`,
         avgListPrice: sql<number | null>`AVG(${distributorSkus.listPrice})`,
       })
@@ -3982,7 +3988,8 @@ export const pricingRouter = router({
         distributors.brandName,
         distributors.costMultiplier,
         distributors.baseMultiplier,
-        distributors.freightMultiplier
+        distributors.freightMultiplier,
+        distributors.retailPriceBasis
       )
       .orderBy(asc(distributors.name));
     return { rows };
@@ -3997,6 +4004,7 @@ export const pricingRouter = router({
         // a tariff is lowered). Effective = base + freight, and cost = list × effective.
         baseMultiplier: z.number().min(0).max(1),
         freightMultiplier: z.number().min(0).max(1),
+        retailPriceBasis: z.enum(["cost_plus_tier", "source_list"]).default("cost_plus_tier"),
       })
     )
     .mutation(async ({ input }) => {
@@ -4018,6 +4026,7 @@ export const pricingRouter = router({
           baseMultiplier: String(base),
           freightMultiplier: String(freight),
           costMultiplier: String(mult),
+          retailPriceBasis: input.retailPriceBasis,
         })
         .where(eq(distributors.id, input.distributorId));
       // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice × multiplier.
@@ -4037,11 +4046,13 @@ export const pricingRouter = router({
           ?.rowsAffected ??
         (res as unknown as { affectedRows?: number })?.affectedRows ??
         0;
+      await recalculateStoredTierPrices();
       return {
         success: true,
         baseMultiplier: base,
         freightMultiplier: freight,
         multiplier: mult,
+        retailPriceBasis: input.retailPriceBasis,
         skusRecomputed: updated,
       } as const;
     }),

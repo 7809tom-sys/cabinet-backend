@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { getDb, getPricingSettings } from "./db";
+import { getDb } from "./db";
 import { distributors, distributorSkus, doorStyles } from "../drizzle/schema";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
@@ -56,17 +56,14 @@ describe("Capital pricing-grid door styles", () => {
     expect(Object.fromEntries(priceRows.map((row) => [row.styleCode, String(row.listPrice)]))).toEqual(GRID_PRICE_FOR_B12);
     expect(priceRows.every((row) => row.isAvailable && row.isPublished)).toBe(true);
     const [capital] = await db
-      .select({ costMultiplier: distributors.costMultiplier })
+      .select({ costMultiplier: distributors.costMultiplier, retailPriceBasis: distributors.retailPriceBasis })
       .from(distributors)
       .where(eq(distributors.id, CAPITAL_DISTRIBUTOR_ID));
     expect(Number(capital?.costMultiplier)).toBeCloseTo(0.3);
-    const pricingSettings = await getPricingSettings();
+    expect(capital?.retailPriceBasis).toBe("source_list");
     for (const row of priceRows) {
       expect(Number(row.yourCost)).toBeCloseTo(Number(row.listPrice) * Number(capital?.costMultiplier), 2);
-      expect(Number(row.homeownerPrice)).toBeCloseTo(
-        Math.round((Number(row.yourCost) * (Number(pricingSettings.homeownerMarkupBps) / 10000 + 1e-8) * 100)) / 100,
-        2,
-      );
+      expect(Number(row.homeownerPrice)).toBeCloseTo(Number(row.listPrice), 2);
     }
 
     const caller = appRouter.createCaller(publicCtx());
