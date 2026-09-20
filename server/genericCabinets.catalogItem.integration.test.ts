@@ -14,7 +14,7 @@ function adminContext(): TrpcContext {
 }
 
 describe("genericCabinets.saveCatalogItem", () => {
-  it("keeps an unpriced item as a draft, then publishes the same master item with a priced supplier SKU", async () => {
+  it("rejects an unpriced item even as a draft, then publishes the same positively priced master", async () => {
     const db = await getDb();
     if (!db) return;
     const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
@@ -28,6 +28,20 @@ describe("genericCabinets.saveCatalogItem", () => {
     const distributorSku = `CATITEM${stamp}`;
     let cabinetId: number | null = null;
     try {
+      await expect(caller.genericCabinets.saveCatalogItem({
+        mode: "draft",
+        masterCode,
+        description: "Test 24 in base cabinet",
+        category: "Base",
+        subCategory: "Standard Base",
+        width: 24,
+        height: 34.5,
+        depth: 24,
+        placementType: "base",
+        numberOfDoors: 1,
+        numberOfDrawers: 1,
+      })).rejects.toThrow("positive List Price or Your Cost");
+
       const draft = await caller.genericCabinets.saveCatalogItem({
         mode: "draft",
         masterCode,
@@ -40,20 +54,22 @@ describe("genericCabinets.saveCatalogItem", () => {
         placementType: "base",
         numberOfDoors: 1,
         numberOfDrawers: 1,
+        source: {
+          distributorId: line.id,
+          styleId: style.id,
+          distributorSku,
+          listPrice: 125.5,
+          isAvailable: true,
+        },
       });
       cabinetId = draft.id;
-      expect(draft).toMatchObject({ masterCode, isPublished: false, sourceSkuId: null });
+      expect(draft).toMatchObject({ masterCode, isPublished: false, sourceSkuId: expect.any(Number) });
 
       const [storedDraft] = await db.select({ isActive: cabinets.isActive, showInCatalog: cabinets.showInCatalog, showInDesigner: cabinets.showInDesigner, category: cabinets.category, width: cabinets.width }).from(cabinets).where(eq(cabinets.id, cabinetId)).limit(1);
       expect(storedDraft).toMatchObject({ isActive: false, showInCatalog: false, showInDesigner: false, category: "Base", width: "24.00" });
 
-      await expect(caller.genericCabinets.saveCatalogItem({
-        id: cabinetId,
-        mode: "publish",
-        masterCode,
-        description: "Test 24 in base cabinet",
-        category: "Base",
-      })).rejects.toThrow("Add a valid List Price or Your Cost before publishing.");
+      const [pendingSource] = await db.select({ isPublished: distributorSkus.isPublished, status: distributorSkus.status }).from(distributorSkus).where(eq(distributorSkus.id, draft.sourceSkuId!)).limit(1);
+      expect(pendingSource).toEqual({ isPublished: false, status: "pending" });
 
       const published = await caller.genericCabinets.saveCatalogItem({
         id: cabinetId,
@@ -103,7 +119,17 @@ describe("genericCabinets.saveCatalogItem", () => {
       ]));
 
       await expect(caller.genericCabinets.saveCatalogItem({
-        mode: "draft", masterCode, description: "Duplicate", category: "Base",
+        mode: "draft",
+        masterCode,
+        description: "Duplicate",
+        category: "Base",
+        source: {
+          distributorId: line.id,
+          styleId: style.id,
+          distributorSku,
+          listPrice: 125.5,
+          isAvailable: true,
+        },
       })).rejects.toThrow("already exists or conflicts");
     } finally {
       if (cabinetId != null) {

@@ -249,6 +249,25 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("appliance-garage");
   });
 
+  it("classifies Chrome Tray and plate-rack codes as their own reusable structural art", () => {
+    expect(cabinetDrawingType({
+      masterCode: "CHROME TRAY 33",
+      description: "Chrome Tray Insert for ERB33 Easy-Reach Corner Cabinet",
+      category: "Accessory",
+      subCategory: "Lazy Susan Insert",
+    })).toBe("lazy-susan-tray");
+
+    expect(cabinetDrawingType({
+      masterCode: "PR3015",
+      description: '30" × 15" × 12" Wall Plate Rack Cabinet',
+      category: "Wall",
+      subCategory: "Bridge / Stacker",
+      width: 30,
+      height: 15,
+      depth: 12,
+    })).toBe("face-pattern");
+  });
+
   it("classifies crown molding as accessory-strip", () => {
     const cab: CabinetLike = {
       masterCode: "CM-96",

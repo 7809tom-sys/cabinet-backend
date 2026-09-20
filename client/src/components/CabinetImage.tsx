@@ -1,56 +1,27 @@
-import { useState, useEffect } from "react";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { cabinetAltText, cabinetDrawingType, type CabinetLike } from "@/lib/cabinetGraphics";
+import { type CabinetLike } from "@/lib/cabinetGraphics";
 
 interface CabinetImageProps {
   cabinet: CabinetLike;
-  /** Optional override of the door/finish color, used only by the drawing fallback. */
+  /** Optional door/finish color applied only to the neutral structural drawing. */
   finishColor?: string;
   className?: string;
-  /** Line-specific image URL that takes priority over cabinet.catalogImageUrl */
+  /**
+   * Retained for caller compatibility. Distributor image URLs are deliberately
+   * not used for catalog product art: a master code has one structural drawing
+   * across every distributor, finish, and door style.
+   */
   overrideImageUrl?: string | null;
 }
 
 /**
- * Renders a cabinet's catalog line-art image (from the 20/20 catalogs) when one
- * is mapped to the master code. If the image is missing or fails to load, it
- * gracefully falls back to the accurate, to-scale code-drawn `CabinetDrawing`.
- *
- * The catalog images are keyed to the CABINET (master code), not a distributor,
- * so every supply line that carries the same cabinet shares the same artwork via
- * the cross-reference. Finish-specific behavior (recolor) is only available on
- * the drawing fallback; the catalog renders are neutral grayscale line art.
+ * Renders the code-keyed CabinetDealz technical line-art library. The drawing is
+ * deterministic from master code, dimensions, and authored cabinet structure;
+ * legacy catalogImageUrl and distributor override thumbnails cannot replace it
+ * with finish-specific or structurally mismatched imagery.
  */
-export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
-  const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
-  const [failed, setFailed] = useState(false);
-  const drawingType = cabinetDrawingType(cabinet);
-  // A master Cabinet Config with an explicit appliance opening and zero doors is
-  // a measured drawing rule. Do not let an older vendor thumbnail with two doors
-  // replace the configuration-authoritative front on catalog cards or details.
-  const configRequiresDrawing = drawingType === "microwave-base" && (cabinet.numberOfDoors ?? 0) === 0;
-
-  // Reset the error state if the cabinet (and thus the image) changes.
-  useEffect(() => {
-    setFailed(false);
-  }, [url]);
-
-  if (!url || failed || configRequiresDrawing) {
-    return (
-      <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />
-    );
-  }
-
-  return (
-    <img
-      src={url}
-      alt={cabinetAltText(cabinet)}
-      className={className}
-      loading="lazy"
-      onError={() => setFailed(true)}
-      style={{ objectFit: "contain" }}
-    />
-  );
+export function CabinetImage({ cabinet, finishColor, className }: CabinetImageProps) {
+  return <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />;
 }
 
 export default CabinetImage;

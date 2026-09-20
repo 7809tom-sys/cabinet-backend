@@ -18,6 +18,7 @@ import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import {
   catalogNomenclatureIssueMessage,
   catalogNomenclatureIssues,
+  designerFriendlyDescription,
   hasPositiveCatalogPrice,
 } from "../../shared/catalogNomenclature";
 
@@ -326,7 +327,16 @@ export const genericCabinetsRouter = router({
       const masterCode = input.masterCode.trim().toUpperCase();
       const publish = input.mode === "publish";
       const category = input.category.trim();
-      const description = input.description.trim();
+      const description = designerFriendlyDescription({
+        masterCode,
+        width: input.width,
+        height: input.height,
+        depth: input.depth,
+        numberOfDoors: input.numberOfDoors,
+        numberOfDrawers: input.numberOfDrawers,
+        numberOfFixedShelves: input.numberOfFixedShelves,
+        numberOfAdjShelves: input.numberOfAdjShelves,
+      }) ?? input.description.trim();
       if (publish && !description) {
         throw new Error("Product name or description is required before publishing.");
       }
@@ -630,16 +640,36 @@ export const genericCabinetsRouter = router({
             width: cabinets.width,
             height: cabinets.height,
             depth: cabinets.depth,
-            catalogImageUrl: cabinets.catalogImageUrl,
-          })
+          catalogImageUrl: cabinets.catalogImageUrl,
+          numberOfDoors: cabinets.numberOfDoors,
+          numberOfDrawers: cabinets.numberOfDrawers,
+          numberOfFixedShelves: cabinets.numberOfFixedShelves,
+          numberOfAdjShelves: cabinets.numberOfAdjShelves,
+        })
           .from(cabinets)
           .where(eq(cabinets.id, id))
           .limit(1);
         if (!current) throw new Error("Catalog item not found");
 
+        // Known code families own their public-facing description. This keeps
+        // wording identical across distributor rows while leaving unknown codes
+        // editable for an administrator to resolve instead of guessing facts.
+        if (input.description !== undefined) {
+          update.description = designerFriendlyDescription({
+            masterCode: current.masterCode,
+            width: input.width === undefined ? current.width : update.width as string | null,
+            height: input.height === undefined ? current.height : update.height as string | null,
+            depth: input.depth === undefined ? current.depth : update.depth as string | null,
+            numberOfDoors: current.numberOfDoors,
+            numberOfDrawers: current.numberOfDrawers,
+            numberOfFixedShelves: current.numberOfFixedShelves,
+            numberOfAdjShelves: current.numberOfAdjShelves,
+          }) ?? input.description;
+        }
+
         const truthIssues = catalogNomenclatureIssues({
           masterCode: current.masterCode,
-          description: input.description ?? current.description,
+          description: update.description as string | undefined ?? current.description,
           category: input.category ?? current.category,
           subCategory: input.subCategory === undefined ? current.subCategory : input.subCategory,
           placementType: current.placementType,

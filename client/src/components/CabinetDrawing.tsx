@@ -36,11 +36,13 @@ export function CabinetDrawing({ cabinet, finishColor, className }: CabinetDrawi
   const type = useMemo(() => cabinetDrawingType(cabinet), [cabinet]);
   const alt = useMemo(() => cabinetAltText(cabinet), [cabinet]);
 
-  // Real dimensions with sensible fallbacks per placement.
-  const w = toNum(cabinet.width) ?? 24;
+  // Real dimensions with sensible fallbacks per placement. Chrome trays are
+  // specified by compatible ERB corner cabinet size, not a cabinet-box size.
+  const isChromeTray = type === "lazy-susan-tray";
+  const w = toNum(cabinet.width) ?? (isChromeTray ? 33 : 24);
   const placement = (cabinet.placementType ?? cabinet.category ?? "").toLowerCase();
   const fallbackH =
-    placement.includes("wall") ? 30 : placement.includes("tall") ? 84 : 34.5;
+    isChromeTray ? 12 : placement.includes("wall") ? 30 : placement.includes("tall") ? 84 : 34.5;
   const h = toNum(cabinet.height) ?? fallbackH;
 
   // Use a tight viewBox that matches the cabinet's real aspect ratio so the
@@ -98,6 +100,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <LCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "corner-drawer-base":
       return <CornerDrawerBaseFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "lazy-susan-tray":
+      return <LazySusanTrayFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "accessory-strip":
       return <AccessoryStrip x={x} y={y} w={w} h={h} fill={fill} />;
     case "panel":
@@ -108,6 +112,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <PantryFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "oven-tall":
       return <OvenTallFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "face-pattern":
+      return <FacePatternFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "vanity":
     case "ada":
     case "standard-door":
@@ -657,6 +663,71 @@ function GlassDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">)
             />
           </g>
         );
+      })}
+    </g>
+  );
+}
+
+// Chrome tray: a shelf-mounted wire insert for the matching ERB easy-reach
+// corner cabinet. The nested quarter-round rails show a neutral technical
+// silhouette without pretending it is a cabinet door, filler, or turntable.
+function LazySusanTrayFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet">) {
+  const pad = Math.min(w, h) * 0.08;
+  const arcX = x + pad;
+  const arcY = y + h - pad;
+  const radius = Math.min(w - pad * 2, h * 1.8);
+  const trayPath = `M ${arcX} ${arcY} L ${arcX + radius} ${arcY} A ${radius} ${radius} 0 0 0 ${arcX} ${arcY - radius} Z`;
+  const railFractions = [0.36, 0.6, 0.82];
+  return (
+    <g data-cabinet-drawing="lazy-susan-tray">
+      <path d={trayPath} fill={fill} stroke={STROKE} strokeWidth={1.6} strokeLinejoin="round" />
+      {railFractions.map((fraction) => {
+        const rail = radius * fraction;
+        return (
+          <path
+            key={fraction}
+            d={`M ${arcX + pad} ${arcY - rail} A ${rail} ${rail} 0 0 1 ${arcX + rail} ${arcY - pad}`}
+            fill="none"
+            stroke={STROKE_LIGHT}
+            strokeWidth={1.1}
+            strokeLinecap="round"
+          />
+        );
+      })}
+      <line x1={arcX + pad} y1={arcY - pad} x2={arcX + radius - pad} y2={arcY - pad} stroke={STROKE_LIGHT} strokeWidth={1} />
+      <line x1={arcX + pad} y1={arcY - pad} x2={arcX + pad} y2={arcY - radius + pad} stroke={STROKE_LIGHT} strokeWidth={1} />
+    </g>
+  );
+}
+
+// Plate racks are intentionally open-front. PR/WPR codes draw plate slots,
+// while the existing face-pattern type remains reusable for wine/lattice units.
+function FacePatternFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type">) {
+  const code = String(cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const isPlateRack = /^(?:PR|WPR)\d/.test(code);
+  const inset = 5;
+  const innerW = w - inset * 2;
+  const innerH = h - inset * 2;
+  const pattern = cabinet.facePattern ?? (isPlateRack ? "slats" : "open");
+  const slotCount = isPlateRack ? Math.max(4, Math.min(7, Math.round(w / 14))) : 4;
+  return (
+    <g data-cabinet-drawing={isPlateRack ? "plate-rack" : "face-pattern"}>
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      <rect x={x + inset} y={y + inset} width={innerW} height={innerH} rx={1.5} fill={PANEL_FILL} stroke={STROKE_LIGHT} strokeWidth={1} />
+      {isPlateRack && Array.from({ length: slotCount }).map((_, index) => {
+        const ratio = (index + 0.5) / slotCount;
+        const slotX = x + inset + innerW * ratio;
+        return <line key={index} x1={slotX} y1={y + inset + 3} x2={slotX} y2={y + inset + innerH - 3} stroke={STROKE_LIGHT} strokeWidth={1.3} strokeLinecap="round" />;
+      })}
+      {!isPlateRack && pattern === "criss-cross" && (
+        <>
+          <line x1={x + inset} y1={y + inset} x2={x + inset + innerW} y2={y + inset + innerH} stroke={STROKE_LIGHT} strokeWidth={1} />
+          <line x1={x + inset + innerW} y1={y + inset} x2={x + inset} y2={y + inset + innerH} stroke={STROKE_LIGHT} strokeWidth={1} />
+        </>
+      )}
+      {!isPlateRack && pattern === "slats" && Array.from({ length: 5 }).map((_, index) => {
+        const lineY = y + inset + ((index + 1) / 6) * innerH;
+        return <line key={index} x1={x + inset + 3} y1={lineY} x2={x + inset + innerW - 3} y2={lineY} stroke={STROKE_LIGHT} strokeWidth={1} />;
       })}
     </g>
   );

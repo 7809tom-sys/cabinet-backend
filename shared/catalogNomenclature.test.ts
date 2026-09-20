@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   catalogNomenclatureIssues,
+  designerFriendlyDescription,
   hasPositiveCatalogPrice,
   parseCatalogNomenclature,
 } from "./catalogNomenclature";
@@ -16,7 +17,7 @@ describe("catalog nomenclature truth", () => {
     });
   });
 
-  it("rejects a WSV vanity identity and missing structural art", () => {
+  it("rejects a WSV vanity identity while allowing the code-drawn structural art fallback", () => {
     const issues = catalogNomenclatureIssues({
       masterCode: "WSV-24",
       description: "24 inch Vanity Base",
@@ -36,11 +37,10 @@ describe("catalog nomenclature truth", () => {
       "width-mismatch",
       "height-mismatch",
       "depth-mismatch",
-      "generic-image-required",
     ]));
   });
 
-  it("accepts a code-true WSV-24 library record", () => {
+  it("accepts a code-true WSV-24 record without a stored thumbnail", () => {
     expect(catalogNomenclatureIssues({
       masterCode: "WSV-24",
       description: 'Wall Skin / Scribe Veneer Panel — 15"W x 24"H x 1/4"D',
@@ -50,7 +50,7 @@ describe("catalog nomenclature truth", () => {
       width: 15,
       height: 24,
       depth: 0.25,
-      catalogImageUrl: "/manus-storage/wsv-24-library-line-art_bfd76a50.png",
+      catalogImageUrl: null,
     })).toEqual([]);
   });
 
@@ -73,5 +73,44 @@ describe("catalog nomenclature truth", () => {
   it("never treats zero as an eligible customer-facing price", () => {
     expect(hasPositiveCatalogPrice([0, "0.00", null])).toBe(false);
     expect(hasPositiveCatalogPrice([0, "8.75"])).toBe(true);
+  });
+
+  it("parses the restored specialty families from their unambiguous codes", () => {
+    expect(parseCatalogNomenclature("DCW2436")).toMatchObject({
+      family: "diagonal-corner-wall",
+      expectedCategory: "Wall",
+      expectedWidth: 24,
+      expectedHeight: 36,
+      expectedDepth: 12,
+    });
+    expect(parseCatalogNomenclature("WBC2736")).toMatchObject({
+      family: "wall-blind-corner",
+      expectedCategory: "Wall",
+      expectedWidth: 27,
+      expectedHeight: 36,
+      expectedDepth: 12,
+    });
+    expect(parseCatalogNomenclature("CHROME TRAY 33")).toMatchObject({
+      family: "chrome-tray",
+      expectedCategory: "Accessory",
+      expectedSubCategory: "Lazy Susan Insert",
+    });
+  });
+
+  it("builds clean code-true descriptions without distributor or finish wording", () => {
+    expect(designerFriendlyDescription({
+      masterCode: "DCW2436",
+      numberOfDoors: 1,
+      numberOfAdjShelves: 2,
+    })).toBe('24" × 36" × 12" Diagonal Corner Wall Cabinet — 1 Door, 2 Shelves');
+
+    expect(designerFriendlyDescription({
+      masterCode: "U189024",
+      numberOfDoors: 2,
+      numberOfAdjShelves: 5,
+    })).toBe('18" × 90" × 24" Tall Pantry Cabinet — 2 Doors, 5 Shelves');
+
+    expect(designerFriendlyDescription({ masterCode: "CHROME TRAY 36" }))
+      .toBe("Chrome Tray Insert for ERB36 Easy-Reach Corner Cabinet");
   });
 });

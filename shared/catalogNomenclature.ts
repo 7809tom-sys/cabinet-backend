@@ -3,6 +3,11 @@ export type CatalogNomenclatureFamily =
   | "base"
   | "blind-corner-base"
   | "wall"
+  | "angle-wall"
+  | "diagonal-corner-wall"
+  | "wall-blind-corner"
+  | "wall-plate-rack"
+  | "chrome-tray"
   | "tall"
   | "unknown";
 
@@ -31,6 +36,16 @@ export type CatalogTruthInput = {
   catalogImageUrl?: string | null | undefined;
 };
 
+export type DesignerFriendlyDescriptionInput = Pick<
+  CatalogTruthInput,
+  "masterCode" | "width" | "height" | "depth"
+> & {
+  numberOfDoors?: number | null | undefined;
+  numberOfDrawers?: number | null | undefined;
+  numberOfFixedShelves?: number | null | undefined;
+  numberOfAdjShelves?: number | null | undefined;
+};
+
 export type CatalogTruthIssue =
   | "description-mismatch"
   | "category-mismatch"
@@ -38,8 +53,7 @@ export type CatalogTruthIssue =
   | "placement-mismatch"
   | "width-mismatch"
   | "height-mismatch"
-  | "depth-mismatch"
-  | "generic-image-required";
+  | "depth-mismatch";
 
 const EPSILON = 0.01;
 
@@ -53,6 +67,33 @@ function matches(value: number | string | null | undefined, expected: number | u
   if (expected == null) return true;
   const parsed = numeric(value);
   return parsed != null && Math.abs(parsed - expected) <= EPSILON;
+}
+
+function displayDimension(value: number | string | null | undefined): string | null {
+  const parsed = numeric(value);
+  if (parsed == null) return null;
+  return Number.isInteger(parsed) ? String(parsed) : String(parsed);
+}
+
+function dimensionLabel(values: Array<number | string | null | undefined>): string | null {
+  const dimensions = values.map(displayDimension);
+  return dimensions.every((value): value is string => value != null)
+    ? `${dimensions.map((value) => `${value}\"`).join(" × ")}`
+    : null;
+}
+
+function countLabel(
+  count: number | null | undefined,
+  singular: string,
+  plural = `${singular}s`,
+): string | null {
+  if (count == null || !Number.isFinite(count) || count <= 0) return null;
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function joinProductDetails(details: Array<string | null>): string {
+  const present = details.filter((detail): detail is string => Boolean(detail));
+  return present.length > 0 ? ` — ${present.join(", ")}` : "";
 }
 
 /**
@@ -79,6 +120,94 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
       expectedHeight: height,
       expectedDepth: 0.25,
       expectedDescriptionTerms: ["wall", "skin", "veneer"],
+    };
+  }
+
+  const chromeTray = normalizedCode.match(/^CHROMETRAY(33|36)$/);
+  if (chromeTray) {
+    return {
+      code,
+      normalizedCode,
+      family: "chrome-tray",
+      expectedCategory: "Accessory",
+      expectedSubCategory: "Lazy Susan Insert",
+      expectedPlacement: "accessory",
+      expectedDescriptionTerms: ["chrome", "tray", `erb${chromeTray[1]}`],
+    };
+  }
+
+  const diagonalWall = normalizedCode.match(/^DCW(\d{2})(\d{2})$/);
+  if (diagonalWall) {
+    return {
+      code,
+      normalizedCode,
+      family: "diagonal-corner-wall",
+      expectedCategory: "Wall",
+      expectedPlacement: "wall",
+      expectedWidth: Number(diagonalWall[1]),
+      expectedHeight: Number(diagonalWall[2]),
+      expectedDepth: 12,
+      expectedDescriptionTerms: ["diagonal", "corner", "wall"],
+    };
+  }
+
+  const wallBlindCorner = normalizedCode.match(/^WBC(\d{2})(\d{2})$/);
+  if (wallBlindCorner) {
+    return {
+      code,
+      normalizedCode,
+      family: "wall-blind-corner",
+      expectedCategory: "Wall",
+      expectedPlacement: "wall",
+      expectedWidth: Number(wallBlindCorner[1]),
+      expectedHeight: Number(wallBlindCorner[2]),
+      expectedDepth: 12,
+      expectedDescriptionTerms: ["wall", "blind", "corner"],
+    };
+  }
+
+  const plateRack = normalizedCode.match(/^PR(\d{2})(\d{2})$/);
+  if (plateRack) {
+    return {
+      code,
+      normalizedCode,
+      family: "wall-plate-rack",
+      expectedCategory: "Wall",
+      expectedPlacement: "wall",
+      expectedWidth: Number(plateRack[1]),
+      expectedHeight: Number(plateRack[2]),
+      expectedDepth: 12,
+      expectedDescriptionTerms: ["wall", "plate", "rack"],
+    };
+  }
+
+  const angleWall = normalizedCode.match(/^AW(\d{2})(\d{2})$/);
+  if (angleWall) {
+    return {
+      code,
+      normalizedCode,
+      family: "angle-wall",
+      expectedCategory: "Wall",
+      expectedPlacement: "wall",
+      expectedWidth: Number(angleWall[1]),
+      expectedHeight: Number(angleWall[2]),
+      expectedDepth: 12,
+      expectedDescriptionTerms: ["angle", "wall"],
+    };
+  }
+
+  const utilityTall = normalizedCode.match(/^U(\d{2})(\d{2})(\d{2})$/);
+  if (utilityTall) {
+    return {
+      code,
+      normalizedCode,
+      family: "tall",
+      expectedCategory: "Tall",
+      expectedPlacement: "tall",
+      expectedWidth: Number(utilityTall[1]),
+      expectedHeight: Number(utilityTall[2]),
+      expectedDepth: Number(utilityTall[3]),
+      expectedDescriptionTerms: ["tall", "pantry"],
     };
   }
 
@@ -163,6 +292,48 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
   return { code, normalizedCode, family: "unknown", expectedDescriptionTerms: [] };
 }
 
+/**
+ * Returns a concise designer-facing description when a code unambiguously
+ * identifies the item. It intentionally leaves unknown nomenclature alone rather
+ * than guessing at product structure, dimensions, doors, or shelves.
+ */
+export function designerFriendlyDescription(input: DesignerFriendlyDescriptionInput): string | null {
+  const nomenclature = parseCatalogNomenclature(input.masterCode);
+  const width = nomenclature.expectedWidth ?? numeric(input.width);
+  const height = nomenclature.expectedHeight ?? numeric(input.height);
+  const depth = nomenclature.expectedDepth ?? numeric(input.depth);
+  const dimensions = dimensionLabel([width, height, depth]);
+  const door = countLabel(input.numberOfDoors, "Door");
+  const shelfCount = Math.max(0, input.numberOfFixedShelves ?? 0) + Math.max(0, input.numberOfAdjShelves ?? 0);
+  const shelves = countLabel(shelfCount, "Shelf", "Shelves");
+
+  switch (nomenclature.family) {
+    case "wall-skin-veneer":
+      return dimensions ? `${dimensions} Wall Skin / Scribe Veneer Panel` : "Wall Skin / Scribe Veneer Panel";
+    case "chrome-tray": {
+      const size = nomenclature.normalizedCode.replace("CHROMETRAY", "");
+      return `Chrome Tray Insert for ERB${size} Easy-Reach Corner Cabinet`;
+    }
+    case "diagonal-corner-wall":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Diagonal Corner Wall Cabinet${joinProductDetails([door, shelves])}`;
+    case "wall-blind-corner":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Blind Corner Cabinet${joinProductDetails([door, shelves])}`;
+    case "wall-plate-rack":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Plate Rack Cabinet`;
+    case "angle-wall":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Angle Wall Cabinet${joinProductDetails([door, shelves])}`;
+    case "wall":
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Cabinet${joinProductDetails([door, shelves])}`;
+    case "tall":
+      if (nomenclature.normalizedCode.startsWith("U")) {
+        return `${dimensions ?? ""}${dimensions ? " " : ""}Tall Pantry Cabinet${joinProductDetails([door, shelves])}`;
+      }
+      return null;
+    default:
+      return null;
+  }
+}
+
 /** Returns publish-blocking metadata issues inferred from a known code family. */
 export function catalogNomenclatureIssues(input: CatalogTruthInput): CatalogTruthIssue[] {
   const nomenclature = parseCatalogNomenclature(input.masterCode);
@@ -185,9 +356,6 @@ export function catalogNomenclatureIssues(input: CatalogTruthInput): CatalogTrut
   if (!matches(input.width, nomenclature.expectedWidth)) issues.push("width-mismatch");
   if (!matches(input.height, nomenclature.expectedHeight)) issues.push("height-mismatch");
   if (!matches(input.depth, nomenclature.expectedDepth)) issues.push("depth-mismatch");
-  if (nomenclature.family === "wall-skin-veneer" && !input.catalogImageUrl?.trim()) {
-    issues.push("generic-image-required");
-  }
   return issues;
 }
 
@@ -200,7 +368,6 @@ export function catalogNomenclatureIssueMessage(issues: CatalogTruthIssue[]): st
     "width-mismatch": "width conflicts with the nomenclature code",
     "height-mismatch": "height conflicts with the nomenclature code",
     "depth-mismatch": "depth conflicts with the nomenclature code",
-    "generic-image-required": "a matching generic image is required",
   };
   return issues.map((issue) => labels[issue]).join("; ");
 }

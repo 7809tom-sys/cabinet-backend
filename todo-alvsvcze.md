@@ -2443,3 +2443,12 @@
 - [x] Remove the **204** existing unlinked and unreferenced invalid master records after validating zero order, cart, saved-layout, audit-log, product-view, or saved-design references. The Unpriced Items queue now has **20** supplier-linked records that require a price and **0** unlinked invalid masters.
 - [x] Restore the verified **AW-12-30 / AW1230** priced supplier lines without changing a price value: publish its 25 positive available distributor rows and reactivate the canonical master for Catalog, Designer, and 2020. The remaining unpriced queue now contains **19** linked records with no verified positive price.
 - [x] Validate TypeScript, 33 focused catalog/canonical/unpriced regressions, production build, and diff integrity.
+
+## Milestone pricing, designer-friendly descriptions, and code line art — 2026-09-20
+
+- [x] Preserve the exact verified GR price import for the 17 uploaded Milestone codes and keep `SD` zero-price samples plus the null-priced `WR3324` source hidden, unavailable, and unpublished. Database validation reports **0** active/Catalog/Designer/2020 unpriced exposures.
+- [x] Replace the 18 visible restored-code master descriptions (including `AW1230`) with concise designer-facing, code-true wording that retains only verified dimensions, doors, shelves, compatibility, and product type; descriptions do not expose distributor or finish names.
+- [x] Add conservative nomenclature handling for Chrome Tray, DCW, WBC, PR, AW, and U pantry codes. Known code families now normalize to one deterministic designer-friendly description on Catalog save/edit; unknown codes remain editable rather than guessed.
+- [x] Enforce a code-keyed generic line-art system on catalog views, so legacy/vendor/finish thumbnails cannot replace the structural drawing. Add reusable Chrome Tray and open plate-rack drawings; retain diagonal-corner, blind-corner, wall, tall, and panel drawings from their code families.
+- [x] Repair ten safe format-only aliases to actual canonical masters and put the two `BEC` records whose target master is missing into conflict status for review. Alias approvals now refuse a missing canonical target. Database validation reports **0** approved alias records with a missing canonical master.
+- [x] Validate TypeScript; 133 focused catalog, image, pricing, alias, and admin regressions; production build; database invariants; and diff integrity.

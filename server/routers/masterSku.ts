@@ -156,6 +156,19 @@ export const masterSkuRouter = router({
 
       const { aliasCode, masterCode } = suggestion;
 
+      // An alias is a route to one real master, never a display-only string.
+      // Reject a stale AI suggestion when its proposed canonical record no
+      // longer exists; otherwise the public canonical predicate cannot safely
+      // suppress the duplicate source row.
+      const [canonicalMaster] = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(eq(cabinets.masterCode, masterCode))
+        .limit(1);
+      if (!canonicalMaster) {
+        throw new Error("Cannot approve alias: the proposed canonical master SKU no longer exists.");
+      }
+
       // Check for existing alias with the same aliasCode
       const [existing] = await db
         .select()

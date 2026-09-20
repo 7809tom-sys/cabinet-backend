@@ -13,6 +13,7 @@ export type CabinetDrawingType =
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
   | "vanity" // vanity door/drawer combo
   | "ada" // ADA-height unit
+  | "lazy-susan-tray" // shelf-mounted Chrome Tray insert for ERB easy-reach cabinets
   | "accessory-strip" // moldings, fillers, shelves (thin)
   | "panel" // flat panels: skin panels, end panels, plywood panels (grain direction)
   | "decorative-door" // decorative door panels: match door style, go on island backs / cabinet sides
@@ -274,6 +275,13 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   const desc = lc(cab.description);
   const graphic = lc(cab.graphicType);
   const hay = `${sub} ${desc} ${code}`;
+
+  // Chrome Tray 33/36 are shelf-mounted lazy-Susan inserts for matching ERB
+  // easy-reach corner cabinets. The normalized code defines the compatibility,
+  // so render one neutral, reusable technical tray instead of generic trim.
+  if (/^chrometray(?:33|36)$/.test(code.replace(/[^a-z0-9]/g, ""))) {
+    return "lazy-susan-tray";
+  }
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
   // inconsistent supplier category or corner fields on saved placements.
@@ -670,6 +678,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "corner-drawer-base": "corner drawer base cabinet",
     vanity: "vanity cabinet",
     ada: "ADA-compliant cabinet",
+    "lazy-susan-tray": "shelf-mounted chrome tray insert for an easy-reach corner cabinet",
     "accessory-strip": "accessory / trim",
     "panel": "flat panel (skin panel / end panel)",
     "decorative-door": "decorative door panel",
