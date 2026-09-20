@@ -95,8 +95,9 @@ export default function CabinetConfigReviewQueueAdmin() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        This queue contains every master cabinet that is <strong className="text-foreground">inactive</strong>,
-        <strong className="text-foreground"> unverified</strong>, or missing a <strong className="text-foreground">positive published price</strong>.
+        This queue contains priced master cabinets that are <strong className="text-foreground">inactive</strong> or
+        <strong className="text-foreground"> unverified</strong>. Records without a positive published price appear only in
+        <strong className="text-foreground"> Unpriced Items</strong>.
         Use <strong className="text-foreground">Edit Config</strong>{" "}
         to open that exact record directly in Cabinet Config.
       </p>
@@ -144,7 +145,7 @@ export default function CabinetConfigReviewQueueAdmin() {
       ) : rows.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">
           <CheckCircle2 className="mx-auto mb-2 h-8 w-8 text-green-600" />
-          No inactive, unverified, or unpriced cabinet records match this search.
+          No priced inactive or unverified cabinet records match this search.
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">

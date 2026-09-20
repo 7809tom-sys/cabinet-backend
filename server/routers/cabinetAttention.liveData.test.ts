@@ -23,13 +23,16 @@ function adminContext(): TrpcContext {
 describe("Cabinet Attention live data", () => {
   it("loads the review rows and their distributor dropdown values for an administrator", async () => {
     const caller = appRouter.createCaller(adminContext());
-    const [review, distributors] = await Promise.all([
+    const [review, distributors, unpriced] = await Promise.all([
       caller.cabinets.adminListCabinetConfig({ page: 0, limit: 5, attentionOnly: true }),
       caller.cabinets.adminListAttentionDistributors(),
+      caller.cabinets.adminListUnpricedCabinets({ page: 0, limit: 200 }),
     ]);
 
     expect(review.total).toBeGreaterThan(0);
     expect(review.rows.length).toBeGreaterThan(0);
+    const unpricedIds = new Set(unpriced.rows.map((row) => row.id));
+    expect(review.rows.every((row) => !unpricedIds.has(row.id))).toBe(true);
     expect(distributors.length).toBeGreaterThan(0);
     expect(distributors.map((line) => line.name)).toEqual(expect.arrayContaining(["Ashford", "Madison", "Preston"]));
   });

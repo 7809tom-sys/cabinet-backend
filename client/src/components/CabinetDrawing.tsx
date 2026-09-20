@@ -7,6 +7,7 @@ import {
   type CabinetLike,
   type CabinetDrawingType,
 } from "@/lib/cabinetGraphics";
+import { parseCatalogNomenclature } from "@shared/catalogNomenclature";
 
 interface CabinetDrawingProps {
   cabinet: CabinetLike;
@@ -142,6 +143,7 @@ function StandardDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type
   const counts = resolveDoorDrawerCounts(cabinet ?? {});
   const doors = Math.max(1, counts.doors || (w > 21 ? 2 : 1));
   const drawers = counts.drawers;
+  const rollOutShelfCount = parseCatalogNomenclature(cabinet.masterCode ?? "").rollOutShelfCount ?? 0;
   const inset = 4;
   const hasTopDrawer = drawers > 0;
   const drawerH = hasTopDrawer ? Math.min(14, h * 0.18) : 0;
@@ -186,6 +188,46 @@ function StandardDoorFront({ x, y, w, h, fill, cabinet }: Omit<FrontProps, "type
           />
         </g>
       ))}
+      {rollOutShelfCount > 0 && (
+        <RollOutShelfIndicator x={x} y={y} w={w} h={h} count={rollOutShelfCount} />
+      )}
+    </g>
+  );
+}
+
+/**
+ * A compact neutral technical badge at the lower edge of a code-keyed base
+ * drawing. Three shelf rails make the symbol recognizable and the numeral gives
+ * the exact included count without changing the cabinet door or finish art.
+ */
+function RollOutShelfIndicator({ x, y, w, h, count }: { x: number; y: number; w: number; h: number; count: number }) {
+  const inset = Math.max(2, Math.min(w, h) * 0.06);
+  const badgeW = Math.max(12, Math.min(w * 0.36, 19));
+  const badgeH = Math.max(9, Math.min(h * 0.18, 13));
+  const badgeX = x + w - badgeW - inset;
+  const badgeY = y + h - badgeH - inset;
+  const railLeft = badgeX + badgeW * 0.16;
+  const railRight = badgeX + badgeW * 0.52;
+  const railTop = badgeY + badgeH * 0.3;
+  const railGap = badgeH * 0.18;
+  const label = `${count} included roll-out ${count === 1 ? "shelf" : "shelves"}`;
+  return (
+    <g data-rollout-shelf-indicator="true" data-rollout-shelf-count={count} aria-label={label}>
+      <title>{label}</title>
+      <rect x={badgeX} y={badgeY} width={badgeW} height={badgeH} rx={2} fill="#ffffff" fillOpacity={0.94} stroke={STROKE} strokeWidth={1} />
+      {[0, 1, 2].map((index) => (
+        <line
+          key={index}
+          x1={railLeft}
+          y1={railTop + index * railGap}
+          x2={railRight}
+          y2={railTop + index * railGap}
+          stroke={STROKE_LIGHT}
+          strokeWidth={0.9}
+          strokeLinecap="round"
+        />
+      ))}
+      <text x={badgeX + badgeW * 0.74} y={badgeY + badgeH * 0.69} textAnchor="middle" fontSize={badgeH * 0.58} fontWeight="700" fill={STROKE}>{count}</text>
     </g>
   );
 }

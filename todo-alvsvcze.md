@@ -2459,3 +2459,9 @@
 - [x] Define regular `B###RS` as a normal base cabinet with its one utility drawer and the exact count of included roll-out shelves. Example: `B121RS` = 12-inch base, one drawer, one roll-out shelf.
 - [x] Normalize all **21** full-height and **12** regular coded base records to designer-friendly code-true descriptions and matching drawer counts without changing prices, availability, or visibility. The database reports zero drawer-layout mismatches and zero active unpriced exposures.
 - [x] Apply the same deterministic code rule to Catalog publish validation, generic line-art face resolution, and accessible product labels. Validate TypeScript, 103 focused catalog/nomenclature/image/admin regressions, production build, database invariants, and diff integrity.
+
+## Roll-out shelf drawing indicator and price queue separation — 2026-09-20
+
+- [x] Add a consistent, code-keyed technical roll-out shelf badge to generic cabinet line art. The lower-corner icon uses shelf rails and the exact `#RS` count, with accessible text; `B18FH2RS` displays 2, `B121RS` displays 1, and a normal `B12` displays no badge.
+- [x] Keep missing-price masters out of **Cabinet Attention** entirely, including records hidden for missing price. They now appear only in **Unpriced Items**, while Cabinet Attention remains for priced inactive or unverified configuration records.
+- [x] Qualify price and Unpriced Items supplier subqueries to preserve correct cabinet correlation. Validate TypeScript, 120 focused rollout/catalog/price/admin regressions, production build, the live queue separation, and diff integrity.

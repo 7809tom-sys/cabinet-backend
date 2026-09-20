@@ -62,4 +62,48 @@ describe("CabinetImage code-keyed generic drawing authority", () => {
     expect(markup).toContain('data-cabinet-drawing="plate-rack"');
     expect(markup).not.toContain("incorrect-closed-door-cabinet.webp");
   });
+
+  it("renders the exact code-owned roll-out shelf count as a technical badge", () => {
+    const fullHeightMarkup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: {
+          masterCode: "B18FH2RS",
+          description: '18" × 34.5" × 24" Full-Height Base Cabinet — No Drawer, 2 Roll-Out Shelves',
+          category: "Base",
+          subCategory: "Full Height",
+          width: 18,
+          height: 34.5,
+          depth: 24,
+          numberOfDoors: 1,
+          numberOfDrawers: 0,
+        },
+      }),
+    );
+    expect(fullHeightMarkup).toContain('data-rollout-shelf-indicator="true"');
+    expect(fullHeightMarkup).toContain('data-rollout-shelf-count="2"');
+    expect(fullHeightMarkup).toContain("2 included roll-out shelves");
+
+    const regularBaseMarkup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: {
+          masterCode: "B121RS",
+          description: '12" × 34.5" × 24" Base Cabinet — 1 Drawer, 1 Roll-Out Shelf',
+          category: "Base",
+          width: 12,
+          height: 34.5,
+          depth: 24,
+          numberOfDoors: 1,
+          numberOfDrawers: 1,
+        },
+      }),
+    );
+    expect(regularBaseMarkup).toContain('data-rollout-shelf-count="1"');
+
+    const standardBaseMarkup = renderToStaticMarkup(
+      createElement(CabinetImage, {
+        cabinet: { masterCode: "B12", description: '12" Base Cabinet', category: "Base", width: 12 },
+      }),
+    );
+    expect(standardBaseMarkup).not.toContain("data-rollout-shelf-indicator");
+  });
 });

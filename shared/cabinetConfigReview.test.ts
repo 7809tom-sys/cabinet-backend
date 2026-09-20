@@ -40,6 +40,29 @@ describe("cabinet configuration review queue", () => {
     expect(cabinetConfigAttentionReasons({ isActive: true, configVerified: true })).toEqual([]);
   });
 
+  it("keeps any missing-price record exclusively in Unpriced Items", () => {
+    expect(needsCabinetConfigAttention({
+      isActive: false,
+      configVerified: false,
+      hasPositivePublishedPrice: false,
+    })).toBe(false);
+    expect(cabinetConfigAttentionReasons({
+      isActive: false,
+      configVerified: false,
+      hasPositivePublishedPrice: false,
+    })).toEqual([]);
+    expect(needsCabinetConfigAttention({
+      isActive: false,
+      configVerified: false,
+      hasPositivePublishedPrice: 0,
+    })).toBe(false);
+    expect(needsCabinetConfigAttention({
+      isActive: false,
+      configVerified: false,
+      hasPositivePublishedPrice: true,
+    })).toBe(true);
+  });
+
   it("deep-links each row to its exact Cabinet Config record", () => {
     expect(cabinetConfigQuickEditUrl(482)).toBe("/admin?tab=cabinet-config&cabinetId=482");
   });

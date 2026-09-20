@@ -47,7 +47,7 @@ export function hasPositivePublishedCabinetPrice() {
   return sql`EXISTS (
     SELECT 1
     FROM distributor_skus sellable_price
-    WHERE sellable_price.cabinetId = ${cabinets.id}
+    WHERE sellable_price.cabinetId = \`cabinets\`.\`id\`
       AND sellable_price.isAvailable = true
       AND sellable_price.isPublished = true
       AND (COALESCE(sellable_price.listPrice, 0) > 0 OR COALESCE(sellable_price.yourCost, 0) > 0)

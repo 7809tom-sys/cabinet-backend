@@ -1,23 +1,32 @@
 export type CabinetConfigReviewCandidate = {
   isActive: boolean | null | undefined;
   configVerified: boolean | null | undefined;
-  hasPositivePublishedPrice?: boolean | null | undefined;
+  hasPositivePublishedPrice?: boolean | number | string | null | undefined;
 };
 
 export const CABINET_ATTENTION_SEARCH_PLACEHOLDER = "Search cabinet name or SKU…";
 
 /** True when a cabinet needs an administrator configuration review. */
 export function needsCabinetConfigAttention(candidate: CabinetConfigReviewCandidate): boolean {
-  return candidate.isActive === false || candidate.configVerified !== true || candidate.hasPositivePublishedPrice !== true;
+  // Missing-price records are handled exclusively by Admin → Unpriced Items.
+  // Do not duplicate them in Cabinet Attention, even when price hiding made
+  // the record inactive; that queue is for real configuration review only.
+  if (isMissingPositivePublishedPrice(candidate.hasPositivePublishedPrice)) return false;
+  return candidate.isActive === false || candidate.configVerified !== true;
 }
 
 /** Status labels for the review queue. A cabinet may require both corrections. */
-export function cabinetConfigAttentionReasons(candidate: CabinetConfigReviewCandidate): Array<"Inactive" | "Unverified" | "Price required"> {
-  const reasons: Array<"Inactive" | "Unverified" | "Price required"> = [];
+export function cabinetConfigAttentionReasons(candidate: CabinetConfigReviewCandidate): Array<"Inactive" | "Unverified"> {
+  if (isMissingPositivePublishedPrice(candidate.hasPositivePublishedPrice)) return [];
+  const reasons: Array<"Inactive" | "Unverified"> = [];
   if (candidate.isActive === false) reasons.push("Inactive");
   if (candidate.configVerified !== true) reasons.push("Unverified");
-  if (candidate.hasPositivePublishedPrice !== true) reasons.push("Price required");
   return reasons;
+}
+
+/** MySQL `EXISTS` fields can be returned as 0/1 rather than booleans. */
+function isMissingPositivePublishedPrice(value: CabinetConfigReviewCandidate["hasPositivePublishedPrice"]): boolean {
+  return value === false || value === 0 || value === "0";
 }
 
 /** Deep link that opens the exact cabinet record in the existing Cabinet Config editor. */

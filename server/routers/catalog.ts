@@ -2589,10 +2589,10 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.configVerified, false));
       }
       if (input.attentionOnly) {
+        conditions.push(hasPositivePublishedCabinetPrice());
         conditions.push(sql`(
           ${cabinets.isActive} = false
           OR ${cabinets.configVerified} = false
-          OR NOT ${hasPositivePublishedCabinetPrice()}
         )`);
       }
       if (input.distributorId) {
@@ -2789,7 +2789,7 @@ export const cabinetsRouter = router({
           isActive: cabinets.isActive,
           supplierSkuCount: sql<number>`(
             SELECT COUNT(*) FROM distributor_skus unpriced_supplier_count
-            WHERE unpriced_supplier_count.cabinetId = ${cabinets.id}
+            WHERE unpriced_supplier_count.cabinetId = \`cabinets\`.\`id\`
           )`,
           distributorNames: sql<string | null>`(
             SELECT GROUP_CONCAT(
@@ -2799,7 +2799,7 @@ export const cabinetsRouter = router({
             )
             FROM distributor_skus unpriced_skus
             INNER JOIN distributors unpriced_distributors ON unpriced_distributors.id = unpriced_skus.distributorId
-            WHERE unpriced_skus.cabinetId = ${cabinets.id}
+            WHERE unpriced_skus.cabinetId = \`cabinets\`.\`id\`
           )`,
         })
           .from(cabinets)
@@ -2862,6 +2862,8 @@ export const cabinetsRouter = router({
     }),
 
   // ── Admin: Distributor lines represented in the Cabinet Attention queue ──
+  // Price-missing records are intentionally absent here; Unpriced Items owns
+  // all pricing remediation so it cannot be mistaken for a config issue.
   adminListAttentionDistributors: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
@@ -2877,10 +2879,10 @@ export const cabinetsRouter = router({
       .where(
         and(
 	          isCanonicalCabinetMaster(),
+          hasPositivePublishedCabinetPrice(),
           sql`(
             ${cabinets.isActive} = false
             OR ${cabinets.configVerified} = false
-            OR NOT ${hasPositivePublishedCabinetPrice()}
           )`
         )
       )
