@@ -143,6 +143,55 @@ export type CabinetWallPosition = {
   maxOffsetIn: number;
 };
 
+/** Measured clearance around a corner cabinet on its owning wall run. */
+export type CabinetCornerClearance = {
+  wallLabel: string;
+  angle: 45 | 90;
+  placement: "flush" | "clearance";
+  requiredClearanceIn: number;
+  startGapIn: number;
+  endGapIn: number;
+};
+
+export function CabinetCornerClearancePanel({
+  clearance,
+}: {
+  clearance: CabinetCornerClearance;
+}) {
+  const measured = (value: number) => `${Math.round(Math.max(0, value) * 8) / 8}″`;
+  const hasRequiredSetback = clearance.requiredClearanceIn > 0;
+  return (
+    <section className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3" data-testid="cabinet-corner-clearance">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h4 className="text-sm font-semibold text-emerald-950">Corner clearance</h4>
+          <p className="text-[11px] text-emerald-900/80">
+            {clearance.angle}° corner on {clearance.wallLabel} · {clearance.placement === "flush" ? "flush seated" : "inside-corner setback"}
+          </p>
+        </div>
+        <Badge variant="secondary" className="border border-emerald-300 bg-white text-[10px] text-emerald-900">
+          {hasRequiredSetback ? `${measured(clearance.requiredClearanceIn)} required` : "0″ required"}
+        </Badge>
+      </div>
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div className="rounded border border-emerald-200 bg-white/80 px-2.5 py-2">
+          <span className="block text-[10px] uppercase tracking-wide text-emerald-900/70">Wall start gap</span>
+          <span className="font-mono font-semibold text-emerald-950">{measured(clearance.startGapIn)}</span>
+        </div>
+        <div className="rounded border border-emerald-200 bg-white/80 px-2.5 py-2">
+          <span className="block text-[10px] uppercase tracking-wide text-emerald-900/70">Wall end gap</span>
+          <span className="font-mono font-semibold text-emerald-950">{measured(clearance.endGapIn)}</span>
+        </div>
+      </div>
+      <p className="text-[11px] text-emerald-900/80">
+        {hasRequiredSetback
+          ? `This 45° peninsula turn requires ${measured(clearance.requiredClearanceIn)} from the inside corner. Ordinary 90° corners remain flush.`
+          : "This is a normal 90° or non-peninsula angled corner; no artificial setback is applied."}
+      </p>
+    </section>
+  );
+}
+
 /**
  * Exact along-wall placement for a cabinet or appliance.  A wall can be
  * horizontal, vertical, or diagonal, so the controls deliberately use the
@@ -343,9 +392,10 @@ export interface CabinetAttributesDialogProps {
   mountBottom?: number | null;
   maxMountBottom?: number;
   onSetMountBottom?: (uid: string, v: number) => void;
-	  onMoveInOut?: (uid: string, direction: "in" | "out", distanceIn: number) => void;
+  onMoveInOut?: (uid: string, direction: "in" | "out", distanceIn: number) => void;
   wallPosition?: CabinetWallPosition | null;
   onSetWallOffset?: (uid: string, offsetIn: number) => void;
+  cornerClearance?: CabinetCornerClearance | null;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -403,6 +453,7 @@ export function CabinetAttributesDialog({
   onMoveInOut,
   wallPosition,
   onSetWallOffset,
+  cornerClearance,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -549,6 +600,8 @@ export function CabinetAttributesDialog({
             </div>;
             })()}
           </section>
+
+          {cornerClearance && <CabinetCornerClearancePanel clearance={cornerClearance} />}
 
           <section className="space-y-3 border-t border-border pt-3" data-testid="cabinet-attributes-door-hardware">
             <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>

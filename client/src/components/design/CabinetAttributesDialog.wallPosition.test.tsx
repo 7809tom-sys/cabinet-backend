@@ -2,7 +2,7 @@
 import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { CabinetWallPositionControls } from "./CabinetAttributesDialog";
+import { CabinetCornerClearancePanel, CabinetWallPositionControls } from "./CabinetAttributesDialog";
 
 const position = {
   wallLabel: "Wall 2",
@@ -47,5 +47,46 @@ describe("CabinetWallPositionControls", () => {
     fireEvent.change(offset, { target: { value: "120" } });
     fireEvent.blur(offset);
     expect(onSetOffset).toHaveBeenCalledWith(84);
+  });
+});
+
+describe("CabinetCornerClearancePanel", () => {
+  afterEach(cleanup);
+
+  it("shows the two measured wall-end gaps and no artificial setback for a normal 90-degree corner", () => {
+    render(createElement(CabinetCornerClearancePanel, {
+      clearance: {
+        wallLabel: "Wall 2",
+        angle: 90,
+        placement: "flush",
+        requiredClearanceIn: 0,
+        startGapIn: 0,
+        endGapIn: 84,
+      },
+    }));
+
+    const panel = screen.getByTestId("cabinet-corner-clearance");
+    expect(panel.textContent).toContain("90° corner on Wall 2");
+    expect(panel.textContent).toContain("0″ required");
+    expect(panel.textContent).toContain("Wall start gap");
+    expect(panel.textContent).toContain("84″");
+    expect(panel.textContent).toContain("no artificial setback");
+  });
+
+  it("shows the applicable 45-degree peninsula clearance without applying it to normal corners", () => {
+    render(createElement(CabinetCornerClearancePanel, {
+      clearance: {
+        wallLabel: "Peninsula return",
+        angle: 45,
+        placement: "clearance",
+        requiredClearanceIn: 11,
+        startGapIn: 11,
+        endGapIn: 55,
+      },
+    }));
+
+    const panel = screen.getByTestId("cabinet-corner-clearance");
+    expect(panel.textContent).toContain("11″ required");
+    expect(panel.textContent).toContain("45° peninsula turn requires 11″");
   });
 });

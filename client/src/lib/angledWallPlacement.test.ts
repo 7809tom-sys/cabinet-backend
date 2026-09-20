@@ -1174,6 +1174,23 @@ describe("cabinet-supported peninsula runs", () => {
     });
   });
 
+  it("uses the SB36's true physical edge at a 90-degree ERB peninsula join rather than a 45-degree clearance rule", () => {
+    const room: RoomData = {
+      ...peninsulaRoom,
+      peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], id: "sb36-90-join", length: 96 }],
+    };
+    const erb: PlacedCabinet = {
+      uid: "erb-at-90-join", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base", x: 12, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, wallId: "top",
+    };
+    const spot = firstCollisionFreePeninsulaPlacement("sb36-90-join" as any, room, [erb], 36, 24, "base");
+    expect(spot).toMatchObject({ wallId: "sb36-90-join", wallOffset: 36 });
+    // The seat is determined by the ERB's actual L legs, not the 11-inch 45° rule.
+    expect(spot!.wallOffset).not.toBe(PENINSULA_INSIDE_CORNER_CLEARANCE_IN);
+    const sb36: PlacedCabinet = { ...erb, uid: "sb36-at-90-join", masterCode: "SB36", description: "Sink Base 36", ...spot! };
+    expect(cabinetPlacementCollisionDetail(sb36, [erb], room)).toBeNull();
+  });
+
   it("recovers a legacy peninsula cabinet that still carries its original parent-wall owner", () => {
     const staleParentWallOwner = { ...peninsulaCabinet("legacy-parent-wall-ber33", 30), wallId: "top", wallOffset: undefined };
     const normalized = normalizeLegacyPeninsulaCabinets([staleParentWallOwner], peninsulaRoom);

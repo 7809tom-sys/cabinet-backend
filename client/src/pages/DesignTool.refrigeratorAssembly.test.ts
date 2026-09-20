@@ -23,10 +23,18 @@ describe("Design Tool refrigerator assembly transactions", () => {
   it("removes stale enclosure members and commits one normalized authoritative assembly", () => {
     const transaction = refrigeratorTransaction();
     expect(transaction).toContain("const existingAssemblyUids = new Set(");
-    expect(transaction).toContain(".filter((item) => !existingAssemblyUids.has(item.uid))");
+    expect(transaction).toContain(".filter((item) => !existingAssemblyUids.has(item.uid) && item.uid !== refrigeratorCabinetToReplace?.uid)");
     expect(transaction).toContain("const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room)");
     expect(transaction).toContain("placedRef.current = committedPreview");
     expect(transaction).toContain("setPlaced(() => committedPreview)");
+  });
+
+  it("uses the refrigerator's measured wall offset for an over-fridge cabinet and both panels", () => {
+    const transaction = refrigeratorTransaction();
+    expect(transaction).toContain("const fridgeStart = wallRunOffset(configuredFridge, side, room)");
+    expect(transaction).toContain("const fw = wallRunSpan(configuredFridge, side, room)");
+    expect(transaction).toContain("const fridgeCenterAlong = fridgeStart + fw / 2");
+    expect(transaction).toContain("along = leftEdge ? fridgeStart - pThick : fridgeStart + fw");
   });
 
   it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {

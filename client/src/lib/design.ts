@@ -2354,11 +2354,11 @@ function cabinetPlanBodiesIntersect(left: PlacedCabinet, right: PlacedCabinet): 
   );
 }
 
-function usesFortyFiveDegreePeninsulaJoinBodyCheck(moving: PlacedCabinet, other: PlacedCabinet, room: RoomData): boolean {
+function usesPeninsulaCornerJoinBodyCheck(moving: PlacedCabinet, other: PlacedCabinet, room: RoomData): boolean {
   if (moving.placement !== "base" || other.placement !== "base") return false;
   const run = peninsulaRunById(room, moving.wallId);
   return Boolean(
-    run?.turn === 45 &&
+    (run?.turn === 45 || run?.turn === 90) &&
     run.parentWall &&
     cabinetWall(other, room) === run.parentWall &&
     placedCornerGeometryKind(other) === "l-shape",
@@ -2420,9 +2420,10 @@ function customWallCornerReservationCollision(
 }
 
 /**
- * Placement-time collision calculation. Only a 45-degree peninsula joining an
- * L-corner on its own parent wall uses true plan bodies; all other pairs retain
- * the established generic collision behavior.
+ * Placement-time collision calculation uses physical plan bodies when a
+ * peninsula joins an L-corner on its parent wall. This prevents either a 45°
+ * diagonal envelope or a square 90° envelope from creating a false setback;
+ * all other cabinet pairs retain generic collision behavior.
  */
 export function cabinetPlacementCollisionDetail(
   moving: PlacedCabinet,
@@ -2439,7 +2440,7 @@ export function cabinetPlacementCollisionDetail(
     if (otherCornerReservation) return otherCornerReservation;
     const detail = cabinetCollisionDetail(moving, [other]);
     if (!detail) continue;
-    if (usesFortyFiveDegreePeninsulaJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
+    if (usesPeninsulaCornerJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
     return detail;
   }
   return null;
@@ -2942,34 +2943,42 @@ export function fitRefrigeratorEnclosurePlacements(
   });
 
   const side = cabinetWall(refrigerator, room);
-  const horizontal = side === "top" || side === "bottom";
-  const fridgeAlong = horizontal ? refrigerator.x : refrigerator.y;
-  const wallLength = horizontal ? room.width : room.depth;
+  const fridgeAlong = wallRunOffset(refrigerator, side, room);
+  const wallRunLength = wallLength(side, room);
   const enclosureItems = [refrigerator, ...additions];
-  const alongStart = (item: PlacedCabinet) => horizontal ? item.x : item.y;
-  const alongLength = (item: PlacedCabinet) => {
-    const size = placedFootprint(item);
-    return horizontal ? size.w : size.d;
-  };
+  const alongStart = (item: PlacedCabinet) => wallRunOffset(item, side, room);
+  const alongLength = (item: PlacedCabinet) => wallRunSpan(item, side, room);
   const enclosureStart = Math.min(...enclosureItems.map(alongStart));
   const enclosureEnd = Math.max(...enclosureItems.map((item) => alongStart(item) + alongLength(item)));
   const positiveBoundaryShift = Math.max(0, -enclosureStart);
-  const negativeBoundaryShift = Math.min(0, wallLength - enclosureEnd);
+  const negativeBoundaryShift = Math.min(0, wallRunLength - enclosureEnd);
   const positiveShift = Math.max(0, ...conflicts
-    .filter(({ panel }) => (horizontal ? panel.x : panel.y) < fridgeAlong)
+    .filter(({ panel }) => alongStart(panel) < fridgeAlong)
     .map(({ overlapIn }) => overlapIn));
   const negativeShift = -Math.max(0, ...conflicts
-    .filter(({ panel }) => (horizontal ? panel.x : panel.y) >= fridgeAlong)
+    .filter(({ panel }) => alongStart(panel) >= fridgeAlong)
     .map(({ overlapIn }) => overlapIn));
   const candidateShifts = [positiveBoundaryShift, negativeBoundaryShift, positiveShift, negativeShift]
     .filter((shift, index, all) => Math.abs(shift) > COLLISION_EPSILON_IN && all.indexOf(shift) === index);
   if (candidateShifts.length === 0) return { existing, additions, shiftIn: 0 };
   const peers = existing.filter((item) => item.uid !== refrigeratorUid && !isRefrigeratorEndPanel(item));
 
-  const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => horizontal
-    ? { ...item, x: item.x + shiftIn }
-    : { ...item, y: item.y + shiftIn };
+  const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => {
+    const spot = wallPlacementAt(
+      alongStart(item) + shiftIn,
+      Math.max(0, Number(item.width) || 0),
+      Math.max(0, Number(item.depth) || 0),
+      side,
+      room,
+      item.peninsulaSide,
+    );
+    return { ...item, ...spot, wallId: spot.wallId ?? item.wallId, wallOffset: spot.wallOffset ?? item.wallOffset };
+  };
   const withinRoom = (item: PlacedCabinet): boolean => {
+    const offset = wallRunOffset(item, side, room);
+    const span = wallRunSpan(item, side, room);
+    if (offset < -COLLISION_EPSILON_IN || offset + span > wallRunLength + COLLISION_EPSILON_IN) return false;
+    if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return true;
     const size = placedFootprint(item);
     return item.x >= -COLLISION_EPSILON_IN
       && item.y >= -COLLISION_EPSILON_IN
@@ -3143,8 +3152,54 @@ export function selectedSinkBaseWallPlacement(
 	  if (alignedSpan + COLLISION_EPSILON_IN < minimumAlignedSpan) return null;
 	  const fittedSpot = wallPlacementAt(fittedStart, width, depth, side, room);
 	  const fittedCandidate = { ...candidate, ...fittedSpot };
-	  if (hasCollision(fittedCandidate, placed)) return null;
-	  return fittedSpot;
+  if (hasCollision(fittedCandidate, placed)) return null;
+  return fittedSpot;
+}
+
+/**
+ * Centers a new sink base below an existing window on the active wall.  The
+ * window owns the design intent: the cabinet's run center is made identical to
+ * the window center, while the usual collision rules retain the real cabinet
+ * body and all adjoining corner reservations.  A manual drag remains manual;
+ * callers use this only for a normal catalog placement with no explicit point.
+ */
+export function sinkBaseWindowPlacement(
+  side: WallSide,
+  room: RoomData,
+  width: number,
+  depth: number,
+  height: number,
+  placed: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+  if (width <= 0 || depth <= 0) return null;
+  const runLength = wallLength(side, room);
+  if (runLength + COLLISION_EPSILON_IN < width) return null;
+  const windows = openings
+    .filter((opening) => opening.kind === "window" && opening.side === side)
+    .sort((left, right) => left.offset - right.offset);
+  for (const window of windows) {
+    const centeredStart = Math.max(
+      0,
+      Math.min(window.offset + window.width / 2 - width / 2, Math.max(0, runLength - width)),
+    );
+    const spot = wallPlacementAt(centeredStart, width, depth, side, room);
+    const candidate: PlacedCabinet = {
+      uid: "__sink-base-window-target__",
+      cabinetId: -1,
+      masterCode: "SINK-BASE-WINDOW-TARGET",
+      description: "Sink base centered under window",
+      placement: "base",
+      ...spot,
+      width,
+      depth,
+      height,
+      wallId: spot.wallId,
+      wallOffset: spot.wallOffset,
+    };
+    if (!cabinetPlacementCollisionDetail(candidate, placed, room)) return spot;
+  }
+  return null;
 }
 
 /**
@@ -5600,13 +5655,10 @@ export function refrigeratorAssemblyMemberRole(
   }
   if (cabinetWall(member, room) !== cabinetWall(refrigerator, room)) return null;
   const side = cabinetWall(refrigerator, room);
-  const horizontal = side === "top" || side === "bottom";
-  const refrigeratorSize = placedFootprint(refrigerator);
-  const memberSize = placedFootprint(member);
-  const refrigeratorStart = horizontal ? refrigerator.x : refrigerator.y;
-  const refrigeratorEnd = refrigeratorStart + (horizontal ? refrigeratorSize.w : refrigeratorSize.d);
-  const memberStart = horizontal ? member.x : member.y;
-  const memberEnd = memberStart + (horizontal ? memberSize.w : memberSize.d);
+  const refrigeratorStart = wallRunOffset(refrigerator, side, room);
+  const refrigeratorEnd = refrigeratorStart + wallRunSpan(refrigerator, side, room);
+  const memberStart = wallRunOffset(member, side, room);
+  const memberEnd = memberStart + wallRunSpan(member, side, room);
   if (isRefrigeratorWallCabinet(member) && footprintsOverlap(member, refrigerator)) return "bridge";
   if (!isRefrigeratorEndPanel(member)) return null;
   if (Math.abs(memberEnd - refrigeratorStart) <= 3) return "left-panel";
@@ -5659,10 +5711,8 @@ export function reconcileRefrigeratorAssemblies(
     const refrigerator = reconciled.find((item) => item.uid === refrigeratorUid);
     if (!refrigerator) continue;
     const side = cabinetWall(refrigerator, enclosure);
-    const horizontal = side === "top" || side === "bottom";
-    const refrigeratorSize = placedFootprint(refrigerator);
-    const refrigeratorStart = horizontal ? refrigerator.x : refrigerator.y;
-    const refrigeratorSpan = horizontal ? refrigeratorSize.w : refrigeratorSize.d;
+    const refrigeratorStart = wallRunOffset(refrigerator, side, enclosure);
+    const refrigeratorSpan = wallRunSpan(refrigerator, side, enclosure);
     const members = reconciled.flatMap((member) => {
       if (member.uid === refrigerator.uid) return [];
       const role = refrigeratorAssemblyMemberRole(member, refrigerator, enclosure);
@@ -5701,9 +5751,13 @@ export function reconcileRefrigeratorAssemblies(
         member = { ...sourcePanel, uid: `refrigerator-${refrigerator.uid}-${role}` };
       }
       if (!member) continue;
-      const memberSize = placedFootprint(member);
-      const memberSpan = horizontal ? memberSize.w : memberSize.d;
-      const memberDepth = horizontal ? memberSize.d : memberSize.w;
+      const memberSpan = wallRunSpan(member, side, enclosure);
+      const memberDepth = isCustomRoomWall(enclosure, side) || peninsulaRunById(enclosure, side)
+        ? Math.max(0, Number(member.depth) || 0)
+        : (() => {
+            const memberSize = placedFootprint(member);
+            return side === "top" || side === "bottom" ? memberSize.d : memberSize.w;
+          })();
       const along = role === "bridge"
         ? refrigeratorStart + (refrigeratorSpan - memberSpan) / 2
         : role === "left-panel"
@@ -5756,18 +5810,15 @@ function adjoiningWallCabinetTop(
   room: RoomData,
 ): number | null {
   const side = cabinetWall(cabinet, room);
-  const horizontal = side === "top" || side === "bottom";
-  const cabinetFootprint = placedFootprint(cabinet);
-  const cabinetStart = horizontal ? cabinet.x : cabinet.y;
-  const cabinetEnd = cabinetStart + (horizontal ? cabinetFootprint.w : cabinetFootprint.d);
+  const cabinetStart = wallRunOffset(cabinet, side, room);
+  const cabinetEnd = cabinetStart + wallRunSpan(cabinet, side, room);
   let closestGap = Number.POSITIVE_INFINITY;
   let adjoiningTop: number | null = null;
   for (const neighbor of placed) {
     if (neighbor.uid === cabinet.uid || neighbor.placement !== "wall" || isStacker(neighbor)) continue;
     if (cabinetWall(neighbor, room) !== side || !isAgainstWall(neighbor, side, room)) continue;
-    const footprint = placedFootprint(neighbor);
-    const start = horizontal ? neighbor.x : neighbor.y;
-    const end = start + (horizontal ? footprint.w : footprint.d);
+    const start = wallRunOffset(neighbor, side, room);
+    const end = start + wallRunSpan(neighbor, side, room);
     const gap = Math.min(Math.abs(end - cabinetStart), Math.abs(start - cabinetEnd));
     if (gap > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN) continue;
     const box = elevationBox(neighbor, room);
@@ -5825,15 +5876,12 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
     // cabinet cap. This makes existing panels finish with the upper enclosure.
     if (!isPanelItem(cabinet) || (cabinet.placement !== "tall" && cabinet.placement !== "wall")) return cabinet;
     const side = cabinetWall(cabinet, enclosure);
-    const horizontal = side === "top" || side === "bottom";
-    const panelFootprint = placedFootprint(cabinet);
-    const panelStart = horizontal ? cabinet.x : cabinet.y;
-    const panelEnd = panelStart + (horizontal ? panelFootprint.w : panelFootprint.d);
+    const panelStart = wallRunOffset(cabinet, side, enclosure);
+    const panelEnd = panelStart + wallRunSpan(cabinet, side, enclosure);
     const matchingFridge = refrigerators.find((candidate) => {
       if (cabinetWall(candidate, enclosure) !== side) return false;
-      const fridgeFootprint = placedFootprint(candidate);
-      const fridgeStart = horizontal ? candidate.x : candidate.y;
-      const fridgeEnd = fridgeStart + (horizontal ? fridgeFootprint.w : fridgeFootprint.d);
+      const fridgeStart = wallRunOffset(candidate, side, enclosure);
+      const fridgeEnd = fridgeStart + wallRunSpan(candidate, side, enclosure);
       return Math.abs(panelEnd - fridgeStart) <= 2 || Math.abs(panelStart - fridgeEnd) <= 2;
     });
     if (!matchingFridge) return cabinet;

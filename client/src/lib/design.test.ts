@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallGapFitPreview, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -3158,6 +3158,36 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(conflicts.has("snk")).toBe(false);
   });
 
+  it("centers an SB36 beneath the active wall's window before normal base-run sequencing", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const window: WallOpening = {
+      uid: "sink-window", kind: "window", label: "Over-sink window", side: "top",
+      offset: 54, width: 36, height: 36, sill: 36,
+    };
+    const spot = sinkBaseWindowPlacement("top", room, 36, 24, 34.5, [], [window]);
+
+    expect(spot).toMatchObject({ x: 54, y: 0, rotation: 0 });
+  });
+
+  it("keeps the same window-center measurement on a diagonal continuous wall", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 120 }],
+      customWalls: [{ id: "diag", startVertexId: "a", endVertexId: "b", label: "Diagonal wall", lockedAngle: 45 }],
+    };
+    const window: WallOpening = {
+      uid: "diagonal-sink-window", kind: "window", label: "Over-sink window", side: "diag" as any,
+      offset: 60, width: 36, height: 36, sill: 36,
+    };
+    const spot = sinkBaseWindowPlacement("diag" as any, room, 36, 24, 34.5, [], [window]);
+
+    expect(spot?.wallId).toBe("diag");
+    expect(spot?.wallOffset).toBeCloseTo(60, 8);
+  });
+
   it("STILL flags a range appliance overlapping an ordinary base cabinet", () => {
     // Regression guard: the exemption must NOT disable real appliance conflicts.
     const base = cab({ uid: "b", masterCode: "B-24", description: "Base 24", placement: "base", x: 0, y: 0, width: 24, depth: 24 });
@@ -3240,6 +3270,45 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
       });
       expect(elevationBox(panel, room)).toEqual({ bottom: 0, height: 108 });
     }
+  });
+
+  it("re-centers a refrigerator upper and both end panels by measured offset on a diagonal continuous wall", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 120 }],
+      customWalls: [{ id: "diag", startVertexId: "a", endVertexId: "b", label: "Diagonal wall", lockedAngle: 45 }],
+    };
+    const fridgeSpot = wallPlacementAt(48, 36, 24, "diag" as any, room);
+    const fridge = cab({
+      uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance",
+      ...fridgeSpot, width: 36, depth: 24, height: 70, wallId: "diag", wallOffset: 48,
+      refrigeratorPanelMode: "both",
+    });
+    const bridge = cab({
+      uid: "bridge", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall",
+      ...wallPlacementAt(0, 36, 24, "diag" as any, room), width: 36, depth: 24, height: 24,
+      refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "bridge", wallId: "diag", wallOffset: 0,
+    });
+    const left = cab({
+      uid: "left-panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall",
+      ...wallPlacementAt(0, 0.75, 24, "diag" as any, room), width: 0.75, depth: 24, height: 96,
+      customProfile: "refrigerator-end-panel", refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "left-panel", wallId: "diag", wallOffset: 0,
+    });
+    const right = cab({
+      uid: "right-panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall",
+      ...wallPlacementAt(0, 0.75, 24, "diag" as any, room), width: 0.75, depth: 24, height: 96,
+      customProfile: "refrigerator-end-panel", refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "right-panel", wallId: "diag", wallOffset: 0,
+    });
+
+    const normalized = normalizeRefrigeratorBayUppers([fridge, bridge, left, right], room);
+    const byUid = new Map(normalized.map((item) => [item.uid, item]));
+    expect(wallRunOffset(byUid.get("bridge")!, "diag", room)).toBeCloseTo(48, 8);
+    expect(wallRunOffset(byUid.get("left-panel")!, "diag", room)).toBeCloseTo(47.25, 8);
+    expect(wallRunOffset(byUid.get("right-panel")!, "diag", room)).toBeCloseTo(84, 8);
+    expect(byUid.get("bridge")?.mountBottom).toBe(72);
   });
 });
 

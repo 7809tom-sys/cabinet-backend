@@ -97,7 +97,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -113,7 +113,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -4035,6 +4035,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         ? selectedCornerBaseWallPlacement(selectedLowerTarget, room, width, depth, height, prev, openings)
         : null;
       const selectedCornerBaseTarget = selectedCornerUpperSpot ? selectedLowerTarget : null;
+	      // A normal sink-base catalog placement follows a window first.  This is
+	      // independent of screen direction, works for measured diagonal walls,
+	      // and deliberately yields to a direct drag/drop coordinate.
+	      const wantsWindowCenteredSinkBase = accPlacement === "base"
+        && isSinkBaseCabinet(c)
+        && !isFarmSinkBasePaletteItem(c)
+        && !targetCabinetUid
+        && x == null
+	        && y == null;
+	      const sinkWindowSpot = wantsWindowCenteredSinkBase
+	        ? sinkBaseWindowPlacement(activeWall, room, width, depth, height, prev, openings)
+	        : null;
+	      const hasActiveWallWindow = wantsWindowCenteredSinkBase
+	        && openings.some((opening) => opening.kind === "window" && opening.side === activeWall);
+	      if (hasActiveWallWindow && !sinkWindowSpot) {
+	        const message = `${c.masterCode} was not added because the centered ${formatInches(width)} sink-base span below this window is blocked. Move the blocking cabinet or drag the sink base deliberately to a different location.`;
+	        setPlacementWarning(message);
+	        toast.info(message);
+	        return;
+	      }
       const automaticLowerMatch = accPlacement === "wall" && !isFloatingShelf && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
@@ -4121,9 +4141,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      } else if (selectedCornerUpperSpot) {
 	        spot = selectedCornerUpperSpot;
 	        preserveResolvedPlacement = true;
-      } else if (selectedLowerSpot) {
-        spot = selectedLowerSpot;
-        preserveResolvedPlacement = true;
+	      } else if (selectedLowerSpot) {
+	        spot = selectedLowerSpot;
+	        preserveResolvedPlacement = true;
+	      } else if (sinkWindowSpot) {
+	        spot = sinkWindowSpot;
+	        preserveResolvedPlacement = true;
 	      } else if (automaticLowerMatch) {
 	        spot = automaticLowerMatch.spot;
 	        preserveResolvedPlacement = true;
@@ -4774,6 +4797,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // retain the existing Sink / Range Top chooser.
 	      if (isSinkBaseCabinet(finalCab)) {
 	        setCountertop(true);
+	        // A sink base is not visually complete without a sink and faucet. Seed
+	        // a centered, editable default immediately; the existing chooser can
+	        // replace it with a verified Pelican fixture without leaving duplicates.
+	        const existingFixture = sinks.find((sink) => fixtureBelongsToCabinet(sink, finalCab));
+	        if (!existingFixture) {
+	          const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(finalCab)
+	            ? "farmhouse"
+	            : finalCab.width >= 33 ? "double" : "single";
+	          const defaultSink = makeSinkForCabinet(defaultSinkType, finalCab, room);
+	          setSinks((current) => current.some((sink) => fixtureBelongsToCabinet(sink, finalCab))
+	            ? current
+	            : [...current, defaultSink]);
+	          setSelectedSinkUid(defaultSink.uid);
+	        } else {
+	          setSelectedSinkUid(existingFixture.uid);
+	        }
 	        if (isFarmSinkBasePaletteItem(finalCab)) {
 	          setSinkBaseDialog(null);
 	          setRangeTopStep("choose");
@@ -5652,7 +5691,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [fridgeDialog?.replaceCabinetUid, placed],
   );
   const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
-    { styleId: styleId ?? 0, fridgeWidth: fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined },
+    {
+      styleId: styleId ?? 0,
+      fridgeWidth: fridgeForDialog
+        ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)
+        : undefined,
+    },
     { enabled: !!fridgeDialog && !!styleId }
   );
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
@@ -5709,10 +5753,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       configuredFridge = { ...configuredFridge, refrigeratorPanelMode: opts.panels };
       const side = cabinetWall(configuredFridge, room);
-      const horizontal = side === "top" || side === "bottom";
       const fp = placedFootprint(configuredFridge);
-      const fw = fp.w; // width along the wall run
-      const fd = fp.d; // depth into the room
+      // A custom/continuous wall can be diagonal.  X/Y is therefore only a plan
+      // coordinate, never a valid refrigerator run measurement.  All surround
+      // pieces must use the persisted wall offset that owns this refrigerator.
+      const fridgeStart = wallRunOffset(configuredFridge, side, room);
+      const fw = wallRunSpan(configuredFridge, side, room);
+      const fd = isCustomRoomWall(room, side) || peninsulaRunById(room, side)
+        ? Math.max(0, Number(configuredFridge.depth) || 0)
+        : fp.d;
 
       // Pick the surround row whose width best matches the fridge width (fallback).
       const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
@@ -5793,7 +5842,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           const aHeight = (opts.above === "bridge" && opts.bridgeHeight) ? opts.bridgeHeight : catalogH;
           bridgeHeightPlaced = aHeight;
           // Center the upper over the fridge run, flush to the same wall.
-          const fridgeCenterAlong = horizontal ? configuredFridge.x + fw / 2 : configuredFridge.y + fw / 2;
+          const fridgeCenterAlong = fridgeStart + fw / 2;
           const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
           // Hang so its TOP finishes at the wall-cabinet top line (flush with a
@@ -5886,11 +5935,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // enclosure into the room; clamping only this panel to zero would place it
         // inside the refrigerator footprint and make it appear missing.
         let along: number;
-        if (horizontal) {
-          along = leftEdge ? configuredFridge.x - pThick : configuredFridge.x + fw;
-        } else {
-          along = leftEdge ? configuredFridge.y - pThick : configuredFridge.y + fw;
-        }
+        along = leftEdge ? fridgeStart - pThick : fridgeStart + fw;
         const spot = wallPlacementAt(along, pThick, pDepth, side, room);
         toPlace.push({
           uid: makeUid(),
@@ -5927,7 +5972,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         const skin = pickByWidth(surround.smoothPanels, rotatedSize(configuredFridge).w) ?? surround.smoothPanels?.[0];
         if (skin) {
           const sWidth = parseFloat(String(skin.width ?? rotatedSize(configuredFridge).w)) || rotatedSize(configuredFridge).w;
-          const along = horizontal ? configuredFridge.x + fw / 2 - sWidth / 2 : configuredFridge.y + fw / 2 - sWidth / 2;
+          const along = fridgeStart + fw / 2 - sWidth / 2;
           const spot = wallPlacementAt(along, sWidth, 0.75, side, room);
           toPlace.push({
             uid: makeUid(),
@@ -7451,6 +7496,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      wallLengthIn: length,
 	      offsetIn: Math.max(0, Math.min(Math.max(0, length - cabinet.width), offset)),
 	      maxOffsetIn: Math.max(0, length - cabinet.width),
+	    };
+	  }, [attrUid, placed, room]);
+	  const cabinetCornerClearance = useMemo(() => {
+	    const cabinet = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    if (!cabinet || cabinet.islandFace) return null;
+	    const placement = cabinetCornerPlacementInfo(cabinet, room) ?? blindCornerSnapInfo(cabinet, room);
+	    if (!placement) return null;
+	    const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+	    const length = wallLength(side, room);
+	    if (!Number.isFinite(length) || length <= 0) return null;
+	    const peninsula = peninsulaRunById(room, side);
+	    const customWall = room.customWalls?.find((wall) => wall.id === side);
+	    const start = wallRunOffset(cabinet, side, room);
+	    const end = start + wallRunSpan(cabinet, side, room);
+	    return {
+	      wallLabel: peninsula?.label ?? customWall?.label ?? WALL_LABELS[side as keyof typeof WALL_LABELS] ?? String(side),
+	      angle: placement.angle,
+	      placement: placement.placement,
+	      requiredClearanceIn: placement.clearanceIn,
+	      startGapIn: Math.max(0, start),
+	      endGapIn: Math.max(0, length - end),
 	    };
 	  }, [attrUid, placed, room]);
 	  const [fillerAttrUid, setFillerAttrUid] = useState<string | null>(null);
@@ -14181,6 +14247,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onMoveInOut={(uid, direction, distanceIn) => moveCabinetFrom3D(uid, direction, distanceIn)}
 	        wallPosition={cabinetWallPosition}
 	        onSetWallOffset={setCabinetWallOffset}
+	        cornerClearance={cabinetCornerClearance}
 	        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
@@ -14228,7 +14295,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       <RefrigeratorOptionsDialog
         open={!!fridgeDialog}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
-        fridgeWidthInches={fridgeForDialog ? rotatedSize(fridgeForDialog).w : undefined}
+        fridgeWidthInches={fridgeForDialog
+          ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)
+          : undefined}
         deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
@@ -14328,7 +14397,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             faucetFinish: verifiedFaucetProfile?.finish,
             faucetForm: verifiedFaucetProfile?.profile,
           };
-          setSinks((prevSinks) => [...prevSinks, sinkWithFaucet]);
+	          setSinks((prevSinks) => [
+	            ...prevSinks.filter((existingSink) => !fixtureBelongsToCabinet(existingSink, cab)),
+	            sinkWithFaucet,
+	          ]);
           setSelectedSinkUid(sinkWithFaucet.uid);
           setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
           if (sinkProduct) {
