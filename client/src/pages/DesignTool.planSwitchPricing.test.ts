@@ -15,4 +15,14 @@ describe("Designer plan-switch pricing compliance", () => {
     expect(source).toContain("Choose a priced alternative for every unpriced cabinet");
     expect(source).toContain("Door and drawer configuration differences are shown");
   });
+
+  it("lets an unused color slot change directly instead of displaying an empty disabled review", () => {
+    expect(source).toContain("planStyleReviewCandidates");
+    expect(source).toContain("plan-style-switch-no-review-needed");
+    expect(source).toContain("No cabinet pricing review is needed.");
+    expect(source).toContain("Change door style");
+    expect(source).toContain("canCommitPlanStyleSwitchWithoutReview");
+    expect(source).toContain("All placed cabinets have an authorized price in this door style.");
+    expect(source).toContain("Retry price review");
+  });
 });

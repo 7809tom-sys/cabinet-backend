@@ -148,6 +148,7 @@ import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
 import {
   closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
 } from "@/lib/closet";
+import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
@@ -2314,10 +2315,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const planSwitchReviewCabinets = useMemo(() => {
     if (!pendingPlanStyleSwitch) return [];
     const formerStyleId = pendingPlanStyleSwitch.slot === "A" ? (styleA ?? styleId) : styleB;
-    if (formerStyleId == null) return [];
-    return placed
-      .filter((cabinet) => cabinet.cabinetId > 0 && !isClosetPart(cabinet.masterCode))
-      .filter((cabinet) => effectiveStyleId(cabinet, styleId) === formerStyleId)
+    return planStyleReviewCandidates(placed, formerStyleId, styleId)
       .map((cabinet) => ({
         uid: cabinet.uid,
         cabinetId: pricingCabinetIdFor(cabinet),
@@ -2334,6 +2332,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         isCornerCabinet: isCornerCabinet(cabinet.masterCode),
       }));
   }, [pendingPlanStyleSwitch, styleA, styleB, styleId, placed, pricingCabinetIdFor]);
+  const planSwitchNeedsPricingReview = planSwitchReviewCabinets.length > 0;
   const planSwitchPricingReview = trpc.design.planSwitchPricingReview.useQuery(
     {
       targetStyleId: pendingPlanStyleSwitch?.newStyleId ?? 0,
@@ -2341,7 +2340,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       tier: DESIGN_TIER_TO_SHARED[tier],
       cabinets: planSwitchReviewCabinets,
     },
-    { enabled: pendingPlanStyleSwitch != null && planSwitchReviewCabinets.length > 0 },
+    { enabled: pendingPlanStyleSwitch != null && planSwitchNeedsPricingReview },
   );
 
   // Price map keyed on `cabinetId:styleId` so a cabinet can resolve to a
@@ -8007,7 +8006,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [activeSlot, styleId, styleA, styleB, doorStyles, t]);
 
   const approvePlanSwitch = useCallback(() => {
-    if (!pendingPlanStyleSwitch || !planSwitchPricingReview.data) return;
+    if (!pendingPlanStyleSwitch) return;
+    // An unused Color 1/Color 2 slot has no placed cabinet price to re-check.
+    // Commit directly instead of trapping the designer in an empty review with
+    // an unavailable primary action.
+    if (canCommitPlanStyleSwitchWithoutReview(planSwitchReviewCabinets)) {
+      const pending = pendingPlanStyleSwitch;
+      setPendingPlanStyleSwitch(null);
+      setPlanSwitchAlternativeChoices({});
+      commitPlanStyleSwitch(pending.slot, pending.newStyleId, pending.requiresDistributorOverride);
+      return;
+    }
+    if (!planSwitchPricingReview.data) return;
     const unresolved = planSwitchPricingReview.data.items.filter((item) => item.status === "no_priced_alternative");
     if (unresolved.length > 0) {
       toast.error("This plan cannot switch yet because one or more cabinets have no authorized priced alternative.");
@@ -8052,7 +8062,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setPendingPlanStyleSwitch(null);
     setPlanSwitchAlternativeChoices({});
     commitPlanStyleSwitch(pending.slot, pending.newStyleId, pending.requiresDistributorOverride);
-  }, [pendingPlanStyleSwitch, planSwitchPricingReview.data, planSwitchAlternativeChoices, commitPlanStyleSwitch]);
+  }, [pendingPlanStyleSwitch, planSwitchReviewCabinets, planSwitchPricingReview.data, planSwitchAlternativeChoices, commitPlanStyleSwitch]);
 
   // Assign a door style to a slot (from the picker). Existing cabinet boxes
   // first pass a server-enforced priced-alternative review; a plan never changes
@@ -8068,13 +8078,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return;
       }
     }
-    if (placed.some((cabinet) => cabinet.cabinetId > 0 && !isClosetPart(cabinet.masterCode))) {
+    const formerStyleId = slot === "A" ? (styleA ?? styleId) : styleB;
+    const affectedCabinets = planStyleReviewCandidates(placed, formerStyleId, styleId);
+    if (affectedCabinets.length > 0) {
       setPlanSwitchAlternativeChoices({});
       setPendingPlanStyleSwitch({ slot, newStyleId, distributorId: distNew, requiresDistributorOverride });
       return;
     }
     commitPlanStyleSwitch(slot, newStyleId, requiresDistributorOverride);
-  }, [doorStyles, lockedDistributorId, styleA, placed, commitPlanStyleSwitch]);
+  }, [doorStyles, lockedDistributorId, styleA, styleB, styleId, placed, commitPlanStyleSwitch]);
 
   // Snap the currently-selected cabinet flush to the chosen outer wall or a
   // selected peninsula run. A peninsula must retain its own wall ID, offset,
@@ -14661,14 +14673,34 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Review priced cabinet alternatives</DialogTitle>
             <DialogDescription>
-              This plan will change only after every cabinet has an authorized price in the selected line or you approve a verified functional alternative.
+              {planSwitchNeedsPricingReview
+                ? "This plan will change only after every affected cabinet has an authorized price in the selected line or you approve a verified functional alternative."
+                : "No placed cabinet currently uses this door-style slot. You can change the door style now; it will apply to new cabinets."}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[55vh] space-y-3 overflow-y-auto px-5 py-4">
-            {planSwitchPricingReview.isLoading ? (
+            {!planSwitchNeedsPricingReview ? (
+              <div data-testid="plan-style-switch-no-review-needed" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                <p className="font-semibold">No cabinet pricing review is needed.</p>
+                <p className="mt-1 text-xs leading-relaxed">Change this door style to use it for new cabinets in the selected color slot.</p>
+              </div>
+            ) : planSwitchPricingReview.isLoading ? (
               <p className="text-sm text-muted-foreground">Checking cabinet pricing and compatible alternatives…</p>
+            ) : planSwitchPricingReview.error ? (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                <p className="font-semibold">The cabinet price review could not finish.</p>
+                <p className="mt-1 text-xs leading-relaxed">No door or cabinet has been changed. Retry the review, or keep the current plan and try again.</p>
+                <Button className="mt-3" size="sm" variant="outline" onClick={() => void planSwitchPricingReview.refetch()}>Retry price review</Button>
+              </div>
+            ) : !planSwitchPricingReview.data ? (
+              <p className="text-sm text-muted-foreground">Waiting for the selected line’s authorized prices…</p>
             ) : planSwitchPricingReview.data?.items.length === 0 ? (
               <p className="text-sm text-muted-foreground">No placed cabinet pricing needs review.</p>
+            ) : planSwitchPricingReview.data.items.every((item) => item.status === "priced") ? (
+              <div data-testid="plan-style-switch-all-priced" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+                <p className="font-semibold">All placed cabinets have an authorized price in this door style.</p>
+                <p className="mt-1 text-xs leading-relaxed">Apply the door-style change when you are ready.</p>
+              </div>
             ) : (
               planSwitchPricingReview.data?.items.map((item) => item.status === "priced" ? null : (
                 <div key={item.uid} className={cn("rounded-lg border p-3", item.status === "no_priced_alternative" ? "border-destructive/50 bg-destructive/5" : "border-amber-400/60 bg-amber-50/50")}>
@@ -14696,7 +14728,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           </div>
           <DialogFooter className="border-t px-5 py-4">
             <Button variant="outline" onClick={() => { setPendingPlanStyleSwitch(null); setPlanSwitchAlternativeChoices({}); }}>Keep current plan</Button>
-            <Button onClick={approvePlanSwitch} disabled={planSwitchPricingReview.isLoading || !planSwitchPricingReview.data}>Apply reviewed plan change</Button>
+            <Button onClick={approvePlanSwitch} disabled={planSwitchPricingReview.isLoading || (planSwitchNeedsPricingReview && !planSwitchPricingReview.data)}>
+              {planSwitchNeedsPricingReview ? "Apply reviewed plan change" : "Change door style"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
