@@ -261,6 +261,8 @@ interface Props {
   openings?: WallOpening[];
   selectedOpeningUid?: string | null;
   onSelectOpening?: (uid: string | null) => void;
+  /** Opens the exact Width / Height / Sill / Position window editor. */
+  onOpenWindowAttributes?: (uid: string) => void;
   onOpeningChange?: (opening: WallOpening) => void;
   onDeleteOpening?: (uid: string) => void;
   finish?: FinishColors;
@@ -370,10 +372,10 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
-	  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
-	  islandDepthTransition = null,
-	  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
-  openings = [], selectedOpeningUid = null, onSelectOpening, onOpeningChange, onDeleteOpening,
+  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+  islandDepthTransition = null,
+  activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
+  openings = [], selectedOpeningUid = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
@@ -454,6 +456,16 @@ export function PlanCanvas({
       try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
     }
     openingDrag.current = null;
+  };
+
+  const openOpeningAttributes = (event: React.MouseEvent, opening: WallOpening) => {
+    event.preventDefault();
+    event.stopPropagation();
+    onSelectOpening?.(opening.uid);
+    // Windows have a dedicated attributes dialog. Doors and cased openings keep
+    // their existing selected-opening controls rather than opening a mismatched
+    // window-only form.
+    if (opening.kind === "window") onOpenWindowAttributes?.(opening.uid);
   };
   // Island drag/resize: tracks an active gesture without re-rendering per move.
   const islandDrag = useRef<
@@ -1840,22 +1852,24 @@ export function PlanCanvas({
           return (
             <div
               key={o.uid}
-              onPointerDown={(e) => onOpeningPointerDown(e, o, "move")}
+              onPointerDown={(e) => {
+                // A secondary-button press must reach onContextMenu. Capturing
+                // it as a drag first prevented the window editor from opening.
+                if (e.button === 2) return;
+                onOpeningPointerDown(e, o, "move");
+              }}
               onPointerMove={onOpeningPointerMove}
               onPointerUp={onOpeningPointerUp}
-              onContextMenu={(e) => {
-                // Match the cabinet gesture: select the opening and reveal its
-                // existing contextual Width / Height / Sill / Position editor.
-                e.preventDefault();
-                e.stopPropagation();
-                onSelectOpening?.(o.uid);
+              onContextMenu={(event) => openOpeningAttributes(event, o)}
+              onDoubleClick={(event) => openOpeningAttributes(event, o)}
+              onKeyDown={(event) => {
+                if (event.key !== "Enter" && event.key !== " ") return;
+                openOpeningAttributes(event as unknown as React.MouseEvent, o);
               }}
-              onDoubleClick={(e) => {
-                // A touchpad-friendly alternative to a right click.
-                e.preventDefault();
-                e.stopPropagation();
-                onSelectOpening?.(o.uid);
-              }}
+              role="button"
+              tabIndex={0}
+              data-testid={o.kind === "window" ? "plan-window-attributes-target" : "plan-opening-attributes-target"}
+              aria-label={`${o.label}. Right-click, double-click, or press Enter to edit.`}
               className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""}`}
               style={{
                 ...style,

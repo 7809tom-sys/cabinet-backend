@@ -9428,6 +9428,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
         <div className="hidden lg:block h-5 w-px bg-border" />
 
+        {/* Primary workspace switch: always show the two views a designer uses
+            most, rather than hiding 3D among icon-only utility controls. */}
+        <div
+          data-testid="primary-floor-plan-3d-switch"
+          className="hidden shrink-0 items-center rounded-md border border-[#1a2744]/25 bg-[#f8f5ee] p-0.5 shadow-sm lg:flex"
+          aria-label="Designer view"
+        >
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "plan" ? "default" : "ghost"}
+            onClick={() => setViewMode("plan")}
+            className={`h-8 gap-1.5 px-3 text-xs font-semibold ${viewMode === "plan" ? "bg-[#1a2744] text-white hover:bg-[#24375f]" : "text-[#1a2744] hover:bg-white"}`}
+            aria-pressed={viewMode === "plan"}
+            data-testid="switch-to-floor-plan"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Floor Plan
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={viewMode === "threeD" ? "default" : "ghost"}
+            onClick={() => setViewMode("threeD")}
+            disabled={!canLoadInteractive3d || interactive3dLoading}
+            className={`h-8 gap-1.5 px-3 text-xs font-semibold disabled:opacity-45 ${viewMode === "threeD" ? "bg-[#1a2744] text-white hover:bg-[#24375f]" : "text-[#1a2744] hover:bg-white"}`}
+            aria-pressed={viewMode === "threeD"}
+            data-testid="switch-to-3d-view"
+            title={canLoadInteractive3d ? "Open the synchronized 3D view" : "Choose a room layout and door style first"}
+          >
+            <Boxes className="h-3.5 w-3.5" /> 3D View
+          </Button>
+        </div>
+
         {/* Floor Plan / Room Size stays visible in every desktop workspace mode.
             Mobile uses the compact room-size sheet trigger immediately below. */}
         <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
@@ -12191,6 +12224,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
               onSelectOpening={selectOpening}
+              onOpenWindowAttributes={openWindowAttributes}
               onOpeningChange={changeOpening}
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
@@ -12418,6 +12452,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   openings={openings}
                   selectedOpeningUid={selectedOpeningUid}
                   onSelectOpening={selectOpening}
+                  onOpenWindowAttributes={openWindowAttributes}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}

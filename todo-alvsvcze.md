@@ -2540,3 +2540,8 @@
 - [x] Correct diagonal wall orientation after the 2D Y-down → 3D Z-up conversion, so a 45° or custom-angle segment follows the same start vertex, end vertex, length, and direction as the Floor Plan instead of mirroring across the room.
 - [x] Preserve the fallback rectangular floor only for an intentionally open wall path; never infer additional physical walls from that construction surface. Closed custom rooms use their exact saved vertex polygon.
 - [x] Add measured straight/diagonal path and measured-floor regression coverage; validate 336 focused 3D tests, TypeScript, production build, and diff integrity.
+
+- [x] Restore direct **Window Attributes** gestures in Floor Plan: right-click, double-click, Enter, or Space on a window now opens the exact Width, Height, Sill, and Position dialog. Secondary-click is no longer captured as a drag before the context action can run. Doors and cased openings keep their existing selected-opening controls.
+- [x] Add a prominent, persistent desktop **Floor Plan | 3D View** switch to the Designer toolbar. The active view is visibly highlighted, and 3D is safely disabled only until a valid room layout and door style are ready.
+- [x] Correct the measured custom-wall 2D→3D transform. Wall planes, baseboards, ceiling edges, and contact-shadow bounds now use the same positive-Z plan convention as 3D cabinets and windows; a 45° segment and its window remain on the same start/end path rather than rendering reflected across the room.
+- [x] Add direct regressions for exact window editor gesture routing, primary view controls, and wall transform alignment. Validate TypeScript, 357 focused PlanCanvas/3D/Designer tests, production build, and diff integrity.

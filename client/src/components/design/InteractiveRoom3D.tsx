@@ -2630,16 +2630,17 @@ export type ThreeDMeasuredWallSegment = {
   start: THREE.Vector2;
   end: THREE.Vector2;
   length: number;
-  /** Local +X must follow the saved plan tangent after the Y-down → Z-up conversion. */
+  /** Local +X follows the saved plan tangent under the shared Three.js transform. */
   rotationY: number;
   heightIn?: number;
 };
 
 /**
  * One authoritative transform for user-measured walls.  Plan Y points down;
- * Three.js Z points toward the viewer, so the position flips plan Y while the
- * wall's local X rotation preserves the original plan tangent.  This avoids
- * mirrored diagonal wall planes in the 3D view.
+ * Three.js wall positions use the same saved plan coordinates as cabinet
+ * positions. A local PlaneGeometry +X axis maps to world `(cos θ, -sin θ)`,
+ * so its Y rotation must mirror the plan's clockwise angle. This avoids a
+ * diagonal wall being placed correctly but rotated across its own endpoints.
  */
 export function threeDMeasuredWallSegments(room: RoomData | undefined): ThreeDMeasuredWallSegment[] {
   if (!room?.vertices?.length || !room.customWalls?.length) return [];
@@ -2656,10 +2657,30 @@ export function threeDMeasuredWallSegments(room: RoomData | undefined): ThreeDMe
       start: new THREE.Vector2(startVertex.x * INCH, -startVertex.y * INCH),
       end: new THREE.Vector2(endVertex.x * INCH, -endVertex.y * INCH),
       length: lengthIn * INCH,
-      rotationY: Math.atan2(planDy, planDx),
+      rotationY: threeDPlanRotation(Math.atan2(planDy, planDx)),
       heightIn: customWall.height,
     }];
   });
+}
+
+/**
+ * The plane, its baseboard, and its ceiling edge must use one transform. This
+ * is intentionally exported so a regression can assert the actual renderer
+ * placement rather than merely checking the source vertices.
+ */
+export function threeDMeasuredWallTransform(
+  segment: Pick<ThreeDMeasuredWallSegment, "start" | "end" | "rotationY">,
+  heightIn: number,
+) {
+  return {
+    x: (segment.start.x + segment.end.x) / 2,
+    y: Math.max(0, heightIn) * INCH / 2,
+    // Wall vertices are stored with negative Y so the floor polygon can be
+    // drawn directly in X/Z. The live cabinet and opening scene convention is
+    // positive-Z plan Y, so convert once here—exactly as openingTransform does.
+    z: -(segment.start.y + segment.end.y) / 2,
+    rotationY: segment.rotationY,
+  };
 }
 
 export function normalizeThreeDPlanarUv<T extends THREE.BufferGeometry>(geometry: T): T {
@@ -7460,27 +7481,28 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
           end: polygon[(index + 1) % polygon.length],
           customWall: undefined,
           length: start.distanceTo(polygon[(index + 1) % polygon.length]),
-          rotationY: Math.atan2(-(polygon[(index + 1) % polygon.length].y - start.y), polygon[(index + 1) % polygon.length].x - start.x),
+          rotationY: Math.atan2(polygon[(index + 1) % polygon.length].y - start.y, polygon[(index + 1) % polygon.length].x - start.x),
           heightIn: undefined,
         }));
     explicitWallSegments.forEach(({ start, end, customWall, length, rotationY, heightIn }, index) => {
       const side = threeDWallSideForPolygonEdge(index, explicitWallSegments.length, start, end, room);
       const customWallHeight = heightIn ?? customWall?.height;
       const sideWallHeight = (typeof customWallHeight === "number" ? customWallHeight : wallHeights[side]) * INCH;
+      const transform = threeDMeasuredWallTransform({ start, end, rotationY }, sideWallHeight / INCH);
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
-      wall.position.set((start.x + end.x) / 2, sideWallHeight / 2, (-start.y + -end.y) / 2);
-      wall.rotation.y = rotationY;
+      wall.position.set(transform.x, transform.y, transform.z);
+      wall.rotation.y = transform.rotationY;
       wall.userData = { roomWall: true, physicalWallSide: side, customWallId: customWall?.id ?? null, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side] };
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);
-      baseboard.position.set((start.x + end.x) / 2, 0.04, (-start.y + -end.y) / 2);
-      baseboard.rotation.y = rotationY;
+      baseboard.position.set(transform.x, 0.04, transform.z);
+      baseboard.rotation.y = transform.rotationY;
       baseboard.userData = { roomBaseboard: true, customWallId: customWall?.id ?? null, architecturalContextDetail: true };
       threeScene.add(baseboard);
       const ceilingEdge = new THREE.Mesh(new THREE.BoxGeometry(length, 0.035, 0.035), roomEdgeMaterial);
-      ceilingEdge.position.set((start.x + end.x) / 2, sideWallHeight - 0.018, (-start.y + -end.y) / 2);
-      ceilingEdge.rotation.y = rotationY;
+      ceilingEdge.position.set(transform.x, sideWallHeight - 0.018, transform.z);
+      ceilingEdge.rotation.y = transform.rotationY;
       ceilingEdge.userData = { roomCeilingEdge: true, customWallId: customWall?.id ?? null, architecturalContextDetail: true };
       threeScene.add(ceilingEdge);
     });
@@ -7491,7 +7513,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      new THREE.MeshBasicMaterial({ color: "#51483f", transparent: true, opacity: 0.035, depthWrite: false }),
     );
     floorContact.rotation.x = -Math.PI / 2;
-    floorContact.position.set(room.width * INCH * 0.52, 0.006, room.depth * INCH * 0.48);
+    // Use the actual wall endpoints; custom open-wall rooms can extend into
+    // negative Z and should not have their contact shadow offset elsewhere.
+    const fallbackWallBounds = { minX: 0, maxX: room.width * INCH, minZ: 0, maxZ: room.depth * INCH };
+    const wallBounds = explicitWallSegments.reduce((bounds, segment) => ({
+      minX: Math.min(bounds.minX, segment.start.x, segment.end.x),
+      maxX: Math.max(bounds.maxX, segment.start.x, segment.end.x),
+      minZ: Math.min(bounds.minZ, -segment.start.y, -segment.end.y),
+      maxZ: Math.max(bounds.maxZ, -segment.start.y, -segment.end.y),
+    }), explicitWallSegments.length
+      ? { minX: Number.POSITIVE_INFINITY, maxX: Number.NEGATIVE_INFINITY, minZ: Number.POSITIVE_INFINITY, maxZ: Number.NEGATIVE_INFINITY }
+      : fallbackWallBounds);
+    floorContact.position.set((wallBounds.minX + wallBounds.maxX) / 2, 0.006, (wallBounds.minZ + wallBounds.maxZ) / 2);
     floorContact.scale.set(1.35, 0.72, 1);
     floorContact.userData = { presentationContactShadow: true };
     threeScene.add(floorContact);

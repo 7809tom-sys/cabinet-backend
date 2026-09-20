@@ -32,3 +32,19 @@ describe("Continuous Wall Builder wall attributes", () => {
     expect(source).toContain("Every other wall keeps its existing length, height, angle, and position.");
   });
 });
+
+describe("Designer primary view and window editing controls", () => {
+  it("keeps a prominent two-way Floor Plan and 3D View switch in the primary toolbar", () => {
+    expect(source).toContain('data-testid="primary-floor-plan-3d-switch"');
+    expect(source).toContain('data-testid="switch-to-floor-plan"');
+    expect(source).toContain('data-testid="switch-to-3d-view"');
+    expect(source).toContain('onClick={() => setViewMode("plan")}');
+    expect(source).toContain('onClick={() => setViewMode("threeD")}');
+  });
+
+  it("forwards Plan Canvas window gestures to the exact Window Attributes dialog", () => {
+    expect(source).toContain("onOpenWindowAttributes={openWindowAttributes}");
+    expect(source).toContain("const openWindowAttributes = useCallback((uid: string) => {");
+    expect(source).toContain("setWindowAttrOpen(true);");
+  });
+});

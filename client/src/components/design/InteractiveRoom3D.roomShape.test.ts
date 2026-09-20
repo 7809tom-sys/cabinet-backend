@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activeThreeDRoomGeometry, openingTransform, threeDMeasuredRoomPolygon, threeDMeasuredWallSegments, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { activeThreeDRoomGeometry, openingTransform, threeDMeasuredRoomPolygon, threeDMeasuredWallSegments, threeDMeasuredWallTransform, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import type { RoomData, WallOpening } from "@/lib/design";
 
 const lSceneShape: NonNullable<InteractiveRoomScene["roomShape"]> = {
@@ -45,9 +45,19 @@ describe("active 2D room geometry in 3D", () => {
     expect(straight).toMatchObject({ id: "wall-1", length: expect.closeTo(101 / 12), rotationY: expect.closeTo(0), heightIn: 96 });
     expect(straight.start).toMatchObject({ x: expect.closeTo(0), y: expect.closeTo(0) });
     expect(straight.end).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
-    expect(diagonal).toMatchObject({ id: "wall-2", length: expect.closeTo(Math.hypot(55.154, 55.154) / 12), rotationY: expect.closeTo(Math.PI / 4), heightIn: 108 });
+    expect(diagonal).toMatchObject({ id: "wall-2", length: expect.closeTo(Math.hypot(55.154, 55.154) / 12), rotationY: expect.closeTo(Math.PI * 7 / 4), heightIn: 108 });
     expect(diagonal.start).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
     expect(diagonal.end).toMatchObject({ x: expect.closeTo(156.154 / 12), y: expect.closeTo(-55.154 / 12) });
+
+    const transform = threeDMeasuredWallTransform(diagonal, 108);
+    // Cabinet and opening positions use positive plan-Y for Three.js Z. The
+    // physical wall must land on the same diagonal, not its reflected opposite.
+    expect(transform).toMatchObject({
+      x: expect.closeTo((101 + 156.154) / 24),
+      y: expect.closeTo(108 / 24),
+      z: expect.closeTo(55.154 / 24),
+      rotationY: expect.closeTo(Math.PI * 7 / 4),
+    });
   });
 
   it("uses measured inch vertices for a closed custom floor instead of rescaling them as template ratios", () => {

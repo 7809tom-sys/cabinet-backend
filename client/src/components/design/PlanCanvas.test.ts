@@ -220,7 +220,44 @@ describe("user measured open wall paths", () => {
 	    expect(frame!.angleDeg).toBeCloseTo(45, 3);
 	    expect(frame!.centerX).toBeCloseTo(122.213, 3);
 	    expect(frame!.centerY).toBeCloseTo(21.213, 3);
-	  });
+  });
+});
+
+describe("window attributes gestures", () => {
+  it("opens the exact window editor on right-click, double-click, and keyboard activation", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("onOpenWindowAttributes?: (uid: string) => void;");
+    expect(source).toContain("if (e.button === 2) return;");
+    expect(source).toContain("onContextMenu={(event) => openOpeningAttributes(event, o)}");
+    expect(source).toContain("onDoubleClick={(event) => openOpeningAttributes(event, o)}");
+    expect(source).toContain('data-testid={o.kind === "window" ? "plan-window-attributes-target"');
+    expect(source).toContain("onOpenWindowAttributes?.(opening.uid);");
+  });
+
+  it("renders an accessible window edit target rather than a drag-only element", () => {
+    const opening: WallOpening = {
+      uid: "window-36",
+      kind: "window",
+      label: "Window 36\"",
+      side: "top",
+      offset: 30,
+      width: 36,
+      height: 36,
+      sill: 42,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+        showWallLayer: true, openings: [opening], onSelectOpening: () => undefined,
+        onOpenWindowAttributes: () => undefined,
+      })),
+    );
+
+    expect(markup).toContain('data-testid="plan-window-attributes-target"');
+    expect(markup).toContain('aria-label="Window 36&quot;. Right-click, double-click, or press Enter to edit."');
+  });
 });
 
 describe("plan placement assistance wiring", () => {
