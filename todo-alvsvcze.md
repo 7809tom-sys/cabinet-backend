@@ -2452,3 +2452,10 @@
 - [x] Enforce a code-keyed generic line-art system on catalog views, so legacy/vendor/finish thumbnails cannot replace the structural drawing. Add reusable Chrome Tray and open plate-rack drawings; retain diagonal-corner, blind-corner, wall, tall, and panel drawings from their code families.
 - [x] Repair ten safe format-only aliases to actual canonical masters and put the two `BEC` records whose target master is missing into conflict status for review. Alias approvals now refuse a missing canonical target. Database validation reports **0** approved alias records with a missing canonical master.
 - [x] Validate TypeScript; 133 focused catalog, image, pricing, alias, and admin regressions; production build; database invariants; and diff integrity.
+
+## Base roll-out shelf nomenclature — 2026-09-20
+
+- [x] Define `B##FH#RS` as a **Full-Height Base Cabinet** with **no drawer** and the exact count of included roll-out shelves. Example: `B18FH2RS` = 18-inch full-height base, no drawer, two roll-out shelves.
+- [x] Define regular `B###RS` as a normal base cabinet with its one utility drawer and the exact count of included roll-out shelves. Example: `B121RS` = 12-inch base, one drawer, one roll-out shelf.
+- [x] Normalize all **21** full-height and **12** regular coded base records to designer-friendly code-true descriptions and matching drawer counts without changing prices, availability, or visibility. The database reports zero drawer-layout mismatches and zero active unpriced exposures.
+- [x] Apply the same deterministic code rule to Catalog publish validation, generic line-art face resolution, and accessible product labels. Validate TypeScript, 103 focused catalog/nomenclature/image/admin regressions, production build, database invariants, and diff integrity.

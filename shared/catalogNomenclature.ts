@@ -21,6 +21,12 @@ export type CatalogNomenclature = {
   expectedWidth?: number;
   expectedHeight?: number;
   expectedDepth?: number;
+  /** Roll-out shelf count encoded by a #RS suffix, when present. */
+  rollOutShelfCount?: number;
+  /** Full-height bases intentionally omit the normal utility drawer. */
+  isFullHeightBase?: boolean;
+  /** Exact drawer count when the nomenclature unambiguously defines one. */
+  expectedDrawerCount?: number;
   expectedDescriptionTerms: string[];
 };
 
@@ -33,6 +39,7 @@ export type CatalogTruthInput = {
   width?: number | string | null | undefined;
   height?: number | string | null | undefined;
   depth?: number | string | null | undefined;
+  numberOfDrawers?: number | null | undefined;
   catalogImageUrl?: string | null | undefined;
 };
 
@@ -53,7 +60,8 @@ export type CatalogTruthIssue =
   | "placement-mismatch"
   | "width-mismatch"
   | "height-mismatch"
-  | "depth-mismatch";
+  | "depth-mismatch"
+  | "drawer-layout-mismatch";
 
 const EPSILON = 0.01;
 
@@ -105,6 +113,47 @@ function joinProductDetails(details: Array<string | null>): string {
 export function parseCatalogNomenclature(masterCode: string): CatalogNomenclature {
   const code = masterCode.trim().toUpperCase();
   const normalizedCode = code.replace(/[^A-Z0-9]/g, "");
+
+  // Full-height base: B18FH2RS = 18-inch base, no utility drawer, two
+  // roll-out shelves. Width is optional so the generic BFH2RS notation can be
+  // described without inventing a size.
+  const fullHeightRollOutBase = normalizedCode.match(/^B(?:(\d{2}))?FH([1-9]\d*)RS$/);
+  if (fullHeightRollOutBase) {
+    const width = fullHeightRollOutBase[1] == null ? undefined : Number(fullHeightRollOutBase[1]);
+    const rollOutShelfCount = Number(fullHeightRollOutBase[2]);
+    return {
+      code,
+      normalizedCode,
+      family: "base",
+      expectedCategory: "Base",
+      expectedSubCategory: "Full Height",
+      expectedPlacement: "base",
+      expectedWidth: width,
+      expectedDrawerCount: 0,
+      isFullHeightBase: true,
+      rollOutShelfCount,
+      expectedDescriptionTerms: ["full-height", "base", "no drawer", "roll-out", "shelf"],
+    };
+  }
+
+  // Regular base: B121RS = B12 standard drawer base with one roll-out shelf.
+  // The #RS suffix adds shelves; it does not remove the regular utility drawer.
+  const regularRollOutBase = normalizedCode.match(/^B(\d{2})([1-9]\d*)RS$/);
+  if (regularRollOutBase) {
+    const rollOutShelfCount = Number(regularRollOutBase[2]);
+    return {
+      code,
+      normalizedCode,
+      family: "base",
+      expectedCategory: "Base",
+      expectedPlacement: "base",
+      expectedWidth: Number(regularRollOutBase[1]),
+      expectedDrawerCount: 1,
+      isFullHeightBase: false,
+      rollOutShelfCount,
+      expectedDescriptionTerms: ["base", "drawer", "roll-out", "shelf"],
+    };
+  }
 
   const wsvMatch = normalizedCode.match(/^WSV(24|30|36|42)$/);
   if (wsvMatch) {
@@ -308,6 +357,13 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
   const shelves = countLabel(shelfCount, "Shelf", "Shelves");
 
   switch (nomenclature.family) {
+    case "base": {
+      if (nomenclature.rollOutShelfCount == null) return null;
+      const rollOutShelves = countLabel(nomenclature.rollOutShelfCount, "Roll-Out Shelf", "Roll-Out Shelves");
+      const baseName = nomenclature.isFullHeightBase ? "Full-Height Base Cabinet" : "Base Cabinet";
+      const drawerDetail = nomenclature.isFullHeightBase ? "No Drawer" : "1 Drawer";
+      return `${dimensions ?? ""}${dimensions ? " " : ""}${baseName}${joinProductDetails([drawerDetail, rollOutShelves])}`;
+    }
     case "wall-skin-veneer":
       return dimensions ? `${dimensions} Wall Skin / Scribe Veneer Panel` : "Wall Skin / Scribe Veneer Panel";
     case "chrome-tray": {
@@ -356,6 +412,9 @@ export function catalogNomenclatureIssues(input: CatalogTruthInput): CatalogTrut
   if (!matches(input.width, nomenclature.expectedWidth)) issues.push("width-mismatch");
   if (!matches(input.height, nomenclature.expectedHeight)) issues.push("height-mismatch");
   if (!matches(input.depth, nomenclature.expectedDepth)) issues.push("depth-mismatch");
+  if (nomenclature.expectedDrawerCount != null && input.numberOfDrawers != null && input.numberOfDrawers !== nomenclature.expectedDrawerCount) {
+    issues.push("drawer-layout-mismatch");
+  }
   return issues;
 }
 
@@ -368,6 +427,7 @@ export function catalogNomenclatureIssueMessage(issues: CatalogTruthIssue[]): st
     "width-mismatch": "width conflicts with the nomenclature code",
     "height-mismatch": "height conflicts with the nomenclature code",
     "depth-mismatch": "depth conflicts with the nomenclature code",
+    "drawer-layout-mismatch": "drawer layout conflicts with the nomenclature code",
   };
   return issues.map((issue) => labels[issue]).join("; ");
 }

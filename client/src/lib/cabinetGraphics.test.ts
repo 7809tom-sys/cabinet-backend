@@ -146,6 +146,32 @@ describe("cabinetDrawingType", () => {
     expect(cabinetDrawingType(cab)).toBe("standard-door");
   });
 
+  it("uses the RS suffix to preserve or remove the base utility drawer exactly as coded", () => {
+    const fullHeight = {
+      masterCode: "B18FH2RS",
+      description: '18" × 34.5" × 24" Full-Height Base Cabinet — No Drawer, 2 Roll-Out Shelves',
+      category: "Base",
+      subCategory: "Full Height",
+      width: 18,
+      numberOfDoors: 1,
+      // A stale import must not put a top drawer back into this full-height unit.
+      numberOfDrawers: 1,
+    };
+    expect(resolveDoorDrawerCounts(fullHeight)).toEqual({ doors: 1, drawers: 0 });
+    expect(cabinetAltText(fullHeight)).toContain("no drawer and 2 roll-out shelves");
+
+    const regularBase = {
+      masterCode: "B121RS",
+      description: '12" × 34.5" × 24" Base Cabinet — 1 Drawer, 1 Roll-Out Shelf',
+      category: "Base",
+      width: 12,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+    };
+    expect(resolveDoorDrawerCounts(regularBase)).toEqual({ doors: 1, drawers: 1 });
+    expect(cabinetAltText(regularBase)).toContain("1 drawer and 1 roll-out shelf");
+  });
+
   it("classifies a glass wall cabinet as glass-door", () => {
     const cab: CabinetLike = {
       masterCode: "W-30-GD",

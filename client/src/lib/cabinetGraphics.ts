@@ -1,5 +1,6 @@
 // Pure helpers that map a cabinet record to a 2D drawing type, an SEO-friendly
 // image slug, and descriptive alt text. Kept framework-free so it is unit-testable.
+import { parseCatalogNomenclature } from "@shared/catalogNomenclature";
 
 export type CabinetDrawingType =
   | "standard-door" // 1+ door box (base/wall/tall)
@@ -162,10 +163,23 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   // If the user explicitly marked this cabinet as "no door", render as open box.
   if (cab.noDoor) return { doors: 0, drawers: 0 };
 
+  const nomenclature = parseCatalogNomenclature(cab.masterCode ?? "");
   const desc = lc(cab.description);
   const sub = lc(cab.subCategory);
   const code = lc(cab.masterCode);
   const w = toNum(cab.width);
+
+  // Code owns the drawer contract for roll-out-shelf base families. A full-height
+  // B##FH#RS cabinet has no utility drawer; a regular B###RS base keeps its one
+  // drawer while the suffix records the shelf add-on count. Never infer a drawer
+  // from generic width or stale source fields for either family.
+  if (nomenclature.family === "base" && nomenclature.rollOutShelfCount != null) {
+    const configuredDoors = Math.max(0, cab.numberOfDoors ?? 0);
+    return {
+      doors: configuredDoors > 0 ? configuredDoors : standardDoorCountForFaceWidth(w ?? nomenclature.expectedWidth),
+      drawers: nomenclature.expectedDrawerCount ?? 0,
+    };
+  }
 
   // Microwave bases are an explicit Cabinet Config contract, not a generic
   // door-base inference. In particular BMC30 is configured as 0 doors and 1
@@ -654,6 +668,7 @@ export function cabinetAltText(cab: CabinetLike): string {
   const code = cab.masterCode ?? "";
   const w = toNum(cab.width);
   const type = cabinetDrawingType(cab);
+  const nomenclature = parseCatalogNomenclature(code);
   const { doors, drawers } = resolveDoorDrawerCounts(cab);
 
   const widthPart = w ? `${w}"` : "";
@@ -690,6 +705,12 @@ export function cabinetAltText(cab: CabinetLike): string {
   };
 
   let detail = detailMap[type];
+  if (nomenclature.family === "base" && nomenclature.rollOutShelfCount != null) {
+    const shelfLabel = `${nomenclature.rollOutShelfCount} roll-out ${nomenclature.rollOutShelfCount === 1 ? "shelf" : "shelves"}`;
+    detail = nomenclature.isFullHeightBase
+      ? `full-height base cabinet with no drawer and ${shelfLabel}`
+      : `base cabinet with ${drawers} drawer${drawers === 1 ? "" : "s"} and ${shelfLabel}`;
+  }
   // Corner cabinets share one L-shaped drawing, but the accessible label should
   // reflect the actual mechanism (lazy-Susan / easy-reach / corner sink) rather
   // than always saying "blind corner cabinet".

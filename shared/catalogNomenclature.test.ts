@@ -113,4 +113,46 @@ describe("catalog nomenclature truth", () => {
     expect(designerFriendlyDescription({ masterCode: "CHROME TRAY 36" }))
       .toBe("Chrome Tray Insert for ERB36 Easy-Reach Corner Cabinet");
   });
+
+  it("distinguishes full-height roll-out bases from regular drawer bases", () => {
+    expect(parseCatalogNomenclature("B18FH2RS")).toMatchObject({
+      family: "base",
+      expectedWidth: 18,
+      isFullHeightBase: true,
+      expectedDrawerCount: 0,
+      rollOutShelfCount: 2,
+    });
+    expect(designerFriendlyDescription({
+      masterCode: "B18FH2RS",
+      width: 18,
+      height: 34.5,
+      depth: 24,
+    })).toBe('18" × 34.5" × 24" Full-Height Base Cabinet — No Drawer, 2 Roll-Out Shelves');
+
+    expect(parseCatalogNomenclature("B121RS")).toMatchObject({
+      family: "base",
+      expectedWidth: 12,
+      isFullHeightBase: false,
+      expectedDrawerCount: 1,
+      rollOutShelfCount: 1,
+    });
+    expect(designerFriendlyDescription({
+      masterCode: "B121RS",
+      width: 12,
+      height: 34.5,
+      depth: 24,
+    })).toBe('12" × 34.5" × 24" Base Cabinet — 1 Drawer, 1 Roll-Out Shelf');
+  });
+
+  it("flags an imported drawer count that conflicts with a full-height #RS code", () => {
+    expect(catalogNomenclatureIssues({
+      masterCode: "B18FH2RS",
+      description: '18" × 34.5" × 24" Full-Height Base Cabinet — No Drawer, 2 Roll-Out Shelves',
+      category: "Base",
+      subCategory: "Full Height",
+      placementType: "base",
+      width: 18,
+      numberOfDrawers: 1,
+    })).toContain("drawer-layout-mismatch");
+  });
 });

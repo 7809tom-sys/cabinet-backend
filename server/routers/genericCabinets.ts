@@ -353,6 +353,7 @@ export const genericCabinetsRouter = router({
           width: input.width,
           height: input.height,
           depth: input.depth,
+          numberOfDrawers: input.numberOfDrawers,
           catalogImageUrl: input.catalogImageUrl,
         });
         if (truthIssues.length > 0) {
@@ -676,6 +677,7 @@ export const genericCabinetsRouter = router({
           width: input.width === undefined ? current.width : update.width as string | null,
           height: input.height === undefined ? current.height : update.height as string | null,
           depth: input.depth === undefined ? current.depth : update.depth as string | null,
+          numberOfDrawers: current.numberOfDrawers,
           catalogImageUrl: input.catalogImageUrl === undefined ? current.catalogImageUrl : input.catalogImageUrl,
         });
         if (truthIssues.length > 0) {
