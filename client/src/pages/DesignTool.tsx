@@ -14754,15 +14754,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 	      <AlertDialog open={glassStackerBulkPrompt != null} onOpenChange={(open) => { if (!open) setGlassStackerBulkPrompt(null); }}>
 	        <AlertDialogContent className="max-w-md">
-	          <AlertDialogHeader>
-	            <AlertDialogTitle>Add glass stackers above all compatible wall cabinets?</AlertDialogTitle>
-	            <AlertDialogDescription>
-	              {glassStackerBulkPrompt
-	                ? `${glassStackerBulkPrompt.sourceCode} is stacked above a wall cabinet. Add a matching priced glass stacker above ${glassStackerBulkPrompt.candidates.length} other compatible wall cabinet${glassStackerBulkPrompt.candidates.length === 1 ? "" : "s"}? Existing stackers, open units, island cabinets, and walls without a matching catalog glass stacker will not change.`
-	                : ""}
-	            </AlertDialogDescription>
-	          </AlertDialogHeader>
-	          <AlertDialogFooter>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add glass stackers above all compatible wall cabinets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {glassStackerBulkPrompt
+                ? `${glassStackerBulkPrompt.sourceCode} is stacked above a wall cabinet. Add a matching priced glass stacker above ${glassStackerBulkPrompt.candidates.length} other compatible wall cabinet${glassStackerBulkPrompt.candidates.length === 1 ? "" : "s"}? Existing stackers, open units, island cabinets, and walls without a matching catalog glass stacker will not change.`
+                : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {glassStackerBulkPrompt && (
+            <div data-testid="glass-stacker-bulk-parent-preview" className="max-h-44 overflow-y-auto rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+              <p className="font-semibold">These exact cabinet matches will receive a stacker:</p>
+              <ul className="mt-2 space-y-1 text-xs leading-relaxed">
+                {glassStackerBulkPrompt.candidates.map((candidate) => (
+                  <li key={candidate.parentUid}>
+                    <span className="font-medium">{candidate.parentCode}</span>
+                    <span className="mx-1.5 text-emerald-700">→</span>
+                    <span className="font-medium">{candidate.stacker.masterCode}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[11px] leading-relaxed text-emerald-800">A diagonal corner cabinet can only receive a diagonal corner glass stacker; a straight wall cabinet can only receive a straight wall glass stacker.</p>
+            </div>
+          )}
+          <AlertDialogFooter>
 	            <AlertDialogCancel>Keep this one stacker only</AlertDialogCancel>
 	            <AlertDialogAction onClick={applyGlassStackerBulkPlacement}>
 	              Add {glassStackerBulkPrompt?.candidates.length ?? 0} matching glass stacker{glassStackerBulkPrompt?.candidates.length === 1 ? "" : "s"}

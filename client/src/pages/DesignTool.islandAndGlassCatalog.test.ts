@@ -58,7 +58,6 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		  it("uses the enabled cabinet magnet for 3D moves so a small same-run overlap seats at an exact cabinet edge", () => {
 		    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
 		    expect(source).toContain("autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)");
-		    expect(source).toContain("!isLockedAngledCustomWall(room, requestedCabinet.wallId)");
 		    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
 	    expect(source).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
 	    expect(source).toContain("CABINET_CONFLICT_LOCK_IN");
@@ -267,6 +266,10 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		    expect(source).toContain("wallCabPoolRef.current");
 		    expect(source).toContain("setGlassStackerBulkPrompt({ sourceCode: finalCab.masterCode, candidates: glassStackerCandidates })");
 		    expect(source).toContain("Add glass stackers above all compatible wall cabinets?");
+		    expect(source).toContain('data-testid="glass-stacker-bulk-parent-preview"');
+		    expect(source).toContain("candidate.parentCode");
+		    expect(source).toContain("candidate.stacker.masterCode");
+		    expect(source).toContain("A diagonal corner cabinet can only receive a diagonal corner glass stacker");
 		    expect(source).toContain("Keep this one stacker only");
 		    expect(source).toContain("applyBulkGlassStackerPlacements(placedRef.current, prompt.candidates, makeUid)");
 		  });

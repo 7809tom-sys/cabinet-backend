@@ -1,5 +1,6 @@
 import {
   glassStackerParentPlacement,
+  glassStackerFamily,
   isGlassDoorCabinet,
   isStacker,
   resolvedDesignCabinetDimensions,
@@ -25,6 +26,18 @@ export type GlassStackerCeilingBlock = {
   requiredTop: number;
   ceiling: number;
 };
+
+/**
+ * A stacker must match the structural wall family below it before width is
+ * considered. Width alone is not a safe compatibility rule: DCW/WDC diagonal
+ * corner cabinets and ordinary W wall cabinets can both be 24 inches wide but
+ * are not interchangeable products.
+ */
+function isMatchingStackerFamily(parent: Pick<PlacedCabinet, "masterCode">, stacker: Pick<PlacedCabinet, "masterCode">): boolean {
+  const stackerFamily = glassStackerFamily(stacker);
+  const parentFamily = glassStackerFamily(parent);
+  return stackerFamily != null && stackerFamily === parentFamily;
+}
 
 /**
  * Identifies only actual glass stackers that have a saved parent relationship.
@@ -135,10 +148,15 @@ export function glassStackerBulkPlacementCandidates(
 
     const matchingCatalog = glassStackerCatalog.filter((catalog) => {
       const dimensions = resolvedDesignCabinetDimensions(catalog);
-      return Math.abs(dimensions.width - Number(parent.width)) <= 0.5;
+      return Math.abs(dimensions.width - Number(parent.width)) <= 0.5 &&
+        isMatchingStackerFamily(parent, catalog);
     });
     const drafts = matchingCatalog.map((catalog) => stackerDraft(source, catalog, parent));
-    if (drafts.length === 0 && Math.abs(Number(source.width) - Number(parent.width)) <= 0.5) {
+    if (
+      drafts.length === 0 &&
+      Math.abs(Number(source.width) - Number(parent.width)) <= 0.5 &&
+      isMatchingStackerFamily(parent, source)
+    ) {
       drafts.push(sourceStackerDraft(source, parent));
     }
 
@@ -198,7 +216,9 @@ export function glassStackerBulkHeightOptions(
       ) return [];
       const catalogChoices = vendorStackers.filter((catalog) => {
         const dimensions = resolvedDesignCabinetDimensions(catalog);
-        return Math.abs(dimensions.height - height) <= 0.5 && Math.abs(dimensions.width - Number(parent.width)) <= 0.5;
+        return Math.abs(dimensions.height - height) <= 0.5 &&
+          Math.abs(dimensions.width - Number(parent.width)) <= 0.5 &&
+          isMatchingStackerFamily(parent, catalog);
       });
       for (const catalog of catalogChoices) {
         const draft = stackerDraft(parent, catalog, parent);
@@ -259,6 +279,7 @@ export function glassStackerBulkCeilingBlocksAtHeight(
     for (const catalog of stackersAtHeight) {
       const dimensions = resolvedDesignCabinetDimensions(catalog);
       if (Math.abs(dimensions.width - Number(parent.width)) > 0.5) continue;
+      if (!isMatchingStackerFamily(parent, catalog)) continue;
       const placement = glassStackerParentPlacement(stackerDraft(parent, catalog, parent), placed, room, parent.uid);
       if (
         !placement.ok &&

@@ -2521,3 +2521,8 @@
 - [x] Fix the mobile **Review priced cabinet alternatives** dead end: the review now opens only when a currently placed sellable cabinet actually uses the Color 1/Color 2 slot being replaced. Changing an unused slot commits directly instead of showing an empty review with a disabled action.
 - [x] Give every review state a clear mobile path: direct **Change door style** for an unused slot, confirmation when all affected cabinets already have authorized prices, alternative choices only for real substitutions, and a visible **Retry price review** action on a request failure. No unpriced cabinet can be silently switched.
 - [x] Add pure eligibility and Designer UI regressions for style-slot review behavior; validate 6 focused tests, TypeScript, production build, and diff integrity.
+
+- [x] Fix bulk glass-stacker placement so it matches structural wall families before it considers width. A diagonal `DCW`/`WDC` stacker now can stack only on a diagonal corner wall cabinet; a straight `W` wall cabinet now receives only its matching straight-wall glass stacker or is safely skipped.
+- [x] Remove the unsafe same-width fallback that could copy the selected diagonal glass cabinet above an unrelated straight wall cabinet when the correct catalog item was unavailable.
+- [x] Show the exact parent-to-stacker mapping in the confirmation dialog before anything is added, so the designer can see, for example, `W2430 → W2412GD` and `WDC2430 → DCW2412GD` separately.
+- [x] Add a regression for same-width diagonal versus straight parents and validate 452 focused Designer/placement regressions plus TypeScript.

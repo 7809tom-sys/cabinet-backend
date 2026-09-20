@@ -92,6 +92,39 @@ describe("glass stacker bulk placement", () => {
     ]);
   });
 
+  it("never copies a diagonal glass stacker above same-width straight wall cabinets", () => {
+    const firstDiagonal = wall("diagonal-source-parent", "WDC2430", 24, { x: 0, depth: 24, cornerType: "diagonal" });
+    const secondDiagonal = wall("diagonal-target-parent", "WDC2430", 24, { x: 36, depth: 24, cornerType: "diagonal" });
+    const straightWall = wall("straight-target-parent", "W2430", 24, { x: 72 });
+    const source = wall("diagonal-source", "DCW2412GD", 24, {
+      description: "Diagonal corner wall glass stacker",
+      x: 0,
+      depth: 24,
+      height: 12,
+      glassDoor: true,
+      mountBottom: 84,
+      stackedOnCabinetUid: firstDiagonal.uid,
+    });
+
+    const candidates = glassStackerBulkPlacementCandidates(
+      [firstDiagonal, secondDiagonal, straightWall, source],
+      source.uid,
+      room,
+      [],
+    );
+
+    expect(candidates).toEqual([
+      expect.objectContaining({
+        parentUid: secondDiagonal.uid,
+        stacker: expect.objectContaining({
+          masterCode: "DCW2412GD",
+          stackedOnCabinetUid: secondDiagonal.uid,
+        }),
+      }),
+    ]);
+    expect(candidates.some((candidate) => candidate.parentUid === straightWall.uid)).toBe(false);
+  });
+
   it("offers only the selected vendor's 12-to-24-inch stacker heights that fit eligible wall cabinets", () => {
     const firstParent = wall("parent-30", "W3030", 30, { x: 0 });
     const secondParent = wall("parent-24", "W2430", 24, { x: 30 });

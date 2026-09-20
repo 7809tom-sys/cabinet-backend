@@ -3671,7 +3671,13 @@ function glassStackerHeight(p: { height?: number | string | null; masterCode?: s
   return Number.isFinite(inferred) ? inferred : null;
 }
 
-function glassStackerFamily(p: { masterCode?: string | null }): "WDC" | "W" | null {
+/**
+ * Structural family identity for a short glass wall stacker and the wall
+ * cabinet it can sit above. This is deliberately narrower than a width match:
+ * a DCW/WDC diagonal corner stacker must never be used above a straight wall
+ * cabinet just because both products are 24 inches wide.
+ */
+export function glassStackerFamily(p: { masterCode?: string | null }): "WDC" | "W" | null {
   const code = (p.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   // Supplier catalogs use both WDC-2412GD and DCW2412GD for the same diagonal
   // wall-corner stacker family. Keep those identities together, but never let
