@@ -14,7 +14,7 @@ import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeD
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
-import { peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -1984,6 +1984,37 @@ describe("interactive 3D room scene helpers", () => {
       placement: "base", x: 84, y: 0, width: 36, depth: 36, height: 34.5, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
     } as never;
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
+  it("keeps a snapped ERB36 seated at its actual diagonal custom-wall vertex in 3D", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "corner", x: 100, y: 100 },
+        { id: "b", x: 50, y: 150 },
+      ],
+      customWalls: [
+        { id: "first", startVertexId: "a", endVertexId: "corner", label: "Wall 1", lockedAngle: 45 },
+        { id: "second", startVertexId: "corner", endVertexId: "b", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const seed = {
+      uid: "erb36-diagonal-3d", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base" as const, x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    const spot = nextAvailableRoomCornerPlacement(seed, "second" as any, room, []);
+    expect(spot).toMatchObject({ wallId: "second", wallOffset: 0, rotation: 135 });
+
+    const transform = existingCabinetTransform({ ...seed, ...spot!, wallId: spot!.wallId, wallOffset: spot!.wallOffset }, room);
+    // This is the center generated from the same 36 x 36 physical corner envelope
+    // that wallPlacementAt seated on the shared 100,100 vertex.
+    expect(transform.x).toBeCloseTo(100 - 18 * Math.SQRT2, 8);
+    expect(transform.z).toBeCloseTo(100, 8);
+    expect(transform.rotation).toBeCloseTo(Math.PI * 1.25, 12);
   });
 
   it("builds ER36-family toe kicks as two recessed exposed-face strips that terminate at one clean inside-corner seam on every orientation", () => {

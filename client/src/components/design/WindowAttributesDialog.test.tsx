@@ -84,4 +84,44 @@ describe("WindowAttributesDialog", () => {
     // 144-inch wall − 36-inch window = 108-inch usable run; 108 − 20.125 = 87.875.
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ uid: "window-end-1", offset: 87.875 }));
   });
+
+  it("warns immediately when a typed measurement cannot keep the full window on the wall", () => {
+    const onChange = vi.fn();
+    render(createElement(LanguageProvider, null, createElement(WindowAttributesDialog, {
+      opening: { uid: "window-warning-1", kind: "window", label: 'Window 36"', side: "top", offset: 18, width: 36, height: 36, sill: 42 },
+      room: { width: 144, depth: 120, ceilingHeight: 96 },
+      open: true,
+      onOpenChange: () => undefined,
+      onChange,
+      onDelete: () => undefined,
+    })));
+
+    const position = screen.getByLabelText("Window distance from wall start / left in inches");
+    fireEvent.change(position, { target: { value: "120" } });
+    expect(position.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("window-distance-warning").textContent).toContain("maximum 108");
+    // Validation appears while typing; no location is committed until blur/Enter.
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("reports the focused wall start or end reference for the floor-plan marker", () => {
+    const onPositionReferenceFocusChange = vi.fn();
+    render(createElement(LanguageProvider, null, createElement(WindowAttributesDialog, {
+      opening: { uid: "window-reference-1", kind: "window", label: 'Window 36"', side: "top", offset: 18, width: 36, height: 36, sill: 42 },
+      room: { width: 144, depth: 120, ceilingHeight: 96 },
+      open: true,
+      onOpenChange: () => undefined,
+      onChange: () => undefined,
+      onDelete: () => undefined,
+      onPositionReferenceFocusChange,
+    })));
+
+    const position = screen.getByLabelText("Window distance from wall start / left in inches");
+    fireEvent.focus(position);
+    expect(onPositionReferenceFocusChange).toHaveBeenLastCalledWith({ openingUid: "window-reference-1", reference: "start" });
+    fireEvent.change(screen.getByLabelText("Window position reference"), { target: { value: "end" } });
+    expect(onPositionReferenceFocusChange).toHaveBeenLastCalledWith({ openingUid: "window-reference-1", reference: "end" });
+    fireEvent.blur(screen.getByLabelText("Window distance from wall end / right in inches"));
+    expect(onPositionReferenceFocusChange).toHaveBeenLastCalledWith(null);
+  });
 });

@@ -7458,12 +7458,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  const [floatingShelfAttrUid, setFloatingShelfAttrUid] = useState<string | null>(null);
 	  const [floatingShelfAttrOpen, setFloatingShelfAttrOpen] = useState(false);
 	  const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
-  const [windowAttrOpen, setWindowAttrOpen] = useState(false);
-  const openWindowAttributes = useCallback((uid: string) => {
-    const opening = openings.find((candidate) => candidate.uid === uid);
-    if (!opening || opening.kind !== "window") return;
-    selectOpening(uid);
-    setWindowAttrUid(uid);
+	  const [windowAttrOpen, setWindowAttrOpen] = useState(false);
+	  const [windowPositionReferenceFocus, setWindowPositionReferenceFocus] = useState<{ openingUid: string; reference: "start" | "end" } | null>(null);
+	  const openWindowAttributes = useCallback((uid: string) => {
+	    const opening = openings.find((candidate) => candidate.uid === uid);
+	    if (!opening || opening.kind !== "window") return;
+	    selectOpening(uid);
+	    setWindowPositionReferenceFocus(null);
+	    setWindowAttrUid(uid);
     setWindowAttrOpen(true);
     setAttrOpen(false);
     setFillerAttrOpen(false);
@@ -12271,6 +12273,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               onOpenIslandAttributes={() => setIslandAttributesOpen(true)}
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
+              openingMeasurementReference={windowPositionReferenceFocus}
               onSelectOpening={selectOpening}
               onOpenWindowAttributes={openWindowAttributes}
               onOpeningChange={changeOpening}
@@ -12499,6 +12502,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   onOpenIslandAttributes={() => setIslandAttributesOpen(true)}
                   openings={openings}
                   selectedOpeningUid={selectedOpeningUid}
+                  openingMeasurementReference={windowPositionReferenceFocus}
                   onSelectOpening={selectOpening}
                   onOpenWindowAttributes={openWindowAttributes}
                   onOpeningChange={changeOpening}
@@ -14144,13 +14148,18 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		        open={windowAttrOpen}
 		        onOpenChange={(open) => {
 		          setWindowAttrOpen(open);
-		          if (!open) setWindowAttrUid(null);
+		          if (!open) {
+		            setWindowAttrUid(null);
+		            setWindowPositionReferenceFocus(null);
+		          }
 		        }}
 		        onChange={changeOpening}
+		        onPositionReferenceFocusChange={setWindowPositionReferenceFocus}
 		        onDelete={(uid) => {
 		          deleteOpening(uid);
 		          setWindowAttrOpen(false);
 		          setWindowAttrUid(null);
+		          setWindowPositionReferenceFocus(null);
 		        }}
 		      />
 

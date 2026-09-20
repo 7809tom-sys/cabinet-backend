@@ -4938,7 +4938,13 @@ export function existingCabinetTransform(
   const savedRotation = Number(cabinet.rotation);
   const sharedKind = placedCornerGeometryKind(cabinet);
   const hasPlacedRoom = Number.isFinite(room?.width) && Number.isFinite(room?.depth);
-  const cornerTurn = hasPlacedRoom && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
+  // A measured custom wall owns the cabinet's exact angle. `cornerRotationForPlaced`
+  // only understands the four rectangular room bounds, so applying it to an
+  // ERB36 on a diagonal custom-wall corner overwrote its saved 135°/225° turn
+  // with a nearby fake rectangular corner and made the 3D body float away from
+  // the two real walls. Preserve the wallPlacementAt rotation in that case.
+  const onMeasuredCustomWall = isCustomRoomWall(room as RoomData, cabinet.wallId);
+  const cornerTurn = hasPlacedRoom && !onMeasuredCustomWall && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : null;
   const planRotation = sharedKind === "diagonal" && cornerTurn != null

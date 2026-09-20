@@ -10,9 +10,10 @@ export type WindowAttributesDialogProps = {
   onOpenChange: (open: boolean) => void;
   onChange: (opening: WallOpening) => void;
   onDelete: (uid: string) => void;
+  onPositionReferenceFocusChange?: (reference: { openingUid: string; reference: "start" | "end" } | null) => void;
 };
 
-export function WindowAttributesDialog({ opening, room, open, onOpenChange, onChange, onDelete }: WindowAttributesDialogProps) {
+export function WindowAttributesDialog({ opening, room, open, onOpenChange, onChange, onDelete, onPositionReferenceFocusChange }: WindowAttributesDialogProps) {
   const [movementText, setMovementText] = useState("1");
   const parsedMovement = Number(movementText);
   const movementIncrementIn = Number.isFinite(parsedMovement)
@@ -44,7 +45,7 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
           />
         </label>
         <div className="rounded-lg border bg-muted/20 p-3">
-          <OpeningSizeEditor opening={opening} room={room} onChange={onChange} onDelete={() => onDelete(opening.uid)} movementIncrementIn={movementIncrementIn} />
+          <OpeningSizeEditor opening={opening} room={room} onChange={onChange} onDelete={() => onDelete(opening.uid)} movementIncrementIn={movementIncrementIn} onPositionReferenceFocusChange={onPositionReferenceFocusChange} />
         </div>
       </DialogContent>
     </Dialog>

@@ -260,6 +260,8 @@ interface Props {
 	  onOpenIslandAttributes?: () => void;
   openings?: WallOpening[];
   selectedOpeningUid?: string | null;
+  /** Exact wall endpoint highlighted while a Window Attributes distance field is focused. */
+  openingMeasurementReference?: { openingUid: string; reference: "start" | "end" } | null;
   onSelectOpening?: (uid: string | null) => void;
   /** Opens the exact Width / Height / Sill / Position window editor. */
   onOpenWindowAttributes?: (uid: string) => void;
@@ -375,7 +377,7 @@ export function PlanCanvas({
   showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
-  openings = [], selectedOpeningUid = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
+  openings = [], selectedOpeningUid = null, openingMeasurementReference = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
@@ -658,6 +660,27 @@ export function PlanCanvas({
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
   const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
+  // The position editor stores every distance against a wall endpoint. Resolve
+  // that endpoint here rather than using the graph rectangle: a Continuous Wall
+  // Builder room may be diagonal or open, and its real start/end must be visible.
+  const openingReferencePoint = (() => {
+    if (!openingMeasurementReference) return null;
+    const opening = openings.find((candidate) => candidate.uid === openingMeasurementReference.openingUid);
+    if (!opening) return null;
+    const customWall = room.customWalls?.find((wall) => wall.id === opening.side);
+    if (customWall && room.vertices) {
+      const vertexId = openingMeasurementReference.reference === "start" ? customWall.startVertexId : customWall.endVertexId;
+      const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
+      if (vertex) {
+        return { x: vertex.x, y: vertex.y, label: `Wall ${openingMeasurementReference.reference} / ${openingMeasurementReference.reference === "start" ? "left" : "right"}` };
+      }
+    }
+    const atStart = openingMeasurementReference.reference === "start";
+    if (opening.side === "top" || opening.side === "bottom") {
+      return { x: atStart ? 0 : room.width, y: opening.side === "top" ? 0 : room.depth, label: `Wall ${atStart ? "start / left" : "end / right"}` };
+    }
+    return { x: opening.side === "left" ? 0 : room.width, y: atStart ? 0 : room.depth, label: `Wall ${atStart ? "start / left" : "end / right"}` };
+  })();
 
   // ─── Mouse-draw room gesture (container-level) ─────────────────────────────
   const onCanvasPointerDown = (e: React.PointerEvent) => {
@@ -1192,6 +1215,20 @@ export function PlanCanvas({
           })(),
         }}
       >
+        {openingReferencePoint && (
+          <div
+            data-testid="window-measurement-reference-marker"
+            aria-label={`${openingReferencePoint.label} measurement reference`}
+            className="pointer-events-none absolute z-[36]"
+            style={{ left: openingReferencePoint.x * ppi, top: openingReferencePoint.y * ppi, transform: "translate(-50%, -50%)" }}
+          >
+            <span className="absolute -inset-2 rounded-full border-2 border-emerald-500/80 bg-emerald-300/20 shadow-[0_0_0_4px_rgba(16,185,129,0.18)] animate-pulse" />
+            <span className="relative block h-3 w-3 rounded-full border-2 border-white bg-emerald-600 shadow" />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
+              {openingReferencePoint.label}
+            </span>
+          </div>
+        )}
         {hasCustomWallShell ? (
           <svg className="pointer-events-none absolute inset-0 z-[2] overflow-visible" width={roomPxW} height={roomPxH} aria-label="User measured walls">
             {room.customWalls!.map((wall) => {

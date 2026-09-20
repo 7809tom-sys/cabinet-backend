@@ -258,6 +258,31 @@ describe("window attributes gestures", () => {
     expect(markup).toContain('data-testid="plan-window-attributes-target"');
     expect(markup).toContain('aria-label="Window 36&quot;. Right-click, double-click, or press Enter to edit."');
   });
+
+  it("highlights the exact selected wall endpoint while a window distance is being measured", () => {
+    const opening: WallOpening = {
+      uid: "window-reference",
+      kind: "window",
+      label: "Window 36\"",
+      side: "top",
+      offset: 30,
+      width: 36,
+      height: 36,
+      sill: 42,
+    };
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+        showWallLayer: true, openings: [opening],
+        openingMeasurementReference: { openingUid: "window-reference", reference: "end" },
+      })),
+    );
+
+    expect(markup).toContain('data-testid="window-measurement-reference-marker"');
+    expect(markup).toContain("Wall end / right");
+    expect(markup).toContain("left:576px;top:0");
+  });
 });
 
 describe("plan placement assistance wiring", () => {

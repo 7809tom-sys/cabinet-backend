@@ -9,6 +9,8 @@ interface Props {
   onChange: (o: WallOpening) => void;
   onDelete: () => void;
   movementIncrementIn?: number;
+  /** Mirrors the active measurement reference onto the Floor Plan while typing. */
+  onPositionReferenceFocusChange?: (reference: { openingUid: string; reference: "start" | "end" } | null) => void;
 }
 
 // Inline editor shown in the contextual row when a door/window is selected.
@@ -21,7 +23,7 @@ interface Props {
 // Center button — so the opening can be moved precisely without dragging.
 // Dragging is hard on a phone, so these tap targets are the reliable way to
 // reposition a door/window there.
-export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementIncrementIn = 1 }: Props) {
+export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementIncrementIn = 1, onPositionReferenceFocusChange }: Props) {
   const { t } = useLanguage();
   // Windows and cased openings expose Height + Sill (sizeable like a doorway);
   // doors stay a standard 80" tall so only their width is editable.
@@ -40,11 +42,18 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
   const [heightText, setHeightText] = useState(String(Math.round(opening.height)));
   const [sillText, setSillText] = useState(String(Math.round(opening.sill)));
   const [positionReference, setPositionReference] = useState<"start" | "end">("start");
+  const [positionInputFocused, setPositionInputFocused] = useState(false);
   const measuredDistance = positionReference === "start"
     ? opening.offset
     : Math.max(0, maxOffset - opening.offset);
   const formatMeasuredDistance = (value: number) => String(Math.round(value * 8) / 8);
   const [offsetText, setOffsetText] = useState(formatMeasuredDistance(measuredDistance));
+  const parsedDistance = parseFloat(offsetText);
+  const distanceError = Number.isFinite(parsedDistance) && parsedDistance > maxOffset + 0.001
+    ? parsedDistance > wallLen + 0.001
+      ? `Entered distance (${formatMeasuredDistance(parsedDistance)}″) exceeds this wall’s full ${formatMeasuredDistance(wallLen)}″ length.`
+      : `This ${formatMeasuredDistance(opening.width)}″ window leaves a maximum ${formatMeasuredDistance(maxOffset)}″ distance from the selected wall ${positionReference === "start" ? "start / left" : "end / right"}.`
+    : null;
 
   // Re-sync when a different opening is selected or the canvas drag changes it.
   useEffect(() => {
@@ -211,7 +220,11 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
         <select
           id={`opening-position-reference-${opening.uid}`}
           value={positionReference}
-          onChange={(event) => setPositionReference(event.target.value as "start" | "end")}
+          onChange={(event) => {
+            const reference = event.target.value as "start" | "end";
+            setPositionReference(reference);
+            if (positionInputFocused) onPositionReferenceFocusChange?.({ openingUid: opening.uid, reference });
+          }}
           aria-label="Window position reference"
           className="h-7 rounded-md border border-border bg-white px-1.5 text-[11px] font-medium text-[#1a2744] focus:outline-none focus:ring-1 focus:ring-[#a87f33]"
         >
@@ -233,15 +246,26 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
           inputMode="decimal"
           min={0}
           max={maxOffset}
+          step="0.125"
           value={offsetText}
           onChange={(e) => setOffsetText(e.target.value)}
-          onBlur={commitOffset}
+          onFocus={() => {
+            setPositionInputFocused(true);
+            onPositionReferenceFocusChange?.({ openingUid: opening.uid, reference: positionReference });
+          }}
+          onBlur={() => {
+            setPositionInputFocused(false);
+            onPositionReferenceFocusChange?.(null);
+            commitOffset();
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           }}
           title={`Exact distance from wall ${positionReference === "start" ? "start / left" : "end / right"}`}
           aria-label={`Window distance from wall ${positionReference === "start" ? "start / left" : "end / right"} in inches`}
-          className={fieldClass}
+          aria-invalid={Boolean(distanceError)}
+          aria-describedby={distanceError ? `window-distance-warning-${opening.uid}` : undefined}
+          className={`${fieldClass} ${distanceError ? "border-amber-600 bg-amber-50 text-amber-950 focus:ring-amber-600" : ""}`}
         />
         <span className="text-foreground/60 text-[11px]">{t("dt_op_in")}</span>
         <button
@@ -263,6 +287,16 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
         >
           <AlignCenterHorizontal className="h-4 w-4" />
         </button>
+        {distanceError && (
+          <span
+            id={`window-distance-warning-${opening.uid}`}
+            role="alert"
+            data-testid="window-distance-warning"
+            className="basis-full text-[11px] font-medium text-amber-800"
+          >
+            {distanceError}
+          </span>
+        )}
       </div>
 
       <button
