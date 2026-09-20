@@ -2478,3 +2478,7 @@
 - [x] Restore approved master-code image priority, retain deterministic SVG line art as a safe missing-image fallback, and correct the exact `WMS3018` cabinet-kit / `WMSSHELF` shelf-insert distinction with dedicated generic shelf-insert art.
 - [x] Apply only exact source-code repairs: WMS shelf insert, O339624 oven configuration, four-door utility roll-out kit facts, BAM/COV/FBM/LRM/SHM mouldings, BSV/BDEP/VDEP panels, CBT/CLDL accessories, and RS18–RS36 Type A roll-out shelf dimensions/hardware. No price or availability value was changed.
 - [x] Register exact `RS##-Type A` source aliases; retain unmatched, near-code, and image-provenance-uncertain products unchanged rather than inferring a master, alias, or image.
+
+- [x] Restore all 125 non-conflict canonical masters that already have an available, published, positive-priced supplier source to Catalog, Designer, and 2020 visibility; aliases remain search routes only.
+- [x] Preserve the layered catalog model: every style/distributor retains its own supplier SKU, availability, price, and finish while the canonical master supplies only shared code-true dimensions, description, and generic image.
+- [x] Add a live regression that fails if a positively priced canonical master is hidden by a visibility flag; retain zero active unpriced exposure.

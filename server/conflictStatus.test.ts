@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { ne } from "drizzle-orm";
+import { and, eq, ne, or } from "drizzle-orm";
 import { readFileSync } from "node:fs";
-import { isCanonicalCabinetMaster, notInConflict } from "./db";
+import { getDb, hasPositivePublishedCabinetPrice, isCanonicalCabinetMaster, notInConflict } from "./db";
 import { cabinets } from "../drizzle/schema";
 
 const dbSource = readFileSync(new URL("./db.ts", import.meta.url), "utf8");
@@ -35,13 +35,44 @@ describe("notInConflict() predicate", () => {
 	  expect(dbSource).toContain("isCanonicalCabinetMaster()");
 	});
 
-	it("suppresses an approved alias when its canonical master has a supplier source", () => {
-	  // A canonical item may legitimately remain in Cabinet Attention while it is
-	  // unverified or inactive. Its approved aliases must still resolve to that
-	  // supplier-backed master instead of appearing as false unlinked products.
-	  expect(dbSource).toContain("FROM distributor_skus canonical_supplier_sku");
-	  expect(dbSource).toContain("canonical_supplier_sku.cabinetId = canonical_cabinet.id");
-	});
+	 it("suppresses an approved alias when its canonical master has a supplier source", () => {
+	   // A canonical item may legitimately remain in Cabinet Attention while it is
+	   // unverified or inactive. Its approved aliases must still resolve to that
+	   // supplier-backed master instead of appearing as false unlinked products.
+	   expect(dbSource).toContain("FROM distributor_skus canonical_supplier_sku");
+	   expect(dbSource).toContain("canonical_supplier_sku.cabinetId = canonical_cabinet.id");
+	 });
+
+  it("keeps every positively priced canonical master visible in Catalog, Designer, and 2020", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    // Supplier price and availability remain style/distributor overlays. A
+    // canonical master with any verified live source must never be left hidden
+    // merely because a punctuation/format alias was retired.
+    const hidden = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        isActive: cabinets.isActive,
+        showInCatalog: cabinets.showInCatalog,
+        showInDesigner: cabinets.showInDesigner,
+        showIn2020: cabinets.showIn2020,
+      })
+      .from(cabinets)
+      .where(and(
+        ne(cabinets.conflictStatus, "conflict"),
+        isCanonicalCabinetMaster(),
+        hasPositivePublishedCabinetPrice(),
+        or(
+          eq(cabinets.isActive, false),
+          eq(cabinets.showInCatalog, false),
+          eq(cabinets.showInDesigner, false),
+          eq(cabinets.showIn2020, false),
+        ),
+      ));
+
+    expect(hidden).toEqual([]);
+  });
 });
 
 describe("conflict-status schema contract", () => {
