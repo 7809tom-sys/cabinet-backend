@@ -6532,6 +6532,78 @@ export function refrigeratorAdjacentOpeningPlacement(
  * all four corners in clockwise room order and return the first exact physical
  * footprint that has zero overlap with every existing item (including hoods).
  */
+/**
+ * Seats a square-corner body at an explicit measured vertex.  A corner cabinet
+ * has two back legs, so its angle cannot be taken from whichever incident wall
+ * happened to be selected: that can align one leg while turning the other into
+ * the room.  Instead, derive its local +X/+Y axes from both rays leaving the
+ * shared vertex.  The returned coordinates remain the axis-aligned bounding-box
+ * origin used by saved plan placements and the 3D renderer.
+ */
+export function customWallTrueCornerPlacement(
+  moving: PlacedCabinet,
+  firstWall: NonNullable<RoomData["customWalls"]>[number],
+  secondWall: NonNullable<RoomData["customWalls"]>[number],
+  vertexId: string,
+  room: RoomData,
+): { x: number; y: number; rotation: number; wallId: string; wallOffset: number } | null {
+  if (!room.vertices?.length) return null;
+  const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
+  if (!vertex) return null;
+  const rayFor = (wall: typeof firstWall) => {
+    const otherId = wall.startVertexId === vertexId
+      ? wall.endVertexId
+      : wall.endVertexId === vertexId
+        ? wall.startVertexId
+        : null;
+    const other = otherId ? room.vertices!.find((candidate) => candidate.id === otherId) : null;
+    if (!other) return null;
+    const dx = other.x - vertex.x;
+    const dy = other.y - vertex.y;
+    const length = Math.hypot(dx, dy);
+    return length > COLLISION_EPSILON_IN ? { x: dx / length, y: dy / length } : null;
+  };
+  const firstRay = rayFor(firstWall);
+  const secondRay = rayFor(secondWall);
+  if (!firstRay || !secondRay) return null;
+
+  // `firstRay × secondRay` determines which wall can be local +X without
+  // mirroring the physical L/diagonal cabinet body.  Swap the incident walls
+  // when necessary; both are the same true corner, but this keeps the second
+  // leg on its actual wall for V-shaped/diagonal room layouts.
+  const cross = firstRay.x * secondRay.y - firstRay.y * secondRay.x;
+  if (Math.abs(Math.abs(cross) - 1) > 1e-5) return null;
+  const primaryWall = cross > 0 ? firstWall : secondWall;
+  const primaryRay = cross > 0 ? firstRay : secondRay;
+  const secondaryRay = cross > 0 ? secondRay : firstRay;
+  const physical = placedFootprint(moving);
+  const bodyWidth = Math.max(0, physical.w);
+  const bodyDepth = Math.max(0, physical.d);
+  if (bodyWidth <= COLLISION_EPSILON_IN || bodyDepth <= COLLISION_EPSILON_IN) return null;
+
+  // A local top-left corner is the cabinet's shared wall vertex.  Its two local
+  // positive axes are the two real incident wall rays; translate the resulting
+  // rotated body back to the persisted AABB origin.
+  const center = {
+    x: vertex.x + primaryRay.x * bodyWidth / 2 + secondaryRay.x * bodyDepth / 2,
+    y: vertex.y + primaryRay.y * bodyWidth / 2 + secondaryRay.y * bodyDepth / 2,
+  };
+  const boundWidth = Math.abs(primaryRay.x * bodyWidth) + Math.abs(secondaryRay.x * bodyDepth);
+  const boundDepth = Math.abs(primaryRay.y * bodyWidth) + Math.abs(secondaryRay.y * bodyDepth);
+  const primaryLength = polygonWallSegmentLength(primaryWall, room.vertices);
+  const wallOffset = primaryWall.startVertexId === vertexId
+    ? 0
+    : Math.max(0, primaryLength - bodyWidth);
+  const rotation = ((Math.round(Math.atan2(primaryRay.y, primaryRay.x) * 180 / Math.PI) % 360) + 360) % 360;
+  return {
+    x: center.x - boundWidth / 2,
+    y: center.y - boundDepth / 2,
+    rotation,
+    wallId: primaryWall.id,
+    wallOffset,
+  };
+}
+
 export function nextAvailableRoomCornerPlacement(
   moving: PlacedCabinet,
   activeWall: WallSide,
@@ -6569,7 +6641,6 @@ export function nextAvailableRoomCornerPlacement(
     ];
     for (const wall of orderedWalls) {
       const angle = polygonWallAngle(wall, room.vertices);
-      const length = polygonWallSegmentLength(wall, room.vertices);
       const endpoints = [...(["start", "end"] as const)].sort((left, right) => {
         if (!nearPoint) return 0;
         const leftVertexId = left === "start" ? wall.startVertexId : wall.endVertexId;
@@ -6592,9 +6663,9 @@ export function nextAvailableRoomCornerPlacement(
           && (candidate.startVertexId === vertexId || candidate.endVertexId === vertexId)
           && Math.abs(Math.cos(angle - polygonWallAngle(candidate, room.vertices!))) <= 1e-6);
         if (!adjoining) continue;
-        const offset = endpoint === "start" ? 0 : Math.max(0, length - physicalFootprint.w);
-        const spot = wallPlacementAt(offset, physicalFootprint.w, physicalFootprint.d, wall.id as WallSide, room);
-        const candidate = { ...moving, ...spot, wallId: wall.id, wallOffset: offset };
+        const spot = customWallTrueCornerPlacement(moving, wall, adjoining, vertexId, room);
+        if (!spot) continue;
+        const candidate = { ...moving, ...spot };
         // Include the custom-wall corner reservation, so a B12 cannot occupy
         // the adjoining ERB leg merely because their plan AABBs meet cleanly.
         if (!cabinetPlacementCollisionDetail(candidate, [...placed], room)) return spot;

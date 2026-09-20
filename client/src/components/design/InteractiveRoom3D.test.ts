@@ -2017,6 +2017,48 @@ describe("interactive 3D room scene helpers", () => {
     expect(transform.rotation).toBeCloseTo(Math.PI * 1.25, 12);
   });
 
+  it("keeps both ERB36 back legs on a downward V-shaped measured corner in 3D", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 220,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "left", x: 50, y: 150 },
+        { id: "vertex", x: 100, y: 200 },
+        { id: "right", x: 150, y: 150 },
+      ],
+      customWalls: [
+        { id: "left-leg", startVertexId: "left", endVertexId: "vertex", label: "Wall 1", lockedAngle: 45 },
+        { id: "right-leg", startVertexId: "vertex", endVertexId: "right", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const seed = {
+      uid: "erb36-v-corner-3d", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base" as const, x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    const spot = nextAvailableRoomCornerPlacement(seed, "right-leg" as any, room, [], { x: 100, y: 200 });
+    expect(spot).toMatchObject({ wallId: "left-leg", rotation: 225 });
+    const transform = existingCabinetTransform({ ...seed, ...spot!, wallId: spot!.wallId, wallOffset: spot!.wallOffset }, room);
+
+    expect(transform.x).toBeCloseTo(100, 8);
+    expect(transform.z).toBeCloseTo(200 - 18 * Math.SQRT2, 8);
+    // Three.js mirrors the screen-space clockwise plan angle.
+    expect(transform.rotation).toBeCloseTo(Math.PI * 0.75, 12);
+
+    const root = new THREE.Group();
+    const placed = { ...seed, ...spot!, wallId: spot!.wallId, wallOffset: spot!.wallOffset } as never;
+    addCabinet(root, existingCabinetSku(placed, room), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, transform);
+    root.updateMatrixWorld(true);
+    const erbGroup = root.children.find((node) => node.userData.placedUid === seed.uid);
+    // The local -X/-Z outer point is where the two L legs meet the room walls.
+    // It must be exactly the measured shared vertex, not merely near its AABB.
+    const sceneInch = 1 / 12;
+    const sharedVertex = new THREE.Vector3(-18 * sceneInch, 0, -18 * sceneInch).applyMatrix4(erbGroup!.matrixWorld);
+    expect(sharedVertex.x / sceneInch).toBeCloseTo(100, 8);
+    expect(sharedVertex.z / sceneInch).toBeCloseTo(200, 8);
+  });
+
   it("builds ER36-family toe kicks as two recessed exposed-face strips that terminate at one clean inside-corner seam on every orientation", () => {
     for (const masterCode of ["ER36", "BER36", "ERB-36"]) {
       for (const rotation of [0, 90, 180, 270]) {

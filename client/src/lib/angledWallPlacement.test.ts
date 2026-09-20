@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -294,9 +294,12 @@ describe("continuous builder custom wall placement", () => {
     };
     const room = { ...builderRoom, openWallPath: true };
     expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, room, [], { x: 120, y: 96 })).toMatchObject({
-      wallId: "builder-right",
-      wallOffset: 60,
-      rotation: 90,
+      // The lower wall is the local +X leg and the right wall is local +Y.
+      // This keeps the shared vertex at the actual L body corner rather than
+      // merely preserving whichever incident wall was selected before dragging.
+      wallId: "builder-bottom",
+      wallOffset: 0,
+      rotation: 180,
     });
     expect(nextAvailableRoomCornerPlacement(moving, "builder-top" as any, room, [], { x: 60, y: 48 })).toBeNull();
   });
@@ -343,6 +346,37 @@ describe("continuous builder custom wall placement", () => {
       placement: "flush",
       clearanceIn: 0,
     });
+  });
+
+  it("uses both wall rays to seat an ERB36 inside a downward V vertex", () => {
+    const vCornerRoom: RoomData = {
+      width: 180,
+      depth: 220,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "left", x: 50, y: 150 },
+        { id: "vertex", x: 100, y: 200 },
+        { id: "right", x: 150, y: 150 },
+      ],
+      customWalls: [
+        { id: "left-leg", startVertexId: "left", endVertexId: "vertex", label: "Wall 1", lockedAngle: 45 },
+        { id: "right-leg", startVertexId: "vertex", endVertexId: "right", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const erb: PlacedCabinet = {
+      uid: "erb36-v-corner", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    const direct = customWallTrueCornerPlacement(erb, vCornerRoom.customWalls![1]!, vCornerRoom.customWalls![0]!, "vertex", vCornerRoom);
+    expect(direct).toMatchObject({ wallId: "left-leg", wallOffset: 70.71067811865476 - 36, rotation: 225 });
+    expect(direct!.x).toBeCloseTo(100 - 18 * Math.SQRT2, 8);
+    expect(direct!.y).toBeCloseTo(200 - 36 * Math.SQRT2, 8);
+
+    const snapped = nextAvailableRoomCornerPlacement(erb, "right-leg" as any, vCornerRoom, [], { x: 100, y: 200 });
+    expect(snapped).toMatchObject({ wallId: "left-leg", rotation: 225 });
+    expect(snapped!.x).toBeCloseTo(direct!.x, 8);
+    expect(snapped!.y).toBeCloseTo(direct!.y, 8);
   });
 
   it("blocks a B12 from entering the adjoining diagonal leg reserved by a seated ERB36", () => {

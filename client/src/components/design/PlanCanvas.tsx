@@ -191,7 +191,16 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
  */
 export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): string | undefined {
   const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(cabinet);
-  const rotation = cornerRotationForPlaced(cabinet, room);
+  const savedRotation = ((Math.round(cabinet.rotation) % 360) + 360) % 360;
+  const lockedAngledCorner = Boolean(
+    cabinet.wallId
+    && cabinet.wallOffset != null
+    && [45, 135, 225, 315].includes(savedRotation),
+  );
+  // CSS rotates a measured diagonal body as a whole. Its clip therefore stays
+  // in the local top-left corner frame; deriving a second rectangular-room
+  // corner turn here mirrors the L notch and produces a plan/3D disagreement.
+  const rotation = lockedAngledCorner ? 0 : cornerRotationForPlaced(cabinet, room);
   if (isTriangle) return triangleCornerClipPath(rotation);
   // AW1230 is a compact angled wall cabinet: two 12-inch wall legs and one
   // full-length 45-degree hinged face. It is not a 24-inch WDC pentagon.

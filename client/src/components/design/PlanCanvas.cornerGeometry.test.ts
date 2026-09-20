@@ -128,4 +128,25 @@ describe("PlanCanvas shared corner geometry", () => {
     })));
     expect(vertices.some((vertex) => Math.hypot(vertex.x - 100, vertex.y - 100) < 0.001)).toBe(true);
   });
+
+  it("keeps the ERB36 L-notch in its local frame before rotating a measured diagonal corner", () => {
+    const erb: PlacedCabinet = {
+      uid: "erb36-v-corner",
+      cabinetId: 36,
+      masterCode: "ERB36",
+      description: "Easy Reach Corner Base 36",
+      placement: "base",
+      x: 74.5441558772843,
+      y: 149.08831175456856,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: 225,
+      wallId: "left-leg",
+      wallOffset: 34.71067811865476,
+    };
+    expect(planCabinetClipPath(erb, { width: 180, depth: 220, ceilingHeight: 96 })).toBe(
+      "polygon(0 0, 100% 0, 100% 67%, 67% 67%, 67% 100%, 0 100%)",
+    );
+  });
 });
