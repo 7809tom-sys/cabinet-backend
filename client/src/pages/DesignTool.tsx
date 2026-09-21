@@ -12165,6 +12165,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                    const placementDetailText = placementDetail
 	                      ? `${placementDetail.title} · ${formatEighthInches(placementDetail.dimensions.width)}W × ${formatEighthInches(placementDetail.dimensions.height)}H × ${formatEighthInches(placementDetail.dimensions.depth)}D. ${placementDetail.clearance}`
 	                      : undefined;
+	                    // Appliance palette entries are intentionally synthetic room-layout
+	                    // models. They have no supplier product row or approved shopper
+	                    // price, so they must never look like a priced cabinet line or
+	                    // silently change the Designer/cart total.
+	                    const appliancePriceNotice = paletteType === "appliance" && Number(c.id) === 0
+	                      ? "Layout model — appliance price is not included in the design total."
+	                      : null;
 	                    return (
 		                    <button
 		                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
@@ -12203,6 +12210,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        {placementDetail && (
 	                          <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
 	                            Hover for dimensions &amp; flush-seam clearance
+	                          </div>
+	                        )}
+	                        {appliancePriceNotice && (
+	                          <div
+	                            data-testid={`appliance-price-pending-${c.masterCode}`}
+	                            className="mt-0.5 text-[9px] font-medium leading-snug text-amber-700"
+	                          >
+	                            {appliancePriceNotice}
 	                          </div>
 	                        )}
 	                      </div>

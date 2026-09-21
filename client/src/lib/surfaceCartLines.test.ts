@@ -74,6 +74,17 @@ describe("buildSurfaceCartLines", () => {
     expect(lines[0].masterCode).toBe("PEL-101");
   });
 
+  it("does not include an unpriced range top in the design or cart total", () => {
+    const rangeTop: SurfacePick = {
+      id: 707,
+      name: "30 in. Range Top — pricing pending",
+      category: "Range Tops",
+      size: '30"',
+      sellPrice: null,
+    };
+    expect(buildSurfaceCartLines([rangeTop], "homeowner")).toEqual([]);
+  });
+
   it("passes the resolved tier through to each line", () => {
     const [line] = buildSurfaceCartLines([faucet], "homeowner");
     expect(line.tier).toBe("homeowner");
