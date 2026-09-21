@@ -5,7 +5,7 @@ const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8"
 
 describe("mobile Designer toolbar simplification", () => {
   it("keeps the compact desktop view group and removes the old redundant mobile mode group", () => {
-    expect(source).toContain('className="hidden lg:flex items-center rounded-md');
+    expect(source).toContain('className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center rounded-md');
     expect(source).not.toContain('className="lg:hidden flex shrink-0 items-center rounded-full');
     expect(source).not.toContain('title="Bird\'s-eye plan view"');
     expect(source).not.toContain('title="Front elevation view"');

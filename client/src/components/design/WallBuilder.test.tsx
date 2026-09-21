@@ -29,6 +29,20 @@ function addWall() {
 }
 
 describe("Continuous Wall Builder", () => {
+  it("explains the clockwise sequence and marks the exact next-wall endpoint", () => {
+    render(<WallBuilder wallHeightIn={96} onApply={() => undefined} />);
+    openBuilder();
+
+    expect(screen.getByTestId("wall-builder-clockwise-guide").textContent).toMatch(/Clockwise wall sequence/i);
+    expect(screen.getByText(/Clockwise start: Wall 1 begins at the gold point/i)).toBeTruthy();
+    setLength("101");
+    addWall();
+
+    expect(screen.getByLabelText("Live clockwise continuous wall preview")).toBeTruthy();
+    expect(screen.getByTestId("wall-builder-clockwise-arrow")).toBeTruthy();
+    expect(screen.getByText(/Clockwise sequence: this wall begins at the gold arrow/i)).toBeTruthy();
+  });
+
   it("adds measured walls continuously with an exact 45-degree choice", () => {
     render(<WallBuilder wallHeightIn={96} onApply={() => undefined} />);
     openBuilder();
@@ -38,10 +52,10 @@ describe("Continuous Wall Builder", () => {
     fireEvent.click(screen.getByRole("button", { name: /45° right/i }));
     addWall();
 
-    expect(screen.getByText(/Wall 1/)).toBeTruthy();
-    expect(screen.getByText(/Wall 2/)).toBeTruthy();
+    expect(screen.getAllByText(/Wall 1/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Wall 2/).length).toBeGreaterThan(0);
     expect(screen.getByText(/45° right · down-right/i)).toBeTruthy();
-    expect(screen.getByLabelText("Live continuous wall preview")).toBeTruthy();
+    expect(screen.getByLabelText("Live clockwise continuous wall preview")).toBeTruthy();
     expect(screen.getByTestId("wall-builder-perimeter").textContent).toContain("179");
     expect(screen.getByTestId("wall-builder-area").textContent).toBe("—");
     expect(screen.getByText("Close the walls to calculate")).toBeTruthy();

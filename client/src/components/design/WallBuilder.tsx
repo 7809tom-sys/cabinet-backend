@@ -56,10 +56,10 @@ const TURN_CHOICES: Array<{
   icon: typeof ArrowRight;
 }> = [
   { value: "straight", label: "Straight", hint: "Continue in the same direction", icon: ArrowRight },
-  { value: "left45", label: "45° left", hint: "Turn left exactly 45 degrees", icon: ArrowDownRight },
-  { value: "right45", label: "45° right", hint: "Turn right exactly 45 degrees", icon: ArrowDownRight },
-  { value: "left90", label: "90° left", hint: "Make a square left corner", icon: CornerDownLeft },
-  { value: "right90", label: "90° right", hint: "Make a square right corner", icon: CornerDownRight },
+  { value: "left45", label: "45° left", hint: "Use only to follow an inside recess in the clockwise walk", icon: ArrowDownRight },
+  { value: "right45", label: "45° right", hint: "Follow an outside clockwise 45-degree corner", icon: ArrowDownRight },
+  { value: "left90", label: "90° left", hint: "Use only to follow an inside recess in the clockwise walk", icon: CornerDownLeft },
+  { value: "right90", label: "90° right", hint: "Follow an outside clockwise 90-degree corner", icon: CornerDownRight },
 ];
 
 function headingLabel(headingDeg: number): string {
@@ -113,6 +113,9 @@ function WallBuilderPreview({ segments, viewRotationDeg }: { segments: WallBuild
   }, [displayPoints]);
   const labelSize = Math.max(6, Math.min(13, Math.max(bounds.width, bounds.height) / 23));
   const path = displayPoints.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const activeLeg = segments.length > 0
+    ? { start: displayPoints[displayPoints.length - 2], end: displayPoints[displayPoints.length - 1] }
+    : null;
 
   return (
     <div className="relative min-h-64 overflow-hidden rounded-xl border border-[#d8c7a1] bg-[#fbfaf6] shadow-inner" data-testid="wall-builder-preview" data-view-rotation={viewRotationDeg}>
@@ -125,21 +128,40 @@ function WallBuilderPreview({ segments, viewRotationDeg }: { segments: WallBuild
           className="h-72 w-full"
           viewBox={`${bounds.minX} ${bounds.minY} ${bounds.width} ${bounds.height}`}
           preserveAspectRatio="xMidYMid meet"
-          aria-label="Live continuous wall preview"
+          aria-label="Live clockwise continuous wall preview"
         >
           <defs>
             <pattern id="wall-builder-grid" width="12" height="12" patternUnits="userSpaceOnUse">
               <path d="M 12 0 L 0 0 0 12" fill="none" stroke="#d9e5df" strokeWidth="0.45" />
             </pattern>
+            <marker id="wall-builder-clockwise-arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
+              <path d="M 0 0 L 8 4 L 0 8 z" fill="#b98d3e" />
+            </marker>
           </defs>
           <rect x={bounds.minX} y={bounds.minY} width={bounds.width} height={bounds.height} fill="url(#wall-builder-grid)" />
           {geometry.closed ? (
             <path d={`${path} Z`} fill="#d4a75a" fillOpacity="0.13" stroke="none" />
           ) : null}
           <path d={path} fill="none" stroke="#1a2744" strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+          {activeLeg ? (
+            <line
+              data-testid="wall-builder-clockwise-arrow"
+              x1={activeLeg.start.x}
+              y1={activeLeg.start.y}
+              x2={activeLeg.end.x}
+              y2={activeLeg.end.y}
+              stroke="#b98d3e"
+              strokeWidth="1.8"
+              strokeDasharray="4 3"
+              markerEnd="url(#wall-builder-clockwise-arrow)"
+              vectorEffect="non-scaling-stroke"
+            />
+          ) : null}
           {displayPoints.map((point, index) => (
             <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r={index === 0 ? 3.4 : 2.5} fill={index === 0 ? "#b98d3e" : "#1a2744"} stroke="white" strokeWidth="1" vectorEffect="non-scaling-stroke" />
           ))}
+          <text x={displayPoints[0].x} y={displayPoints[0].y - labelSize * 1.15} textAnchor="middle" fontSize={labelSize * 0.78} fontWeight="700" fill="#765416">START · WALL 1</text>
+          {activeLeg ? <text x={activeLeg.end.x} y={activeLeg.end.y - labelSize * 1.15} textAnchor="middle" fontSize={labelSize * 0.78} fontWeight="700" fill="#765416">NEXT WALL</text> : null}
           {segments.map((segment, index) => {
             const start = displayPoints[index];
             const end = displayPoints[index + 1];
@@ -303,7 +325,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
           <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#1a2744] text-white shadow-sm"><Ruler className="h-5 w-5" /></span>
           <span className="min-w-0">
             <span className="block font-serif text-base font-bold text-[#1a2744]">Build walls continuously</span>
-            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">Type each wall length, choose the next turn, and watch the room draw itself.</span>
+            <span className="mt-0.5 block text-xs leading-5 text-muted-foreground">Walk the room clockwise: type each wall length, choose the next turn, and watch the room draw itself.</span>
           </span>
         </span>
         <span className="shrink-0 rounded-full border border-[#d4a75a] bg-white px-3 py-1 text-xs font-bold text-[#765416]">{expanded ? "Hide" : "Open builder"}</span>
@@ -312,6 +334,9 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
       {expanded ? (
         <div className="grid gap-4 border-t border-[#d8c7a1] p-4">
           <div className="space-y-3">
+            <div data-testid="wall-builder-clockwise-guide" className="rounded-lg border border-[#d4a75a]/70 bg-[#fff8e8] px-3 py-2.5 text-xs leading-5 text-[#654d24]">
+              <strong className="text-[#1a2744]">Clockwise wall sequence.</strong> Start at the gold <strong>Wall 1</strong> point, then add each new wall from the gold arrow at the prior wall&apos;s end. At an outside corner choose a right turn; use a left turn only for an inside recess.
+            </div>
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-white px-3 py-2 shadow-sm">
               <div>
                 <p className="text-xs font-bold text-[#1a2744]">Drawing view</p>
@@ -354,7 +379,7 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-sm font-bold text-[#1a2744]">{segments.length === 0 ? "Wall 1" : `Wall ${segments.length + 1}`}</p>
-                  <p className="text-[11px] text-muted-foreground">{segments.length === 0 ? "The first wall starts to the right." : "The new wall begins where the last wall ends."}</p>
+                  <p className="text-[11px] text-muted-foreground">{segments.length === 0 ? "Clockwise start: Wall 1 begins at the gold point and runs right." : "Clockwise sequence: this wall begins at the gold arrow on the last wall."}</p>
                 </div>
                 <span className="rounded-md bg-[#1a2744]/5 px-2 py-1 text-[10px] font-bold text-[#1a2744]">Exact 1/8&quot;</span>
               </div>

@@ -7586,11 +7586,39 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setSelectedUid(uid);
     setAttrUid(uid);
     setAttrOpen(true);
-    // On mobile the editor lives in a bottom sheet (selection no longer auto-opens
-    // it), so opening attributes must also open that sheet.
-    setCabEditSheetOpen(true);
+	    // The compact selection sheet remains useful for quick edits; the explicit
+	    // Attributes action opens the complete responsive dialog instead, so exact
+	    // wall position, corner clearance, and all desktop fields are not hidden.
+    setCabEditSheetOpen(false);
 	  }, [openFillerAttributes, openFloatingShelfAttributes]);
-  const requestFillerAction = useCallback((uid: string) => {
+	  // Phones and tablets have no reliable right-click gesture. Route the visible
+	  // bottom-bar Attributes control to the same authoritative editors used by
+	  // desktop, based on the currently selected object or active wall.
+	  const openMobileAttributes = useCallback(() => {
+	    if (selectedUid) {
+	      openAttributes(selectedUid);
+	      return;
+	    }
+	    const opening = selectedOpeningUid
+	      ? openings.find((candidate) => candidate.uid === selectedOpeningUid) ?? null
+	      : null;
+	    if (opening?.kind === "window") {
+	      openWindowAttributes(opening.uid);
+	      return;
+	    }
+	    if (opening) {
+	      // Doors and cased openings are managed by the same selected-wall editor
+	      // that exposes their exact wall placement, dimensions, and removal.
+	      openWallSettings(opening.side);
+	      return;
+	    }
+	    if (island) {
+	      setIslandAttributesOpen(true);
+	      return;
+	    }
+	    openWallSettings(activeWall);
+	  }, [activeWall, island, openAttributes, openWallSettings, openWindowAttributes, openings, selectedOpeningUid, selectedUid]);
+	  const requestFillerAction = useCallback((uid: string) => {
     if (!openFillerAttributes(uid)) requestSmallGapFiller(uid);
   }, [openFillerAttributes, requestSmallGapFiller]);
   const fillerAttrCabinet = fillerAttrUid ? placed.find((item) => item.uid === fillerAttrUid) ?? null : null;
@@ -13955,6 +13983,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              }}
 	            />
 	            <MobileBarButton
+	              icon={<Wrench className="h-5 w-5" />}
+	              label="Attributes"
+	              testId="mobile-designer-attributes"
+	              active={attrOpen || windowAttrOpen || islandAttributesOpen || wallSettingsOpen}
+	              disabled={measureMode}
+	              onClick={openMobileAttributes}
+	            />
+	            <MobileBarButton
 	              icon={<FileText className="h-5 w-5" />}
 	              label="Materials"
 	              disabled={materialsListRows.length === 0}
@@ -15533,7 +15569,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 // ─── Mobile bottom-bar button ───────────────────────────────────────────────
 function MobileBarButton({
-  icon, label, onClick, disabled, danger, badge, active,
+  icon, label, onClick, disabled, danger, badge, active, testId,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -15542,10 +15578,12 @@ function MobileBarButton({
   danger?: boolean;
   badge?: number;
   active?: boolean;
+	  testId?: string;
 }) {
   return (
     <button
       type="button"
+	      data-testid={testId}
       disabled={disabled}
       onClick={onClick}
       className={`relative flex h-full w-16 min-w-16 shrink-0 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-colors active:scale-95 disabled:opacity-40 ${

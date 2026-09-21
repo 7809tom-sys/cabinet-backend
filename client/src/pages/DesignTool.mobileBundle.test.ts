@@ -8,9 +8,9 @@ const mobileSaveSection = source.slice(
 );
 
 describe("mobile Kitchen Package save action", () => {
-  it("offers administrators the same Save as Kitchen Package action as desktop", () => {
-    expect(mobileSaveSection).toContain("{isAdmin && (");
-    expect(mobileSaveSection).toContain("Save as Kitchen Package");
+  it("offers every authorized publisher the same Kitchen Package action as desktop", () => {
+    expect(mobileSaveSection).toContain("{canPublishKitchenPackage && (");
+    expect(mobileSaveSection).toContain("Publish as Kitchen Package");
     expect(mobileSaveSection).toContain("setBundleDialogOpen(true)");
   });
 });

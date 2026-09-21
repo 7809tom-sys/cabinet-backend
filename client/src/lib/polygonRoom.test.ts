@@ -340,6 +340,19 @@ describe("polygonRoom", () => {
       expect(wallBuilderMetrics(segments)).toEqual({ perimeterIn: 432, areaSqFt: 80, closed: true });
     });
 
+    it("uses a clockwise right-turn sequence from Wall 1 and preserves that order in the saved outline", () => {
+      let segments = appendWallBuilderSegment([], 120, "start");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+      segments = appendWallBuilderSegment(segments, 120, "right90");
+      segments = appendWallBuilderSegment(segments, 96, "right90");
+
+      expect(segments.map((segment) => segment.headingDeg)).toEqual([0, 90, 180, 270]);
+      const result = wallBuilderRoomGeometry(segments, 96);
+      expect(result.room).not.toBeNull();
+      expect(isClockwise(result.room!.vertices)).toBe(true);
+      expect(result.room!.customWalls.map((wall) => wall.label)).toEqual(["Wall 1", "Wall 2", "Wall 3", "Wall 4"]);
+    });
+
     it("keeps the supplied 101-inch wall and exact 78-inch 45-degree turn", () => {
       let segments = appendWallBuilderSegment([], 101, "start");
       segments = appendWallBuilderSegment(segments, 78, "right45");
