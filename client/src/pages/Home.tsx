@@ -268,9 +268,18 @@ function FeaturedStyles() {
 
   if (isLoading) {
     return (
-      <section className="py-16 md:py-20">
+      <section className="py-10 md:py-20" aria-busy="true" aria-live="polite">
         <div className="container">
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <div className="mb-8 text-center md:mb-12">
+            <div className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)]">
+              <span className="h-px w-8 bg-[var(--color-wood)]" />
+              <span>Featured cabinet lines</span>
+              <span className="h-px w-8 bg-[var(--color-wood)]" />
+            </div>
+            <h2 className="font-serif text-3xl font-bold text-foreground md:text-4xl">Loading cabinet colors and featured displays</h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">Preparing the door samples and finished cabinet displays.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6" aria-hidden="true">
             {[1, 2, 3, 4, 5, 6].map((index) => (
               <div key={index} className="aspect-[4/5] rounded-xl bg-muted animate-pulse" />
             ))}

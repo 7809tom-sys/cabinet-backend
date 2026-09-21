@@ -56,6 +56,12 @@ describe("B2B homepage hierarchy", () => {
     expect(homeSource).toContain('style.roomScenes?.[0]?.imageUrl');
   });
 
+  it("explains that the color line and cabinet display data are loading instead of leaving a blank section", () => {
+    expect(homeSource).toContain('Loading cabinet colors and featured displays');
+    expect(homeSource).toContain('Preparing the door samples and finished cabinet displays.');
+    expect(homeSource).toContain('aria-busy="true"');
+  });
+
   it("keeps public featured room scenes free of distributor identity", () => {
     expect(homeSource).not.toContain('distributorName');
   });
