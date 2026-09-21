@@ -113,7 +113,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -5834,7 +5834,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // "bridge" now means the fridge-cabinet (deepAbove) catalog since the dialog
         // was updated to use deepAbove for the over-fridge section.
         const src = (opts.above === "deep" || opts.above === "bridge") ? surround.deepAbove : surround.bridgeAbove;
-        // Use fp.w (updated fridge width) — rotatedSize(fridge).w is the stale pre-resize value.
+        // Use `fw`, the authoritative run width. A diagonal wall's plan bounding
+        // box is intentionally wider than its 36-inch refrigerator span.
         // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
         let chosen: DesignCabinet | undefined;
         if (opts.above === "bridge" && opts.bridgeHeight) {
@@ -5854,18 +5855,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             const h = sku?.height ?? (parseFloat(String(c.height ?? "")) || 0);
             return Math.abs(h - targetH) < 1.5;
           });
-          chosen = pickByWidth(
-            heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
-            fp.w
-          );
+              chosen = pickByWidth(
+                heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
+                fw,
+              );
         } else {
           chosen = opts.above === "bridge"
-            ? pickById(src, opts.bridgeCabinetId, fp.w)
-            : pickByWidth(src, fp.w);
+            ? pickById(src, opts.bridgeCabinetId, fw)
+            : pickByWidth(src, fw);
         }
         if (chosen) {
-          // Use the user-chosen bridge width when provided; otherwise fall back to fridge width.
-          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fp.w;
+          // A diagonal/custom wall's plan bounding box is wider than the actual
+          // cabinet run. The over-fridge cabinet must follow the refrigerator's
+          // measured run span, not that rotated bounding-box width.
+          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fw;
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
@@ -5974,7 +5977,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // inside the refrigerator footprint and make it appear missing.
         let along: number;
         along = leftEdge ? fridgeStart - pThick : fridgeStart + fw;
-        const spot = wallPlacementAt(along, pThick, pDepth, side, room);
+        // Preserve the negative start-side offset until the enclosure fitter can
+        // move the refrigerator, bridge, and both panels together into the run.
+        // The clamped helper would turn this into an overlapping panel at zero.
+        const spot = wallPlacementAtUnbounded(along, pThick, pDepth, side, room);
         toPlace.push({
           uid: makeUid(),
           cabinetId: panelRow.id,
@@ -6007,9 +6013,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
       // flat-stock item flush to the fridge face; carried as a thin wall panel.
       if (opts.smooth) {
-        const skin = pickByWidth(surround.smoothPanels, rotatedSize(configuredFridge).w) ?? surround.smoothPanels?.[0];
+        const skin = pickByWidth(surround.smoothPanels, fw) ?? surround.smoothPanels?.[0];
         if (skin) {
-          const sWidth = parseFloat(String(skin.width ?? rotatedSize(configuredFridge).w)) || rotatedSize(configuredFridge).w;
+          const sWidth = parseFloat(String(skin.width ?? fw)) || fw;
           const along = fridgeStart + fw / 2 - sWidth / 2;
           const spot = wallPlacementAt(along, sWidth, 0.75, side, room);
           toPlace.push({

@@ -2978,7 +2978,16 @@ export function fitRefrigeratorEnclosurePlacements(
   const fridgeAlong = wallRunOffset(refrigerator, side, room);
   const wallRunLength = wallLength(side, room);
   const enclosureItems = [refrigerator, ...additions];
-  const alongStart = (item: PlacedCabinet) => wallRunOffset(item, side, room);
+  // Newly authored start-side panels may deliberately carry a negative explicit
+  // offset. Preserve that one temporary value here so the boundary fitter moves
+  // the *whole* enclosure inward. `wallRunOffset` correctly clamps saved items
+  // to zero, but using it at this point hid the off-run panel and left it either
+  // clipped or visually absent on diagonal continuous walls.
+  const alongStart = (item: PlacedCabinet) => (
+    (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && item.wallId === side && Number.isFinite(Number(item.wallOffset))
+      ? Number(item.wallOffset)
+      : wallRunOffset(item, side, room)
+  );
   const alongLength = (item: PlacedCabinet) => wallRunSpan(item, side, room);
   const enclosureStart = Math.min(...enclosureItems.map(alongStart));
   const enclosureEnd = Math.max(...enclosureItems.map((item) => alongStart(item) + alongLength(item)));
@@ -6994,12 +7003,15 @@ export function wallPlacementAt(
   side: WallSide,
   room: RoomData,
   requestedPeninsulaSide?: PeninsulaCabinetSide | null,
+  clampToRun = true,
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } {
   const peninsula = peninsulaRunById(room, side);
   if (peninsula) {
     const { start, radians } = peninsulaRunEndpoints(peninsula, room);
     const length = Math.max(6, peninsula.length);
-    const offset = Math.max(0, Math.min(Math.max(0, length - width), along));
+    const offset = clampToRun
+      ? Math.max(0, Math.min(Math.max(0, length - width), along))
+      : along;
     const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
     const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
     const peninsulaSide = requestedPeninsulaSide ?? peninsula.cabinetSide ?? "left";
@@ -7028,7 +7040,9 @@ export function wallPlacementAt(
     const start = room.vertices.find((vertex) => vertex.id === customWall.startVertexId);
     if (start) {
       const length = polygonWallSegmentLength(customWall, room.vertices);
-      const offset = Math.max(0, Math.min(Math.max(0, length - width), along));
+      const offset = clampToRun
+        ? Math.max(0, Math.min(Math.max(0, length - width), along))
+        : along;
       const radians = polygonWallAngle(customWall, room.vertices);
       const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
       const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
@@ -7046,7 +7060,9 @@ export function wallPlacementAt(
   const rotation = horizontal ? 0 : 90;
   const retainedWall = cabinetWallRunSegment(side, room);
   const runEnd = retainedWall.start + retainedWall.length;
-  const clampedAlong = Math.max(retainedWall.start, Math.min(Math.max(retainedWall.start, runEnd - width), along));
+  const clampedAlong = clampToRun
+    ? Math.max(retainedWall.start, Math.min(Math.max(retainedWall.start, runEnd - width), along))
+    : along;
   // depth runs into the room from the wall.
   let x = 0;
   let y = 0;
@@ -7055,6 +7071,24 @@ export function wallPlacementAt(
   else if (side === "left") { x = 0; y = clampedAlong; }
   else { x = Math.max(0, room.width - depth); y = clampedAlong; }
   return { x, y, rotation };
+}
+
+/**
+ * Returns the exact measured wall frame even when an architectural member starts
+ * just beyond a wall endpoint. Refrigerator fitting uses this for end panels so
+ * it can shift the *entire* refrigerator enclosure into the run. Calling the
+ * normal clamped helper first silently folded a start-side panel into the
+ * refrigerator footprint, leaving it missing after the collision pass.
+ */
+export function wallPlacementAtUnbounded(
+  along: number,
+  width: number,
+  depth: number,
+  side: WallSide,
+  room: RoomData,
+  requestedPeninsulaSide?: PeninsulaCabinetSide | null,
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } {
+  return wallPlacementAt(along, width, depth, side, room, requestedPeninsulaSide, false);
 }
 
 export const CABINET_WALL_AUTO_SNAP_IN = STD.SNAP_THRESHOLD;

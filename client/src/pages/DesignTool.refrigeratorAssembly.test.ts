@@ -45,6 +45,13 @@ describe("Design Tool refrigerator assembly transactions", () => {
     expect(transaction).toContain("along = leftEdge ? fridgeStart - pThick : fridgeStart + fw");
   });
 
+  it("uses the true refrigerator run span and preserves a start-side panel for the enclosure fitter", () => {
+    const transaction = refrigeratorTransaction();
+    expect(transaction).toContain("const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fw");
+    expect(transaction).toContain("wallPlacementAtUnbounded(along, pThick, pDepth, side, room)");
+    expect(transaction).not.toContain("? opts.bridgeWidth : fp.w");
+  });
+
   it("keeps a fractional refrigerator end-panel thickness fractional in the final enclosure", () => {
     const transaction = refrigeratorTransaction();
     expect(transaction).toContain("const pThick = refrigeratorEndPanelThickness(panelRow.width, inferredDepth)");
