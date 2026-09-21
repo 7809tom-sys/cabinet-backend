@@ -1868,12 +1868,12 @@ describe("countertopSurfaces", () => {
     expect(s.width).toBe(42); // 36 + 6" default pull max
   });
 
-  it("uses the pull-spec travel when wider than the default", () => {
-    // pullMax 9 on a 36" cabinet -> 9" of travel.
-    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 9, y: 0, pullMin: 3, pullMax: 9 });
+  it("clamps an obsolete overwide pull spec to the six-inch blind-corner maximum", () => {
+    // Older imports could carry a 9" pull. BBC physical geometry is always 3–6".
+    const blind = cab({ uid: "bc", masterCode: "BBC-36", placement: "base", width: 36, depth: 24, x: 6, y: 0, pullMin: 3, pullMax: 9 });
     const [s] = countertopSurfaces([blind], ROOM_12x10);
     expect(s.x).toBe(0);
-    expect(s.width).toBe(45); // 36 + 9" pull max
+    expect(s.width).toBe(42); // 36 + 6" trade maximum
   });
 });
 
@@ -2730,12 +2730,12 @@ describe("blind corner pull spec", () => {
     // (defaults to 3-6") so cabinets can always be placed.
     expect(blindPullRange({})).toEqual({ min: 3, max: 6 });
     expect(blindPullRange({ pullMin: 3 })).toEqual({ min: 3, max: 6 });
-    expect(blindPullRange({ pullMax: 9 })).toEqual({ min: 3, max: 9 });
+    expect(blindPullRange({ pullMax: 9 })).toEqual({ min: 3, max: 6 });
   });
 
   it("blindPullRange normalizes swapped min/max", () => {
-    expect(blindPullRange({ pullMin: 9, pullMax: 3 })).toEqual({ min: 3, max: 9 });
-    expect(blindPullRange({ pullMin: 3, pullMax: 9 })).toEqual({ min: 3, max: 9 });
+    expect(blindPullRange({ pullMin: 9, pullMax: 3 })).toEqual({ min: 3, max: 6 });
+    expect(blindPullRange({ pullMin: 3, pullMax: 9 })).toEqual({ min: 3, max: 6 });
   });
 
   it("does not flag missing-spec when defaults apply", () => {

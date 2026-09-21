@@ -1989,9 +1989,10 @@ export const cabinetsRouter = router({
         altSku1: z.string().nullable().optional(),
         altSku2: z.string().nullable().optional(),
         altSku3: z.string().nullable().optional(),
-        // Blind corner pull spec
-        minPull: z.number().positive().nullable().optional(),
-        maxPull: z.number().positive().nullable().optional(),
+        // Blind corners are rectangular base boxes with a fixed 3–6 inch blind pull.
+        // Do not accept stale width-derived values such as 9" from an old import.
+        minPull: z.number().min(3).max(6).nullable().optional(),
+        maxPull: z.number().min(3).max(6).nullable().optional(),
         openingWidth: z.number().positive().nullable().optional(),
         openingHeight: z.number().positive().nullable().optional(),
         // Appliance opening (oven cutout) position: null = none, 'top' | 'middle' | 'bottom'

@@ -5277,24 +5277,21 @@ export interface FillerLine {
   width: number; // inches each
 }
 
-// Resolve a blind corner cabinet's manufacturer pull range. Prefer the explicit
-// pullMin/pullMax carried on the placed item (entered by the administrator). If
-// those are missing, return null so the caller can flag a conflict — we never
-// guess a manufacturer spec.
+// Resolve the fixed trade-standard blind-corner pull range. A BBC's hidden
+// portion must stay between 3" and 6"; older imports could carry width-derived
+// or otherwise invalid values such as 9", which must never enlarge a cabinet,
+// filler, countertop, or collision reservation. Existing values are retained
+// as metadata for audit, but the physical design rule is always clamped here.
 export function blindPullRange(
   p: { pullMin?: number | null; pullMax?: number | null; width?: number | null; nominalWidth?: number | null }
 ): { min: number; max: number } | null {
-  let min = typeof p.pullMin === "number" ? p.pullMin : null;
-  let max = typeof p.pullMax === "number" ? p.pullMax : null;
-  // Default pull for blind corners: 3" (min) / 6" (max).
-  // The "pull" is how far the blind portion extends past the perpendicular wall
-  // (the hidden part tucked into the corner). Standard range is 3-6 inches.
-  if (min == null || max == null) {
-    min = min ?? 3;
-    max = max ?? 6;
-  }
-  if (max < min) return { min: max, max: min };
-  return { min, max };
+  const TRADE_MIN_PULL_IN = 3;
+  const TRADE_MAX_PULL_IN = 6;
+  const requestedMin = typeof p.pullMin === "number" ? p.pullMin : TRADE_MIN_PULL_IN;
+  const requestedMax = typeof p.pullMax === "number" ? p.pullMax : TRADE_MAX_PULL_IN;
+  const min = Math.max(TRADE_MIN_PULL_IN, Math.min(TRADE_MAX_PULL_IN, requestedMin));
+  const max = Math.max(TRADE_MIN_PULL_IN, Math.min(TRADE_MAX_PULL_IN, requestedMax));
+  return max < min ? { min: max, max: min } : { min, max };
 }
 
 // The reason a blind corner cabinet is flagged, so the UI can show a tailored

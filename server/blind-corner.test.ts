@@ -40,9 +40,9 @@ describe("isBlindCorner", () => {
 });
 
 describe("blindPullRange", () => {
-  it("returns explicit pullMin/pullMax when provided", () => {
+  it("clamps obsolete explicit pull values to the 3–6 inch trade range", () => {
     const result = blindPullRange({ pullMin: 3, pullMax: 9, width: 36 });
-    expect(result).toEqual({ min: 3, max: 9 });
+    expect(result).toEqual({ min: 3, max: 6 });
   });
   it("returns defaults (3/6) when pullMin/pullMax are null", () => {
     // The corrected behavior: pull range is always 3-6" (the blind portion
