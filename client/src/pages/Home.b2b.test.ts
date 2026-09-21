@@ -48,6 +48,14 @@ describe("B2B homepage hierarchy", () => {
     expect(homeSource).toContain('onAnimationComplete');
   });
 
+  it("keeps the color slider above the curated featured cabinet displays", () => {
+    expect(homeSource).toContain('featuredCabinetDisplays');
+    expect(homeSource).toContain('Featured cabinet displays');
+    expect(homeSource).toContain('See the featured cabinets in a finished kitchen');
+    expect(homeSource.indexOf('Choose Your Cabinet Color')).toBeLessThan(homeSource.indexOf('Featured cabinet displays'));
+    expect(homeSource).toContain('style.roomScenes?.[0]?.imageUrl');
+  });
+
   it("keeps public featured room scenes free of distributor identity", () => {
     expect(homeSource).not.toContain('distributorName');
   });

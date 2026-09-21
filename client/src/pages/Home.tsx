@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronLeft, ChevronRight, Sparkles, Star } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronLeft, ChevronRight, Sparkles, Star, CircleCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
@@ -204,6 +204,7 @@ type FeaturedDoorStyle = {
   thumbnailImageUrl?: string | null;
   doorSampleImageUrl?: string | null;
   cornerSwatchImageUrl?: string | null;
+  roomScenes?: Array<{ id: number; imageUrl: string; sortOrder: number }>;
 };
 
 function FeaturedStyles() {
@@ -219,6 +220,18 @@ function FeaturedStyles() {
   const orderedStyles = useMemo((): FeaturedDoorStyle[] => {
     if (!featured) return [];
     return orderDoorStylesByColor(featured as FeaturedDoorStyle[]);
+  }, [featured]);
+
+  // The color line is the first choice; these are the curated cabinet displays
+  // that remain directly beneath it. A room never borrows another style's image.
+  const featuredCabinetDisplays = useMemo(() => {
+    if (!featured) return [];
+    return (featured as FeaturedDoorStyle[])
+      .flatMap((style) => {
+        const imageUrl = style.roomScenes?.[0]?.imageUrl;
+        return imageUrl ? [{ ...style, roomSceneImageUrl: imageUrl }] : [];
+      })
+      .slice(0, 6);
   }, [featured]);
 
   const pageCount = doorColorSpectrumPageCount(orderedStyles);
@@ -386,6 +399,59 @@ function FeaturedStyles() {
             </AnimatePresence>
           </div>
         </div>
+
+        {featuredCabinetDisplays.length > 0 && (
+          <div className="mt-12 border-t border-border pt-10 md:mt-16 md:pt-14">
+            <div className="mb-7 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-wood)]">Featured cabinet displays</p>
+                <h3 className="mt-2 font-serif text-2xl font-bold text-foreground md:text-3xl">See the featured cabinets in a finished kitchen</h3>
+                <p className="mt-2 max-w-2xl text-sm text-muted-foreground md:text-base">Browse the room displays after choosing a color, then open the matching cabinet line to build your own layout.</p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-300/50 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+                <CircleCheck className="h-3.5 w-3.5" /> Active cabinet lines
+              </span>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+              {featuredCabinetDisplays.map((style, index) => {
+                const displayName = style.featuredLabel ?? style.aliasName ?? style.ourName ?? style.styleCode ?? "Featured cabinet line";
+                const isLead = index === 0;
+                return (
+                  <Link
+                    key={style.id}
+                    href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}
+                    className={`group relative overflow-hidden rounded-2xl bg-[var(--color-navy)] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${isLead ? "md:row-span-2" : ""}`}
+                  >
+                    <img
+                      src={style.roomSceneImageUrl}
+                      alt={`${displayName} finished kitchen cabinet display`}
+                      className={`w-full object-cover transition-transform duration-500 group-hover:scale-105 ${isLead ? "h-60 md:h-full" : "h-48"}`}
+                    />
+                    {style.cornerSwatchImageUrl && (
+                      <img
+                        src={style.cornerSwatchImageUrl}
+                        alt={`${displayName} door sample`}
+                        className="absolute left-3 top-3 h-14 w-14 rounded-lg border-2 border-white/50 object-cover shadow-lg ring-1 ring-black/10"
+                      />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+                    <div className={`absolute bottom-0 left-0 right-0 ${isLead ? "p-5 md:p-6" : "p-4"}`}>
+                      <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-100">
+                        <CircleCheck className="h-3 w-3" /> Active cabinet line
+                      </span>
+                      <h4 className={`mt-2 font-serif font-bold text-white ${isLead ? "text-xl md:text-2xl" : "text-lg"}`}>{displayName}</h4>
+                      <p className="mt-0.5 text-sm text-white/75">{[style.doorStyle, style.woodSpecies].filter(Boolean).join(" · ") || "Featured cabinet display"}</p>
+                      <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] transition-all group-hover:gap-2.5">
+                        View these cabinets <ArrowRight className="h-4 w-4" />
+                      </span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link href="/styles">
