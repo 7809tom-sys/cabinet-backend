@@ -120,7 +120,7 @@ export function canonicalCabinetDetailCode(masterCode: string): string {
   return LEGACY_CANONICAL_CABINET_CODES[masterCode.trim().toUpperCase()] ?? masterCode;
 }
 
-function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
+export function isBlindCornerCode(masterCode: string | null, description?: string | null): boolean {
   const code = (masterCode || "").toUpperCase();
   if (/^(BBC|WBC|BBL|BBR|WBL|WBR)/.test(code)) return true;
   if (/-BLIND|BLIND/.test(code)) return true;
@@ -1201,7 +1201,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           )}
 
           {/* Blind corner details */}
-          {(cabinet.openingWidth || cabinet.minPull || cabinet.maxPull) && (
+          {isBlindCornerCode(cabinet.masterCode, cabinet.description) && (cabinet.openingWidth || cabinet.minPull || cabinet.maxPull) && (
             <div className="rounded-xl border border-amber-300/60 bg-amber-50/50 p-5 mb-6">
               <h3 className="font-semibold text-sm text-foreground mb-1 flex items-center gap-2">
                 <Info className="h-4 w-4 text-amber-600" />

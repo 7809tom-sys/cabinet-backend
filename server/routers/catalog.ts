@@ -3443,6 +3443,19 @@ export const cabinetsRouter = router({
     .input(z.object({ force: z.boolean().default(false) })).mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      // These masters have code-specific technical artwork taken from a
+      // user-supplied manufacturer catalog. A pattern-level generic fallback
+      // is not an acceptable replacement, even when an admin deliberately
+      // refreshes every other generated specification image.
+      const protectedCatalogSourceCodes = [
+        "B18FHTCPO", "BBC-36", "BEC-24", "BSD6",
+        "WDC2430", "WDC2436", "WDC2442",
+        "UNIV-ROT24", "UNIV-ROT27", "UNIV-ROT30", "UNIV-ROT36",
+        "B18ADA1RS", "B18ADA2RS", "B24ADA", "B24ADA1RS", "B24ADA2RS",
+        "B30SADA", "B30SADA1RS", "B30SADA2RS", "B36ADA", "B36ADA1RS", "B36ADA2RS",
+        "SB30SADA", "SB36ADA", "BER36ADA", "LSB36ADA",
+      ];
+      const protectedCatalogSourceFilter = `masterCode NOT IN (${protectedCatalogSourceCodes.map((code) => `'${code}'`).join(", ")})`;
       // Family → image URL + notes
       const families: Array<{ conditions: string[]; imageUrl: string; notes: string }> = [
         { conditions: ["masterCode REGEXP '^B[0-9]{1,2}FH$'", "masterCode REGEXP '^BT9'", "masterCode REGEXP '^B[0-9]+FH[0-9]*RS'", "masterCode REGEXP '^B[0-9]+FH[0-9]*TCPO'", "masterCode REGEXP '^B[0-9]+FH[0-9]*TD'"], imageUrl: "/manus-storage/base_full_height_single_ab045451.png", notes: 'Full height single door base. Cabinet dimensions: H 34½", D 24". Door height 29". Soft-close hinges standard.' },
@@ -3478,8 +3491,8 @@ export const cabinetsRouter = router({
       let totalUpdated = 0;
       for (const family of families) {
         const whereClause = input.force
-          ? sql.raw(`(${family.conditions.join(" OR ")})`)
-          : sql.raw(`(${family.conditions.join(" OR ")}) AND (specImageUrl IS NULL OR specImageUrl = '')`);
+          ? sql.raw(`(${family.conditions.join(" OR ")}) AND ${protectedCatalogSourceFilter}`)
+          : sql.raw(`(${family.conditions.join(" OR ")}) AND (specImageUrl IS NULL OR specImageUrl = '') AND ${protectedCatalogSourceFilter}`);
         const result = await db
           .update(cabinets)
           .set({ specImageUrl: family.imageUrl, specNotes: family.notes })

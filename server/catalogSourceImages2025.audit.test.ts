@@ -17,6 +17,9 @@ const CAPITAL_ADA_DOUBLE_DOOR_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-doub
 const CAPITAL_ADA_DOUBLE_DOOR_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-single-drawer-2rs-base_9d71051b.jpg";
 const CAPITAL_ADA_DOUBLE_DRAWER_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-double-drawer-1rs-base_d97419b1.jpg";
 const CAPITAL_ADA_DOUBLE_DRAWER_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-double-drawer-2rs-base_2a00c0eb.jpg";
+const CAPITAL_ADA_SINK_ART = "/manus-storage/capital-ada-sink-base_cf68d413.jpg";
+const CAPITAL_ADA_EASY_REACH_ART = "/manus-storage/capital-ada-easy-reach-base_0080ee84.jpg";
+const CAPITAL_ADA_LAZY_SUSAN_ART = "/manus-storage/capital-ada-lazy-susan-easy-reach-base_712328cc.jpg";
 
 describe("catalog-source generic image audit", () => {
   it("uses the supplied Capital source drawing for the B18 double-trash pullout", async () => {
@@ -285,5 +288,87 @@ describe("catalog-source generic image audit", () => {
 
     expect(byCode.get("B24ADA1RS")?.specNotes).toContain("1 floor-mounted roll-out shelf");
     expect(byCode.get("B24ADA2RS")?.specNotes).toContain("2 floor-mounted roll-out shelves");
+  });
+
+  it("keeps U.S. Cabinet Depot ADA sink and corner bases code-true and distinct", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const records = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        numberOfAdjShelves: cabinets.numberOfAdjShelves,
+        isCornerCabinet: cabinets.isCornerCabinet,
+        cornerType: cabinets.cornerType,
+        openingWidth: cabinets.openingWidth,
+        shelfCount: cabinets.shelfCount,
+        catalogImageUrl: cabinets.catalogImageUrl,
+        specImageUrl: cabinets.specImageUrl,
+        specNotes: cabinets.specNotes,
+        configVerified: cabinets.configVerified,
+      })
+      .from(cabinets)
+      .where(inArray(cabinets.masterCode, ["SB30SADA", "SB36ADA", "BER36ADA", "LSB36ADA"]));
+
+    expect(records).toHaveLength(4);
+    const byCode = new Map(records.map((record) => [record.masterCode, record]));
+    for (const code of ["SB30SADA", "SB36ADA"]) {
+      expect(byCode.get(code)).toEqual(expect.objectContaining({
+        category: "ADA",
+        subCategory: "ADA Sink Base",
+        height: "32.50",
+        depth: "24.00",
+        numberOfDoors: 2,
+        numberOfDrawers: 0,
+        numberOfAdjShelves: 0,
+        catalogImageUrl: CAPITAL_ADA_SINK_ART,
+        specImageUrl: CAPITAL_ADA_SINK_ART,
+        configVerified: true,
+      }));
+      expect(byCode.get(code)?.description).toContain("Single Slab False Drawer Front");
+    }
+
+    expect(byCode.get("BER36ADA")).toEqual(expect.objectContaining({
+      description: "36 in. ADA Easy Reach Corner Base — 2 Doors",
+      category: "ADA",
+      subCategory: "Easy Reach Corner Base",
+      width: "36.00",
+      height: "32.50",
+      depth: "24.00",
+      numberOfDoors: 2,
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      openingWidth: "15.50",
+      catalogImageUrl: CAPITAL_ADA_EASY_REACH_ART,
+      specImageUrl: CAPITAL_ADA_EASY_REACH_ART,
+      configVerified: true,
+    }));
+
+    expect(byCode.get("LSB36ADA")).toEqual(expect.objectContaining({
+      description: "36 in. ADA Easy Reach Corner Base with Lazy Susan Trays — 2 Doors",
+      category: "ADA",
+      subCategory: "Lazy Susan / Easy Reach",
+      width: "36.00",
+      height: "32.50",
+      depth: "24.00",
+      numberOfDoors: 2,
+      isCornerCabinet: true,
+      cornerType: "l-shape",
+      openingWidth: "15.50",
+      shelfCount: 2,
+      catalogImageUrl: CAPITAL_ADA_LAZY_SUSAN_ART,
+      specImageUrl: CAPITAL_ADA_LAZY_SUSAN_ART,
+      configVerified: true,
+    }));
+    expect(byCode.get("BER36ADA")?.specNotes).toContain("15 1/2-inch inside opening");
+    expect(byCode.get("LSB36ADA")?.specNotes).toContain("Lazy Susan trays");
   });
 });
