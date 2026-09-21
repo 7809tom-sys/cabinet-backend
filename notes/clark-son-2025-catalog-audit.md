@@ -128,5 +128,22 @@ After the final refresh, the browser-visible detail page renders the Capital cat
 | `WCA1236`, `WCA1242` | Clark & Son 2025 catalog page 7 | Corrected heights to **36** and **42 inches**; corrected WCA1242 to one door/no drawers. | Yes. |
 | `WDC2430`, `WDC2436`, `WDC2442` | Clark & Son 2025 catalog page 7 | Corrected depth to **12 inches** and replaced the opaque-family artwork with the matching supplied-catalog opaque diagonal-wall crop. The glass diagonal art remains exclusively for glass SKUs. | Yes. |
 | `UNIV-ROT24/27/30/36` | Clark & Son 2025 catalog page 28 | Added the matching catalog-derived natural-birch roll-out tray generic image to the four formerly image-less universal tray masters. | Yes. |
+| `BEC-24` | Capital / U.S. Cabinet Depot V8 page 54 | Replaced the rejected generic placeholder in both primary and Spec Drawing paths with the source-derived 45-degree base-end artwork; preserved 24 × 34.5 × 24 plan geometry and two-door configuration. | Yes — style/distributor mappings and prices unchanged. |
 
 The audit intentionally does **not** replace images merely because a storage URL pre-dates this review. Any future replacement must meet the catalog-only policy documented above: exact SKU/family source match, using an image from a supplied 2026-09-21 catalog PDF, and no fallback, generated, lifestyle, or unrelated cabinet art.
+
+## BBC-36 source correction queued from the same catalog
+
+Clark & Son catalog page 16 (PDF page 21) confirms `BBC36` as **36 × 34.5 × 24** and visually shows the intended blind-corner construction: a rectangular standard-depth base with one exposed open-side door, a blind/fixed side panel, a narrow upper false-drawer band, and interior shelving. It is neither a 36 × 36 L-corner nor a generic two-door base. A clean source-only crop is being prepared from that exact supplied page for the generic and spec images; all page dimension labels are being removed from the crop before assignment.
+
+## BEC-24 catalog-derived replacement
+
+The user-reported BEC-24 card still used a generic blue placeholder. The supplied Capital / U.S. Cabinet Depot V8 manual page 54 contains the exact `BEC24` Specialty Bases — Base End Cabinet technical drawing: an angled-end cabinet with a left framed door, open angled shelving, and a right side/end panel door. This is the correct product-family source image. The initial crop retained its red source-dimension callouts and was rejected as a generic-card candidate; a clean source-only crop excluding all callouts is being produced before assignment. Existing project rules retain the verified 24 × 24 plan footprint rather than importing the Capital-page 30-inch cabinet-width text into geometry without resolving the documented cross-source discrepancy.
+
+The final BEC-24 artwork was visually verified. It retains only the original Capital page-54 product lines—the left framed cabinet door, open angled shelves, and right end-panel door—while deterministically removing the red source dimension callouts. No content was generated or substituted. This is an appropriate generic catalog drawing for the reported BEC-24 card.
+
+## BEC-24 browser verification
+
+The refreshed local detail page resolves both its primary product image and its Spec Drawing to `/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg`; the prior blue placeholder URL is no longer used by either rendered image element. The item continues to display the master’s protected 24 × 34.5 × 24, two-door configuration and current source-price overlay. This verified the actual rendering path, not only the database record.
+
+The browser checked both rendered BEC-24 image elements after refresh. Each loads the approved Capital source asset at its original 760 × 770 pixels with `object-fit: contain`; the catalog list thumbnail uses a 38 × 38 presentation box and the detail illustration uses 120 × 122. This confirms the drawing is not a CSS-created placeholder or a stale alternate image.

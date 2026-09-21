@@ -6,6 +6,8 @@ import { getDb } from "./db";
 const CAPITAL_TRASH_PULL_OUT_ART = "/manus-storage/capital-b18fhtcpo-double-trash-pullout_dfdb17e0.jpg";
 const CLARK_SON_WDC_ART = "/manus-storage/clark-son-wdc-opaque-diagonal-wall_2a8c5a25.jpg";
 const CLARK_SON_ROLLOUT_ART = "/manus-storage/clark-son-universal-rollout-tray_7eb828ec.jpg";
+const CLARK_SON_BBC_ART = "/manus-storage/clark-son-bbc36-blind-corner-base_fdab8445.jpg";
+const CAPITAL_BEC_ART = "/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg";
 
 describe("catalog-source generic image audit", () => {
   it("uses the supplied Capital source drawing for the B18 double-trash pullout", async () => {
@@ -73,6 +75,8 @@ describe("catalog-source generic image audit", () => {
         numberOfDoors: cabinets.numberOfDoors,
         numberOfDrawers: cabinets.numberOfDrawers,
         catalogImageUrl: cabinets.catalogImageUrl,
+        specImageUrl: cabinets.specImageUrl,
+        specNotes: cabinets.specNotes,
       })
       .from(cabinets)
       .where(inArray(cabinets.masterCode, [
@@ -81,10 +85,21 @@ describe("catalog-source generic image audit", () => {
       ]));
 
     expect(records).toEqual(expect.arrayContaining([
-      expect.objectContaining({ masterCode: "BBC-36", width: "36.00", height: "34.50", depth: "24.00" }),
+      expect.objectContaining({
+        masterCode: "BBC-36",
+        width: "36.00",
+        height: "34.50",
+        depth: "24.00",
+        numberOfDoors: 1,
+        numberOfDrawers: 1,
+        catalogImageUrl: CLARK_SON_BBC_ART,
+        specImageUrl: CLARK_SON_BBC_ART,
+      }),
       expect.objectContaining({ masterCode: "WCA1236", width: "12.00", height: "36.00", depth: "12.00" }),
       expect.objectContaining({ masterCode: "WCA1242", width: "12.00", height: "42.00", depth: "12.00", numberOfDoors: 1, numberOfDrawers: 0 }),
     ]));
+    expect(records.find((record) => record.masterCode === "BBC-36")?.specNotes).toContain("36 W × 34½ H × 24 D");
+    expect(records.find((record) => record.masterCode === "BBC-36")?.specNotes).toContain("3–6 inch blind-pull rule");
 
     for (const code of ["WDC2430", "WDC2436", "WDC2442"]) {
       expect(records).toEqual(expect.arrayContaining([
@@ -96,5 +111,37 @@ describe("catalog-source generic image audit", () => {
         expect.objectContaining({ masterCode: code, catalogImageUrl: CLARK_SON_ROLLOUT_ART }),
       ]));
     }
+  });
+
+  it("uses the supplied Capital base-end drawing for BEC-24 without changing its verified plan dimensions", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const [bec] = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        catalogImageUrl: cabinets.catalogImageUrl,
+        specImageUrl: cabinets.specImageUrl,
+        specNotes: cabinets.specNotes,
+      })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "BEC-24"));
+
+    expect(bec).toEqual(expect.objectContaining({
+      masterCode: "BEC-24",
+      width: "24.00",
+      height: "34.50",
+      depth: "24.00",
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      catalogImageUrl: CAPITAL_BEC_ART,
+      specImageUrl: CAPITAL_BEC_ART,
+    }));
+    expect(bec?.specNotes).toContain("open angled shelf bridge");
   });
 });
