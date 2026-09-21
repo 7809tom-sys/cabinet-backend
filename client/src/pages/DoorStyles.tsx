@@ -402,12 +402,13 @@ export default function DoorStyles() {
     [uniqueStyles, featuredNames]
   );
 
-  // The slider sits immediately before the existing featured cards. It keeps
-  // the admin's curated lines but presents their real door samples from light
-  // through deep finishes, six at a time.
+  // The slider is the complete active, sellable door-color catalogue—not only
+  // the seven editor picks below it. `doorStyles.list` has already excluded
+  // inactive/unorderable styles, while `uniqueStyles` dedupes shared lines.
+  // Present every remaining door finish from light through deep, six at a time.
   const colorRailStyles = useMemo(
-    () => orderDoorStylesByColor(featured),
-    [featured],
+    () => orderDoorStylesByColor(uniqueStyles),
+    [uniqueStyles],
   );
   const colorRailPageCount = doorColorSpectrumPageCount(colorRailStyles);
   const visibleColorRailStyles = doorColorSpectrumPage(colorRailStyles, colorRailPage);
@@ -638,7 +639,7 @@ export default function DoorStyles() {
       </div>
 
       {/* Featured color line: select a finish before browsing the room-scene cards. */}
-      {!isLoading && showFeatured && colorRailStyles.length > 0 && (
+      {!isLoading && colorRailStyles.length > 0 && (
         <section className="mb-8 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -686,7 +687,7 @@ export default function DoorStyles() {
             <span>Deep</span>
           </div>
           <p className="mb-3 text-xs text-muted-foreground" aria-live="polite">
-            Showing {colorRailFirst}–{colorRailLast} of {colorRailStyles.length} featured cabinet colors
+            Showing {colorRailFirst}–{colorRailLast} of {colorRailStyles.length} active cabinet door colors
           </p>
 
           <div className="relative overflow-hidden" aria-live="polite">

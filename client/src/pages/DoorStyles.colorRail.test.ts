@@ -13,8 +13,14 @@ describe("Door Styles color rail", () => {
     expect(source.indexOf("Cabinet color line")).toBeLessThan(source.indexOf('t("ds_featured")'));
   });
 
+  it("uses every active Door Styles record rather than only the editor picks", () => {
+    expect(source).toContain("orderDoorStylesByColor(uniqueStyles)");
+    expect(source).toContain("complete active, sellable door-color catalogue");
+    expect(source).toContain("active cabinet door colors");
+    expect(source).not.toContain("orderDoorStylesByColor(featured)");
+  });
+
   it("uses the shared light-to-deep ordering and safe directional slider controls", () => {
-    expect(source).toContain("orderDoorStylesByColor(featured)");
     expect(source).toContain("DOOR_COLOR_SPECTRUM_PAGE_SIZE");
     expect(source).toContain("AnimatePresence");
     expect(source).toContain("moveColorRail");
