@@ -994,6 +994,7 @@ function CatalogCard({
                 qty,
                 category: showing.category,
                 catalogImageUrl: item.catalogImageUrl ?? null,
+                glassIncluded: showing.glassIncluded ?? null,
               });
               if (res.ok) {
                 if (slug) setStorefrontSlug(slug);

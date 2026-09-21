@@ -2447,8 +2447,10 @@ function customWallCornerReservationCollision(
   if (!seatedAtSharedVertex) return null;
 
   const footprint = placedFootprint(corner);
+  // Keep final collision in agreement with freeSegmentsOnWall. The long L leg
+  // owns the full physical corner-box side on the adjoining run.
   const adjacentLeg = kind === "l-shape"
-    ? Math.min(Number(corner.width) || STD.BASE_DEPTH, corner.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH)
+    ? Math.max(0, footprint.w)
     : Math.min(footprint.w, footprint.d);
   const neighborStartsAtSharedVertex = sharedVertex === neighborWall.startVertexId;
   const neighborLength = wallLength(neighbor.wallId as WallSide, room);
@@ -6392,8 +6394,12 @@ export function freeSegmentsOnWall(
     if (assignedWall !== side && !reservesAdjoiningWall) continue;
     if (assignedWall !== side && reservesAdjoiningWall && targetCustomWall && sharedCustomVertex) {
       const footprint = placedFootprint(p);
+      // An L-corner's solid long leg runs the full physical corner-box side
+      // along the adjoining wall. For a LSB36/ERB36 that is 36 inches—not its
+      // 24-inch cabinet depth. Reserving only the depth advertised a false 24"
+      // edge to the drop helper, then final body collision rejected DB24/DW24.
       const adjacentLeg = cornerKind === "l-shape"
-        ? Math.min(Number(p.width) || STD.BASE_DEPTH, p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH)
+        ? Math.max(0, footprint.w)
         : Math.min(footprint.w, footprint.d);
       const targetStartsAtSharedVertex = sharedCustomVertex === targetCustomWall.startVertexId;
       if (targetStartsAtSharedVertex) {

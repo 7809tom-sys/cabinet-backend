@@ -3763,6 +3763,7 @@ export const pricingRouter = router({
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
           retailPriceBasis: distributors.retailPriceBasis,
+          glassIncluded: distributors.glassIncluded,
           // Shipping pkg dims: distributor override first, fall back to master cabinet
           pkgLength: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgLength}, ${cabinets.pkgLength})`,
           pkgWidth: sql<string | null>`COALESCE(${distributorCabinetOverrides.pkgWidth}, ${cabinets.pkgWidth})`,
@@ -3872,6 +3873,7 @@ export const pricingRouter = router({
             skuImageUrl: r.skuImageUrl,
             leadTimeDays: r.leadTimeDays,
             distributorId: r.distributorId,
+            glassIncluded: r.glassIncluded,
             // Resolved pkg dims (override ?? master fallback)
             pkgLength: r.pkgLength ?? null,
             pkgWidth: r.pkgWidth ?? null,

@@ -158,6 +158,8 @@ interface StyleRow {
   platformSku: string;
   leadTimeDays: number | null;
   distributorId: number | null;
+  /** Whether this selected distributor includes the insert for PG/GD/G cabinetry. */
+  glassIncluded?: boolean | null;
   // Image assigned in the Product Images admin tab for this specific SKU/cabinet.
   skuImageUrl?: string | null;
   // Resolved shipping package dimensions (distributor override ?? master fallback)
@@ -872,6 +874,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
       qty,
       catalogImageUrl: cabinet?.catalogImageUrl ?? null,
+      glassIncluded: row.glassIncluded ?? null,
     });
     if (res.ok) {
       toast.success(`Added ${qty}× ${resolvedMasterCode} to cart`, {

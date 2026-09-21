@@ -34,6 +34,8 @@ export type CartItem = {
   catalogImageUrl?: string | null;
   /** Product category (e.g. "Sinks & Faucets", "Flooring") — used for display grouping */
   category?: string | null;
+  /** Selected distributor's policy for a PG/GD/terminal-G glass cabinet. */
+  glassIncluded?: boolean | null;
   /** Non-cabinet catalog product identity used by checkout and freight filtering. */
   productKind?: "surface";
 };

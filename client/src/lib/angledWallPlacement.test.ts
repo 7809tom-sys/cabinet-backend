@@ -171,7 +171,7 @@ describe("continuous builder custom wall placement", () => {
       wallOffset: 84,
     };
     expect(freeSegmentsOnWall("builder-right" as any, builderRoom, [erb], [], 0.5, 0, "base")).toEqual([
-      { start: 24, length: 72 },
+      { start: 36, length: 60 },
     ]);
 
     const b12Spot = wallPlacementAt(0, 12, 24, "builder-right" as any, builderRoom);
@@ -190,6 +190,43 @@ describe("continuous builder custom wall placement", () => {
     };
     expect(cabinetPlacementCollisionDetail(b12, [erb], builderRoom)?.cabinet.uid).toBe(erb.uid);
     expect(shouldBlockPlacementCollision(b12, [erb])).toBe(true);
+  });
+
+  it("exposes the true LSB36 leg edge so a DB24 or dishwasher seats flush without a false collision", () => {
+    const topRightSpot = wallPlacementAt(84, 36, 24, "builder-top" as any, builderRoom);
+    const lsb: PlacedCabinet = {
+      uid: "lsb36-top-right",
+      cabinetId: 36,
+      masterCode: "LSB36",
+      description: "Lazy Susan Base 36",
+      placement: "base",
+      ...topRightSpot,
+      rotation: 90,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      wallId: "builder-top",
+      wallOffset: 84,
+    };
+    const segments = freeSegmentsOnWall("builder-right" as any, builderRoom, [lsb], [], 0.5, 0, "base");
+    expect(segments).toEqual([{ start: 36, length: 60 }]);
+
+    const db24Spot = wallPlacementAt(36, 24, 24, "builder-right" as any, builderRoom);
+    const db24: PlacedCabinet = {
+      uid: "db24-at-lsb-edge",
+      cabinetId: 24,
+      masterCode: "3DB24",
+      description: "Drawer Base 24",
+      placement: "base",
+      ...db24Spot,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      wallId: "builder-right",
+      wallOffset: 36,
+    };
+    expect(cabinetPlacementCollisionDetail(db24, [lsb], builderRoom)).toBeNull();
+    expect(cabinetPlacementCollisionDetail({ ...db24, uid: "dw24-at-lsb-edge", masterCode: "DW24", description: "Dishwasher 24", placement: "appliance" }, [lsb], builderRoom)).toBeNull();
   });
 
   it("snaps an ERB corner cabinet to the first available right-angle vertex in advanced continuous-wall mode", () => {

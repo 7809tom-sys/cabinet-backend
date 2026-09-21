@@ -21,6 +21,7 @@ import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/a
 import { resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
 import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
 import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
+import { separateGlassPurchaseItems } from "@/lib/cartGlassPolicy";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
@@ -170,6 +171,10 @@ export default function Cart() {
     return m;
   }, [items]);
   const isMixedSupplier = supplierGroups.size > 1;
+  const separateGlassItems = useMemo(
+    () => separateGlassPurchaseItems(items),
+    [items],
+  );
   const hasOnlyTemporaryFreeShippingItems = useMemo(
     () => isTemporaryOneDollarFreeShippingOrder(items),
     [items],
@@ -309,6 +314,28 @@ export default function Cart() {
         </div>
       )}
 
+      {separateGlassItems.length > 0 && (
+        <div
+          role="alert"
+          aria-live="polite"
+          data-testid="separate-glass-cart-warning"
+          className="mb-6 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 text-amber-950 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-700 dark:text-amber-300" />
+            <div>
+              <p className="font-semibold">Glass insert purchased separately</p>
+              <p className="mt-1 text-sm">
+                {separateGlassItems.length === 1
+                  ? `${separateGlassItems[0]!.masterCode} requires a separate glass purchase from this distributor.`
+                  : `${separateGlassItems.map((item) => item.masterCode).join(", ")} require separate glass purchases from this distributor.`}
+                {" "}The cabinet is in your cart; confirm the matching glass insert or door with the distributor before ordering.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         {/* Items */}
         <div className="space-y-4">
@@ -368,6 +395,11 @@ export default function Cart() {
                   </div>
                   <p className="mt-0.5 text-sm text-foreground leading-snug">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.styleLabel}</p>
+                  {separateGlassItems.some((glassItem) => glassItem === item) && (
+                    <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
+                      <AlertTriangle className="h-3.5 w-3.5" /> Glass purchased separately
+                    </p>
+                  )}
 
                   {hasCheckedZip && a && (
                     <div className="mt-1.5">
