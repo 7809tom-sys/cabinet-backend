@@ -23,13 +23,6 @@ interface CabinetImageProps {
  * not replace approved product artwork.
  */
 export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
-  // The archived BEC24 thumbnail depicts a 24 × 24 two-door corner box. The
-  // supplied Capital specification proves BEC24 is a 30 × 34½ × 24 one-door
-  // base end cabinet with one 45-degree angled end, so its code-keyed technical
-  // drawing is the approved structural image until a matching library asset is
-  // assigned. An explicitly approved detail-line override remains respected.
-  const code = (cabinet.masterCode ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
-  const needsSourceTrueDrawing = code === "BEC24" && !overrideImageUrl?.trim();
   const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
   const [failed, setFailed] = useState(false);
 
@@ -38,7 +31,7 @@ export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl
     setFailed(false);
   }, [url, cabinet.masterCode]);
 
-  if (needsSourceTrueDrawing || !url || failed) {
+  if (!url || failed) {
     return <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />;
   }
 

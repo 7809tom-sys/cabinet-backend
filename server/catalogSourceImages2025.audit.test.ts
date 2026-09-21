@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { cabinets, distributorSkus } from "../drizzle/schema";
+import { cabinets, distributorSkus, skuMasterAliases } from "../drizzle/schema";
 import { getDb } from "./db";
 
 const CAPITAL_TRASH_PULL_OUT_ART = "/manus-storage/capital-b18fhtcpo-double-trash-pullout_dfdb17e0.jpg";
@@ -8,7 +8,7 @@ const CLARK_SON_WDC_ART = "/manus-storage/clark-son-wdc-opaque-diagonal-wall_2a8
 const CLARK_SON_ROLLOUT_ART = "/manus-storage/clark-son-universal-rollout-tray_7eb828ec.jpg";
 const CLARK_SON_BBC_ART = "/manus-storage/clark-son-bbc36-blind-corner-base_fdab8445.jpg";
 const CAPITAL_BEC_ART = "/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg";
-const MILESTONE_BSDC_ART = "/manus-storage/milestone-bsdc6-five-drawer-spice-base_8f29b60e.jpg";
+const BSD6_SOURCE_ART = "/manus-storage/bsd6-five-drawer-spice-base-dimensioned-sheet_7a806280.png";
 
 describe("catalog-source generic image audit", () => {
   it("uses the supplied Capital source drawing for the B18 double-trash pullout", async () => {
@@ -146,7 +146,7 @@ describe("catalog-source generic image audit", () => {
     expect(bec?.specNotes).toContain("open angled shelf bridge");
   });
 
-  it("uses the supplied Milestone drawing and 6-inch source geometry for BSDC6", async () => {
+  it("uses the owner-supplied BSD6 product sheet and keeps BSDC6 as a supplier alias", async () => {
     const db = await getDb();
     if (!db) return;
 
@@ -164,19 +164,48 @@ describe("catalog-source generic image audit", () => {
         specNotes: cabinets.specNotes,
       })
       .from(cabinets)
-      .where(eq(cabinets.masterCode, "BSDC6"));
+      .where(eq(cabinets.masterCode, "BSD6"));
 
     expect(spice).toEqual(expect.objectContaining({
-      masterCode: "BSDC6",
-      description: "6 in. Base Spice Drawer Cabinet — 5 drawers",
+      masterCode: "BSD6",
+      description: "6 in. Base Spice Drawers Cabinet — 5 drawers",
       width: "6.00",
       height: "34.50",
       depth: "24.00",
       numberOfDoors: 0,
       numberOfDrawers: 5,
-      catalogImageUrl: MILESTONE_BSDC_ART,
-      specImageUrl: MILESTONE_BSDC_ART,
+      catalogImageUrl: BSD6_SOURCE_ART,
+      specImageUrl: BSD6_SOURCE_ART,
     }));
-    expect(spice?.specNotes).toContain("Five internal spice drawers");
+    expect(spice?.specNotes).toContain("Drawer slides are not included");
+    expect(spice?.specNotes).toContain("used as a wine rack");
+
+    const [alias] = await db
+      .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+      .from(skuMasterAliases)
+      .where(eq(skuMasterAliases.aliasCode, "BSDC6"));
+    expect(alias).toEqual({ aliasCode: "BSDC6", masterCode: "BSD6" });
+
+    const overlays = await db
+      .select({
+        listPrice: distributorSkus.listPrice,
+        adjustedListPrice: distributorSkus.adjustedListPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        yourCost: distributorSkus.yourCost,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+      .where(eq(cabinets.masterCode, "BSD6"));
+
+    for (const overlay of overlays.filter((row) => row.isAvailable && row.isPublished)) {
+      expect(Math.max(
+        Number(overlay.listPrice ?? 0),
+        Number(overlay.adjustedListPrice ?? 0),
+        Number(overlay.homeownerPrice ?? 0),
+        Number(overlay.yourCost ?? 0),
+      )).toBeGreaterThan(0);
+    }
   });
 });

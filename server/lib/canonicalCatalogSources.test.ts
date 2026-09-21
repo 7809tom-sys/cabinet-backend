@@ -63,4 +63,19 @@ describe("resolveCanonicalCatalogSources", () => {
       }),
     ]);
   });
+
+  it("projects the BSDC6 supplier spelling onto the verified BSD6 product identity", () => {
+    const resolved = resolveCanonicalCatalogSources(
+      [{ sourceMasterCode: "BSDC6", supplierSku: "SE-BSDC6", listPrice: "412.61" }],
+      [{ aliasCode: "BSDC6", masterCode: "BSD6" }],
+      [{ masterCode: "BSD6", id: 6006, description: "6 in. Base Spice Drawers Cabinet — 5 drawers" }],
+    );
+
+    expect(resolved).toEqual([
+      expect.objectContaining({
+        source: expect.objectContaining({ supplierSku: "SE-BSDC6", listPrice: "412.61" }),
+        master: expect.objectContaining({ id: 6006, masterCode: "BSD6" }),
+      }),
+    ]);
+  });
 });
