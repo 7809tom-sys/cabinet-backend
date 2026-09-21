@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trpc } from "@/lib/trpc";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
+import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
@@ -84,6 +85,7 @@ interface CabinetItem extends CabinetLike {
   width: string | null;
   height: string | null;
   depth: string | null;
+  glassIncluded?: boolean | null;
 }
 
 function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetItem; styleId?: number | null; distributorLabel?: string | null }) {
@@ -113,6 +115,12 @@ function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetI
               {cabinetTypeLabel(cabinet)}
             </Badge>
           </div>
+
+          <GlassPolicyBadge
+            masterCode={cabinet.masterCode}
+            glassIncluded={cabinet.glassIncluded}
+            className="mt-1"
+          />
 
           <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
             {translateSpec(cabinet.description, lang)}

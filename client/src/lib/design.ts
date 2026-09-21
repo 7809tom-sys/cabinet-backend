@@ -6,6 +6,7 @@ import {
   wallAngle as polygonWallAngle,
   wallSegmentLength as polygonWallSegmentLength,
 } from "./polygonRoom";
+export { isGlassPolicyNomenclature } from "./glassPolicy";
 
 export const STD = {
   BASE_HEIGHT: 34.5,
@@ -1827,11 +1828,6 @@ export type GlassDoorCabinetLike = {
  * glass-door classifier: a PG replacement part may not render as a cabinet,
  * but it still needs the correct purchase disclosure.
  */
-export function isGlassPolicyNomenclature(masterCode: string | null | undefined): boolean {
-  const code = (masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
-  return /(?:PG|GD|G)$/.test(code);
-}
-
 /**
  * Catalog GD products are glass-door cabinets by definition. Saved layouts may
  * predate the explicit `glassDoor` flag, so normalized SKU, description,

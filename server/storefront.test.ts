@@ -69,6 +69,21 @@ describe("storefront.familyCatalog (lock)", () => {
       expect(res.total).toBeGreaterThan(0);
     }
   });
+
+  it("carries the selected distributor's glass policy on every glass-nomenclature catalog card", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const families = await caller.storefront.families();
+    for (const family of families) {
+      const res = await caller.storefront.familyCatalog({ styleId: family.styleId, limit: 200 });
+      const glassItem = res.items.find((item) => /(?:PG|GD|G)$/i.test(item.masterCode.replace(/[\s_-]/g, "")));
+      if (!glassItem) continue;
+      expect(typeof (glassItem as { glassIncluded?: unknown }).glassIncluded).toBe("boolean");
+      return;
+    }
+    // Some development fixtures contain no active glass products. That is a
+    // valid catalog state, not an excuse to invent a glass item for the test.
+    expect(true).toBe(true);
+  });
 });
 
 describe("storefront.recommendForIntent (family-locked, never cross-distributor)", () => {

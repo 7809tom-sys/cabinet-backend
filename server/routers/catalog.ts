@@ -1309,9 +1309,14 @@ export const cabinetsRouter = router({
       const sourceRows = await db
         .select({
           sourceMasterCode: cabinets.masterCode,
+          // Policy is a distributor overlay: canonical product facts stay on
+          // the master while this selected supply line defines whether its
+          // glass insert is included in the cabinet price.
+          glassIncluded: distributors.glassIncluded,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...sourceConds));
 
       const [aliases, masters] = await Promise.all([

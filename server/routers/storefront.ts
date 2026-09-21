@@ -413,6 +413,9 @@ export const storefrontRouter = router({
         .select({
           sourceMasterCode: cabinets.masterCode,
           platformSku: distributorSkus.platformSku,
+          // This distributor overlay determines the customer-facing glass
+          // disclosure while the canonical master still owns product identity.
+          glassIncluded: distributors.glassIncluded,
           homeownerPrice: distributorSkus.homeownerPrice,
           listPrice: distributorSkus.listPrice,
           imageUrl: distributorSkus.imageUrl,
@@ -678,6 +681,7 @@ export const storefrontRouter = router({
           depth: cabinets.depth,
           graphicType: cabinets.graphicType,
           platformSku: distributorSkus.platformSku,
+          glassIncluded: distributors.glassIncluded,
           homeownerPrice: distributorSkus.homeownerPrice,
           listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,

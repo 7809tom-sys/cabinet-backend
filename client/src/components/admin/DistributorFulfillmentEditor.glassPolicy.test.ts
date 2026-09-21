@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = resolve(import.meta.dirname, "../../../..");
 const editor = readFileSync(resolve(root, "client/src/components/admin/DistributorFulfillmentEditor.tsx"), "utf8");
 const router = readFileSync(resolve(root, "server/routers/distributors.ts"), "utf8");
+const tabs = readFileSync(resolve(root, "client/src/components/admin/AdminGroupedTabs.tsx"), "utf8");
 
 describe("Distributor Fulfillment glass policy administration", () => {
   it("keeps one distributor-level included/separate switch and an automatic PG/GD/G audit", () => {
@@ -21,5 +22,12 @@ describe("Distributor Fulfillment glass policy administration", () => {
     expect(router).toContain("isGlassNomenclature");
     expect(router).toContain("offered: boolean");
     expect(router).toContain("existing.offered ||= offered");
+  });
+
+  it("exposes the audit through its own Glass Policy tab, not only inside general distributor settings", () => {
+    expect(tabs).toContain('{ value: "glass-policy", label: "Glass Policy" }');
+    expect(tabs).toContain('<DistributorFulfillmentEditor glassOnly />');
+    expect(editor).toContain('Distributor glass policy audit');
+    expect(editor).toContain('Save glass policy');
   });
 });

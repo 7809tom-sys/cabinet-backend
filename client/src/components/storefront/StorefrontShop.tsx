@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
+import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStorefrontBranding";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
@@ -812,6 +813,7 @@ type CatalogItem = {
   homeownerPrice: unknown;
   imageUrl?: string | null;
   catalogImageUrl?: string | null;
+  glassIncluded?: boolean | null;
 };
 
 function CatalogCard({
@@ -884,6 +886,7 @@ function CatalogCard({
             <Badge variant="secondary" className="text-[10px]">{item.category}</Badge>
           )}
         </div>
+        <GlassPolicyBadge masterCode={code} glassIncluded={showing.glassIncluded} className="mb-1" />
         <p className="line-clamp-2 text-sm text-foreground">{description}</p>
         <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold" style={{ color: brand.accent }}>
           View details <ChevronRight className="h-3.5 w-3.5" />

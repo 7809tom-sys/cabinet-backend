@@ -55,7 +55,7 @@ const MODE_HELP: Record<FulfillmentMode, string> = {
  *  - pickup: enabled, ZIP, address, radius (miles) — offered when the delivery
  *    ZIP is within the radius of the pickup/warehouse ZIP.
  */
-export default function DistributorFulfillmentEditor() {
+export default function DistributorFulfillmentEditor({ glassOnly = false }: { glassOnly?: boolean }) {
   const utils = trpc.useUtils();
   const { data: dists, isLoading } = trpc.distributorAdmin.adminList.useQuery();
 
@@ -128,17 +128,17 @@ export default function DistributorFulfillmentEditor() {
   const canSave = Boolean(selectedId) && !save.isPending && warehouseZipsValid && shippingRuleValid && (!pickupEnabled || radiusValid);
 
   return (
-    <Card>
+    <Card data-testid={glassOnly ? "glass-policy-admin" : "distributor-fulfillment-admin"}>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Truck className="h-5 w-5" /> Distributor fulfillment & pickup
+          <Truck className="h-5 w-5" /> {glassOnly ? "Distributor glass policy audit" : "Distributor fulfillment & pickup"}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-muted-foreground max-w-2xl">
-          Set where confirmed orders are emailed for each supply line, whether a
-          NetSuite-ready CSV is used, and whether local pickup is offered near
-          the warehouse.
+          {glassOnly
+            ? "Choose a distributor once to confirm whether its PG, GD, and terminal-G cabinets include glass or require a separate glass purchase. The audit below updates automatically for the whole distributor."
+            : "Set where confirmed orders are emailed for each supply line, whether a NetSuite-ready CSV is used, and whether local pickup is offered near the warehouse."}
         </p>
 
         {isLoading ? (
@@ -166,6 +166,7 @@ export default function DistributorFulfillmentEditor() {
 
             {selectedId && (
               <>
+                {!glassOnly && <>
                 {/* Order routing */}
                 <div className="rounded-lg border p-4 space-y-4">
                   <p className="text-sm font-medium flex items-center gap-2">
@@ -285,6 +286,7 @@ export default function DistributorFulfillmentEditor() {
                   {!warehouseZipsValid && <p className="text-xs text-destructive">Enter at least one five-digit warehouse ZIP.</p>}
                   {!shippingRuleValid && <p className="text-xs text-destructive">A fixed or threshold rule needs a default freight amount or a valid ZIP override.</p>}
                 </div>
+                </>}
 
                 {/* Glass policy */}
                 <div className="rounded-lg border p-4 space-y-3">
@@ -351,6 +353,7 @@ export default function DistributorFulfillmentEditor() {
                   </div>
                 </div>
 
+                {!glassOnly && <>
                 {/* Pickup */}
                 <div className="rounded-lg border p-4 space-y-4">
                   <div className="flex items-center justify-between">
@@ -400,12 +403,16 @@ export default function DistributorFulfillmentEditor() {
                     </div>
                   )}
                 </div>
+                </>}
 
                 <div className="flex items-center gap-3">
                   <Button
-                    disabled={!canSave}
+                    disabled={glassOnly ? !selectedId || save.isPending : !canSave}
                     onClick={() =>
-                      save.mutate({
+                      save.mutate(glassOnly ? {
+                        distributorId: Number(selectedId),
+                        glassIncluded,
+                      } : {
                         distributorId: Number(selectedId),
                         orderEmail: orderEmail.trim(),
                         ccEmails: ccEmails.trim(),
@@ -428,9 +435,12 @@ export default function DistributorFulfillmentEditor() {
                     }
                   >
                     {save.isPending && <Spinner className="mr-2 h-4 w-4" />}
-                    Save settings
+                    {glassOnly ? "Save glass policy" : "Save settings"}
                   </Button>
-                  {selected && !selected.orderEmail && !orderEmail.trim() && (
+                  {glassOnly && (
+                    <p className="text-xs text-muted-foreground">One saved setting applies to every audited glass cabinet for this distributor.</p>
+                  )}
+                  {!glassOnly && selected && !selected.orderEmail && !orderEmail.trim() && (
                     <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
                       No order email — Send to Distributor will be blocked
                     </Badge>

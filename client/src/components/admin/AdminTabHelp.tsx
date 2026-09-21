@@ -67,6 +67,10 @@ const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string;
     en: "Manage distributor records. Add new distributors, update contact details, and configure their product line settings.",
     zh: "管理經銷商記錄。新增經銷商、更新聯絡詳情並設定其產品線設定。",
   },
+  "glass-policy": {
+    en: "Choose each distributor's one glass policy. The automatic audit lists all PG, GD, and terminal-G product codes for that distributor, so individual cabinets never need separate rules.",
+    zh: "為每個經銷商選擇單一玻璃政策。自動審核會列出該經銷商所有 PG、GD 和終止 G 的產品代碼，因此不需要為個別櫥櫃設定規則。",
+  },
   images: {
     en: "Upload and manage product images for cabinet styles. Assign catalog photos and door thumbnail images.",
     zh: "上傳並管理櫥櫃樣式的產品圖片。指派目錄照片和門板縮圖。",
