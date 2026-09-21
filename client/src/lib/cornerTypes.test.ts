@@ -82,7 +82,7 @@ describe("configured corner cabinet types", () => {
     expect(placedFootprint({ ...configured, cornerType: "blind-corner" })).toEqual({ w: 36, d: 24 });
   });
 
-  it("faces each blind-corner door away from its selected room corner, including a six-inch pull", () => {
+  it("faces each blind-corner door away from all four room corners, including a six-inch pull", () => {
     const room: RoomData = { width: 120, depth: 120 };
     const base = {
       uid: "bbc",
@@ -98,14 +98,20 @@ describe("configured corner cabinet types", () => {
       pullMin: 3,
       pullMax: 6,
     } as PlacedCabinet;
-    const leftCorner = { ...base, uid: "left", x: 6, swing: "left" as const };
-    const rightCorner = { ...base, uid: "right", x: 78, swing: "right" as const };
+    const leftCorner = { ...base, uid: "top-left", x: 6, swing: "left" as const };
+    const rightCorner = { ...base, uid: "top-right", x: 78, swing: "right" as const };
+    const lowerLeftCorner = { ...base, uid: "left-top", x: 0, y: 6, rotation: 90, swing: "left" as const };
+    const lowerRightCorner = { ...base, uid: "right-bottom", x: 96, y: 78, rotation: 90, swing: "right" as const };
 
     expect(blindCornerDoorSide(leftCorner, room)).toBe("right");
     expect(blindCornerDoorSide(rightCorner, room)).toBe("left");
-    expect(normalizeBlindCornerDoorSides([leftCorner, rightCorner], room)).toMatchObject([
-      { uid: "left", swing: "right" },
-      { uid: "right", swing: "left" },
+    expect(blindCornerDoorSide(lowerLeftCorner, room)).toBe("right");
+    expect(blindCornerDoorSide(lowerRightCorner, room)).toBe("left");
+    expect(normalizeBlindCornerDoorSides([leftCorner, rightCorner, lowerLeftCorner, lowerRightCorner], room)).toMatchObject([
+      { uid: "top-left", swing: "right" },
+      { uid: "top-right", swing: "left" },
+      { uid: "left-top", swing: "right" },
+      { uid: "right-bottom", swing: "left" },
     ]);
   });
 });
