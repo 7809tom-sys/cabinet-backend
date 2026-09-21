@@ -8,7 +8,7 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
   cabinetWall, wallSpanMeasure,
 	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
-  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -2025,8 +2025,12 @@ export function PlanCanvas({
             const lbl = readableLabel(faceFill);
             const collides = cabinetPlacementCollisionDetail(p, cabinets, room) != null;
             const inConflict = conflictUids?.has(p.uid) ?? false;
-            const splitFillerTooltip = splitFillerDimensionTooltip(p);
-            const cornerPlacement = cabinetCornerPlacementInfo(p, room);
+	            const splitFillerTooltip = splitFillerDimensionTooltip(p);
+	            const placementHoverDetail = cabinetPlacementHoverDetail(p);
+	            const placementHoverTooltip = placementHoverDetail
+	              ? `${placementHoverDetail.title} · ${formatEighthInches(placementHoverDetail.dimensions.width)}W × ${formatEighthInches(placementHoverDetail.dimensions.height)}H × ${formatEighthInches(placementHoverDetail.dimensions.depth)}D. ${placementHoverDetail.clearance}`
+	              : null;
+	            const cornerPlacement = cabinetCornerPlacementInfo(p, room);
             const blindCornerPlacement = blindCornerSnapInfo(p, room);
             const cornerStatus = cornerPlacement ?? blindCornerPlacement;
             const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
@@ -2106,12 +2110,13 @@ export function PlanCanvas({
                   transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
                   transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
-                title={splitFillerTooltip ?? cornerPlacementTooltip ?? `${p.masterCode} — ${p.description}`}
+	                title={splitFillerTooltip ?? cornerPlacementTooltip ?? placementHoverTooltip ?? `${p.masterCode} — ${p.description}`}
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
                 data-corner-snap-confirmed={isSeatedProtectedCorner ? "true" : undefined}
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
+	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
 	                  {isWindowCenteredSink && (

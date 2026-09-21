@@ -6231,6 +6231,56 @@ function clampInRoom(v: number, lo: number, hi: number): number {
 // filling the WALL layer.
 export const WALL_OPENING_CLEARANCE_IN = 3;
 
+export type CabinetPlacementHoverDetail = {
+  title: string;
+  dimensions: CabinetDimensionsIn;
+  clearance: string;
+};
+
+/**
+ * Returns a concise, physically accurate hover explanation for the two
+ * frequently positioned 24-inch items. A drawer base and dishwasher are both
+ * allowed to meet a neighboring base at the exact shared edge: their required
+ * cabinet-run clearance is zero, while positive overlap remains blocked.
+ *
+ * Dimensions always come from the current catalog record rather than a
+ * hard-coded nominal value so an approved shallow/deep supplier variant is
+ * described truthfully in the palette and floor plan.
+ */
+export function cabinetPlacementHoverDetail(
+  cabinet: Pick<DesignCabinet, "masterCode" | "placement" | "description"> & {
+    width?: string | number | null;
+    height?: string | number | null;
+    depth?: string | number | null;
+  },
+): CabinetPlacementHoverDetail | null {
+  const normalizedCode = (cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const isDishwasher = /^DW\d*$/.test(normalizedCode) || /^DISHWASHER\d*$/.test(normalizedCode);
+  const isDb24 = /^(?:\d+)?DB24(?:[A-Z0-9]*)$/.test(normalizedCode);
+  if (!isDishwasher && !isDb24) return null;
+
+  const dimensions = resolvedDesignCabinetDimensions({
+    id: 0,
+    masterCode: cabinet.masterCode,
+    description: cabinet.description,
+    category: null,
+    subCategory: null,
+    width: cabinet.width == null ? null : String(cabinet.width),
+    height: cabinet.height == null ? null : String(cabinet.height),
+    depth: cabinet.depth == null ? null : String(cabinet.depth),
+    placement: cabinet.placement,
+    numberOfDoors: null,
+    numberOfDrawers: null,
+    isCornerCabinet: null,
+  });
+  const label = isDishwasher ? "Dishwasher" : "DB24 drawer base";
+  return {
+    title: label,
+    dimensions,
+    clearance: "0 in. at either adjoining cabinet seam — flush edge contact is allowed; physical overlap is not.",
+  };
+}
+
 // Wall cabinets must keep a minimum clearance (default 3") from door/window
 // openings. Returns the uids of WALL cabinets whose run-axis extent comes within
 // `clearance` inches of any opening on the SAME wall (including overlap). Used

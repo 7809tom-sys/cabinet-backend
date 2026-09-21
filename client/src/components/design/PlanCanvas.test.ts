@@ -317,6 +317,40 @@ describe("window attributes gestures", () => {
 });
 
 describe("plan placement assistance wiring", () => {
+	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {
+	    const db24 = {
+	      ...base,
+	      uid: "db24-placement-detail",
+	      masterCode: "3-DB24",
+	      description: "24 inch three drawer base",
+	      width: 24,
+	      depth: 25.4,
+	      height: 34.5,
+	    } as PlacedCabinet;
+	    const dishwasher = {
+	      ...base,
+	      uid: "dishwasher-placement-detail",
+	      masterCode: "DW-24",
+	      description: "Dishwasher 24 inch",
+	      placement: "appliance",
+	      width: 24,
+	      depth: 24,
+	      height: 34.5,
+	    } as PlacedCabinet;
+	    const markup = renderToStaticMarkup(
+	      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+	        room: { width: 144, depth: 120, ceilingHeight: 96 },
+	        cabinets: [db24, dishwasher], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+	        showWallLayer: true,
+	      })),
+	    );
+
+	    expect(markup).toContain('data-placement-detail-tooltip="true"');
+	    expect(markup).toContain("DB24 drawer base");
+	    expect(markup).toContain("Dishwasher");
+	    expect(markup).toContain("flush edge contact is allowed");
+	  });
+
   it("keeps best fit and measured valid/invalid drag feedback in the shared canvas", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
     expect(source).toContain('data-testid="smart-gap-place-best"');

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -140,6 +140,51 @@ describe("locked 45-degree cabinet wall placement", () => {
 });
 
 describe("continuous builder custom wall placement", () => {
+	  it("keeps a DB24 and DW-24 preview-to-release valid beside a restored SB36 on a measured diagonal wall", () => {
+	    const diagonalRoom: RoomData = {
+	      width: 180,
+	      depth: 180,
+	      ceilingHeight: 96,
+	      vertices: [
+	        { id: "wall-start", x: 0, y: 0 },
+	        { id: "wall-end", x: 120, y: 120 },
+	      ],
+	      customWalls: [{ id: "wall-45", startVertexId: "wall-start", endVertexId: "wall-end", lockedAngle: 45 }],
+	    };
+	    const seatedSinkSpot = wallPlacementAt(48, 36, 24, "wall-45" as any, diagonalRoom);
+	    // This mirrors a draft saved before wallId/wallOffset were written. The
+	    // renderer can show it on the diagonal wall, but a final drop must repair
+	    // that ownership before using collision geometry.
+	    const staleSink: PlacedCabinet = {
+	      uid: "stale-sb36", cabinetId: 1, masterCode: "SB36", description: "36 inch Sink Base",
+	      placement: "base", x: seatedSinkSpot.x, y: seatedSinkSpot.y, width: 36, depth: 24, height: 34.5,
+	      rotation: seatedSinkSpot.rotation,
+	    };
+	    const [sink] = clampCabinetsToRoom([staleSink], diagonalRoom);
+	    expect(sink).toMatchObject({ wallId: "wall-45", wallOffset: 48, rotation: 45 });
+
+	    const gaps = freeSegmentsOnWall("wall-45" as any, diagonalRoom, [sink], [], 0.5, 0, "base")
+	      .map((segment) => ({ side: "wall-45" as any, layer: "base" as const, start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: false, isFillerSize: false }));
+	    const preview = wallGapFitPreview(gaps, 96, 24);
+	    expect(preview).toMatchObject({ status: "valid", snapStart: 84 });
+
+	    for (const [uid, masterCode, placement] of [
+	      ["db24-release", "3-DB24", "base"],
+	      ["dw24-release", "DW-24", "appliance"],
+	    ] as const) {
+	      const spot = wallPlacementAt(preview!.snapStart, 24, 24, "wall-45" as any, diagonalRoom);
+	      const released: PlacedCabinet = {
+	        uid, cabinetId: 2, masterCode, description: masterCode === "DW-24" ? "Dishwasher 24 inch" : "24 inch drawer base",
+	        placement, x: spot.x, y: spot.y, width: 24, depth: 24, height: 34.5, rotation: spot.rotation,
+	        wallId: spot.wallId, wallOffset: preview!.snapStart,
+	      };
+	      expect(cabinetPlacementCollisionDetail(released, [sink], diagonalRoom)).toBeNull();
+
+	      const positiveOverlap = { ...released, wallOffset: preview!.snapStart - 0.125, ...wallPlacementAt(preview!.snapStart - 0.125, 24, 24, "wall-45" as any, diagonalRoom) };
+	      expect(cabinetPlacementCollisionDetail(positiveOverlap, [sink], diagonalRoom)).toMatchObject({ cabinet: sink });
+	    }
+	  });
+
   it("treats every straight generated wall as an explicit cabinet-ready run", () => {
     expect(isCustomRoomWall(builderRoom, "builder-top")).toBe(true);
     expect(isCustomRoomWall(builderRoom, "builder-right")).toBe(true);

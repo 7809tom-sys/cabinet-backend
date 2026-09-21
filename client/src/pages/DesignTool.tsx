@@ -94,7 +94,7 @@ import { cn } from "@/lib/utils";
 import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
+	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
@@ -2660,8 +2660,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // their wallId, wallOffset, selected side, and rotation are authoritative.
 	      // Canonicalize them during restore so Plan and 3D receive the same body
 	      // center immediately, rather than waiting for a later catalog action.
+	      // Saved plans created before measured continuous-wall ownership was
+	      // persisted can have a visually seated cabinet but no wallId/wallOffset.
+	      // Repair that once while restoring so the drag preview and the final
+	      // collision check use the same physical run coordinates.
 	      const peninsulaNormalizedPlaced = normalizeLegacyPeninsulaCabinets(
-	        normalizeLCornerDepths(normalizedPlaced),
+	        clampCabinetsToRoom(normalizeLCornerDepths(normalizedPlaced), restoredRoom),
 	        restoredRoom,
 	      );
 	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom)).placed;
@@ -4010,7 +4014,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       // explicit run ownership. Repair those records before the free-span and
       // collision checks so an adjoining cabinet can use the real open segment.
       const currentPlaced = placedRef.current;
-      const prev = normalizeLegacyPeninsulaCabinets(currentPlaced, room);
+	      // Direct catalog drops must evaluate the exact same canonical measured
+	      // wall ownership as the canvas preview. This also repairs an older
+	      // in-progress draft before its next placement transaction.
+	      const prev = normalizeLegacyPeninsulaCabinets(
+	        clampCabinetsToRoom(normalizeLCornerDepths(currentPlaced), room),
+	        room,
+	      );
       if (prev !== currentPlaced) {
         placedRef.current = prev;
         setPlaced(() => prev);
@@ -8734,8 +8744,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                : shelf;
 	            });
 	            const draftRoom = d.room ?? DEFAULT_ROOM;
+	            // Drafts survive refreshes independently of saved designs. Bring
+	            // every older custom-wall cabinet into the current measured wall
+	            // frame before the first preview or release can inspect it.
 	            const peninsulaNormalizedDraft = normalizeLegacyPeninsulaCabinets(
-	              normalizeLCornerDepths(normalizedDraft),
+	              clampCabinetsToRoom(normalizeLCornerDepths(normalizedDraft), draftRoom),
 	              draftRoom,
 	            );
 	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom)).placed);
@@ -12148,14 +12161,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                         </button>
                       );
                     }
-                    return (
-	                    <button
-	                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
+	                    const placementDetail = cabinetPlacementHoverDetail(c);
+	                    const placementDetailText = placementDetail
+	                      ? `${placementDetail.title} · ${formatEighthInches(placementDetail.dimensions.width)}W × ${formatEighthInches(placementDetail.dimensions.height)}H × ${formatEighthInches(placementDetail.dimensions.depth)}D. ${placementDetail.clearance}`
+	                      : undefined;
+	                    return (
+		                    <button
+		                      key={`${c.masterCode}:${c.catalogImageUrl ?? c.id}`}
                       draggable
                       onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Cabinet"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                       onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
                       onClick={() => addCabinet(c)}
-                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+	                      className="w-full text-left p-2 rounded-lg border border-border hover:border-primary/50 hover:bg-muted/50 transition-colors group flex items-center gap-2"
+	                      title={placementDetailText}
+	                      data-testid={placementDetail ? `cabinet-placement-detail-${c.masterCode}` : undefined}
+	                      aria-label={placementDetailText ?? undefined}
                     >
                       <div className="h-9 w-9 flex items-center justify-center shrink-0">
                         <CabinetImage cabinet={c} className="h-full w-auto max-w-full" />
@@ -12179,8 +12199,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          return (
 	                            <div className="text-[10px] text-muted-foreground">{widthVal}"W × {hVal}{showH ? "\"H" : ""}</div>
 	                          );
-                        })()}
-                      </div>
+	                        })()}
+	                        {placementDetail && (
+	                          <div className="mt-0.5 text-[9px] font-medium leading-snug text-emerald-700">
+	                            Hover for dimensions &amp; flush-seam clearance
+	                          </div>
+	                        )}
+	                      </div>
                       {paletteFinishSwatch && (
                         <img
                           src={paletteFinishSwatch}
