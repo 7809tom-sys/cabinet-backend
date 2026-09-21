@@ -8,6 +8,7 @@ const CLARK_SON_WDC_ART = "/manus-storage/clark-son-wdc-opaque-diagonal-wall_2a8
 const CLARK_SON_ROLLOUT_ART = "/manus-storage/clark-son-universal-rollout-tray_7eb828ec.jpg";
 const CLARK_SON_BBC_ART = "/manus-storage/clark-son-bbc36-blind-corner-base_fdab8445.jpg";
 const CAPITAL_BEC_ART = "/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg";
+const MILESTONE_BSDC_ART = "/manus-storage/milestone-bsdc6-five-drawer-spice-base_8f29b60e.jpg";
 
 describe("catalog-source generic image audit", () => {
   it("uses the supplied Capital source drawing for the B18 double-trash pullout", async () => {
@@ -143,5 +144,39 @@ describe("catalog-source generic image audit", () => {
       specImageUrl: CAPITAL_BEC_ART,
     }));
     expect(bec?.specNotes).toContain("open angled shelf bridge");
+  });
+
+  it("uses the supplied Milestone drawing and 6-inch source geometry for BSDC6", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const [spice] = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        catalogImageUrl: cabinets.catalogImageUrl,
+        specImageUrl: cabinets.specImageUrl,
+        specNotes: cabinets.specNotes,
+      })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "BSDC6"));
+
+    expect(spice).toEqual(expect.objectContaining({
+      masterCode: "BSDC6",
+      description: "6 in. Base Spice Drawer Cabinet — 5 drawers",
+      width: "6.00",
+      height: "34.50",
+      depth: "24.00",
+      numberOfDoors: 0,
+      numberOfDrawers: 5,
+      catalogImageUrl: MILESTONE_BSDC_ART,
+      specImageUrl: MILESTONE_BSDC_ART,
+    }));
+    expect(spice?.specNotes).toContain("Five internal spice drawers");
   });
 });

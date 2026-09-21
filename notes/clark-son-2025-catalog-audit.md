@@ -129,6 +129,7 @@ After the final refresh, the browser-visible detail page renders the Capital cat
 | `WDC2430`, `WDC2436`, `WDC2442` | Clark & Son 2025 catalog page 7 | Corrected depth to **12 inches** and replaced the opaque-family artwork with the matching supplied-catalog opaque diagonal-wall crop. The glass diagonal art remains exclusively for glass SKUs. | Yes. |
 | `UNIV-ROT24/27/30/36` | Clark & Son 2025 catalog page 28 | Added the matching catalog-derived natural-birch roll-out tray generic image to the four formerly image-less universal tray masters. | Yes. |
 | `BEC-24` | Capital / U.S. Cabinet Depot V8 page 54 | Replaced the rejected generic placeholder in both primary and Spec Drawing paths with the source-derived 45-degree base-end artwork; preserved 24 × 34.5 × 24 plan geometry and two-door configuration. | Yes — style/distributor mappings and prices unchanged. |
+| `BSDC6` | Milestone 2026 Framed SKU Selection page 8 and source price import | Replaced the mismatched single-door image with the supplied-catalog narrow spice-pullout drawing; corrected the master to **6 × 34.5 × 24**, zero doors, and five drawers. | Yes — the existing positive-priced published mapping is unchanged. |
 
 The audit intentionally does **not** replace images merely because a storage URL pre-dates this review. Any future replacement must meet the catalog-only policy documented above: exact SKU/family source match, using an image from a supplied 2026-09-21 catalog PDF, and no fallback, generated, lifestyle, or unrelated cabinet art.
 
@@ -147,3 +148,11 @@ The final BEC-24 artwork was visually verified. It retains only the original Cap
 The refreshed local detail page resolves both its primary product image and its Spec Drawing to `/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg`; the prior blue placeholder URL is no longer used by either rendered image element. The item continues to display the master’s protected 24 × 34.5 × 24, two-door configuration and current source-price overlay. This verified the actual rendering path, not only the database record.
 
 The browser checked both rendered BEC-24 image elements after refresh. Each loads the approved Capital source asset at its original 760 × 770 pixels with `object-fit: contain`; the catalog list thumbnail uses a 38 × 38 presentation box and the detail illustration uses 120 × 122. This confirms the drawing is not a CSS-created placeholder or a stale alternate image.
+
+## BSDC6 reported-image correction
+
+The customer screenshot is correct: the rendered `BSDC6` image depicts a single-door base with one top drawer and is incompatible with the master’s five-drawer spice-cabinet identity. The supplied Milestone 2026 Framed SKU Selection page 8 includes the exact `BSDC6` line drawing: a narrow vertical base with **five stacked drawer fronts**. It is the approved source for a replacement image. A separate imported Milestone price script describes the source item as 6 W × 24 D × 34½ H; the current master says 12 W, so dimensions will be held unchanged while the source drawing is corrected until the catalog-width conflict is formally reconciled.
+
+## BSDC6 applied correction and validation
+
+The source correction is active. `BSDC6` now displays as **6 in. Base Spice Drawer Cabinet — 5 drawers**, with the Milestone page-8 catalog drawing as both primary and specification art. The customer-facing detail page shows 6 × 34.5 × 24 dimensions and five drawers; its catalog thumbnail, primary artwork, and spec image all resolve to `/manus-storage/milestone-bsdc6-five-drawer-spice-base_8f29b60e.jpg`. The three rendered image elements retain the original 240 × 250 source asset under `object-fit: contain`. The single positive-priced, available and published BSDC6 distributor mapping remains unchanged.
