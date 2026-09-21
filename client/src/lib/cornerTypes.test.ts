@@ -5,9 +5,11 @@ import {
   isDiagonalCorner,
   isBaseEndCornerCabinet,
   isLCornerCabinet,
+  blindCornerDoorSide,
+  normalizeBlindCornerDoorSides,
   placedFootprint,
 } from "./design";
-import type { PlacedCabinet } from "./design";
+import type { PlacedCabinet, RoomData } from "./design";
 
 describe("configured corner cabinet types", () => {
   it("keeps a diagonal corner distinct from a rectangular blind corner", () => {
@@ -78,5 +80,32 @@ describe("configured corner cabinet types", () => {
     expect(placedFootprint({ ...configured, cornerType: "diagonal" })).toEqual({ w: 36, d: 36 });
     expect(placedFootprint({ ...configured, cornerType: "lazy-susan" })).toEqual({ w: 36, d: 36 });
     expect(placedFootprint({ ...configured, cornerType: "blind-corner" })).toEqual({ w: 36, d: 24 });
+  });
+
+  it("faces each blind-corner door away from its selected room corner, including a six-inch pull", () => {
+    const room: RoomData = { width: 120, depth: 120 };
+    const base = {
+      uid: "bbc",
+      masterCode: "BBC-36",
+      description: '36" Blind Corner Base Cabinet',
+      placement: "base",
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      y: 0,
+      rotation: 0,
+      swing: "left",
+      pullMin: 3,
+      pullMax: 6,
+    } as PlacedCabinet;
+    const leftCorner = { ...base, uid: "left", x: 6, swing: "left" as const };
+    const rightCorner = { ...base, uid: "right", x: 78, swing: "right" as const };
+
+    expect(blindCornerDoorSide(leftCorner, room)).toBe("right");
+    expect(blindCornerDoorSide(rightCorner, room)).toBe("left");
+    expect(normalizeBlindCornerDoorSides([leftCorner, rightCorner], room)).toMatchObject([
+      { uid: "left", swing: "right" },
+      { uid: "right", swing: "left" },
+    ]);
   });
 });

@@ -95,7 +95,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
-  normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
+	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -2665,7 +2665,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // Repair that once while restoring so the drag preview and the final
 	      // collision check use the same physical run coordinates.
 	      const peninsulaNormalizedPlaced = normalizeLegacyPeninsulaCabinets(
-	        clampCabinetsToRoom(normalizeLCornerDepths(normalizedPlaced), restoredRoom),
+	        clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom), restoredRoom),
 	        restoredRoom,
 	      );
 	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom)).placed;
@@ -8748,7 +8748,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            // every older custom-wall cabinet into the current measured wall
 	            // frame before the first preview or release can inspect it.
 	            const peninsulaNormalizedDraft = normalizeLegacyPeninsulaCabinets(
-	              clampCabinetsToRoom(normalizeLCornerDepths(normalizedDraft), draftRoom),
+	              clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom), draftRoom),
 	              draftRoom,
 	            );
 	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom)).placed);

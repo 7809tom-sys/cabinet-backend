@@ -7013,6 +7013,47 @@ export function blindCornerSnapInfo(
 }
 
 /**
+ * Resolve the exposed BBC/WBC door side from its physical corner. Blind bases
+ * may be stored flush to the wall endpoint or pulled 3–6 inches off it, so a
+ * saved `swing` alone is not authoritative. The door must always face away from
+ * the blind side: a start-side/left corner exposes the right door and an
+ * end-side/right corner exposes the left door.
+ */
+export function blindCornerDoorSide(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+): "left" | "right" | null {
+  if (!isBlindCorner(cabinet.masterCode, cabinet.description)) return null;
+  const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+  const length = wallLength(side, room);
+  if (length <= COLLISION_EPSILON_IN) return null;
+  const offset = cabinet.wallOffset != null
+    ? Math.max(0, Number(cabinet.wallOffset) || 0)
+    : wallRunOffset(cabinet, side, room);
+  const span = wallRunSpan(cabinet, side, room);
+  const pullAllowance = blindPullRange(cabinet)?.max ?? 6;
+  const atStart = offset <= pullAllowance + COLLISION_EPSILON_IN;
+  const atEnd = offset + span >= length - pullAllowance - COLLISION_EPSILON_IN;
+  if (atStart === atEnd) return null;
+  return atStart ? "right" : "left";
+}
+
+/** Apply the physical BBC/WBC door side to restored placements. */
+export function normalizeBlindCornerDoorSides(
+  placed: PlacedCabinet[],
+  room: RoomData,
+): PlacedCabinet[] {
+  let changed = false;
+  const next = placed.map((cabinet) => {
+    const swing = blindCornerDoorSide(cabinet, room);
+    if (!swing || cabinet.swing === swing) return cabinet;
+    changed = true;
+    return { ...cabinet, swing };
+  });
+  return changed ? next : placed;
+}
+
+/**
  * Keeps a newly sequenced wall cabinet on the finished top line of the cabinet
  * it directly touches. This is essential for short uppers such as W-30-24:
  * their bottom changes with height, but the visible run top remains continuous.
