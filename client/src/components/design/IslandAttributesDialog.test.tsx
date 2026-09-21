@@ -80,12 +80,14 @@ describe("IslandAttributesDialog", () => {
     const onRotate = vi.fn();
     const onRemove = vi.fn();
     render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={onRotate} onRemove={onRemove} />);
+    fireEvent.click(screen.getByRole("button", { name: "Rotate 45°" }));
     fireEvent.click(screen.getByRole("button", { name: "Rotate 90°" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove island" }));
-    expect(onRotate).toHaveBeenCalledTimes(1);
+    expect(onRotate).toHaveBeenNthCalledWith(1, 45);
+    expect(onRotate).toHaveBeenNthCalledWith(2, 90);
     expect(onRemove).toHaveBeenCalledTimes(1);
-	    expect(screen.getByText(/countertop coverage update automatically/i)).toBeTruthy();
-	  });
+		    expect(screen.getByText(/countertop coverage update automatically/i)).toBeTruthy();
+		  });
 
 		it("keeps depth guidance collapsed while retaining a reachable 12-inch rear seating control", () => {
 		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);

@@ -1743,8 +1743,40 @@ export const DEFAULT_ROOM: RoomData = { width: 144, depth: 120, ceilingHeight: D
 
 export function dim(value: string | null | undefined, fallback: number): number {
   if (!value) return fallback;
-  const n = parseFloat(value);
-  return isNaN(n) || n <= 0 ? fallback : n;
+  const raw = String(value).trim().replace(/[″"]/g, "");
+  // Supplier exports commonly store a 3/4-inch panel as "3/4". parseFloat
+  // reads that as 3, which turns a 36-inch refrigerator with two skins into a
+  // visibly incorrect 42-inch enclosure. Honor ordinary and mixed fractions
+  // before accepting a decimal/whole-number prefix.
+  const mixedFraction = raw.match(/^(\d+(?:\.\d+)?)\s+(\d+)\s*\/\s*(\d+)(?:\D|$)/);
+  if (mixedFraction) {
+    const whole = Number(mixedFraction[1]);
+    const numerator = Number(mixedFraction[2]);
+    const denominator = Number(mixedFraction[3]);
+    const measured = whole + numerator / denominator;
+    return Number.isFinite(measured) && measured > 0 ? measured : fallback;
+  }
+  const fraction = raw.match(/^(\d+)\s*\/\s*(\d+)(?:\D|$)/);
+  if (fraction) {
+    const measured = Number(fraction[1]) / Number(fraction[2]);
+    return Number.isFinite(measured) && measured > 0 ? measured : fallback;
+  }
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * Refrigerator end panels are thin finish skins. Supplier CSVs can express
+ * their thickness as "3/4", "0.75", or a nominal 1.5-inch double panel.
+ * Keep that structural thickness distinct from a panel's 24-inch depth so the
+ * finished enclosure never inflates a 36-inch refrigerator to 42 inches.
+ */
+export function refrigeratorEndPanelThickness(
+  value: string | null | undefined,
+  fallback = 0.75,
+): number {
+  const parsed = dim(value, fallback);
+  return parsed > 0 && parsed <= 3 ? parsed : fallback;
 }
 
 export type CabinetDimensionsIn = { width: number; height: number; depth: number };
@@ -7198,6 +7230,8 @@ export interface IslandZone {
   y: number;
   width: number;
   depth: number;
+  /** Clockwise plan rotation of the complete island assembly, in degrees. */
+  rotation?: number;
   activeFace?: IslandFace;
   /** Optional door-style override shared by island cabinets; null/undefined follows the perimeter design finish. */
   cabinetStyleId?: number | null;

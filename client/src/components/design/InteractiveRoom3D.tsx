@@ -6059,6 +6059,10 @@ function addIslandZone(
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
   group.userData = { island: true, islandWorkZone: true };
+	  const guideGroup = new THREE.Group();
+	  // Saved plan angles are clockwise with +Y pointing down; Three.js mirrors
+	  // that handedness around its vertical axis.
+	  guideGroup.rotation.y = threeDPlanRotation((Number(island.rotation ?? 0) * Math.PI) / 180);
   const guideMaterial = new THREE.MeshStandardMaterial({ color: "#d4a75a", roughness: 0.7, transparent: true, opacity: 0.7 });
   const guideThickness = 0.25 * INCH;
   const guideHeight = 0.08 * INCH;
@@ -6071,7 +6075,8 @@ function addIslandZone(
   left.position.set(-transform.guideWidth / 2, guideHeight / 2, 0);
   right.position.set(transform.guideWidth / 2, guideHeight / 2, 0);
   for (const edge of [back, front, left, right]) edge.userData = { islandGuide: true };
-  group.add(back, front, left, right);
+  guideGroup.add(back, front, left, right);
+  group.add(guideGroup);
 	  const slabs = islandCountertopVisibleRects(island, placed);
 	  const waterfallSlabs = islandCountertopRects(island, placed);
 	  slabs.forEach((slab, slabIndex) => {
@@ -6100,6 +6105,7 @@ function addIslandZone(
       counterMaterial,
     );
     counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
+	    counter.rotation.y = threeDPlanRotation((Number(slab.rotation ?? 0) * Math.PI) / 180);
     counter.userData = { islandCountertop: true, islandCountertopSegment: slabIndex + 1, widthIn: slab.width, depthIn: slab.depth };
 	    group.add(counter);
 	  });

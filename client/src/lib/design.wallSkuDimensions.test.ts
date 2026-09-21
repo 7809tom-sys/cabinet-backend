@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { glassDoorShelfCount, isGlassDoorCabinet, normalizePlacedWallCabinetSkuDimensions, removeOverlappingPlacements, resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, type DesignCabinet, type PlacedCabinet } from "./design";
+import { dim, glassDoorShelfCount, isGlassDoorCabinet, normalizePlacedWallCabinetSkuDimensions, refrigeratorEndPanelThickness, removeOverlappingPlacements, resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, type DesignCabinet, type PlacedCabinet } from "./design";
 
 function wallCabinet(masterCode: string, dimensions: Partial<Pick<DesignCabinet, "width" | "height" | "depth">> = {}): DesignCabinet {
   return {
@@ -20,6 +20,17 @@ function wallCabinet(masterCode: string, dimensions: Partial<Pick<DesignCabinet,
 }
 
 describe("authoritative wall cabinet SKU dimensions", () => {
+  it("parses supplier fractional dimensions before decimal prefixes", () => {
+    // A refrigerator end panel often arrives as 3/4, not 0.75. Reading the
+    // leading 3 would turn a 36-inch appliance enclosure into 42 inches wide.
+    expect(dim("3/4", 1)).toBe(0.75);
+    expect(dim("1 1/2", 1)).toBe(1.5);
+    expect(dim('0.75"', 1)).toBe(0.75);
+    expect(dim("3/4 x 96", 1)).toBe(0.75);
+    expect(refrigeratorEndPanelThickness("3/4")).toBe(0.75);
+    expect(36 + refrigeratorEndPanelThickness("3/4") * 2).toBe(37.5);
+  });
+
   it.each([
     ["W-36-24", { width: 36, height: 24, depth: 12 }],
     ["HONEY CORE W-36-24", { width: 36, height: 24, depth: 12 }],

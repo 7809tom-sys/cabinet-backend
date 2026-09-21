@@ -9,6 +9,7 @@ import {
 	  islandCountertopRects,
 	  islandCountertopVisibleRects,
 	  islandCountertopOverhangIn,
+	  islandAssemblyBounds,
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
 	  islandFacePlacement,
@@ -494,15 +495,30 @@ describe("island mini-scene geometry", () => {
 	    expect(result.reason).toContain("footprint overlap");
 	  });
 
-  it("quarter-turns the island, every member, active face, and custom slab as one assembly", () => {
-    const attached = islandFacePlacement(cabinet(), island, "front", 12);
-    const result = rotateIslandScene({ ...island, countertopWidth: 78, countertopDepth: 54, countertopOffsetX: 2, countertopOffsetY: -1 }, [attached], room);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.island).toMatchObject({ width: 48, depth: 72, activeFace: "left", countertopWidth: 54, countertopDepth: 78, countertopOffsetX: 1, countertopOffsetY: 2 });
-      expect(result.placed[0]).toMatchObject({ islandFace: "left", rotation: 90 });
-    }
-  });
+	  it("quarter-turns the island, every member, and custom slab as one assembly", () => {
+	    const attached = islandFacePlacement(cabinet(), island, "front", 12);
+	    const result = rotateIslandScene({ ...island, countertopWidth: 78, countertopDepth: 54, countertopOffsetX: 2, countertopOffsetY: -1 }, [attached], room);
+	    expect(result.ok).toBe(true);
+	    if (result.ok) {
+	      expect(result.island).toMatchObject({ width: 72, depth: 48, activeFace: "front", rotation: 90, countertopWidth: 78, countertopDepth: 54, countertopOffsetX: 2, countertopOffsetY: -1 });
+	      expect(result.placed[0]).toMatchObject({ islandFace: "front", rotation: 90, islandOffset: 12 });
+	    }
+	  });
+
+	  it("quarter-turns an island by 45 degrees while retaining its measured local run and countertop", () => {
+	    const attached = islandFacePlacement(cabinet({ uid: "angled-front" }), island, "front", 12);
+	    const result = rotateIslandScene({ ...island, countertopWidth: 78, countertopDepth: 54 }, [attached], room, 45);
+	    expect(result.ok).toBe(true);
+	    if (!result.ok) return;
+	    expect(result.island).toMatchObject({ width: 72, depth: 48, rotation: 45, countertopWidth: 78, countertopDepth: 54 });
+	    expect(result.placed[0]).toMatchObject({ islandFace: "front", islandOffset: 12, rotation: 45 });
+	    const bounds = islandAssemblyBounds(result.island);
+	    expect(bounds.width).toBeGreaterThan(island.width);
+	    expect(bounds.depth).toBeGreaterThan(island.depth);
+	    const slabs = islandCountertopRects(result.island, result.placed);
+	    expect(slabs).toHaveLength(1);
+	    expect(slabs[0]).toMatchObject({ width: 78, depth: 54, rotation: 45 });
+	  });
 
 	  it("rejects a resize that makes an occupied face too short", () => {
 	    const attached = islandFacePlacement(cabinet({ width: 36 }), island, "front", 36);

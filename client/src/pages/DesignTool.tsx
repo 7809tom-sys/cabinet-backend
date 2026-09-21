@@ -93,7 +93,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
-	  dim, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
+	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, normalizeFloatingShelfPlacement,
   normalizeLCornerDepths, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
@@ -4014,6 +4014,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         placedRef.current = prev;
         setPlaced(() => prev);
       }
+	      // A refrigerator selection is a single appliance transaction. A second
+	      // click/touch after the first placement used to march an identical
+	      // FRIDGE-36 into the next clear wall span, leaving two appliances when
+	      // the designer intended the panels/upper dialog for the first one.
+	      // Keep one instance of a selected refrigerator size in the plan; the
+	      // existing one can be moved or reconfigured in Attributes.
+	      const requestedRefrigerator = isRefrigerator({ masterCode: c.masterCode, placement: accPlacement });
+	      if (requestedRefrigerator) {
+	        const duplicate = prev.find((item) => isRefrigerator(item)
+	          && Math.abs(wallRunSpan(item, cabinetWall(item, room), room) - width) <= COLLISION_EPSILON_IN);
+	        if (duplicate) {
+	          const message = `${formatInches(width)} refrigerator already placed. Select the existing refrigerator to move it or edit its panels and over-refrigerator cabinet.`;
+	          setPlacementWarning(message);
+	          toast.info(message);
+	          setSelectedUid(duplicate.uid);
+	          return;
+	        }
+	      }
 	      let islandPlacementPrevious = prev;
 	      let autoAdjustedIsland: IslandZone | null = null;
 
@@ -5939,10 +5957,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         // panels where width=1.5" is the thickness and depth=24" is the floor depth).
         // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
         // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
-        const rawPanelW = parseFloat(String(panelRow.width ?? ""));
-        const pThick = (Number.isFinite(rawPanelW) && rawPanelW > 0 && rawPanelW <= 3)
-          ? rawPanelW
-          : inferredDepth;
+        const pThick = refrigeratorEndPanelThickness(panelRow.width, inferredDepth);
         // End panels must finish at the same cap as the dedicated refrigerator
         // cabinet, not at the 70" appliance top. This gives a finished full-height
         // enclosure while preserving the 2" clearance beneath the upper cabinet.
@@ -6557,9 +6572,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		    setIslandAttributesOpen(false);
 		  }, [commitIslandScene, countertopProductChoices, island, islandFace, room, selectedSurfaces, setPlacementTarget, styleId]);
 
-	  const rotateIsland = useCallback(() => {
+	  const rotateIsland = useCallback((degrees: 45 | 90 = 90) => {
 	    if (!island) return;
-	    const result = rotateIslandScene(island, placedRef.current, room);
+	    const result = rotateIslandScene(island, placedRef.current, room, degrees);
 	    if (!result.ok) { toast.error(result.reason); return; }
 	    commitIslandScene(result.island, result.placed);
 	  }, [commitIslandScene, island, room]);

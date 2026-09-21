@@ -3,6 +3,14 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
+function sourceBetween(startMarker: string, endMarker: string) {
+  const start = source.indexOf(startMarker);
+  const end = source.indexOf(endMarker, start);
+  expect(start).toBeGreaterThan(-1);
+  expect(end).toBeGreaterThan(start);
+  return source.slice(start, end);
+}
+
 function refrigeratorTransaction() {
   const start = source.indexOf("const applyFridgeSurround = useCallback");
   const end = source.indexOf('// ── One-click "Built-in Refrigerator + Pantry End" preset', start);
@@ -35,6 +43,20 @@ describe("Design Tool refrigerator assembly transactions", () => {
     expect(transaction).toContain("const fw = wallRunSpan(configuredFridge, side, room)");
     expect(transaction).toContain("const fridgeCenterAlong = fridgeStart + fw / 2");
     expect(transaction).toContain("along = leftEdge ? fridgeStart - pThick : fridgeStart + fw");
+  });
+
+  it("keeps a fractional refrigerator end-panel thickness fractional in the final enclosure", () => {
+    const transaction = refrigeratorTransaction();
+    expect(transaction).toContain("const pThick = refrigeratorEndPanelThickness(panelRow.width, inferredDepth)");
+    expect(transaction).not.toContain("const rawPanelW = parseFloat(String(panelRow.width ?? \"\"))");
+  });
+
+  it("does not turn a repeated FRIDGE-36 click into a second appliance", () => {
+    const placement = sourceBetween("const addCabinet = useCallback", "const placeOnRecommendedWall");
+    expect(placement).toContain("const requestedRefrigerator = isRefrigerator");
+    expect(placement).toContain("const duplicate = prev.find((item) => isRefrigerator(item)");
+    expect(placement).toContain("refrigerator already placed. Select the existing refrigerator");
+    expect(placement).toContain("setSelectedUid(duplicate.uid)");
   });
 
   it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {

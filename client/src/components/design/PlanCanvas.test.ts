@@ -364,7 +364,7 @@ describe("island work-zone face selection", () => {
     expect(nearestIslandFaceInRect({ x: 120, y: 152 }, rect)).toBe("front");
   });
 
-  it("renders an accessible island selector with right-click and keyboard attributes wiring", () => {
+	  it("renders an accessible island selector with right-click and keyboard attributes wiring", () => {
     const markup = renderToStaticMarkup(
       createElement(
         LanguageProvider,
@@ -390,5 +390,29 @@ describe("island work-zone face selection", () => {
 	  expect(zoneTag).toBeDefined();
 	  expect(zoneTag).toContain("background:transparent");
 	  expect(zoneTag).not.toContain("rgba(212,167,90,0.10)");
-  });
+	  });
+
+	  it("renders a 45-degree island guide in the same rotated frame as its cabinet assembly", () => {
+	    const markup = renderToStaticMarkup(
+	      createElement(
+	        LanguageProvider,
+	        null,
+	        createElement(PlanCanvas, {
+	          room: { width: 144, depth: 120, ceilingHeight: 96 },
+	          cabinets: [],
+	          selectedUid: null,
+	          onSelect: () => undefined,
+	          onMove: () => undefined,
+	          showWallLayer: true,
+	          island: { x: 36, y: 36, width: 72, depth: 48, rotation: 45, activeFace: "front" },
+	          activeIslandFace: "front",
+	          onSelectIslandFace: () => undefined,
+	          onOpenIslandAttributes: () => undefined,
+	        }),
+	      ),
+	    );
+	    const zoneTag = markup.match(/<div[^>]*data-testid="island-work-zone"[^>]*>/)?.[0] ?? "";
+	    expect(zoneTag).toContain("rotate(45deg)");
+	    expect(zoneTag).toContain("transform-origin:50% 50%");
+	  });
 });

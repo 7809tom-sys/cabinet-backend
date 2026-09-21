@@ -44,7 +44,7 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
   perimeterFinishName?: string | null;
   onOpenChange: (open: boolean) => void;
   onApply: (next: IslandZone) => void;
-  onRotate: () => void;
+  onRotate: (degrees: 45 | 90) => void;
   onRemove: () => void;
 }) {
   const [draft, setDraft] = useState<IslandZone | null>(island);
@@ -253,7 +253,12 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		        </div>
 	        <DialogFooter className="flex-col gap-1.5 sm:flex-row sm:justify-between">
 	          <Button className="h-8 text-xs" type="button" variant="destructive" onClick={onRemove}>Remove island</Button>
-	          <div className="flex flex-wrap gap-1.5"><Button className="h-8 text-xs" type="button" variant="outline" onClick={onRotate}>Rotate 90°</Button><Button className="h-8 text-xs" type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="h-8 text-xs" type="button" onClick={() => onApply(draft)}>Apply</Button></div>
+          <div className="flex flex-wrap gap-1.5">
+            <Button className="h-8 text-xs" type="button" variant="outline" onClick={() => onRotate(45)} title="Turn the complete island assembly clockwise by 45 degrees.">Rotate 45°</Button>
+            <Button className="h-8 text-xs" type="button" variant="outline" onClick={() => onRotate(90)} title="Turn the complete island assembly clockwise by 90 degrees.">Rotate 90°</Button>
+            <Button className="h-8 text-xs" type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button className="h-8 text-xs" type="button" onClick={() => onApply(draft)}>Apply</Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

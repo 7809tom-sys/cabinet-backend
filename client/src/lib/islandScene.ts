@@ -142,6 +142,52 @@ export function islandFaceLength(island: IslandZone, face: IslandFace): number {
   return face === "front" || face === "back" ? island.width : island.depth;
 }
 
+/** Normalize persisted clockwise plan rotation while retaining older unrotated plans. */
+export function islandRotationDegrees(island: Pick<IslandZone, "rotation">): number {
+  const raw = Number(island.rotation ?? 0);
+  return Number.isFinite(raw) ? ((raw % 360) + 360) % 360 : 0;
+}
+
+type PlanPoint = { x: number; y: number };
+
+function rotatePlanPoint(point: PlanPoint, center: PlanPoint, clockwiseDegrees: number): PlanPoint {
+  const radians = clockwiseDegrees * Math.PI / 180;
+  const dx = point.x - center.x;
+  const dy = point.y - center.y;
+  return {
+    x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians),
+    y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians),
+  };
+}
+
+/** The true plan-space bounds of a potentially angled island work zone. */
+export function islandAssemblyBounds(island: IslandZone): { x: number; y: number; width: number; depth: number } {
+  const center = { x: island.x + island.width / 2, y: island.y + island.depth / 2 };
+  const rotation = islandRotationDegrees(island);
+  const corners = [
+    { x: island.x, y: island.y },
+    { x: island.x + island.width, y: island.y },
+    { x: island.x + island.width, y: island.y + island.depth },
+    { x: island.x, y: island.y + island.depth },
+  ].map((corner) => rotatePlanPoint(corner, center, rotation));
+  const minX = Math.min(...corners.map((corner) => corner.x));
+  const maxX = Math.max(...corners.map((corner) => corner.x));
+  const minY = Math.min(...corners.map((corner) => corner.y));
+  const maxY = Math.max(...corners.map((corner) => corner.y));
+  return { x: minX, y: minY, width: maxX - minX, depth: maxY - minY };
+}
+
+function rotatePlacedAroundIslandCenter(cabinet: PlacedCabinet, island: IslandZone, clockwiseDegrees: number): PlacedCabinet {
+  const before = placedFootprint(cabinet);
+  const islandCenter = { x: island.x + island.width / 2, y: island.y + island.depth / 2 };
+  const cabinetCenter = { x: cabinet.x + before.w / 2, y: cabinet.y + before.d / 2 };
+  const nextRotation = ((Number(cabinet.rotation || 0) + clockwiseDegrees) % 360 + 360) % 360;
+  const rotated = { ...cabinet, rotation: nextRotation };
+  const after = placedFootprint(rotated);
+  const nextCenter = rotatePlanPoint(cabinetCenter, islandCenter, clockwiseDegrees);
+  return { ...rotated, x: nextCenter.x - after.w / 2, y: nextCenter.y - after.d / 2 };
+}
+
 /**
  * Measured free capacity on one physical island face. This intentionally uses
  * inferred physical faces so legacy saved plans with stale face labels cannot
@@ -202,10 +248,15 @@ export function islandFacePlacement(cabinet: PlacedCabinet, island: IslandZone, 
     ? cabinet.mountBottom
     : 0;
   const local = { ...cabinet, mountBottom, islandCounterHeightWallCabinet: isCounterHeightWallFace || undefined };
-  if (face === "front") return { ...local, x: island.x + along, y: island.y + island.depth - rearPlaneDepth, rotation: 0, islandFace: face, islandOffset: along };
-  if (face === "back") return { ...local, x: island.x + along, y: island.y + rearPlaneDepth - depth, rotation: 180, islandFace: face, islandOffset: along };
-  if (face === "left") return { ...local, x: island.x + rearPlaneDepth - depth, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along };
-  return { ...local, x: island.x + island.width - rearPlaneDepth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+  const localPlacement = face === "front"
+    ? { ...local, x: island.x + along, y: island.y + island.depth - rearPlaneDepth, rotation: 0, islandFace: face, islandOffset: along }
+    : face === "back"
+      ? { ...local, x: island.x + along, y: island.y + rearPlaneDepth - depth, rotation: 180, islandFace: face, islandOffset: along }
+      : face === "left"
+        ? { ...local, x: island.x + rearPlaneDepth - depth, y: island.y + along, rotation: 90, islandFace: face, islandOffset: along }
+        : { ...local, x: island.x + island.width - rearPlaneDepth, y: island.y + along, rotation: 270, islandFace: face, islandOffset: along };
+  const rotation = islandRotationDegrees(island);
+  return rotation === 0 ? localPlacement : rotatePlacedAroundIslandCenter(localPlacement, island, rotation);
 }
 
 /**
@@ -267,6 +318,10 @@ export function islandFacePlacementAgainstOpposingRun(
   placed: PlacedCabinet[],
 ): PlacedCabinet {
   const candidate = islandFacePlacement(cabinet, island, face, offset);
+  // An angled island has already been seated in its rotated physical frame.
+  // Axis-aligned seam repair would pull a newly added shallow cabinet back into
+  // the old rectangular frame and separate it from the rest of the island.
+  if (islandRotationDegrees(island) !== 0) return candidate;
   if (!isCounterHeightIslandWallCabinet(candidate)) return candidate;
 
   const candidateFootprint = placedFootprint(candidate);
@@ -401,6 +456,9 @@ export function islandFaceFitMeasure(
 }
 
 export function inferredIslandFace(cabinet: PlacedCabinet, island: IslandZone): IslandFace {
+  // The saved face/offset is authoritative once the island itself is angled;
+  // axis-aligned edge-distance inference cannot identify a 45-degree side.
+  if (cabinet.islandFace && islandRotationDegrees(island) !== 0) return cabinet.islandFace;
   const footprint = placedFootprint(cabinet);
   const distances: Array<[IslandFace, number]> = [
     ["back", Math.abs(cabinet.y - island.y)],
@@ -517,6 +575,15 @@ export function moveIslandScene(island: IslandZone, placed: PlacedCabinet[], roo
   if (Math.abs(nextIsland.x - (island.x + dx)) > COLLISION_EPSILON_IN || Math.abs(nextIsland.y - (island.y + dy)) > COLLISION_EPSILON_IN) {
     return { ok: false, reason: "The island assembly would leave the room.", island, placed };
   }
+  const nextBounds = islandAssemblyBounds(nextIsland);
+  if (
+    nextBounds.x < -COLLISION_EPSILON_IN
+    || nextBounds.y < -COLLISION_EPSILON_IN
+    || nextBounds.x + nextBounds.width > room.width + COLLISION_EPSILON_IN
+    || nextBounds.y + nextBounds.depth > room.depth + COLLISION_EPSILON_IN
+  ) {
+    return { ok: false, reason: "The angled island assembly would leave the room.", island, placed };
+  }
   const moved = members.map((item) => ({ ...item, x: item.x + dx, y: item.y + dy }));
   for (let index = 0; index < moved.length; index++) {
     const reason = islandCollisionReason("Moving", moved[index], [...others, ...moved.filter((_, otherIndex) => otherIndex !== index)]);
@@ -527,6 +594,12 @@ export function moveIslandScene(island: IslandZone, placed: PlacedCabinet[], roo
 }
 
 export function resizeIslandScene(island: IslandZone, placed: PlacedCabinet[], room: RoomData, width: number, depth: number): IslandSceneEditResult {
+  if (islandRotationDegrees(island) !== 0) {
+    if (Math.abs(width - island.width) <= COLLISION_EPSILON_IN && Math.abs(depth - island.depth) <= COLLISION_EPSILON_IN) {
+      return { ok: true, island, placed };
+    }
+    return { ok: false, reason: "Rotate the island back to 0° before changing its measured work-zone width or depth.", island, placed };
+  }
   const nextIsland = clampIslandToRoom({ ...island, width, depth }, room)!;
   if (Math.abs(nextIsland.width - width) > COLLISION_EPSILON_IN || Math.abs(nextIsland.depth - depth) > COLLISION_EPSILON_IN) {
     return { ok: false, reason: "The island size would leave the room.", island, placed };
@@ -597,43 +670,31 @@ export function autoAdjustIslandDepthForBackFace(island: IslandZone, placed: Pla
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
 }
 
-export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], room: RoomData): IslandSceneEditResult {
-  const centerX = island.x + island.width / 2;
-  const centerY = island.y + island.depth / 2;
-  const faceMap: Record<IslandFace, IslandFace> = { front: "left", left: "back", back: "right", right: "front" };
-	  const nextIsland = clampIslandToRoom({
-    ...island,
-    x: centerX - island.depth / 2,
-    y: centerY - island.width / 2,
-    width: island.depth,
-    depth: island.width,
-    activeFace: faceMap[island.activeFace ?? "front"],
-	    countertopWidth: island.countertopDepth ?? null,
-	    countertopDepth: island.countertopWidth ?? null,
-	    countertopOffsetX: -(island.countertopOffsetY ?? 0),
-	    countertopOffsetY: island.countertopOffsetX ?? 0,
-	    countertopWidthAnchoredToZone: island.countertopDepthAnchoredToZone ?? false,
-	    countertopDepthAnchoredToZone: island.countertopWidthAnchoredToZone ?? false,
-	  }, room)!;
-  if (Math.abs(nextIsland.x - (centerX - island.depth / 2)) > COLLISION_EPSILON_IN || Math.abs(nextIsland.y - (centerY - island.width / 2)) > COLLISION_EPSILON_IN) {
+export function rotateIslandScene(
+  island: IslandZone,
+  placed: PlacedCabinet[],
+  room: RoomData,
+  clockwiseDegrees: 45 | 90 = 90,
+): IslandSceneEditResult {
+  const currentRotation = islandRotationDegrees(island);
+  const targetRotation = (currentRotation + clockwiseDegrees) % 360;
+  // Keep the local island zone dimensions and face labels stable. The complete
+  // cabinet/slab group is rotated around its center, so a 36-inch by 48-inch
+  // island remains that exact measured assembly at 45° as well as at 90°.
+  const nextIsland: IslandZone = { ...island, rotation: targetRotation };
+  const bounds = islandAssemblyBounds(nextIsland);
+  if (
+    bounds.x < -COLLISION_EPSILON_IN
+    || bounds.y < -COLLISION_EPSILON_IN
+    || bounds.x + bounds.width > room.width + COLLISION_EPSILON_IN
+    || bounds.y + bounds.depth > room.depth + COLLISION_EPSILON_IN
+  ) {
     return { ok: false, reason: "The rotated island assembly would leave the room.", island, placed };
   }
   const members = placed.filter((item) => isIslandAssemblyMember(item, island, placed));
   const memberIds = new Set(members.map((item) => item.uid));
   const others = placed.filter((item) => !memberIds.has(item.uid));
-  const rotated = members.map((item) => {
-    const before = placedFootprint(item);
-    const itemCenterX = item.x + before.w / 2;
-    const itemCenterY = item.y + before.d / 2;
-    const nextRotation = ((item.rotation + 90) % 360 + 360) % 360;
-    const rotatedItem = { ...item, rotation: nextRotation };
-    const after = placedFootprint(rotatedItem);
-    const nextCenterX = centerX - (itemCenterY - centerY);
-    const nextCenterY = centerY + (itemCenterX - centerX);
-    const face = faceMap[inferredIslandFace(item, island)];
-    const positioned = { ...rotatedItem, x: nextCenterX - after.w / 2, y: nextCenterY - after.d / 2, islandFace: face };
-    return { ...positioned, islandOffset: face === "front" || face === "back" ? positioned.x - nextIsland.x : positioned.y - nextIsland.y };
-  });
+  const rotated = members.map((item) => rotatePlacedAroundIslandCenter(item, island, clockwiseDegrees));
   for (let index = 0; index < rotated.length; index++) {
     const reason = islandCollisionReason("Rotating", rotated[index], [...others, ...rotated.filter((_, otherIndex) => otherIndex !== index)]);
     if (reason) return { ok: false, reason, island, placed };
@@ -642,8 +703,29 @@ export function rotateIslandScene(island: IslandZone, placed: PlacedCabinet[], r
   return { ok: true, island: nextIsland, placed: placed.map((item) => byId.get(item.uid) ?? item) };
 }
 
-export type IslandCountertopRect = { x: number; y: number; width: number; depth: number };
+export type IslandCountertopRect = { x: number; y: number; width: number; depth: number; rotation?: number };
 export type IslandSeatingOverhangIn = 10 | 12;
+
+function unrotatePlacedFromIslandCenter(cabinet: PlacedCabinet, island: IslandZone, clockwiseDegrees: number): PlacedCabinet {
+  const before = placedFootprint(cabinet);
+  const islandCenter = { x: island.x + island.width / 2, y: island.y + island.depth / 2 };
+  const cabinetCenter = { x: cabinet.x + before.w / 2, y: cabinet.y + before.d / 2 };
+  const nextRotation = ((Number(cabinet.rotation || 0) - clockwiseDegrees) % 360 + 360) % 360;
+  const unrotated = { ...cabinet, rotation: nextRotation };
+  const after = placedFootprint(unrotated);
+  const nextCenter = rotatePlanPoint(cabinetCenter, islandCenter, -clockwiseDegrees);
+  return { ...unrotated, x: nextCenter.x - after.w / 2, y: nextCenter.y - after.d / 2 };
+}
+
+function orientIslandCountertopRect(rect: IslandCountertopRect, island: IslandZone, clockwiseDegrees: number): IslandCountertopRect {
+  if (clockwiseDegrees === 0) return rect;
+  const center = rotatePlanPoint(
+    { x: rect.x + rect.width / 2, y: rect.y + rect.depth / 2 },
+    { x: island.x + island.width / 2, y: island.y + island.depth / 2 },
+    clockwiseDegrees,
+  );
+  return { ...rect, x: center.x - rect.width / 2, y: center.y - rect.depth / 2, rotation: clockwiseDegrees };
+}
 
 function islandCountertopSupportBounds(supports: PlacedCabinet[]): IslandCountertopRect | null {
   if (supports.length === 0) return null;
@@ -669,21 +751,28 @@ function countertopSupportsConnect(first: PlacedCabinet, second: PlacedCabinet):
  * A user-entered custom slab remains one intentional physical slab.
  */
 export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
-  const supports = placed.filter((item) => isIslandAssemblyMember(item, island, placed) && bearsIslandCountertop(item));
+  const rotation = islandRotationDegrees(island);
+  const localIsland = rotation === 0 ? island : { ...island, rotation: 0 };
+  const localPlaced = rotation === 0
+    ? placed
+    : placed.map((item) => isIslandAssemblyMember(item, island, placed)
+      ? unrotatePlacedFromIslandCenter(item, island, rotation)
+      : item);
+  const supports = localPlaced.filter((item) => isIslandAssemblyMember(item, localIsland, localPlaced) && bearsIslandCountertop(item));
   const allBounds = islandCountertopSupportBounds(supports);
   if (!allBounds) return [];
-  const overhang = islandCountertopOverhangIn(island);
-  const hasIntentionalSlab = island.countertopWidth != null || island.countertopDepth != null;
+  const overhang = islandCountertopOverhangIn(localIsland);
+  const hasIntentionalSlab = localIsland.countertopWidth != null || localIsland.countertopDepth != null;
   if (hasIntentionalSlab) {
     const autoWidth = allBounds.width + overhang * 2;
     const autoDepth = allBounds.depth + overhang * 2;
-    const width = island.countertopWidth ?? autoWidth;
-    const depth = island.countertopDepth ?? autoDepth;
+    const width = localIsland.countertopWidth ?? autoWidth;
+    const depth = localIsland.countertopDepth ?? autoDepth;
     const supportCenterX = allBounds.x + allBounds.width / 2;
     const supportCenterY = allBounds.y + allBounds.depth / 2;
-    const centerX = (island.countertopWidthAnchoredToZone ? island.x + island.width / 2 : supportCenterX) + Number(island.countertopOffsetX ?? 0);
-    const centerY = (island.countertopDepthAnchoredToZone ? island.y + island.depth / 2 : supportCenterY) + Number(island.countertopOffsetY ?? 0);
-    return [{ x: centerX - width / 2, y: centerY - depth / 2, width, depth }];
+    const centerX = (localIsland.countertopWidthAnchoredToZone ? localIsland.x + localIsland.width / 2 : supportCenterX) + Number(localIsland.countertopOffsetX ?? 0);
+    const centerY = (localIsland.countertopDepthAnchoredToZone ? localIsland.y + localIsland.depth / 2 : supportCenterY) + Number(localIsland.countertopOffsetY ?? 0);
+    return [orientIslandCountertopRect({ x: centerX - width / 2, y: centerY - depth / 2, width, depth }, island, rotation)];
   }
   const groups: PlacedCabinet[][] = [];
   const remaining = [...supports];
@@ -701,12 +790,12 @@ export function islandCountertopRects(island: IslandZone, placed: PlacedCabinet[
   }
   return groups.flatMap((group) => {
     const bounds = islandCountertopSupportBounds(group);
-    return bounds ? [{
+    return bounds ? [orientIslandCountertopRect({
       x: bounds.x - overhang,
       y: bounds.y - overhang,
       width: bounds.width + overhang * 2,
       depth: bounds.depth + overhang * 2,
-    }] : [];
+    }, island, rotation)] : [];
   });
 }
 

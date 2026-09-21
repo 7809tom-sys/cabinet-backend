@@ -1729,15 +1729,17 @@ export function PlanCanvas({
 	            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); onOpenIslandAttributes?.(); }}
 	            onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); onOpenIslandAttributes?.(); }}
 	            className="absolute z-[1] cursor-move"
-            style={{
-              left: island.x * ppi,
-              top: island.y * ppi,
-              width: island.width * ppi,
-              height: island.depth * ppi,
-              border: "2px dashed #d4a75a",
-              background: "transparent",
-              borderRadius: 3,
-            }}
+	            style={{
+	              left: island.x * ppi,
+	              top: island.y * ppi,
+	              width: island.width * ppi,
+	              height: island.depth * ppi,
+	              border: "2px dashed #d4a75a",
+	              background: "transparent",
+	              borderRadius: 3,
+	              transform: island.rotation ? `rotate(${island.rotation}deg)` : undefined,
+	              transformOrigin: "50% 50%",
+	            }}
 	            title={t("dt_pc_island_zone")}
 	          >
 	            {islandDepthTransition && islandDepthTransitionVisible && islandDepthTransition.toDepth > islandDepthTransition.fromDepth && (
