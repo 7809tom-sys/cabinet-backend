@@ -607,9 +607,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // a later refrigerator or other item is rejected instead of replacing an
   // already accepted cabinet occupying that physical opening.
   useEffect(() => {
-    const resolution = removeOverlappingPlacements(placed);
+    const resolution = removeOverlappingPlacements(placed, room);
     if (resolution.rejected.length > 0) setPlaced(resolution.placed);
-  }, [placed]);
+  }, [placed, room]);
 
   // The public Room Planner stores a selected room shape and starter layout
   // briefly in session storage before it opens the existing full designer.
@@ -2668,7 +2668,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom), restoredRoom),
 	        restoredRoom,
 	      );
-	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom)).placed;
+	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom), restoredRoom).placed;
       const pricedPlaced = clearForeignSavedStyleOverrides(repairedPlaced, restoredStyle.distributorId, styleDistributorIdById);
       setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, pricedPlaced, restoredRoom) : pricedPlaced);
       setStyleId(restoredStyle.styleId);
@@ -8751,7 +8751,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	              clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom), draftRoom),
 	              draftRoom,
 	            );
-	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom)).placed);
+	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom), draftRoom).placed);
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);

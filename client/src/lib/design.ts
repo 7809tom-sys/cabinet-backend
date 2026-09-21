@@ -2874,12 +2874,21 @@ export function normalizePlacedWallCabinetSkuDimensions(cabinet: PlacedCabinet):
 export function appendCollisionFreePlacements(
   existing: PlacedCabinet[],
   additions: PlacedCabinet[],
+  room?: RoomData,
 ): CollisionResolution {
   const placed = [...existing];
   const rejected: PlacedCabinet[] = [];
   for (const candidate of additions) {
-    const snappedCandidate = snapCabinetSeamOverlap(candidate, placed);
-    if (hasCollision(snappedCandidate, placed)) {
+    // A custom-wall placement carries its exact measured wall offset. The generic
+    // rectangular seam snap is only a screen-space convenience and can shift an
+    // otherwise valid 45° ERB/DB24 seam before cleanup examines it. Preserve that
+    // authoritative geometry and use the room-aware collision rule below.
+    const preserveMeasuredWallGeometry = Boolean(room && candidate.wallId && isCustomRoomWall(room, candidate.wallId));
+    const snappedCandidate = preserveMeasuredWallGeometry ? candidate : snapCabinetSeamOverlap(candidate, placed);
+    const collision = room
+      ? cabinetPlacementCollisionDetail(snappedCandidate, placed, room)
+      : hasCollision(snappedCandidate, placed);
+    if (collision) {
       rejected.push(candidate);
       continue;
     }
@@ -2944,7 +2953,7 @@ export function normalizeWallBlindCornerRequiredFillers(placements: PlacedCabine
  * order. Earlier accepted cabinets remain authoritative; a later overlapping
  * refrigerator or other item is rejected instead of replacing its neighbor.
  */
-export function removeOverlappingPlacements(placements: PlacedCabinet[]): CollisionResolution {
+export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: RoomData): CollisionResolution {
   const normalizedPlacements = normalizeWallBlindCornerRequiredFillers(placements).map(normalizePlacedWallCabinetSkuDimensions);
   const resolution: CollisionResolution = { placed: [], rejected: [] };
   for (const candidate of normalizedPlacements) {
@@ -2952,7 +2961,7 @@ export function removeOverlappingPlacements(placements: PlacedCabinet[]): Collis
       resolution.rejected.push(candidate);
       continue;
     }
-    const appended = appendCollisionFreePlacements(resolution.placed, [candidate]);
+    const appended = appendCollisionFreePlacements(resolution.placed, [candidate], room);
     resolution.placed = appended.placed;
     resolution.rejected.push(...appended.rejected);
   }
