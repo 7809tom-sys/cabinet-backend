@@ -170,3 +170,33 @@ The public master convention for ordinary, solid, numeric wall cabinets is **`W-
 Supplier spellings remain valid aliases rather than customer-facing duplicate products. For example, `W1836` and `W-18-36` both resolve to public master `W-1836`; distributor-specific price, color/style availability, and source SKU remain independent overlays. A live standard-wall sweep consolidates 53 visible masters in this format and leaves **no visible numeric solid-wall code** with a missing separator or an extra width/height separator.
 
 Descriptions now use the professional pattern **W × H × D Wall Cabinet — door count, source-confirmed shelf count**. The Frameless 2026 source confirms `W1530`, `W1536`, `W1836`, and `W3336` at 12-in. depth with respectively 1/1/1/2 doors and two shelves; those shelf facts were restored rather than inferred. `W3315` and `W3336` are verified as two-door models in the supplied Frameless 2026 source, correcting legacy zero-door records before their aliases were consolidated.
+
+## ADA base configuration source facts for catalog correction
+
+The owner reported that the visible ADA base rows were generic and could not distinguish the roll-out-shelf variants. The supplied **Capital / U.S. Cabinet Depot Specification Manual V8** is the controlling source for these records. It specifies the following code-true configurations:
+
+| Model family | Physical dimensions | Face configuration | Roll-out-shelf configuration | Source details |
+| --- | --- | --- | --- | --- |
+| `B24ADA` | 24 × 32 1/2 × 24 in. | 2 doors + 1 drawer | none | “Double Door Single Drawer ADA Base Cabinet”; 20 1/2-in. door height; Shaker White only. |
+| `B30SADA` | 30 × 32 1/2 × 24 in. | 2 doors + 1 drawer | none | Same family; 20 1/2-in. door height; Shaker White only. |
+| `B36ADA` | 36 × 32 1/2 × 24 in. | 2 doors + 2 drawers | none | “Double Door Double Drawer ADA Base Cabinet”; Shaker White only. |
+| `B18ADA1RS` | 18 × 32 1/2 × 24 in. | 1 door + 1 drawer | 1 roll-out shelf | Single-door/single-drawer ADA base; 35-lb recommended shelf load; side-mounted ball-bearing glide, no soft close; Shaker White only. |
+| `B18ADA2RS` | 18 × 32 1/2 × 24 in. | 1 door + 1 drawer | 2 roll-out shelves | Same configuration with 2 shelves; same source constraints. |
+| `B24ADA1RS` | 24 × 32 1/2 × 24 in. | 2 doors + 1 drawer | 1 roll-out shelf | “Double Door Single Drawer One Rollout Shelf ADA Base Cabinet”; Shaker White only. |
+| `B24ADA2RS` | 24 × 32 1/2 × 24 in. | 2 doors + 1 drawer | 2 roll-out shelves | “Double Door Single Drawer Two Rollout Shelf ADA Base Cabinet”; Shaker White only. |
+| `B30SADA1RS` | 30 × 32 1/2 × 24 in. | 2 doors + 1 drawer | 1 roll-out shelf | Same 30-in. ADA source model; Shaker White only. |
+| `B30SADA2RS` | 30 × 32 1/2 × 24 in. | 2 doors + 1 drawer | 2 roll-out shelves | Same 30-in. ADA source model; Shaker White only. |
+| `B36ADA1RS` | 36 × 32 1/2 × 24 in. | 2 doors + 2 drawers | 1 roll-out shelf | “Double Door Double Drawer One Rollout Shelf ADA Base Cabinet”; Shaker White only. |
+| `B36ADA2RS` | 36 × 32 1/2 × 24 in. | 2 doors + 2 drawers | 2 roll-out shelves | “Double Door Double Drawer Two Rollout Shelf ADA Base Cabinet”; Shaker White only. |
+
+The catalog source explicitly says the 1RS and 2RS kits are assembled only as shown in the line drawing, have side-mounted ball-bearing (non-soft-close) roll-out glides, and carry a 35-lb recommended shelf-load limit. These facts must remain distinct in descriptions, metadata, generic illustration selection, and any configuration-facing UI.
+
+### ADA artwork crop review
+
+The first extraction pass proved the source pages contain the exact required drawings, but it is **not approved for catalog use as-is** because several crops include adjacent non-ADA products or a full source table. The final reusable catalog assets must isolate the correct left-side line drawing only, retaining the product’s own red dimensions and source drawing details, while excluding adjacent model families and unrelated headings/tables. The relevant manual pages are 32–33 for the standard 2-door ADA bases; 49–54 for the ADA 1RS/2RS base kits. The source images visibly distinguish closed cabinets, 1RS interior configuration, and 2RS interior configuration, so no shared generic placeholder may be used across those variants.
+
+### U.S. Cabinet Depot ADA base source truth
+
+The U.S. Cabinet Depot V8 manual is now the authoritative **structural** source for the ADA base family. The master record describes the universal product construction, dimensions, door/drawer count, roll-out shelf count, and code-true source artwork; it does not replace a distributor’s own color or pricing overlay. Thus `B24ADA2RS` is one 24 × 32½ × 24 master with two doors, one drawer, and two floor-mounted roll-out shelves—the U.S. Cabinet Depot drawing is the generic technical illustration for every line that carries it, while each distributor remains responsible for the colors and unique prices it actually offers.
+
+Corrected generic/source art has been assigned to `B18ADA1RS`, `B18ADA2RS`, `B24ADA`, `B24ADA1RS`, `B24ADA2RS`, `B30SADA`, `B30SADA1RS`, `B30SADA2RS`, `B36ADA`, `B36ADA1RS`, and `B36ADA2RS`. All use explicit source-backed 32½-inch ADA height, 24-inch depth, and correct door/drawer/roll-out configuration. No supplier retail price, availability, or color mapping was overwritten.

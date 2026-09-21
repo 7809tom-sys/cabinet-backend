@@ -9,6 +9,14 @@ const CLARK_SON_ROLLOUT_ART = "/manus-storage/clark-son-universal-rollout-tray_7
 const CLARK_SON_BBC_ART = "/manus-storage/clark-son-bbc36-blind-corner-base_fdab8445.jpg";
 const CAPITAL_BEC_ART = "/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg";
 const BSD6_SOURCE_ART = "/manus-storage/bsd6-five-drawer-spice-base-dimensioned-sheet_7a806280.png";
+const CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-single-drawer-base_e247ad6a.jpg";
+const CAPITAL_ADA_DOUBLE_DOOR_DOUBLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-double-drawer-base_40851c7e.jpg";
+const CAPITAL_ADA_SINGLE_DOOR_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-single-door-single-drawer-1rs-base_10573f98.jpg";
+const CAPITAL_ADA_SINGLE_DOOR_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-single-door-single-drawer-2rs-base_fa6fcdbe.jpg";
+const CAPITAL_ADA_DOUBLE_DOOR_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-single-drawer-1rs-base_e41cb4b0.jpg";
+const CAPITAL_ADA_DOUBLE_DOOR_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-single-drawer-2rs-base_9d71051b.jpg";
+const CAPITAL_ADA_DOUBLE_DRAWER_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-double-drawer-1rs-base_d97419b1.jpg";
+const CAPITAL_ADA_DOUBLE_DRAWER_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-double-drawer-2rs-base_2a00c0eb.jpg";
 
 describe("catalog-source generic image audit", () => {
   it("uses the supplied Capital source drawing for the B18 double-trash pullout", async () => {
@@ -207,5 +215,75 @@ describe("catalog-source generic image audit", () => {
         Number(overlay.yourCost ?? 0),
       )).toBeGreaterThan(0);
     }
+  });
+
+  it("uses U.S. Cabinet Depot V8 truth for ADA base configurations and source drawings", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const codes = [
+      "B18ADA1RS", "B18ADA2RS", "B24ADA", "B24ADA1RS", "B24ADA2RS",
+      "B30SADA", "B30SADA1RS", "B30SADA2RS", "B36ADA", "B36ADA1RS", "B36ADA2RS",
+    ];
+    const records = await db
+      .select({
+        masterCode: cabinets.masterCode,
+        description: cabinets.description,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        width: cabinets.width,
+        height: cabinets.height,
+        depth: cabinets.depth,
+        numberOfDoors: cabinets.numberOfDoors,
+        numberOfDrawers: cabinets.numberOfDrawers,
+        numberOfAdjShelves: cabinets.numberOfAdjShelves,
+        graphicType: cabinets.graphicType,
+        catalogImageUrl: cabinets.catalogImageUrl,
+        specImageUrl: cabinets.specImageUrl,
+        specNotes: cabinets.specNotes,
+        configVerified: cabinets.configVerified,
+      })
+      .from(cabinets)
+      .where(inArray(cabinets.masterCode, codes));
+
+    expect(records).toHaveLength(codes.length);
+    const byCode = new Map(records.map((record) => [record.masterCode, record]));
+
+    const sourceTruth = [
+      ["B24ADA", 24, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART, "24 in. ADA Base Cabinet — 2 Doors, 1 Drawer"],
+      ["B30SADA", 30, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART, "30 in. ADA Base Cabinet — 2 Doors, 1 Drawer"],
+      ["B36ADA", 36, 2, 2, CAPITAL_ADA_DOUBLE_DOOR_DOUBLE_DRAWER_ART, "36 in. ADA Base Cabinet — 2 Doors, 2 Drawers"],
+      ["B18ADA1RS", 18, 1, 1, CAPITAL_ADA_SINGLE_DOOR_ONE_ROLLOUT_ART, "18 in. ADA Base Cabinet — 1 Door, 1 Drawer, 1 Roll-Out Shelf"],
+      ["B18ADA2RS", 18, 1, 1, CAPITAL_ADA_SINGLE_DOOR_TWO_ROLLOUT_ART, "18 in. ADA Base Cabinet — 1 Door, 1 Drawer, 2 Roll-Out Shelves"],
+      ["B24ADA1RS", 24, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_ONE_ROLLOUT_ART, "24 in. ADA Base Cabinet — 2 Doors, 1 Drawer, 1 Roll-Out Shelf"],
+      ["B24ADA2RS", 24, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_TWO_ROLLOUT_ART, "24 in. ADA Base Cabinet — 2 Doors, 1 Drawer, 2 Roll-Out Shelves"],
+      ["B30SADA1RS", 30, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_ONE_ROLLOUT_ART, "30 in. ADA Base Cabinet — 2 Doors, 1 Drawer, 1 Roll-Out Shelf"],
+      ["B30SADA2RS", 30, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_TWO_ROLLOUT_ART, "30 in. ADA Base Cabinet — 2 Doors, 1 Drawer, 2 Roll-Out Shelves"],
+      ["B36ADA1RS", 36, 2, 2, CAPITAL_ADA_DOUBLE_DRAWER_ONE_ROLLOUT_ART, "36 in. ADA Base Cabinet — 2 Doors, 2 Drawers, 1 Roll-Out Shelf"],
+      ["B36ADA2RS", 36, 2, 2, CAPITAL_ADA_DOUBLE_DRAWER_TWO_ROLLOUT_ART, "36 in. ADA Base Cabinet — 2 Doors, 2 Drawers, 2 Roll-Out Shelves"],
+    ] as const;
+
+    for (const [code, width, doors, drawers, art, description] of sourceTruth) {
+      expect(byCode.get(code)).toEqual(expect.objectContaining({
+        masterCode: code,
+        description,
+        category: "ADA",
+        subCategory: "ADA Base",
+        width: `${width}.00`,
+        height: "32.50",
+        depth: "24.00",
+        numberOfDoors: doors,
+        numberOfDrawers: drawers,
+        numberOfAdjShelves: 0,
+        configVerified: true,
+        catalogImageUrl: art,
+        specImageUrl: art,
+      }));
+      expect(byCode.get(code)?.specNotes).toContain("U.S. Cabinet Depot V8 structural source");
+      expect(byCode.get(code)?.specNotes).toContain("price and color availability remain distributor-specific overlays");
+    }
+
+    expect(byCode.get("B24ADA1RS")?.specNotes).toContain("1 floor-mounted roll-out shelf");
+    expect(byCode.get("B24ADA2RS")?.specNotes).toContain("2 floor-mounted roll-out shelves");
   });
 });
