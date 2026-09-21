@@ -823,10 +823,12 @@ export const designRouter = router({
           homeownerPrice: distributorSkus.homeownerPrice,
           adjustedListPrice: distributorSkus.adjustedListPrice,
           yourCost: distributorSkus.yourCost,
+          retailPriceBasis: distributors.retailPriceBasis,
         })
         // NOTE: yourCost is required so sellPriceForTier can compute the
         // correct tier price (cost × markup).
         .from(distributorSkus)
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...conditions));
 
       // Best (cheapest contractor) row per (cabinetId, styleId) pair, limited to
@@ -841,11 +843,10 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
-      // Compute tier prices from cost base × markup (same formula as the
-      // product page and family catalog). Never return raw stored columns
-      // because most SKUs only have listPrice set — the stored homeownerPrice
-      // column is NULL for those rows, causing resolveTierPrice to fall back
-      // to listPrice and show the full MSRP instead of the discounted price.
+      // Resolve each customer tier through the shared pricing policy. Cost-plus
+      // lines use their configured cost base and tier markup, while a verified
+      // source-list distributor (such as Madison) preserves its source list as
+      // homeowner retail. Never bypass this resolver with stale stored columns.
       const ps = await getPricingSettings();
       return Array.from(best.values()).map((r) => ({
         cabinetId: r.cabinetId,

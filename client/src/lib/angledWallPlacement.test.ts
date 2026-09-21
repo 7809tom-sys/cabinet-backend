@@ -209,6 +209,8 @@ describe("continuous builder custom wall placement", () => {
       wallOffset: 84,
     };
     const segments = freeSegmentsOnWall("builder-right" as any, builderRoom, [lsb], [], 0.5, 0, "base");
+    // The exposed adjoining-wall edge is the 36-inch outer corner envelope.
+    // Its 12-inch interior notch is not a second cabinet run.
     expect(segments).toEqual([{ start: 36, length: 60 }]);
 
     const db24Spot = wallPlacementAt(36, 24, 24, "builder-right" as any, builderRoom);
@@ -470,6 +472,44 @@ describe("continuous builder custom wall placement", () => {
     const clearB12Spot = wallPlacementAt(wallLength("diagonal-first" as any, diagonalRightAngleRoom) - 72, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
     const clearB12 = { ...b12, ...clearB12Spot, wallOffset: clearB12Spot.wallOffset };
     expect(shouldBlockPlacementCollision(clearB12, [erb], false, diagonalRightAngleRoom)).toBe(false);
+  });
+
+  it("lets a DB24 or dishwasher butt a diagonal LSB36 outer edge without a screen-envelope collision", () => {
+    const diagonalRightAngleRoom: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "diagonal-a", x: 0, y: 0 },
+        { id: "diagonal-corner", x: 100, y: 100 },
+        { id: "diagonal-b", x: 50, y: 150 },
+      ],
+      customWalls: [
+        { id: "diagonal-first", startVertexId: "diagonal-a", endVertexId: "diagonal-corner", label: "Wall 1", lockedAngle: 45, height: 96 },
+        { id: "diagonal-second", startVertexId: "diagonal-corner", endVertexId: "diagonal-b", label: "Wall 2", lockedAngle: 45, height: 96 },
+      ],
+    };
+    const lsbSeed: PlacedCabinet = {
+      uid: "diagonal-lsb36-seated", cabinetId: 36, masterCode: "LSB36", description: "Lazy Susan Base 36",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    const lsbSpot = nextAvailableRoomCornerPlacement(lsbSeed, "diagonal-second" as any, diagonalRightAngleRoom, []);
+    expect(lsbSpot).toMatchObject({ wallId: "diagonal-second", wallOffset: 0 });
+    const lsb = { ...lsbSeed, ...lsbSpot!, wallId: lsbSpot!.wallId, wallOffset: lsbSpot!.wallOffset };
+    const firstWallLength = wallLength("diagonal-first" as any, diagonalRightAngleRoom);
+    const outerEdgeSpot = wallPlacementAt(firstWallLength - 36 - 24, 24, 24, "diagonal-first" as any, diagonalRightAngleRoom);
+    const db24: PlacedCabinet = {
+      uid: "diagonal-db24-at-lsb-edge", cabinetId: 24, masterCode: "3DB24", description: "Drawer Base 24",
+      placement: "base", ...outerEdgeSpot, width: 24, depth: 24, height: 34.5,
+      wallId: outerEdgeSpot.wallId, wallOffset: outerEdgeSpot.wallOffset,
+    };
+    expect(cabinetPlacementCollisionDetail(db24, [lsb], diagonalRightAngleRoom)).toBeNull();
+    expect(cabinetPlacementCollisionDetail({ ...db24, uid: "diagonal-dw24-at-lsb-edge", masterCode: "DW24", description: "Dishwasher 24", placement: "appliance" }, [lsb], diagonalRightAngleRoom)).toBeNull();
+
+    const overlapSpot = wallPlacementAt(firstWallLength - 12, 12, 24, "diagonal-first" as any, diagonalRightAngleRoom);
+    const overlap: PlacedCabinet = { ...db24, ...overlapSpot, uid: "diagonal-db24-over-lsb", width: 12, masterCode: "B12", wallOffset: overlapSpot.wallOffset };
+    expect(cabinetPlacementCollisionDetail(overlap, [lsb], diagonalRightAngleRoom)?.cabinet.uid).toBe(lsb.uid);
   });
 
   it("gives ERB36 collision guidance and aligns a selected upper to the same measured corner", () => {

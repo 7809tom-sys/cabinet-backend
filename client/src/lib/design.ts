@@ -2447,8 +2447,10 @@ function customWallCornerReservationCollision(
   if (!seatedAtSharedVertex) return null;
 
   const footprint = placedFootprint(corner);
-  // Keep final collision in agreement with freeSegmentsOnWall. The long L leg
-  // owns the full physical corner-box side on the adjoining run.
+  // Keep final collision in agreement with freeSegmentsOnWall. The continuous
+  // outer edge of a seated L-corner reaches the full 36-inch corner envelope on
+  // its adjoining wall; the interior notch is not an exposed cabinet-run edge.
+  // A straight base or dishwasher must therefore seat at that outer edge.
   const adjacentLeg = kind === "l-shape"
     ? Math.max(0, footprint.w)
     : Math.min(footprint.w, footprint.d);
@@ -2466,6 +2468,44 @@ function customWallCornerReservationCollision(
     overlapY: Math.min(Math.max(0, Number(corner.depth) || 0), Math.max(0, Number(neighbor.depth) || 0)),
     penetration: overlap,
   };
+}
+
+/**
+ * A diagonal continuous-wall corner is encoded as two separate wall frames.
+ * Their axis-aligned render envelopes can overlap even after a straight cabinet
+ * has seated exactly at the L-corner's exposed outer edge. The measured run
+ * reservation above is authoritative for that pair; this identifies when its
+ * zero-overlap result can safely replace the screen-envelope fallback.
+ */
+function hasSeatedCustomWallCornerPair(
+  left: PlacedCabinet,
+  right: PlacedCabinet,
+  room: RoomData,
+): boolean {
+  if (!room.vertices?.length || !room.customWalls?.length) return false;
+  const pair = [left, right] as const;
+  for (const corner of pair) {
+    const neighbor = corner.uid === left.uid ? right : left;
+    const kind = placedCornerGeometryKind(corner);
+    if (kind !== "l-shape" && kind !== "diagonal" && kind !== "corner-drawer") continue;
+    if (!corner.wallId || !neighbor.wallId || corner.wallId === neighbor.wallId) continue;
+    if (!isCustomRoomWall(room, corner.wallId) || !isCustomRoomWall(room, neighbor.wallId)) continue;
+    const cornerWall = room.customWalls.find((wall) => wall.id === corner.wallId);
+    const neighborWall = room.customWalls.find((wall) => wall.id === neighbor.wallId);
+    if (!cornerWall || !neighborWall) continue;
+    const sharedVertex = [cornerWall.startVertexId, cornerWall.endVertexId].find((vertexId) => (
+      vertexId === neighborWall.startVertexId || vertexId === neighborWall.endVertexId
+    ));
+    if (!sharedVertex) continue;
+    const cornerStart = wallRunOffset(corner, corner.wallId, room);
+    const cornerEnd = cornerStart + wallRunSpan(corner, corner.wallId, room);
+    const cornerLength = wallLength(corner.wallId as WallSide, room);
+    const seated = sharedVertex === cornerWall.startVertexId
+      ? cornerStart <= COLLISION_EPSILON_IN
+      : cornerEnd >= cornerLength - COLLISION_EPSILON_IN;
+    if (seated) return true;
+  }
+  return false;
 }
 
 /**
@@ -2489,6 +2529,11 @@ export function cabinetPlacementCollisionDetail(
     if (otherCornerReservation) return otherCornerReservation;
     const detail = cabinetCollisionDetail(moving, [other]);
     if (!detail) continue;
+    // For a real diagonal continuous-wall vertex the two cabinets live in
+    // different local wall frames. If the exact corner-run reservation says
+    // their spans only touch, do not let the overlapping rectangular render
+    // envelopes reject a valid DB24/dishwasher seam.
+    if (hasSeatedCustomWallCornerPair(moving, other, room)) continue;
     if (usesPeninsulaCornerJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
     return detail;
   }
@@ -6394,10 +6439,10 @@ export function freeSegmentsOnWall(
     if (assignedWall !== side && !reservesAdjoiningWall) continue;
     if (assignedWall !== side && reservesAdjoiningWall && targetCustomWall && sharedCustomVertex) {
       const footprint = placedFootprint(p);
-      // An L-corner's solid long leg runs the full physical corner-box side
-      // along the adjoining wall. For a LSB36/ERB36 that is 36 inches—not its
-      // 24-inch cabinet depth. Reserving only the depth advertised a false 24"
-      // edge to the drop helper, then final body collision rejected DB24/DW24.
+      // The next unit must butt the corner's exposed outer edge. The apparent
+      // 12-inch L notch is interior access space, not a valid parallel cabinet
+      // run. Reserve the full 36-inch LSB36/ERB36 outer envelope, matching the
+      // physical-body collision test below.
       const adjacentLeg = cornerKind === "l-shape"
         ? Math.max(0, footprint.w)
         : Math.min(footprint.w, footprint.d);
