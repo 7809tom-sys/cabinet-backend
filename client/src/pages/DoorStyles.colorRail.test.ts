@@ -44,6 +44,20 @@ describe("Door Styles color rail", () => {
     expect(source).toContain("shadow-[0_0_0_3px_rgba(212,167,90,0.3)] ring-2 ring-[#d4a75a] ring-offset-2");
   });
 
+  it("updates an animated kitchen preview when a door color or style is selected", () => {
+    expect(source).toContain("const [selectedPreviewId, setSelectedPreviewId] = useState<number | null>(null)");
+    expect(source).toContain("const selectedPreview = previewStyles.find");
+    expect(source).toContain("simpleDoorStyle(style.doorStyle) === selectedType");
+    expect(source).toContain("doorColorSpectrumPage(previewStyles, colorRailPage)");
+    expect(source).toContain("useEffect(() => { setColorRailPage(0); }, [selectedType]);");
+    expect(source).toContain('aria-label={`Show ${name} kitchen preview`}');
+    expect(source).toContain("onClick={() => setSelectedPreviewId(style.id)}");
+    expect(source).toContain("Selected kitchen preview");
+    expect(source).toContain("key={selectedPreview.id}");
+    expect(source).toContain("roomSceneImageUrl || selectedPreview.thumbnailImageUrl || selectedPreview.doorSampleImageUrl");
+    expect(source).toContain("This cabinet scene updates when a new style or color is selected.");
+  });
+
   it("uses the shared light-to-deep ordering and safe directional slider controls", () => {
     expect(source).toContain("DOOR_COLOR_SPECTRUM_PAGE_SIZE");
     expect(source).toContain("AnimatePresence");

@@ -324,8 +324,10 @@ export default function DoorStyles() {
   const [colorRailPage, setColorRailPage] = useState(0);
   const [colorRailDirection, setColorRailDirection] = useState<1 | -1>(1);
   const [isColorRailSliding, setIsColorRailSliding] = useState(false);
+  const [selectedPreviewId, setSelectedPreviewId] = useState<number | null>(null);
   const reduceMotion = useReducedMotion();
   useEffect(() => { setPage(0); }, [selectedType, searchQuery]);
+  useEffect(() => { setColorRailPage(0); }, [selectedType]);
 
   // Fetch distributors to map series names
   const { data: distributorList } = trpc.distributors.list.useQuery();
@@ -398,14 +400,31 @@ export default function DoorStyles() {
     () => orderDoorStylesByColor(uniqueStyles),
     [uniqueStyles],
   );
-  const colorRailPageCount = doorColorSpectrumPageCount(colorRailStyles);
-  const visibleColorRailStyles = doorColorSpectrumPage(colorRailStyles, colorRailPage);
-  const colorRailFirst = colorRailStyles.length === 0 ? 0 : colorRailPage * DOOR_COLOR_SPECTRUM_PAGE_SIZE + 1;
-  const colorRailLast = Math.min(colorRailStyles.length, colorRailFirst + visibleColorRailStyles.length - 1);
+  const previewStyles = useMemo(
+    () => selectedType
+      ? colorRailStyles.filter((style) => simpleDoorStyle(style.doorStyle) === selectedType)
+      : colorRailStyles,
+    [colorRailStyles, selectedType],
+  );
+  const colorRailPageCount = doorColorSpectrumPageCount(previewStyles);
+  const visibleColorRailStyles = doorColorSpectrumPage(previewStyles, colorRailPage);
+  const colorRailFirst = previewStyles.length === 0 ? 0 : colorRailPage * DOOR_COLOR_SPECTRUM_PAGE_SIZE + 1;
+  const colorRailLast = Math.min(previewStyles.length, colorRailFirst + visibleColorRailStyles.length - 1);
+  const selectedPreview = previewStyles.find((style) => style.id === selectedPreviewId) ?? previewStyles[0] ?? null;
 
   useEffect(() => {
     setColorRailPage((current) => Math.min(current, Math.max(0, colorRailPageCount - 1)));
   }, [colorRailPageCount]);
+
+  // A profile change selects its first available finish; a color click owns the
+  // selection until that finish no longer belongs to the selected profile.
+  useEffect(() => {
+    setSelectedPreviewId((current) => (
+      current != null && previewStyles.some((style) => style.id === current)
+        ? current
+        : previewStyles[0]?.id ?? null
+    ));
+  }, [previewStyles]);
 
   const moveColorRail = (direction: 1 | -1) => {
     const nextPage = Math.max(0, Math.min(colorRailPageCount - 1, colorRailPage + direction));
@@ -532,7 +551,11 @@ export default function DoorStyles() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-wood)]">Cabinet color line</p>
               <h2 className="mt-1 font-serif text-xl font-bold text-foreground">Choose a door color first</h2>
-              <p className="mt-1 text-sm text-muted-foreground">White to deep finishes, six door samples at a time.</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {selectedType
+                  ? `${SIMPLE_DOOR_STYLES.find((style) => style.key === selectedType)?.label ?? "Selected"} finishes, light to deep.`
+                  : "White to deep finishes, six door samples at a time."}
+              </p>
             </div>
             <div className="flex items-center gap-2" aria-label="Cabinet color line pages">
               <Button
@@ -567,14 +590,14 @@ export default function DoorStyles() {
             <span>Light</span>
             <div
               className="h-2 flex-1 rounded-full ring-1 ring-black/10"
-              style={{ backgroundImage: doorColorSpectrumGradient(colorRailStyles) }}
+              style={{ backgroundImage: doorColorSpectrumGradient(previewStyles) }}
               role="img"
               aria-label="Door color line from light to deep"
             />
             <span>Deep</span>
           </div>
           <p className="mb-3 text-xs text-muted-foreground" aria-live="polite">
-            Showing {colorRailFirst}–{colorRailLast} of {colorRailStyles.length} active cabinet door colors
+            Showing {colorRailFirst}–{colorRailLast} of {previewStyles.length} active cabinet door colors
           </p>
 
           <div className="relative overflow-hidden" aria-live="polite">
@@ -596,11 +619,17 @@ export default function DoorStyles() {
                   const name = displayName(style);
                   const detail = style.color ?? style.finish ?? style.doorStyle ?? "Door sample";
                   return (
-                    <Link
+                    <button
+                      type="button"
                       key={style.id}
-                      href={`/family/${encodeURIComponent(style.styleCode)}`}
-                      aria-label={`View ${name} cabinets`}
-                      className="group rounded-lg border border-border bg-background p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      onClick={() => setSelectedPreviewId(style.id)}
+                      aria-pressed={selectedPreview?.id === style.id}
+                      aria-label={`Show ${name} kitchen preview`}
+                      className={`group rounded-lg bg-background p-2 text-left shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                        selectedPreview?.id === style.id
+                          ? "border-2 border-[#d4a75a] ring-2 ring-[#d4a75a]/35"
+                          : "border border-border hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md"
+                      }`}
                     >
                       <div className="relative aspect-[4/5] overflow-hidden rounded-md border border-black/10 bg-muted">
                         <DoorStyleSwatch style={style} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
@@ -612,12 +641,52 @@ export default function DoorStyles() {
                       </div>
                       <p className="mt-2 truncate text-xs font-semibold text-foreground" title={name}>{name}</p>
                       <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={detail}>{detail}</p>
-                    </Link>
+                    </button>
                   );
                 })}
               </motion.div>
             </AnimatePresence>
           </div>
+
+          {selectedPreview && (() => {
+            const previewName = displayName(selectedPreview);
+            const previewImage = selectedPreview.roomSceneImageUrl || selectedPreview.thumbnailImageUrl || selectedPreview.doorSampleImageUrl;
+            const previewDetail = selectedPreview.color ?? selectedPreview.finish ?? selectedPreview.doorStyle ?? "Selected door finish";
+            return (
+              <section className="mt-5 overflow-hidden rounded-xl border border-[#d4a75a]/45 bg-[#fffaf0] p-3 sm:p-4" aria-live="polite">
+                <AnimatePresence initial={false} mode="wait">
+                  <motion.div
+                    key={selectedPreview.id}
+                    initial={{ opacity: 0, x: reduceMotion ? 0 : 18 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: reduceMotion ? 0 : -18 }}
+                    transition={reduceMotion ? { duration: 0 } : { duration: 0.24, ease: [0.23, 1, 0.32, 1] }}
+                    className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_12rem] sm:items-center"
+                  >
+                    <div className="order-2 min-w-0 sm:order-1">
+                      <p className="text-xs font-bold uppercase tracking-[0.15em] text-[#8b6425]">Selected kitchen preview</p>
+                      <h3 className="mt-1 text-lg font-bold text-foreground">{previewName}</h3>
+                      <p className="mt-1 text-sm text-muted-foreground">{previewDetail}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">This cabinet scene updates when a new style or color is selected.</p>
+                      <Link href={`/family/${encodeURIComponent(selectedPreview.styleCode)}`} className="mt-3 inline-flex">
+                        <Button size="sm" className="bg-[#0f1f3d] text-white hover:bg-[#19305a]">
+                          View {previewName} cabinets
+                          <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                        </Button>
+                      </Link>
+                    </div>
+                    <div className="order-1 aspect-[4/3] overflow-hidden rounded-lg border border-[#d4a75a]/40 bg-muted sm:order-2">
+                      {previewImage ? (
+                        <img src={previewImage} alt={`${previewName} cabinet kitchen preview`} className="h-full w-full object-cover" />
+                      ) : (
+                        <DoorStyleSwatch style={selectedPreview} className="h-full w-full object-cover" />
+                      )}
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </section>
+            );
+          })()}
         </section>
       )}
 
