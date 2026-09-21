@@ -40,6 +40,14 @@ describe("B2B homepage hierarchy", () => {
     expect(homeSource).not.toContain('cabinetdealz:featured-room-scene:');
   });
 
+  it("slides each six-door set in the requested direction while respecting reduced-motion preferences", () => {
+    expect(homeSource).toContain('AnimatePresence');
+    expect(homeSource).toContain('moveColorLine');
+    expect(homeSource).toContain('slideDirection');
+    expect(homeSource).toContain('useReducedMotion');
+    expect(homeSource).toContain('onAnimationComplete');
+  });
+
   it("keeps public featured room scenes free of distributor identity", () => {
     expect(homeSource).not.toContain('distributorName');
   });

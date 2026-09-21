@@ -1,5 +1,6 @@
 import { Link } from "wouter";
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronLeft, ChevronRight, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -208,6 +209,9 @@ type FeaturedDoorStyle = {
 function FeaturedStyles() {
   const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
   const [page, setPage] = useState(0);
+  const [slideDirection, setSlideDirection] = useState<1 | -1>(1);
+  const [isSliding, setIsSliding] = useState(false);
+  const reduceMotion = useReducedMotion();
 
   // The front page is a finish chooser, not a random collection of rooms. Each
   // active featured row gets its own real door sample (or the accurate swatch
@@ -225,6 +229,29 @@ function FeaturedStyles() {
   useEffect(() => {
     setPage((current) => Math.min(current, Math.max(0, pageCount - 1)));
   }, [pageCount]);
+
+  const moveColorLine = (direction: 1 | -1) => {
+    const nextPage = Math.max(0, Math.min(pageCount - 1, page + direction));
+    if (nextPage === page || isSliding) return;
+    setSlideDirection(direction);
+    if (!reduceMotion) setIsSliding(true);
+    setPage(nextPage);
+  };
+
+  const spectrumSlideVariants = {
+    enter: (direction: number) => ({
+      x: reduceMotion ? 0 : direction * 56,
+      opacity: reduceMotion ? 1 : 0,
+    }),
+    center: {
+      x: 0,
+      opacity: 1,
+    },
+    exit: (direction: number) => ({
+      x: reduceMotion ? 0 : direction * -56,
+      opacity: reduceMotion ? 1 : 0,
+    }),
+  };
 
   if (isLoading) {
     return (
@@ -288,8 +315,8 @@ function FeaturedStyles() {
                 size="icon"
                 className="h-9 w-9 bg-background"
                 aria-label="Show previous six cabinet color lines"
-                disabled={page === 0}
-                onClick={() => setPage((current) => Math.max(0, current - 1))}
+                disabled={page === 0 || isSliding}
+                onClick={() => moveColorLine(-1)}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -302,41 +329,61 @@ function FeaturedStyles() {
                 size="icon"
                 className="h-9 w-9 bg-background"
                 aria-label="Show next six cabinet color lines"
-                disabled={page >= pageCount - 1}
-                onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+                disabled={page >= pageCount - 1 || isSliding}
+                onClick={() => moveColorLine(1)}
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          <div key={page} className="grid grid-cols-2 gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-3 md:grid-cols-3 md:gap-4 lg:grid-cols-6">
-            {visibleStyles.map((style) => {
-              const displayName = style.featuredLabel ?? style.aliasName ?? style.ourName ?? style.styleCode ?? "Cabinet line";
-              const detail = style.color ?? style.finish ?? style.doorStyle ?? "Door sample";
-              return (
-                <Link
-                  key={style.id}
-                  href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}
-                  aria-label={`View ${displayName} cabinets`}
-                  className="group rounded-xl border border-border bg-background p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-black/10 bg-muted">
-                    <DoorStyleSwatch style={style} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
-                    <span
-                      aria-hidden="true"
-                      className="absolute bottom-2 left-2 h-3.5 w-3.5 rounded-full border border-white/70 shadow-sm"
-                      style={{ backgroundColor: doorStyleColorHex(style) }}
-                    />
-                  </div>
-                  <h3 className="mt-3 truncate text-sm font-semibold text-foreground" title={displayName}>{displayName}</h3>
-                  <p className="mt-0.5 truncate text-xs text-muted-foreground" title={detail}>{detail}</p>
-                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-wood)] transition-all group-hover:gap-1.5">
-                    View cabinets <ArrowRight className="h-3.5 w-3.5" />
-                  </span>
-                </Link>
-              );
-            })}
+          <div className="relative overflow-hidden" aria-live="polite">
+            <AnimatePresence
+              initial={false}
+              mode="wait"
+              custom={slideDirection}
+            >
+              <motion.div
+                key={page}
+                custom={slideDirection}
+                variants={spectrumSlideVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                onAnimationComplete={(definition) => {
+                  if (definition === "center") setIsSliding(false);
+                }}
+                className="grid grid-cols-2 gap-3 will-change-transform md:grid-cols-3 md:gap-4 lg:grid-cols-6"
+              >
+                {visibleStyles.map((style) => {
+                  const displayName = style.featuredLabel ?? style.aliasName ?? style.ourName ?? style.styleCode ?? "Cabinet line";
+                  const detail = style.color ?? style.finish ?? style.doorStyle ?? "Door sample";
+                  return (
+                    <Link
+                      key={style.id}
+                      href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}
+                      aria-label={`View ${displayName} cabinets`}
+                      className="group rounded-xl border border-border bg-background p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-black/10 bg-muted">
+                        <DoorStyleSwatch style={style} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                        <span
+                          aria-hidden="true"
+                          className="absolute bottom-2 left-2 h-3.5 w-3.5 rounded-full border border-white/70 shadow-sm"
+                          style={{ backgroundColor: doorStyleColorHex(style) }}
+                        />
+                      </div>
+                      <h3 className="mt-3 truncate text-sm font-semibold text-foreground" title={displayName}>{displayName}</h3>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground" title={detail}>{detail}</p>
+                      <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-wood)] transition-all group-hover:gap-1.5">
+                        View cabinets <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </Link>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
