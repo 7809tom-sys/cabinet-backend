@@ -3166,7 +3166,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     };
     const spot = sinkBaseWindowPlacement("top", room, 36, 24, 34.5, [], [window]);
 
-    expect(spot).toMatchObject({ x: 54, y: 0, rotation: 0 });
+	    expect(spot).toMatchObject({ openingUid: "sink-window", spot: { x: 54, y: 0, rotation: 0 } });
   });
 
   it("keeps the same window-center measurement on a diagonal continuous wall", () => {
@@ -3184,8 +3184,9 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     };
     const spot = sinkBaseWindowPlacement("diag" as any, room, 36, 24, 34.5, [], [window]);
 
-    expect(spot?.wallId).toBe("diag");
-    expect(spot?.wallOffset).toBeCloseTo(60, 8);
+	    expect(spot?.openingUid).toBe("diagonal-sink-window");
+    expect(spot?.spot.wallId).toBe("diag");
+    expect(spot?.spot.wallOffset).toBeCloseTo(60, 8);
   });
 
   it("STILL flags a range appliance overlapping an ordinary base cabinet", () => {

@@ -283,6 +283,37 @@ describe("window attributes gestures", () => {
     expect(markup).toContain("Wall end / right");
     expect(markup).toContain("left:576px;top:0");
   });
+
+  it("shows a paired green canvas confirmation when a sink base has snapped beneath its window", () => {
+    const opening: WallOpening = {
+      uid: "sink-window", kind: "window", label: "Sink window", side: "top",
+      offset: 54, width: 36, height: 36, sill: 42,
+    };
+    const sinkBase = {
+      ...base,
+      uid: "sb36-window-centered",
+      masterCode: "SB36",
+      description: "Sink Base 36",
+      x: 54,
+      y: 0,
+      width: 36,
+      depth: 24,
+    } as PlacedCabinet;
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [sinkBase], selectedUid: sinkBase.uid, onSelect: () => undefined, onMove: () => undefined,
+        showWallLayer: true, openings: [opening],
+        sinkWindowSnap: { cabinetUid: sinkBase.uid, openingUid: opening.uid, key: 1 },
+      })),
+    );
+
+    expect(markup).toContain('data-sink-window-snap-confirmed="true"');
+    expect(markup).toContain('data-testid="sink-window-snap-cabinet-indicator"');
+    expect(markup).toContain('data-testid="sink-window-snap-window-indicator"');
+    expect(markup).toContain("Centered to window");
+    expect(markup).toContain("Sink aligned");
+  });
 });
 
 describe("plan placement assistance wiring", () => {

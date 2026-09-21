@@ -737,6 +737,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Doors & windows: adjustable wall openings.
   const [openings, setOpenings] = useState<WallOpening[]>([]);
   const [selectedOpeningUid, setSelectedOpeningUid] = useState<string | null>(null);
+	  // Brief plan-view confirmation shown only after a new sink base is seated
+	  // exactly beneath a window. It is deliberately transient and never saved in
+	  // the design JSON.
+	  const [sinkWindowSnap, setSinkWindowSnap] = useState<{ cabinetUid: string; openingUid: string; key: number } | null>(null);
+	  const sinkWindowSnapTimeoutRef = useRef<number | null>(null);
+	  const showSinkWindowSnap = useCallback((cabinetUid: string, openingUid: string) => {
+	    if (sinkWindowSnapTimeoutRef.current != null) window.clearTimeout(sinkWindowSnapTimeoutRef.current);
+	    setSinkWindowSnap({ cabinetUid, openingUid, key: Date.now() });
+	    sinkWindowSnapTimeoutRef.current = window.setTimeout(() => {
+	      setSinkWindowSnap(null);
+	      sinkWindowSnapTimeoutRef.current = null;
+	    }, 2400);
+	  }, []);
+	  useEffect(() => () => {
+	    if (sinkWindowSnapTimeoutRef.current != null) window.clearTimeout(sinkWindowSnapTimeoutRef.current);
+	  }, []);
   // Reconcile saved short over-sink cabinets whenever their wall, window, or
   // sink base changes. This removes a stale elevated mount after a window is
   // deleted while preserving the minimum valid clearance when a window remains.
@@ -4044,9 +4060,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         && !targetCabinetUid
         && x == null
 	        && y == null;
-	      const sinkWindowSpot = wantsWindowCenteredSinkBase
+	      const sinkWindowPlacement = wantsWindowCenteredSinkBase
 	        ? sinkBaseWindowPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
+	      const sinkWindowSpot = sinkWindowPlacement?.spot ?? null;
 	      const hasActiveWallWindow = wantsWindowCenteredSinkBase
 	        && openings.some((opening) => opening.kind === "window" && opening.side === activeWall);
 	      if (hasActiveWallWindow && !sinkWindowSpot) {
@@ -4717,6 +4734,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      setFailedWallFit(null);
 	      justPlacedRef.current = true;
 	      setSelectedUid(finalCab.uid);
+	      if (sinkWindowPlacement) {
+	        showSinkWindowSnap(finalCab.uid, sinkWindowPlacement.openingUid);
+	        const opening = openings.find((item) => item.uid === sinkWindowPlacement.openingUid);
+	        toast.success(`${finalCab.masterCode} centered beneath ${opening?.label ?? "the window"}.`);
+	      }
 	      const cornerPlacement = requestedIslandFace ? null : cabinetCornerPlacementInfo(finalCab, room);
 	      if (cornerPlacement) {
 	        toast.success(
@@ -12340,6 +12362,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               openings={openings}
               selectedOpeningUid={selectedOpeningUid}
               openingMeasurementReference={windowPositionReferenceFocus}
+	              sinkWindowSnap={sinkWindowSnap}
               onSelectOpening={selectOpening}
               onOpenWindowAttributes={openWindowAttributes}
               onOpeningChange={changeOpening}
@@ -12566,10 +12589,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   activeIslandFace={islandFace}
                   onSelectIslandFace={(face) => { setIslandFace(face); setIslandPlacementMode(true); setIsland((current) => current ? { ...current, activeFace: face } : current); }}
                   onOpenIslandAttributes={() => setIslandAttributesOpen(true)}
-                  openings={openings}
-                  selectedOpeningUid={selectedOpeningUid}
-                  openingMeasurementReference={windowPositionReferenceFocus}
-                  onSelectOpening={selectOpening}
+	                  openings={openings}
+	                  selectedOpeningUid={selectedOpeningUid}
+	                  openingMeasurementReference={windowPositionReferenceFocus}
+	                  sinkWindowSnap={sinkWindowSnap}
+	                  onSelectOpening={selectOpening}
                   onOpenWindowAttributes={openWindowAttributes}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}

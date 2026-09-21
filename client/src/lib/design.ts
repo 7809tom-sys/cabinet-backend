@@ -3171,7 +3171,10 @@ export function sinkBaseWindowPlacement(
   height: number,
   placed: PlacedCabinet[] = [],
   openings: WallOpening[] = [],
-): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number } | null {
+): {
+  openingUid: string;
+  spot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
+} | null {
   if (width <= 0 || depth <= 0) return null;
   const runLength = wallLength(side, room);
   if (runLength + COLLISION_EPSILON_IN < width) return null;
@@ -3197,7 +3200,9 @@ export function sinkBaseWindowPlacement(
       wallId: spot.wallId,
       wallOffset: spot.wallOffset,
     };
-    if (!cabinetPlacementCollisionDetail(candidate, placed, room)) return spot;
+    if (!cabinetPlacementCollisionDetail(candidate, placed, room)) {
+      return { openingUid: window.uid, spot };
+    }
   }
   return null;
 }

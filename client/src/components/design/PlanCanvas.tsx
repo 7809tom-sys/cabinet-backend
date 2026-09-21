@@ -271,6 +271,8 @@ interface Props {
   selectedOpeningUid?: string | null;
   /** Exact wall endpoint highlighted while a Window Attributes distance field is focused. */
   openingMeasurementReference?: { openingUid: string; reference: "start" | "end" } | null;
+	  /** Brief confirmation that a just-added sink base is centered beneath this window. */
+	  sinkWindowSnap?: { cabinetUid: string; openingUid: string; key: number } | null;
   onSelectOpening?: (uid: string | null) => void;
   /** Opens the exact Width / Height / Sill / Position window editor. */
   onOpenWindowAttributes?: (uid: string) => void;
@@ -386,7 +388,7 @@ export function PlanCanvas({
   showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
-  openings = [], selectedOpeningUid = null, openingMeasurementReference = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
+  openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
@@ -1868,6 +1870,7 @@ export function PlanCanvas({
           const customFrame = planOpeningWallFrame(o, room);
           const horizontal = o.side === "top" || o.side === "bottom";
           const isSel = o.uid === selectedOpeningUid;
+	          const isSinkWindowSnapTarget = sinkWindowSnap?.openingUid === o.uid;
           const isDoor = o.kind === "door";
           const isOpening = o.kind === "opening";
           // Wall band thickness in px (how far the opening graphic extends into the room).
@@ -1916,19 +1919,26 @@ export function PlanCanvas({
               tabIndex={0}
               data-testid={o.kind === "window" ? "plan-window-attributes-target" : "plan-opening-attributes-target"}
               aria-label={`${o.label}. Right-click, double-click, or press Enter to edit.`}
-              className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""}`}
+	              className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""} ${isSinkWindowSnapTarget ? "motion-safe:animate-pulse" : ""}`}
               style={{
                 ...style,
                 background: isDoor ? "#9b6a3c" : isOpening ? "#e8eaed" : "#7fb4d6",
                 border: isSel
                   ? "2px solid #1a2744"
+	                  : isSinkWindowSnapTarget
+	                  ? "2px solid #059669"
                   : isOpening
                   ? "1px dashed rgba(90,103,112,0.85)"
                   : "1px solid rgba(0,0,0,0.35)",
-                boxShadow: isSel ? "0 0 0 3px rgba(212,167,90,0.5)" : undefined,
+                boxShadow: isSel
+	                  ? "0 0 0 3px rgba(212,167,90,0.5)"
+	                  : isSinkWindowSnapTarget
+	                  ? "0 0 0 4px rgba(16,185,129,0.38), 0 0 18px rgba(16,185,129,0.65)"
+	                  : undefined,
                 borderRadius: 2,
               }}
               title={`${t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })} · Right-click or double-click to edit`}
+	              data-sink-window-snap-confirmed={isSinkWindowSnapTarget ? "true" : undefined}
             >
               <span
                 className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
@@ -1936,6 +1946,11 @@ export function PlanCanvas({
               >
                 {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
               </span>
+	              {isSinkWindowSnapTarget && (
+	                <span data-testid="sink-window-snap-window-indicator" className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+5px)] whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow">
+	                  Sink aligned
+	                </span>
+	              )}
               {/* width-resize handle at the far end */}
               {onOpeningChange && (
                 <div
@@ -1999,6 +2014,7 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isAttributesTarget = p.uid === attributesTargetUid;
+	            const isWindowCenteredSink = sinkWindowSnap?.cabinetUid === p.uid;
             const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
             const isAppliance = p.placement === "appliance";
             const cabFinish = finishFor ? finishFor(p) : finish;
@@ -2048,7 +2064,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-                } ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+	                } ${isWindowCenteredSink ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: bodyLeft * ppi,
                   top: bodyTop * ppi,
@@ -2061,6 +2077,8 @@ export function PlanCanvas({
                     ? "2.5px solid #dc2626"
                     : isAttributesTarget
                     ? "3px solid #a87f33"
+	                  : isWindowCenteredSink
+	                  ? "3px solid #059669"
                     : isSeatedProtectedCorner
                     ? "2.5px solid #16a34a"
                     : isSelected
@@ -2074,6 +2092,8 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
                     : isAttributesTarget
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
+	                  : isWindowCenteredSink
+	                  ? "0 0 0 5px rgba(16,185,129,0.42), 0 0 22px rgba(16,185,129,0.7), inset 0 0 0 1px rgba(255,255,255,0.92)"
                     : isSeatedProtectedCorner
                     ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
@@ -2089,8 +2109,14 @@ export function PlanCanvas({
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
                 data-corner-snap-confirmed={isSeatedProtectedCorner ? "true" : undefined}
+	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
               >
                 <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+	                  {isWindowCenteredSink && (
+	                    <span data-testid="sink-window-snap-cabinet-indicator" className="pointer-events-none absolute left-1/2 bottom-0 z-30 -translate-x-1/2 translate-y-[calc(100%+5px)] whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow">
+	                      Centered to window
+	                    </span>
+	                  )}
                   {cornerStatus && (
                     <span
                       data-testid="corner-placement-indicator"

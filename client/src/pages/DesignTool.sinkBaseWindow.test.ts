@@ -21,4 +21,12 @@ describe("Design Tool sink-base window placement", () => {
     expect(source).toContain("fixtureBelongsToCabinet(sink, finalCab)");
     expect(source).toContain("...prevSinks.filter((existingSink) => !fixtureBelongsToCabinet(existingSink, cab))");
   });
+
+  it("emits a short-lived canvas confirmation after the sink base is centered under its matched window", () => {
+    expect(source).toContain("const [sinkWindowSnap, setSinkWindowSnap] = useState");
+    expect(source).toContain("const showSinkWindowSnap = useCallback");
+    expect(source).toContain("}, 2400);");
+    expect(source).toContain("showSinkWindowSnap(finalCab.uid, sinkWindowPlacement.openingUid);");
+    expect(source).toContain("sinkWindowSnap={sinkWindowSnap}");
+  });
 });
