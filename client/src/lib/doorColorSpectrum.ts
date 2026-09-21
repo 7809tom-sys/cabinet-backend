@@ -8,27 +8,32 @@ export type DoorColorSpectrumStyle = DoorStyleLike & {
   featuredRank?: number | null;
 };
 
+/** Gamma-correct relative luminance, matching perceived light-to-dark order. */
 function hexLuminance(hex: string): number {
   const normalized = hex.replace("#", "");
   const value = Number.parseInt(normalized.length === 3
     ? normalized.split("").map((part) => `${part}${part}`).join("")
     : normalized, 16);
   if (!Number.isFinite(value)) return 0;
-  const red = (value >> 16) & 255;
-  const green = (value >> 8) & 255;
-  const blue = value & 255;
-  return (0.299 * red + 0.587 * green + 0.114 * blue) / 255;
+  const linear = (channel: number) => {
+    const srgb = channel / 255;
+    return srgb <= 0.04045 ? srgb / 12.92 : ((srgb + 0.055) / 1.055) ** 2.4;
+  };
+  const red = linear((value >> 16) & 255);
+  const green = linear((value >> 8) & 255);
+  const blue = linear(value & 255);
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 }
 
 /**
- * Orders the actual door samples from lightest to darkest. Featured rank only
- * breaks ties, so the admin can still order nearly identical white, gray, or
- * black finishes without defeating the customer-facing white-to-black flow.
+ * Orders actual door samples by their resolved color brightness, white through
+ * dark. Rank/name may break only an exact luminance tie—never a visible
+ * brightness difference—so a light door cannot move later in the color line.
  */
 export function orderDoorStylesByColor<T extends DoorColorSpectrumStyle>(styles: readonly T[]): T[] {
   return [...styles].sort((left, right) => {
     const lightnessDifference = hexLuminance(resolveSwatch(right).face) - hexLuminance(resolveSwatch(left).face);
-    if (Math.abs(lightnessDifference) > 0.02) return lightnessDifference;
+    if (Math.abs(lightnessDifference) > Number.EPSILON) return lightnessDifference;
     const rankDifference = Number(left.featuredRank ?? 0) - Number(right.featuredRank ?? 0);
     if (rankDifference !== 0) return rankDifference;
     return (left.ourName ?? left.aliasName ?? left.styleCode ?? "").localeCompare(

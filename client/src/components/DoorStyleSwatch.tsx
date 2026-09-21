@@ -45,13 +45,16 @@ export interface Swatch {
 
 const COLOR_BY_KEYWORD: { match: RegExp; hex: string; wood?: boolean }[] = [
   { match: /snowbound|extra white|pure white|high reflective|marshmallow|alabaster|greek villa/, hex: "#f4f2ec" },
+  { match: /cashmere/, hex: "#e3dacd" },
   { match: /creamy|antique white|natural choice|shoji|ivory|biscuit|almond|manila/, hex: "#ece2cf" },
   { match: /repose gray|agreeable gray|accessible beige|mindful gray|greige|mushroom/, hex: "#cabfae" },
   { match: /mineral|dorian gray|gauntlet|dovetail|pewter|repose|fog/, hex: "#a7a39a" },
   { match: /grizzle|peppercorn|iron ore|urbane bronze|graphite|charcoal|slate|gris/, hex: "#5b5b58" },
-  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir|velvet black/, hex: "#2a2a2c" },
+  { match: /tricorn black|black magic|caviar|onyx|carbon|tricorn|cracked pepper|noir|velvet black|iron black|obsidian|midnight|\bblack\b/, hex: "#2a2a2c" },
   { match: /naval|indigo|sea serpent|navy|cobalt|blue/, hex: "#36465c" },
-  { match: /evergreen|pewter green|rosemary|sage|forest|hunter|green/, hex: "#56685b" },
+  { match: /evergreen|pewter green|rosemary|sage|forest|hunter|green|ivy/, hex: "#56685b" },
+  { match: /harbor/, hex: "#9aa0a6" },
+  { match: /unfinished/, hex: "#d8bb84", wood: true },
   { match: /hickory|rustic/, hex: "#a07850", wood: true },
   { match: /cherry|mahogany|chestnut|cinnamon|brick|spice/, hex: "#7a4a32", wood: true },
   { match: /walnut|mocha|coffee|java|espresso|chocolate|brown|umbra|shadow/, hex: "#6b4a32", wood: true },
@@ -65,6 +68,25 @@ const COLOR_BY_KEYWORD: { match: RegExp; hex: string; wood?: boolean }[] = [
 ];
 
 const DEFAULT_HEX = "#c79a63"; // warm wood fallback
+
+/**
+ * Supplier/admin hex values are the actual finish data and must take precedence
+ * over word matching. Normalizing 3-digit values here keeps the visual swatch
+ * and the light-to-dark color rail on one source of truth.
+ */
+function exactStyleHex(...values: Array<string | null | undefined>): string | null {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (!trimmed) continue;
+    const match = trimmed.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (!match) continue;
+    const raw = match[1].toLowerCase();
+    return raw.length === 3
+      ? `#${raw.split("").map((part) => `${part}${part}`).join("")}`
+      : `#${raw}`;
+  }
+  return null;
+}
 
 function hexToRgb(hex: string): [number, number, number] {
   const m = hex.replace("#", "");
@@ -87,7 +109,8 @@ function luminance(hex: string): number {
 
 export function resolveSwatch(style: DoorStyleLike): Swatch {
   const haystack = `${style.color ?? ""} ${style.swColor ?? ""} ${style.ourName ?? ""} ${style.aliasName ?? ""} ${style.name ?? ""} ${style.finish ?? ""} ${style.woodSpecies ?? ""}`.toLowerCase();
-  let face = DEFAULT_HEX;
+  const suppliedHex = exactStyleHex(style.color, style.swColor);
+  let face = suppliedHex ?? DEFAULT_HEX;
   let isWood = false;
   let isGlass = false;
 
@@ -96,6 +119,10 @@ export function resolveSwatch(style: DoorStyleLike): Swatch {
     face = "#b8d4e8";
   } else {
     for (const c of COLOR_BY_KEYWORD) {
+      if (c.wood && c.match.test(haystack)) isWood = true;
+      // A verified hex is more specific than every text alias. Still scan the
+      // words above for wood-grain treatment, but never replace its color.
+      if (suppliedHex) continue;
       if (c.match.test(haystack)) {
         face = c.hex;
         isWood = c.wood ?? false;

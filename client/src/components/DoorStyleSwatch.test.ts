@@ -19,6 +19,17 @@ describe("resolveSwatch color resolution", () => {
     expect(sw.face.toLowerCase()).toBe("#36465c");
   });
 
+  it("uses an exact stored finish hex before name-based fallback matching", () => {
+    const sw = resolveSwatch({ ourName: "Oxford Mist", color: "#B8C8D0", finish: "Oxford Mist (OM)" });
+    expect(sw.face.toLowerCase()).toBe("#b8c8d0");
+  });
+
+  it("keeps named Cashmere, Harbor, and black finishes out of the generic wood fallback", () => {
+    expect(resolveSwatch({ ourName: "Oxford Cashmere", color: "Cashmere" }).face.toLowerCase()).toBe("#e3dacd");
+    expect(resolveSwatch({ ourName: "Haven Harbor", color: "Harbor" }).face.toLowerCase()).toBe("#9aa0a6");
+    expect(resolveSwatch({ ourName: "Iron Black", color: "Black" }).face.toLowerCase()).toBe("#2a2a2c");
+  });
+
   it("falls back to warm wood when no color keyword matches", () => {
     const sw = resolveSwatch({ color: "Unknown Mystery Tone", doorStyle: "Shaker" });
     expect(sw.face.toLowerCase()).toBe("#c79a63");

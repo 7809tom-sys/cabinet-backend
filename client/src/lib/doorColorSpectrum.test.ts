@@ -24,6 +24,18 @@ describe("door color spectrum", () => {
     ]);
   });
 
+  it("does not let an editorial rank move a visibly lighter door after a darker one", () => {
+    const nearWhiteStyles = [
+      { id: 1, styleCode: "WARM_WHITE", ourName: "Warm White", color: "#f4f4f4", featuredRank: 1 },
+      { id: 2, styleCode: "BRIGHT_WHITE", ourName: "Bright White", color: "#fafafa", featuredRank: 99 },
+    ] as const;
+
+    expect(orderDoorStylesByColor(nearWhiteStyles).map((style) => style.styleCode)).toEqual([
+      "BRIGHT_WHITE",
+      "WARM_WHITE",
+    ]);
+  });
+
   it("keeps six cabinet color lines in each customer-facing page", () => {
     const manyStyles = Array.from({ length: 13 }, (_, index) => ({
       id: index + 1,
