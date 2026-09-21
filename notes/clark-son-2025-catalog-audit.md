@@ -212,3 +212,17 @@ The ADA Easy Reach and ADA Lazy Susan source crops have been visually confirmed 
 ### Applied remaining ADA sink and corner corrections
 
 The U.S. Cabinet Depot V8 catalog-only technical crops now serve as both primary and Spec Drawing images for `SB30SADA`, `SB36ADA`, `BER36ADA`, and `LSB36ADA`. Both sink bases are 32½ × 24 with two doors and one slab false drawer front; `BER36ADA` is a two-door 36 × 32½ × 24 Easy Reach corner with a 15½-inch opening; `LSB36ADA` is the distinct two-door Lazy Susan version with two trays and the same 15½-inch opening. Each is source-verified. The catalog detail presentation now shows blind-corner pull guidance only for true blind-corner families, so Easy Reach and Lazy Susan openings no longer receive false blind-corner guidance. Pattern-based admin spec refreshes now permanently exclude all exact catalog-source artwork masters, even on an explicit force refresh.
+
+### Standard ADA base source panels
+
+U.S. Cabinet Depot V8 pages 31–33 provide the authoritative technical source panels for the remaining standard ADA bases. Page 31 groups `B12ADA`, `B15ADA`, and `B18ADA` as 32½ × 24 single-door/single-drawer bases; page 32 groups `B24ADA` and `B30SADA` as 32½ × 24 two-door/single-drawer bases; page 33 defines `B36ADA` as a 32½ × 24 two-door/two-drawer base. Their shared manufacturer drawings are legitimate universal structural artwork for the named family and do not change distributor-specific price, color, or availability overlays.
+
+The first standard-ADA crop pass confirms the correct V8 drawings but is not yet approved: the single-door crop retains the adjacent model table and a page rule, while the double-door crop retains a table edge and page rule. The final crop will keep only the documented cabinet drawing and red dimensional callouts.
+
+The cleaned single-door and double-door/single-drawer source crops are approved except for a residual page rule below the single-door drawing. The double-door/double-drawer crop needs one final trim to remove its source section header and table edge. No replacement will use generic or generated art.
+
+The final standard ADA technical drawings were visually verified clean: the single-door drawing identifies its universal 12/15/18 family and includes only the product plus dimension callouts; the 36-inch double-door/two-drawer drawing contains only the matching product and its 36 × 32½ × 24 callouts. The already-clean 24/30 double-door/single-drawer drawing is also approved. These three source-family drawings are suitable to replace the generic or mismatched ADA product art.
+
+### Canonical standard ADA base masters and aliases
+
+The universal structural masters for the standard U.S. Cabinet Depot ADA bases are now `B12ADA`, `B15ADA`, `B18ADA`, `B24ADA`, `B30SADA`, and `B36ADA`. The source keeps the cabinet identity uniform across cabinet lines while each distributor/door-style overlay retains its own availability, color, price, and SKU. The conventional prefix forms `ADA-B12`, `ADA-B15`, `ADA-B18`, `ADA-B24`, and `ADA-B36`, their space variants, and suffix-with-separator forms resolve to the appropriate master; no reverse alias may shadow the actual canonical master. The V8 source art is applied by face family: single-door/single-drawer for 12/15/18-inch bases; double-door/single-drawer for 24/30/36-inch bases; and the two-drawer source drawing only where the source model is explicitly double-drawer. This correction replaces the inaccurate generic placeholder art visible in the prior ADA administrative catalog.

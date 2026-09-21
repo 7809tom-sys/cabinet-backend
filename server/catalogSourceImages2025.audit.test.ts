@@ -9,8 +9,9 @@ const CLARK_SON_ROLLOUT_ART = "/manus-storage/clark-son-universal-rollout-tray_7
 const CLARK_SON_BBC_ART = "/manus-storage/clark-son-bbc36-blind-corner-base_fdab8445.jpg";
 const CAPITAL_BEC_ART = "/manus-storage/capital-bec24-base-end-cabinet_eb87e26b.jpg";
 const BSD6_SOURCE_ART = "/manus-storage/bsd6-five-drawer-spice-base-dimensioned-sheet_7a806280.png";
-const CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-single-drawer-base_e247ad6a.jpg";
-const CAPITAL_ADA_DOUBLE_DOOR_DOUBLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-double-drawer-base_40851c7e.jpg";
+const CAPITAL_ADA_SINGLE_DOOR_SINGLE_DRAWER_ART = "/manus-storage/capital-ada-single-door-single-drawer-base_68dcf179.jpg";
+const CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-single-drawer-base_923182d5.jpg";
+const CAPITAL_ADA_DOUBLE_DOOR_DOUBLE_DRAWER_ART = "/manus-storage/capital-ada-double-door-double-drawer-base_fcd5cf87.jpg";
 const CAPITAL_ADA_SINGLE_DOOR_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-single-door-single-drawer-1rs-base_10573f98.jpg";
 const CAPITAL_ADA_SINGLE_DOOR_TWO_ROLLOUT_ART = "/manus-storage/capital-ada-single-door-single-drawer-2rs-base_fa6fcdbe.jpg";
 const CAPITAL_ADA_DOUBLE_DOOR_ONE_ROLLOUT_ART = "/manus-storage/capital-ada-double-door-single-drawer-1rs-base_e41cb4b0.jpg";
@@ -225,7 +226,7 @@ describe("catalog-source generic image audit", () => {
     if (!db) return;
 
     const codes = [
-      "B18ADA1RS", "B18ADA2RS", "B24ADA", "B24ADA1RS", "B24ADA2RS",
+      "B12ADA", "B15ADA", "B18ADA", "B18ADA1RS", "B18ADA2RS", "B24ADA", "B24ADA1RS", "B24ADA2RS",
       "B30SADA", "B30SADA1RS", "B30SADA2RS", "B36ADA", "B36ADA1RS", "B36ADA2RS",
     ];
     const records = await db
@@ -253,6 +254,9 @@ describe("catalog-source generic image audit", () => {
     const byCode = new Map(records.map((record) => [record.masterCode, record]));
 
     const sourceTruth = [
+      ["B12ADA", 12, 1, 1, CAPITAL_ADA_SINGLE_DOOR_SINGLE_DRAWER_ART, "12 in. ADA Base Cabinet — 1 Door, 1 Drawer"],
+      ["B15ADA", 15, 1, 1, CAPITAL_ADA_SINGLE_DOOR_SINGLE_DRAWER_ART, "15 in. ADA Base Cabinet — 1 Door, 1 Drawer"],
+      ["B18ADA", 18, 1, 1, CAPITAL_ADA_SINGLE_DOOR_SINGLE_DRAWER_ART, "18 in. ADA Base Cabinet — 1 Door, 1 Drawer"],
       ["B24ADA", 24, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART, "24 in. ADA Base Cabinet — 2 Doors, 1 Drawer"],
       ["B30SADA", 30, 2, 1, CAPITAL_ADA_DOUBLE_DOOR_SINGLE_DRAWER_ART, "30 in. ADA Base Cabinet — 2 Doors, 1 Drawer"],
       ["B36ADA", 36, 2, 2, CAPITAL_ADA_DOUBLE_DOOR_DOUBLE_DRAWER_ART, "36 in. ADA Base Cabinet — 2 Doors, 2 Drawers"],
@@ -288,6 +292,16 @@ describe("catalog-source generic image audit", () => {
 
     expect(byCode.get("B24ADA1RS")?.specNotes).toContain("1 floor-mounted roll-out shelf");
     expect(byCode.get("B24ADA2RS")?.specNotes).toContain("2 floor-mounted roll-out shelves");
+
+    const aliases = await db
+      .select({ masterCode: skuMasterAliases.masterCode, alias: skuMasterAliases.aliasCode })
+      .from(skuMasterAliases)
+      .where(inArray(skuMasterAliases.aliasCode, ["ADA-B12", "ADA-B15", "ADA-B18", "ADA-B24", "ADA-B36"]));
+    expect(aliases).toHaveLength(5);
+    const expectedAliases = new Map([
+      ["ADA-B12", "B12ADA"], ["ADA-B15", "B15ADA"], ["ADA-B18", "B18ADA"], ["ADA-B24", "B24ADA"], ["ADA-B36", "B36ADA"],
+    ]);
+    for (const alias of aliases) expect(alias.masterCode).toBe(expectedAliases.get(alias.alias));
   });
 
   it("keeps U.S. Cabinet Depot ADA sink and corner bases code-true and distinct", async () => {

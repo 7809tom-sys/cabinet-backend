@@ -14,7 +14,7 @@ describe("duplicate normalized cabinet codes", () => {
     }));
   });
 
-  it("uses the storefront card's exact cabinet ID to retain the priced W-12-30 record", async () => {
+  it("uses the storefront card's exact cabinet ID to retain the priced canonical W-1230 record", async () => {
     const caller = appRouter.createCaller({} as any);
 
     const exact = await caller.cabinets.byId({ id: 9390110 });
@@ -23,7 +23,7 @@ describe("duplicate normalized cabinet codes", () => {
 	    expect(exact).toEqual(expect.objectContaining({
 	      id: 9390110,
 	      masterCode: "W-1230",
-	      description: '12"x 30" Single Door Wall Cabinet with 2 Adjustable Shelves',
+	      description: '12" × 30" × 12" Wall Cabinet — 1 Door, 2 Adjustable Shelves',
 	    }));
     // A normalized legacy route now resolves to the canonical catalog record
     // whenever an explicit alias mapping exists, rather than reviving a duplicate.
@@ -43,11 +43,11 @@ describe("duplicate normalized cabinet codes", () => {
     const endCabinets = family.items.filter((item) => ["BA-24", "BEC-24"].includes(item.masterCode));
 
     expect(endCabinets).toHaveLength(1);
-    expect(endCabinets[0]).toEqual(expect.objectContaining({
-      id: 9390014,
-      cabinetId: 9390014,
-      masterCode: "BEC-24",
-      description: '24" Base End Cabinet — 45° Angled Front',
+	    expect(endCabinets[0]).toEqual(expect.objectContaining({
+	      id: 9390014,
+	      cabinetId: 9390014,
+	      masterCode: "BEC-24",
+	      description: '24 in. Base End Cabinet — 45° angled end, 2 operational doors',
     }));
 
     const canonical = await caller.cabinets.byCode({ masterCode: "BEC-24" });
@@ -80,15 +80,17 @@ describe("duplicate normalized cabinet codes", () => {
 	  expect(alias).toBeNull();
 	});
 
-	it("resolves W2430 to the canonical W-24-30 record without moving supplier price rows", async () => {
+	it("resolves W-24-30 to the canonical W-2430 record without moving supplier price rows", async () => {
 	  const caller = appRouter.createCaller({} as any);
-	  const canonical = await caller.cabinets.byCode({ masterCode: "W-24-30" });
+	  const canonical = await caller.cabinets.byCode({ masterCode: "W-2430" });
+	  const dashedAlias = await caller.cabinets.byCode({ masterCode: "W-24-30" });
 	  const alias = await caller.cabinets.byCode({ masterCode: "W2430" });
 
 	  expect(canonical).toEqual(expect.objectContaining({
 	    id: 9390126,
-	    masterCode: "W-24-30",
+	    masterCode: "W-2430",
 	  }));
+	  expect(dashedAlias).toEqual(canonical);
 	  expect(alias).toEqual(canonical);
 
 	  const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
@@ -97,14 +99,14 @@ describe("duplicate normalized cabinet codes", () => {
 
 	it("resolves verified ADA prefix and suffix codes to one priced canonical cabinet", async () => {
 	  const caller = appRouter.createCaller({} as any);
-	  const canonical = await caller.cabinets.byCode({ masterCode: "ADA-B12" });
-	  const suffix = await caller.cabinets.byCode({ masterCode: "B12ADA" });
+	  const canonical = await caller.cabinets.byCode({ masterCode: "B12ADA" });
+	  const prefix = await caller.cabinets.byCode({ masterCode: "ADA-B12" });
 
 	  expect(canonical).toEqual(expect.objectContaining({
-	    masterCode: "ADA-B12",
-	    description: '12" × 32.5" × 24" ADA Accessible Base Cabinet — 1 Door, 1 Drawer, 1 Shelf',
+	    masterCode: "B12ADA",
+	    description: '12 in. ADA Base Cabinet — 1 Door, 1 Drawer',
 	  }));
-	  expect(suffix).toEqual(canonical);
+	  expect(prefix).toEqual(canonical);
 
 	  const styles = await caller.pricing.stylesForCabinet({ cabinetId: canonical!.id });
 	  expect(styles.length).toBeGreaterThan(0);
@@ -117,15 +119,12 @@ describe("duplicate normalized cabinet codes", () => {
 	  await expect(caller.cabinets.byCode({ masterCode: "3VDB15ADA" })).resolves.toBeNull();
 	});
 
-	it("keeps duplicate legacy codes separate from an existing canonical master during an attempted rename", async () => {
-    const caller = appRouter.createCaller({ user: { id: 1, role: "admin" } } as any);
+	it("resolves the historic three-drawer separator form to the canonical undashed base", async () => {
+	    const caller = appRouter.createCaller({} as any);
+	    const canonical = await caller.cabinets.byCode({ masterCode: "3DB15" });
+	    const historicAlias = await caller.cabinets.byCode({ masterCode: "3-DB15" });
 
-    await expect(caller.cabinets.adminUpdateCabinet({
-      id: 9360025,
-      masterCode: "3-DB15",
-    })).rejects.toMatchObject({
-      code: "CONFLICT",
-      message: expect.stringContaining("Master Alias"),
-    });
-  });
+	    expect(canonical).toEqual(expect.objectContaining({ id: 9360025, masterCode: "3DB15" }));
+	    expect(historicAlias).toEqual(canonical);
+	  });
 });

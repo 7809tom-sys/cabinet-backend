@@ -3451,8 +3451,9 @@ export const cabinetsRouter = router({
         "B18FHTCPO", "BBC-36", "BEC-24", "BSD6",
         "WDC2430", "WDC2436", "WDC2442",
         "UNIV-ROT24", "UNIV-ROT27", "UNIV-ROT30", "UNIV-ROT36",
-        "B18ADA1RS", "B18ADA2RS", "B24ADA", "B24ADA1RS", "B24ADA2RS",
-        "B30SADA", "B30SADA1RS", "B30SADA2RS", "B36ADA", "B36ADA1RS", "B36ADA2RS",
+        "B12ADA", "B15ADA", "B18ADA", "B18ADA1RS", "B18ADA2RS",
+        "B24ADA", "B24ADA1RS", "B24ADA2RS", "B30SADA", "B30SADA1RS", "B30SADA2RS",
+        "B36ADA", "B36ADA1RS", "B36ADA2RS",
         "SB30SADA", "SB36ADA", "BER36ADA", "LSB36ADA",
       ];
       const protectedCatalogSourceFilter = `masterCode NOT IN (${protectedCatalogSourceCodes.map((code) => `'${code}'`).join(", ")})`;
