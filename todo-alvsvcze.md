@@ -1612,7 +1612,7 @@
 - [x] Repair the newly reported SB36 placement block while preserving true collision, wall-opening, and appliance-clearance rules
 - [x] Restore compact access to the active-wall selector and plan/elevation/3D views without bringing back horizontal toolbar overflow
 - [x] Remove the unnecessary Split option from the Compact Workspace view selector while retaining Plan, Elevation, 3D, and Island Elevation
-- [ ] Diagnose and repair the live production Designer mismatch and SB36 placement failure while retaining real wall-opening and collision safeguards
+- [x] Diagnose and repair the live production Designer mismatch and SB36 placement failure while retaining real wall-opening and collision safeguards
 - [x] Diagnose and repair the Google/Gemini Photo Quality test path while retaining saved-plan, verified-phone, CRM, and secret-handling safeguards
 - [x] Add an administrator-only Google/Gemini image-generation test for the current locked saved plan without exposing credentials or changing the customer phone/CRM workflow
 - [x] Correct the administrator-only Google/Gemini test parser to accept the official nested Interactions API image output shape
@@ -2172,7 +2172,7 @@
 - [x] Add a repository-level Railway configuration with `deploy.healthcheckPath: "/health"` and a 300-second timeout, and pass the same `/health` path through WebDev project metadata.
 - [x] Validate `railway.json` against Railway's official JSON schema and add an automated configuration regression.
 - [x] Pass the new test, TypeScript, production build, and diff integrity checks.
-- [ ] Save the new deployment-repair checkpoint, republish, and verify `www.cabinetdealz.com/health` plus the production `/design` build.
+- [x] Save the new deployment-repair checkpoint, republish, and verify `www.cabinetdealz.com/health` plus the production `/design` build.
 
 ## Continuous Wall Builder interaction polish — 2026-09-18
 
