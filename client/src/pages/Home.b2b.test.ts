@@ -23,21 +23,21 @@ describe("B2B homepage hierarchy", () => {
     expect(homeSource).toContain('font-serif text-4xl md:text-5xl lg:text-6xl font-bold');
   });
 
-  it("labels featured styles only with the verified active-catalog state and presents affiliate benefits in a responsive grid", () => {
-    expect(homeSource).toContain('Active catalog');
-    expect(homeSource).toContain('CircleCheck');
+  it("presents the featured finish chooser as a customer-facing color line and keeps affiliate benefits in a responsive grid", () => {
+    expect(homeSource).toContain('Choose Your Cabinet Color');
+    expect(homeSource).toContain('DoorStyleSwatch');
+    expect(homeSource).toContain('doorColorSpectrumGradient(orderedStyles)');
     expect(homeSource).toContain('grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3');
     expect(homeSource).not.toContain('In Stock');
     expect(homeSource).not.toContain('Ships in');
   });
 
-  it("uses up to six verified room scenes per Door Style and stabilizes a signed-in visitor’s matching selection for the active session", () => {
-    expect(homeSource).toContain('const MAX_FEATURED_STYLES = 6');
-    expect(homeSource).toContain('if (!s.roomScenes?.length) return false;');
-    expect(homeSource).toContain('cabinetdealz:featured-room-scene:');
-    expect(homeSource).toContain('sessionStorage.setItem');
-    expect(homeSource).toContain('sessionSceneIds[style.id]');
-    expect(homeSource).toContain('rest.slice(0, MAX_FEATURED_STYLES - 1)');
+  it("orders actual door samples from light to deep and pages the front page in sets of six", () => {
+    expect(homeSource).toContain('orderDoorStylesByColor(featured as FeaturedDoorStyle[])');
+    expect(homeSource).toContain('DOOR_COLOR_SPECTRUM_PAGE_SIZE');
+    expect(homeSource).toContain('Show next six cabinet color lines');
+    expect(homeSource).toContain('six cabinet lines at a time');
+    expect(homeSource).not.toContain('cabinetdealz:featured-room-scene:');
   });
 
   it("keeps public featured room scenes free of distributor identity", () => {

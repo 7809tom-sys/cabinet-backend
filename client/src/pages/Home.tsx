@@ -1,10 +1,19 @@
 import { Link } from "wouter";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronRight, Sparkles, Star, CircleCheck } from "lucide-react";
+import { ArrowRight, Grid3X3, Palette, Ruler, FileSpreadsheet, Users, ChevronLeft, ChevronRight, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
+import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import {
+  DOOR_COLOR_SPECTRUM_PAGE_SIZE,
+  doorColorSpectrumGradient,
+  doorColorSpectrumPage,
+  doorColorSpectrumPageCount,
+  doorStyleColorHex,
+  orderDoorStylesByColor,
+} from "@/lib/doorColorSpectrum";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -178,88 +187,52 @@ function Hero() {
   );
 }
 
-// ─── Featured Door Styles (from DB) ─────────────────────────────────────────
-
-const MAX_FEATURED_STYLES = 6;
+// ─── Featured Door Style Color Line (from DB) ─────────────────────────────────
 
 type FeaturedDoorStyle = {
   id: number;
   styleCode?: string | null;
   ourName?: string | null;
+  aliasName?: string | null;
   featuredLabel?: string | null;
+  featuredRank?: number | null;
   doorStyle?: string | null;
   woodSpecies?: string | null;
-  roomScenes?: Array<{ id: number; imageUrl: string; sortOrder: number }>;
+  color?: string | null;
+  finish?: string | null;
+  thumbnailImageUrl?: string | null;
+  doorSampleImageUrl?: string | null;
   cornerSwatchImageUrl?: string | null;
 };
 
 function FeaturedStyles() {
   const { data: featured, isLoading } = trpc.doorStyles.featured.useQuery();
-  const { user } = useAuth();
-  const [sessionSceneIds, setSessionSceneIds] = useState<Record<number, number>>({});
+  const [page, setPage] = useState(0);
 
-  // Keep only verified, style-matched room scenes. A style never borrows another
-  // supplier's kitchen photo as a fallback, which keeps the scene trustworthy.
-  const featuredRoomScenes = useMemo((): FeaturedDoorStyle[] => {
+  // The front page is a finish chooser, not a random collection of rooms. Each
+  // active featured row gets its own real door sample (or the accurate swatch
+  // fallback) and remains separately selectable even when profiles repeat.
+  const orderedStyles = useMemo((): FeaturedDoorStyle[] => {
     if (!featured) return [];
-    const seen = new Set<string>();
-    return featured.filter((entry) => {
-      const s = entry as FeaturedDoorStyle;
-      if (!s.roomScenes?.length) return false;
-      const code = s.styleCode ?? String(s.id);
-      if (seen.has(code)) return false;
-      seen.add(code);
-      return true;
-    }).slice(0, MAX_FEATURED_STYLES) as FeaturedDoorStyle[];
+    return orderDoorStylesByColor(featured as FeaturedDoorStyle[]);
   }, [featured]);
 
-  // A signed-in visitor receives one randomized primary scene per sign-in
-  // session. The session key includes lastSignedIn, so a later login can select
-  // a fresh scene while navigation and page refreshes keep the same selection.
-  const signedInSceneSessionKey = user
-    ? `cabinetdealz:featured-room-scene:${user.id}:${new Date(user.lastSignedIn).getTime()}`
-    : null;
+  const pageCount = doorColorSpectrumPageCount(orderedStyles);
+  const visibleStyles = doorColorSpectrumPage(orderedStyles, page);
+  const firstStyleNumber = orderedStyles.length === 0 ? 0 : page * DOOR_COLOR_SPECTRUM_PAGE_SIZE + 1;
+  const lastStyleNumber = Math.min(orderedStyles.length, firstStyleNumber + visibleStyles.length - 1);
 
   useEffect(() => {
-    if (!signedInSceneSessionKey || featuredRoomScenes.length === 0) {
-      setSessionSceneIds({});
-      return;
-    }
-
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(signedInSceneSessionKey) ?? "{}") as Record<number, number>;
-      const next = Object.fromEntries(featuredRoomScenes.map((style) => {
-        const scenes = style.roomScenes ?? [];
-        const savedId = saved[style.id];
-        const selectedId = scenes.some((scene) => scene.id === savedId)
-          ? savedId
-          : scenes[Math.floor(Math.random() * scenes.length)]?.id;
-        return [style.id, selectedId];
-      }));
-      sessionStorage.setItem(signedInSceneSessionKey, JSON.stringify(next));
-      setSessionSceneIds(next);
-    } catch {
-      const fallback: Record<number, number> = {};
-      for (const style of featuredRoomScenes) {
-        const scene = style.roomScenes?.[Math.floor(Math.random() * (style.roomScenes?.length ?? 1))];
-        if (scene) fallback[style.id] = scene.id;
-      }
-      setSessionSceneIds(fallback);
-    }
-  }, [featuredRoomScenes, signedInSceneSessionKey]);
-
-  const visibleScenes = useMemo(() => featuredRoomScenes.map((style) => ({
-    ...style,
-    roomSceneImageUrl: (style.roomScenes ?? []).find((scene) => scene.id === sessionSceneIds[style.id])?.imageUrl ?? style.roomScenes?.[0]?.imageUrl,
-  })).filter((style) => Boolean(style.roomSceneImageUrl)), [featuredRoomScenes, sessionSceneIds]);
+    setPage((current) => Math.min(current, Math.max(0, pageCount - 1)));
+  }, [pageCount]);
 
   if (isLoading) {
     return (
       <section className="py-16 md:py-20">
         <div className="container">
-          <div className="grid md:grid-cols-3 gap-6">
-            {[1,2,3].map((i) => (
-              <div key={i} className="h-72 rounded-2xl bg-muted animate-pulse" />
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
+            {[1, 2, 3, 4, 5, 6].map((index) => (
+              <div key={index} className="aspect-[4/5] rounded-xl bg-muted animate-pulse" />
             ))}
           </div>
         </div>
@@ -267,142 +240,114 @@ function FeaturedStyles() {
     );
   }
 
-  if (!visibleScenes.length) return null;
-
-  const [first, ...rest] = visibleScenes;
+  if (!orderedStyles.length) return null;
 
   return (
     <section className="py-10 md:py-20">
       <div className="container">
-          <div className="text-center mb-8 md:mb-12">
-          <div className="inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)] mb-3">
+        <div className="mb-8 text-center md:mb-12">
+          <div className="mb-3 inline-flex items-center gap-2 text-sm font-medium text-[var(--color-wood)]">
             <span className="h-px w-8 bg-[var(--color-wood)]" />
             <EditableText pageKey="home" field="featured_eyebrow" defaultValue="Featured Door Styles">
-              {(v) => <>{v}</>}
+              {(value) => <>{value}</>}
             </EditableText>
             <span className="h-px w-8 bg-[var(--color-wood)]" />
           </div>
-          <h2 className="font-serif text-3xl md:text-4xl font-bold text-foreground mb-3">
-            <EditableText pageKey="home" field="featured_title" defaultValue="Find Your Perfect Kitchen Style">
-              {(v) => <>{v}</>}
+          <h2 className="mb-3 font-serif text-3xl font-bold text-foreground md:text-4xl">
+            <EditableText pageKey="home" field="featured_title" defaultValue="Choose Your Cabinet Color">
+              {(value) => <>{value}</>}
             </EditableText>
           </h2>
-          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-            <EditableText pageKey="home" field="featured_subtitle" defaultValue="Browse our most popular door styles — each available in multiple finishes. Shop the full catalog or jump straight into the 3D Designer." multiline>
-              {(v) => <>{v}</>}
+          <p className="mx-auto max-w-2xl text-lg text-muted-foreground">
+            <EditableText pageKey="home" field="featured_subtitle" defaultValue="Start with a real door sample. Move from bright white through natural tones and colors to deep black, six cabinet lines at a time." multiline>
+              {(value) => <>{value}</>}
             </EditableText>
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4 md:gap-6">
-          {/* Hero style — large card */}
-          <Link
-            href={`/family/${encodeURIComponent(first.styleCode ?? String(first.id))}`}
-            className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 md:row-span-2 mt-2 md:mt-0"
-          >
-            <img
-              src={first.roomSceneImageUrl!}
-              alt={`${first.ourName ?? first.styleCode ?? "Featured style"} kitchen room scene`}
-              className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48 md:h-full"
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-sm md:p-6">
+          <div className="mb-5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            <span>Light</span>
+            <div
+              className="h-2 flex-1 rounded-full ring-1 ring-black/10"
+              style={{ backgroundImage: doorColorSpectrumGradient(orderedStyles) }}
+              aria-label="Door color spectrum from light to dark"
+              role="img"
             />
-            {/* Corner Swatch — shows door profile, grain, and color */}
-            {first.cornerSwatchImageUrl && (
-              <div className="absolute top-3 left-3 md:top-4 md:left-4 z-10">
-                <img
-                  src={first.cornerSwatchImageUrl}
-                  alt={`${first.ourName ?? first.styleCode ?? "Style"} door profile`}
-                  className="w-16 h-16 md:w-20 md:h-20 rounded-lg shadow-lg border-2 border-white/30 object-cover ring-1 ring-black/10"
-                />
-              </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="absolute bottom-0 left-0 right-0 p-3 md:p-6">
-              {first.featuredLabel && (
-                <span className="inline-block text-xs font-bold uppercase tracking-wider text-[var(--color-gold)] bg-[var(--color-gold)]/15 border border-[var(--color-gold)]/30 rounded-full px-3 py-0.5 mb-2">
-                  {first.featuredLabel}
-                </span>
-              )}
-              <h3 className="font-serif text-lg md:text-2xl font-bold text-white mb-0.5 md:mb-1">
-                {first.ourName ?? first.styleCode}
-              </h3>
-              <p className="text-xs md:text-sm text-white/75 mb-2 md:mb-4">
-                {[first.doorStyle, first.woodSpecies].filter(Boolean).join(" · ") || "Premium cabinet door style"}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/40 bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-100">
-                  <CircleCheck className="h-3.5 w-3.5" /> Active catalog
-                </span>
-                <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-gold)] group-hover:gap-2.5 transition-all">
-                  Shop this style <ArrowRight className="h-4 w-4" />
-                </span>
-                <button
-                  type="button"
-                  title="Open the 3D Designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.location.href = `/design?style=${first.id}`; }}
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full px-3 py-1 transition-all"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" /> Design with this
-                </button>
-              </div>
-            </div>
-          </Link>
+            <span>Deep</span>
+          </div>
 
-          {/* Remaining featured styles — smaller cards */}
-          <div className="grid grid-cols-2 gap-4 md:gap-6">
-            {rest.slice(0, MAX_FEATURED_STYLES - 1).map((style) => (
-              <div key={style.id} className="group relative overflow-hidden rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300">
-                <Link href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}>
-                  <img
-                    src={style.roomSceneImageUrl!}
-                    alt={`${style.ourName ?? style.styleCode ?? "Style"} kitchen room scene`}
-                    className="h-40 w-full object-cover transition-transform duration-500 group-hover:scale-105 sm:h-48"
-                  />
-                  {/* Corner Swatch */}
-                  {style.cornerSwatchImageUrl && (
-                    <div className="absolute top-2 left-2 z-10">
-                      <img
-                        src={style.cornerSwatchImageUrl}
-                        alt={`${style.ourName ?? style.styleCode ?? "Style"} door profile`}
-                        className="w-12 h-12 rounded-md shadow-md border-2 border-white/30 object-cover ring-1 ring-black/10"
-                      />
-                    </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-3">
-                    {style.featuredLabel && (
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-gold)] block mb-0.5">
-                        {style.featuredLabel}
-                      </span>
-                    )}
-                    <div className="font-serif text-sm font-bold text-white leading-tight">
-                      {style.ourName ?? style.styleCode}
-                    </div>
-                    <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-medium text-emerald-100">
-                      <CircleCheck className="h-3 w-3" /> Active catalog
-                    </div>
-                  </div>
-                </Link>
-                {/* Design with this button */}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground" aria-live="polite">
+              Showing <strong className="text-foreground">{firstStyleNumber}–{lastStyleNumber}</strong> of {orderedStyles.length} cabinet color lines
+            </p>
+            <div className="flex items-center gap-2" aria-label="Door color line pages">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 bg-background"
+                aria-label="Show previous six cabinet color lines"
+                disabled={page === 0}
+                onClick={() => setPage((current) => Math.max(0, current - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-12 text-center text-xs font-semibold text-muted-foreground">
+                {page + 1} / {pageCount}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 bg-background"
+                aria-label="Show next six cabinet color lines"
+                disabled={page >= pageCount - 1}
+                onClick={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div key={page} className="grid grid-cols-2 gap-3 motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-right-3 md:grid-cols-3 md:gap-4 lg:grid-cols-6">
+            {visibleStyles.map((style) => {
+              const displayName = style.featuredLabel ?? style.aliasName ?? style.ourName ?? style.styleCode ?? "Cabinet line";
+              const detail = style.color ?? style.finish ?? style.doorStyle ?? "Door sample";
+              return (
                 <Link
-                  href={`/design?style=${style.id}`}
-                  title="Open the 3D Designer with this door style pre-selected — arrange cabinets, see prices, and export your layout."
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-[var(--color-navy)]/80 hover:bg-[var(--color-navy)] text-white text-[10px] font-semibold rounded-full px-2.5 py-1 flex items-center gap-1"
+                  key={style.id}
+                  href={`/family/${encodeURIComponent(style.styleCode ?? String(style.id))}`}
+                  aria-label={`View ${displayName} cabinets`}
+                  className="group rounded-xl border border-border bg-background p-2.5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <ChevronRight className="h-3 w-3" /> Design
+                  <div className="relative aspect-[4/5] overflow-hidden rounded-lg border border-black/10 bg-muted">
+                    <DoorStyleSwatch style={style} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                    <span
+                      aria-hidden="true"
+                      className="absolute bottom-2 left-2 h-3.5 w-3.5 rounded-full border border-white/70 shadow-sm"
+                      style={{ backgroundColor: doorStyleColorHex(style) }}
+                    />
+                  </div>
+                  <h3 className="mt-3 truncate text-sm font-semibold text-foreground" title={displayName}>{displayName}</h3>
+                  <p className="mt-0.5 truncate text-xs text-muted-foreground" title={detail}>{detail}</p>
+                  <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-wood)] transition-all group-hover:gap-1.5">
+                    View cabinets <ArrowRight className="h-3.5 w-3.5" />
+                  </span>
                 </Link>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Link href="/styles">
             <Button size="lg" variant="outline" className="gap-2 bg-card">
               Browse All Door Styles <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
           <Link href="/design">
-            <Button size="lg" className="bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90 gap-2">
+            <Button size="lg" className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">
               Start Designing Your Kitchen <ChevronRight className="h-4 w-4" />
             </Button>
           </Link>
