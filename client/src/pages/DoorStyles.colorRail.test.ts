@@ -37,6 +37,13 @@ describe("Door Styles color rail", () => {
     expect(source).not.toContain("All Frames");
   });
 
+  it("gives the active style a high-contrast gold fill and bold double outline", () => {
+    expect(source).toContain('aria-label="Door style filter"');
+    expect(source).toContain("aria-pressed={selectedType === style.key}");
+    expect(source).toContain("border-[3px] border-[#0f1f3d] bg-[#d4a75a] font-extrabold");
+    expect(source).toContain("shadow-[0_0_0_3px_rgba(212,167,90,0.3)] ring-2 ring-[#d4a75a] ring-offset-2");
+  });
+
   it("uses the shared light-to-deep ordering and safe directional slider controls", () => {
     expect(source).toContain("DOOR_COLOR_SPECTRUM_PAGE_SIZE");
     expect(source).toContain("AnimatePresence");

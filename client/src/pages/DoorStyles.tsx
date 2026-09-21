@@ -490,22 +490,23 @@ export default function DoorStyles() {
         </div>
 
         {/* Keep the public door-profile choice simple and phone friendly. */}
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setSelectedType(null)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+        <div className="flex flex-wrap gap-2" aria-label="Door style filter">
+          <button onClick={() => setSelectedType(null)} aria-pressed={selectedType === null}
+            className={`px-4 py-1.5 rounded-full text-sm transition-all ${
               selectedType === null
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                ? "border-[3px] border-[#0f1f3d] bg-[#d4a75a] font-extrabold text-[#0f1f3d] shadow-[0_0_0_3px_rgba(212,167,90,0.3)] ring-2 ring-[#d4a75a] ring-offset-2"
+                : "border border-border bg-background font-medium text-muted-foreground hover:border-primary/60 hover:text-foreground"
             }`}>
             {t("ds_all_styles")}
           </button>
           {SIMPLE_DOOR_STYLES.map((style) => (
             <button key={style.key}
               onClick={() => setSelectedType(selectedType === style.key ? null : style.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              aria-pressed={selectedType === style.key}
+              className={`px-4 py-1.5 rounded-full text-sm transition-all ${
                 selectedType === style.key
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+                  ? "border-[3px] border-[#0f1f3d] bg-[#d4a75a] font-extrabold text-[#0f1f3d] shadow-[0_0_0_3px_rgba(212,167,90,0.3)] ring-2 ring-[#d4a75a] ring-offset-2"
+                  : "border border-border bg-background font-medium text-muted-foreground hover:border-primary/60 hover:text-foreground"
               }`}>
               {style.label}
             </button>
