@@ -10,6 +10,7 @@ import {
 	  islandCountertopVisibleRects,
 	  islandCountertopOverhangIn,
 	  islandAssemblyBounds,
+	  islandAssemblyClearance,
 	  islandFaceCapacity,
 	  islandFaceFitMeasure,
 	  islandFacePlacement,
@@ -518,6 +519,22 @@ describe("island mini-scene geometry", () => {
 	    const slabs = islandCountertopRects(result.island, result.placed);
 	    expect(slabs).toHaveLength(1);
 	    expect(slabs[0]).toMatchObject({ width: 78, depth: 54, rotation: 45 });
+	  });
+
+	  it("recalculates finished room clearances from the rotated slab and cabinet envelope", () => {
+	    const centered = { ...island, x: 36, y: 30, countertopWidth: 78, countertopDepth: 54, countertopWidthAnchoredToZone: true, countertopDepthAnchoredToZone: true };
+	    const attached = islandFacePlacement(cabinet({ uid: "clearance-front" }), centered, "front", 12);
+	    const before = islandAssemblyClearance(centered, [attached], room);
+	    const rotated = rotateIslandScene(centered, [attached], room, 45);
+	    expect(rotated.ok).toBe(true);
+	    if (!rotated.ok) return;
+	    const after = islandAssemblyClearance(rotated.island, rotated.placed, room);
+	    expect(after.rotationDegrees).toBe(45);
+	    expect(after.nearestIn).not.toBe(before.nearestIn);
+	    expect(after.leftIn).toBeGreaterThan(0);
+	    expect(after.rightIn).toBeGreaterThan(0);
+	    expect(after.backIn).toBeGreaterThan(0);
+	    expect(after.frontIn).toBeGreaterThan(0);
 	  });
 
 	  it("rejects a resize that makes an occupied face too short", () => {

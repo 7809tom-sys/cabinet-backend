@@ -51,15 +51,23 @@ describe("Design Tool refrigerator assembly transactions", () => {
     expect(transaction).not.toContain("const rawPanelW = parseFloat(String(panelRow.width ?? \"\"))");
   });
 
-  it("does not turn a repeated FRIDGE-36 click into a second appliance", () => {
+	  it("does not turn a repeated FRIDGE-36 click into a second appliance", () => {
     const placement = sourceBetween("const addCabinet = useCallback", "const placeOnRecommendedWall");
     expect(placement).toContain("const requestedRefrigerator = isRefrigerator");
     expect(placement).toContain("const duplicate = prev.find((item) => isRefrigerator(item)");
     expect(placement).toContain("refrigerator already placed. Select the existing refrigerator");
-    expect(placement).toContain("setSelectedUid(duplicate.uid)");
-  });
+	    expect(placement).toContain("setSelectedUid(duplicate.uid)");
+	  });
 
-  it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {
+	  it("routes the refrigerator properties side-panel toggle through the owned surround transaction", () => {
+	    expect(source).toContain("const setRefrigeratorSidePanels = useCallback");
+	    expect(source).toContain("setPendingRefrigeratorPanelToggle({ fridgeUid, enabled })");
+	    expect(source).toContain("panels: pending.enabled ? \"both\" : \"none\"");
+	    expect(source).toContain("onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}");
+	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}");
+	  });
+
+	  it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {
     expect(source.match(/commitRefrigeratorAssemblyCandidate\(/g)?.length).toBeGreaterThanOrEqual(3);
     const moveStart = source.indexOf("const moveCabinet = useCallback");
     const moveEnd = source.indexOf("const swingSelected", moveStart);

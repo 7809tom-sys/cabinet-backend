@@ -89,6 +89,25 @@ describe("IslandAttributesDialog", () => {
 		    expect(screen.getByText(/countertop coverage update automatically/i)).toBeTruthy();
 		  });
 
+	  it("shows current finished island clearance including its saved rotation", () => {
+	    render(
+	      <IslandAttributesDialog
+	        open
+	        island={{ ...island, rotation: 45 }}
+	        clearance={{ leftIn: 24.5, rightIn: 31.25, backIn: 18, frontIn: 22.75, nearestIn: 18, rotationDegrees: 45 }}
+	        onOpenChange={vi.fn()}
+	        onApply={vi.fn()}
+	        onRotate={vi.fn()}
+	        onRemove={vi.fn()}
+	      />,
+	    );
+	    const clearance = screen.getByTestId("island-clearance-calculator").textContent ?? "";
+	    expect(clearance).toContain("45°");
+	    expect(clearance).toContain("nearest 18″");
+	    expect(clearance).toContain("24.5″");
+	    expect(clearance).toContain("31.25″");
+	  });
+
 		it("keeps depth guidance collapsed while retaining a reachable 12-inch rear seating control", () => {
 		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
 		  const guidance = screen.getByTestId("island-depth-guidance") as HTMLDetailsElement;

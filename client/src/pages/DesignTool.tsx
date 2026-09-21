@@ -125,7 +125,7 @@ import {
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
-import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
+import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandAssemblyClearance, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   TRIM_MASTER_CODES,
   type ActiveTrim,
@@ -5688,7 +5688,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // bridge, or none), refrigerator END PANELS (left / right / both / none), and
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
-  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
+	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
+	  const [pendingRefrigeratorPanelToggle, setPendingRefrigeratorPanelToggle] = useState<{ fridgeUid: string; enabled: boolean } | null>(null);
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
   const [ovenDialog, setOvenDialog] = useState<{ cabinetUid: string } | null>(null);
   // Sink base top dialog: opens when a sink base cabinet is placed.
@@ -5740,7 +5741,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { enabled: !!fridgeDialog && !!styleId }
   );
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
-  const applyFridgeSurround = useCallback(
+	  const applyFridgeSurround = useCallback(
     (opts: {
       above: "deep" | "bridge" | "none";
       bridgeCabinetId?: number | null;
@@ -6057,8 +6058,38 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       }
       setFridgeDialog(null);
     },
-    [fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
-  );
+	    [fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
+	  );
+
+	  const setRefrigeratorSidePanels = useCallback((fridgeUid: string, enabled: boolean) => {
+	    const refrigerator = placedRef.current.find((item) => item.uid === fridgeUid);
+	    if (!refrigerator || !isRefrigerator(refrigerator)) return;
+	    if (!styleId) {
+	      toast.error("Choose a door style before configuring refrigerator enclosure panels.");
+	      return;
+	    }
+	    // Reuse the existing surround transaction so switching this properties
+	    // toggle adds/removes actual owned panel parts, instead of merely changing
+	    // a flag on the refrigerator.
+	    setPendingRefrigeratorPanelToggle({ fridgeUid, enabled });
+	    setFridgeDialog({ fridgeUid });
+	  }, [styleId]);
+
+	  useEffect(() => {
+	    const pending = pendingRefrigeratorPanelToggle;
+	    if (!pending || !fridgeForDialog || fridgeForDialog.uid !== pending.fridgeUid || !fridgeSurround) return;
+	    const currentBridge = placedRef.current.find((item) => refrigeratorAssemblyMemberRole(item, fridgeForDialog, room) === "bridge") ?? null;
+	    setPendingRefrigeratorPanelToggle(null);
+	    applyFridgeSurround({
+	      above: currentBridge ? "bridge" : "none",
+	      bridgeCabinetId: currentBridge?.cabinetId ?? null,
+	      bridgeWidth: currentBridge ? wallRunSpan(currentBridge, cabinetWall(currentBridge, room), room) : null,
+	      bridgeHeight: currentBridge?.height ?? null,
+	      bridgeDepth: currentBridge?.depth ?? null,
+	      panels: pending.enabled ? "both" : "none",
+	      smooth: false,
+	    });
+	  }, [applyFridgeSurround, fridgeForDialog, fridgeSurround, pendingRefrigeratorPanelToggle, room]);
 
   // ── One-click "Built-in Refrigerator + Pantry End" preset ──────────────────
   // Composes a finished built-in run at the ACTIVE wall's largest open segment,
@@ -14252,6 +14283,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        perimeterCountertopName={countertop ? perimeterCountertopSurface?.name ?? countertopMaterial(countertopMaterialId).name : null}
 	        cabinetFinishOptions={islandCabinetFinishOptions}
 	        perimeterFinishName={activeStyleName}
+	        clearance={island ? islandAssemblyClearance(island, placed, room) : null}
 		        onApply={applyIslandAttributes}
 	        onRotate={rotateIsland}
 		        onRemove={removeIslandScene}
@@ -14323,6 +14355,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        wallPosition={cabinetWallPosition}
 	        onSetWallOffset={setCabinetWallOffset}
 	        cornerClearance={cabinetCornerClearance}
+	        onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}
 	        onResetSize={() => { resetWidth(); resetHeight(); resetDepth(); }}
         onSetSwing={setSwingFor}
         onSetNoDoor={setNoDoorFor}
@@ -14367,8 +14400,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       />
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
-      <RefrigeratorOptionsDialog
-        open={!!fridgeDialog}
+	      <RefrigeratorOptionsDialog
+	        open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         fridgeWidthInches={fridgeForDialog
           ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)

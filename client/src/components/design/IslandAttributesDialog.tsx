@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { IslandFace, IslandZone } from "@/lib/design";
+import type { IslandAssemblyClearance } from "@/lib/islandScene";
 
 type NumericKey = "x" | "y" | "width" | "depth" | "countertopWidth" | "countertopDepth" | "countertopOffsetX" | "countertopOffsetY" | "countertopOverhang";
 
@@ -34,7 +35,7 @@ export function effectiveIslandOverhangIn(island: IslandZone): number {
 
 const formatInches = (value: number) => Number(value.toFixed(3)).toString();
 
-export function IslandAttributesDialog({ open, island, countertopMaterial, countertopOptions = [], perimeterCountertopName, cabinetFinishOptions = [], perimeterFinishName, onOpenChange, onApply, onRotate, onRemove }: {
+export function IslandAttributesDialog({ open, island, countertopMaterial, countertopOptions = [], perimeterCountertopName, cabinetFinishOptions = [], perimeterFinishName, clearance, onOpenChange, onApply, onRotate, onRemove }: {
   open: boolean;
   island: IslandZone | null;
   countertopMaterial?: CountertopStructuralLimit;
@@ -42,6 +43,7 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
   perimeterCountertopName?: string | null;
   cabinetFinishOptions?: Array<{ id: number; name: string }>;
   perimeterFinishName?: string | null;
+  clearance?: IslandAssemblyClearance | null;
   onOpenChange: (open: boolean) => void;
   onApply: (next: IslandZone) => void;
   onRotate: (degrees: 45 | 90) => void;
@@ -251,6 +253,32 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 			  <p className="mt-1.5"><strong>24 in.</strong> one base run. <strong>36 in.</strong> base plus 12-inch wall run. <strong>48 in.</strong> two base runs, or 36-inch work zone plus 12-inch seating. <strong>60 in.</strong> two base runs plus 12-inch seating.</p>
 			</details>
 		        </div>
+		        {clearance && (
+		          <section data-testid="island-clearance-calculator" className="rounded-md border border-emerald-200 bg-emerald-50/60 p-2.5">
+		            <div className="flex items-baseline justify-between gap-3">
+		              <div>
+		                <h4 className="text-xs font-semibold text-emerald-950">Room clearance — finished island</h4>
+		                <p className="text-[10px] text-emerald-900/80">Includes cabinet faces and countertop overhang; updates after every rotation.</p>
+		              </div>
+		              <span className="rounded border border-emerald-300 bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-950">
+		                {clearance.rotationDegrees}° · nearest {formatInches(clearance.nearestIn)}″
+		              </span>
+		            </div>
+		            <div className="mt-2 grid grid-cols-4 gap-1.5 text-center text-[10px]">
+		              {([
+		                ["Left", clearance.leftIn],
+		                ["Right", clearance.rightIn],
+		                ["Back", clearance.backIn],
+		                ["Front", clearance.frontIn],
+		              ] as const).map(([edge, distance]) => (
+		                <div key={edge} className="rounded border border-emerald-200 bg-white/85 px-1 py-1.5">
+		                  <span className="block uppercase tracking-wide text-emerald-900/70">{edge}</span>
+		                  <strong className="font-mono text-emerald-950">{formatInches(distance)}″</strong>
+		                </div>
+		              ))}
+		            </div>
+		          </section>
+		        )}
 	        <DialogFooter className="flex-col gap-1.5 sm:flex-row sm:justify-between">
 	          <Button className="h-8 text-xs" type="button" variant="destructive" onClick={onRemove}>Remove island</Button>
           <div className="flex flex-wrap gap-1.5">

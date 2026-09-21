@@ -177,6 +177,70 @@ export function islandAssemblyBounds(island: IslandZone): { x: number; y: number
   return { x: minX, y: minY, width: maxX - minX, depth: maxY - minY };
 }
 
+export type IslandAssemblyClearance = {
+  leftIn: number;
+  rightIn: number;
+  backIn: number;
+  frontIn: number;
+  nearestIn: number;
+  rotationDegrees: number;
+};
+
+function rotatedPlanRectBounds(rect: { x: number; y: number; width: number; depth: number; rotation?: number }) {
+  const center = { x: rect.x + rect.width / 2, y: rect.y + rect.depth / 2 };
+  const rotation = Number(rect.rotation ?? 0);
+  const corners = [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.depth },
+    { x: rect.x, y: rect.y + rect.depth },
+  ].map((corner) => rotatePlanPoint(corner, center, rotation));
+  const minX = Math.min(...corners.map((corner) => corner.x));
+  const maxX = Math.max(...corners.map((corner) => corner.x));
+  const minY = Math.min(...corners.map((corner) => corner.y));
+  const maxY = Math.max(...corners.map((corner) => corner.y));
+  return { x: minX, y: minY, width: maxX - minX, depth: maxY - minY };
+}
+
+/**
+ * Measures the finished island assembly against the room, not merely the
+ * unrotated work-zone rectangle. The countertop overhang and every saved island
+ * cabinet participate, so the values immediately change after a 45° or 90°
+ * rotation and remain truthful for seating slabs and angled cabinets.
+ */
+export function islandAssemblyClearance(
+  island: IslandZone,
+  placed: PlacedCabinet[],
+  room: RoomData,
+): IslandAssemblyClearance {
+  const rectangles = [
+    islandAssemblyBounds(island),
+    ...islandCountertopRects(island, placed).map(rotatedPlanRectBounds),
+    ...placed
+      .filter((item) => isIslandAssemblyMember(item, island, placed))
+      .map((item) => {
+        const footprint = placedFootprint(item);
+        return { x: item.x, y: item.y, width: footprint.w, depth: footprint.d };
+      }),
+  ];
+  const minX = Math.min(...rectangles.map((rect) => rect.x));
+  const maxX = Math.max(...rectangles.map((rect) => rect.x + rect.width));
+  const minY = Math.min(...rectangles.map((rect) => rect.y));
+  const maxY = Math.max(...rectangles.map((rect) => rect.y + rect.depth));
+  const leftIn = Math.max(0, minX);
+  const rightIn = Math.max(0, room.width - maxX);
+  const backIn = Math.max(0, minY);
+  const frontIn = Math.max(0, room.depth - maxY);
+  return {
+    leftIn,
+    rightIn,
+    backIn,
+    frontIn,
+    nearestIn: Math.min(leftIn, rightIn, backIn, frontIn),
+    rotationDegrees: islandRotationDegrees(island),
+  };
+}
+
 function rotatePlacedAroundIslandCenter(cabinet: PlacedCabinet, island: IslandZone, clockwiseDegrees: number): PlacedCabinet {
   const before = placedFootprint(cabinet);
   const islandCenter = { x: island.x + island.width / 2, y: island.y + island.depth / 2 };

@@ -44,7 +44,7 @@ const wallCabinet = {
   numberOfDrawers: 0,
 } as any;
 
-function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0, cabinet = wallCabinet, onSetIslandWallBaseTreatment = vi.fn()) {
+function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onApplyHandleSideToAll?: ReturnType<typeof vi.fn>, hardwareApplyCount = 0, cabinet = wallCabinet, onSetIslandWallBaseTreatment = vi.fn(), onSetRefrigeratorSidePanels = vi.fn()) {
   const onMoveInOut = vi.fn();
   render(
     <CabinetAttributesDialog
@@ -76,12 +76,13 @@ function renderDialog(onSetMountBottom = vi.fn(), onSetHandleSide = vi.fn(), onA
       onSetBlindPull={vi.fn()}
       onSetWaterfall={vi.fn()}
       onSetCategory={vi.fn()}
-      onSetCustomProfile={vi.fn()}
-      onSetOvenType={vi.fn()}
-      onSetIslandWallBaseTreatment={onSetIslandWallBaseTreatment}
-    />
-  );
-  return { onSetMountBottom, onMoveInOut, onSetHandleSide, onSetIslandWallBaseTreatment };
+	      onSetCustomProfile={vi.fn()}
+	      onSetOvenType={vi.fn()}
+	      onSetIslandWallBaseTreatment={onSetIslandWallBaseTreatment}
+	      onSetRefrigeratorSidePanels={onSetRefrigeratorSidePanels}
+	    />
+	  );
+	  return { onSetMountBottom, onMoveInOut, onSetHandleSide, onSetIslandWallBaseTreatment, onSetRefrigeratorSidePanels };
 }
 
 describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
@@ -141,12 +142,33 @@ describe("CabinetAttributesDialog wall cabinet elevation controls", () => {
     fireEvent.click(screen.getByRole("button", { name: "24″" }));
     fireEvent.click(screen.getByRole("button", { name: "30″" }));
     fireEvent.click(screen.getByRole("button", { name: "Align top 34.5″" }));
-    expect(onSetMountBottom).toHaveBeenNthCalledWith(1, "knee-drawer", 24);
-    expect(onSetMountBottom).toHaveBeenNthCalledWith(2, "knee-drawer", 30);
-    expect(onSetMountBottom).toHaveBeenNthCalledWith(3, "knee-drawer", 27.5);
-  });
+	    expect(onSetMountBottom).toHaveBeenNthCalledWith(1, "knee-drawer", 24);
+	    expect(onSetMountBottom).toHaveBeenNthCalledWith(2, "knee-drawer", 30);
+	    expect(onSetMountBottom).toHaveBeenNthCalledWith(3, "knee-drawer", 27.5);
+	  });
 
-  it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {
+	  it("adds or removes both refrigerator side panels directly from properties", () => {
+	    const onSetRefrigeratorSidePanels = vi.fn();
+	    const refrigerator = {
+	      ...wallCabinet,
+	      uid: "fridge-36",
+	      masterCode: "FRIDGE-36",
+	      description: "36 inch refrigerator",
+	      placement: "appliance",
+	      width: 36,
+	      depth: 24,
+	      height: 70,
+	      refrigeratorPanelMode: "none",
+	    } as never;
+	    renderDialog(vi.fn(), vi.fn(), undefined, 0, refrigerator, vi.fn(), onSetRefrigeratorSidePanels);
+	    const panelToggle = screen.getByRole("switch", { name: "Add refrigerator side panels" });
+	    expect(panelToggle.getAttribute("data-state")).toBe("unchecked");
+	    fireEvent.click(panelToggle);
+	    expect(onSetRefrigeratorSidePanels).toHaveBeenCalledWith("fridge-36", true);
+	    expect(screen.getByTestId("refrigerator-side-panel-toggle").textContent).toContain("Add both finished side panels");
+	  });
+
+	  it("mounts safely when a cabinet becomes selected after an initially empty dialog", () => {
     const props = {
       onOpenChange: vi.fn(), customFee: 0, onSetWidth: vi.fn(), onSetHeight: vi.fn(), onSetDepth: vi.fn(),
       mountBottom: 72, maxMountBottom: 72, onSetMountBottom: vi.fn(), onResetSize: vi.fn(), onSetSwing: vi.fn(),

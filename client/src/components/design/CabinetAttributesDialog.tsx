@@ -48,8 +48,9 @@ import {
   isBlindCorner,
   blindPullRange,
   fillerWidthRange,
-  isKneeDrawerItem,
-  STD,
+	  isKneeDrawerItem,
+	  isRefrigerator,
+	  STD,
   KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN,
   KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN,
   KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN,
@@ -395,7 +396,9 @@ export interface CabinetAttributesDialogProps {
   onMoveInOut?: (uid: string, direction: "in" | "out", distanceIn: number) => void;
   wallPosition?: CabinetWallPosition | null;
   onSetWallOffset?: (uid: string, offsetIn: number) => void;
-  cornerClearance?: CabinetCornerClearance | null;
+	  cornerClearance?: CabinetCornerClearance | null;
+	  /** Adds or removes both finished refrigerator enclosure side panels as one unit. */
+	  onSetRefrigeratorSidePanels?: (uid: string, enabled: boolean) => void;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -453,7 +456,8 @@ export function CabinetAttributesDialog({
   onMoveInOut,
   wallPosition,
   onSetWallOffset,
-  cornerClearance,
+	  cornerClearance,
+	  onSetRefrigeratorSidePanels,
   onResetSize,
   onSetSwing,
   onSetNoDoor,
@@ -520,7 +524,9 @@ export function CabinetAttributesDialog({
     : null;
 	  const canMoveMount = (cabinet.placement === "wall" || isKneeDrawer) && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
 	  const canMoveInOut = typeof onMoveInOut === "function";
-  const canMoveAlongWall = Boolean(wallPosition && typeof onSetWallOffset === "function");
+	  const canMoveAlongWall = Boolean(wallPosition && typeof onSetWallOffset === "function");
+	  const isRefrigeratorCabinet = isRefrigerator(cabinet);
+	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   return (
@@ -601,9 +607,27 @@ export function CabinetAttributesDialog({
             })()}
           </section>
 
-          {cornerClearance && <CabinetCornerClearancePanel clearance={cornerClearance} />}
+	          {cornerClearance && <CabinetCornerClearancePanel clearance={cornerClearance} />}
 
-          <section className="space-y-3 border-t border-border pt-3" data-testid="cabinet-attributes-door-hardware">
+	          {isRefrigeratorCabinet && onSetRefrigeratorSidePanels && (
+	            <section data-testid="refrigerator-side-panel-toggle" className="flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+	              <div className="min-w-0">
+	                <h4 className="text-sm font-semibold text-amber-950">Finished refrigerator side panels</h4>
+	                <p className="text-[11px] text-amber-900/80">
+	                  {hasRefrigeratorSidePanels
+	                    ? "Both finished side panels are included. Turn this off to remove both panels while keeping the refrigerator and over-fridge cabinet."
+	                    : "Add both finished side panels to this refrigerator enclosure. The refrigerator remains a 36-inch appliance; ¾-inch panels finish outside it."}
+	                </p>
+	              </div>
+	              <Switch
+	                checked={hasRefrigeratorSidePanels}
+	                onCheckedChange={(enabled) => onSetRefrigeratorSidePanels(uid, enabled)}
+	                aria-label="Add refrigerator side panels"
+	              />
+	            </section>
+	          )}
+
+	          <section className="space-y-3 border-t border-border pt-3" data-testid="cabinet-attributes-door-hardware">
             <h4 className="text-sm font-semibold">{t("dt_ca_door_hardware")}</h4>
 
             <div className="flex items-center justify-between gap-3">
