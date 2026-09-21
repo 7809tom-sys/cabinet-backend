@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 // (useMemo used for featured door-style families)
 import { Link, useSearch, useLocation } from "wouter";
-import { Search, Filter, ChevronRight, ChevronLeft, Package, Store, SlidersHorizontal, X } from "lucide-react";
+import { Search, Filter, ChevronRight, ChevronLeft, Eye, Package, Store, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { trpc } from "@/lib/trpc";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
+import { CabinetQuickViewDialog } from "@/components/catalog/CabinetQuickViewDialog";
 import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
 import {
@@ -95,21 +96,25 @@ interface CabinetItem extends CabinetLike {
   width: string | null;
   height: string | null;
   depth: string | null;
+  placementType?: string | null;
+  numberOfDoors?: number | null;
+  numberOfDrawers?: number | null;
+  numberOfAdjShelves?: number | null;
   glassIncluded?: boolean | null;
 }
 
-function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetItem; styleId?: number | null; distributorLabel?: string | null }) {
+function CabinetCard({ cabinet, styleId, distributorLabel, onQuickView }: { cabinet: CabinetItem; styleId?: number | null; distributorLabel?: string | null; onQuickView: (cabinet: CabinetItem) => void }) {
   const { t, lang } = useLanguage();
   const href = styleId
     ? `/catalog/${cabinet.masterCode}?style=${styleId}`
     : `/catalog/${cabinet.masterCode}`;
   return (
-    <Link href={href}>
-      <div className="cabinet-card group rounded-xl border border-border bg-card hover:border-primary/30 cursor-pointer overflow-hidden transition-colors">
+    <article className="cabinet-card group overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/30" data-testid="catalog-cabinet-card">
+      <Link href={href} className="block cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
         {/* Every item shows its accurate, to-scale drawing so the picture always
             matches the real item type (drawer base draws drawers, sink base shows
             the sink cutout, glass walls show glass, corners show the L-shape). */}
-        <div className="relative h-44 bg-gradient-to-b from-white to-muted/30 flex items-center justify-center border-b border-border p-3">
+        <div className="relative flex h-44 items-center justify-center border-b border-border bg-gradient-to-b from-white to-muted/30 p-3">
           <CabinetImage
             cabinet={cabinet}
             className="h-full w-auto max-w-full transition-transform duration-300 group-hover:scale-[1.04]"
@@ -117,11 +122,11 @@ function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetI
         </div>
 
         <div className="p-4">
-          <div className="flex items-start justify-between gap-2 mb-1">
-            <span className="font-mono text-xs font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <span className="rounded bg-primary/10 px-2 py-0.5 font-mono text-xs font-semibold text-primary">
               {cabinet.masterCode}
             </span>
-            <Badge variant="secondary" className="text-xs shrink-0">
+            <Badge variant="secondary" className="shrink-0 text-xs">
               {cabinetTypeLabel(cabinet)}
             </Badge>
           </div>
@@ -132,12 +137,12 @@ function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetI
             className="mt-1"
           />
 
-          <p className="text-sm font-medium text-foreground mt-2 leading-snug line-clamp-2">
+          <p className="mt-2 line-clamp-2 text-sm font-medium leading-snug text-foreground">
             {translateSpec(cabinet.description, lang)}
           </p>
 
           {(cabinet.width || cabinet.height || cabinet.depth) && (
-            <p className="text-xs text-muted-foreground mt-2">
+            <p className="mt-2 text-xs text-muted-foreground">
               {[
                 cabinet.width && `${t("cat_w")}: ${cabinet.width}"`,
                 cabinet.height && `${t("cat_h")}: ${cabinet.height}"`,
@@ -150,17 +155,31 @@ function CabinetCard({ cabinet, styleId, distributorLabel }: { cabinet: CabinetI
 
           {distributorLabel && (
             <div className="mt-2 flex items-center gap-1">
-              <Store className="h-3 w-3 text-amber-600 shrink-0" />
-              <span className="text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded truncate">{distributorLabel}</span>
+              <Store className="h-3 w-3 shrink-0 text-amber-600" />
+              <span className="truncate rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium text-amber-700">{distributorLabel}</span>
             </div>
           )}
           <div className="mt-3 flex items-center justify-between">
             <span className="text-xs text-muted-foreground">{t("cat_view_pricing")}</span>
-            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
           </div>
         </div>
+      </Link>
+      <div className="border-t border-border bg-muted/20 px-4 py-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="w-full gap-2 bg-background"
+          onClick={() => onQuickView(cabinet)}
+          data-testid="catalog-quick-view-trigger"
+          aria-label={`Quick view ${cabinet.masterCode}`}
+        >
+          <Eye className="h-4 w-4" />
+          Quick view
+        </Button>
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -429,6 +448,7 @@ function CategoryView({
     sort: "sku-asc",
   });
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [quickViewCabinet, setQuickViewCabinet] = useState<CabinetItem | null>(null);
   const LIMIT = 48;
 
   const { user } = useAuth();
@@ -489,6 +509,10 @@ function CategoryView({
     setOffset(0);
   }, [category, debouncedSearch, styleId, browseFilters]);
 
+  useEffect(() => {
+    setQuickViewCabinet(null);
+  }, [styleId]);
+
   const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
     {
       styleId: styleId ?? 0,
@@ -501,8 +525,21 @@ function CategoryView({
     },
     { enabled: styleId != null }
   );
+  // Fetch the selected line's full sellable set only while a quick-view panel
+  // is open. This keeps the normal catalog grid light while offering accessory
+  // suggestions that truly belong to the shopper's selected door style.
+  const { data: quickViewCatalog, isLoading: isQuickViewCatalogLoading } = trpc.cabinets.listForStyle.useQuery(
+    {
+      styleId: styleId ?? 0,
+      limit: 1000,
+      offset: 0,
+      sort: "sku-asc",
+    },
+    { enabled: styleId != null && quickViewCabinet != null },
+  );
 
   const items = data?.items ?? [];
+  const quickViewCatalogItems = (quickViewCatalog?.items ?? []) as CabinetItem[];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
@@ -675,7 +712,13 @@ function CategoryView({
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {items.map((cabinet) => (
-            <CabinetCard key={cabinet.id} cabinet={cabinet as CabinetItem} styleId={styleId} distributorLabel={selectedDistributorLabel} />
+            <CabinetCard
+              key={cabinet.id}
+              cabinet={cabinet as CabinetItem}
+              styleId={styleId}
+              distributorLabel={selectedDistributorLabel}
+              onQuickView={setQuickViewCabinet}
+            />
           ))}
         </div>
       )}
@@ -708,6 +751,17 @@ function CategoryView({
           </div>
         </div>
       )}
+      <CabinetQuickViewDialog
+        cabinet={quickViewCabinet}
+        catalogItems={(quickViewCatalogItems.length > 0 ? quickViewCatalogItems : items) as CabinetItem[]}
+        styleId={styleId}
+        open={quickViewCabinet != null}
+        accessoryLoading={isQuickViewCatalogLoading}
+        onOpenChange={(open) => {
+          if (!open) setQuickViewCabinet(null);
+        }}
+        onSelectCabinet={(cabinet) => setQuickViewCabinet(cabinet as CabinetItem)}
+      />
         </div>
       </div>
     </div>
