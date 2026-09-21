@@ -381,6 +381,8 @@ export interface DesignCabinet {
 	  /** Catalog choice represents a glass-front cabinet configuration. */
 	  glassDoor?: boolean | null;
 	  glassDoorAddonCode?: string | null;
+	  /** Selected distributor includes the glass insert in this glass SKU's price. */
+	  glassIncluded?: boolean | null;
 }
 
 // Door hinge side as seen from the front of the cabinet. "none" is used for
@@ -535,6 +537,8 @@ export interface PlacedCabinet {
   // (e.g. W-30-30 → W-30-30GD). Only valid for wall cabinets that have a
   // matching GD code in the catalog.
   glassDoor?: boolean;
+  /** Distributor policy captured with a glass cabinet/door line. False = buy glass separately. */
+  glassIncluded?: boolean | null;
   // Optional decorative door-style panel on one or both exposed cabinet ends.
   // Ordinary cabinet sides remain plain selected-finish skins by default.
   decorativeEnd?: DecorativeEndTreatment;
@@ -640,6 +644,7 @@ export type MasterCabinetDrawingRefresh = {
   drawerLayout?: string | null;
   customProfile?: string | null;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  glassIncluded?: boolean | null;
 };
 
 /**
@@ -685,6 +690,7 @@ export function refreshPlacedCabinetsFromMasterConfig(
       ...(master.drawerLayout !== undefined ? { drawerLayout: master.drawerLayout } : {}),
       ...(master.customProfile !== undefined ? { customProfile: master.customProfile } : {}),
       ...(master.facePattern !== undefined ? { facePattern: master.facePattern } : {}),
+      ...(master.glassIncluded !== undefined ? { glassIncluded: master.glassIncluded } : {}),
     };
   });
 }
@@ -726,8 +732,9 @@ export function refreshPlacedCabinetsFromMasterRules(
       next.drawerHeight !== cabinet.drawerHeight ||
       next.doorOrientation !== cabinet.doorOrientation ||
       next.layoutSpec !== cabinet.layoutSpec ||
-      next.drawerLayout !== cabinet.drawerLayout ||
-      next.facePattern !== cabinet.facePattern
+	      next.drawerLayout !== cabinet.drawerLayout ||
+	      next.facePattern !== cabinet.facePattern ||
+	      next.glassIncluded !== cabinet.glassIncluded
     ) {
       changed = true;
       return next;
@@ -1810,8 +1817,20 @@ export type GlassDoorCabinetLike = {
   customProfile?: string | null;
   glassDoor?: boolean | null;
   fixedShelfCount?: number | null;
-  adjustableShelfCount?: number | null;
+	adjustableShelfCount?: number | null;
 };
+
+/**
+ * Distributor glass policy is nomenclature-driven. Every cabinet, stacker, or
+ * replacement door whose normalized code ends in PG, GD, or G follows the
+ * selected supplier's one policy setting. Keep this broader than the visual
+ * glass-door classifier: a PG replacement part may not render as a cabinet,
+ * but it still needs the correct purchase disclosure.
+ */
+export function isGlassPolicyNomenclature(masterCode: string | null | undefined): boolean {
+  const code = (masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /(?:PG|GD|G)$/.test(code);
+}
 
 /**
  * Catalog GD products are glass-door cabinets by definition. Saved layouts may

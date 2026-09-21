@@ -419,6 +419,7 @@ export const distributorImportRouter = router({
         shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
         shippingZipRates: distributors.shippingZipRates,
         shippingExceptions: distributors.shippingExceptions,
+        glassIncluded: distributors.glassIncluded,
         orderEmail: distributors.orderEmail,
         ccEmails: distributors.ccEmails,
         fulfillmentMode: distributors.fulfillmentMode,
@@ -431,6 +432,69 @@ export const distributorImportRouter = router({
       .from(distributors)
       .orderBy(distributors.name);
   }),
+
+  /**
+   * One automatic audit list for a supplier's glass nomenclature. The
+   * distributor-level policy applies to every returned item, so administrators
+   * never have to repeat an included/not-included decision per cabinet.
+   */
+  glassPolicyCatalog: adminProcedure
+    .input(z.object({ distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db
+        .select({
+          cabinetId: cabinets.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          category: cabinets.category,
+          platformSku: distributorSkus.platformSku,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .where(eq(distributorSkus.distributorId, input.distributorId));
+
+      // The policy is deliberately nomenclature-driven: glass stackers,
+      // replacement glass doors, and glass cabinet variants use terminal PG,
+      // GD, or G. A supplier may spell the sellable row differently from the
+      // canonical master, so consider both identities.
+      const isGlassNomenclature = (value: string | null | undefined) => /(?:PG|GD|G)$/i.test((value ?? "").replace(/[\s_-]/g, ""));
+      const byCabinet = new Map<number, {
+        cabinetId: number;
+        masterCode: string;
+        description: string | null;
+        category: string | null;
+        platformSku: string | null;
+        offered: boolean;
+      }>();
+
+      for (const row of rows) {
+        if (!isGlassNomenclature(row.masterCode) && !isGlassNomenclature(row.platformSku)) continue;
+        const offered = Boolean(row.isAvailable && row.isPublished && (Number(row.listPrice ?? 0) > 0 || Number(row.yourCost ?? 0) > 0));
+        const existing = byCabinet.get(row.cabinetId);
+        if (existing) {
+          existing.offered ||= offered;
+          continue;
+        }
+        byCabinet.set(row.cabinetId, {
+          cabinetId: row.cabinetId,
+          masterCode: row.masterCode,
+          description: row.description,
+          category: row.category,
+          platformSku: row.platformSku,
+          offered,
+        });
+      }
+
+      return Array.from(byCabinet.values()).sort((left, right) =>
+        left.masterCode.localeCompare(right.masterCode, undefined, { numeric: true }),
+      );
+    }),
 
   /**
    * Update the fulfillment / order-routing + pickup settings for one supply
@@ -460,6 +524,9 @@ export const distributorImportRouter = router({
           feeCents: z.number().int().min(0).max(100000000),
         })).max(100).optional(),
         shippingExceptions: z.string().trim().max(2000).optional(),
+        // Applies to PG/GD/G nomenclature: whether the supplier's listed glass
+        // cabinet/door price includes the glass insert itself.
+        glassIncluded: z.boolean().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -500,6 +567,7 @@ export const distributorImportRouter = router({
       if (input.warehouseName !== undefined) patch.warehouseName = input.warehouseName.trim() || null;
       if (input.warehouseAddress !== undefined) patch.warehouseAddress = input.warehouseAddress.trim() || null;
       if (input.warehouseZips !== undefined) patch.warehouseZips = Array.from(new Set(input.warehouseZips.map((zip) => zip.trim())));
+      if (input.glassIncluded !== undefined) patch.glassIncluded = input.glassIncluded;
 
       const currentRule = requestedRuleMode ?? "live";
       if (currentRule !== "live") {

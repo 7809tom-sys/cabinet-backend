@@ -76,10 +76,15 @@ export default function DistributorFulfillmentEditor() {
   const [freeFreightThresholdDollars, setFreeFreightThresholdDollars] = useState("");
   const [zipRateLinesDraft, setZipRateLinesDraft] = useState("");
   const [shippingExceptions, setShippingExceptions] = useState("");
+  const [glassIncluded, setGlassIncluded] = useState(false);
 
   const selected = useMemo(
     () => dists?.find((d) => String(d.id) === selectedId),
     [dists, selectedId]
+  );
+  const { data: glassCatalog, isLoading: glassCatalogLoading } = trpc.distributorAdmin.glassPolicyCatalog.useQuery(
+    { distributorId: Number(selectedId) || -1 },
+    { enabled: Boolean(selectedId) },
   );
 
   useEffect(() => {
@@ -100,6 +105,7 @@ export default function DistributorFulfillmentEditor() {
     setFreeFreightThresholdDollars(selected.shippingFreeFreightThresholdCents != null ? (selected.shippingFreeFreightThresholdCents / 100).toFixed(2) : "");
     setZipRateLinesDraft(zipRateLines(selected.shippingZipRates));
     setShippingExceptions(selected.shippingExceptions ?? "");
+    setGlassIncluded(Boolean(selected.glassIncluded));
   }, [selected]);
 
   const save = trpc.distributorAdmin.updateFulfillment.useMutation({
@@ -280,6 +286,71 @@ export default function DistributorFulfillmentEditor() {
                   {!shippingRuleValid && <p className="text-xs text-destructive">A fixed or threshold rule needs a default freight amount or a valid ZIP override.</p>}
                 </div>
 
+                {/* Glass policy */}
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium">Glass policy</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Applies to every glass nomenclature in this line: codes ending in PG, GD, or G, including glass stackers. This distributor overlay never changes the master cabinet identity, dimensions, or image.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {glassIncluded ? "Glass included" : "Glass purchased separately"}
+                      </span>
+                      <Switch
+                        checked={glassIncluded}
+                        onCheckedChange={setGlassIncluded}
+                        aria-label="Glass included in glass cabinet pricing"
+                      />
+                    </div>
+                  </div>
+                  <p className={glassIncluded ? "text-xs text-emerald-700 dark:text-emerald-300" : "text-xs text-amber-700 dark:text-amber-300"}>
+                    {glassIncluded
+                      ? "The listed cabinet or door price includes the glass insert."
+                      : "The listed cabinet or door price does not include the glass insert; the Designer and cart will flag it for separate purchase."}
+                  </p>
+                  <div className="rounded-md bg-muted/45 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-xs font-semibold">Automatic glass-nomenclature audit</p>
+                        <p className="text-[11px] text-muted-foreground">All PG, GD, and terminal-G cabinets from this distributor. The policy above applies to every row automatically.</p>
+                      </div>
+                      {!glassCatalogLoading && <div className="flex gap-1.5 text-[10px]">
+                        <Badge variant="outline" className="border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300">
+                          {glassCatalog?.filter((item) => item.offered).length ?? 0} offered
+                        </Badge>
+                        <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">
+                          {glassCatalog?.filter((item) => !item.offered).length ?? 0} not offered
+                        </Badge>
+                      </div>}
+                    </div>
+                    {glassCatalogLoading ? (
+                      <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground"><Spinner className="h-3.5 w-3.5" /> Auditing glass nomenclature…</div>
+                    ) : glassCatalog && glassCatalog.length > 0 ? (
+                      <div className="mt-3 max-h-56 overflow-auto rounded border bg-background">
+                        <table className="w-full text-left text-[11px]">
+                          <thead className="sticky top-0 bg-muted text-[10px] uppercase tracking-wide text-muted-foreground">
+                            <tr><th className="px-2 py-1.5">Code</th><th className="px-2 py-1.5">Glass cabinet status</th><th className="px-2 py-1.5">Glass policy</th></tr>
+                          </thead>
+                          <tbody>
+                            {glassCatalog.map((item) => (
+                              <tr key={item.cabinetId} className="border-t">
+                                <td className="px-2 py-1.5"><div className="font-mono font-medium">{item.masterCode}</div><div className="max-w-64 truncate text-muted-foreground">{item.description}</div></td>
+                                <td className="px-2 py-1.5"><Badge variant="outline" className={item.offered ? "border-emerald-300 text-emerald-700 dark:border-emerald-800 dark:text-emerald-300" : "border-muted-foreground/30 text-muted-foreground"}>{item.offered ? "Offered" : "Not offered"}</Badge></td>
+                                <td className="px-2 py-1.5 text-muted-foreground">{glassIncluded ? "Included" : "Separate purchase"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-muted-foreground">No PG, GD, or terminal-G cabinet rows are currently linked to this distributor.</p>
+                    )}
+                  </div>
+                </div>
+
                 {/* Pickup */}
                 <div className="rounded-lg border p-4 space-y-4">
                   <div className="flex items-center justify-between">
@@ -352,6 +423,7 @@ export default function DistributorFulfillmentEditor() {
                         shippingFreeFreightThresholdCents: freeFreightThresholdCents,
                         shippingZipRates: zipRates,
                         shippingExceptions: shippingExceptions.trim(),
+                        glassIncluded,
                       })
                     }
                   >

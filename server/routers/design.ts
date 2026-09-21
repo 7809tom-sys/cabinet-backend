@@ -222,9 +222,13 @@ export const designRouter = router({
         skuConditions.push(eq(distributorSkus.styleId, input.styleId));
       }
       const sourceRows = await db
-        .select({ sourceMasterCode: cabinets.masterCode })
+        .select({
+          sourceMasterCode: cabinets.masterCode,
+          glassIncluded: distributors.glassIncluded,
+        })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
 
       const [aliases, masterRows] = await Promise.all([
@@ -274,9 +278,11 @@ export const designRouter = router({
           )),
       ]);
 
-      const byCanonicalId = new Map<number, (typeof masterRows)[number]>();
-      for (const { master } of resolveCanonicalCatalogSources(sourceRows, aliases, masterRows)) {
-        if (!byCanonicalId.has(master.id)) byCanonicalId.set(master.id, master);
+      const byCanonicalId = new Map<number, (typeof masterRows)[number] & { glassIncluded: boolean }>();
+      for (const { source, master } of resolveCanonicalCatalogSources(sourceRows, aliases, masterRows)) {
+        if (!byCanonicalId.has(master.id)) {
+          byCanonicalId.set(master.id, { ...master, glassIncluded: Boolean(source.glassIncluded) });
+        }
       }
       const availableRows = Array.from(byCanonicalId.values());
 

@@ -322,6 +322,11 @@ export const distributors = mysqlTable("distributors", {
   shippingFreeFreightThresholdCents: int("shippingFreeFreightThresholdCents"),
   shippingZipRates: json("shippingZipRates").$type<Array<{ zipPrefix: string; feeCents: number }>>(),
   shippingExceptions: text("shippingExceptions"),
+  // Glass front policy for every glass-related catalog SKU (PG, GD, or terminal
+  // G). True means the listed cabinet price includes its glass; false means the
+  // cabinet/door is sold without the glass insert and the design/cart must say so.
+  // Default false prevents an unverified supplier line from promising glass.
+  glassIncluded: boolean("glassIncluded").default(false).notNull(),
   // Vendor inventory forecast: null intentionally means "TBD / not configured".
   // Rates are basis points (for example 6000 = 60%) and may only be edited by an admin.
   inventoryForecastCloseRateBps: int("inventoryForecastCloseRateBps"),

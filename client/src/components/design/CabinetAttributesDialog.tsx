@@ -50,6 +50,7 @@ import {
   fillerWidthRange,
 	  isKneeDrawerItem,
 	  isRefrigerator,
+	  isGlassPolicyNomenclature,
 	  STD,
   KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN,
   KNEE_DRAWER_DEFAULT_MOUNT_BOTTOM_IN,
@@ -1056,6 +1057,14 @@ export function CabinetAttributesDialog({
           {cabinet.placement === "wall" && (
             <section className="space-y-3 border-t border-border pt-4">
               <h4 className="text-sm font-semibold">{t("dt_ca_glass_door")}</h4>
+              {(cabinet.glassDoor || isGlassPolicyNomenclature(cabinet.masterCode)) && (
+                <div className={cabinet.glassIncluded === true ? "rounded-md border border-emerald-300 bg-emerald-50/70 px-3 py-2 text-xs text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/20 dark:text-emerald-200" : "rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/20 dark:text-amber-200"}>
+                  <span className="font-semibold">{cabinet.glassIncluded === true ? "Glass included" : "Glass purchased separately"}</span>
+                  {cabinet.glassIncluded === true
+                    ? " — this distributor includes the glass insert in this item’s listed price."
+                    : " — this distributor sells the cabinet or door without the glass insert. Add the required glass separately before ordering."}
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <div>
                   <Label className="text-sm">{t("dt_ca_glass_door_toggle")}</Label>
@@ -1076,7 +1085,7 @@ export function CabinetAttributesDialog({
               {cabinet.glassDoorAddonCode && (
                 <div className="pt-2">
                   <p className="text-[11px] text-muted-foreground mb-2">
-                    Glass door sold separately as {cabinet.glassDoorAddonCode}. The cabinet remains {cabinet.masterCode}, and one same-style glass-door line is included in the design price and cart.
+                    Glass door sold separately as {cabinet.glassDoorAddonCode}. The cabinet remains {cabinet.masterCode}, and one same-style glass-door line is included in the design price and cart. {cabinet.glassIncluded === true ? "The distributor includes the glass insert." : "The glass insert is purchased separately."}
                   </p>
                   <button
                     type="button"

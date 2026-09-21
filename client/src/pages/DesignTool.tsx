@@ -1641,10 +1641,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       drawerHeight: cabinet.drawerHeight,
       doorOrientation: cabinet.doorOrientation,
       layoutSpec: cabinet.layoutSpec,
-      drawerLayout: cabinet.drawerLayout,
-      customProfile: cabinet.customProfile,
-      facePattern: cabinet.facePattern,
-    })),
+	      drawerLayout: cabinet.drawerLayout,
+	      customProfile: cabinet.customProfile,
+	      facePattern: cabinet.facePattern,
+	      glassIncluded: cabinet.glassIncluded,
+	    })),
     [liveMasterCabinets],
   );
   // Legacy saved plans can keep an older database ID after catalog maintenance.
@@ -4404,6 +4405,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        cornerType: c.cornerType ?? null,
 	        facePattern: (c as any).facePattern ?? null,
 	        glassDoor: c.glassDoor === true,
+	        glassIncluded: c.glassIncluded ?? null,
 	        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
 	        styleId: styleIdRef.current ?? null,
         ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
@@ -5183,6 +5185,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             layoutSpec: (c as any).layoutSpec ?? null,
             drawerLayout: (c as any).drawerLayout ?? null,
             facePattern: (c as any).facePattern ?? null,
+            glassIncluded: c.glassIncluded ?? null,
             glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
             ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
             ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
@@ -5307,6 +5310,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         layoutSpec: (c as any).layoutSpec ?? null,
         drawerLayout: (c as any).drawerLayout ?? null,
         facePattern: (c as any).facePattern ?? null,
+        glassIncluded: c.glassIncluded ?? null,
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
       };
@@ -5431,6 +5435,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         layoutSpec: (c as any).layoutSpec ?? null,
         drawerLayout: (c as any).drawerLayout ?? null,
         facePattern: (c as any).facePattern ?? null,
+        glassIncluded: c.glassIncluded ?? null,
         glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
         styleId: styleIdRef.current ?? null,
       };
@@ -7927,7 +7932,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const glassDoorAddonCode = cab ? glassDoorAddonCodeFor(cab) : null;
     if (!cab || !glassDoorAddonCode) return;
     setCabAttr(uid, { glassDoor: true, noDoor: false, glassDoorAddonCode });
-    toast.success(`Glass door ${glassDoorAddonCode} selected and included in the design price`);
+    toast.success(`Glass door ${glassDoorAddonCode} selected. ${cab.glassIncluded === true ? "The glass insert is included by this distributor." : "The glass insert is purchased separately."}`);
   }, [glassDoorAddonCodeFor, placed, setCabAttr]);
 
   // ─── Custom sizing ─────────────────────────────────────────────────────────

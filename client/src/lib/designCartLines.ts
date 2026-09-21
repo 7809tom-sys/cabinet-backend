@@ -1,5 +1,5 @@
 import type { CartItem } from "@/contexts/CartContext";
-import { customSizeFee, effectiveStyleId, type PlacedCabinet } from "@/lib/design";
+import { customSizeFee, effectiveStyleId, isGlassPolicyNomenclature, type PlacedCabinet } from "@/lib/design";
 import { isClosetPart } from "@/lib/closet";
 import { calculateCartSubtotal } from "@/lib/cartTotals";
 
@@ -36,6 +36,11 @@ export function adjustedDesignUnitPrice(
 ): number | null {
   if (basePrice == null) return null;
   return basePrice * (1 + (cabinet.discountPct ?? 0) / 100) + customSizeFee(cabinet);
+}
+
+function glassPolicyCartSuffix(cabinet: Pick<PlacedCabinet, "masterCode" | "glassDoor" | "glassIncluded">): string {
+  const isGlassItem = cabinet.glassDoor === true || isGlassPolicyNomenclature(cabinet.masterCode);
+  return isGlassItem && cabinet.glassIncluded !== true ? " — glass purchased separately" : "";
 }
 
 /** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
@@ -79,7 +84,7 @@ export function buildDesignCabinetCartLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: cabinet.description ?? cabinet.masterCode,
+        name: `${cabinet.description ?? cabinet.masterCode}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,
@@ -99,7 +104,7 @@ export function buildDesignCabinetCartLines({
         if (existingAddon) existingAddon.qty += 1;
         else lines.set(addonKey, {
           masterCode: addon.masterCode,
-          name: addon.name,
+          name: `${addon.name}${cabinet.glassIncluded === true ? "" : " — glass purchased separately"}`,
           styleId: resolvedStyleId,
           styleLabel: styleNameById.get(resolvedStyleId) ?? "",
           distributorId,
@@ -212,7 +217,7 @@ export function buildDesignPreviewPricingLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: cabinet.description ?? cabinet.masterCode,
+        name: `${cabinet.description ?? cabinet.masterCode}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,
@@ -239,7 +244,7 @@ export function buildDesignPreviewPricingLines({
       } else {
         lines.set(addonKey, {
           masterCode: addon.masterCode,
-          name: addon.name,
+          name: `${addon.name}${cabinet.glassIncluded === true ? "" : " — glass purchased separately"}`,
           styleId: resolvedStyleId,
           styleLabel: styleNameById.get(resolvedStyleId) ?? "",
           distributorId,

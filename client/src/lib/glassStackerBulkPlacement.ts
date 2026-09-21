@@ -104,6 +104,7 @@ function stackerDraft(source: PlacedCabinet, catalog: DesignCabinet, parent: Pla
     customProfile: (catalog as any).graphicType ?? null,
     genericDrawingUrl: (catalog as any).specImageUrl ?? null,
     glassDoor: true,
+    glassIncluded: catalog.glassIncluded ?? null,
     glassDoorAddonCode: catalog.glassDoorAddonCode ?? null,
   };
 }
