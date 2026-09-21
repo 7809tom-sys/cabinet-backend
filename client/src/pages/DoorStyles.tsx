@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { Palette, ArrowRight, ChevronLeft, ChevronRight, ImageIcon, Search, X } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +9,14 @@ import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import {
+  DOOR_COLOR_SPECTRUM_PAGE_SIZE,
+  doorColorSpectrumGradient,
+  doorColorSpectrumPage,
+  doorColorSpectrumPageCount,
+  doorStyleColorHex,
+  orderDoorStylesByColor,
+} from "@/lib/doorColorSpectrum";
 import DoorPhotoMatchWidget from "@/components/DoorPhotoMatchWidget";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { useIsMobile } from "@/hooks/useMobile";
@@ -24,6 +33,7 @@ interface DoorStyle {
   ourName: string | null;
   aliasName?: string | null;
   featuredLabel?: string | null;
+  featuredRank?: number | null;
   doorStyle: string | null;
   woodSpecies: string | null;
   color: string | null;
@@ -293,6 +303,10 @@ export default function DoorStyles() {
   const isMobile = useIsMobile();
   const PER_PAGE = 16;
   const [page, setPage] = useState(0);
+  const [colorRailPage, setColorRailPage] = useState(0);
+  const [colorRailDirection, setColorRailDirection] = useState<1 | -1>(1);
+  const [isColorRailSliding, setIsColorRailSliding] = useState(false);
+  const reduceMotion = useReducedMotion();
   useEffect(() => { setPage(0); }, [selectedType, selectedColor, selectedFrame, searchQuery]);
 
   // Frame-width filter buckets — keyed by rail/stile width ranges
@@ -387,6 +401,36 @@ export default function DoorStyles() {
         .slice(0, 30),
     [uniqueStyles, featuredNames]
   );
+
+  // The slider sits immediately before the existing featured cards. It keeps
+  // the admin's curated lines but presents their real door samples from light
+  // through deep finishes, six at a time.
+  const colorRailStyles = useMemo(
+    () => orderDoorStylesByColor(featured),
+    [featured],
+  );
+  const colorRailPageCount = doorColorSpectrumPageCount(colorRailStyles);
+  const visibleColorRailStyles = doorColorSpectrumPage(colorRailStyles, colorRailPage);
+  const colorRailFirst = colorRailStyles.length === 0 ? 0 : colorRailPage * DOOR_COLOR_SPECTRUM_PAGE_SIZE + 1;
+  const colorRailLast = Math.min(colorRailStyles.length, colorRailFirst + visibleColorRailStyles.length - 1);
+
+  useEffect(() => {
+    setColorRailPage((current) => Math.min(current, Math.max(0, colorRailPageCount - 1)));
+  }, [colorRailPageCount]);
+
+  const moveColorRail = (direction: 1 | -1) => {
+    const nextPage = Math.max(0, Math.min(colorRailPageCount - 1, colorRailPage + direction));
+    if (nextPage === colorRailPage || isColorRailSliding) return;
+    setColorRailDirection(direction);
+    if (!reduceMotion) setIsColorRailSliding(true);
+    setColorRailPage(nextPage);
+  };
+
+  const colorRailVariants = {
+    enter: (direction: number) => ({ x: reduceMotion ? 0 : direction * 44, opacity: reduceMotion ? 1 : 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction: number) => ({ x: reduceMotion ? 0 : direction * -44, opacity: reduceMotion ? 1 : 0 }),
+  };
 
   // Pre-compute which frame buckets have at least one matching style
   // (considering only the current type + color filters, not the frame filter itself)
@@ -593,7 +637,103 @@ export default function DoorStyles() {
         )}
       </div>
 
-      {/* Featured: Skyline (Aero) styles lead the page */}
+      {/* Featured color line: select a finish before browsing the room-scene cards. */}
+      {!isLoading && showFeatured && colorRailStyles.length > 0 && (
+        <section className="mb-8 rounded-2xl border border-border bg-card p-4 shadow-sm md:p-5">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-wood)]">Cabinet color line</p>
+              <h2 className="mt-1 font-serif text-xl font-bold text-foreground">Choose a door color first</h2>
+              <p className="mt-1 text-sm text-muted-foreground">White to deep finishes, six door samples at a time.</p>
+            </div>
+            <div className="flex items-center gap-2" aria-label="Cabinet color line pages">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 bg-background"
+                aria-label="Show previous six cabinet colors"
+                disabled={colorRailPage === 0 || isColorRailSliding}
+                onClick={() => moveColorRail(-1)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="min-w-10 text-center text-xs font-semibold text-muted-foreground">
+                {colorRailPage + 1} / {colorRailPageCount}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 bg-background"
+                aria-label="Show next six cabinet colors"
+                disabled={colorRailPage >= colorRailPageCount - 1 || isColorRailSliding}
+                onClick={() => moveColorRail(1)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          <div className="mb-3 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+            <span>Light</span>
+            <div
+              className="h-2 flex-1 rounded-full ring-1 ring-black/10"
+              style={{ backgroundImage: doorColorSpectrumGradient(colorRailStyles) }}
+              role="img"
+              aria-label="Door color line from light to deep"
+            />
+            <span>Deep</span>
+          </div>
+          <p className="mb-3 text-xs text-muted-foreground" aria-live="polite">
+            Showing {colorRailFirst}–{colorRailLast} of {colorRailStyles.length} featured cabinet colors
+          </p>
+
+          <div className="relative overflow-hidden" aria-live="polite">
+            <AnimatePresence initial={false} mode="wait" custom={colorRailDirection}>
+              <motion.div
+                key={colorRailPage}
+                custom={colorRailDirection}
+                variants={colorRailVariants}
+                initial="enter"
+                animate="center"
+                exit="exit"
+                transition={reduceMotion ? { duration: 0 } : { duration: 0.28, ease: [0.23, 1, 0.32, 1] }}
+                onAnimationComplete={(definition) => {
+                  if (definition === "center") setIsColorRailSliding(false);
+                }}
+                className="grid grid-cols-3 gap-2.5 will-change-transform sm:grid-cols-6 sm:gap-3"
+              >
+                {visibleColorRailStyles.map((style) => {
+                  const name = displayName(style);
+                  const detail = style.color ?? style.finish ?? style.doorStyle ?? "Door sample";
+                  return (
+                    <Link
+                      key={style.id}
+                      href={`/family/${encodeURIComponent(style.styleCode)}`}
+                      aria-label={`View ${name} cabinets`}
+                      className="group rounded-lg border border-border bg-background p-2 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-gold)]/70 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <div className="relative aspect-[4/5] overflow-hidden rounded-md border border-black/10 bg-muted">
+                        <DoorStyleSwatch style={style} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]" />
+                        <span
+                          aria-hidden="true"
+                          className="absolute bottom-1.5 left-1.5 h-3 w-3 rounded-full border border-white/70 shadow-sm"
+                          style={{ backgroundColor: doorStyleColorHex(style) }}
+                        />
+                      </div>
+                      <p className="mt-2 truncate text-xs font-semibold text-foreground" title={name}>{name}</p>
+                      <p className="mt-0.5 truncate text-[11px] text-muted-foreground" title={detail}>{detail}</p>
+                    </Link>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </section>
+      )}
+
+      {/* Featured cabinet cards remain below the color line. */}
       {!isLoading && showFeatured && (
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
