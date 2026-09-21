@@ -1287,6 +1287,8 @@ export const cabinetsRouter = router({
         category: z.string().optional(),
         subCategory: z.string().optional(),
         search: z.string().optional(),
+        adaOnly: z.boolean().optional(),
+        sort: z.enum(["sku-asc", "width-asc", "width-desc", "height-asc", "height-desc", "type-asc"]).default("sku-asc"),
         limit: z.number().min(1).max(1000).default(48),
         offset: z.number().min(0).default(0),
       })
@@ -1336,6 +1338,7 @@ export const cabinetsRouter = router({
             depth: cabinets.depth,
             numberOfDoors: cabinets.numberOfDoors,
             numberOfDrawers: cabinets.numberOfDrawers,
+            numberOfAdjShelves: cabinets.numberOfAdjShelves,
             graphicType: cabinets.graphicType,
             catalogImageUrl: cabinets.catalogImageUrl,
             placementType: cabinets.placementType,
@@ -1359,6 +1362,11 @@ export const cabinetsRouter = router({
       const matchesFilters = (row: (typeof masters)[number]) => {
         if (input.category && row.category !== input.category) return false;
         if (input.subCategory && row.subCategory !== input.subCategory) return false;
+        if (input.adaOnly) {
+          const code = normalizeCode(row.masterCode);
+          const haystack = `${row.category ?? ""} ${row.subCategory ?? ""} ${row.description ?? ""}`.toLowerCase();
+          if (!code.startsWith("ADA") && !haystack.includes("ada") && !haystack.includes("accessible")) return false;
+        }
         if (!search) return true;
         return row.masterCode.includes(search)
           || (row.description ?? "").toLowerCase().includes(search.toLowerCase())
@@ -1379,11 +1387,41 @@ export const cabinetsRouter = router({
         if (category) categoryCounts[category] = (categoryCounts[category] ?? 0) + 1;
       }
 
+      const numericDimension = (value: string | null) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+      const skuCompare = (a: (typeof resolved)[number], b: (typeof resolved)[number]) =>
+        (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true });
+      const dimensionCompare = (
+        a: (typeof resolved)[number],
+        b: (typeof resolved)[number],
+        field: "width" | "height",
+        descending = false,
+      ) => {
+        const left = numericDimension(a[field]);
+        const right = numericDimension(b[field]);
+        if (left == null && right == null) return skuCompare(a, b);
+        if (left == null) return 1;
+        if (right == null) return -1;
+        const compared = left - right;
+        return compared === 0 ? skuCompare(a, b) : (descending ? -compared : compared);
+      };
+      const sortItems = (a: (typeof resolved)[number], b: (typeof resolved)[number]) => {
+        if (input.sort === "width-asc") return dimensionCompare(a, b, "width");
+        if (input.sort === "width-desc") return dimensionCompare(a, b, "width", true);
+        if (input.sort === "height-asc") return dimensionCompare(a, b, "height");
+        if (input.sort === "height-desc") return dimensionCompare(a, b, "height", true);
+        if (input.sort === "type-asc") {
+          const type = `${a.category ?? ""} ${a.subCategory ?? ""}`.localeCompare(`${b.category ?? ""} ${b.subCategory ?? ""}`);
+          return type === 0 ? skuCompare(a, b) : type;
+        }
+        return skuCompare(a, b);
+      };
+
       const distinct = Array.from(allByCabinet.values())
         .filter(matchesFilters)
-        .sort((a, b) =>
-          (a.masterCode || "").localeCompare(b.masterCode || "", undefined, { numeric: true })
-        );
+        .sort(sortItems);
 
       const total = distinct.length;
       const page = distinct.slice(input.offset, input.offset + input.limit);

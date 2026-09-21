@@ -1,17 +1,27 @@
 import { useState, useEffect, useMemo } from "react";
 // (useMemo used for featured door-style families)
 import { Link, useSearch, useLocation } from "wouter";
-import { Search, Filter, ChevronRight, ChevronLeft, Package, Store } from "lucide-react";
+import { Search, Filter, ChevronRight, ChevronLeft, Package, Store, SlidersHorizontal, X } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { trpc } from "@/lib/trpc";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { CabinetImage } from "@/components/CabinetImage";
 import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { type CabinetLike, cabinetTypeLabel } from "@/lib/cabinetGraphics";
+import {
+  CATALOG_CONSTRUCTION_OPTIONS,
+  CATALOG_SORT_OPTIONS,
+  catalogColorOptions,
+  filterCatalogStyles,
+  type CatalogConstructionFilter,
+  type CatalogSort,
+  type CatalogStyleFacet,
+} from "@/lib/catalogBrowsing";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { translateSpec } from "@/lib/i18n/specPhrases";
@@ -289,6 +299,105 @@ function CategoryLanding({
 
 // ─── Category drill-in (cabinets grid) ──────────────────────────────────────────
 
+type BrowseFilters = {
+  color: string | null;
+  construction: CatalogConstructionFilter;
+  adaOnly: boolean;
+  sort: CatalogSort;
+};
+
+function CatalogBrowseSidebar({
+  filters,
+  colors,
+  resultCount,
+  onChange,
+  onClear,
+  idPrefix,
+}: {
+  filters: BrowseFilters;
+  colors: string[];
+  resultCount: number | null;
+  onChange: (next: BrowseFilters) => void;
+  onClear: () => void;
+  idPrefix: string;
+}) {
+  const activeCount = Number(Boolean(filters.color)) + Number(filters.construction !== "all") + Number(filters.adaOnly);
+  const selectClass = "mt-2 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+  return (
+    <aside aria-label="Cabinet filters and sorting" data-testid="catalog-browse-sidebar" className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-primary" />
+          <h2 className="font-serif text-lg font-bold text-foreground">Filters & sorting</h2>
+        </div>
+        {activeCount > 0 && (
+          <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={onClear}>
+            Clear ({activeCount})
+          </Button>
+        )}
+      </div>
+
+      <div className="mt-4 space-y-5">
+        <div>
+          <label htmlFor={`${idPrefix}-color`} className="text-sm font-semibold text-foreground">Color</label>
+          <select
+            id={`${idPrefix}-color`}
+            value={filters.color ?? ""}
+            onChange={(event) => onChange({ ...filters, color: event.target.value || null })}
+            className={selectClass}
+          >
+            <option value="">All stocked colors</option>
+            {colors.map((color) => <option key={color} value={color}>{color}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor={`${idPrefix}-construction`} className="text-sm font-semibold text-foreground">Construction</label>
+          <select
+            id={`${idPrefix}-construction`}
+            value={filters.construction}
+            onChange={(event) => onChange({ ...filters, construction: event.target.value as CatalogConstructionFilter })}
+            className={selectClass}
+          >
+            {CATALOG_CONSTRUCTION_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+          <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">Uses the selected line’s documented box, drawer, and hardware construction.</p>
+        </div>
+
+        <label htmlFor={`${idPrefix}-ada`} className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-muted/30 p-3 text-sm transition-colors hover:bg-muted/50">
+          <input
+            id={`${idPrefix}-ada`}
+            type="checkbox"
+            checked={filters.adaOnly}
+            onChange={(event) => onChange({ ...filters, adaOnly: event.target.checked })}
+            className="mt-0.5 h-4 w-4 rounded border-input text-primary focus:ring-ring"
+          />
+          <span>
+            <span className="block font-semibold text-foreground">ADA-compliant options</span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">Show accessible-height cabinets and ADA-coded models only.</span>
+          </span>
+        </label>
+
+        <div className="border-t border-border pt-5">
+          <label htmlFor={`${idPrefix}-sort`} className="text-sm font-semibold text-foreground">Sort cabinets</label>
+          <select
+            id={`${idPrefix}-sort`}
+            value={filters.sort}
+            onChange={(event) => onChange({ ...filters, sort: event.target.value as CatalogSort })}
+            className={selectClass}
+          >
+            {CATALOG_SORT_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground" aria-live="polite">
+        {resultCount == null ? "Choose a door style to see stocked cabinet results." : `${resultCount.toLocaleString()} cabinet${resultCount === 1 ? "" : "s"} match these selections.`}
+      </div>
+    </aside>
+  );
+}
+
 function CategoryView({
   category,
   search,
@@ -313,6 +422,13 @@ function CategoryView({
     return Number.isFinite(n) ? n : null;
   })();
   const [styleId, setStyleId] = useState<number | null>(initialStyle);
+  const [browseFilters, setBrowseFilters] = useState<BrowseFilters>({
+    color: null,
+    construction: "all",
+    adaOnly: false,
+    sort: "sku-asc",
+  });
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const LIMIT = 48;
 
   const { user } = useAuth();
@@ -337,14 +453,25 @@ function CategoryView({
     return map;
   }, [styles]);
 
-  const styleOptions = useMemo(() => {
-    type S = { id: number; styleCode: string; ourName: string | null; aliasName?: string | null };
+  const allStyleOptions = useMemo(() => {
+    type S = CatalogStyleFacet;
     return ((styles ?? []) as S[])
-      .map((s) => ({ id: s.id, label: styleDisplayName(s) || s.styleCode }))
+      .map((s) => ({ ...s, label: styleDisplayName(s) || s.styleCode }))
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [styles]);
+  const styleOptions = useMemo(
+    () => filterCatalogStyles(allStyleOptions, browseFilters) as Array<CatalogStyleFacet & { label: string }>,
+    [allStyleOptions, browseFilters],
+  );
+  const colorOptions = useMemo(() => catalogColorOptions(allStyleOptions), [allStyleOptions]);
   const selectedStyleLabel =
     styleOptions.find((s) => s.id === styleId)?.label ?? null;
+
+  useEffect(() => {
+    if (styleId != null && !styleOptions.some((style) => style.id === styleId)) {
+      setStyleId(null);
+    }
+  }, [styleId, styleOptions]);
 
   // Resolve the distributor label for the currently selected style (admin only)
   const selectedDistributorLabel = useMemo(() => {
@@ -360,13 +487,15 @@ function CategoryView({
 
   useEffect(() => {
     setOffset(0);
-  }, [category, debouncedSearch, styleId]);
+  }, [category, debouncedSearch, styleId, browseFilters]);
 
   const { data, isLoading } = trpc.cabinets.listForStyle.useQuery(
     {
       styleId: styleId ?? 0,
       category: category ?? undefined,
       search: debouncedSearch || undefined,
+      adaOnly: browseFilters.adaOnly || undefined,
+      sort: browseFilters.sort,
       limit: LIMIT,
       offset,
     },
@@ -379,6 +508,15 @@ function CategoryView({
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
   const heading = category ?? (debouncedSearch ? `${t("cat_results_for")} "${debouncedSearch}"` : t("cat_all_cabinets"));
+  const activeBrowseFilterCount = Number(Boolean(browseFilters.color))
+    + Number(browseFilters.construction !== "all")
+    + Number(browseFilters.adaOnly);
+  const clearBrowseFilters = () => setBrowseFilters({
+    color: null,
+    construction: "all",
+    adaOnly: false,
+    sort: browseFilters.sort,
+  });
 
   return (
     <div>
@@ -410,16 +548,53 @@ function CategoryView({
         <h1 className="font-serif text-2xl font-bold text-foreground mb-4">{heading}</h1>
       )}
 
+      <div className="mb-4 lg:hidden">
+        <Button type="button" variant="outline" className="w-full justify-between bg-card" onClick={() => setMobileFiltersOpen(true)}>
+          <span className="inline-flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" /> Filter & sort cabinets</span>
+          {activeBrowseFilterCount > 0 && <Badge className="rounded-full">{activeBrowseFilterCount}</Badge>}
+        </Button>
+      </div>
+
+      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+        <SheetContent side="left" className="w-[min(92vw,23rem)] overflow-y-auto p-4 sm:max-w-sm">
+          <SheetHeader className="mb-4 text-left">
+            <SheetTitle>Filter cabinets</SheetTitle>
+          </SheetHeader>
+          <CatalogBrowseSidebar
+            filters={browseFilters}
+            colors={colorOptions}
+            resultCount={styleId == null ? null : total}
+            onChange={setBrowseFilters}
+            onClear={clearBrowseFilters}
+            idPrefix="mobile-catalog"
+          />
+        </SheetContent>
+      </Sheet>
+
+      <div className="lg:grid lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+        <div className="sticky top-5 hidden lg:block">
+          <CatalogBrowseSidebar
+            filters={browseFilters}
+            colors={colorOptions}
+            resultCount={styleId == null ? null : total}
+            onChange={setBrowseFilters}
+            onClear={clearBrowseFilters}
+            idPrefix="desktop-catalog"
+          />
+        </div>
+
+        <div>
       {/* Door style selector — availability is per door style, so the shopper
           must choose a style before any cabinets are shown. */}
       <div className="mb-6 rounded-xl border border-border bg-muted/30 p-4">
-        <label className="block text-sm font-semibold text-foreground mb-2">
+        <label htmlFor="catalog-door-style" className="block text-sm font-semibold text-foreground mb-2">
           {t("cat_door_style_label")}
         </label>
         <p className="text-xs text-muted-foreground mb-3">
           {t("cat_door_style_help")}
         </p>
         <select
+          id="catalog-door-style"
           value={styleId ?? ""}
           onChange={(e) => setStyleId(e.target.value ? Number(e.target.value) : null)}
           className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -533,6 +708,8 @@ function CategoryView({
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

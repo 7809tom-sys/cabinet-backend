@@ -57,4 +57,37 @@ describe("canonical master with style-specific supplier overlay", () => {
     ]));
     expect(designerBases.some((item) => item.masterCode === "B-24")).toBe(false);
   });
+
+  it("filters ADA models and applies requested dimension sorting before paging", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const builderGrade = (await caller.doorStyles.list()).find((style) => (
+      style.isBuilderGrade || `${style.boxConstruction ?? ""} ${style.hardware ?? ""}`.toLowerCase().includes("builder")
+    ));
+    expect(builderGrade).toBeDefined();
+    if (!builderGrade) return;
+
+    const sorted = await caller.cabinets.listForStyle({
+      styleId: builderGrade.id,
+      sort: "width-asc",
+      limit: 200,
+      offset: 0,
+    });
+    const widths = sorted.items.map((item) => Number(item.width)).filter(Number.isFinite);
+    expect(widths.length).toBeGreaterThan(1);
+    expect(widths).toEqual([...widths].sort((a, b) => a - b));
+
+    const ada = await caller.cabinets.listForStyle({
+      styleId: builderGrade.id,
+      adaOnly: true,
+      sort: "sku-asc",
+      limit: 200,
+      offset: 0,
+    });
+    expect(ada.total).toBeGreaterThan(0);
+    expect(ada.items.every((item) => (
+      item.masterCode.replace(/[-_\s]/g, "").toUpperCase().startsWith("ADA")
+      || `${item.category ?? ""} ${item.subCategory ?? ""} ${item.description ?? ""}`.toLowerCase().includes("ada")
+      || `${item.category ?? ""} ${item.subCategory ?? ""} ${item.description ?? ""}`.toLowerCase().includes("accessible")
+    ))).toBe(true);
+  });
 });
