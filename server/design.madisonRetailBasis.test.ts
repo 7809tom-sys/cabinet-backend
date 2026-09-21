@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
+import { cabinets } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 function publicCtx(): TrpcContext {
   return {
@@ -13,15 +15,22 @@ function publicCtx(): TrpcContext {
 
 describe("Designer source-list retail pricing", () => {
   it("uses Madison's verified list as homeowner price rather than treating it as cost", async () => {
-    if (!(await getDb())) return;
+    const db = await getDb();
+    if (!db) return;
+    const [threeDrawerBase] = await db
+      .select({ id: cabinets.id })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "3DB24"));
+    expect(threeDrawerBase).toBeDefined();
+
     const caller = appRouter.createCaller(publicCtx());
     const [navyCoreDb24] = await caller.design.priceForCabinetsByStyles({
-      pairs: [{ cabinetId: 9390032, styleId: 330019 }],
+      pairs: [{ cabinetId: threeDrawerBase!.id, styleId: 330019 }],
       distributorId: 210002,
     });
 
     expect(navyCoreDb24).toMatchObject({
-      cabinetId: 9390032,
+      cabinetId: threeDrawerBase!.id,
       styleId: 330019,
       listPrice: "1050.00",
       homeownerPrice: "1050.00",

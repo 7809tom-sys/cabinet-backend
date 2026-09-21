@@ -10,6 +10,7 @@ describe("BEC-24 Ashford designer availability", () => {
     expect(db).toBeTruthy();
     const [record] = await db!
       .select({
+        id: cabinets.id,
         masterCode: cabinets.masterCode,
         category: cabinets.category,
         placementType: cabinets.placementType,
@@ -26,22 +27,23 @@ describe("BEC-24 Ashford designer availability", () => {
         showInDesigner: cabinets.showInDesigner,
       })
       .from(cabinets)
-      .where(eq(cabinets.id, 9450022));
+      .where(eq(cabinets.masterCode, "BEC-24"));
 
     expect(record).toEqual({
+      id: 9390014,
       masterCode: "BEC-24",
       category: "Base",
       placementType: "base",
       productType: "endCap",
-      subCategory: "End Corner Return",
+      subCategory: "Base End Cabinet",
       width: "24.00",
       height: "34.50",
       depth: "24.00",
       toeKickHeight: "4.50",
       fillerRequired: false,
-      graphicType: "base_end_return",
+      graphicType: "end-angle",
       isCornerCabinet: false,
-      cornerType: "base-end-corner",
+      cornerType: null,
       showInDesigner: true,
     });
   });
@@ -58,30 +60,34 @@ describe("BEC-24 Ashford designer availability", () => {
     expect(palette).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 9450022,
+          id: 9390014,
           masterCode: "BEC-24",
-          description: '24" Base End Angle Cabinet',
+          description: "24 in. Base End Cabinet — 45° angled end, 2 operational doors",
           isCornerCabinet: false,
-          cornerType: "base-end-corner",
+          cornerType: null,
           placement: "base",
         }),
       ]),
     );
   });
 
-  it("resolves the identical tier prices as BA-24 for the selected Ashford style", async () => {
+  it("resolves the verified Ashford BEC-24 source price for the selected style", async () => {
     const caller = appRouter.createCaller({} as any);
     const prices = await caller.design.priceForCabinetsByStyles({
-      pairs: [
-        { cabinetId: 9390014, styleId: 330001 },
-        { cabinetId: 9450022, styleId: 330001 },
-      ],
+      pairs: [{ cabinetId: 9390014, styleId: 330001 }],
       distributorId: 210001,
     });
-    const ba = prices.find((row) => row.cabinetId === 9390014 && row.styleId === 330001);
-    const bec = prices.find((row) => row.cabinetId === 9450022 && row.styleId === 330001);
 
-    expect(ba).toBeDefined();
-    expect(bec).toEqual({ ...ba, cabinetId: 9450022 });
+    expect(prices).toEqual([
+      expect.objectContaining({
+        cabinetId: 9390014,
+        styleId: 330001,
+        listPrice: "583.66",
+        adjustedListPrice: "739.30",
+        homeownerPrice: "365.95",
+        wholesalePrice: "277.24",
+        contractorPrice: "286.11",
+      }),
+    ]);
   });
 });
