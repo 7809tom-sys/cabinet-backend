@@ -20,6 +20,23 @@ describe("Door Styles color rail", () => {
     expect(source).not.toContain("orderDoorStylesByColor(featured)");
   });
 
+  it("uses the color line as the only color browsing control", () => {
+    expect(source).not.toContain("COLOR_BUCKETS");
+    expect(source).not.toContain("selectedColor");
+    expect(source).not.toContain("All Colors");
+    expect(source).toContain("Choose a door color first");
+  });
+
+  it("keeps the public style selector to Shaker, Slab, Slim, and Raised only", () => {
+    expect(source).toContain('const SIMPLE_DOOR_STYLES: Array<{ key: SimpleDoorStyle; label: string }>');
+    expect(source).toContain('{ key: "shaker", label: "Shaker" }');
+    expect(source).toContain('{ key: "slab", label: "Slab" }');
+    expect(source).toContain('{ key: "slim", label: "Slim" }');
+    expect(source).toContain('{ key: "raised", label: "Raised" }');
+    expect(source).not.toContain("FRAME_BUCKETS");
+    expect(source).not.toContain("All Frames");
+  });
+
   it("uses the shared light-to-deep ordering and safe directional slider controls", () => {
     expect(source).toContain("DOOR_COLOR_SPECTRUM_PAGE_SIZE");
     expect(source).toContain("AnimatePresence");

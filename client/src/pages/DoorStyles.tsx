@@ -24,6 +24,26 @@ import {
   Dialog, DialogClose, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 
+type SimpleDoorStyle = "shaker" | "slab" | "slim" | "raised";
+
+const SIMPLE_DOOR_STYLES: Array<{ key: SimpleDoorStyle; label: string }> = [
+  { key: "shaker", label: "Shaker" },
+  { key: "slab", label: "Slab" },
+  { key: "slim", label: "Slim" },
+  { key: "raised", label: "Raised" },
+];
+
+function simpleDoorStyle(value: string | null | undefined): SimpleDoorStyle {
+  const normalized = (value ?? "").trim().toLowerCase();
+  if (normalized.includes("slim")) return "slim";
+  if (normalized.includes("slab") || normalized.includes("flat panel")) return "slab";
+  if (normalized.includes("raised")) return "raised";
+  // Named framed profiles—Haven, Oxford, Edgeline, Casselberry, and Double
+  // Shaker—belong in the one Shaker choice instead of making a phone filter
+  // bar difficult to scan.
+  return "shaker";
+}
+
 // ─── Style card ───────────────────────────────────────────────────────────────
 // Presents purely by door-style attributes. No supplier/line identity is shown.
 
@@ -289,16 +309,14 @@ export default function DoorStyles() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_styles_t"), description: t("seo_styles_d"), lang });
   // Read an optional ?door=<DoorStyle> query param so links from the Home page
-  // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to that
-  // door profile. Falls back to "All Styles" when absent or unrecognized.
+  // hero chips (e.g. /styles?door=Shaker) open the grid pre-filtered to one of
+  // the four customer-facing groups. Falls back to All Styles when absent.
   const initialType = (() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("door");
-    return p && p.trim() ? p.trim() : null;
+    return p && p.trim() ? simpleDoorStyle(p) : null;
   })();
-  const [selectedType, setSelectedType] = useState<string | null>(initialType);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [selectedFrame, setSelectedFrame] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<SimpleDoorStyle | null>(initialType);
   const [searchQuery, setSearchQuery] = useState("");
   const isMobile = useIsMobile();
   const PER_PAGE = 16;
@@ -307,17 +325,7 @@ export default function DoorStyles() {
   const [colorRailDirection, setColorRailDirection] = useState<1 | -1>(1);
   const [isColorRailSliding, setIsColorRailSliding] = useState(false);
   const reduceMotion = useReducedMotion();
-  useEffect(() => { setPage(0); }, [selectedType, selectedColor, selectedFrame, searchQuery]);
-
-  // Frame-width filter buckets — keyed by rail/stile width ranges
-  const FRAME_BUCKETS: { key: string; label: string; desc: string; match: (rail: number | null, stile: number | null) => boolean }[] = [
-    { key: "slim",   label: "Slim (≤ ¾\")",   desc: "Rail & stile ≤ 0.75\"",  match: (r) => r != null && r <= 0.75 },
-    { key: "narrow", label: "Narrow (1\"–1½\")", desc: "Rail 1\"–1.5\"",        match: (r) => r != null && r > 0.75 && r <= 1.5 },
-    { key: "standard",label: "Standard (2\"–2½\")",desc: "Rail 2\"–2.5\"",     match: (r) => r != null && r > 1.5 && r <= 2.5 },
-    { key: "wide",   label: "Wide (3\"–4\")",   desc: "Rail 3\"–4\"",          match: (r) => r != null && r > 2.5 && r <= 4 },
-    { key: "xl",     label: "XL (> 4\")",       desc: "Rail > 4\"",            match: (r) => r != null && r > 4 },
-    { key: "none",   label: "No Frame (Slab)",  desc: "No rail/stile data",   match: (r) => r == null },
-  ];
+  useEffect(() => { setPage(0); }, [selectedType, searchQuery]);
 
   // Fetch distributors to map series names
   const { data: distributorList } = trpc.distributors.list.useQuery();
@@ -326,19 +334,6 @@ export default function DoorStyles() {
     for (const d of (distributorList ?? [])) m.set(d.id, d.seriesName ?? null);
     return m;
   }, [distributorList]);
-
-  // Color filter buckets
-  const COLOR_BUCKETS: { key: string; label: string; match: (n: string, c: string) => boolean }[] = [
-    { key: "White",       label: "White",       match: (n) => (n.includes("white")) && !n.includes("off white") && !n.includes("off-white") },
-    { key: "Grey",        label: "Grey",        match: (n) => (n.includes("grey") || n.includes("gray")) && !n.includes("stain") },
-    { key: "Off White",   label: "Off White",   match: (n) => n.includes("off white") || n.includes("off-white") || n.includes("cream") || n.includes("antique white") || n.includes("linen") },
-    { key: "Tan",         label: "Tan",         match: (n) => (n.includes("tan") || n.includes("beige") || n.includes("sand")) && !n.includes("stain") },
-    { key: "Dark",        label: "Dark",        match: (n) => (n.includes("espresso") || n.includes("dark") || n.includes("black") || n.includes("charcoal") || n.includes("navy")) && !n.includes("stain") },
-    { key: "Light Stain", label: "Light Stain", match: (n) => n.includes("light") && n.includes("stain") },
-    { key: "Grey Stain",  label: "Grey Stain",  match: (n) => (n.includes("grey") || n.includes("gray")) && n.includes("stain") },
-    { key: "Tan Stain",   label: "Tan Stain",   match: (n) => (n.includes("tan") || n.includes("honey") || n.includes("natural") || n.includes("oak")) && n.includes("stain") },
-    { key: "Dark Stain",  label: "Dark Stain",  match: (n) => (n.includes("dark") || n.includes("walnut") || n.includes("cherry") || n.includes("mahogany") || n.includes("tobacco") || n.includes("java")) && n.includes("stain") },
-  ];
 
   // Keep the URL in sync so the filtered view is shareable/back-button friendly.
   useEffect(() => {
@@ -366,13 +361,6 @@ export default function DoorStyles() {
       (a.ourName || "").localeCompare(b.ourName || "")
     );
   }, [styles]);
-
-  // Door-style type facets (Shaker, Raised Panel, Slab, ...) derived from data.
-  const types = useMemo(() => {
-    const set = new Set<string>();
-    for (const s of uniqueStyles) if (s.doorStyle) set.add(s.doorStyle);
-    return Array.from(set).sort();
-  }, [uniqueStyles]);
 
   // Featured push styles come from the admin-curated list (Admin → Featured
   // Styles). The backend already orders by rank and caps at 30; we preserve
@@ -433,50 +421,9 @@ export default function DoorStyles() {
     exit: (direction: number) => ({ x: reduceMotion ? 0 : direction * -44, opacity: reduceMotion ? 1 : 0 }),
   };
 
-  // Pre-compute which frame buckets have at least one matching style
-  // (considering only the current type + color filters, not the frame filter itself)
-  const activeBucketKeys = useMemo(() => {
-    let base = uniqueStyles;
-    if (selectedType) base = base.filter((s) => s.doorStyle === selectedType);
-    if (selectedColor) {
-      const bucket = COLOR_BUCKETS.find((b) => b.key === selectedColor);
-      if (bucket) base = base.filter((s) => {
-        const n = ((s.ourName || "") + " " + (s.aliasName || "") + " " + (s.color || "")).toLowerCase();
-        return bucket.match(n, "");
-      });
-    }
-    return new Set(
-      FRAME_BUCKETS.filter((fb) =>
-        base.some((s) => {
-          const rail = s.railWidth != null ? parseFloat(String(s.railWidth)) : null;
-          const stile = s.stileWidth != null ? parseFloat(String(s.stileWidth)) : null;
-          const ref = rail ?? stile;
-          return fb.match(isNaN(ref as number) ? null : ref, stile != null && !isNaN(stile) ? stile : null);
-        })
-      ).map((fb) => fb.key)
-    );
-  }, [uniqueStyles, selectedType, selectedColor]);
-
   const visible = useMemo(() => {
     let list = uniqueStyles;
-    if (selectedType) list = list.filter((s) => s.doorStyle === selectedType);
-    if (selectedColor) {
-      const bucket = COLOR_BUCKETS.find((b) => b.key === selectedColor);
-      if (bucket) list = list.filter((s) => {
-        const n = ((s.ourName || "") + " " + (s.aliasName || "") + " " + (s.color || "")).toLowerCase();
-        return bucket.match(n, "");
-      });
-    }
-    if (selectedFrame) {
-      const fb = FRAME_BUCKETS.find((b) => b.key === selectedFrame);
-      if (fb) list = list.filter((s) => {
-        const rail = s.railWidth != null ? parseFloat(String(s.railWidth)) : null;
-        const stile = s.stileWidth != null ? parseFloat(String(s.stileWidth)) : null;
-        // Use rail if available, fall back to stile
-        const ref = rail ?? stile;
-        return fb.match(isNaN(ref as number) ? null : ref, stile != null && !isNaN(stile) ? stile : null);
-      });
-    }
+    if (selectedType) list = list.filter((s) => simpleDoorStyle(s.doorStyle) === selectedType);
     if (searchQuery.trim()) {
       const q = searchQuery.trim().toLowerCase();
       list = list.filter((s) => {
@@ -487,11 +434,11 @@ export default function DoorStyles() {
     }
     return list;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uniqueStyles, selectedType, selectedColor, selectedFrame, searchQuery, seriesById]);
+  }, [uniqueStyles, selectedType, searchQuery, seriesById]);
 
   // When no profile filter is active, show the Featured row separately and keep
   // the main grid as the rest (so featured styles aren't duplicated below).
-  const showFeatured = !selectedType && !selectedFrame && featured.length > 0;
+  const showFeatured = !selectedType && featured.length > 0;
   const gridStyles = showFeatured
     ? visible.filter((s) => !isFeatured(s))
     : visible;
@@ -542,95 +489,34 @@ export default function DoorStyles() {
           )}
         </div>
 
-        {/* Style type pills */}
-        {types.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <button onClick={() => setSelectedType(null)}
+        {/* Keep the public door-profile choice simple and phone friendly. */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => setSelectedType(null)}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
+              selectedType === null
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
+            }`}>
+            {t("ds_all_styles")}
+          </button>
+          {SIMPLE_DOOR_STYLES.map((style) => (
+            <button key={style.key}
+              onClick={() => setSelectedType(selectedType === style.key ? null : style.key)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                selectedType === null
+                selectedType === style.key
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
               }`}>
-              {t("ds_all_styles")}
-            </button>
-            {["Shaker", "Raised Panel", "Flat Panel"].map((type) => (
-              <button key={type}
-                onClick={() => setSelectedType(selectedType === type ? null : type)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  selectedType === type
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
-                }`}>
-                {type}
-              </button>
-            ))}
-            {types.filter((tp) => !["Shaker", "Raised Panel", "Flat Panel"].includes(tp)).map((type) => (
-              <button key={type}
-                onClick={() => setSelectedType(selectedType === type ? null : type)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                  selectedType === type
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-background text-muted-foreground border-border hover:border-primary/60 hover:text-foreground"
-                }`}>
-                {type}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Color filter pills */}
-        <div className="flex flex-wrap gap-2">
-          <button onClick={() => setSelectedColor(null)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-              selectedColor === null
-                ? "bg-[#d4a75a] text-white border-[#d4a75a]"
-                : "bg-background text-muted-foreground border-border hover:border-[#d4a75a]/60 hover:text-foreground"
-            }`}>
-            All Colors
-          </button>
-          {COLOR_BUCKETS.map((b) => (
-            <button key={b.key}
-              onClick={() => setSelectedColor(selectedColor === b.key ? null : b.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                selectedColor === b.key
-                  ? "bg-[#d4a75a] text-white border-[#d4a75a]"
-                  : "bg-background text-muted-foreground border-border hover:border-[#d4a75a]/60 hover:text-foreground"
-              }`}>
-              {b.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Frame / Rail width filter pills */}
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mr-1">Frame</span>
-          <button onClick={() => setSelectedFrame(null)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-              selectedFrame === null
-                ? "bg-emerald-600 text-white border-emerald-600"
-                : "bg-background text-muted-foreground border-border hover:border-emerald-500/60 hover:text-foreground"
-            }`}>
-            All Frames
-          </button>
-          {FRAME_BUCKETS.filter((b) => activeBucketKeys.has(b.key)).map((b) => (
-            <button key={b.key}
-              title={b.desc}
-              onClick={() => setSelectedFrame(selectedFrame === b.key ? null : b.key)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-                selectedFrame === b.key
-                  ? "bg-emerald-600 text-white border-emerald-600"
-                  : "bg-background text-muted-foreground border-border hover:border-emerald-500/60 hover:text-foreground"
-              }`}>
-              {b.label}
+              {style.label}
             </button>
           ))}
         </div>
 
         {/* Active filter summary */}
-        {(selectedType || selectedColor || selectedFrame || searchQuery) && (
+        {(selectedType || searchQuery) && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{visible.length} style{visible.length !== 1 ? "s" : ""} found</span>
-            <button onClick={() => { setSelectedType(null); setSelectedColor(null); setSelectedFrame(null); setSearchQuery(""); }}
+            <button onClick={() => { setSelectedType(null); setSearchQuery(""); }}
               className="text-primary hover:underline">
               Clear all filters
             </button>
