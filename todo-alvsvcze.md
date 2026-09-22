@@ -1626,7 +1626,7 @@
 - [x] Correct the administrator Google test stale-preview handling so it refreshes the saved-plan reference and never shows customer verification guidance
 - [x] Add an administrator-only locked current-design snapshot path for Google tests without customer save or phone-verification blocking
 - [x] Repair the live administrator Google image-test start request that currently reports “Failed to fetch” in the browser
-- [ ] Repair the production Designer delivery mismatch that serves an older Google test dialog after a newer version is published
+- [x] Repair the production Designer delivery mismatch that serves an older Google test dialog after a newer version is published. Re-verified 2026-09-22: production `www.cabinetdealz.com/design` now serves the current `DesignTool-C7cX_PTv.js` bundle rather than the older managed-domain build; the current peninsula return marker is present in that public Designer asset.
 - [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
 - [x] Add a visible administrator Google image-test cooldown and precise safe retry guidance after provider rate limiting
 - [x] Bound the administrator Google image-test JPEG below the live browser gateway limit while retaining the required 1920-by-1080 locked snapshot
@@ -2162,7 +2162,7 @@
 - [x] Place, drag, resize, and render doors and windows on their assigned custom wall in both Plan and 3D, with opening collision clearances measured along the true wall run.
 - [x] Add desktop and compact/mobile Rotate drawing controls that turn the full custom design 90° clockwise while preserving exact wall lengths, wall IDs, cabinet offsets, doors and windows, sinks, island, furniture, notes, and pony walls.
 - [x] Validate TypeScript, 124 focused tests, 433 broader Designer regressions, production build, diff integrity, and the local Room Layout and Continuous Wall Builder flow.
-- [ ] Save and publish the corrected Designer checkpoint, then verify the production `/design` route receives it.
+- [x] Save and publish the corrected Designer checkpoint, then verify the production `/design` route receives it. Re-verified 2026-09-22: `www.cabinetdealz.com/design` and `/health` return HTTP 200, and the public `DesignTool-C7cX_PTv.js` bundle includes the current `peninsula-45-gap-recommendation` marker.
 
 ## Railway health-check deployment repair — 2026-09-17
 
