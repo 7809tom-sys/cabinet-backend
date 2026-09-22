@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -1311,6 +1311,32 @@ describe("cabinet-supported peninsula runs", () => {
     expect(spot!.wallOffset).not.toBe(PENINSULA_INSIDE_CORNER_CLEARANCE_IN);
     const sb36: PlacedCabinet = { ...erb, uid: "sb36-at-90-join", masterCode: "SB36", description: "Sink Base 36", ...spot! };
     expect(cabinetPlacementCollisionDetail(sb36, [erb], room)).toBeNull();
+  });
+
+  it("snaps an ERB36 flush to the selected peninsula's true 90-degree bend", () => {
+    const run = peninsulaRoom.peninsulaRuns![0];
+    const erb: PlacedCabinet = {
+      uid: "erb-peninsula-corner", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    const spot = nextAvailablePeninsulaCornerPlacement(erb, run.id as any, peninsulaRoom, [], { x: 48, y: 0 });
+    expect(spot).toMatchObject({ wallId: run.id, wallOffset: 0, rotation: 90 });
+    const seated = { ...erb, ...spot };
+    expect(placedFootprint(seated)).toEqual({ w: 36, d: 36 });
+    expect(cabinetPlacementCollisionDetail(seated, [], peninsulaRoom)).toBeNull();
+  });
+
+  it("does not mistake an acute 45-degree peninsula return for a square ERB corner", () => {
+    const primary = { ...peninsulaRoom.peninsulaRuns![0], id: "primary-for-45-corner", length: 72 };
+    const return45: PeninsulaRun = {
+      id: "return-45-corner", parentRunId: primary.id, startOffset: 0, turn: 45, direction: "right", length: 48, height: 34.5,
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, return45] };
+    const erb: PlacedCabinet = {
+      uid: "erb-45-corner", cabinetId: 36, masterCode: "ERB36", description: "Easy Reach Corner Base 36",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+    };
+    expect(nextAvailablePeninsulaCornerPlacement(erb, return45.id as any, room, [], peninsulaRunEndpoints(return45, room).start)).toBeNull();
   });
 
   it("recovers a legacy peninsula cabinet that still carries its original parent-wall owner", () => {

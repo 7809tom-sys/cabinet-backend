@@ -1415,22 +1415,25 @@ export function PlanCanvas({
             ? undefined
             : attachmentMeasureHorizontal
               ? {
-                  left: Math.max(3, start.x * ppi / 2 - 40),
-                  top: parentWall === "top" ? 4 : Math.max(4, roomPxH - 22),
+                  // Keep the parent-wall measurement outside the room. It is a
+                  // drawing dimension, not a cabinet label, so it must never
+                  // cover an ERB or the peninsula corner snap target.
+                  left: Math.max(3, start.x * ppi / 2 - 56),
+                  top: parentWall === "top" ? -25 : roomPxH + 10,
                 }
               : {
-                  left: parentWall === "left" ? 4 : Math.max(4, roomPxW - 118),
+                  left: parentWall === "left" ? -132 : roomPxW + 10,
                   top: Math.max(3, start.y * ppi / 2 - 10),
                 };
           return (
             <Fragment key={run.id}>
               {primaryAttachmentMeasure != null && <span
                 data-testid="peninsula-attachment-measurement"
-                title="Measured parent-wall segment from the wall start corner to this peninsula attachment"
+                title="Measured parent-wall segment from the wall start corner to this peninsula attachment; displayed outside the room so it does not cover cabinets"
                 className="pointer-events-none absolute z-20 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow"
                 style={attachmentMeasureStyle}
               >
-                Wall to peninsula · {formatEighthInches(primaryAttachmentMeasure)}
+                Wall start → peninsula · {formatEighthInches(primaryAttachmentMeasure)}
               </span>}
             <div
               data-testid="peninsula-run-segment"

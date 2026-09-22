@@ -13,8 +13,9 @@ describe("Design Tool direct corner cabinet drops", () => {
 
     expect(handler).toContain("const requiresRoomCorner = !forceAccessory");
     expect(handler).toContain("isCornerCabinet(data.masterCode, data.description)");
-    expect(handler).toContain("nextAvailableRoomCornerPlacement({");
-    expect(handler).toContain("}, dropWall, room, placedRef.current, center)");
+    expect(handler).toContain("const cornerPreview = {");
+    expect(handler).toContain("nextAvailablePeninsulaCornerPlacement(cornerPreview, activePeninsulaRun.id as WallSide, room, placedRef.current, center)");
+    expect(handler).toContain("nextAvailableRoomCornerPlacement(cornerPreview, dropWall, room, placedRef.current, center)");
     expect(handler).toContain("corner-drop-preview-${data.id}");
     expect(handler).toContain("wallId: cornerSpot.wallId as WallSide");
     expect(handler).toContain("wallOffset: cornerSpot.wallOffset ?? 0");

@@ -6929,6 +6929,55 @@ export function nextAvailableRoomCornerPlacement(
   return null;
 }
 
+/**
+ * Finds an unoccupied true 90-degree corner on the selected peninsula path.
+ * A primary peninsula leaves its parent wall at a square corner; a connected
+ * 90-degree return creates another square corner at its start. These are real
+ * cabinet corners, not generic room-edge guesses. Acute 45-degree joins stay
+ * excluded because their installer clearance is not an ERB/LS/diagonal-cabinet
+ * envelope.
+ */
+export function nextAvailablePeninsulaCornerPlacement(
+  moving: PlacedCabinet,
+  activeRunId: WallSide,
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  nearPoint?: { x: number; y: number },
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } | null {
+  const activeRun = peninsulaRunById(room, activeRunId);
+  if (!activeRun) return null;
+  const footprint = placedFootprint(moving);
+  const requiredLeg = Math.max(footprint.w, footprint.d);
+  const tolerance = nearPoint
+    ? Math.max(24, requiredLeg + 24)
+    : Number.POSITIVE_INFINITY;
+  const allRuns = room.peninsulaRuns ?? [];
+  const candidateRuns = [
+    // A primary run always meets its parent wall at a true 90-degree corner.
+    ...(!activeRun.parentRunId || activeRun.turn === 90 ? [activeRun] : []),
+    // A selected parent run may also expose its direct 90-degree return.
+    ...allRuns.filter((candidate) => candidate.parentRunId === activeRun.id && candidate.turn === 90),
+  ].filter((candidate, index, candidates) => candidates.findIndex((other) => other.id === candidate.id) === index);
+
+  const ordered = [...candidateRuns].sort((left, right) => {
+    if (!nearPoint) return 0;
+    const leftPoint = peninsulaRunEndpoints(left, room).start;
+    const rightPoint = peninsulaRunEndpoints(right, room).start;
+    return Math.hypot(leftPoint.x - nearPoint.x, leftPoint.y - nearPoint.y)
+      - Math.hypot(rightPoint.x - nearPoint.x, rightPoint.y - nearPoint.y);
+  });
+  for (const run of ordered) {
+    const joint = peninsulaRunEndpoints(run, room).start;
+    if (nearPoint && Math.hypot(joint.x - nearPoint.x, joint.y - nearPoint.y) > tolerance) continue;
+    // Use the real L-corner box—not the supplier's sometimes-shallow ERB depth—
+    // so both legs seat flush at the shared peninsula joint.
+    const spot = wallPlacementAt(0, requiredLeg, requiredLeg, run.id as WallSide, room, run.cabinetSide);
+    const candidate: PlacedCabinet = { ...moving, ...spot };
+    if (!cabinetPlacementCollisionDetail(candidate, [...placed], room)) return spot;
+  }
+  return null;
+}
+
 export type CabinetCornerPlacementInfo = {
   angle: 45 | 90;
   placement: "flush" | "clearance";

@@ -97,7 +97,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
   conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -4239,7 +4239,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           accPlacement === "appliance"
         );
 	        if (requiresRoomCorner) {
-	          const cornerSpot = nextAvailableRoomCornerPlacement({
+	          const cornerPreview = {
 	            uid: `corner-preview-${c.id}`,
 	            cabinetId: c.id,
 	            masterCode: c.masterCode,
@@ -4254,7 +4254,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            numberOfDoors: c.numberOfDoors,
 	            numberOfDrawers: c.numberOfDrawers,
 	            cornerType: c.cornerType ?? null,
-	          }, activeWall, room, prev);
+	          } as PlacedCabinet;
+	          const cornerSpot = peninsulaRunById(room, activeWall)
+	            ? nextAvailablePeninsulaCornerPlacement(cornerPreview, activeWall, room, prev)
+	            : nextAvailableRoomCornerPlacement(cornerPreview, activeWall, room, prev);
 	          if (!cornerSpot) {
 	            const message = `${c.masterCode} was not added because no room corner has a clear ${formatInches(width)} × ${formatInches(depth)} footprint. The hood and every existing cabinet or part remain protected from overlap.`;
 	            setPlacementWarning(message);
@@ -6822,7 +6825,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        && isCornerCabinet(data.masterCode, data.description)
 	        && (placement === "base" || placement === "wall");
 	      if (requiresRoomCorner) {
-	        const cornerSpot = nextAvailableRoomCornerPlacement({
+	        const cornerPreview = {
 	          uid: `corner-drop-preview-${data.id}`,
 	          cabinetId: data.id,
 	          masterCode: data.masterCode,
@@ -6835,7 +6838,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          height: dimensions.height,
 	          rotation: 0,
 	          cornerType: data.cornerType ?? null,
-	        }, dropWall, room, placedRef.current, center);
+	        } as PlacedCabinet;
+	        const cornerSpot = activePeninsulaRun
+	          ? nextAvailablePeninsulaCornerPlacement(cornerPreview, activePeninsulaRun.id as WallSide, room, placedRef.current, center)
+	          : nextAvailableRoomCornerPlacement(cornerPreview, dropWall, room, placedRef.current, center);
 	        if (!cornerSpot) {
 	          const message = `${data.masterCode} cannot snap here because the nearest real corner is occupied or does not have a clear footprint.`;
 	          setPlacementWarning(message);
