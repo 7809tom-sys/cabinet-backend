@@ -1669,15 +1669,24 @@ describe("cabinet-supported peninsula runs", () => {
 			});
 
 			it.each([
-			  ["left", "left"],
-			  ["right", "right"],
-			] as const)("keeps the %s-side inside %s 45-degree return as one non-crossing countertop outline", (cabinetSide, direction) => {
+			  ["left", "left", 0, 12],
+			  ["left", "left", 12, 0],
+			  ["left", "left", 12, 12],
+			  ["left", "left", 15, 0],
+			  ["left", "left", 15, 12],
+			  ["right", "right", 0, 12],
+			  ["right", "right", 12, 0],
+			  ["right", "right", 12, 12],
+			  ["right", "right", 15, 0],
+			  ["right", "right", 15, 12],
+			] as const)("keeps the %s-side inside %s 45-degree return non-crossing with %i-inch seating and %i-inch bar depth", (cabinetSide, direction, seating, bar) => {
 			  const parent = {
 			    ...peninsulaRoom.peninsulaRuns![0],
 			    id: `inside-miter-parent-${cabinetSide}`,
 			    length: 72,
 			    cabinetSide,
-			    countertopSeatingOverhang: 12 as const,
+			    countertopSeatingOverhang: seating,
+			    countertopPonyWallBarOverhang: bar,
 			  };
 			  const child = {
 			    id: `inside-miter-child-${cabinetSide}`,
