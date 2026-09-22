@@ -8190,13 +8190,18 @@ function countertopOffsetEdgeMiterPoint(
   joint: CountertopPlanPoint,
   parentRadians: number,
   parentNormal: CountertopPlanPoint,
-  parentDepth: number,
+  parentCabinetFacingReach: number,
   childRadians: number,
   childNormal: CountertopPlanPoint,
-  childDepth: number,
+  childCabinetFacingReach: number,
 ): CountertopPlanPoint {
-  const parentOuter = { x: joint.x + parentNormal.x * parentDepth, y: joint.y + parentNormal.y * parentDepth };
-  const childOuter = { x: joint.x + childNormal.x * childDepth, y: joint.y + childNormal.y * childDepth };
+  // A bar/seating top is deliberately deeper only *behind* the cabinets. Its
+  // total depth must never be mistaken for the cabinet-facing reach at a 45°
+  // miter; doing so lengthens the door-side edge by the bar projection. Each
+  // angled front therefore follows the cabinet boxes at the normal 24" + 1½"
+  // finished edge, while the rear projection remains part of the same slab.
+  const parentOuter = { x: joint.x + parentNormal.x * parentCabinetFacingReach, y: joint.y + parentNormal.y * parentCabinetFacingReach };
+  const childOuter = { x: joint.x + childNormal.x * childCabinetFacingReach, y: joint.y + childNormal.y * childCabinetFacingReach };
   const parentTangent = { x: Math.cos(parentRadians), y: Math.sin(parentRadians) };
   const childTangent = { x: Math.cos(childRadians), y: Math.sin(childRadians) };
   const determinant = parentTangent.x * childTangent.y - parentTangent.y * childTangent.x;
@@ -8208,7 +8213,7 @@ function countertopOffsetEdgeMiterPoint(
     x: parentOuter.x + parentTangent.x * amount,
     y: parentOuter.y + parentTangent.y * amount,
   };
-  const maximumProjection = Math.max(parentDepth, childDepth) * 2;
+  const maximumProjection = Math.max(parentCabinetFacingReach, childCabinetFacingReach) * 2;
   return Math.hypot(intersection.x - joint.x, intersection.y - joint.y) <= maximumProjection
     ? intersection
     : fallback;
@@ -8404,10 +8409,10 @@ export function miteredPeninsulaCountertopSurfaces(
 	          parentGeometry.end,
 	          parentGeometry.radians,
           parentNormal,
-          parentSurface.depth,
-          childGeometry.radians,
+          COUNTERTOP_DEPTH_IN,
+	          childGeometry.radians,
           childNormal,
-          childSurface.depth,
+          COUNTERTOP_DEPTH_IN,
         );
         resolved[parentIndex] = countertopSurfaceWithMiterPoint(parentSurface, parent, room, false, miterPoint);
         resolved[childIndex] = countertopSurfaceWithMiterPoint(childSurface, child, room, true, miterPoint);
@@ -8509,10 +8514,119 @@ function unionCountertopSurfacesAtSharedMiterVertex(
   left: CountertopSurface,
   right: CountertopSurface,
   rootRunId: string,
+  room: RoomData,
 ): CountertopSurface | null {
   const leftPolygon = countertopSurfacePlanPolygon(left);
   const rightPolygon = countertopSurfacePlanPolygon(right);
   if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
+
+  const leftRunIds = left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : []);
+  const rightRunIds = right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : []);
+  type DirectMiterJoin = {
+    surface: CountertopSurface;
+    polygon: CountertopPlanPoint[];
+    run: PeninsulaRun;
+    other: CountertopSurface;
+    otherPolygon: CountertopPlanPoint[];
+    otherRun: PeninsulaRun;
+    runIds: string[];
+  };
+  let directParent: DirectMiterJoin | null = null;
+  for (const parentId of leftRunIds) {
+    const parentRun = room.peninsulaRuns?.find((candidate) => candidate.id === parentId);
+    const childRun = room.peninsulaRuns?.find((candidate) => rightRunIds.some((id) => id === candidate.id) && candidate.parentRunId === parentId);
+    if (parentRun && childRun) {
+      directParent = { surface: left, polygon: leftPolygon, run: parentRun, other: right, otherPolygon: rightPolygon, otherRun: childRun, runIds: Array.from(new Set([...leftRunIds, ...rightRunIds])) };
+      break;
+    }
+  }
+  if (!directParent) {
+    for (const parentId of rightRunIds) {
+      const parentRun = room.peninsulaRuns?.find((candidate) => candidate.id === parentId);
+      const childRun = room.peninsulaRuns?.find((candidate) => leftRunIds.some((id) => id === candidate.id) && candidate.parentRunId === parentId);
+      if (parentRun && childRun) {
+        directParent = { surface: right, polygon: rightPolygon, run: parentRun, other: left, otherPolygon: leftPolygon, otherRun: childRun, runIds: Array.from(new Set([...rightRunIds, ...leftRunIds])) };
+        break;
+      }
+    }
+  }
+
+  /**
+   * Direct 45° runs meet at their cabinet-facing front miter, while their rear
+   * edges bridge the deeper seating/bar area. Keep that shared front vertex in
+   * the unified outline. Omitting it closes a diagonal from the rear of one run
+   * to the front of the other, which visually projects the top past cabinet
+   * doors whenever a pony-wall bar is selected.
+   */
+  if (directParent) {
+    const parentGeometry = peninsulaRunEndpoints(directParent.run, room);
+    const childGeometry = peninsulaRunEndpoints(directParent.otherRun, room);
+    const parentNormal = countertopRunFaceNormal(parentGeometry.radians, directParent.run.cabinetSide ?? "left");
+    const childNormal = countertopRunFaceNormal(childGeometry.radians, directParent.otherRun.cabinetSide ?? "left");
+    const walkAwayFromShared = (polygon: CountertopPlanPoint[], startIndex: number, sharedIndex: number) => {
+      const step = (startIndex + 1) % polygon.length === sharedIndex ? -1 : 1;
+      const path: CountertopPlanPoint[] = [];
+      for (let index = startIndex, guard = 0; guard < polygon.length; guard += 1) {
+        path.push(polygon[index]!);
+        index = (index + step + polygon.length) % polygon.length;
+        if (index === sharedIndex) break;
+      }
+      return path;
+    };
+    const outward = (point: CountertopPlanPoint, start: CountertopPlanPoint, normal: CountertopPlanPoint) => (
+      (point.x - start.x) * normal.x + (point.y - start.y) * normal.y
+    );
+
+    for (let parentSharedIndex = 0; parentSharedIndex < directParent.polygon.length; parentSharedIndex += 1) {
+      for (let childSharedIndex = 0; childSharedIndex < directParent.otherPolygon.length; childSharedIndex += 1) {
+        const shared = directParent.polygon[parentSharedIndex]!;
+        if (!sameCountertopPlanPoint(shared, directParent.otherPolygon[childSharedIndex]!, 0.125)) continue;
+        const parentPrevious = (parentSharedIndex - 1 + directParent.polygon.length) % directParent.polygon.length;
+        const parentNext = (parentSharedIndex + 1) % directParent.polygon.length;
+        const childPrevious = (childSharedIndex - 1 + directParent.otherPolygon.length) % directParent.otherPolygon.length;
+        const childNext = (childSharedIndex + 1) % directParent.otherPolygon.length;
+        const parentFront = outward(directParent.polygon[parentNext]!, parentGeometry.start, parentNormal) >= outward(directParent.polygon[parentPrevious]!, parentGeometry.start, parentNormal)
+          ? parentNext
+          : parentPrevious;
+        const parentRear = parentFront === parentNext ? parentPrevious : parentNext;
+        const childFront = outward(directParent.otherPolygon[childNext]!, childGeometry.start, childNormal) >= outward(directParent.otherPolygon[childPrevious]!, childGeometry.start, childNormal)
+          ? childNext
+          : childPrevious;
+        const childRear = childFront === childNext ? childPrevious : childNext;
+        const outline = removeConsecutiveCountertopPlanDuplicates([
+          directParent.polygon[parentFront]!,
+          shared,
+          ...walkAwayFromShared(directParent.otherPolygon, childFront, childSharedIndex),
+          ...walkAwayFromShared(directParent.polygon, parentRear, parentSharedIndex),
+        ]);
+        if (outline.length < 3 || countertopPolygonArea(outline) <= COLLISION_EPSILON_IN) continue;
+        const minX = Math.min(...outline.map((point) => point.x));
+        const maxX = Math.max(...outline.map((point) => point.x));
+        const minY = Math.min(...outline.map((point) => point.y));
+        const maxY = Math.max(...outline.map((point) => point.y));
+        const runIds = directParent.runIds;
+        return {
+          x: minX,
+          y: minY,
+          width: Math.max(0.1, maxX - minX),
+          depth: Math.max(0.1, maxY - minY),
+          kind: "base",
+          rotation: 0,
+          peninsulaRunId: rootRunId,
+          peninsulaRunIds: runIds,
+          runStartIn: 0,
+          polygon: outline.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+          miteredStart: directParent.surface.miteredStart || directParent.other.miteredStart,
+          miteredEnd: directParent.surface.miteredEnd || directParent.other.miteredEnd,
+          linearInches: Math.max(0.1, maxX - minX),
+          runLinearInches: (directParent.surface.runLinearInches ?? directParent.surface.linearInches ?? 0) + (directParent.other.runLinearInches ?? directParent.other.linearInches ?? 0),
+          areaInches: countertopPolygonArea(outline),
+          ponyWallBarOverhangIn: Math.max(directParent.surface.ponyWallBarOverhangIn ?? 0, directParent.other.ponyWallBarOverhangIn ?? 0) || undefined,
+          ponyWallBackExtensionIn: Math.max(directParent.surface.ponyWallBackExtensionIn ?? 0, directParent.other.ponyWallBackExtensionIn ?? 0) || undefined,
+        };
+      }
+    }
+  }
 
   for (let leftIndex = 0; leftIndex < leftPolygon.length; leftIndex += 1) {
     for (let rightIndex = 0; rightIndex < rightPolygon.length; rightIndex += 1) {
@@ -8596,7 +8710,7 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
             return run && peninsulaRootRunId(run, room) === rootRunId;
           })) continue;
           const union = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
-            ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId);
+            ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId, room);
           if (!union) continue;
           resolved.splice(rightIndex, 1);
           resolved[leftIndex] = union;

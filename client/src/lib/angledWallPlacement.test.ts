@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
@@ -1582,7 +1582,7 @@ describe("cabinet-supported peninsula runs", () => {
 	  expect(countertopSurfaces([], withSeating)).toEqual([]);
 	});
 
-	it("extends a bar countertop across the drywall pony wall before projecting past it", () => {
+		it("extends a bar countertop across the drywall pony wall before projecting past it", () => {
 	  const barRoom: RoomData = {
 	    ...peninsulaRoom,
 	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left", countertopPonyWallBarOverhang: 12 }],
@@ -1601,10 +1601,74 @@ describe("cabinet-supported peninsula runs", () => {
 	    (point.x - geometry.start.x) * cabinetFace.x + (point.y - geometry.start.y) * cabinetFace.y
 	  ));
 	  expect(Math.max(...faceProjections)).toBeCloseTo(25.5, 6);
-	  expect(Math.min(...faceProjections)).toBeCloseTo(-16.5, 6);
-	});
+		  expect(Math.min(...faceProjections)).toBeCloseTo(-16.5, 6);
+		});
 
-	it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {
+		it("keeps every 45-degree cabinet-facing miter at the 1½-inch front edge when a bar projects behind the cabinets", () => {
+		  const parent = {
+		    ...peninsulaRoom.peninsulaRuns![0],
+		    id: "front-edge-parent",
+		    length: 72,
+		    cabinetSide: "left" as const,
+		    countertopPonyWallBarOverhang: 12 as const,
+		  };
+		  const child = {
+		    id: "front-edge-return",
+		    parentRunId: parent.id,
+		    startOffset: 0,
+		    turn: 45 as const,
+		    direction: "right" as const,
+		    length: 48,
+		    height: 34.5,
+		    cabinetSide: "left" as const,
+		  };
+		  const room: RoomData = { ...peninsulaRoom, width: 180, depth: 180, peninsulaRuns: [parent, child] };
+		  const parentSpot = wallPlacementAt(0, parent.length, 24, parent.id as any, room, "left");
+		  const childSpot = wallPlacementAt(0, child.length, 24, child.id as any, room, "left");
+		  const cabinets = [
+		    { ...peninsulaCabinet("front-edge-parent-base", 0), ...parentSpot, width: parent.length, wallId: parent.id, wallOffset: 0, peninsulaSide: "left" as const },
+		    { ...peninsulaCabinet("front-edge-return-base", 0), ...childSpot, width: child.length, wallId: child.id, wallOffset: 0, peninsulaSide: "left" as const },
+		  ];
+		  const [surface] = countertopSurfaces(cabinets, room).filter((candidate) => candidate.peninsulaRunId);
+		  const mitered = miteredPeninsulaCountertopSurfaces([
+		    peninsulaCountertopSurface(parent, room),
+		    peninsulaCountertopSurface(child, room),
+		  ], room);
+		  const parentFrame = peninsulaRunEndpoints(parent, room);
+		  const childFrame = peninsulaRunEndpoints(child, room);
+		  const parentNormal = countertopRunFaceNormal(parentFrame.radians, "left");
+		  const childNormal = countertopRunFaceNormal(childFrame.radians, "left");
+		  const parentTangent = { x: Math.cos(parentFrame.radians), y: Math.sin(parentFrame.radians) };
+		  const childTangent = { x: Math.cos(childFrame.radians), y: Math.sin(childFrame.radians) };
+		  const cross = (left: { x: number; y: number }, right: { x: number; y: number }) => left.x * right.y - left.y * right.x;
+		  const offsetPoint = (origin: { x: number; y: number }, normal: { x: number; y: number }, reach: number) => ({
+		    x: origin.x + normal.x * reach,
+		    y: origin.y + normal.y * reach,
+		  });
+		  const miterIntersection = (reach: number) => {
+		    const parentFront = offsetPoint(parentFrame.end, parentNormal, reach);
+		    const childFront = offsetPoint(childFrame.start, childNormal, reach);
+		    const delta = { x: childFront.x - parentFront.x, y: childFront.y - parentFront.y };
+		    const t = cross(delta, childTangent) / cross(parentTangent, childTangent);
+		    return { x: parentFront.x + parentTangent.x * t, y: parentFront.y + parentTangent.y * t };
+		  };
+		  const expectedFrontMiter = miterIntersection(COUNTERTOP_DEPTH_IN);
+		  const erroneousDeepMiter = miterIntersection(42);
+		  const outline = countertopSurfacePlanPolygon(surface!);
+		  const miteredOutlines = mitered.map(countertopSurfacePlanPolygon);
+
+		  expect(surface).toMatchObject({ peninsulaRunIds: [parent.id, child.id] });
+		  expect(mitered).toHaveLength(2);
+		  expect(mitered.every((candidate) => candidate.depth === 42)).toBe(true);
+		  expect(outline.some((point) => Math.hypot(point.x - expectedFrontMiter.x, point.y - expectedFrontMiter.y) < 1e-6)).toBe(true);
+		  expect(miteredOutlines.every((miteredOutline) => miteredOutline.some((point) => Math.hypot(point.x - expectedFrontMiter.x, point.y - expectedFrontMiter.y) < 1e-6))).toBe(true);
+		  // This is the old, incorrect join: it treated the 42-inch bar depth as
+		  // door-side projection and pushed the front past every cabinet face.
+		  expect(Math.hypot(expectedFrontMiter.x - erroneousDeepMiter.x, expectedFrontMiter.y - erroneousDeepMiter.y)).toBeGreaterThan(0.001);
+		  expect(miteredOutlines.flat().some((point) => Math.hypot(point.x - erroneousDeepMiter.x, point.y - erroneousDeepMiter.y) < 1e-6)).toBe(false);
+		});
+
+		it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {
 	  const standardRoom: RoomData = {
 	    ...peninsulaRoom,
 	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left" }],
@@ -1785,7 +1849,9 @@ describe("cabinet-supported peninsula runs", () => {
       miteredEnd: true,
       miteredStart: true,
     });
-    expect(countertopSurfacePlanPolygon(surface)).toHaveLength(6);
+    // A seventh point retains the real cabinet-facing miter so the deeper rear
+    // seating portion cannot draw diagonally across the 1½-inch front edge.
+    expect(countertopSurfacePlanPolygon(surface)).toHaveLength(7);
     const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
     const terminalWaterfallArea = STD.BASE_HEIGHT * 37.5;
     expect(countertopArea([parentB15, parentB27, childB24], null, null, room).squareFeet).toBe(Math.ceil(((visibleArea + terminalWaterfallArea) / 144) * 10) / 10);
