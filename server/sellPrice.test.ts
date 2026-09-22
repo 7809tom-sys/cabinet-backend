@@ -56,13 +56,13 @@ describe("sellPriceForTier", () => {
     expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(268.29);
   });
 
-  it("uses an explicitly selected source list as homeowner retail while keeping trade tiers cost-based", () => {
+  it("uses the homeowner markup even when a legacy source-list flag is present", () => {
     const row = {
       yourCost: "149.10",
       listPrice: "497.00",
       retailPriceBasis: "source_list" as const,
     };
-    expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(497);
+    expect(sellPriceForTier(row, SETTINGS, "homeowner")).toBe(246.02);
     expect(sellPriceForTier(row, SETTINGS, "contractor")).toBe(192.34);
     expect(sellPriceForTier(row, SETTINGS, "wholesale")).toBe(186.38);
   });

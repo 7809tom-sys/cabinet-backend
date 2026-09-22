@@ -15,15 +15,20 @@ import {
 import { toast } from "sonner";
 import { Search, Save, History, ShieldCheck, X, BadgeCheck, CircleAlert, CalendarClock, ListFilter, ChevronUp, ChevronDown, Download } from "lucide-react";
 
-// Editable price-ladder fields, in display order.
-const FIELDS = [
+// Only authorized source values are editable. The customer/trade tiers remain
+// visible below, but are calculated from the current source list/cost on save.
+const SOURCE_FIELDS = [
   { key: "yourCost", label: "Your Cost" },
   { key: "listPrice", label: "List Price" },
+] as const;
+const CALCULATED_FIELDS = [
   { key: "wholesalePrice", label: "Wholesale" },
   { key: "contractorPrice", label: "Contractor" },
   { key: "homeownerPrice", label: "Homeowner" },
 ] as const;
-type FieldKey = (typeof FIELDS)[number]["key"];
+const FIELDS = [...SOURCE_FIELDS, ...CALCULATED_FIELDS] as const;
+type SourceFieldKey = (typeof SOURCE_FIELDS)[number]["key"];
+type PriceFieldKey = (typeof FIELDS)[number]["key"];
 
 type Sku = {
   skuId: number;
@@ -68,20 +73,27 @@ function dollarsOrBlank(v: string | null): string {
 // One editable SKU row. Tracks its own dirty draft so each row saves
 // independently and only changed fields are sent.
 function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
-  const initial: Record<FieldKey, string> = {
+  const initial: Record<PriceFieldKey, string> = {
     yourCost: dollarsOrBlank(sku.yourCost),
     listPrice: dollarsOrBlank(sku.listPrice),
     wholesalePrice: dollarsOrBlank(sku.wholesalePrice),
     contractorPrice: dollarsOrBlank(sku.contractorPrice),
     homeownerPrice: dollarsOrBlank(sku.homeownerPrice),
   };
-  const [draft, setDraft] = useState<Record<FieldKey, string>>(initial);
+  const [draft, setDraft] = useState<Record<SourceFieldKey, string>>({
+    yourCost: initial.yourCost,
+    listPrice: initial.listPrice,
+  });
 
-  const dirty = FIELDS.some((f) => draft[f.key] !== initial[f.key]);
+  const dirty = SOURCE_FIELDS.some((f) => draft[f.key] !== initial[f.key]);
 
   const update = trpc.pricing.adminUpdateSkuCost.useMutation({
     onSuccess: (res) => {
-      toast.success(res.changed > 0 ? `Saved ${res.changed} change${res.changed === 1 ? "" : "s"}` : "No changes to save");
+      toast.success(
+        res.changed > 0
+          ? `Saved and recalculated the price ladder (${res.recalculation.updated.toLocaleString()} priced SKU rows refreshed).`
+          : "No source-price changes to save",
+      );
       onSaved();
     },
     onError: (e) => toast.error(e.message || "Save failed"),
@@ -89,7 +101,7 @@ function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
 
   const handleSave = () => {
     const payload: Record<string, number | null> = { skuId: sku.skuId };
-    for (const f of FIELDS) {
+    for (const f of SOURCE_FIELDS) {
       if (draft[f.key] === initial[f.key]) continue;
       const trimmed = draft[f.key].trim();
       payload[f.key] = trimmed === "" ? null : Number(trimmed);
@@ -111,8 +123,11 @@ function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
           {!sku.isPublished && <Badge variant="secondary" className="text-[10px]">unpublished</Badge>}
           {!sku.isAvailable && <Badge variant="destructive" className="text-[10px]">unavailable</Badge>}
         </div>
+        <p className="mt-1 max-w-[180px] text-[10px] leading-snug text-muted-foreground">
+          Wholesale, contractor, and homeowner prices are calculated from the source cost and saved markup rules.
+        </p>
       </TableCell>
-      {FIELDS.map((f) => (
+      {SOURCE_FIELDS.map((f) => (
         <TableCell key={f.key} className="align-top">
           <Input
             inputMode="decimal"
@@ -121,6 +136,13 @@ function SkuRow({ sku, onSaved }: { sku: Sku; onSaved: () => void }) {
             className={draft[f.key] !== initial[f.key] ? "border-amber-500" : ""}
             onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
           />
+        </TableCell>
+      ))}
+      {CALCULATED_FIELDS.map((f) => (
+        <TableCell key={f.key} className="align-top">
+          <output className="block min-h-9 rounded-md border bg-muted/40 px-3 py-2 text-sm tabular-nums text-muted-foreground">
+            {initial[f.key] === "" ? "—" : `$${Number(initial[f.key]).toFixed(2)}`}
+          </output>
         </TableCell>
       ))}
       <TableCell className="align-top">
@@ -308,7 +330,10 @@ function CabinetCard({
               <TableHeader>
                 <TableRow>
                   <TableHead className="min-w-[180px]">Door style / line</TableHead>
-                  {FIELDS.map((f) => (
+                  {SOURCE_FIELDS.map((f) => (
+                    <TableHead key={f.key} className="min-w-[110px]">{f.label}</TableHead>
+                  ))}
+                  {CALCULATED_FIELDS.map((f) => (
                     <TableHead key={f.key} className="min-w-[110px]">{f.label}</TableHead>
                   ))}
                   <TableHead />

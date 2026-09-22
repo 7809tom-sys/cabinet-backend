@@ -113,12 +113,6 @@ export function sellPriceForTier(
   s: TierMarkupBps,
   tier: PricingTier,
 ): number | null {
-  // The distributor's verified source list is authoritative retail only when
-  // the line is configured that way. Wholesale and contractor tiers remain
-  // cost-based, so their buying rules and margins are not silently changed.
-  if (tier === "homeowner" && row.retailPriceBasis === "source_list") {
-    return toNum(row.adjustedListPrice) ?? toNum(row.listPrice);
-  }
   const base = resolveCostBase(row);
   if (base === null) return null;
   const bps = clampBps(markupBpsForTier(s, tier));

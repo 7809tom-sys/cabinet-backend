@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { getDb } from "./db";
-import { distributorSkus, costChangeLog } from "../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { getDb, getPricingSettings } from "./db";
+import { distributorSkus, costChangeLog, distributors } from "../drizzle/schema";
+import { and, desc, eq, gt } from "drizzle-orm";
+import { landedCostFromList } from "./lib/distributorCostMultiplier";
 
 function adminCtx(): TrpcContext {
   return {
@@ -71,46 +72,57 @@ describe("admin Cost Lookup / Verify tool", () => {
     }
   });
 
-  it("adminUpdateSkuCost writes an audit row per changed field and is reversible", async () => {
+  it("recalculates the U.S. Cabinet Depot price ladder from an edited verified list price", async () => {
     const db = await getDb();
     if (!db) return;
-    const rows = await db.select().from(distributorSkus).limit(1);
-    if (rows.length === 0) return;
-    const sku = rows[0];
-    const caller = appRouter.createCaller(adminCtx());
-
-    const original = sku.contractorPrice;
-    const originalNum = original === null ? null : Number(original);
-    const newVal = (originalNum ?? 100) + 1.23;
-
-    const result = await caller.pricing.adminUpdateSkuCost({
-      skuId: sku.id,
-      contractorPrice: newVal,
-    });
-    expect(result.success).toBe(true);
-    expect(result.changed).toBeGreaterThanOrEqual(1);
-
-    // SKU column actually changed.
-    const after = await db.select().from(distributorSkus).where(eq(distributorSkus.id, sku.id)).limit(1);
-    expect(Number(after[0].contractorPrice)).toBeCloseTo(newVal, 2);
-
-    // Audit row captured old -> new + who.
-    const log = await db
-      .select()
-      .from(costChangeLog)
-      .where(eq(costChangeLog.skuId, sku.id))
-      .orderBy(desc(costChangeLog.createdAt))
+    const [uscd] = await db
+      .select({ id: distributors.id, base: distributors.baseMultiplier, freight: distributors.freightMultiplier })
+      .from(distributors)
+      .where(eq(distributors.code, "USCD"))
       .limit(1);
-    expect(log.length).toBe(1);
-    expect(log[0].field).toBe("contractorPrice");
-    expect(Number(log[0].newValue)).toBeCloseTo(newVal, 2);
-    expect(log[0].changedByName).toBe("Owner Admin");
+    if (!uscd) return;
+    const [sku] = await db
+      .select()
+      .from(distributorSkus)
+      .where(and(
+        eq(distributorSkus.distributorId, uscd.id),
+        gt(distributorSkus.listPrice, "0"),
+      ))
+      .limit(1);
+    if (!sku?.listPrice) return;
+    const caller = appRouter.createCaller(adminCtx());
+    const originalList = Number(sku.listPrice);
+    // A full dollar change must cross the two-cent-stage landed-cost rounding
+    // boundary and therefore prove the source-list edit re-prices the line.
+    const editedList = originalList + 1;
+    const base = Number(uscd.base);
+    const freight = Number(uscd.freight);
+    const settings = await getPricingSettings();
 
-    // Restore original value to keep the dataset clean.
-    await caller.pricing.adminUpdateSkuCost({
-      skuId: sku.id,
-      contractorPrice: originalNum,
-    });
+    try {
+      const result = await caller.pricing.adminUpdateSkuCost({ skuId: sku.id, listPrice: editedList });
+      expect(result.success).toBe(true);
+      expect(result.changed).toBeGreaterThan(0);
+      expect(result.recalculation.updated).toBeGreaterThan(0);
+
+      const [after] = await db.select().from(distributorSkus).where(eq(distributorSkus.id, sku.id)).limit(1);
+      const expectedCost = landedCostFromList(editedList, base, freight);
+      expect(Number(after.yourCost)).toBe(expectedCost);
+      expect(Number(after.wholesalePrice)).toBe(Math.round(expectedCost * settings.wholesaleMarkupBps / 10000 * 100) / 100);
+      expect(Number(after.contractorPrice)).toBe(Math.round(expectedCost * settings.contractorMarkupBps / 10000 * 100) / 100);
+      expect(Number(after.homeownerPrice)).toBe(Math.round(expectedCost * settings.homeownerMarkupBps / 10000 * 100) / 100);
+
+      const log = await db
+        .select()
+        .from(costChangeLog)
+        .where(eq(costChangeLog.skuId, sku.id))
+        .orderBy(desc(costChangeLog.createdAt))
+        .limit(2);
+      expect(log.some((row) => row.field === "listPrice" && Number(row.newValue) === editedList)).toBe(true);
+      expect(log.some((row) => row.field === "yourCost" && Number(row.newValue) === expectedCost)).toBe(true);
+    } finally {
+      await caller.pricing.adminUpdateSkuCost({ skuId: sku.id, listPrice: originalList });
+    }
   });
 
   it("adminUpdateSkuCost with no actual change records zero audit rows", async () => {
@@ -120,11 +132,7 @@ describe("admin Cost Lookup / Verify tool", () => {
     if (rows.length === 0) return;
     const sku = rows[0];
     const caller = appRouter.createCaller(adminCtx());
-    const same = sku.contractorPrice === null ? null : Number(sku.contractorPrice);
-    const result = await caller.pricing.adminUpdateSkuCost({
-      skuId: sku.id,
-      contractorPrice: same,
-    });
+    const result = await caller.pricing.adminUpdateSkuCost({ skuId: sku.id });
     expect(result.changed).toBe(0);
   });
 

@@ -41,7 +41,7 @@ import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
-import { landedCostMultiplier } from "../lib/distributorCostMultiplier";
+import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -4068,7 +4068,6 @@ export const pricingRouter = router({
         // example, 0.23 base and 0.07 tariff becomes list × 0.23 × 1.07.
         baseMultiplier: z.number().min(0).max(1),
         freightMultiplier: z.number().min(0).max(1),
-        retailPriceBasis: z.enum(["cost_plus_tier", "source_list"]).default("cost_plus_tier"),
       })
     )
     .mutation(async ({ input }) => {
@@ -4091,7 +4090,7 @@ export const pricingRouter = router({
           freightMultiplier: String(freight),
           tariffRate: String(freight),
           costMultiplier: String(mult),
-          retailPriceBasis: input.retailPriceBasis,
+          retailPriceBasis: "cost_plus_tier",
         })
         .where(eq(distributors.id, input.distributorId));
       // 2) Recompute our cost for EVERY SKU on the line. The tariff is applied
@@ -4120,7 +4119,7 @@ export const pricingRouter = router({
         baseMultiplier: base,
         freightMultiplier: freight,
         multiplier: mult,
-        retailPriceBasis: input.retailPriceBasis,
+        retailPriceBasis: "cost_plus_tier" as const,
         skusRecomputed: updated,
       } as const;
     }),
@@ -4221,17 +4220,15 @@ export const pricingRouter = router({
       };
     }),
 
-  // Update one or more price-ladder fields on a single SKU. Writes one audit row
-  // per actually-changed field (old -> new) tagged with the admin who did it.
+  // Update durable source price inputs on a single SKU. All sell tiers are then
+  // regenerated from the saved markup rules; no line can retain an arbitrary
+  // manually-entered retail or trade price after its source changes.
   adminUpdateSkuCost: adminProcedure
     .input(
       z.object({
         skuId: z.number().int(),
         yourCost: z.number().min(0).max(1000000).nullable().optional(),
         listPrice: z.number().min(0).max(1000000).nullable().optional(),
-        wholesalePrice: z.number().min(0).max(1000000).nullable().optional(),
-        contractorPrice: z.number().min(0).max(1000000).nullable().optional(),
-        homeownerPrice: z.number().min(0).max(1000000).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -4242,15 +4239,19 @@ export const pricingRouter = router({
         .select({
           id: distributorSkus.id,
           cabinetId: distributorSkus.cabinetId,
+          distributorId: distributorSkus.distributorId,
           yourCost: distributorSkus.yourCost,
           listPrice: distributorSkus.listPrice,
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
           masterCode: cabinets.masterCode,
+          baseMultiplier: distributors.baseMultiplier,
+          freightMultiplier: distributors.freightMultiplier,
         })
         .from(distributorSkus)
         .leftJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+        .leftJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
         .where(eq(distributorSkus.id, input.skuId))
         .limit(1);
       const existing = existingRows[0];
@@ -4268,13 +4269,7 @@ export const pricingRouter = router({
         const n = Number(v);
         return Number.isFinite(n) ? String(n) : null;
       };
-      const fields = [
-        "yourCost",
-        "listPrice",
-        "wholesalePrice",
-        "contractorPrice",
-        "homeownerPrice",
-      ] as const;
+      const fields = ["yourCost", "listPrice"] as const;
       type Field = (typeof fields)[number];
 
       const set: Record<string, string | null> = {};
@@ -4298,13 +4293,45 @@ export const pricingRouter = router({
         });
       }
 
+      const nextList = "listPrice" in set ? Number(set.listPrice) : Number(existing.listPrice);
+      const base = Number(existing.baseMultiplier ?? 0);
+      const freight = Number(existing.freightMultiplier ?? 0);
+      const hasLandedCostRule = Number.isFinite(base) && base > 0 && Number.isFinite(freight) && freight >= 0;
+      if (hasLandedCostRule && "yourCost" in input) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This supplier line derives cost from its verified list price and landed-cost rule. Update the source list price or the distributor multiplier instead.",
+        });
+      }
+      if (hasLandedCostRule && "listPrice" in input && Number.isFinite(nextList) && nextList > 0) {
+        const derivedCost = landedCostFromList(nextList, base, freight);
+        if (norm(String(derivedCost)) !== norm(existing.yourCost)) {
+          set.yourCost = String(derivedCost);
+          auditRows.push({
+            skuId: existing.id,
+            cabinetId: existing.cabinetId,
+            masterCode: existing.masterCode ?? "",
+            field: "yourCost",
+            oldValue: norm(existing.yourCost),
+            newValue: String(derivedCost),
+            changedByOpenId: ctx.user?.openId ?? null,
+            changedByName: ctx.user?.name ?? null,
+          });
+        }
+      }
+
       if (Object.keys(set).length === 0) {
-        return { success: true, changed: 0 } as const;
+        return {
+          success: true,
+          changed: 0,
+          recalculation: { updated: 0, costPlusTier: 0, sourceListRetail: 0, skippedUnpriced: 0 },
+        } as const;
       }
 
       await db.update(distributorSkus).set(set).where(eq(distributorSkus.id, input.skuId));
       if (auditRows.length > 0) await db.insert(costChangeLog).values(auditRows);
-      return { success: true, changed: auditRows.length } as const;
+      const recalculation = await recalculateStoredTierPrices();
+      return { success: true, changed: auditRows.length, recalculation } as const;
     }),
 
   // Mark a cabinet's prices as audited (or clear the audit). Set true once the

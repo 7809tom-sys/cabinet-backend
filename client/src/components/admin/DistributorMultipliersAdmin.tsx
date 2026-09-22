@@ -35,7 +35,6 @@ interface Row {
 interface DraftParts {
   base: string;
   freight: string;
-  retailPriceBasis: "cost_plus_tier" | "source_list";
 }
 
 function toStr(v: string | null): string {
@@ -57,7 +56,6 @@ export default function DistributorMultipliersAdmin() {
       d[r.id] = {
         base: toStr(r.baseMultiplier),
         freight: toStr(r.freightMultiplier),
-        retailPriceBasis: r.retailPriceBasis ?? "cost_plus_tier",
       };
     }
     setDraft(d);
@@ -121,7 +119,7 @@ export default function DistributorMultipliersAdmin() {
             </p>
           ) : (
             rows.map((r) => {
-              const parts = draft[r.id] ?? { base: "", freight: "", retailPriceBasis: "cost_plus_tier" };
+              const parts = draft[r.id] ?? { base: "", freight: "" };
               const base = num(parts.base);
               const freight = num(parts.freight);
               const eff =
@@ -132,15 +130,12 @@ export default function DistributorMultipliersAdmin() {
                 r.avgListPrice != null ? Number(r.avgListPrice) : null;
               const estCost =
                 eff != null && avgList != null ? avgList * eff : null;
-              const estSell = parts.retailPriceBasis === "source_list"
-                ? avgList
-                : estCost != null ? estCost * homeownerMult : null;
+              const estSell = estCost != null ? estCost * homeownerMult : null;
               const savedBase = toStr(r.baseMultiplier);
               const savedFreight = toStr(r.freightMultiplier);
               const dirty =
                 parts.base !== savedBase
-                || parts.freight !== savedFreight
-                || parts.retailPriceBasis !== (r.retailPriceBasis ?? "cost_plus_tier");
+                || parts.freight !== savedFreight;
               const effValid = eff != null && eff >= 0.01 && eff <= 1;
 
               return (
@@ -217,30 +212,9 @@ export default function DistributorMultipliersAdmin() {
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <label className="block text-sm font-semibold text-foreground">
-                        Homeowner retail basis
-                      </label>
-                      <select
-                        value={parts.retailPriceBasis}
-                        onChange={(e) => setDraft({
-                          ...draft,
-                          [r.id]: {
-                            ...parts,
-                            retailPriceBasis: e.target.value === "source_list" ? "source_list" : "cost_plus_tier",
-                          },
-                        })}
-                        className="h-12 w-full rounded-md border border-input bg-background px-3 text-sm font-medium"
-                      >
-                        <option value="cost_plus_tier">Cost + homeowner markup</option>
-                        <option value="source_list">Use verified source list price</option>
-                      </select>
-                      <p className="text-xs text-muted-foreground">
-                        {parts.retailPriceBasis === "source_list"
-                          ? "Customers see the supplier's verified list price exactly. Trade tiers remain cost-based."
-                          : "Customers see the configured homeowner markup over cost."}
-                      </p>
-                    </div>
+                    <p className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+                      Every customer and trade price is recalculated from this line&apos;s landed cost and the saved platform markup rules. The supplier list is a cost source, never a retail-price override.
+                    </p>
 
                     {/* Live computed preview */}
                     <div className="grid grid-cols-3 divide-x divide-border rounded-lg bg-muted/50 border border-border overflow-hidden">
@@ -287,7 +261,6 @@ export default function DistributorMultipliersAdmin() {
                           distributorId: r.id,
                           baseMultiplier: base ?? 0,
                           freightMultiplier: freight ?? 0,
-                          retailPriceBasis: parts.retailPriceBasis,
                         });
                       }}
                     >

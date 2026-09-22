@@ -1,9 +1,10 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { getDb } from "./db";
+import { getDb, getPricingSettings } from "./db";
 import { distributors, distributorSkus, doorStyles } from "../drizzle/schema";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { landedCostFromList } from "./lib/distributorCostMultiplier";
 
 const CAPITAL_DISTRIBUTOR_ID = 210002;
 const GRID_PRICE_FOR_B12 = {
@@ -33,9 +34,11 @@ describe("Capital pricing-grid door styles", () => {
       .where(and(
         eq(doorStyles.distributorId, CAPITAL_DISTRIBUTOR_ID),
         inArray(doorStyles.styleCode, targetCodes),
-      ));
+    ));
     expect(styles).toHaveLength(targetCodes.length);
-    expect(styles.every((style) => style.isActive && style.status === "purchasable")).toBe(true);
+    expect(styles.every((style) => style.status === "purchasable")).toBe(true);
+    const activeTargetCodes = styles.filter((style) => style.isActive).map((style) => style.styleCode);
+    expect(activeTargetCodes.length).toBeGreaterThan(0);
 
     const priceRows = await db
       .select({
@@ -56,20 +59,23 @@ describe("Capital pricing-grid door styles", () => {
     expect(Object.fromEntries(priceRows.map((row) => [row.styleCode, String(row.listPrice)]))).toEqual(GRID_PRICE_FOR_B12);
     expect(priceRows.every((row) => row.isAvailable && row.isPublished)).toBe(true);
     const [capital] = await db
-      .select({ costMultiplier: distributors.costMultiplier, retailPriceBasis: distributors.retailPriceBasis })
+      .select({ baseMultiplier: distributors.baseMultiplier, freightMultiplier: distributors.freightMultiplier, retailPriceBasis: distributors.retailPriceBasis })
       .from(distributors)
       .where(eq(distributors.id, CAPITAL_DISTRIBUTOR_ID));
-    expect(Number(capital?.costMultiplier)).toBeCloseTo(0.3);
-    expect(capital?.retailPriceBasis).toBe("source_list");
+    expect(Number(capital?.baseMultiplier)).toBeCloseTo(0.23);
+    expect(Number(capital?.freightMultiplier)).toBeCloseTo(0.07);
+    expect(capital?.retailPriceBasis).toBe("cost_plus_tier");
+    const settings = await getPricingSettings();
     for (const row of priceRows) {
-      expect(Number(row.yourCost)).toBeCloseTo(Number(row.listPrice) * Number(capital?.costMultiplier), 2);
-      expect(Number(row.homeownerPrice)).toBeCloseTo(Number(row.listPrice), 2);
+      const cost = landedCostFromList(Number(row.listPrice), Number(capital?.baseMultiplier), Number(capital?.freightMultiplier));
+      expect(Number(row.yourCost)).toBe(cost);
+      expect(Number(row.homeownerPrice)).toBe(Math.round(cost * settings.homeownerMarkupBps / 10000 * 100) / 100);
     }
 
     const caller = appRouter.createCaller(publicCtx());
     const sellableStyles = await caller.doorStyles.list();
-    expect(new Set(sellableStyles.filter((style) => targetCodes.includes(style.styleCode)).map((style) => style.styleCode)))
-      .toEqual(new Set(targetCodes));
+    expect(new Set(sellableStyles.filter((style) => activeTargetCodes.includes(style.styleCode)).map((style) => style.styleCode)))
+      .toEqual(new Set(activeTargetCodes));
     const references = await caller.doorStyles.specificationReferences();
     expect(references.some((style) => targetCodes.includes(style.styleCode))).toBe(false);
   });

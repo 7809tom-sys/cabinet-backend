@@ -9,4 +9,9 @@ describe("DistributorMultipliersAdmin landed-cost formula", () => {
     expect(source).toContain("(base ?? 0) * (1 + (freight ?? 0))");
     expect(source).not.toContain("list × (Base + Freight)");
   });
+
+  it("does not offer a supplier-list retail override", () => {
+    expect(source).toContain("saved platform markup rules");
+    expect(source).not.toContain("Use verified source list price");
+  });
 });

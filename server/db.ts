@@ -328,9 +328,9 @@ export async function updatePricingSettings(
 export type TierPriceRecalculation = {
   /** All SKU rows whose durable cost can be re-priced. */
   updated: number;
-  /** Cost-plus-tier rows whose homeowner/contractor/wholesale values were refreshed. */
+  /** Rows whose homeowner/contractor/wholesale values were refreshed from cost. */
   costPlusTier: number;
-  /** Rows that retained their approved supplier list as homeowner retail. */
+  /** Retained only for backward-compatible audit responses; markup rules now apply to every tier. */
   sourceListRetail: number;
   /** Rows without a durable cost/list input; intentionally never given an invented price. */
   skippedUnpriced: number;
@@ -356,17 +356,10 @@ export async function recalculateStoredTierPrices(
   const contractorMultiplier = Number(activeSettings.contractorMarkupBps) / 10000;
   const wholesaleMultiplier = Number(activeSettings.wholesaleMarkupBps) / 10000;
   const durableCost = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
-  const verifiedSourceList = sql`COALESCE(${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
-  const usesVerifiedSourceList = sql`EXISTS (
-    SELECT 1
-    FROM distributors retail_source
-    WHERE retail_source.id = ${distributorSkus.distributorId}
-      AND retail_source.retailPriceBasis = 'source_list'
-  ) AND ${verifiedSourceList} > 0`;
   const [audit] = await db
     .select({
       updated: sql<number>`SUM(CASE WHEN ${durableCost} IS NOT NULL THEN 1 ELSE 0 END)`,
-      sourceListRetail: sql<number>`SUM(CASE WHEN ${durableCost} IS NOT NULL AND (${usesVerifiedSourceList}) THEN 1 ELSE 0 END)`,
+      sourceListRetail: sql<number>`0`,
       skippedUnpriced: sql<number>`SUM(CASE WHEN ${durableCost} IS NULL THEN 1 ELSE 0 END)`,
     })
     .from(distributorSkus)
@@ -381,14 +374,7 @@ export async function recalculateStoredTierPrices(
     .set({
       wholesalePrice: sql`ROUND(${durableCost} * ${wholesaleMultiplier}, 2)`,
       contractorPrice: sql`ROUND(${durableCost} * ${contractorMultiplier}, 2)`,
-      // A distributor may designate its verified source list as retail. This
-      // preserves that published price exactly for customers while wholesale and
-      // contractor tiers still use the real acquisition-cost ladder.
-      homeownerPrice: sql`CASE
-        WHEN ${usesVerifiedSourceList}
-        THEN ROUND(${verifiedSourceList}, 2)
-        ELSE ROUND(${durableCost} * ${homeownerMultiplier}, 2)
-      END`,
+      homeownerPrice: sql`ROUND(${durableCost} * ${homeownerMultiplier}, 2)`,
     })
     .where(sql`${durableCost} IS NOT NULL`);
   return {
