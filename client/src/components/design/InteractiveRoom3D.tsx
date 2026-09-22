@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -1478,7 +1478,12 @@ export function threeDCabinetFrontColumnLayout(bodyWidth: number, count: number)
 // as the slab center prevents a visible vertical gap above every base run.
 const COUNTERTOP_H = 35.25;
 const COUNTERTOP_TOP = 36;
-const COUNTERTOP_FRONT_OVERHANG = 0.25 * INCH;
+// The shared 2D plan, material takeoff, and cabinet standards all use a
+// 25½-inch top over a standard 24-inch base: exactly 1½ inches at the front
+// and no invented rear projection. Keep this explicit 3D placement constant
+// in lockstep so the rendered cabinet edge cannot look deeper or shallower
+// than its measured plan surface.
+const COUNTERTOP_FRONT_OVERHANG = 1.5 * INCH;
 const WALL_BOTTOM = 54;
 const CABINET_FINISHES = [
   { name: "Catalog finish", color: "catalog" },
@@ -1868,12 +1873,12 @@ export function shouldRenderCountertopOverSceneItem(
   return bearsCountertop(item);
 }
 
-/** A standard 24-inch base run receives a precise quarter-inch front countertop overhang. */
+/** A standard 24-inch base run receives the required 1½-inch front countertop overhang. */
 export function threeDCountertopDepthIn(cabinetDepthIn: number) {
-  return cabinetDepthIn + 0.25;
+  return cabinetDepthIn + 1.5;
 }
 
-/** Installed base fillers continue the adjacent 24-inch base countertop instead of using their shallow stock depth. */
+/** Installed base fillers continue the adjacent 24-inch base countertop and its 1½-inch front edge instead of using their shallow stock depth. */
 export function threeDSceneCountertopDepthIn(
   item: Pick<SceneSku, "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode">,
   cabinetDepthIn: number,
@@ -5081,9 +5086,9 @@ export function addThreeDPeninsulaCountertops(
     if (!peninsulaCountertopWaterfallEnd(terminalRun, room) || !reachesFarEnd) continue;
     const terminalGeometry = peninsulaRunEndpoints(terminalRun, room);
     const terminalLength = terminalRun.length;
-    const terminalDepth = peninsulaCountertopSeatingOverhang(terminalRun, room)
-      + COUNTERTOP_DEPTH_IN
+    const terminalOppositeSideExtension = peninsulaCountertopSeatingOverhang(terminalRun, room)
       + peninsulaCountertopPonyWallBackExtensionIn(terminalRun, room);
+    const terminalDepth = COUNTERTOP_DEPTH_IN + terminalOppositeSideExtension;
     const terminalCenter = wallPlacementAt(0, terminalLength, terminalDepth, terminalRun.id as WallSide, room, terminalRun.cabinetSide ?? "left");
     const terminalFootprint = placedFootprint({
       uid: `peninsula-waterfall-${terminalRun.id}`,
@@ -5099,9 +5104,10 @@ export function addThreeDPeninsulaCountertops(
       rotation: terminalCenter.rotation,
     });
     const terminalPlanTangent = { x: Math.cos(terminalGeometry.radians), z: Math.sin(terminalGeometry.radians) };
+    const terminalFaceNormal = countertopRunFaceNormal(terminalGeometry.radians, terminalRun.cabinetSide ?? "left");
     const terminalRotation = threeDPlanRotation(terminalGeometry.radians);
-    const terminalCenterX = terminalCenter.x + terminalFootprint.w / 2;
-    const terminalCenterZ = terminalCenter.y + terminalFootprint.d / 2;
+    const terminalCenterX = terminalCenter.x + terminalFootprint.w / 2 - terminalFaceNormal.x * terminalOppositeSideExtension;
+    const terminalCenterZ = terminalCenter.y + terminalFootprint.d / 2 - terminalFaceNormal.y * terminalOppositeSideExtension;
     const waterfall = new THREE.Mesh(new THREE.BoxGeometry(STD.COUNTERTOP_THICKNESS * INCH, STD.COUNTERTOP_HEIGHT * INCH, terminalDepth * INCH), material.clone());
     waterfall.position.set((terminalCenterX + terminalPlanTangent.x * (terminalLength / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH, STD.COUNTERTOP_HEIGHT * INCH / 2, (terminalCenterZ + terminalPlanTangent.z * (terminalLength / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH);
     waterfall.rotation.y = terminalRotation;

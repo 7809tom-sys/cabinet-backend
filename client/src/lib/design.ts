@@ -8181,7 +8181,7 @@ function countertopSurfaceLocalPointFromWorld(
   };
 }
 
-function countertopRunFaceNormal(radians: number, side: PeninsulaCabinetSide): CountertopPlanPoint {
+export function countertopRunFaceNormal(radians: number, side: PeninsulaCabinetSide): CountertopPlanPoint {
   const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
   return side === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
 }
@@ -8499,6 +8499,65 @@ function unionCountertopSurfacesAtSharedBoundary(
 }
 
 /**
+ * A 45° miter uses one shared apex rather than a reversed full edge. The two
+ * cut rectangles still form one fabricated continuous top: walking from each
+ * apex to its next vertex yields the outside boundary of that single slab. Do
+ * not use this for arbitrary touching rectangles; callers limit it to a root
+ * that actually owns a 45° peninsula return.
+ */
+function unionCountertopSurfacesAtSharedMiterVertex(
+  left: CountertopSurface,
+  right: CountertopSurface,
+  rootRunId: string,
+): CountertopSurface | null {
+  const leftPolygon = countertopSurfacePlanPolygon(left);
+  const rightPolygon = countertopSurfacePlanPolygon(right);
+  if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
+
+  for (let leftIndex = 0; leftIndex < leftPolygon.length; leftIndex += 1) {
+    for (let rightIndex = 0; rightIndex < rightPolygon.length; rightIndex += 1) {
+      if (!sameCountertopPlanPoint(leftPolygon[leftIndex]!, rightPolygon[rightIndex]!, 0.125)) continue;
+      const outline = removeConsecutiveCountertopPlanDuplicates([
+        ...countertopBoundaryPath(leftPolygon, (leftIndex + 1) % leftPolygon.length, leftIndex).slice(0, -1),
+        ...countertopBoundaryPath(rightPolygon, (rightIndex + 1) % rightPolygon.length, rightIndex).slice(0, -1),
+      ]);
+      if (outline.length < 3 || countertopPolygonArea(outline) <= COLLISION_EPSILON_IN) continue;
+      const minX = Math.min(...outline.map((point) => point.x));
+      const maxX = Math.max(...outline.map((point) => point.x));
+      const minY = Math.min(...outline.map((point) => point.y));
+      const maxY = Math.max(...outline.map((point) => point.y));
+      const terminalRunIds = [left.peninsulaTerminalRunId, right.peninsulaTerminalRunId]
+        .filter((id): id is string => Boolean(id));
+      const runIds = Array.from(new Set([
+        ...(left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : [])),
+        ...(right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : [])),
+      ]));
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(0.1, maxX - minX),
+        depth: Math.max(0.1, maxY - minY),
+        kind: "base",
+        rotation: 0,
+        peninsulaRunId: rootRunId,
+        peninsulaRunIds: runIds,
+        ...(terminalRunIds.length === 1 ? { peninsulaTerminalRunId: terminalRunIds[0] } : {}),
+        runStartIn: 0,
+        polygon: outline.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+        miteredStart: left.miteredStart || right.miteredStart,
+        miteredEnd: left.miteredEnd || right.miteredEnd,
+        linearInches: Math.max(0.1, maxX - minX),
+        runLinearInches: (left.runLinearInches ?? left.linearInches ?? 0) + (right.runLinearInches ?? right.linearInches ?? 0),
+        areaInches: countertopPolygonArea(outline),
+        ponyWallBarOverhangIn: Math.max(left.ponyWallBarOverhangIn ?? 0, right.ponyWallBarOverhangIn ?? 0) || undefined,
+        ponyWallBackExtensionIn: Math.max(left.ponyWallBackExtensionIn ?? 0, right.ponyWallBackExtensionIn ?? 0) || undefined,
+      };
+    }
+  }
+  return null;
+}
+
+/**
  * A 45° peninsula return is one fabricated countertop path, not a second
  * floating countertop. Miter first, then fold every touching segment of each
  * 45° assembly into one concave Plan polygon. A 90° return stays as its two
@@ -8536,7 +8595,8 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
             const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
             return run && peninsulaRootRunId(run, room) === rootRunId;
           })) continue;
-          const union = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId);
+          const union = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
+            ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId);
           if (!union) continue;
           resolved.splice(rightIndex, 1);
           resolved[leftIndex] = union;
@@ -8645,9 +8705,9 @@ export function peninsulaCornerCabinetSupportsCountertop(
 /**
  * A peninsula slab is one continuous, cabinet-supported run. It deliberately
  * spans released cabinet voids on that run, but an entirely empty peninsula
- * receives no invented countertop. The seating projection follows the selected
- * cabinet face so it always extends beyond cabinet fronts rather than through
- * the peninsula wall.
+ * receives no invented countertop. Its standard cabinet-front edge is always
+ * 1½ inches. Optional seating and a pony-wall bar top extend only from the
+ * *opposite* side of the cabinet run, never by making the cabinet front deeper.
  */
 export function peninsulaCountertopSurface(
   run: PeninsulaRun,
@@ -8658,7 +8718,11 @@ export function peninsulaCountertopSurface(
   const seating = peninsulaCountertopSeatingOverhang(run, room);
   const ponyWallBarOverhang = peninsulaCountertopPonyWallBarOverhang(run, room);
   const ponyWallBackExtension = peninsulaCountertopPonyWallBackExtensionIn(run, room);
-  const slabDepth = COUNTERTOP_DEPTH_IN + seating + ponyWallBackExtension;
+  // `wallPlacementAt` anchors the entire depth at the peninsula's cabinet-side
+  // face. The standard 25½-inch depth owns the cabinet-facing 1½-inch edge;
+  // seating and a pony-wall bar must instead grow away from that face.
+  const oppositeSideExtension = seating + ponyWallBackExtension;
+  const slabDepth = COUNTERTOP_DEPTH_IN + oppositeSideExtension;
   const runLength = Math.max(0, Number(run.length) || 0);
   const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
   const lengthIn = Math.max(0, Math.min(runLength - startIn, Number(requestedLengthIn) || 0));
@@ -8685,8 +8749,8 @@ export function peninsulaCountertopSurface(
     peninsulaRunEndpoints(run, room).radians,
     run.cabinetSide ?? "left",
   );
-  const centerX = spot.x + footprint.w / 2 - faceNormal.x * ponyWallBackExtension;
-  const centerY = spot.y + footprint.d / 2 - faceNormal.y * ponyWallBackExtension;
+  const centerX = spot.x + footprint.w / 2 - faceNormal.x * oppositeSideExtension;
+  const centerY = spot.y + footprint.d / 2 - faceNormal.y * oppositeSideExtension;
   return {
     x: centerX - lengthIn / 2,
     y: centerY - slabDepth / 2,

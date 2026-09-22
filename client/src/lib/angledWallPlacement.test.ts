@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
@@ -1558,7 +1558,7 @@ describe("cabinet-supported peninsula runs", () => {
     ]);
   });
 
-	it("bridges a supported peninsula void and extends the selected cabinet face for seating", () => {
+	it("bridges a supported peninsula void while keeping the cabinet front at 1½ inches and seating on the opposite side", () => {
     const start = peninsulaCabinet("peninsula-start", 0);
     const end = peninsulaCabinet("peninsula-end", 66);
     const withSeating: RoomData = {
@@ -1569,10 +1569,16 @@ describe("cabinet-supported peninsula runs", () => {
     expect(surface).toMatchObject({ linearInches: 96, areaInches: 96 * 37.5, rotation: 90 });
     expect(surface).toEqual(peninsulaCountertopSurface(withSeating.peninsulaRuns![0], withSeating));
     expect(surface).toMatchObject({ width: 96, depth: 37.5 });
-    const placement = wallPlacementAt(0, 96, 37.5, "peninsula-90-right" as any, withSeating, "left");
-    const expectedCenter = { x: placement.x + 37.5 / 2, y: placement.y + 96 / 2 };
-    expect(surface!.x + surface!.width / 2).toBeCloseTo(expectedCenter.x, 6);
-    expect(surface!.y + surface!.depth / 2).toBeCloseTo(expectedCenter.y, 6);
+	  const run = withSeating.peninsulaRuns![0]!;
+	  const geometry = peninsulaRunEndpoints(run, withSeating);
+	  const cabinetFace = countertopRunFaceNormal(geometry.radians, "left");
+	  const faceProjections = countertopSurfacePlanPolygon(surface!).map((point) => (
+	    (point.x - geometry.start.x) * cabinetFace.x + (point.y - geometry.start.y) * cabinetFace.y
+	  ));
+	  // The selected cabinet face keeps the normal 24 + 1½ in. top. Seating is
+	  // a bar on the far side of the peninsula, not extra depth in front of doors.
+	  expect(Math.max(...faceProjections)).toBeCloseTo(25.5, 6);
+	  expect(Math.min(...faceProjections)).toBeCloseTo(-12, 6);
 	  expect(countertopSurfaces([], withSeating)).toEqual([]);
 	});
 
@@ -1589,6 +1595,13 @@ describe("cabinet-supported peninsula runs", () => {
 	  expect(peninsulaCountertopPonyWallBarOverhang(run, barRoom)).toBe(12);
 	  expect(peninsulaCountertopPonyWallBackExtensionIn(run, barRoom)).toBe(16.5);
 	  expect(surface).toMatchObject({ depth: 42, ponyWallBarOverhangIn: 12, ponyWallBackExtensionIn: 16.5 });
+	  const geometry = peninsulaRunEndpoints(run, barRoom);
+	  const cabinetFace = countertopRunFaceNormal(geometry.radians, "left");
+	  const faceProjections = countertopSurfacePlanPolygon(surface).map((point) => (
+	    (point.x - geometry.start.x) * cabinetFace.x + (point.y - geometry.start.y) * cabinetFace.y
+	  ));
+	  expect(Math.max(...faceProjections)).toBeCloseTo(25.5, 6);
+	  expect(Math.min(...faceProjections)).toBeCloseTo(-16.5, 6);
 	});
 
 	it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {

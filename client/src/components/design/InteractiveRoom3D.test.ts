@@ -15,7 +15,7 @@ import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistan
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
-import { countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { COUNTERTOP_DEPTH_IN, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -59,6 +59,21 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(slabs[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", seatingOverhangIn: 12, bridgesCabinetVoids: true });
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", exposedFarEnd: true });
+
+    const run = room.peninsulaRuns![0]!;
+    const surface = countertopSurfaces(placed, room).find((item) => item.peninsulaRunId === run.id)!;
+    // The 3D slab is centered on the same plan surface: the 12-inch seat is
+    // behind the run, leaving the cabinet-facing front at 24 + 1½ inches.
+    expect(slabs[0]!.position.x * 12).toBeCloseTo(surface.x + surface.width / 2, 6);
+    expect(slabs[0]!.position.z * 12).toBeCloseTo(surface.y + surface.depth / 2, 6);
+    const endpoints = peninsulaRunEndpoints(run, room);
+    const face = countertopRunFaceNormal(endpoints.radians, "right");
+    const slabCrossCenter = (slabs[0]!.position.x * 12 - endpoints.start.x) * face.x
+      + (slabs[0]!.position.z * 12 - endpoints.start.y) * face.y;
+    const waterfallCrossCenter = (waterfalls[0]!.position.x * 12 - endpoints.start.x) * face.x
+      + (waterfalls[0]!.position.z * 12 - endpoints.start.y) * face.y;
+    expect(slabCrossCenter).toBeCloseTo((COUNTERTOP_DEPTH_IN - 12) / 2, 6);
+    expect(waterfallCrossCenter).toBeCloseTo(slabCrossCenter, 6);
   });
 
   it("inherits a legacy root overhang on the connected 45-degree child and moves the waterfall to the child end", () => {
@@ -5216,8 +5231,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(faucet.z).toBe(transform.z);
   });
 
-  it("uses a 24¼-inch countertop depth on every standard supported base run", () => {
-    expect(threeDCountertopDepthIn(24)).toBe(24.25);
+  it("uses a 25½-inch countertop depth on every standard supported base run", () => {
+    expect(threeDCountertopDepthIn(24)).toBe(25.5);
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: -24, cabinetId: 24, masterCode: "DW-24", description: "Dishwasher", placementType: "appliance",
@@ -5226,16 +5241,21 @@ describe("interactive 3D room scene helpers", () => {
     let countertop: THREE.Mesh | null = null;
     root.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.dishwasherCountertopSupport) countertop = node; });
     expect(countertop).not.toBeNull();
-    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
+    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(25.5, 8);
+    root.updateMatrixWorld(true);
+    const counterBounds = new THREE.Box3().setFromObject(countertop!);
+    // A 24-inch appliance/base box gets exactly the shared 1½-inch front edge,
+    // matching the 25½-inch plan countertop rather than a renderer-only depth.
+    expect(counterBounds.max.z * 12).toBeCloseTo(25.5, 8);
   });
 
-  it("extends an installed shallow filler countertop to the full 24¼-inch base-run depth", () => {
+  it("extends an installed shallow filler countertop to the full 25½-inch base-run depth", () => {
     const filler = {
       fillerPieceGroupId: "filler-group",
       fillerTotalWidth: 2.5,
       fillerPlacementMode: "right" as const,
     };
-    expect(threeDSceneCountertopDepthIn(filler, 0.75)).toBe(24.25);
+    expect(threeDSceneCountertopDepthIn(filler, 0.75)).toBe(25.5);
 
     const root = new THREE.Group();
     addCabinet(root, {
@@ -5246,7 +5266,7 @@ describe("interactive 3D room scene helpers", () => {
     let countertop: THREE.Mesh | null = null;
     root.traverse((node) => { if (node instanceof THREE.Mesh && node.userData.installedFillerCountertop) countertop = node; });
     expect(countertop).not.toBeNull();
-    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(24.25, 8);
+    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(25.5, 8);
   });
 
   it("extends only a pulled BBC countertop three inches rearward until its back edge reaches the wall", () => {
@@ -5283,7 +5303,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(countertop).not.toBeNull();
     const depthIn = ((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12;
     const backEdgeIn = countertop!.position.z * 12 - depthIn / 2;
-    expect(depthIn).toBeCloseTo(27.25, 8);
+    expect(depthIn).toBeCloseTo(28.5, 8);
     expect(backEdgeIn).toBeCloseTo(0, 8);
     expect(transform.z).toBeCloseTo(15, 8);
   });
@@ -6152,7 +6172,7 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.cabinetFront) wallFronts.push(node);
     });
     root.traverse((node) => {
-      if (node instanceof THREE.Mesh && node.userData.countertopDepthIn === 24.25) counters.push(node);
+      if (node instanceof THREE.Mesh && node.userData.countertopDepthIn === 25.5) counters.push(node);
     });
     expect(base.userData.floorStandingCabinet).toBe(true);
     expect(wall.userData.floorStandingCabinet).toBeUndefined();
