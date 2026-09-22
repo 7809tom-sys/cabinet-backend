@@ -113,7 +113,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -980,6 +980,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     direction: PeninsulaDirection;
 	    cabinetSide: PeninsulaCabinetSide;
 	    countertopSeatingOverhang: 0 | 10 | 12;
+	    countertopPonyWallBarOverhang: 0 | 10 | 12;
 	    countertopWaterfallEnd: boolean;
 	    drywallBackPonyWall: boolean;
 	    drywallColor: string;
@@ -1051,6 +1052,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       direction: peninsula?.direction ?? "right",
 	      cabinetSide: peninsula?.cabinetSide ?? "left",
 	      countertopSeatingOverhang: peninsula ? peninsulaCountertopSeatingOverhang(peninsula, room) : 0,
+	      countertopPonyWallBarOverhang: peninsula ? peninsulaCountertopPonyWallBarOverhang(peninsula, room) : 0,
 	      countertopWaterfallEnd: peninsula ? peninsulaCountertopWaterfallEnd(peninsula, room) : false,
 	      drywallBackPonyWall: Boolean(existingDrywallBack),
 	      drywallColor: existingDrywallBack?.drywallColor ?? DEFAULT_DRYWALL_PONY_WALL_COLOR,
@@ -1111,9 +1113,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         height,
         turn,
         direction,
-        cabinetSide: draft.cabinetSide,
-        countertopSeatingOverhang: draft.countertopSeatingOverhang,
-        countertopWaterfallEnd: draft.countertopWaterfallEnd,
+	        cabinetSide: draft.cabinetSide,
+	        countertopSeatingOverhang: draft.countertopSeatingOverhang,
+	        countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0,
+	        countertopWaterfallEnd: draft.countertopWaterfallEnd,
       } as PeninsulaRun;
       const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
 	      if (geometryChanged && wallCabinets.length > 0) {
@@ -1154,7 +1157,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          ...previous,
 	          peninsulaRuns: runs.map((run) => {
 	            if (rootIdFor(run) !== rootId) return run;
-	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopWaterfallEnd: draft.countertopWaterfallEnd };
+	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0, countertopWaterfallEnd: draft.countertopWaterfallEnd };
 	            return run.id === current.id ? { ...withContinuousCountertop, ...savedRun } : withContinuousCountertop;
 	          }),
 	        };
@@ -3748,6 +3751,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      height: parent.height,
 	      cabinetSide: parent.cabinetSide ?? "left",
 	      countertopSeatingOverhang: peninsulaCountertopSeatingOverhang(parent, room),
+	      countertopPonyWallBarOverhang: peninsulaCountertopPonyWallBarOverhang(parent, room),
 	      countertopWaterfallEnd: peninsulaCountertopWaterfallEnd(parent, room),
 	      label: `Return · ${turn}° ${direction}`,
     };
@@ -13139,6 +13143,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                            <span>{DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((option) => option.id === wallSettingsDraft.drywallTexture)?.description} Preview updates here first; use Apply to all walls to update the room shell.</span>
 	                          </div>
 	                        </div>
+	                      )}
+	                      {wallSettingsDraft.drywallBackPonyWall && (
+	                        <label data-testid="peninsula-pony-wall-bar-top" className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Bar top over drywall pony wall
+	                          <select
+	                            value={wallSettingsDraft.countertopPonyWallBarOverhang}
+	                            aria-label="Bar countertop extension across drywall pony wall"
+	                            onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopPonyWallBarOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)}
+	                            className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground"
+	                          >
+	                            <option value={0}>Standard top — stops at cabinet backs</option>
+	                            <option value={10}>10 in. bar — crosses wall + extends 10 in.</option>
+	                            <option value={12}>12 in. bar — crosses wall + extends 12 in.</option>
+	                          </select>
+	                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Covers the full cabinet run, crosses the finished 4½ in. drywall pony wall, then creates the selected bar projection behind it.</span>
+	                        </label>
 	                      )}
 	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
 	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Seating overhang

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 
@@ -1553,7 +1553,7 @@ describe("cabinet-supported peninsula runs", () => {
     ]);
   });
 
-  it("bridges a supported peninsula void and extends the selected cabinet face for seating", () => {
+	it("bridges a supported peninsula void and extends the selected cabinet face for seating", () => {
     const start = peninsulaCabinet("peninsula-start", 0);
     const end = peninsulaCabinet("peninsula-end", 66);
     const withSeating: RoomData = {
@@ -1568,10 +1568,71 @@ describe("cabinet-supported peninsula runs", () => {
     const expectedCenter = { x: placement.x + 37.5 / 2, y: placement.y + 96 / 2 };
     expect(surface!.x + surface!.width / 2).toBeCloseTo(expectedCenter.x, 6);
     expect(surface!.y + surface!.depth / 2).toBeCloseTo(expectedCenter.y, 6);
-    expect(countertopSurfaces([], withSeating)).toEqual([]);
-  });
+	  expect(countertopSurfaces([], withSeating)).toEqual([]);
+	});
 
-  it("inherits the root seating overhang across a legacy zero-overhang 45-degree return so the saved B24 corner remains covered", () => {
+	it("extends a bar countertop across the drywall pony wall before projecting past it", () => {
+	  const barRoom: RoomData = {
+	    ...peninsulaRoom,
+	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left", countertopPonyWallBarOverhang: 12 }],
+	  };
+	  const spot = wallPlacementAt(0, 30, 24, "peninsula-90-right" as any, barRoom, "left");
+	  const cabinet = { ...peninsulaCabinet("pony-wall-bar-support", 0), ...spot, wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: "left" as const };
+	  const run = barRoom.peninsulaRuns![0]!;
+	  const surface = countertopSurfaces([cabinet], barRoom).find((item) => item.peninsulaRunId === run.id)!;
+
+	  expect(peninsulaCountertopPonyWallBarOverhang(run, barRoom)).toBe(12);
+	  expect(peninsulaCountertopPonyWallBackExtensionIn(run, barRoom)).toBe(16.5);
+	  expect(surface).toMatchObject({ depth: 42, ponyWallBarOverhangIn: 12, ponyWallBackExtensionIn: 16.5 });
+	});
+
+	it("covers both joined peninsula legs when an ERB corner base supports their shared bend", () => {
+	  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "countertop-corner-parent", length: 48, countertopPonyWallBarOverhang: 12 as const };
+	  const child = { id: "countertop-corner-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 42, height: 34.5, cabinetSide: "left" as const };
+	  const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+	  const bend = peninsulaRunEndpoints(parent, room).end;
+	  const erb36: PlacedCabinet = {
+	    ...peninsulaCabinet("erb36-bend-support", 0),
+	    masterCode: "ERB36",
+	    description: "Easy Reach Corner Base 36",
+	    width: 36,
+	    depth: 36,
+	    x: bend.x - 18,
+	    y: bend.y - 18,
+	    wallId: parent.id,
+	    wallOffset: 12,
+	  };
+
+	  const surfaces = countertopSurfaces([erb36], room).filter((surface) => surface.peninsulaRunId);
+	  expect(surfaces).toEqual(expect.arrayContaining([
+	    expect.objectContaining({ peninsulaRunId: parent.id, ponyWallBarOverhangIn: 12 }),
+	    expect.objectContaining({ peninsulaRunId: child.id, ponyWallBarOverhangIn: 12 }),
+	  ]));
+	});
+
+	it("does not leave a base-end angled drawer cabinet uncovered at a peninsula bend", () => {
+	  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "bec-bend-parent", length: 48 };
+	  const child = { id: "bec-bend-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 36, height: 34.5 };
+	  const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+	  const bend = peninsulaRunEndpoints(parent, room).end;
+	  const bec: PlacedCabinet = {
+	    ...peninsulaCabinet("bec-drawer-base", 0),
+	    masterCode: "BEC24",
+	    description: "Angle Drawer Base Cabinet with Adjustable Shelf",
+	    width: 24,
+	    depth: 24,
+	    x: bend.x - 12,
+	    y: bend.y - 12,
+	    wallId: parent.id,
+	    wallOffset: 24,
+	  };
+	  expect(countertopSurfaces([bec], room).filter((surface) => surface.peninsulaRunId)).toEqual(expect.arrayContaining([
+	    expect.objectContaining({ peninsulaRunId: parent.id }),
+	    expect.objectContaining({ peninsulaRunId: child.id }),
+	  ]));
+	});
+
+	it("inherits the root seating overhang across a legacy zero-overhang 45-degree return so the saved B24 corner remains covered", () => {
     const parent = {
       id: "peninsula_mu3bq5rw",
       parentWall: "top" as const,

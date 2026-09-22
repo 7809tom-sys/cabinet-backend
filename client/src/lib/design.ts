@@ -1254,6 +1254,8 @@ export interface PeninsulaRun {
   cabinetSide?: PeninsulaCabinetSide;
   /** Extra seating projection past the cabinet front on the selected cabinet side. */
   countertopSeatingOverhang?: 0 | 10 | 12;
+  /** Bar projection that carries the slab across a drywall pony wall and past its back face. */
+  countertopPonyWallBarOverhang?: 0 | 10 | 12;
   /** A full-height counter panel at this run's exposed far end. */
   countertopWaterfallEnd?: boolean;
   label?: string;
@@ -1418,6 +1420,48 @@ export function peninsulaCountertopSeatingOverhang(
     if (value === 10 || value === 12) return value;
   }
   return 0;
+}
+
+/**
+ * A connected peninsula shares one bar treatment. The root run owns the
+ * across-pony-wall projection so a return cannot leave an uncovered notch at
+ * the shared bend.
+ */
+export function peninsulaCountertopPonyWallBarOverhang(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): 0 | 10 | 12 {
+  const lineage: PeninsulaRun[] = [];
+  const visited = new Set<string>();
+  let current: PeninsulaRun | undefined = run;
+  while (current && !visited.has(current.id)) {
+    visited.add(current.id);
+    lineage.push(current);
+    current = current.parentRunId ? room.peninsulaRuns?.find((candidate) => candidate.id === current!.parentRunId) : undefined;
+  }
+  const root = lineage[lineage.length - 1];
+  const rootValue = root?.countertopPonyWallBarOverhang;
+  if (rootValue === 0 || rootValue === 10 || rootValue === 12) return rootValue;
+  for (let index = lineage.length - 2; index >= 0; index -= 1) {
+    const value = lineage[index]?.countertopPonyWallBarOverhang;
+    if (value === 10 || value === 12) return value;
+  }
+  return 0;
+}
+
+/** Standard framed/drywall pony-wall thickness used when a bar top crosses it. */
+export const DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN = 4.5;
+
+/**
+ * The selected bar top must first cross the finished pony wall, then project
+ * beyond it. A zero setting preserves the existing cabinet-front-only top.
+ */
+export function peninsulaCountertopPonyWallBackExtensionIn(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): number {
+  const barOverhang = peninsulaCountertopPonyWallBarOverhang(run, room);
+  return barOverhang > 0 ? DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN + barOverhang : 0;
 }
 
 /** A connected countertop has one exposed far end; move a legacy root flag to the terminal run. */
@@ -8035,6 +8079,10 @@ export interface CountertopSurface {
   linearInches?: number;
   /** Physical slab area used for takeoff when the plan rectangle is rotated. */
   areaInches?: number;
+  /** Bar projection beyond the cabinet-back drywall pony wall. */
+  ponyWallBarOverhangIn?: number;
+  /** Drywall thickness plus bar projection carried behind the cabinet backs. */
+  ponyWallBackExtensionIn?: number;
 }
 
 export interface CountertopPlanPoint {
@@ -8260,6 +8308,32 @@ export function bearsCountertop(p: {
 }
 
 /**
+ * A real base corner cabinet can be centered at a peninsula's 90°/45° bend
+ * while retaining ownership of the adjoining run. Its footprint still supports
+ * the connected slab at either run endpoint, so do not leave the corner
+ * uncovered merely because `wallId` names the other leg.
+ */
+export function peninsulaCornerCabinetSupportsCountertop(
+  cabinet: PlacedCabinet,
+  run: PeninsulaRun,
+  room: RoomData,
+): boolean {
+  const isBendSupport = isCornerCabinet(cabinet.masterCode, cabinet.description)
+    || isBaseEndCornerCabinet(cabinet)
+    || /(?:angle|angled)\s+drawer base/i.test(cabinet.description ?? "");
+  if (!bearsCountertop(cabinet) || !isBendSupport) return false;
+  const footprint = placedFootprint(cabinet);
+  const geometry = peninsulaRunEndpoints(run, room);
+  const tolerance = COLLISION_EPSILON_IN + 0.25;
+  return [geometry.start, geometry.end].some((point) => (
+    point.x >= cabinet.x - tolerance
+    && point.x <= cabinet.x + footprint.w + tolerance
+    && point.y >= cabinet.y - tolerance
+    && point.y <= cabinet.y + footprint.d + tolerance
+  ));
+}
+
+/**
  * A peninsula slab is one continuous, cabinet-supported run. It deliberately
  * spans released cabinet voids on that run, but an entirely empty peninsula
  * receives no invented countertop. The seating projection follows the selected
@@ -8273,7 +8347,9 @@ export function peninsulaCountertopSurface(
   requestedLengthIn = run.length,
 ): CountertopSurface {
   const seating = peninsulaCountertopSeatingOverhang(run, room);
-  const slabDepth = COUNTERTOP_DEPTH_IN + seating;
+  const ponyWallBarOverhang = peninsulaCountertopPonyWallBarOverhang(run, room);
+  const ponyWallBackExtension = peninsulaCountertopPonyWallBackExtensionIn(run, room);
+  const slabDepth = COUNTERTOP_DEPTH_IN + seating + ponyWallBackExtension;
   const runLength = Math.max(0, Number(run.length) || 0);
   const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
   const lengthIn = Math.max(0, Math.min(runLength - startIn, Number(requestedLengthIn) || 0));
@@ -8296,8 +8372,12 @@ export function peninsulaCountertopSurface(
   // returning that AABB as width/depth makes a 45° slab inflate and rotate a
   // second time. Keep its true local dimensions and preserve the identical
   // world center used by cabinet placement and the 3D slab mesh.
-  const centerX = spot.x + footprint.w / 2;
-  const centerY = spot.y + footprint.d / 2;
+  const faceNormal = countertopRunFaceNormal(
+    peninsulaRunEndpoints(run, room).radians,
+    run.cabinetSide ?? "left",
+  );
+  const centerX = spot.x + footprint.w / 2 - faceNormal.x * ponyWallBackExtension;
+  const centerY = spot.y + footprint.d / 2 - faceNormal.y * ponyWallBackExtension;
   return {
     x: centerX - lengthIn / 2,
     y: centerY - slabDepth / 2,
@@ -8309,6 +8389,8 @@ export function peninsulaCountertopSurface(
     runStartIn: startIn,
     linearInches: lengthIn,
     areaInches: lengthIn * slabDepth,
+    ponyWallBarOverhangIn: ponyWallBarOverhang,
+    ponyWallBackExtensionIn: ponyWallBackExtension,
   };
 }
 
@@ -8438,7 +8520,7 @@ export function countertopSurfaces(
       bearsCountertop(cabinet) &&
       cabinetWall(cabinet, room) === run.id &&
       Number(cabinet.width) > 0,
-    );
+    ) || placed.some((cabinet) => peninsulaCornerCabinetSupportsCountertop(cabinet, run, room));
     if (!hasCountertopSupport) continue;
     const applianceOpenings = placed
       .filter((cabinet) => isRangeOrOven(cabinet.masterCode, cabinet.description) && cabinetWall(cabinet, room) === run.id)
