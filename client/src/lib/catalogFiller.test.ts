@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, fittedCatalogFillerDescription } from "./catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, fittedCatalogFillerDescription, isCatalogFiller, isCatalogPanel } from "./catalogFiller";
 import { CUSTOM_SIZE_FEE, customSizeFee } from "./design";
 
 const fillers = [
@@ -9,12 +9,33 @@ const fillers = [
 ] as const;
 
 describe("catalogFillerForGap", () => {
-  it("uses the narrowest real catalog filler that can be cut to the measured gap", () => {
-    expect(catalogFillerForGap(fillers, 2.25, "base")?.masterCode).toBe("BF-3");
-    expect(catalogFillerForGap(fillers, 4.5, "base")?.masterCode).toBe("BF-6");
-  });
+	it("uses the narrowest real catalog filler that can be cut to the measured gap", () => {
+	  expect(catalogFillerForGap(fillers, 2.25, "base")?.masterCode).toBe("BF-3");
+	  expect(catalogFillerForGap(fillers, 4.5, "base")?.masterCode).toBe("BF-6");
+	});
 
-  it("automatically calculates the exact installed cut and retained catalog filler identity", () => {
+	it("never treats refrigerator or other end panels as fillers, even when an imported accessory category is wrong", () => {
+	  const refrigeratorEndPanel = {
+	    id: 2796,
+	    masterCode: "REPV2796",
+	    description: "Refrigerator End Panel 27 × 96",
+	    category: "Filler",
+	    subCategory: "Accessory",
+	    width: 27,
+	    depth: 0.75,
+	    height: 96,
+	    catalogImageUrl: null,
+	  } as const;
+	  const panelNamedAsFiller = { ...refrigeratorEndPanel, id: 2797, masterCode: "PANEL-3", description: '3" Panel Filler', width: 3 } as const;
+
+	  expect(isCatalogPanel(refrigeratorEndPanel)).toBe(true);
+	  expect(isCatalogFiller(refrigeratorEndPanel)).toBe(false);
+	  expect(isCatalogFiller(panelNamedAsFiller)).toBe(false);
+	  expect(catalogFillerForGap([refrigeratorEndPanel, panelNamedAsFiller, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
+	  expect(catalogFillerPricingId({ id: 2796, masterCode: "REPV2796", description: refrigeratorEndPanel.description, category: "Filler", subCategory: "Accessory", width: 1, placement: "base" }, [refrigeratorEndPanel, ...fillers])).toBe(2796);
+	});
+
+	it("automatically calculates the exact installed cut and retained catalog filler identity", () => {
     expect(catalogFillerSuggestion(fillers, 2.5, "base")).toMatchObject({
       candidate: { id: 1, masterCode: "BF-3" },
       gapWidth: 2.5,

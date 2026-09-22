@@ -21,7 +21,19 @@ function numberValue(value: unknown, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+/** Panels are finish/cover components—not cuttable cabinet-run fillers. */
+export function isCatalogPanel(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {
+  const code = String(candidate.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const text = `${candidate.masterCode} ${candidate.description ?? ""} ${candidate.category ?? ""} ${candidate.subCategory ?? ""}`.toLowerCase();
+  // Source nomenclature is authoritative. REPV is a refrigerator end-panel
+  // family; the other explicit families cover base, wall, tall, and decorative
+  // end panels even if an imported accessory category was misclassified.
+  if (/^(?:REP|REPV|BEP|WEP|TEP|DEP|IEP|PANEL)/.test(code)) return true;
+  return /\b(?:panel|skin|veneer)\b/.test(text);
+}
+
 export function isCatalogFiller(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {
+  if (isCatalogPanel(candidate)) return false;
   const text = `${candidate.masterCode} ${candidate.description ?? ""} ${candidate.category ?? ""} ${candidate.subCategory ?? ""}`.toLowerCase();
   return /\bfiller\b|\bscribe\b|^wf|^bf|^ff/.test(text);
 }

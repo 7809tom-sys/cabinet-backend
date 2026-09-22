@@ -986,6 +986,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    drywallTexture: DrywallPonyWallTexture;
 	    startOffset: number;
 	  }>(null);
+	  /** One-shot reversible snapshot for the explicit Apply to all walls action. */
+	  const [allWallsAppearanceUndo, setAllWallsAppearanceUndo] = useState<null | {
+	    previous: RoomData["wallAppearance"] | undefined;
+	  }>(null);
 	  // The wall editor is declared before the pony-wall state in this long-lived
 	  // Designer component. Keep a current-value ref so opening/saving an editor
 	  // never reads a hook declared later in the render body.
@@ -1060,12 +1064,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  const applyDrywallAppearanceToAllRoomWalls = useCallback(() => {
 	    const draft = wallSettingsDraft;
 	    if (!draft || draft.kind !== "peninsula" || !draft.drywallBackPonyWall) return;
+	    setAllWallsAppearanceUndo({
+	      previous: room.wallAppearance ? { ...room.wallAppearance } : undefined,
+	    });
 	    setRoom((previous) => ({
 	      ...previous,
 	      wallAppearance: { color: draft.drywallColor, texture: draft.drywallTexture },
 	    }));
 	    toast.success("Applied this drywall color and texture to all room walls.");
-	  }, [wallSettingsDraft]);
+	  }, [room.wallAppearance, wallSettingsDraft]);
+	  const undoAllRoomWallAppearance = useCallback(() => {
+	    const snapshot = allWallsAppearanceUndo;
+	    if (!snapshot) return;
+	    setRoom((previous) => {
+	      if (snapshot.previous) return { ...previous, wallAppearance: { ...snapshot.previous } };
+	      const { wallAppearance: _discardedWallAppearance, ...roomWithoutAppliedAppearance } = previous;
+	      return roomWithoutAppliedAppearance;
+	    });
+	    setAllWallsAppearanceUndo(null);
+	    toast.success("Restored the previous room wall appearance.");
+	  }, [allWallsAppearanceUndo]);
 	  const saveWallSettings = useCallback(() => {
     const draft = wallSettingsDraft;
     if (!draft) return;
@@ -13062,16 +13080,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          <div className="grid gap-1">
 	                            <div className="flex items-center justify-between gap-1">
 	                              <span className="text-xs font-semibold text-[#634b20]">Paint color</span>
-	                              <Button
-	                                type="button"
-	                                variant="outline"
-	                                size="sm"
-	                                data-testid="apply-pony-wall-appearance-to-all-walls"
-	                                onClick={applyDrywallAppearanceToAllRoomWalls}
-	                                className="h-6 shrink-0 border-[#cdbb94] px-1.5 text-[9px] font-semibold text-[#634b20]"
-	                              >
-	                                Apply to all walls
-	                              </Button>
+	                              <span className="flex shrink-0 items-center gap-1">
+	                                <Button
+	                                  type="button"
+	                                  variant="outline"
+	                                  size="sm"
+	                                  data-testid="apply-pony-wall-appearance-to-all-walls"
+	                                  onClick={applyDrywallAppearanceToAllRoomWalls}
+	                                  className="h-6 border-[#cdbb94] px-1.5 text-[9px] font-semibold text-[#634b20]"
+	                                >
+	                                  Apply to all walls
+	                                </Button>
+	                                {allWallsAppearanceUndo && (
+	                                  <Button
+	                                    type="button"
+	                                    variant="outline"
+	                                    size="sm"
+	                                    data-testid="undo-apply-pony-wall-appearance-to-all-walls"
+	                                    onClick={undoAllRoomWallAppearance}
+	                                    title="Undo the most recent Apply to all walls change"
+	                                    className="h-6 gap-1 border-[#cdbb94] px-1.5 text-[9px] font-semibold text-[#634b20]"
+	                                  >
+	                                    <Undo2 className="h-3 w-3" /> Undo
+	                                  </Button>
+	                                )}
+	                              </span>
 	                            </div>
 	                            <span className="flex items-center gap-2">
 	                              <Input

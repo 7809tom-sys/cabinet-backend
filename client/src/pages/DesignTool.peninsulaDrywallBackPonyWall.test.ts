@@ -32,17 +32,26 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
     expect(threeD).toContain("drywallColor: drywallFinished ? drywallAppearance.color : null");
   });
 
-  it("can apply the selected pony-wall finish immediately to every physical room wall", () => {
+	it("can apply the selected pony-wall finish immediately to every physical room wall", () => {
     expect(designTool).toContain('data-testid="apply-pony-wall-appearance-to-all-walls"');
     expect(designTool).toContain("Apply to all walls");
     expect(designTool).toContain("const applyDrywallAppearanceToAllRoomWalls");
     expect(designTool).toContain("wallAppearance: { color: draft.drywallColor, texture: draft.drywallTexture }");
     expect(designTool).toContain("Applied this drywall color and texture to all room walls.");
     expect(threeD).toContain("const resolvedRoomWallAppearance = roomWallAppearance(roomOverride)");
-    expect(threeD).toContain("roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null");
-  });
+	  expect(threeD).toContain("roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null");
+	});
 
-  it("shows a live paint-and-texture thumbnail before the room-wide action is used", () => {
+	it("offers a one-click undo that restores the exact pre-apply wall appearance", () => {
+	  expect(designTool).toContain("const [allWallsAppearanceUndo, setAllWallsAppearanceUndo]");
+	  expect(designTool).toContain("previous: room.wallAppearance ? { ...room.wallAppearance } : undefined");
+	  expect(designTool).toContain('data-testid="undo-apply-pony-wall-appearance-to-all-walls"');
+	  expect(designTool).toContain("const undoAllRoomWallAppearance");
+	  expect(designTool).toContain("Restored the previous room wall appearance.");
+	  expect(designTool).toContain("const { wallAppearance: _discardedWallAppearance, ...roomWithoutAppliedAppearance } = previous;");
+	});
+
+	it("shows a live paint-and-texture thumbnail before the room-wide action is used", () => {
     expect(designTool).toContain('data-testid="peninsula-drywall-material-preview"');
     expect(designTool).toContain("Material preview:");
     expect(designTool).toContain("drywallPonyWallPreviewBackground({ drywallColor: wallSettingsDraft.drywallColor, drywallTexture: wallSettingsDraft.drywallTexture })");
