@@ -44,7 +44,10 @@ export type SelectedSurface = {
   unsupportedOverhangLimitIn?: number | null;
 };
 
-const PAGE_LIMIT = 60;
+// The server applies the verified-only readiness gate before pagination. Keep
+// the full palette at the server's safe maximum so verified sink/faucet choices
+// are not silently hidden below a legacy first-page cap.
+const PAGE_LIMIT = 200;
 
 export function SurfacesPickerDialog({
   open,

@@ -21,4 +21,9 @@ describe("Surfaces picker 3D material readiness", () => {
     expect(source).toContain("No saved products currently meet the verified Designer gate.");
     expect(source).toContain("Saved favorites remain in your catalog list.");
   });
+
+  it("requests the server's complete verified palette rather than retaining a 60-item first-page cap", () => {
+    expect(source).toContain("const PAGE_LIMIT = 200");
+    expect(source).toContain("verified sink/faucet choices");
+  });
 });

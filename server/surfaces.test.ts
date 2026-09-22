@@ -55,3 +55,20 @@ describe("surfaces.designerByIds", () => {
     }
   });
 });
+
+describe("Pelican full Designer palette", () => {
+  it("returns the entire current verified fixture set within the 200-item palette limit", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const page = await caller.pelican.byCategory({
+      category: "Sinks & Faucets",
+      scope: "designer",
+      limit: 200,
+      offset: 0,
+    });
+    expect(page.items.length).toBe(Math.min(page.total, 200));
+    for (const row of page.items) {
+      expect(row.sellPrice).toBeGreaterThan(0);
+      expect(isPelicanDesignerReady(row)).toBe(true);
+    }
+  });
+});
