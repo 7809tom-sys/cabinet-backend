@@ -121,7 +121,7 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsIslandCountertop,
-	  type PonyWall, makePonyWall, clampPonyWall,
+	  type PonyWall, makePonyWall, makePeninsulaPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
@@ -947,10 +947,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     endDirection: PeninsulaDirection;
     endLength: number;
     cabinetSide: PeninsulaCabinetSide;
-    applianceCode: "none" | "DW-24" | "WINE-24";
-    seatingOverhang: 10 | 12;
-    waterfall: boolean;
-  } | null>(null);
+	    applianceCode: "none" | "DW-24" | "WINE-24";
+	    seatingOverhang: 10 | 12;
+	    waterfall: boolean;
+	    addPonyWall: boolean;
+	    ponyWallLength: number;
+	    ponyWallHeight: number;
+	  } | null>(null);
   const [wallSettingsOpen, setWallSettingsOpen] = useState(false);
   const [peninsulaDeletePrompt, setPeninsulaDeletePrompt] = useState<null | {
     runId: string;
@@ -1007,10 +1010,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       endDirection: "right",
       endLength: 36,
       cabinetSide: "left",
-      applianceCode: "none",
-      seatingOverhang: 12,
-      waterfall: false,
-    });
+	      applianceCode: "none",
+	      seatingOverhang: 12,
+	      waterfall: false,
+	      addPonyWall: false,
+	      ponyWallLength: 36,
+	      ponyWallHeight: 34.5,
+	    });
     setPeninsulaWizardOpen(true);
   }, [activeWall, layoutLocked, room.depth, room.width]);
   const openWallSettings = useCallback((requestedWallId: WallSide = activeWall) => {
@@ -1162,6 +1168,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const removed = removePeninsulaRun(room, placed, run.id);
     setRoom(removed.room);
     setPlaced(removed.placed);
+    const remainingRunIds = new Set((removed.room.peninsulaRuns ?? []).map((candidate) => candidate.id));
+    setPonyWalls((previous) => previous.filter((ponyWall) => !ponyWall.peninsulaRunId || remainingRunIds.has(ponyWall.peninsulaRunId)));
     setActiveWall((run.parentRunId ?? run.parentWall ?? "top") as WallSide);
     setPlacementTarget("wall");
     setCompassWallStartIn(null);
@@ -3561,14 +3569,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      toast.error(`The selected 45° end does not have ${PENINSULA_INSIDE_CORNER_CLEARANCE_IN} inches of clear room. Shorten the straight run or choose no angled end.`);
       return;
     }
-    const angledRun = angledCandidate
-      ? { ...angledCandidate, length: Math.min(angledCandidate.length, angledMaximum) }
-      : null;
+	    const angledRun = angledCandidate
+	      ? { ...angledCandidate, length: Math.min(angledCandidate.length, angledMaximum) }
+	      : null;
     const layoutRuns = angledRun ? [run, angledRun] : [run];
-    const nextRoom: RoomData = {
-      ...primaryRoom,
-      peninsulaRuns: angledRun ? [...primaryRoom.peninsulaRuns!, angledRun] : primaryRoom.peninsulaRuns,
-    };
+	    const nextRoom: RoomData = {
+	      ...primaryRoom,
+	      peninsulaRuns: angledRun ? [...primaryRoom.peninsulaRuns!, angledRun] : primaryRoom.peninsulaRuns,
+	    };
+	    // A pony wall created from the peninsula wizard is never a loose rectangle:
+	    // it owns the run endpoint, so it follows the straight run or the selected
+	    // 45° continuation when that measured run is edited or moved.
+	    const ponyWallOwner = angledRun ?? run;
+	    const builtPonyWall = draft.addPonyWall
+	      ? makePeninsulaPonyWall(ponyWallOwner, nextRoom, {
+	          width: draft.ponyWallLength,
+	          height: draft.ponyWallHeight,
+	          label: angledRun
+	            ? `Pony wall · follows 45° ${angledRun.direction} peninsula end`
+	            : "Pony wall · follows peninsula end",
+	        })
+	      : null;
+	    if (builtPonyWall && !ponyWallFitsRoom(builtPonyWall, nextRoom)) {
+	      toast.error("The pony wall would extend outside the room. Shorten it or choose a different 45° end direction.");
+	      return;
+	    }
     const appliance = draft.applianceCode === "none"
       ? null
       : APPLIANCES.find((item) => item.masterCode === draft.applianceCode) ?? null;
@@ -3625,12 +3650,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
       }
       return working;
-    });
-    setRoom(nextRoom);
-    setActiveWall(run.id as WallSide);
+	    });
+	    setRoom(nextRoom);
+	    if (builtPonyWall) setPonyWalls((previous) => [...previous, builtPonyWall]);
+	    setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaWizardOpen(false);
-    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""} built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to each clear run.`);
+	    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWall ? " and a snapped pony wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to each clear run.`);
   }, [autoFillCabinets, layoutLocked, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
   const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
@@ -13042,6 +13068,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     {peninsulaWizardDraft.endTurn === 45 && <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end length (in)
 	                      <Input type="number" min={PENINSULA_INSIDE_CORNER_CLEARANCE_IN} step="0.125" value={peninsulaWizardDraft.endLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, endLength: Number(event.target.value) || PENINSULA_INSIDE_CORNER_CLEARANCE_IN } : draft)} />
                     </label>}
+	                    <label className="flex items-start gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]" data-testid="peninsula-pony-wall-option">
+	                      <input
+	                        type="checkbox"
+	                        checked={peninsulaWizardDraft.addPonyWall}
+	                        onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, addPonyWall: event.target.checked } : draft)}
+	                        className="mt-0.5"
+	                      />
+	                      <span><strong>Add pony wall at the far end.</strong> It stays snapped to this peninsula; when a 45° end is selected, the pony wall follows that measured 45° return.</span>
+	                    </label>
+	                    {peninsulaWizardDraft.addPonyWall && <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fffdf6] p-2" data-testid="peninsula-pony-wall-dimensions">
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Pony wall length (in)
+	                        <Input type="number" min="6" step="0.125" value={peninsulaWizardDraft.ponyWallLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, ponyWallLength: Number(event.target.value) || 6 } : draft)} />
+	                      </label>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Pony wall height (in)
+	                        <Input type="number" min="1" max="144" step="0.125" value={peninsulaWizardDraft.ponyWallHeight} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, ponyWallHeight: Number(event.target.value) || 34.5 } : draft)} />
+	                      </label>
+	                    </div>}
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Cabinet placement side
 	                      <select value={peninsulaWizardDraft.cabinetSide} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, cabinetSide: event.target.value as PeninsulaCabinetSide } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
 	                        <option value="left">Left side</option><option value="right">Right side</option>
@@ -13060,7 +13103,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
 	                      </label>
 	                    </div>
-                    <p className="text-[11px] leading-4 text-muted-foreground">The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
+	                    <p className="text-[11px] leading-4 text-muted-foreground">The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end and a measured pony wall that follows the final peninsula endpoint. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
 	                  </div>
 	                </div>
 	              )}

@@ -14,7 +14,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
 	  wallDimensions, cabinetWallRunSegment, retainedWallSegmentForSplit, type DimensionSeg,
-	  type PonyWall, clampPonyWall,
+	  type PonyWall, clampPonyWall, ponyWallPlanFrame,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
 import { Compass, X, RotateCw } from "lucide-react";
@@ -1457,15 +1457,27 @@ export function PlanCanvas({
                 onOpenWallSettings?.(run.id as WallSide);
               }}
               className={`absolute z-[3] h-3 cursor-pointer rounded-full border-2 shadow-sm ${active ? "border-[#d4a75a] bg-[#1a2744]" : "border-[#1a2744] bg-[#d4a75a]/80"}`}
-              style={{
-                left: start.x * ppi,
-                top: start.y * ppi - 6,
-                width: Math.max(12, run.length * ppi),
-                transform: `rotate(${runDegrees}deg)`,
-                transformOrigin: "0 50%",
-              }}
-                >
-              {active && <>
+	              style={{
+	                left: start.x * ppi,
+	                top: start.y * ppi - 6,
+	                width: Math.max(12, run.length * ppi),
+	                transform: `rotate(${runDegrees}deg)`,
+	                transformOrigin: "0 50%",
+	              }}
+	                >
+	              <span
+	                data-testid="peninsula-plan-label"
+	                className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-[#d4a75a]/70 bg-white/95 px-1.5 py-0.5 text-[8px] font-extrabold tracking-wide text-[#1a2744] shadow-sm"
+	                style={{
+	                  left: "50%",
+	                  top: -23,
+	                  transform: `translateX(-50%) rotate(${-runDegrees}deg)`,
+	                  transformOrigin: "center",
+	                }}
+	              >
+	                {run.parentRunId ? `PENINSULA · 45° ${run.direction} RETURN` : `PENINSULA · ${formatEighthInches(run.length)}`}
+	              </span>
+	              {active && <>
                 {!run.parentRunId && <button
                   type="button"
                   aria-label="Drag joined peninsula end along adjoining wall"
@@ -1778,27 +1790,46 @@ export function PlanCanvas({
         {/* Pony walls — free-standing half-walls rendered as solid dark rectangles */}
         {ponyWalls.map((pw) => {
           const isPonySelected = pw.uid === selectedPonyWallUid;
+          const ponyFrame = ponyWallPlanFrame(pw, room);
+          const ponyDegrees = (ponyFrame.radians * 180) / Math.PI;
+          const attachedToPeninsula = ponyFrame.attachedToPeninsula;
+          const ponyStyle: React.CSSProperties = attachedToPeninsula
+            ? {
+                left: ponyFrame.start.x * ppi,
+                top: ponyFrame.start.y * ppi - (ponyFrame.depth * ppi) / 2,
+                width: ponyFrame.width * ppi,
+                height: ponyFrame.depth * ppi,
+                transform: `rotate(${ponyDegrees}deg)`,
+                transformOrigin: "0 50%",
+              }
+            : {
+                left: pw.x * ppi,
+                top: pw.y * ppi,
+                width: pw.width * ppi,
+                height: pw.depth * ppi,
+              };
           return (
             <div
               key={pw.uid}
+            data-testid={attachedToPeninsula ? "peninsula-pony-wall" : "pony-wall"}
+            data-peninsula-run-id={pw.peninsulaRunId ?? undefined}
             className="absolute group touch-none"
             style={{
-              left: pw.x * ppi,
-              top: pw.y * ppi,
-              width: pw.width * ppi,
-              height: pw.depth * ppi,
+              ...ponyStyle,
               background: "#2a3550",
               border: isPonySelected ? "2px solid #f59e0b" : "2px solid #1a2744",
               borderRadius: 2,
-              cursor: layoutLocked ? "default" : "move",
+              cursor: layoutLocked || attachedToPeninsula ? "default" : "move",
               zIndex: isPonySelected ? 20 : 2,
               boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
             }}
-            title={`Pony Wall ${Math.round(pw.width)}\u2033 wide × ${pw.height}\u2033 tall`}
+            title={attachedToPeninsula
+              ? `${pw.label ?? "Pony wall"} follows the measured peninsula endpoint · ${formatEighthInches(ponyFrame.width)} long × ${ponyFrame.height} in. tall`
+              : `Pony Wall ${Math.round(pw.width)} in. wide × ${pw.height} in. tall`}
             onPointerDown={(e) => {
               e.stopPropagation();
               onSelectPonyWall?.(pw.uid);
-              if (layoutLocked || !onPonyWallChange) return;
+              if (layoutLocked || attachedToPeninsula || !onPonyWallChange) return;
               (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
               const rect = (e.currentTarget as HTMLElement).parentElement!.getBoundingClientRect();
               const startX = (e.clientX - rect.left) / ppi;
@@ -1820,10 +1851,10 @@ export function PlanCanvas({
               el.addEventListener("pointerup", onUp);
             }}
             >
-              <span className="absolute left-1 top-0.5 text-[8px] font-bold tracking-wide text-white/80 pointer-events-none whitespace-nowrap">
-                {pw.label || `PONY ${Math.round(pw.width)}″`}
+              <span className={`absolute left-1 top-0.5 text-[8px] font-bold tracking-wide text-white/80 pointer-events-none whitespace-nowrap ${attachedToPeninsula ? "origin-left" : ""}`} style={attachedToPeninsula ? { transform: `rotate(${-ponyDegrees}deg)` } : undefined}>
+                {attachedToPeninsula ? `PONY WALL · ${formatEighthInches(ponyFrame.width)}` : pw.label || `PONY ${Math.round(pw.width)}″`}
               </span>
-              <span className="absolute right-0.5 top-0.5 text-[8px] text-white/60 pointer-events-none">{pw.height}″H</span>
+              <span className="absolute right-0.5 top-0.5 text-[8px] text-white/60 pointer-events-none" style={attachedToPeninsula ? { transform: `rotate(${-ponyDegrees}deg)` } : undefined}>{pw.height}″H</span>
               {/* Delete button — shown when selected or on hover */}
               {onDeletePonyWall && (
                 <button
@@ -1835,7 +1866,7 @@ export function PlanCanvas({
                 </button>
               )}
               {/* Resize handle */}
-              {onPonyWallChange && !layoutLocked && (
+              {onPonyWallChange && !layoutLocked && !attachedToPeninsula && (
                 <div
                   className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 rounded-sm bg-[#4a6090] border border-white shadow cursor-nwse-resize z-10"
                   onPointerDown={(e) => {

@@ -22,4 +22,14 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('data-testid="build-peninsula-wizard"');
     expect(source).toContain('45° end from the straight run');
   });
+
+  it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
+    expect(source).toContain('addPonyWall: boolean;');
+    expect(source).toContain('data-testid="peninsula-pony-wall-option"');
+    expect(source).toContain('Add pony wall at the far end.');
+    expect(source).toContain('const ponyWallOwner = angledRun ?? run;');
+    expect(source).toContain('makePeninsulaPonyWall(ponyWallOwner, nextRoom, {');
+    expect(source).toContain('ponyWallFitsRoom(builtPonyWall, nextRoom)');
+    expect(source).toContain('and a snapped pony wall');
+  });
 });

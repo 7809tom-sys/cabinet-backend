@@ -1784,12 +1784,34 @@ describe("interactive 3D room scene helpers", () => {
       width: 4,
       depth: 0.5,
       height: 3.5,
+      rotation: 0,
     });
     expect(furnitureTransform({ x: 24, y: 36, rotation: 90 } as never, 48, 30)).toEqual({
       x: 4,
       z: 4.25,
       rotation: Math.PI / 2,
     });
+  });
+
+  it("keeps a pony wall attached to the exact final 45-degree peninsula endpoint in 3D", () => {
+    const primary = { id: "peninsula", parentWall: "top", startOffset: 72, turn: 90, direction: "right", length: 72, height: 34.5 } as const;
+    const return45 = { id: "peninsula-45", parentRunId: primary.id, startOffset: 0, turn: 45, direction: "right", length: 36, height: 34.5 } as const;
+    const room = { width: 180, depth: 180, peninsulaRuns: [primary, return45] } as never;
+    const transform = ponyWallTransform({
+      uid: "attached-pony",
+      x: 0,
+      y: 0,
+      width: 24,
+      depth: 6,
+      height: 34.5,
+      peninsulaRunId: return45.id,
+      peninsulaEnd: "end",
+    }, room);
+    const endpoint = peninsulaRunEndpoints(return45 as never, room).end;
+
+    expect(transform.x).toBeCloseTo((endpoint.x + Math.cos((3 * Math.PI) / 4) * 12) / 12, 8);
+    expect(transform.z).toBeCloseTo((endpoint.y + Math.sin((3 * Math.PI) / 4) * 12) / 12, 8);
+    expect(transform.rotation).toBeCloseTo((-3 * Math.PI) / 4, 8);
   });
 
   it("retains every persisted 2D entity alongside its deterministic 3D conversion contract", () => {

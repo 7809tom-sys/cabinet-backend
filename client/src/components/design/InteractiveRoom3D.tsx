@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -6029,14 +6029,34 @@ export function islandZoneTransform(island: { x: number; y: number; width: numbe
   };
 }
 
-export function ponyWallTransform(ponyWall: Pick<PonyWall, "x" | "y" | "width" | "depth" | "height">) {
+export function ponyWallTransform(ponyWall: PonyWall, room?: Pick<RoomData, "width" | "depth" | "peninsulaRuns">) {
+  const frame = room ? ponyWallPlanFrame(ponyWall, room) : null;
+  const radians = frame?.radians ?? ((Number(ponyWall.rotation) || 0) * Math.PI) / 180;
+  const width = frame?.width ?? ponyWall.width;
+  const depth = frame?.depth ?? ponyWall.depth;
+  const height = frame?.height ?? ponyWall.height;
+  const center = frame
+    ? (() => {
+        const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+        const normal = { x: -tangent.y, y: tangent.x };
+        // Attached frames begin at a centerline endpoint. Legacy free-standing
+        // frames begin at their top-left corner and retain that original box
+        // convention even when their optional rotation is present.
+        const lateral = frame.attachedToPeninsula ? 0 : depth / 2;
+        return {
+          x: frame.start.x + tangent.x * width / 2 + normal.x * lateral,
+          y: frame.start.y + tangent.y * width / 2 + normal.y * lateral,
+        };
+      })()
+    : { x: ponyWall.x + width / 2, y: ponyWall.y + depth / 2 };
   return {
-    x: (ponyWall.x + ponyWall.width / 2) * INCH,
-    y: ponyWall.height * INCH / 2,
-    z: (ponyWall.y + ponyWall.depth / 2) * INCH,
-    width: ponyWall.width * INCH,
-    depth: ponyWall.depth * INCH,
-    height: ponyWall.height * INCH,
+    x: center.x * INCH,
+    y: height * INCH / 2,
+    z: center.y * INCH,
+    width: width * INCH,
+    depth: depth * INCH,
+    height: height * INCH,
+    rotation: Math.abs(radians) <= 1e-12 ? 0 : -radians,
   };
 }
 
@@ -6408,14 +6428,15 @@ function addThreeDCountertopUpstands(
   }
 }
 
-function addPonyWall(root: THREE.Group, ponyWall: PonyWall) {
-  const transform = ponyWallTransform(ponyWall);
+function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData) {
+  const transform = ponyWallTransform(ponyWall, room);
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
     new THREE.MeshStandardMaterial({ color: "#ede9e1", roughness: 0.86 }),
   );
   wall.position.set(transform.x, transform.y, transform.z);
-  wall.userData = { ponyWallUid: ponyWall.uid };
+  wall.rotation.y = transform.rotation;
+  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null };
   root.add(wall);
 }
 
@@ -6684,7 +6705,7 @@ export function threeDDesignParitySnapshot({
         transform: definition ? furnitureTransform(source, definition.w, definition.d) : null,
       };
     }),
-    ponyWalls: ponyWalls.map((source) => ({ source, transform: ponyWallTransform(source) })),
+    ponyWalls: ponyWalls.map((source) => ({ source, transform: ponyWallTransform(source, room) })),
   };
 }
 
@@ -7621,7 +7642,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      catalogIslandCountertopColor ?? materialDefaults.countertop,
 		      islandCountertopTexture,
 		    );
-	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall);
+	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall, room);
 	    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
 	    catalogRoot.traverse((node) => {
 	      if (!(node instanceof THREE.Mesh)) return;

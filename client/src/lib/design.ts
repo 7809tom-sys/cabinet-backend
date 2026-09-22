@@ -9367,6 +9367,121 @@ export interface PonyWall {
   depth: number;  // inches (wall thickness)
   height: number; // inches tall — default 34.5 (counter height)
   label?: string;
+  /**
+   * Optional live attachment to a peninsula endpoint. Attached pony walls are
+   * evaluated from the peninsula's measured geometry on every render, so moving
+   * the peninsula attachment or changing its length keeps the half wall snapped.
+   */
+  peninsulaRunId?: string;
+  peninsulaEnd?: "start" | "end";
+  /** A pony wall can continue straight or take the same locked 45° turn selected in the peninsula builder. */
+  peninsulaTurn?: 0 | 45;
+  peninsulaDirection?: PeninsulaDirection;
+  /** Legacy/free-standing pony walls may keep an explicit plan rotation. */
+  rotation?: number;
+}
+
+export interface PonyWallPlanFrame {
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  radians: number;
+  width: number;
+  depth: number;
+  height: number;
+  attachedToPeninsula: boolean;
+}
+
+/**
+ * Resolve the actual plan frame for both free-standing and peninsula-attached
+ * pony walls. The persisted x/y fallback keeps older plans intact, while a
+ * peninsula owner always wins for a new builder-created pony wall.
+ */
+export function ponyWallPlanFrame(
+  ponyWall: PonyWall,
+  room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
+): PonyWallPlanFrame {
+  const run = ponyWall.peninsulaRunId
+    ? room.peninsulaRuns?.find((candidate) => candidate.id === ponyWall.peninsulaRunId)
+    : undefined;
+  const width = Math.max(6, Number(ponyWall.width) || 6);
+  const depth = Math.max(1, Number(ponyWall.depth) || 6);
+  const height = Math.max(1, Number(ponyWall.height) || 34.5);
+  if (!run) {
+    const radians = ((Number(ponyWall.rotation) || 0) * Math.PI) / 180;
+    const start = { x: Number(ponyWall.x) || 0, y: Number(ponyWall.y) || 0 };
+    return {
+      start,
+      end: { x: start.x + Math.cos(radians) * width, y: start.y + Math.sin(radians) * width },
+      radians,
+      width,
+      depth,
+      height,
+      attachedToPeninsula: false,
+    };
+  }
+  const geometry = peninsulaRunEndpoints(run, room);
+  const start = ponyWall.peninsulaEnd === "start" ? geometry.start : geometry.end;
+  const turn = ponyWall.peninsulaTurn === 45 ? Math.PI / 4 : 0;
+  const radians = geometry.radians + (turn === 0 ? 0 : ponyWall.peninsulaDirection === "left" ? -turn : turn);
+  return {
+    start,
+    end: { x: start.x + Math.cos(radians) * width, y: start.y + Math.sin(radians) * width },
+    radians,
+    width,
+    depth,
+    height,
+    attachedToPeninsula: true,
+  };
+}
+
+/** Creates a measured pony-wall continuation that stays snapped to a peninsula endpoint. */
+export function makePeninsulaPonyWall(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
+  options: {
+    width?: number;
+    depth?: number;
+    height?: number;
+    turn?: 0 | 45;
+    direction?: PeninsulaDirection;
+    label?: string;
+  } = {},
+): PonyWall {
+  const turn = options.turn === 45 ? 45 : 0;
+  const direction = options.direction ?? "right";
+  const anchor = peninsulaRunEndpoints(run, room).end;
+  return {
+    uid: `pw-peninsula-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    x: anchor.x,
+    y: anchor.y,
+    width: Math.max(6, Math.round((options.width ?? 36) * 8) / 8),
+    depth: Math.max(1, Math.round((options.depth ?? 6) * 8) / 8),
+    height: Math.max(1, Math.round((options.height ?? run.height) * 8) / 8),
+    label: options.label ?? (turn === 45 ? `Pony wall · 45° ${direction} follow` : "Pony wall · peninsula follow"),
+    peninsulaRunId: run.id,
+    peninsulaEnd: "end",
+    peninsulaTurn: turn,
+    peninsulaDirection: direction,
+  };
+}
+
+/** A rotated/attached pony wall must remain inside the measured room outline. */
+export function ponyWallFitsRoom(ponyWall: PonyWall, room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">): boolean {
+  const frame = ponyWallPlanFrame(ponyWall, room);
+  const tangent = { x: Math.cos(frame.radians), y: Math.sin(frame.radians) };
+  const normal = { x: -tangent.y, y: tangent.x };
+  const halfDepth = frame.depth / 2;
+  const corners = [
+    { along: 0, side: -halfDepth },
+    { along: 0, side: halfDepth },
+    { along: frame.width, side: -halfDepth },
+    { along: frame.width, side: halfDepth },
+  ];
+  return corners.every(({ along, side }) => {
+    const x = frame.start.x + tangent.x * along + normal.x * side;
+    const y = frame.start.y + tangent.y * along + normal.y * side;
+    return x >= -COLLISION_EPSILON_IN && x <= room.width + COLLISION_EPSILON_IN && y >= -COLLISION_EPSILON_IN && y <= room.depth + COLLISION_EPSILON_IN;
+  });
 }
 
 export function makePonyWall(room: RoomData): PonyWall {
