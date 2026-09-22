@@ -121,7 +121,7 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsIslandCountertop,
-	  type PonyWall, makePonyWall, makePeninsulaPonyWall, ponyWallFitsRoom, clampPonyWall,
+	  type PonyWall, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
@@ -978,11 +978,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     height: number | "";
     angle: CompassWallAngle;
     direction: PeninsulaDirection;
-    cabinetSide: PeninsulaCabinetSide;
-    countertopSeatingOverhang: 0 | 10 | 12;
-    countertopWaterfallEnd: boolean;
-    startOffset: number;
-  }>(null);
+	    cabinetSide: PeninsulaCabinetSide;
+	    countertopSeatingOverhang: 0 | 10 | 12;
+	    countertopWaterfallEnd: boolean;
+	    drywallBackPonyWall: boolean;
+	    startOffset: number;
+	  }>(null);
+	  // The wall editor is declared before the pony-wall state in this long-lived
+	  // Designer component. Keep a current-value ref so opening/saving an editor
+	  // never reads a hook declared later in the render body.
+	  const ponyWallsRef = useRef<PonyWall[]>([]);
   // Lock state: layoutLocked freezes the whole room/walls/openings/island so the
   // plan can't be nudged while placing cabinets. lockedWalls freezes individual
   // walls. Cabinets can always still be added/moved.
@@ -1035,15 +1040,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       height: peninsula?.height ?? custom?.height ?? room.wallCeilings?.[requestedWallId]?.high ?? room.ceilingHeight ?? 96,
       angle: peninsula?.turn === 45 ? (peninsula.direction === "right" ? 45 : -45) : custom?.lockedAngle === 45 ? 45 : custom?.lockedAngle === -45 ? -45 : 90,
       direction: peninsula?.direction ?? "right",
-      cabinetSide: peninsula?.cabinetSide ?? "left",
+	      cabinetSide: peninsula?.cabinetSide ?? "left",
 	      countertopSeatingOverhang: peninsula ? peninsulaCountertopSeatingOverhang(peninsula, room) : 0,
 	      countertopWaterfallEnd: peninsula ? peninsulaCountertopWaterfallEnd(peninsula, room) : false,
-      startOffset: peninsula?.startOffset ?? 0,
+	      drywallBackPonyWall: Boolean(peninsula && ponyWallsRef.current.some((ponyWall) => ponyWall.peninsulaRunId === peninsula.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall")),
+	      startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
     setActiveWall(requestedWallId);
     setPlacementTarget("wall");
-  }, [activeWall, room]);
+	  }, [activeWall, room]);
   const saveWallSettings = useCallback(() => {
     const draft = wallSettingsDraft;
     if (!draft) return;
@@ -1076,11 +1082,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         countertopWaterfallEnd: draft.countertopWaterfallEnd,
       } as PeninsulaRun;
       const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
-      if (geometryChanged && wallCabinets.length > 0) {
-        toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
-        return;
-      }
-      const cappedLength = Math.min(length, peninsulaRunMaxLength(proposed, room));
+	      if (geometryChanged && wallCabinets.length > 0) {
+	        toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
+	        return;
+	      }
+	      const cappedLength = Math.min(length, peninsulaRunMaxLength(proposed, room));
+	      const savedRun = { ...proposed, length: cappedLength } as PeninsulaRun;
+	      const prospectiveRoom: RoomData = {
+	        ...room,
+	        peninsulaRuns: (room.peninsulaRuns ?? []).map((run) => run.id === current.id ? savedRun : run),
+	      };
+	      const existingDrywallBack = ponyWallsRef.current.find((ponyWall) => ponyWall.peninsulaRunId === current.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall");
+	      const drywallBackPonyWall = draft.drywallBackPonyWall
+	        ? existingDrywallBack
+	          ? { ...existingDrywallBack, width: cappedLength, height, peninsulaRunId: current.id, peninsulaPlacement: "behind-cabinets" as const, finish: "drywall" as const }
+	          : makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height })
+	        : null;
+	      if (drywallBackPonyWall && !ponyWallFitsRoom(drywallBackPonyWall, prospectiveRoom)) {
+	        toast.error("This drywall pony wall would extend outside the measured room. Adjust the peninsula split or cabinet side before saving.");
+	        return;
+	      }
 	      setRoom((previous) => {
 	        const runs = previous.peninsulaRuns ?? [];
 	        const rootIdFor = (candidate: PeninsulaRun): string => {
@@ -1100,13 +1121,17 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          peninsulaRuns: runs.map((run) => {
 	            if (rootIdFor(run) !== rootId) return run;
 	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopWaterfallEnd: draft.countertopWaterfallEnd };
-	            return run.id === current.id ? { ...withContinuousCountertop, ...proposed, length: cappedLength } : withContinuousCountertop;
+	            return run.id === current.id ? { ...withContinuousCountertop, ...savedRun } : withContinuousCountertop;
 	          }),
 	        };
 	      });
-      setWallSettingsOpen(false);
-      toast.success(`Updated ${current.label ?? "peninsula run"}.`);
-      return;
+	      setPonyWalls((previous) => {
+	        const withoutDrywallBack = previous.filter((ponyWall) => !(ponyWall.peninsulaRunId === current.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall"));
+	        return drywallBackPonyWall ? [...withoutDrywallBack, drywallBackPonyWall] : withoutDrywallBack;
+	      });
+	      setWallSettingsOpen(false);
+	      toast.success(drywallBackPonyWall ? `Updated ${current.label ?? "peninsula run"} with a drywall pony wall behind the cabinet run.` : `Updated ${current.label ?? "peninsula run"}.`);
+	      return;
     }
     if (draft.kind === "custom") {
       const custom = room.customWalls?.find((wall) => wall.id === draft.wallId);
@@ -1147,7 +1172,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }));
     setWallSettingsOpen(false);
     toast.success(`Updated ${draft.label}.`);
-  }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
+	  }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
   const requestPeninsulaDeletion = useCallback(() => {
     const draft = wallSettingsDraft;
     if (!draft || draft.kind !== "peninsula") return;
@@ -1259,10 +1284,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Text annotations placed on the floor plan.
   const [annotations, setAnnotations] = useState<PlanAnnotation[]>([]);
   const [selectedAnnotationUid, setSelectedAnnotationUid] = useState<string | null>(null);
-  // Pony walls — free-standing half-walls (34.5" tall) placed on the floor plan.
-  const [ponyWalls, setPonyWalls] = useState<PonyWall[]>([]);
-  const [selectedPonyWallUid, setSelectedPonyWallUid] = useState<string | null>(null);
-	const rotateDrawingClockwise = useCallback(() => {
+	  // Pony walls — free-standing half-walls (34.5" tall) placed on the floor plan.
+	  const [ponyWalls, setPonyWalls] = useState<PonyWall[]>([]);
+	  const [selectedPonyWallUid, setSelectedPonyWallUid] = useState<string | null>(null);
+	  useEffect(() => {
+	    ponyWallsRef.current = ponyWalls;
+	  }, [ponyWalls]);
+		const rotateDrawingClockwise = useCallback(() => {
 	  if (layoutLocked) {
 	    toast.info("Unlock the layout before rotating the drawing.");
 	    return;
@@ -13000,6 +13028,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                        </select>
 	                      </label>
 	                      <p className="text-[11px] leading-4 text-muted-foreground">This is the authoritative peninsula face for new cabinets, measured openings, fit recommendations, seating, and waterfall direction. Existing cabinets keep their saved face.</p>
+	                      <div data-testid="peninsula-drywall-back-pony-wall" className="flex items-center gap-3 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-3 py-2.5">
+	                        <Columns3 className="h-4 w-4 shrink-0 text-[#634b20]" />
+	                        <div className="min-w-0 flex-1">
+	                          <Label htmlFor="peninsula-drywall-back-pony-wall-toggle" className="text-xs font-semibold text-[#1a2744]">Drywall pony wall behind cabinet run</Label>
+	                          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">A half-height finished wall follows the full peninsula length on the cabinet-back side.</p>
+	                        </div>
+	                        <Switch
+	                          id="peninsula-drywall-back-pony-wall-toggle"
+	                          aria-label="Add drywall pony wall behind the peninsula cabinet run"
+	                          checked={wallSettingsDraft.drywallBackPonyWall}
+	                          onCheckedChange={(enabled) => setWallSettingsDraft((draft) => draft ? { ...draft, drywallBackPonyWall: enabled } : draft)}
+	                        />
+	                      </div>
 	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
 	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Seating overhang
 	                          <select value={wallSettingsDraft.countertopSeatingOverhang} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopSeatingOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">

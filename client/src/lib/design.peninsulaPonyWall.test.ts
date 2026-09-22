@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	makePeninsulaDrywallBackPonyWall,
   makePeninsulaPonyWall,
   peninsulaRunEndpoints,
   ponyWallFitsRoom,
@@ -56,7 +57,7 @@ describe("peninsula-attached pony walls", () => {
     expect(ponyWallFitsRoom(ponyWall, room)).toBe(true);
   });
 
-  it("follows a changed parent attachment and length instead of retaining a loose screen position", () => {
+	  it("follows a changed parent attachment and length instead of retaining a loose screen position", () => {
     const ponyWall = makePeninsulaPonyWall(return45, room, { width: 24 });
     const movedPrimary = { ...primary, startOffset: 84, length: 60 };
     const movedRoom: RoomData = { ...room, peninsulaRuns: [movedPrimary, { ...return45, parentRunId: movedPrimary.id }] };
@@ -66,10 +67,29 @@ describe("peninsula-attached pony walls", () => {
 
     expect(movedStart).toEqual(peninsulaRunEndpoints(movedRoom.peninsulaRuns![1]!, movedRoom).end);
     expect(movedStart).not.toEqual(originalStart);
-    expect(ponyWallFitsRoom(ponyWall, movedRoom)).toBe(true);
-  });
+	    expect(ponyWallFitsRoom(ponyWall, movedRoom)).toBe(true);
+	  });
 
-  it("keeps a free-standing legacy pony wall independent of any peninsula run", () => {
+	  it("keeps a drywall pony wall directly behind the cabinet side and stretches it with the full peninsula run", () => {
+	    const ponyWall = makePeninsulaDrywallBackPonyWall(primary, room, { depth: 4.5, height: 40 });
+	    const frame = ponyWallPlanFrame(ponyWall, room);
+	    const runFrame = peninsulaRunEndpoints(primary, room);
+	    const leftNormal = { x: -Math.sin(runFrame.radians), y: Math.cos(runFrame.radians) };
+
+	    expect(ponyWall.peninsulaPlacement).toBe("behind-cabinets");
+	    expect(ponyWall.finish).toBe("drywall");
+	    expect(frame.width).toBe(primary.length);
+	    expect(frame.height).toBe(40);
+	    expect(frame.start.x).toBeCloseTo(runFrame.start.x - leftNormal.x * ponyWall.depth / 2, 8);
+	    expect(frame.start.y).toBeCloseTo(runFrame.start.y - leftNormal.y * ponyWall.depth / 2, 8);
+	    expect(ponyWallFitsRoom(ponyWall, room)).toBe(true);
+
+	    const extended = { ...primary, length: 84 };
+	    const extendedRoom: RoomData = { ...room, peninsulaRuns: [extended, return45] };
+	    expect(ponyWallPlanFrame(ponyWall, extendedRoom).width).toBe(84);
+	  });
+
+	  it("keeps a free-standing legacy pony wall independent of any peninsula run", () => {
     const frame = ponyWallPlanFrame({
       uid: "legacy-pony-wall",
       x: 24,

@@ -6430,13 +6430,14 @@ function addThreeDCountertopUpstands(
 
 function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData) {
   const transform = ponyWallTransform(ponyWall, room);
+  const drywallFinished = ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall";
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
-    new THREE.MeshStandardMaterial({ color: "#ede9e1", roughness: 0.86 }),
+    new THREE.MeshStandardMaterial({ color: drywallFinished ? "#e7e1d5" : "#ede9e1", roughness: 0.86 }),
   );
   wall.position.set(transform.x, transform.y, transform.z);
   wall.rotation.y = transform.rotation;
-  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null };
+  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null, drywallFinished, peninsulaPlacement: ponyWall.peninsulaPlacement ?? null };
   root.add(wall);
 }
 

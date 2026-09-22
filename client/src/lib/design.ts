@@ -9426,6 +9426,10 @@ export interface PonyWall {
   /** A pony wall can continue straight or take the same locked 45° turn selected in the peninsula builder. */
   peninsulaTurn?: 0 | 45;
   peninsulaDirection?: PeninsulaDirection;
+  /** A full-length drywall pony wall centered immediately behind the cabinet face of its peninsula run. */
+  peninsulaPlacement?: "endpoint" | "behind-cabinets";
+  /** Finish note used by the plan and 3D renderer; structural geometry remains a true pony wall. */
+  finish?: "drywall";
   /** Legacy/free-standing pony walls may keep an explicit plan rotation. */
   rotation?: number;
 }
@@ -9469,14 +9473,31 @@ export function ponyWallPlanFrame(
     };
   }
   const geometry = peninsulaRunEndpoints(run, room);
-  const start = ponyWall.peninsulaEnd === "start" ? geometry.start : geometry.end;
+  const behindCabinets = ponyWall.peninsulaPlacement === "behind-cabinets";
+  const leftNormal = { x: -Math.sin(geometry.radians), y: Math.cos(geometry.radians) };
+  const cabinetFaceNormal = run.cabinetSide === "right"
+    ? { x: -leftNormal.x, y: -leftNormal.y }
+    : leftNormal;
+  // The wall's cabinet-side edge meets the peninsula centerline exactly. This
+  // keeps the drywall pony wall physically behind the selected cabinet face
+  // instead of running through cabinet boxes on both sides of the line.
+  const rawStart = behindCabinets
+    ? geometry.start
+    : ponyWall.peninsulaEnd === "start" ? geometry.start : geometry.end;
+  const start = behindCabinets
+    ? {
+        x: rawStart.x - cabinetFaceNormal.x * depth / 2,
+        y: rawStart.y - cabinetFaceNormal.y * depth / 2,
+      }
+    : rawStart;
   const turn = ponyWall.peninsulaTurn === 45 ? Math.PI / 4 : 0;
   const radians = geometry.radians + (turn === 0 ? 0 : ponyWall.peninsulaDirection === "left" ? -turn : turn);
+  const resolvedWidth = behindCabinets ? Math.max(6, Number(run.length) || 6) : width;
   return {
     start,
-    end: { x: start.x + Math.cos(radians) * width, y: start.y + Math.sin(radians) * width },
+    end: { x: start.x + Math.cos(radians) * resolvedWidth, y: start.y + Math.sin(radians) * resolvedWidth },
     radians,
-    width,
+    width: resolvedWidth,
     depth,
     height,
     attachedToPeninsula: true,
@@ -9511,6 +9532,34 @@ export function makePeninsulaPonyWall(
     peninsulaEnd: "end",
     peninsulaTurn: turn,
     peninsulaDirection: direction,
+  };
+}
+
+/**
+ * Creates the optional half-height, drywall-finished pony wall directly behind
+ * a peninsula cabinet run. Its visible length always resolves from the run, so
+ * editing that run cannot leave a loose or mismatched divider in the room.
+ */
+export function makePeninsulaDrywallBackPonyWall(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
+  options: { depth?: number; height?: number } = {},
+): PonyWall {
+  const anchor = peninsulaRunEndpoints(run, room).start;
+  return {
+    uid: `pw-peninsula-back-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    x: anchor.x,
+    y: anchor.y,
+    width: Math.max(6, Math.round((Number(run.length) || 6) * 8) / 8),
+    depth: Math.max(1, Math.round((options.depth ?? 4.5) * 8) / 8),
+    height: Math.max(1, Math.round((options.height ?? run.height) * 8) / 8),
+    label: "Drywall pony wall · behind peninsula",
+    peninsulaRunId: run.id,
+    peninsulaEnd: "start",
+    peninsulaTurn: 0,
+    peninsulaDirection: run.direction,
+    peninsulaPlacement: "behind-cabinets",
+    finish: "drywall",
   };
 }
 
