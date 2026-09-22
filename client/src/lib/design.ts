@@ -8441,6 +8441,153 @@ function removeConsecutiveCountertopPlanDuplicates(points: CountertopPlanPoint[]
     : resolved;
 }
 
+function countertopCrossProduct(left: CountertopPlanPoint, right: CountertopPlanPoint): number {
+  return left.x * right.y - left.y * right.x;
+}
+
+function countertopSegmentParameterAtIntersection(
+  start: CountertopPlanPoint,
+  end: CountertopPlanPoint,
+  otherStart: CountertopPlanPoint,
+  otherEnd: CountertopPlanPoint,
+): number | null {
+  const direction = { x: end.x - start.x, y: end.y - start.y };
+  const otherDirection = { x: otherEnd.x - otherStart.x, y: otherEnd.y - otherStart.y };
+  const denominator = countertopCrossProduct(direction, otherDirection);
+  if (Math.abs(denominator) <= 1e-9) return null;
+  const offset = { x: otherStart.x - start.x, y: otherStart.y - start.y };
+  const along = countertopCrossProduct(offset, otherDirection) / denominator;
+  const otherAlong = countertopCrossProduct(offset, direction) / denominator;
+  if (along < -1e-6 || along > 1 + 1e-6 || otherAlong < -1e-6 || otherAlong > 1 + 1e-6) return null;
+  return Math.min(1, Math.max(0, along));
+}
+
+function countertopPointIsStrictlyInsidePolygon(point: CountertopPlanPoint, polygon: CountertopPlanPoint[]): boolean {
+  let inside = false;
+  for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index, index += 1) {
+    const current = polygon[index]!;
+    const prior = polygon[previous]!;
+    const edge = { x: current.x - prior.x, y: current.y - prior.y };
+    const offset = { x: point.x - prior.x, y: point.y - prior.y };
+    const lengthSquared = edge.x * edge.x + edge.y * edge.y;
+    const projected = lengthSquared > 0 ? (offset.x * edge.x + offset.y * edge.y) / lengthSquared : -1;
+    const onEdge = projected >= -1e-6 && projected <= 1 + 1e-6
+      && Math.abs(countertopCrossProduct(edge, offset)) <= 1e-5;
+    if (onEdge) return false;
+    const crosses = (current.y > point.y) !== (prior.y > point.y);
+    if (crosses && point.x < (prior.x - current.x) * (point.y - current.y) / (prior.y - current.y) + current.x) inside = !inside;
+  }
+  return inside;
+}
+
+/** True only when a countertop outline has crossing, non-adjacent physical edges. */
+export function countertopPolygonSelfIntersects(points: CountertopPlanPoint[]): boolean {
+  if (points.length < 4) return false;
+  for (let index = 0; index < points.length; index += 1) {
+    const start = points[index]!;
+    const end = points[(index + 1) % points.length]!;
+    for (let otherIndex = index + 1; otherIndex < points.length; otherIndex += 1) {
+      if (otherIndex === index || (otherIndex + 1) % points.length === index || (index + 1) % points.length === otherIndex) continue;
+      const otherStart = points[otherIndex]!;
+      const otherEnd = points[(otherIndex + 1) % points.length]!;
+      const parameter = countertopSegmentParameterAtIntersection(start, end, otherStart, otherEnd);
+      if (parameter == null || parameter <= 1e-6 || parameter >= 1 - 1e-6) continue;
+      const reverseParameter = countertopSegmentParameterAtIntersection(otherStart, otherEnd, start, end);
+      if (reverseParameter != null && reverseParameter > 1e-6 && reverseParameter < 1 - 1e-6) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Computes the external boundary of two touching/overlapping mitered slabs.
+ * A deep seating/bar projection on an inside 45° turn overlaps its adjoining
+ * rectangle along a short edge, not just at the cabinet-front apex. Splitting
+ * every edge at measured intersections and retaining only visible segments
+ * avoids the crossed outline that otherwise becomes a 3D spike/hole.
+ */
+function unionCountertopSurfacesAtVisibleBoundary(
+  left: CountertopSurface,
+  right: CountertopSurface,
+  rootRunId: string,
+): CountertopSurface | null {
+  const leftPolygon = countertopSurfacePlanPolygon(left);
+  const rightPolygon = countertopSurfacePlanPolygon(right);
+  if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
+  type BoundarySegment = { start: CountertopPlanPoint; end: CountertopPlanPoint };
+  const visibleSegments: BoundarySegment[] = [];
+  const appendVisibleSegments = (polygon: CountertopPlanPoint[], other: CountertopPlanPoint[]) => {
+    for (let index = 0; index < polygon.length; index += 1) {
+      const start = polygon[index]!;
+      const end = polygon[(index + 1) % polygon.length]!;
+      const parameters = [0, 1];
+      for (let otherIndex = 0; otherIndex < other.length; otherIndex += 1) {
+        const parameter = countertopSegmentParameterAtIntersection(start, end, other[otherIndex]!, other[(otherIndex + 1) % other.length]!);
+        if (parameter != null) parameters.push(parameter);
+      }
+      const ordered = Array.from(new Set(parameters.map((value) => Math.round(value * 1e8) / 1e8))).sort((a, b) => a - b);
+      for (let parameterIndex = 0; parameterIndex < ordered.length - 1; parameterIndex += 1) {
+        const from = ordered[parameterIndex]!;
+        const to = ordered[parameterIndex + 1]!;
+        if (to - from <= 1e-7) continue;
+        const midpoint = { x: start.x + (end.x - start.x) * (from + to) / 2, y: start.y + (end.y - start.y) * (from + to) / 2 };
+        if (countertopPointIsStrictlyInsidePolygon(midpoint, other)) continue;
+        visibleSegments.push({
+          start: { x: start.x + (end.x - start.x) * from, y: start.y + (end.y - start.y) * from },
+          end: { x: start.x + (end.x - start.x) * to, y: start.y + (end.y - start.y) * to },
+        });
+      }
+    }
+  };
+  appendVisibleSegments(leftPolygon, rightPolygon);
+  appendVisibleSegments(rightPolygon, leftPolygon);
+  if (visibleSegments.length < 3) return null;
+
+  const remaining = [...visibleSegments];
+  const first = remaining.shift()!;
+  const outline = [first.start, first.end];
+  let current = first.end;
+  while (!sameCountertopPlanPoint(current, outline[0]!) && remaining.length > 0) {
+    const nextIndex = remaining.findIndex((segment) => sameCountertopPlanPoint(segment.start, current, 0.001));
+    if (nextIndex < 0) return null;
+    const [next] = remaining.splice(nextIndex, 1);
+    if (!next) return null;
+    current = next.end;
+    outline.push(current);
+  }
+  const resolvedOutline = removeConsecutiveCountertopPlanDuplicates(outline);
+  if (remaining.length > 0 || resolvedOutline.length < 3 || countertopPolygonSelfIntersects(resolvedOutline) || countertopPolygonArea(resolvedOutline) <= COLLISION_EPSILON_IN) return null;
+  const minX = Math.min(...resolvedOutline.map((point) => point.x));
+  const maxX = Math.max(...resolvedOutline.map((point) => point.x));
+  const minY = Math.min(...resolvedOutline.map((point) => point.y));
+  const maxY = Math.max(...resolvedOutline.map((point) => point.y));
+  const terminalRunIds = [left.peninsulaTerminalRunId, right.peninsulaTerminalRunId].filter((id): id is string => Boolean(id));
+  const runIds = Array.from(new Set([
+    ...(left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : [])),
+    ...(right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : [])),
+  ]));
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0.1, maxX - minX),
+    depth: Math.max(0.1, maxY - minY),
+    kind: "base",
+    rotation: 0,
+    peninsulaRunId: rootRunId,
+    peninsulaRunIds: runIds,
+    ...(terminalRunIds.length === 1 ? { peninsulaTerminalRunId: terminalRunIds[0] } : {}),
+    runStartIn: 0,
+    polygon: resolvedOutline.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+    miteredStart: left.miteredStart || right.miteredStart,
+    miteredEnd: left.miteredEnd || right.miteredEnd,
+    linearInches: Math.max(0.1, maxX - minX),
+    runLinearInches: (left.runLinearInches ?? left.linearInches ?? 0) + (right.runLinearInches ?? right.linearInches ?? 0),
+    areaInches: countertopPolygonArea(resolvedOutline),
+    ponyWallBarOverhangIn: Math.max(left.ponyWallBarOverhangIn ?? 0, right.ponyWallBarOverhangIn ?? 0) || undefined,
+    ponyWallBackExtensionIn: Math.max(left.ponyWallBackExtensionIn ?? 0, right.ponyWallBackExtensionIn ?? 0) || undefined,
+  };
+}
+
 /**
  * Produces the outside boundary of two same-sided slabs that share an entire
  * reversed edge. This is deliberately an exact shared-boundary union, not an
@@ -8709,8 +8856,16 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
             const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
             return run && peninsulaRootRunId(run, room) === rootRunId;
           })) continue;
-          const union = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
+          const directUnion = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
             ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId, room);
+          // Inside 45° returns with a deep seating/bar extension can overlap on
+          // more than the front miter vertex. The historic apex walk crosses
+          // those physical edges and Three.js then triangulates a pointed spike
+          // or omits a countertop triangle. Prefer its concise outline when it
+          // is sound, otherwise walk the measured visible boundary instead.
+          const union = directUnion && !countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(directUnion))
+            ? directUnion
+            : unionCountertopSurfacesAtVisibleBoundary(left, right, rootRunId);
           if (!union) continue;
           resolved.splice(rightIndex, 1);
           resolved[leftIndex] = union;

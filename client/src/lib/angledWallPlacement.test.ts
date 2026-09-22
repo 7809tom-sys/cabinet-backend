@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopPolygonSelfIntersects, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
@@ -1664,11 +1664,46 @@ describe("cabinet-supported peninsula runs", () => {
 		  expect(miteredOutlines.every((miteredOutline) => miteredOutline.some((point) => Math.hypot(point.x - expectedFrontMiter.x, point.y - expectedFrontMiter.y) < 1e-6))).toBe(true);
 		  // This is the old, incorrect join: it treated the 42-inch bar depth as
 		  // door-side projection and pushed the front past every cabinet face.
-		  expect(Math.hypot(expectedFrontMiter.x - erroneousDeepMiter.x, expectedFrontMiter.y - erroneousDeepMiter.y)).toBeGreaterThan(0.001);
-		  expect(miteredOutlines.flat().some((point) => Math.hypot(point.x - erroneousDeepMiter.x, point.y - erroneousDeepMiter.y) < 1e-6)).toBe(false);
-		});
+			  expect(Math.hypot(expectedFrontMiter.x - erroneousDeepMiter.x, expectedFrontMiter.y - erroneousDeepMiter.y)).toBeGreaterThan(0.001);
+			  expect(miteredOutlines.flat().some((point) => Math.hypot(point.x - erroneousDeepMiter.x, point.y - erroneousDeepMiter.y) < 1e-6)).toBe(false);
+			});
 
-		it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {
+			it.each([
+			  ["left", "left"],
+			  ["right", "right"],
+			] as const)("keeps the %s-side inside %s 45-degree return as one non-crossing countertop outline", (cabinetSide, direction) => {
+			  const parent = {
+			    ...peninsulaRoom.peninsulaRuns![0],
+			    id: `inside-miter-parent-${cabinetSide}`,
+			    length: 72,
+			    cabinetSide,
+			    countertopSeatingOverhang: 12 as const,
+			  };
+			  const child = {
+			    id: `inside-miter-child-${cabinetSide}`,
+			    parentRunId: parent.id,
+			    startOffset: 0,
+			    turn: 45 as const,
+			    direction,
+			    length: 48,
+			    height: 34.5,
+			    cabinetSide,
+			  };
+			  const room: RoomData = { ...peninsulaRoom, width: 220, depth: 220, peninsulaRuns: [parent, child] };
+			  const parentSpot = wallPlacementAt(0, parent.length, 24, parent.id as any, room, cabinetSide);
+			  const childSpot = wallPlacementAt(0, child.length, 24, child.id as any, room, cabinetSide);
+			  const cabinets = [
+			    { ...peninsulaCabinet(`inside-parent-${cabinetSide}`, 0), ...parentSpot, width: parent.length, wallId: parent.id, wallOffset: 0, peninsulaSide: cabinetSide },
+			    { ...peninsulaCabinet(`inside-child-${cabinetSide}`, 0), ...childSpot, width: child.length, wallId: child.id, wallOffset: 0, peninsulaSide: cabinetSide },
+			  ];
+			  const surfaces = countertopSurfaces(cabinets, room).filter((surface) => surface.peninsulaRunId != null);
+			  expect(surfaces).toHaveLength(1);
+			  const outline = countertopSurfacePlanPolygon(surfaces[0]!);
+			  expect(countertopPolygonSelfIntersects(outline)).toBe(false);
+			  expect(surfaces[0]).toMatchObject({ peninsulaRunIds: [parent.id, child.id] });
+			});
+
+			it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {
 	  const standardRoom: RoomData = {
 	    ...peninsulaRoom,
 	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left" }],
