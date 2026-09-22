@@ -96,6 +96,16 @@ describe("duplicate normalized cabinet codes", () => {
 	  expect(styles.some((style) => style.homeownerPrice != null)).toBe(true);
 	});
 
+	it("keeps every active canonical self-alias reachable while inactive historical self-aliases remain hidden", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const activeCodes = ["B12", "B15", "B18", "B21", "U188424", "U189624"];
+	  const resolved = await Promise.all(activeCodes.map((masterCode) => caller.cabinets.byCode({ masterCode })));
+
+	  expect(resolved.map((cabinet) => cabinet?.masterCode)).toEqual(activeCodes);
+	  await expect(caller.cabinets.byCode({ masterCode: "3DB12" })).resolves.toBeNull();
+	  await expect(caller.cabinets.byCode({ masterCode: "3DB21" })).resolves.toBeNull();
+	});
+
 	it("resolves W-24-30 to the canonical W-2430 record without moving supplier price rows", async () => {
 	  const caller = appRouter.createCaller({} as any);
 	  const canonical = await caller.cabinets.byCode({ masterCode: "W-2430" });
