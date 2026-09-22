@@ -8206,6 +8206,95 @@ function countertopSurfaceWithMiterPoint(
   };
 }
 
+type CountertopRunEndEdge = {
+  innerIndex: number;
+  outerIndex: number;
+  innerPoint: CountertopPlanPoint;
+  outerPoint: CountertopPlanPoint;
+};
+
+/**
+ * Returns the two slab vertices at a run endpoint. The local polygon may
+ * already contain a miter at its opposite endpoint, so identify this edge from
+ * the measured run axis rather than assuming a four-vertex rectangle.
+ */
+function countertopSurfaceRunEndEdge(
+  surface: CountertopSurface,
+  run: PeninsulaRun,
+  room: RoomData,
+  atStart: boolean,
+): CountertopRunEndEdge | null {
+  const world = countertopSurfacePlanPolygon(surface);
+  if (world.length < 3) return null;
+  const geometry = peninsulaRunEndpoints(run, room);
+  const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
+  const normal = countertopRunFaceNormal(geometry.radians, run.cabinetSide ?? "left");
+  const targetAlong = atStart
+    ? surface.runStartIn ?? 0
+    : (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width);
+  const endpoints = world
+    .map((point, index) => ({
+      index,
+      point,
+      along: (point.x - geometry.start.x) * tangent.x + (point.y - geometry.start.y) * tangent.y,
+      outward: (point.x - geometry.start.x) * normal.x + (point.y - geometry.start.y) * normal.y,
+    }))
+    .sort((left, right) => Math.abs(left.along - targetAlong) - Math.abs(right.along - targetAlong))
+    .slice(0, 2)
+    .sort((left, right) => left.outward - right.outward);
+  if (endpoints.length !== 2) return null;
+  return {
+    innerIndex: endpoints[0]!.index,
+    outerIndex: endpoints[1]!.index,
+    innerPoint: endpoints[0]!.point,
+    outerPoint: endpoints[1]!.point,
+  };
+}
+
+function countertopLineIntersection(
+  firstPoint: CountertopPlanPoint,
+  firstDirection: CountertopPlanPoint,
+  secondPoint: CountertopPlanPoint,
+  secondDirection: CountertopPlanPoint,
+): CountertopPlanPoint | null {
+  const determinant = firstDirection.x * secondDirection.y - firstDirection.y * secondDirection.x;
+  if (Math.abs(determinant) <= 1e-9) return null;
+  const delta = { x: secondPoint.x - firstPoint.x, y: secondPoint.y - firstPoint.y };
+  const amount = (delta.x * secondDirection.y - delta.y * secondDirection.x) / determinant;
+  return {
+    x: firstPoint.x + firstDirection.x * amount,
+    y: firstPoint.y + firstDirection.y * amount,
+  };
+}
+
+/**
+ * At a square peninsula bend raw rectangular slabs overlap in one quadrant.
+ * Trim each physical outer edge back to its real intersection, then bridge the
+ * measured bend itself. This creates one continuous L-shaped slab without the
+ * triangular 3D hole caused by cutting both rectangles to one shared point.
+ */
+function countertopSurfaceWithSquareCornerMiter(
+  surface: CountertopSurface,
+  edge: CountertopRunEndEdge,
+  joint: CountertopPlanPoint,
+  outerCorner: CountertopPlanPoint,
+  atStart: boolean,
+): CountertopSurface {
+  const local = countertopSurfaceLocalPolygon(surface);
+  local[edge.outerIndex] = countertopSurfaceLocalPointFromWorld(surface, outerCorner);
+  const jointLocal = countertopSurfaceLocalPointFromWorld(surface, joint);
+  const count = local.length;
+  const innerToOuter = (edge.innerIndex + 1) % count === edge.outerIndex;
+  const insertionIndex = innerToOuter ? edge.outerIndex : edge.outerIndex + 1;
+  local.splice(insertionIndex, 0, jointLocal);
+  return {
+    ...surface,
+    polygon: local,
+    areaInches: countertopPolygonArea(local),
+    ...(atStart ? { miteredStart: true } : { miteredEnd: true }),
+  };
+}
+
 /**
  * Joins the outer cabinet-side edges at one bounded shared point. Unlike an
  * infinite outside-line intersection, this miter cannot project beyond both
@@ -8230,15 +8319,30 @@ export function miteredPeninsulaCountertopSurfaces(
     const parentGeometry = peninsulaRunEndpoints(parent, room);
     const childGeometry = peninsulaRunEndpoints(child, room);
     const side = parent.cabinetSide ?? "left";
-    for (const { index: parentIndex } of parentIndices) {
-      for (const { index: childIndex } of childIndices) {
-        const parentSurface = resolved[parentIndex]!;
-        const childSurface = resolved[childIndex]!;
-        const parentNormal = countertopRunFaceNormal(parentGeometry.radians, side);
-        const childNormal = countertopRunFaceNormal(childGeometry.radians, side);
-        const miterPoint = countertopOffsetEdgeMiterPoint(
-          parentGeometry.end,
-          parentGeometry.radians,
+	    for (const { index: parentIndex } of parentIndices) {
+	      for (const { index: childIndex } of childIndices) {
+	        const parentSurface = resolved[parentIndex]!;
+	        const childSurface = resolved[childIndex]!;
+	        const parentNormal = countertopRunFaceNormal(parentGeometry.radians, side);
+	        const childNormal = countertopRunFaceNormal(childGeometry.radians, side);
+	        const rightAngle = Math.abs(Math.cos(parentGeometry.radians - childGeometry.radians)) <= 1e-6;
+	        if (rightAngle) {
+	          const parentEdge = countertopSurfaceRunEndEdge(parentSurface, parent, room, false);
+	          const childEdge = countertopSurfaceRunEndEdge(childSurface, child, room, true);
+	          const parentTangent = { x: Math.cos(parentGeometry.radians), y: Math.sin(parentGeometry.radians) };
+	          const childTangent = { x: Math.cos(childGeometry.radians), y: Math.sin(childGeometry.radians) };
+	          const outerCorner = parentEdge && childEdge
+	            ? countertopLineIntersection(parentEdge.outerPoint, parentTangent, childEdge.outerPoint, childTangent)
+	            : null;
+	          if (parentEdge && childEdge && outerCorner) {
+	            resolved[parentIndex] = countertopSurfaceWithSquareCornerMiter(parentSurface, parentEdge, parentGeometry.end, outerCorner, false);
+	            resolved[childIndex] = countertopSurfaceWithSquareCornerMiter(childSurface, childEdge, parentGeometry.end, outerCorner, true);
+	            continue;
+	          }
+	        }
+	        const miterPoint = countertopOffsetEdgeMiterPoint(
+	          parentGeometry.end,
+	          parentGeometry.radians,
           parentNormal,
           parentSurface.depth,
           childGeometry.radians,

@@ -1640,8 +1640,8 @@ describe("cabinet-supported peninsula runs", () => {
 	  expect((barLine.unitPrice ?? 0) * barLine.qty).toBeGreaterThan((standardLine.unitPrice ?? 0) * standardLine.qty);
 	});
 
-	it("covers both joined peninsula legs when an ERB corner base supports their shared bend", () => {
-	  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "countertop-corner-parent", length: 48, countertopPonyWallBarOverhang: 12 as const };
+		it("covers both joined peninsula legs when an ERB corner base supports their shared bend", () => {
+		  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "countertop-corner-parent", length: 48, countertopPonyWallBarOverhang: 12 as const };
 	  const child = { id: "countertop-corner-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 42, height: 34.5, cabinetSide: "left" as const };
 	  const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
 	  const bend = peninsulaRunEndpoints(parent, room).end;
@@ -1658,13 +1658,35 @@ describe("cabinet-supported peninsula runs", () => {
 	  };
 
 	  const surfaces = countertopSurfaces([erb36], room).filter((surface) => surface.peninsulaRunId);
-	  expect(surfaces).toEqual(expect.arrayContaining([
-	    expect.objectContaining({ peninsulaRunId: parent.id, ponyWallBarOverhangIn: 12 }),
-	    expect.objectContaining({ peninsulaRunId: child.id, ponyWallBarOverhangIn: 12 }),
-	  ]));
-	});
+		  expect(surfaces).toEqual(expect.arrayContaining([
+		    expect.objectContaining({ peninsulaRunId: parent.id, ponyWallBarOverhangIn: 12 }),
+		    expect.objectContaining({ peninsulaRunId: child.id, ponyWallBarOverhangIn: 12 }),
+		  ]));
+		});
 
-	it("does not leave a base-end angled drawer cabinet uncovered at a peninsula bend", () => {
+		it("miter-joins a 90-degree bar-top bend on two shared seam points, without a corner gap", () => {
+		  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "ninety-bar-parent", length: 72, cabinetSide: "left" as const, countertopPonyWallBarOverhang: 12 as const };
+		  const child = { id: "ninety-bar-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 72, height: 34.5, cabinetSide: "left" as const };
+		  const room: RoomData = { ...peninsulaRoom, width: 180, depth: 180, peninsulaRuns: [parent, child] };
+		  const parentSpot = wallPlacementAt(0, parent.length, 24, parent.id as any, room, "left");
+		  const childSpot = wallPlacementAt(0, child.length, 24, child.id as any, room, "left");
+		  const cabinets = [
+		    { ...peninsulaCabinet("ninety-bar-parent-cabinet", 0), ...parentSpot, width: parent.length, wallId: parent.id, wallOffset: 0, peninsulaSide: "left" as const },
+		    { ...peninsulaCabinet("ninety-bar-return-cabinet", 0), ...childSpot, width: child.length, wallId: child.id, wallOffset: 0, peninsulaSide: "left" as const },
+		  ];
+		  const surfaces = countertopSurfaces(cabinets, room).filter((surface) => surface.peninsulaRunId);
+		  const parentSurface = surfaces.find((surface) => surface.peninsulaRunId === parent.id)!;
+		  const childSurface = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
+		  const parentPolygon = countertopSurfacePlanPolygon(parentSurface);
+		  const childPolygon = countertopSurfacePlanPolygon(childSurface);
+		  const shared = parentPolygon.filter((point) => childPolygon.some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 0.001));
+
+		  expect(parentSurface).toMatchObject({ depth: 42, miteredEnd: true });
+		  expect(childSurface).toMatchObject({ depth: 42, miteredStart: true });
+		  expect(shared).toHaveLength(2);
+		});
+
+		it("does not leave a base-end angled drawer cabinet uncovered at a peninsula bend", () => {
 	  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "bec-bend-parent", length: 48 };
 	  const child = { id: "bec-bend-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 36, height: 34.5 };
 	  const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };

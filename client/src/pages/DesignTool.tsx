@@ -5346,6 +5346,35 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     () => gapFillCandidatesByWidth((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as Map<number, DesignCabinet>,
     [autoFillCabinets]
   );
+
+  // A 45° peninsula return intentionally reserves its installer clearance at the
+  // bend. Surface that remaining real cabinet span instead of leaving the user
+  // to guess which currently-priced base will fill it. This returns only a
+  // purchasable item from the selected catalog/style; it never invents a SKU.
+  const activePeninsulaGapRecommendation = useMemo(() => {
+    const run = peninsulaRunById(room, activeWall);
+    if (!run || run.turn !== 45) return null;
+    const candidates = ((autoFillCabinets as DesignCabinet[] | undefined) ?? [])
+      .filter((cabinet) => {
+        const code = (cabinet.masterCode ?? "").toUpperCase();
+        const text = `${cabinet.description ?? ""} ${cabinet.subCategory ?? ""}`.toLowerCase();
+        return cabinet.placement === "base"
+          && !isCornerBase(cabinet)
+          && !/^FILL[-_ ]?\d/.test(code)
+          && !/\b(panel|skin|veneer|scribe|filler)\b/.test(text);
+      });
+    if (candidates.length === 0) return null;
+    const segment = freeSegmentsOnWall(run.id as WallSide, room, placed, openings, 9)
+      .sort((left, right) => right.length - left.length)[0];
+    if (!segment) return null;
+    const compatible = candidates
+      .map((cabinet) => ({ cabinet, width: resolvedDesignCabinetDimensions(cabinet).width }))
+      .filter(({ width }) => width > 0 && width <= segment.length + 0.001)
+      .sort((left, right) => right.width - left.width || left.cabinet.masterCode.localeCompare(right.cabinet.masterCode))[0];
+    return compatible
+      ? { cabinet: compatible.cabinet, width: compatible.width, gap: segment.length, runLabel: run.label ?? "45° peninsula return" }
+      : null;
+  }, [activeWall, autoFillCabinets, isCornerBase, openings, placed, room]);
   const smartGapPricePairs = useMemo(() => {
     if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
     const catalog = [
@@ -12403,6 +12432,27 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 
 	        {/* Canvas */}
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
+	          {activePeninsulaGapRecommendation && viewMode !== "threeD" && (
+	            <div
+	              data-testid="peninsula-45-gap-recommendation"
+	              className="absolute bottom-3 left-3 z-30 max-w-[min(22rem,calc(100%-1.5rem))] rounded-xl border border-emerald-300 bg-emerald-50/95 p-3 text-emerald-950 shadow-lg backdrop-blur"
+	            >
+	              <div className="flex items-start gap-2">
+	                <Wand2 className="mt-0.5 h-4 w-4 shrink-0" />
+	                <div className="min-w-0">
+	                  <p className="text-xs font-bold">45° return opening · {formatInches(activePeninsulaGapRecommendation.gap)}</p>
+	                  <p className="mt-0.5 text-[11px] leading-relaxed">Recommended from the active priced cabinet line: <span className="font-mono font-bold">{activePeninsulaGapRecommendation.cabinet.displayMasterCode ?? activePeninsulaGapRecommendation.cabinet.masterCode}</span> ({formatInches(activePeninsulaGapRecommendation.width)}W). The installer clearance at the bend stays open.</p>
+	                </div>
+	              </div>
+	              <Button
+	                size="sm"
+	                className="mt-2 h-8 bg-emerald-700 px-2.5 text-xs hover:bg-emerald-800"
+	                onClick={() => addCabinet(activePeninsulaGapRecommendation.cabinet)}
+	              >
+	                <Plus className="mr-1 h-3.5 w-3.5" /> Place {activePeninsulaGapRecommendation.cabinet.displayMasterCode ?? activePeninsulaGapRecommendation.cabinet.masterCode}
+	              </Button>
+	            </div>
+	          )}
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
 	              {/\bCorner protected:\s*ERB36\b/i.test(placementWarning) && (
