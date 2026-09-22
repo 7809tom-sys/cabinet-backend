@@ -4800,8 +4800,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      const cornerPlacement = requestedIslandFace ? null : cabinetCornerPlacementInfo(finalCab, room);
 	      if (cornerPlacement) {
+	        const snappedToPeninsulaBend = cornerPlacement.angle === 90
+	          && cornerPlacement.placement === "flush"
+	          && isCornerCabinet(finalCab.masterCode, finalCab.description)
+	          && Boolean(finalCab.wallId && peninsulaRunById(room, finalCab.wallId as WallSide));
 	        toast.success(
-	          cornerPlacement.placement === "clearance"
+	          snappedToPeninsulaBend
+	            ? `${finalCab.masterCode} snapped flush to the 90° peninsula bend.`
+	            : cornerPlacement.placement === "clearance"
 	            ? `${finalCab.masterCode} is seated at a 45° inside corner with ${cornerPlacement.clearanceIn}" clearance.`
 	            : `${finalCab.masterCode} is seated flush at the ${cornerPlacement.angle}° corner (0" clearance).`,
 	        );

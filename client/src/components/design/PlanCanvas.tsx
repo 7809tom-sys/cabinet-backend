@@ -6,7 +6,7 @@ import {
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
-  cabinetWall, wallSpanMeasure,
+  cabinetWall, wallSpanMeasure, peninsulaRunById,
 	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
@@ -17,7 +17,7 @@ import {
 	  type PonyWall, clampPonyWall, ponyWallPlanFrame,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
-import { Compass, X, RotateCw } from "lucide-react";
+import { CheckCircle2, Compass, X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -2067,11 +2067,19 @@ export function PlanCanvas({
 	            const cornerPlacement = cabinetCornerPlacementInfo(p, room);
             const blindCornerPlacement = blindCornerSnapInfo(p, room);
             const cornerStatus = cornerPlacement ?? blindCornerPlacement;
-            const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
-              && cornerPlacement?.placement === "flush"
-              && !p.cornerSnapUnlocked;
-            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush" && !p.cornerSnapUnlocked;
-            const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
+	            const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"
+	              && cornerPlacement?.placement === "flush"
+	              && !p.cornerSnapUnlocked;
+	            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush" && !p.cornerSnapUnlocked;
+	            const isSeatedPeninsulaCorner = Boolean(
+	              isCornerCabinet(p.masterCode, p.description)
+	              && cornerPlacement?.angle === 90
+	              && cornerPlacement.placement === "flush"
+	              && !p.cornerSnapUnlocked
+	              && p.wallId
+	              && peninsulaRunById(room, p.wallId as WallSide),
+	            );
+	            const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
             const cornerPlacementTooltip = cornerStatus
               ? cornerStatus.placement === "clearance"
                 ? `${cornerStatus.angle}° inside corner · ${cornerStatus.clearanceIn}" required clearance`
@@ -2104,7 +2112,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-	                } ${isWindowCenteredSink ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+	                } ${isWindowCenteredSink || isSeatedPeninsulaCorner ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: bodyLeft * ppi,
                   top: bodyTop * ppi,
@@ -2119,8 +2127,8 @@ export function PlanCanvas({
                     ? "3px solid #a87f33"
 	                  : isWindowCenteredSink
 	                  ? "3px solid #059669"
-                    : isSeatedProtectedCorner
-                    ? "2.5px solid #16a34a"
+	                  : isSeatedPeninsulaCorner || isSeatedProtectedCorner
+	                    ? "2.5px solid #16a34a"
                     : isSelected
                     ? "2px solid #1a2744"
                     : collides
@@ -2134,8 +2142,8 @@ export function PlanCanvas({
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
 	                  : isWindowCenteredSink
 	                  ? "0 0 0 5px rgba(16,185,129,0.42), 0 0 22px rgba(16,185,129,0.7), inset 0 0 0 1px rgba(255,255,255,0.92)"
-                    : isSeatedProtectedCorner
-                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
+	                    : isSeatedPeninsulaCorner || isSeatedProtectedCorner
+	                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
@@ -2148,11 +2156,22 @@ export function PlanCanvas({
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
-                data-corner-snap-confirmed={isSeatedProtectedCorner ? "true" : undefined}
+	                data-corner-snap-confirmed={isSeatedProtectedCorner || isSeatedPeninsulaCorner ? "true" : undefined}
+	                data-peninsula-corner-snap-confirmed={isSeatedPeninsulaCorner ? "true" : undefined}
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
-                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+	                {isSeatedPeninsulaCorner && (
+	                  <span
+	                    data-testid="peninsula-corner-snap-indicator"
+	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
+	                    title="Corner cabinet snapped flush to this peninsula’s 90-degree bend"
+	                  >
+	                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+	                    90° BEND SNAP
+	                  </span>
+	                )}
+	                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
 	                  {isWindowCenteredSink && (
 	                    <span data-testid="sink-window-snap-cabinet-indicator" className="pointer-events-none absolute left-1/2 bottom-0 z-30 -translate-x-1/2 translate-y-[calc(100%+5px)] whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow">
 	                      Centered to window
