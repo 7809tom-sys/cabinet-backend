@@ -22,7 +22,11 @@ export function isCanonicalCabinetMaster() {
       INNER JOIN cabinets canonical_cabinet
         ON canonical_cabinet.masterCode = canonical_sku_alias.masterCode
       WHERE canonical_sku_alias.aliasCode = ${cabinets.masterCode}
-	        AND canonical_sku_alias.conflictStatus = 'ok'
+        AND canonical_sku_alias.conflictStatus = 'ok'
+        -- A canonical code may be deliberately retained as its own search
+        -- alias (for example B15 → B15). That preserves lookup history but
+        -- must never retire the canonical cabinet from public detail routes.
+        AND canonical_cabinet.id <> ${cabinets.id}
         AND (
           canonical_cabinet.isActive = true
           OR canonical_cabinet.showInCatalog = true
@@ -54,11 +58,13 @@ export function hasPositivePublishedCabinetPrice() {
   )`;
 }
 
-// Shared public-catalog predicate: exclude both items held in admin "conflict"
-// and retired duplicate masters from catalog, storefront, Designer, order, OCR,
-// and price-shop queries. Each alias continues to resolve to its canonical item.
+// Shared public-catalog predicate: exclude inactive records, items held in admin
+// "conflict", and retired duplicate masters from catalog, storefront, Designer,
+// order, OCR, and price-shop queries. Each alias continues to resolve to its
+// canonical active item.
 export function notInConflict() {
   return and(
+    eq(cabinets.isActive, true),
     ne(cabinets.conflictStatus, "conflict"),
     isCanonicalCabinetMaster(),
     hasPositivePublishedCabinetPrice(),
@@ -319,24 +325,56 @@ export async function updatePricingSettings(
  * A previously calculated wholesale sell price is never used as the next base,
  * so repeated recalculations cannot compound a markup.
  */
+export type TierPriceRecalculation = {
+  /** All SKU rows whose durable cost can be re-priced. */
+  updated: number;
+  /** Cost-plus-tier rows whose homeowner/contractor/wholesale values were refreshed. */
+  costPlusTier: number;
+  /** Rows that retained their approved supplier list as homeowner retail. */
+  sourceListRetail: number;
+  /** Rows without a durable cost/list input; intentionally never given an invented price. */
+  skippedUnpriced: number;
+};
+
 export async function recalculateStoredTierPrices(
   settings?: Pick<
     PricingSettings,
     "homeownerMarkupBps" | "contractorMarkupBps" | "wholesaleMarkupBps"
   >,
-): Promise<{ updated: number }> {
+): Promise<TierPriceRecalculation> {
   const db = await getDb();
-  if (!db) return { updated: 0 };
+  if (!db) {
+    return {
+      updated: 0,
+      costPlusTier: 0,
+      sourceListRetail: 0,
+      skippedUnpriced: 0,
+    };
+  }
   const activeSettings = settings ?? await getPricingSettings();
   const homeownerMultiplier = Number(activeSettings.homeownerMarkupBps) / 10000;
   const contractorMultiplier = Number(activeSettings.contractorMarkupBps) / 10000;
   const wholesaleMultiplier = Number(activeSettings.wholesaleMarkupBps) / 10000;
   const durableCost = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
   const verifiedSourceList = sql`COALESCE(${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
-  const [eligible] = await db
-    .select({ count: sql<number>`COUNT(*)` })
+  const usesVerifiedSourceList = sql`EXISTS (
+    SELECT 1
+    FROM distributors retail_source
+    WHERE retail_source.id = ${distributorSkus.distributorId}
+      AND retail_source.retailPriceBasis = 'source_list'
+  ) AND ${verifiedSourceList} > 0`;
+  const [audit] = await db
+    .select({
+      updated: sql<number>`SUM(CASE WHEN ${durableCost} IS NOT NULL THEN 1 ELSE 0 END)`,
+      sourceListRetail: sql<number>`SUM(CASE WHEN ${durableCost} IS NOT NULL AND (${usesVerifiedSourceList}) THEN 1 ELSE 0 END)`,
+      skippedUnpriced: sql<number>`SUM(CASE WHEN ${durableCost} IS NULL THEN 1 ELSE 0 END)`,
+    })
     .from(distributorSkus)
-    .where(sql`${durableCost} IS NOT NULL`);
+    ;
+
+  const updated = Number(audit?.updated ?? 0);
+  const sourceListRetail = Number(audit?.sourceListRetail ?? 0);
+  const skippedUnpriced = Number(audit?.skippedUnpriced ?? 0);
 
   await db
     .update(distributorSkus)
@@ -347,18 +385,18 @@ export async function recalculateStoredTierPrices(
       // preserves that published price exactly for customers while wholesale and
       // contractor tiers still use the real acquisition-cost ladder.
       homeownerPrice: sql`CASE
-        WHEN EXISTS (
-          SELECT 1
-          FROM distributors retail_source
-          WHERE retail_source.id = ${distributorSkus.distributorId}
-            AND retail_source.retailPriceBasis = 'source_list'
-        ) AND ${verifiedSourceList} > 0
+        WHEN ${usesVerifiedSourceList}
         THEN ROUND(${verifiedSourceList}, 2)
         ELSE ROUND(${durableCost} * ${homeownerMultiplier}, 2)
       END`,
     })
     .where(sql`${durableCost} IS NOT NULL`);
-  return { updated: Number(eligible?.count ?? 0) };
+  return {
+    updated,
+    costPlusTier: Math.max(0, updated - sourceListRetail),
+    sourceListRetail,
+    skippedUnpriced,
+  };
 }
 
 // ─── Platform fee system (price ladder + order fee stack) ──────────────────────

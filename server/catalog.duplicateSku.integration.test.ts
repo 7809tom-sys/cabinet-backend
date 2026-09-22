@@ -80,6 +80,22 @@ describe("duplicate normalized cabinet codes", () => {
 	  expect(alias).toBeNull();
 	});
 
+	it("keeps a priced canonical detail route visible when its own code is retained as a search alias", async () => {
+	  const caller = appRouter.createCaller({} as any);
+	  const b15 = await caller.cabinets.byCode({ masterCode: "B15" });
+	  const dashedB15 = await caller.cabinets.byCode({ masterCode: "B-15" });
+
+	  expect(b15).toEqual(expect.objectContaining({
+	    id: 9390003,
+	    masterCode: "B15",
+	    description: '15" Single Door Single Drawer Base Cabinet with Adjustable Shelf',
+	  }));
+	  expect(dashedB15).toEqual(b15);
+	  const styles = await caller.pricing.stylesForCabinet({ cabinetId: b15!.id });
+	  expect(styles.length).toBeGreaterThan(0);
+	  expect(styles.some((style) => style.homeownerPrice != null)).toBe(true);
+	});
+
 	it("resolves W-24-30 to the canonical W-2430 record without moving supplier price rows", async () => {
 	  const caller = appRouter.createCaller({} as any);
 	  const canonical = await caller.cabinets.byCode({ masterCode: "W-2430" });

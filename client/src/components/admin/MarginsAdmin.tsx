@@ -23,6 +23,13 @@ interface MarginForm {
   wholesalePct: string;
 }
 
+interface EnforcementResult {
+  updated: number;
+  costPlusTier: number;
+  sourceListRetail: number;
+  skippedUnpriced: number;
+}
+
 // Sample base price used purely for the live preview.
 const SAMPLE_BASE = 100;
 
@@ -31,6 +38,7 @@ export default function MarginsAdmin() {
   const { data, isLoading, error } = trpc.pricing.adminGetMargins.useQuery();
   const [form, setForm] = useState<MarginForm | null>(null);
   const [distMarkups, setDistMarkups] = useState<Record<number, string>>({});
+  const [lastEnforcement, setLastEnforcement] = useState<EnforcementResult | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -50,10 +58,11 @@ export default function MarginsAdmin() {
 
   const saveMargins = trpc.pricing.adminUpdateMargins.useMutation({
     onSuccess: (result) => {
-      const refreshed = result.recalculation?.updated ?? 0;
+      const refreshed = result.recalculation.updated;
+      setLastEnforcement(result.recalculation);
       toast.success(
         refreshed > 0
-          ? `Margins saved — refreshed ${refreshed.toLocaleString()} retail, contractor, and wholesale tier prices.`
+          ? `Margins saved and enforced across ${refreshed.toLocaleString()} priced SKU rows.`
           : "Margins saved",
       );
       utils.pricing.adminGetMargins.invalidate();
@@ -104,17 +113,17 @@ export default function MarginsAdmin() {
             <TrendingUp className="h-5 w-5" /> Pricing & Margins
           </CardTitle>
           <CardDescription>
-            One control center for selling margins. Each tier's sell price is
-            computed as <strong>our cost × (1 + this markup)</strong>, where our
-            cost comes from the per-line multiplier on the Multipliers tab. The
-            global default is only guidance for new lines and does <strong>not</strong>{" "}
-            affect live prices.
+            Saving applies the tier margins to every SKU with an authorized
+            cost/list input. Each tier&apos;s sell price is computed as{" "}
+            <strong>our cost × (1 + this markup)</strong>, where our cost comes
+            from the per-line multiplier on the Multipliers tab. Unpriced source
+            rows are excluded rather than assigned an invented sell price.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">
-              Global default markup (guidance only — not applied)
+              Global default markup (new supply-line guidance)
             </Label>
             <div className="relative mt-1 max-w-[180px]">
               <Input
@@ -172,6 +181,28 @@ export default function MarginsAdmin() {
             </div>
           )}
 
+          {lastEnforcement && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-lg border border-emerald-300/70 bg-emerald-50/70 p-4 text-sm text-emerald-950"
+            >
+              <p className="font-semibold">Pricing enforced on save</p>
+              <p className="mt-1 leading-relaxed">
+                Refreshed <strong>{lastEnforcement.updated.toLocaleString()}</strong>{" "}
+                priced SKU rows: {lastEnforcement.costPlusTier.toLocaleString()} cost-plus-tier rows and{" "}
+                {lastEnforcement.sourceListRetail.toLocaleString()} approved source-list retail rows.
+                {lastEnforcement.skippedUnpriced > 0 && (
+                  <>
+                    {" "}
+                    <strong>{lastEnforcement.skippedUnpriced.toLocaleString()}</strong>{" "}
+                    unpriced source rows were left excluded—no $0 or inferred customer price was created.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
+
           <Button
             onClick={() =>
               saveMargins.mutate({
@@ -185,7 +216,7 @@ export default function MarginsAdmin() {
             className="gap-2"
           >
             <Save className="h-4 w-4" />
-            {saveMargins.isPending ? "Saving…" : "Save margins"}
+            {saveMargins.isPending ? "Saving and enforcing…" : "Save and enforce pricing"}
           </Button>
         </CardContent>
       </Card>

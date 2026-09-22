@@ -49,6 +49,9 @@ describe("pricing.adminUpdateMargins tier refresh", () => {
     });
 
     expect(result.recalculation.updated).toBeGreaterThan(0);
+    expect(result.recalculation.costPlusTier + result.recalculation.sourceListRetail)
+      .toBe(result.recalculation.updated);
+    expect(result.recalculation.skippedUnpriced).toBeGreaterThanOrEqual(0);
     const [stored] = await db
       .select({
         wholesalePrice: distributorSkus.wholesalePrice,
