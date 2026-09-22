@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -6431,13 +6431,14 @@ function addThreeDCountertopUpstands(
 function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData) {
   const transform = ponyWallTransform(ponyWall, room);
   const drywallFinished = ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall";
+  const drywallAppearance = drywallPonyWallAppearance(ponyWall);
   const wall = new THREE.Mesh(
     new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
-    new THREE.MeshStandardMaterial({ color: drywallFinished ? "#e7e1d5" : "#ede9e1", roughness: 0.86 }),
+    new THREE.MeshStandardMaterial({ color: drywallFinished ? drywallAppearance.color : "#ede9e1", roughness: drywallFinished ? drywallAppearance.roughness : 0.86 }),
   );
   wall.position.set(transform.x, transform.y, transform.z);
   wall.rotation.y = transform.rotation;
-  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null, drywallFinished, peninsulaPlacement: ponyWall.peninsulaPlacement ?? null };
+  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null, drywallFinished, peninsulaPlacement: ponyWall.peninsulaPlacement ?? null, drywallColor: drywallFinished ? drywallAppearance.color : null, drywallTexture: drywallFinished ? drywallAppearance.texture : null };
   root.add(wall);
 }
 

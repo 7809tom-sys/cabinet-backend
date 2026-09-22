@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-	makePeninsulaDrywallBackPonyWall,
+	drywallPonyWallAppearance,
+  makePeninsulaDrywallBackPonyWall,
   makePeninsulaPonyWall,
   peninsulaRunEndpoints,
   ponyWallFitsRoom,
@@ -71,13 +72,15 @@ describe("peninsula-attached pony walls", () => {
 	  });
 
 	  it("keeps a drywall pony wall directly behind the cabinet side and stretches it with the full peninsula run", () => {
-	    const ponyWall = makePeninsulaDrywallBackPonyWall(primary, room, { depth: 4.5, height: 40 });
+	    const ponyWall = makePeninsulaDrywallBackPonyWall(primary, room, { depth: 4.5, height: 40, color: "#7c9588", texture: "light-plaster" });
 	    const frame = ponyWallPlanFrame(ponyWall, room);
 	    const runFrame = peninsulaRunEndpoints(primary, room);
 	    const leftNormal = { x: -Math.sin(runFrame.radians), y: Math.cos(runFrame.radians) };
 
 	    expect(ponyWall.peninsulaPlacement).toBe("behind-cabinets");
 	    expect(ponyWall.finish).toBe("drywall");
+	    expect(ponyWall.drywallColor).toBe("#7c9588");
+	    expect(ponyWall.drywallTexture).toBe("light-plaster");
 	    expect(frame.width).toBe(primary.length);
 	    expect(frame.height).toBe(40);
 	    expect(frame.start.x).toBeCloseTo(runFrame.start.x - leftNormal.x * ponyWall.depth / 2, 8);
@@ -87,6 +90,19 @@ describe("peninsula-attached pony walls", () => {
 	    const extended = { ...primary, length: 84 };
 	    const extendedRoom: RoomData = { ...room, peninsulaRuns: [extended, return45] };
 	    expect(ponyWallPlanFrame(ponyWall, extendedRoom).width).toBe(84);
+	  });
+
+	  it("uses safe paint and texture defaults for legacy or malformed drywall settings", () => {
+	    expect(drywallPonyWallAppearance({ drywallColor: "not-a-color", drywallTexture: "rough-cement" as any })).toEqual({
+	      color: "#e7e1d5",
+	      texture: "smooth",
+	      roughness: 0.78,
+	    });
+	    expect(drywallPonyWallAppearance({ drywallColor: "#506d92", drywallTexture: "orange-peel" })).toEqual({
+	      color: "#506d92",
+	      texture: "orange-peel",
+	      roughness: 0.9,
+	    });
 	  });
 
 	  it("keeps a free-standing legacy pony wall independent of any peninsula run", () => {

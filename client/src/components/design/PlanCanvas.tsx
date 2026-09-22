@@ -14,7 +14,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
 	  wallDimensions, cabinetWallRunSegment, retainedWallSegmentForSplit, type DimensionSeg,
-	  type PonyWall, clampPonyWall, ponyWallPlanFrame,
+	  type PonyWall, clampPonyWall, ponyWallPlanFrame, drywallPonyWallAppearance,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
 import { CheckCircle2, Compass, X, RotateCw } from "lucide-react";
@@ -1799,6 +1799,12 @@ export function PlanCanvas({
 	          const ponyDegrees = (ponyFrame.radians * 180) / Math.PI;
 	          const attachedToPeninsula = ponyFrame.attachedToPeninsula;
 	          const isDrywallBackedPeninsula = attachedToPeninsula && pw.peninsulaPlacement === "behind-cabinets" && pw.finish === "drywall";
+	          const drywallAppearance = drywallPonyWallAppearance(pw);
+	          const drywallPlanBackground = drywallAppearance.texture === "orange-peel"
+	            ? `radial-gradient(circle at 2px 2px, rgba(78,70,59,0.15) 0 1px, transparent 1.4px), ${drywallAppearance.color}`
+	            : drywallAppearance.texture === "light-plaster"
+	              ? `repeating-linear-gradient(135deg, rgba(78,70,59,0.12) 0 1px, transparent 1px 5px), ${drywallAppearance.color}`
+	              : drywallAppearance.color;
           const ponyStyle: React.CSSProperties = attachedToPeninsula
             ? {
                 left: ponyFrame.start.x * ppi,
@@ -1822,7 +1828,7 @@ export function PlanCanvas({
             className="absolute group touch-none"
             style={{
               ...ponyStyle,
-	              background: isDrywallBackedPeninsula ? "#e8e3d9" : "#2a3550",
+	              background: isDrywallBackedPeninsula ? drywallPlanBackground : "#2a3550",
 	              border: isPonySelected ? "2px solid #f59e0b" : isDrywallBackedPeninsula ? "2px solid #8b8274" : "2px solid #1a2744",
               borderRadius: 2,
               cursor: layoutLocked || attachedToPeninsula ? "default" : "move",

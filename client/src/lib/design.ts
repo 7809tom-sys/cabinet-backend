@@ -9408,6 +9408,42 @@ export const FLOORING_LAYOUT_PATTERNS: { id: FlooringLayoutPattern; name: string
 // ─── Pony Wall ────────────────────────────────────────────────────────────────
 // A half-wall / peninsula divider placed freely on the floor plan.
 // Height defaults to 34.5" (counter height) so base cabinets sit flush on top.
+export type DrywallPonyWallTexture = "smooth" | "orange-peel" | "light-plaster";
+
+export const DEFAULT_DRYWALL_PONY_WALL_COLOR = "#e7e1d5";
+
+export const DRYWALL_PONY_WALL_TEXTURE_OPTIONS: Array<{
+  id: DrywallPonyWallTexture;
+  label: string;
+  description: string;
+  roughness: number;
+}> = [
+  { id: "smooth", label: "Smooth drywall", description: "Clean painted-wall finish", roughness: 0.78 },
+  { id: "orange-peel", label: "Orange peel", description: "Fine sprayed wall texture", roughness: 0.9 },
+  { id: "light-plaster", label: "Light plaster", description: "Subtle hand-troweled texture", roughness: 0.96 },
+];
+
+function validDrywallColor(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value);
+}
+
+/** Resolves legacy drywall walls safely and supplies a single Plan/3D appearance contract. */
+export function drywallPonyWallAppearance(ponyWall: Pick<PonyWall, "drywallColor" | "drywallTexture">): {
+  color: string;
+  texture: DrywallPonyWallTexture;
+  roughness: number;
+} {
+  const texture = DRYWALL_PONY_WALL_TEXTURE_OPTIONS.some((option) => option.id === ponyWall.drywallTexture)
+    ? ponyWall.drywallTexture as DrywallPonyWallTexture
+    : "smooth";
+  const option = DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((candidate) => candidate.id === texture)!;
+  return {
+    color: validDrywallColor(ponyWall.drywallColor) ? ponyWall.drywallColor : DEFAULT_DRYWALL_PONY_WALL_COLOR,
+    texture,
+    roughness: option.roughness,
+  };
+}
+
 export interface PonyWall {
   uid: string;
   x: number;      // inches from room left
@@ -9430,6 +9466,10 @@ export interface PonyWall {
   peninsulaPlacement?: "endpoint" | "behind-cabinets";
   /** Finish note used by the plan and 3D renderer; structural geometry remains a true pony wall. */
   finish?: "drywall";
+  /** Customer-selected painted drywall color for a behind-cabinet peninsula wall. */
+  drywallColor?: string;
+  /** Customer-selected wall surface texture for a behind-cabinet peninsula wall. */
+  drywallTexture?: DrywallPonyWallTexture;
   /** Legacy/free-standing pony walls may keep an explicit plan rotation. */
   rotation?: number;
 }
@@ -9543,9 +9583,10 @@ export function makePeninsulaPonyWall(
 export function makePeninsulaDrywallBackPonyWall(
   run: PeninsulaRun,
   room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
-  options: { depth?: number; height?: number } = {},
+  options: { depth?: number; height?: number; color?: string; texture?: DrywallPonyWallTexture } = {},
 ): PonyWall {
   const anchor = peninsulaRunEndpoints(run, room).start;
+  const appearance = drywallPonyWallAppearance({ drywallColor: options.color, drywallTexture: options.texture });
   return {
     uid: `pw-peninsula-back-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     x: anchor.x,
@@ -9560,6 +9601,8 @@ export function makePeninsulaDrywallBackPonyWall(
     peninsulaDirection: run.direction,
     peninsulaPlacement: "behind-cabinets",
     finish: "drywall",
+    drywallColor: appearance.color,
+    drywallTexture: appearance.texture,
   };
 }
 

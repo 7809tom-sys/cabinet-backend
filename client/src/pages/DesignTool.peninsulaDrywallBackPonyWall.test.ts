@@ -9,7 +9,7 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
   it("provides an editable peninsula setting that creates or removes the attached drywall wall", () => {
     expect(designTool).toContain('data-testid="peninsula-drywall-back-pony-wall"');
     expect(designTool).toContain("Drywall pony wall behind cabinet run");
-    expect(designTool).toContain("makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height })");
+    expect(designTool).toContain("makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height, color: draft.drywallColor, texture: draft.drywallTexture })");
     expect(designTool).toContain('peninsulaPlacement === "behind-cabinets"');
     expect(designTool).toContain('finish === "drywall"');
     expect(designTool).toContain("would extend outside the measured room");
@@ -20,5 +20,15 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
     expect(planCanvas).toContain("DRYWALL PONY WALL");
     expect(threeD).toContain("const drywallFinished = ponyWall.peninsulaPlacement === \"behind-cabinets\" && ponyWall.finish === \"drywall\"");
     expect(threeD).toContain("drywallFinished");
+  });
+
+  it("offers paint and texture pickers and passes the saved finish to plan and 3D", () => {
+    expect(designTool).toContain('data-testid="peninsula-drywall-finish-picker"');
+    expect(designTool).toContain('aria-label="Drywall pony wall paint color"');
+    expect(designTool).toContain('aria-label="Drywall pony wall texture"');
+    expect(designTool).toContain("DRYWALL_PONY_WALL_TEXTURE_OPTIONS.map");
+    expect(planCanvas).toContain("const drywallPlanBackground = drywallAppearance.texture === \"orange-peel\"");
+    expect(threeD).toContain("const drywallAppearance = drywallPonyWallAppearance(ponyWall)");
+    expect(threeD).toContain("drywallColor: drywallFinished ? drywallAppearance.color : null");
   });
 });

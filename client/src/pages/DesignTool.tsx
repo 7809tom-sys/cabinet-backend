@@ -121,7 +121,7 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsIslandCountertop,
-	  type PonyWall, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
+	  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
@@ -982,6 +982,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    countertopSeatingOverhang: 0 | 10 | 12;
 	    countertopWaterfallEnd: boolean;
 	    drywallBackPonyWall: boolean;
+	    drywallColor: string;
+	    drywallTexture: DrywallPonyWallTexture;
 	    startOffset: number;
 	  }>(null);
 	  // The wall editor is declared before the pony-wall state in this long-lived
@@ -1027,10 +1029,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    });
     setPeninsulaWizardOpen(true);
   }, [activeWall, layoutLocked, room.depth, room.width]);
-  const openWallSettings = useCallback((requestedWallId: WallSide = activeWall) => {
-    const peninsula = peninsulaRunById(room, requestedWallId);
-    const custom = room.customWalls?.find((wall) => wall.id === requestedWallId);
-    const standard = !peninsula && !custom;
+	  const openWallSettings = useCallback((requestedWallId: WallSide = activeWall) => {
+	    const peninsula = peninsulaRunById(room, requestedWallId);
+	    const custom = room.customWalls?.find((wall) => wall.id === requestedWallId);
+	    const existingDrywallBack = peninsula
+	      ? ponyWallsRef.current.find((ponyWall) => ponyWall.peninsulaRunId === peninsula.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall")
+	      : undefined;
+	    const standard = !peninsula && !custom;
     setWallSettingsDraft({
       wallId: requestedWallId,
       kind: peninsula ? "peninsula" : custom ? "custom" : "standard",
@@ -1043,7 +1048,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      cabinetSide: peninsula?.cabinetSide ?? "left",
 	      countertopSeatingOverhang: peninsula ? peninsulaCountertopSeatingOverhang(peninsula, room) : 0,
 	      countertopWaterfallEnd: peninsula ? peninsulaCountertopWaterfallEnd(peninsula, room) : false,
-	      drywallBackPonyWall: Boolean(peninsula && ponyWallsRef.current.some((ponyWall) => ponyWall.peninsulaRunId === peninsula.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall")),
+	      drywallBackPonyWall: Boolean(existingDrywallBack),
+	      drywallColor: existingDrywallBack?.drywallColor ?? DEFAULT_DRYWALL_PONY_WALL_COLOR,
+	      drywallTexture: existingDrywallBack?.drywallTexture ?? "smooth",
 	      startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
@@ -1095,8 +1102,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      const existingDrywallBack = ponyWallsRef.current.find((ponyWall) => ponyWall.peninsulaRunId === current.id && ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall");
 	      const drywallBackPonyWall = draft.drywallBackPonyWall
 	        ? existingDrywallBack
-	          ? { ...existingDrywallBack, width: cappedLength, height, peninsulaRunId: current.id, peninsulaPlacement: "behind-cabinets" as const, finish: "drywall" as const }
-	          : makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height })
+	          ? { ...existingDrywallBack, width: cappedLength, height, peninsulaRunId: current.id, peninsulaPlacement: "behind-cabinets" as const, finish: "drywall" as const, drywallColor: draft.drywallColor, drywallTexture: draft.drywallTexture }
+	          : makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height, color: draft.drywallColor, texture: draft.drywallTexture })
 	        : null;
 	      if (drywallBackPonyWall && !ponyWallFitsRoom(drywallBackPonyWall, prospectiveRoom)) {
 	        toast.error("This drywall pony wall would extend outside the measured room. Adjust the peninsula split or cabinet side before saving.");
@@ -13041,6 +13048,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          onCheckedChange={(enabled) => setWallSettingsDraft((draft) => draft ? { ...draft, drywallBackPonyWall: enabled } : draft)}
 	                        />
 	                      </div>
+	                      {wallSettingsDraft.drywallBackPonyWall && (
+	                        <div data-testid="peninsula-drywall-finish-picker" className="grid grid-cols-2 gap-2 rounded-md border border-[#d8c7a1] bg-[#fffdf8] p-2.5">
+	                          <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Paint color
+	                            <span className="flex items-center gap-2">
+	                              <Input
+	                                type="color"
+	                                value={wallSettingsDraft.drywallColor}
+	                                aria-label="Drywall pony wall paint color"
+	                                onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, drywallColor: event.target.value } : draft)}
+	                                className="h-8 w-10 shrink-0 cursor-pointer p-1"
+	                              />
+	                              <span className="min-w-0 truncate font-mono text-[10px] font-normal text-muted-foreground">{wallSettingsDraft.drywallColor.toUpperCase()}</span>
+	                            </span>
+	                          </label>
+	                          <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Wall texture
+	                            <select
+	                              value={wallSettingsDraft.drywallTexture}
+	                              aria-label="Drywall pony wall texture"
+	                              onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, drywallTexture: event.target.value as DrywallPonyWallTexture } : draft)}
+	                              className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground"
+	                            >
+	                              {DRYWALL_PONY_WALL_TEXTURE_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+	                            </select>
+	                          </label>
+	                          <div className="col-span-2 flex items-center gap-2 text-[10px] leading-4 text-muted-foreground">
+	                            <span className="h-4 w-4 shrink-0 rounded border border-black/15" style={{ backgroundColor: wallSettingsDraft.drywallColor }} />
+	                            {DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((option) => option.id === wallSettingsDraft.drywallTexture)?.description}
+	                          </div>
+	                        </div>
+	                      )}
 	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
 	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Seating overhang
 	                          <select value={wallSettingsDraft.countertopSeatingOverhang} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopSeatingOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
