@@ -79,8 +79,12 @@ describe("side-aware peninsula countertop meshes", () => {
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
     const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
     const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
-    expect(slabs).toHaveLength(2);
-    expect(slabs.every((item) => item.userData.seatingOverhangIn === 12)).toBe(true);
+    expect(slabs).toHaveLength(1);
+    expect(slabs[0]?.userData).toMatchObject({
+      unifiedPeninsulaAssembly: true,
+      peninsulaRunIds: ["saved-parent", "saved-child"],
+      seatingOverhangIn: 12,
+    });
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "saved-child", exposedFarEnd: true });
   });
@@ -124,7 +128,7 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(geometry.boundingBox?.min.x).toBeCloseTo(-18 / 12, 6);
   });
 
-  it("renders the reported right-side straight-to-45 joint as two complementary miter meshes", () => {
+  it("renders the reported right-side straight-to-45 joint as one unified miter mesh", () => {
     const root = new THREE.Group();
     const room: RoomData = {
       width: 144,
@@ -140,17 +144,19 @@ describe("side-aware peninsula countertop meshes", () => {
       { uid: "miter-child-base", cabinetId: 2, masterCode: "B-36", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 225, wallId: "miter-child-3d", wallOffset: 0, peninsulaSide: "right" } as PlacedCabinet,
     ];
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
-    const parentSlab = root.children.find((item) => item.userData.peninsulaRunId === "miter-parent-3d");
-    const childSlab = root.children.find((item) => item.userData.peninsulaRunId === "miter-child-3d");
-    expect(parentSlab?.geometry.type).toBe("ExtrudeGeometry");
-    expect(childSlab?.geometry.type).toBe("ExtrudeGeometry");
-    expect(parentSlab?.userData.miteredEnd).toBe(true);
-    expect(childSlab?.userData.miteredStart).toBe(true);
-    expect(parentSlab?.rotation.y).toBeCloseTo(Math.PI / 2, 6);
-    expect(childSlab?.rotation.y).toBeCloseTo(Math.PI * 3 / 4, 6);
+    const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
+    expect(slabs).toHaveLength(1);
+    expect(slabs[0]?.geometry.type).toBe("ExtrudeGeometry");
+    expect(slabs[0]?.userData).toMatchObject({
+      unifiedPeninsulaAssembly: true,
+      peninsulaRunIds: ["miter-parent-3d", "miter-child-3d"],
+      miteredEnd: true,
+      miteredStart: true,
+    });
+    expect(slabs[0]?.rotation.y).toBeCloseTo(0, 6);
   });
 
-  it("keeps the 3D 45-degree return on its authored 2D miter points rather than recentering it from reduced miter area", () => {
+  it("keeps every 3D 45-degree countertop point on the authored unified 2D miter outline", () => {
     const root = new THREE.Group();
     const room: RoomData = {
       width: 144,
@@ -168,22 +174,20 @@ describe("side-aware peninsula countertop meshes", () => {
       { uid: "left-miter-parent-base", cabinetId: 1, masterCode: "B-48", placement: "base", ...parentSpot, width: parentRun.length, depth: 24, height: 34.5, wallId: parentRun.id, wallOffset: 0, peninsulaSide: "left" } as PlacedCabinet,
       { uid: "left-miter-child-base", cabinetId: 2, masterCode: "B-36", placement: "base", ...childSpot, width: childRun.length, depth: 24, height: 34.5, wallId: childRun.id, wallOffset: 0, peninsulaSide: "left" } as PlacedCabinet,
     ];
-    const childSurface = countertopSurfaces(placed, room).find((surface) => surface.peninsulaRunId === childRun.id)!;
-    const expectedPlanPoints = countertopSurfacePlanPolygon(childSurface);
-    const length = childSurface.linearInches ?? childRun.length;
-    const reducedAverageDepth = (childSurface.areaInches ?? 0) / length;
-
-    expect(reducedAverageDepth).not.toBeCloseTo(childSurface.depth, 6);
-    expect(threeDPeninsulaCountertopPhysicalDepth(childSurface, length)).toBeCloseTo(childSurface.depth, 6);
+    const surface = countertopSurfaces(placed, room).find((candidate) => candidate.peninsulaRunId === parentRun.id)!;
+    const expectedPlanPoints = countertopSurfacePlanPolygon(surface);
+    const length = surface.width;
+    expect(surface).toMatchObject({ peninsulaRunIds: [parentRun.id, childRun.id], rotation: 0 });
+    expect(threeDPeninsulaCountertopPhysicalDepth(surface, length)).toBeCloseTo(surface.depth, 6);
 
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
-    const childSlab = root.children.find((item) => item.userData.peninsulaRunId === childRun.id) as THREE.Mesh;
-    expect(childSlab.userData.physicalDepthIn).toBeCloseTo(childSurface.depth, 6);
-    childSlab.updateMatrixWorld(true);
-    const positions = childSlab.geometry.getAttribute("position");
+    const slab = root.children.find((item) => item.userData.unifiedPeninsulaAssembly) as THREE.Mesh;
+    expect(slab.userData.physicalDepthIn).toBeCloseTo(surface.depth, 6);
+    slab.updateMatrixWorld(true);
+    const positions = slab.geometry.getAttribute("position");
     const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
       .fromBufferAttribute(positions, index)
-      .applyMatrix4(childSlab.matrixWorld));
+      .applyMatrix4(slab.matrixWorld));
 
     for (const expected of expectedPlanPoints) {
       expect(worldVertices.some((vertex) =>

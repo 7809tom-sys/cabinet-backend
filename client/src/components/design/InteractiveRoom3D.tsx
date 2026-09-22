@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -5054,7 +5054,8 @@ export function addThreeDPeninsulaCountertops(
   for (const surface of surfaces) {
     const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     if (!run) continue;
-    const length = Math.max(0.1, surface.linearInches ?? run.length);
+    const isUnifiedAssembly = Boolean(surface.peninsulaRunIds && surface.peninsulaRunIds.length > 1);
+    const length = Math.max(0.1, isUnifiedAssembly ? surface.width : surface.linearInches ?? run.length);
     const depth = threeDPeninsulaCountertopPhysicalDepth(surface, length);
     const planRotation = (surface.rotation ?? 0) * Math.PI / 180;
     const rotation = threeDPlanRotation(planRotation);
@@ -5071,14 +5072,40 @@ export function addThreeDPeninsulaCountertops(
     const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
     slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: true, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: true, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
     root.add(slab);
-    const reachesFarEnd = (surface.runStartIn ?? 0) + length >= run.length - 0.01;
-    if (!peninsulaCountertopWaterfallEnd(run, room) || !reachesFarEnd) continue;
-    const waterfall = new THREE.Mesh(new THREE.BoxGeometry(STD.COUNTERTOP_THICKNESS * INCH, STD.COUNTERTOP_HEIGHT * INCH, depth * INCH), material.clone());
-    waterfall.position.set((centerX + planTangent.x * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH, STD.COUNTERTOP_HEIGHT * INCH / 2, (centerZ + planTangent.z * (length / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH);
-    waterfall.rotation.y = rotation;
-    waterfall.userData = { peninsulaWaterfall: true, peninsulaRunId: run.id, exposedFarEnd: true };
+    const terminalRun = surface.peninsulaTerminalRunId
+      ? room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? run
+      : run;
+    const reachesFarEnd = isUnifiedAssembly || (surface.runStartIn ?? 0) + length >= terminalRun.length - 0.01;
+    if (!peninsulaCountertopWaterfallEnd(terminalRun, room) || !reachesFarEnd) continue;
+    const terminalGeometry = peninsulaRunEndpoints(terminalRun, room);
+    const terminalLength = terminalRun.length;
+    const terminalDepth = peninsulaCountertopSeatingOverhang(terminalRun, room)
+      + COUNTERTOP_DEPTH_IN
+      + peninsulaCountertopPonyWallBackExtensionIn(terminalRun, room);
+    const terminalCenter = wallPlacementAt(0, terminalLength, terminalDepth, terminalRun.id as WallSide, room, terminalRun.cabinetSide ?? "left");
+    const terminalFootprint = placedFootprint({
+      uid: `peninsula-waterfall-${terminalRun.id}`,
+      cabinetId: 0,
+      masterCode: "PENINSULA-WATERFALL",
+      description: "Peninsula waterfall",
+      placement: "base",
+      x: terminalCenter.x,
+      y: terminalCenter.y,
+      width: terminalLength,
+      depth: terminalDepth,
+      height: STD.COUNTERTOP_THICKNESS,
+      rotation: terminalCenter.rotation,
+    });
+    const terminalPlanTangent = { x: Math.cos(terminalGeometry.radians), z: Math.sin(terminalGeometry.radians) };
+    const terminalRotation = threeDPlanRotation(terminalGeometry.radians);
+    const terminalCenterX = terminalCenter.x + terminalFootprint.w / 2;
+    const terminalCenterZ = terminalCenter.y + terminalFootprint.d / 2;
+    const waterfall = new THREE.Mesh(new THREE.BoxGeometry(STD.COUNTERTOP_THICKNESS * INCH, STD.COUNTERTOP_HEIGHT * INCH, terminalDepth * INCH), material.clone());
+    waterfall.position.set((terminalCenterX + terminalPlanTangent.x * (terminalLength / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH, STD.COUNTERTOP_HEIGHT * INCH / 2, (terminalCenterZ + terminalPlanTangent.z * (terminalLength / 2 + STD.COUNTERTOP_THICKNESS / 2)) * INCH);
+    waterfall.rotation.y = terminalRotation;
+    waterfall.userData = { peninsulaWaterfall: true, peninsulaRunId: terminalRun.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], exposedFarEnd: true };
     root.add(waterfall);
   }
 }

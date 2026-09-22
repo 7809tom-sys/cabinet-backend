@@ -5259,7 +5259,7 @@ export function countertopArea(
   const peninsulaSurfaces = room
     ? countertopSurfaces(perimeterPlaced, room).filter((surface) => Boolean(surface.peninsulaRunId))
     : [];
-  const peninsulaRunInches = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.linearInches ?? 0), 0);
+  const peninsulaRunInches = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.runLinearInches ?? surface.linearInches ?? 0), 0);
   const peninsulaSquareIn = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.areaInches ?? 0), 0);
   const runInches = straightRunInches + peninsulaRunInches;
   let squareIn = straightRunInches * COUNTERTOP_DEPTH_IN + peninsulaSquareIn;
@@ -5305,9 +5305,18 @@ export function countertopArea(
     waterfallSqIn += sides * h * d;
   }
   for (const surface of peninsulaSurfaces) {
-    const run = room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
-    const reachesFarEnd = (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= (run?.length ?? Number.POSITIVE_INFINITY) - COLLISION_EPSILON_IN;
-    if (run && peninsulaCountertopWaterfallEnd(run, room ?? { peninsulaRuns: [] }) && reachesFarEnd) waterfallSqIn += STD.BASE_HEIGHT * surface.depth;
+    const rootRun = room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
+    const terminalRun = surface.peninsulaTerminalRunId
+      ? room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? rootRun
+      : rootRun;
+    const reachesFarEnd = Boolean(surface.peninsulaTerminalRunId)
+      || (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= (terminalRun?.length ?? Number.POSITIVE_INFINITY) - COLLISION_EPSILON_IN;
+    if (terminalRun && peninsulaCountertopWaterfallEnd(terminalRun, room ?? { peninsulaRuns: [] }) && reachesFarEnd) {
+      const terminalDepth = COUNTERTOP_DEPTH_IN
+        + peninsulaCountertopSeatingOverhang(terminalRun, room ?? { peninsulaRuns: [] })
+        + peninsulaCountertopPonyWallBackExtensionIn(terminalRun, room ?? { peninsulaRuns: [] });
+      waterfallSqIn += STD.BASE_HEIGHT * terminalDepth;
+    }
   }
   squareIn += waterfallSqIn;
   const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
@@ -8094,6 +8103,10 @@ export interface CountertopSurface {
   rotation?: number;
   /** Explicit-run identity for a continuous cabinet-supported peninsula slab. */
   peninsulaRunId?: string;
+  /** Every connected run represented by one unified peninsula countertop outline. */
+  peninsulaRunIds?: string[];
+  /** The exposed end run used for any waterfall at the end of a unified slab. */
+  peninsulaTerminalRunId?: string;
   /** Along-run start for a segmented peninsula slab, measured from the run attachment. */
   runStartIn?: number;
   /** Local slab outline in inches when a connected run edge is miter-clipped. */
@@ -8103,6 +8116,8 @@ export interface CountertopSurface {
   miteredEnd?: boolean;
   /** Physical slab length used for takeoff when the plan rectangle is rotated. */
   linearInches?: number;
+  /** Actual connected cabinet-run length for takeoff when one polygon spans turns. */
+  runLinearInches?: number;
   /** Physical slab area used for takeoff when the plan rectangle is rotated. */
   areaInches?: number;
   /** Bar projection beyond the cabinet-back drywall pony wall. */
@@ -8402,6 +8417,151 @@ export function miteredPeninsulaCountertopSurfaces(
   return resolved;
 }
 
+function sameCountertopPlanPoint(left: CountertopPlanPoint, right: CountertopPlanPoint, tolerance = 0.001): boolean {
+  return Math.hypot(left.x - right.x, left.y - right.y) <= tolerance;
+}
+
+function countertopBoundaryPath(points: CountertopPlanPoint[], startIndex: number, endIndex: number): CountertopPlanPoint[] {
+  const result: CountertopPlanPoint[] = [];
+  for (let index = startIndex; ; index = (index + 1) % points.length) {
+    result.push(points[index]!);
+    if (index === endIndex) return result;
+  }
+}
+
+function removeConsecutiveCountertopPlanDuplicates(points: CountertopPlanPoint[]): CountertopPlanPoint[] {
+  const resolved = points.filter((point, index) => index === 0 || !sameCountertopPlanPoint(point, points[index - 1]!));
+  return resolved.length > 1 && sameCountertopPlanPoint(resolved[0]!, resolved[resolved.length - 1]!)
+    ? resolved.slice(0, -1)
+    : resolved;
+}
+
+/**
+ * Produces the outside boundary of two same-sided slabs that share an entire
+ * reversed edge. This is deliberately an exact shared-boundary union, not an
+ * AABB merge: it keeps a 45° return's physical countertop path and never fills
+ * a range opening or invents a surface across a non-touching gap.
+ */
+function unionCountertopSurfacesAtSharedBoundary(
+  left: CountertopSurface,
+  right: CountertopSurface,
+  rootRunId: string,
+): CountertopSurface | null {
+  const leftPolygon = countertopSurfacePlanPolygon(left);
+  const rightPolygon = countertopSurfacePlanPolygon(right);
+  if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
+
+  for (let leftIndex = 0; leftIndex < leftPolygon.length; leftIndex += 1) {
+    const leftNext = (leftIndex + 1) % leftPolygon.length;
+    for (let rightIndex = 0; rightIndex < rightPolygon.length; rightIndex += 1) {
+      const rightNext = (rightIndex + 1) % rightPolygon.length;
+      if (!sameCountertopPlanPoint(leftPolygon[leftIndex]!, rightPolygon[rightNext]!, 0.125)) continue;
+      if (!sameCountertopPlanPoint(leftPolygon[leftNext]!, rightPolygon[rightIndex]!, 0.125)) continue;
+
+      const outline = removeConsecutiveCountertopPlanDuplicates([
+        ...countertopBoundaryPath(leftPolygon, leftNext, leftIndex),
+        ...countertopBoundaryPath(rightPolygon, (rightIndex + 2) % rightPolygon.length, rightIndex),
+      ]);
+      if (outline.length < 3) return null;
+      const minX = Math.min(...outline.map((point) => point.x));
+      const maxX = Math.max(...outline.map((point) => point.x));
+      const minY = Math.min(...outline.map((point) => point.y));
+      const maxY = Math.max(...outline.map((point) => point.y));
+      const terminalRunIds = [left.peninsulaTerminalRunId, right.peninsulaTerminalRunId]
+        .filter((id): id is string => Boolean(id));
+      const runIds = Array.from(new Set([
+        ...(left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : [])),
+        ...(right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : [])),
+      ]));
+      return {
+        x: minX,
+        y: minY,
+        width: Math.max(0.1, maxX - minX),
+        depth: Math.max(0.1, maxY - minY),
+        kind: "base",
+        rotation: 0,
+        peninsulaRunId: rootRunId,
+        peninsulaRunIds: runIds,
+        ...(terminalRunIds.length === 1 ? { peninsulaTerminalRunId: terminalRunIds[0] } : {}),
+        runStartIn: 0,
+        polygon: outline.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+        miteredStart: left.miteredStart || right.miteredStart,
+        miteredEnd: left.miteredEnd || right.miteredEnd,
+        linearInches: Math.max(0.1, maxX - minX),
+        runLinearInches: (left.runLinearInches ?? left.linearInches ?? 0) + (right.runLinearInches ?? right.linearInches ?? 0),
+        areaInches: countertopPolygonArea(outline),
+        ponyWallBarOverhangIn: Math.max(left.ponyWallBarOverhangIn ?? 0, right.ponyWallBarOverhangIn ?? 0) || undefined,
+        ponyWallBackExtensionIn: Math.max(left.ponyWallBackExtensionIn ?? 0, right.ponyWallBackExtensionIn ?? 0) || undefined,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * A 45° peninsula return is one fabricated countertop path, not a second
+ * floating countertop. Miter first, then fold every touching segment of each
+ * 45° assembly into one concave Plan polygon. A 90° return stays as its two
+ * cleanly mitered fabricated pieces, matching the existing trade convention.
+ */
+export function unifiedFortyFivePeninsulaCountertopSurfaces(
+  surfaces: CountertopSurface[],
+  room: RoomData,
+): CountertopSurface[] {
+  const resolved: CountertopSurface[] = surfaces.map((surface) => ({
+    ...surface,
+    polygon: surface.polygon?.map((point) => ({ ...point })),
+  }));
+  const rootsWithFortyFiveReturns = new Set<string>();
+  for (const run of room.peninsulaRuns ?? []) {
+    if (!run.parentRunId || run.turn !== 45) continue;
+    rootsWithFortyFiveReturns.add(peninsulaRootRunId(run, room));
+  }
+
+  for (const rootRunId of Array.from(rootsWithFortyFiveReturns)) {
+    let merged = true;
+    while (merged) {
+      merged = false;
+      for (let leftIndex = 0; leftIndex < resolved.length && !merged; leftIndex += 1) {
+        const left = resolved[leftIndex]!;
+        const leftRuns = left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : []);
+        if (!leftRuns.some((id) => {
+          const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
+          return run && peninsulaRootRunId(run, room) === rootRunId;
+        })) continue;
+        for (let rightIndex = leftIndex + 1; rightIndex < resolved.length; rightIndex += 1) {
+          const right = resolved[rightIndex]!;
+          const rightRuns = right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : []);
+          if (!rightRuns.some((id) => {
+            const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
+            return run && peninsulaRootRunId(run, room) === rootRunId;
+          })) continue;
+          const union = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId);
+          if (!union) continue;
+          resolved.splice(rightIndex, 1);
+          resolved[leftIndex] = union;
+          merged = true;
+          break;
+        }
+      }
+    }
+  }
+  return resolved.map((surface) => {
+    const runIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
+    if (runIds.length < 2) return surface;
+    const firstRun = runIds
+      .map((id) => room.peninsulaRuns?.find((candidate) => candidate.id === id))
+      .find((run): run is PeninsulaRun => Boolean(run));
+    const rootRunId = firstRun ? peninsulaRootRunId(firstRun, room) : undefined;
+    if (!rootRunId || !rootsWithFortyFiveReturns.has(rootRunId)) return surface;
+    const terminal = (room.peninsulaRuns ?? []).find((run) => (
+      peninsulaRootRunId(run, room) === rootRunId
+      && !(room.peninsulaRuns ?? []).some((candidate) => candidate.parentRunId === run.id)
+    ));
+    return terminal ? { ...surface, peninsulaTerminalRunId: terminal.id } : surface;
+  });
+}
+
 /**
  * Compute the visible countertop surfaces for a layout. Every base cabinet gets
  * a slab the width of the cabinet and the standard countertop depth, pinned to
@@ -8537,6 +8697,7 @@ export function peninsulaCountertopSurface(
     peninsulaRunId: run.id,
     runStartIn: startIn,
     linearInches: lengthIn,
+    runLinearInches: lengthIn,
     areaInches: lengthIn * slabDepth,
     ponyWallBarOverhangIn: ponyWallBarOverhang,
     ponyWallBackExtensionIn: ponyWallBackExtension,
@@ -8710,7 +8871,7 @@ export function countertopSurfaces(
     }
   }
   const mitered = miteredPeninsulaCountertopSurfaces(out, room);
-  out.splice(0, out.length, ...mitered);
+  out.splice(0, out.length, ...unifiedFortyFivePeninsulaCountertopSurfaces(mitered, room));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {

@@ -876,10 +876,14 @@ describe("cabinet-supported peninsula runs", () => {
     const endSpot = wallPlacementAt(0, 24, 24, angledEnd.id as any, room, "left");
     const primaryCabinet = { ...peninsulaCabinet("wizard-primary-cabinet", 0), ...primarySpot, wallId: primary.id, wallOffset: 0 };
     const endCabinet = { ...peninsulaCabinet("wizard-end-cabinet", 0), ...endSpot, wallId: angledEnd.id, wallOffset: 0, width: 24 };
-    expect(countertopSurfaces([primaryCabinet, endCabinet], room)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ peninsulaRunId: primary.id, linearInches: 72, rotation: 90 }),
-      expect.objectContaining({ peninsulaRunId: angledEnd.id, linearInches: 36, rotation: 135 }),
-    ]));
+    const surfaces = countertopSurfaces([primaryCabinet, endCabinet], room);
+    expect(surfaces).toHaveLength(1);
+    expect(surfaces[0]).toMatchObject({
+      peninsulaRunId: primary.id,
+      peninsulaRunIds: [primary.id, angledEnd.id],
+      rotation: 0,
+    });
+    expect(countertopSurfacePlanPolygon(surfaces[0]!).length).toBeGreaterThanOrEqual(5);
   });
 
   it("treats a legacy direct-45 primary peninsula as a straight first leg instead of a diamond cabinet path", () => {
@@ -1759,16 +1763,18 @@ describe("cabinet-supported peninsula runs", () => {
     expect(peninsulaCountertopWaterfallEnd(parent, room)).toBe(false);
     expect(peninsulaCountertopWaterfallEnd(child, room)).toBe(true);
     const surfaces = countertopSurfaces([parentB15, parentB27, childB24], room).filter((surface) => surface.peninsulaRunId);
-    const parentSurface = surfaces.find((surface) => surface.peninsulaRunId === parent.id)!;
-    const childSurface = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
-    expect(parentSurface).toMatchObject({ depth: 37.5, miteredEnd: true });
-    expect(childSurface).toMatchObject({ depth: 37.5, miteredStart: true });
-    const parentPolygon = countertopSurfacePlanPolygon(parentSurface);
-    const childPolygon = countertopSurfacePlanPolygon(childSurface);
-    const sharedOuterPoint = parentPolygon.find((point) => childPolygon.some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 0.001));
-    expect(sharedOuterPoint).toBeDefined();
+    expect(surfaces).toHaveLength(1);
+    const surface = surfaces[0]!;
+    expect(surface).toMatchObject({
+      peninsulaRunId: parent.id,
+      peninsulaRunIds: [parent.id, child.id],
+      peninsulaTerminalRunId: child.id,
+      miteredEnd: true,
+      miteredStart: true,
+    });
+    expect(countertopSurfacePlanPolygon(surface)).toHaveLength(6);
     const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
-    const terminalWaterfallArea = STD.BASE_HEIGHT * childSurface.depth;
+    const terminalWaterfallArea = STD.BASE_HEIGHT * 37.5;
     expect(countertopArea([parentB15, parentB27, childB24], null, null, room).squareFeet).toBe(Math.ceil(((visibleArea + terminalWaterfallArea) / 144) * 10) / 10);
   });
 
@@ -1795,13 +1801,16 @@ describe("cabinet-supported peninsula runs", () => {
     const childSpot = wallPlacementAt(0, 30, 24, child.id as any, room);
     const parentCabinet = { ...peninsulaCabinet("angled-parent-joint", 6), ...parentSpot, wallOffset: 6, wallId: parent.id };
     const childCabinet = { ...peninsulaCabinet("angled-child-joint", 0), ...childSpot, wallOffset: 0, wallId: child.id };
-    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toEqual(expect.arrayContaining([
-      expect.objectContaining({ peninsulaRunId: parent.id, linearInches: 36, rotation: 90 }),
-      expect.objectContaining({ peninsulaRunId: child.id, linearInches: 30, rotation: 45 }),
-    ]));
+    expect(countertopSurfaces([parentCabinet, childCabinet], room)).toEqual([
+      expect.objectContaining({
+        peninsulaRunId: parent.id,
+        peninsulaRunIds: [parent.id, child.id],
+        rotation: 0,
+      }),
+    ]);
   });
 
-  it("partitions the straight-to-45 countertop overlap along one shared miter seam and charges only the visible area", () => {
+  it("unifies the straight-to-45 countertop path into one mitered slab and charges only its visible area", () => {
     const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "miter-parent", startOffset: 72, length: 48, cabinetSide: "right" as const };
     const child = { id: "miter-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
     const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
@@ -1810,31 +1819,12 @@ describe("cabinet-supported peninsula runs", () => {
     const parentCabinet = { ...peninsulaCabinet("miter-parent-cabinet", 0), ...parentSpot, width: 48, wallId: parent.id, wallOffset: 0, peninsulaSide: "right" as const };
     const childCabinet = { ...peninsulaCabinet("miter-child-cabinet", 0), ...childSpot, width: 36, wallId: child.id, wallOffset: 0, peninsulaSide: "right" as const };
     const surfaces = countertopSurfaces([parentCabinet, childCabinet], room);
-    const parentSurface = surfaces.find((surface) => surface.peninsulaRunId === parent.id)!;
-    const childSurface = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
-    expect(parentSurface.polygon).toBeDefined();
-    expect(childSurface.polygon).toBeDefined();
-    expect(parentSurface.areaInches).toBeLessThan(parent.length * parentSurface.depth);
-    expect(childSurface.areaInches).toBeLessThan(child.length * childSurface.depth);
-
-    const parentGeometry = peninsulaRunEndpoints(parent, room);
-    const childGeometry = peninsulaRunEndpoints(child, room);
-    const lineNormal = {
-      x: Math.cos(parentGeometry.radians) + Math.cos(childGeometry.radians),
-      y: Math.sin(parentGeometry.radians) + Math.sin(childGeometry.radians),
-    };
-    const magnitude = Math.hypot(lineNormal.x, lineNormal.y);
-    lineNormal.x /= magnitude;
-    lineNormal.y /= magnitude;
-    const seamPoints = (surface: typeof parentSurface) => countertopSurfacePlanPolygon(surface)
-      .filter((point) => Math.abs((point.x - parentGeometry.end.x) * lineNormal.x + (point.y - parentGeometry.end.y) * lineNormal.y) < 0.001)
-      .sort((a, b) => a.x - b.x || a.y - b.y);
-    const parentSeam = seamPoints(parentSurface);
-    const childSeam = seamPoints(childSurface);
-    expect(parentSeam).toHaveLength(2);
-    expect(childSeam).toHaveLength(2);
-    expect(parentSeam[0]).toEqual(expect.objectContaining({ x: expect.closeTo(childSeam[0]!.x, 5), y: expect.closeTo(childSeam[0]!.y, 5) }));
-    expect(parentSeam[1]).toEqual(expect.objectContaining({ x: expect.closeTo(childSeam[1]!.x, 5), y: expect.closeTo(childSeam[1]!.y, 5) }));
+    expect(surfaces).toHaveLength(1);
+    const surface = surfaces[0]!;
+    expect(surface).toMatchObject({ peninsulaRunIds: [parent.id, child.id], rotation: 0 });
+    expect(surface.polygon).toBeDefined();
+    expect(countertopSurfacePlanPolygon(surface)).toHaveLength(6);
+    expect(surface.areaInches).toBeLessThan(parent.length * 25.5 + child.length * 25.5);
 
     const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
     const measurement = countertopArea([parentCabinet, childCabinet], null, null, room);
@@ -1856,22 +1846,22 @@ describe("cabinet-supported peninsula runs", () => {
       return { ...peninsulaCabinet(`${run.id}-cabinet`, 0), ...spot, cabinetId: index + 1, width: run.length, wallId: run.id, wallOffset: 0, peninsulaSide: cabinetSide };
     });
     const surfaces = countertopSurfaces(cabinets, room).filter((surface) => surface.peninsulaRunId);
-    expect(surfaces).toHaveLength(3);
-    for (const surface of surfaces) {
-      const run = room.peninsulaRuns!.find((candidate) => candidate.id === surface.peninsulaRunId)!;
-      const geometry = peninsulaRunEndpoints(run, room);
-      const leftNormal = { x: -Math.sin(geometry.radians), y: Math.cos(geometry.radians) };
-      const normal = cabinetSide === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
-      const outwardDistances = countertopSurfacePlanPolygon(surface).map((point) =>
-        (point.x - geometry.start.x) * normal.x + (point.y - geometry.start.y) * normal.y,
-      );
-      expect(Math.min(...outwardDistances)).toBeGreaterThanOrEqual(-0.001);
-      expect(Math.max(...outwardDistances)).toBeLessThanOrEqual(surface.depth + 0.001);
-    }
-    const [primarySurface, angleSurface, returnSurface] = surfaces;
-    expect(primarySurface).toEqual(expect.objectContaining({ miteredEnd: true }));
-    expect(angleSurface).toEqual(expect.objectContaining({ miteredStart: true, miteredEnd: true }));
-    expect(returnSurface).toEqual(expect.objectContaining({ miteredStart: true }));
+    expect(surfaces).toHaveLength(1);
+    const surface = surfaces[0]!;
+    expect(surface).toMatchObject({
+      peninsulaRunId: primary.id,
+      peninsulaRunIds: [primary.id, angle.id, returning.id],
+      peninsulaTerminalRunId: returning.id,
+      rotation: 0,
+      miteredStart: true,
+      miteredEnd: true,
+    });
+    const outline = countertopSurfacePlanPolygon(surface);
+    expect(outline.length).toBeGreaterThanOrEqual(8);
+    expect(outline.every((point, index) => {
+      const next = outline[(index + 1) % outline.length]!;
+      return Math.hypot(point.x - next.x, point.y - next.y) > 0.001;
+    })).toBe(true);
   });
 
   it("cuts the peninsula countertop around a stove without changing the connected 45-degree return", () => {
@@ -1900,12 +1890,13 @@ describe("cabinet-supported peninsula runs", () => {
 
     const surfaces = countertopSurfaces([start, stove, end, angled], room);
     const parentSurfaces = surfaces.filter((surface) => surface.peninsulaRunId === parent.id);
-    expect(parentSurfaces).toEqual([
-      expect.objectContaining({ runStartIn: 0, linearInches: 24, rotation: 90 }),
-      expect.objectContaining({ runStartIn: 54, linearInches: 42, rotation: 90 }),
-    ]);
-    expect(parentSurfaces.reduce((total, surface) => total + (surface.linearInches ?? 0), 0)).toBe(66);
-    expect(surfaces).toContainEqual(expect.objectContaining({ peninsulaRunId: child.id, runStartIn: 0, linearInches: 30, rotation: 45 }));
+    expect(parentSurfaces).toHaveLength(2);
+    expect(parentSurfaces).toContainEqual(expect.objectContaining({ runStartIn: 0, linearInches: 24, rotation: 90 }));
+    expect(parentSurfaces).toContainEqual(expect.objectContaining({
+      peninsulaRunIds: [parent.id, child.id],
+      rotation: 0,
+    }));
+    expect(parentSurfaces.filter((surface) => !surface.peninsulaRunIds).reduce((total, surface) => total + (surface.linearInches ?? 0), 0)).toBe(24);
   });
 
   it("deletes only the selected peninsula and its owned cabinets, clearing derived counter, price, and materials entries", () => {
