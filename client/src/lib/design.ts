@@ -9453,6 +9453,23 @@ export function drywallPonyWallAppearance(ponyWall: Pick<PonyWall, "drywallColor
 }
 
 /**
+ * Reusable CSS paint-and-texture swatch for the edit dialog and Plan. This is
+ * deliberately procedural rather than an image asset: the thumbnail updates
+ * immediately for any chosen paint color and uses the same texture cue that
+ * appears on the measured 2D pony wall.
+ */
+export function drywallPonyWallPreviewBackground(ponyWall: Pick<PonyWall, "drywallColor" | "drywallTexture">): string {
+  const appearance = drywallPonyWallAppearance(ponyWall);
+  if (appearance.texture === "orange-peel") {
+    return `radial-gradient(circle at 2px 2px, rgba(78,70,59,0.15) 0 1px, transparent 1.4px), ${appearance.color}`;
+  }
+  if (appearance.texture === "light-plaster") {
+    return `repeating-linear-gradient(135deg, rgba(78,70,59,0.12) 0 1px, transparent 1px 5px), ${appearance.color}`;
+  }
+  return appearance.color;
+}
+
+/**
  * Resolves the single paint finish shared by the physical room shell. Reusing
  * the pony-wall appearance contract guarantees the Apply to all walls action
  * cannot make Plan and 3D disagree about color or texture defaults.

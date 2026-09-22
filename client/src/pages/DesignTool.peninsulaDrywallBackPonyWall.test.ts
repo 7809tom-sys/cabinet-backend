@@ -27,7 +27,7 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
     expect(designTool).toContain('aria-label="Drywall pony wall paint color"');
     expect(designTool).toContain('aria-label="Drywall pony wall texture"');
     expect(designTool).toContain("DRYWALL_PONY_WALL_TEXTURE_OPTIONS.map");
-    expect(planCanvas).toContain("const drywallPlanBackground = drywallAppearance.texture === \"orange-peel\"");
+    expect(planCanvas).toContain("const drywallPlanBackground = drywallPonyWallPreviewBackground(pw)");
     expect(threeD).toContain("const drywallAppearance = drywallPonyWallAppearance(ponyWall)");
     expect(threeD).toContain("drywallColor: drywallFinished ? drywallAppearance.color : null");
   });
@@ -40,5 +40,13 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
     expect(designTool).toContain("Applied this drywall color and texture to all room walls.");
     expect(threeD).toContain("const resolvedRoomWallAppearance = roomWallAppearance(roomOverride)");
     expect(threeD).toContain("roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null");
+  });
+
+  it("shows a live paint-and-texture thumbnail before the room-wide action is used", () => {
+    expect(designTool).toContain('data-testid="peninsula-drywall-material-preview"');
+    expect(designTool).toContain("Material preview:");
+    expect(designTool).toContain("drywallPonyWallPreviewBackground({ drywallColor: wallSettingsDraft.drywallColor, drywallTexture: wallSettingsDraft.drywallTexture })");
+    expect(designTool).toContain("Preview updates here first; use Apply to all walls to update the room shell.");
+    expect(planCanvas).toContain("const drywallPlanBackground = drywallPonyWallPreviewBackground(pw)");
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	drywallPonyWallAppearance,
+	drywallPonyWallPreviewBackground,
   makePeninsulaDrywallBackPonyWall,
   makePeninsulaPonyWall,
   peninsulaRunEndpoints,
@@ -109,6 +110,9 @@ describe("peninsula-attached pony walls", () => {
 	      texture: "orange-peel",
 	      roughness: 0.9,
 	    });
+	    expect(drywallPonyWallPreviewBackground({ drywallColor: "#506d92", drywallTexture: "smooth" })).toBe("#506d92");
+	    expect(drywallPonyWallPreviewBackground({ drywallColor: "#506d92", drywallTexture: "orange-peel" })).toContain("radial-gradient");
+	    expect(drywallPonyWallPreviewBackground({ drywallColor: "#506d92", drywallTexture: "light-plaster" })).toContain("repeating-linear-gradient");
 	  });
 
 	  it("keeps a free-standing legacy pony wall independent of any peninsula run", () => {

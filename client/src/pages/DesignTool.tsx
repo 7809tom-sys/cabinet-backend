@@ -121,7 +121,7 @@ import {
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
   staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsIslandCountertop,
-	  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
+	  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
@@ -13082,6 +13082,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                                className="h-8 w-10 shrink-0 cursor-pointer p-1"
 	                              />
 	                              <span className="min-w-0 truncate font-mono text-[10px] font-normal text-muted-foreground">{wallSettingsDraft.drywallColor.toUpperCase()}</span>
+	                              <span
+	                                data-testid="peninsula-drywall-material-preview"
+	                                role="img"
+	                                aria-label={`Material preview: ${DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((option) => option.id === wallSettingsDraft.drywallTexture)?.label ?? "Smooth drywall"} in ${wallSettingsDraft.drywallColor}`}
+	                                className="h-9 w-14 shrink-0 rounded border border-black/20 shadow-inner transition-[background] duration-150"
+	                                style={{ background: drywallPonyWallPreviewBackground({ drywallColor: wallSettingsDraft.drywallColor, drywallTexture: wallSettingsDraft.drywallTexture }) }}
+	                              />
 	                            </span>
 	                          </div>
 	                          <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Wall texture
@@ -13096,7 +13103,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          </label>
 	                          <div className="col-span-2 flex items-center gap-2 text-[10px] leading-4 text-muted-foreground">
 	                            <span className="h-4 w-4 shrink-0 rounded border border-black/15" style={{ backgroundColor: wallSettingsDraft.drywallColor }} />
-	                            {DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((option) => option.id === wallSettingsDraft.drywallTexture)?.description}
+	                            <span>{DRYWALL_PONY_WALL_TEXTURE_OPTIONS.find((option) => option.id === wallSettingsDraft.drywallTexture)?.description} Preview updates here first; use Apply to all walls to update the room shell.</span>
 	                          </div>
 	                        </div>
 	                      )}
