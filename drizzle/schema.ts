@@ -298,12 +298,12 @@ export const distributors = mysqlTable("distributors", {
   displayMode: mysqlEnum("displayMode", ["neutral", "branded", "series"]).default("neutral").notNull(),
   seriesName: varchar("seriesName", { length: 128 }), // e.g. "Cabinet Dealz Elegant Series" when displayMode = series
   markupPercent: decimal("markupPercent", { precision: 6, scale: 4 }).default("0").notNull(), // price uplift applied for premium series, e.g. 0.15 = +15%
-  // Effective cost multiplier applied to the distributor's list price to get OUR cost.
-  // Kept as the single computed value = baseMultiplier + freightMultiplier so all read
-  // paths only need this one field. Edited via the Multipliers tab (base + freight).
+  // Effective landed-cost factor applied to the distributor's list price to get OUR cost.
+  // It is the audit/display result of baseMultiplier × (1 + freightMultiplier).
+  // The actual persisted SKU cost rounds the base cost before applying tariff/freight.
   costMultiplier: decimal("costMultiplier", { precision: 5, scale: 4 }).notNull(), // 0.30, 0.38, 0.35
-  // Two-part breakdown of the cost multiplier so the freight/tariff portion can change
-  // independently (e.g. a distributor lowers their tariff fee). base 0.23 + freight 0.07 = 0.30.
+  // Two-part landed-cost inputs: base is the core cost fraction of list; freight is
+  // the tariff/freight rate applied to that core cost. Example: 0.23 × 1.07 = 0.2461.
   baseMultiplier: decimal("baseMultiplier", { precision: 5, scale: 4 }).default("0").notNull(),
   freightMultiplier: decimal("freightMultiplier", { precision: 5, scale: 4 }).default("0").notNull(),
   tariffRate: decimal("tariffRate", { precision: 5, scale: 4 }).default("0").notNull(),

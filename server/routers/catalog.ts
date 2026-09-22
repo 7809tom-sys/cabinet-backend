@@ -41,6 +41,7 @@ import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { landedCostMultiplier } from "../lib/distributorCostMultiplier";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -4017,11 +4018,10 @@ export const pricingRouter = router({
     }),
 
   // ─── Per-distributor cost Multiplier tab ─────────────────────────────────────
-  // ONE list-price multiplier per distributor line, applied to EVERY cabinet
-  // that line carries. Our true cost = listPrice × multiplier (stored in
-  // distributor_skus.yourCost), and every sell price is cost × the per-tier
-  // markup. This is the single lever for cost: when a supplier's list changes,
-  // the owner just updates the multiplier here and all costs/sell prices follow.
+  // Each supply line carries a base cost fraction plus a tariff/freight rate.
+  // Our true cost = (listPrice × base) × (1 + tariff), never listPrice ×
+  // (base + tariff). The stored costMultiplier is the resulting display/audit
+  // factor; yourCost remains the rounded monetary source for all tier prices.
   adminListDistributorMultipliers: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return { rows: [] as unknown[] };
@@ -4059,9 +4059,9 @@ export const pricingRouter = router({
     .input(
       z.object({
         distributorId: z.number().int(),
-        // Two-part cost multiplier. base = the distributor's core cost fraction of
-        // list; freight = the freight/tariff add-on (can change independently, e.g.
-        // a tariff is lowered). Effective = base + freight, and cost = list × effective.
+        // Two-part landed cost. base = the distributor's core cost fraction of
+        // list; freight = the tariff/freight rate charged on that core cost. For
+        // example, 0.23 base and 0.07 tariff becomes list × 0.23 × 1.07.
         baseMultiplier: z.number().min(0).max(1),
         freightMultiplier: z.number().min(0).max(1),
         retailPriceBasis: z.enum(["cost_plus_tier", "source_list"]).default("cost_plus_tier"),
@@ -4072,29 +4072,33 @@ export const pricingRouter = router({
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
       const base = Math.round(input.baseMultiplier * 10000) / 10000;
       const freight = Math.round(input.freightMultiplier * 10000) / 10000;
-      const mult = Math.round((base + freight) * 10000) / 10000;
+      const mult = landedCostMultiplier(base, freight);
       if (mult < 0.01 || mult > 1) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Effective multiplier (base + freight) must be between 0.01 and 1.00.",
+          message: "Landed cost factor (base × (1 + tariff/freight)) must be between 0.01 and 1.00.",
         });
       }
-      // 1) Persist the line's base/freight split and the computed effective multiplier.
+      // 1) Persist the source cost fraction, tariff/freight rate, and display factor.
       await db
         .update(distributors)
         .set({
           baseMultiplier: String(base),
           freightMultiplier: String(freight),
+          tariffRate: String(freight),
           costMultiplier: String(mult),
           retailPriceBasis: input.retailPriceBasis,
         })
         .where(eq(distributors.id, input.distributorId));
-      // 2) Recompute our cost for EVERY SKU on the line: yourCost = listPrice × multiplier.
+      // 2) Recompute our cost for EVERY SKU on the line. The tariff is applied
+      //    to the core cost, not to the supplier list price.
       //    Sell prices are derived at read time from yourCost, so nothing else
       //    needs backfilling. Rows without a listPrice are left untouched.
       const res = await db
         .update(distributorSkus)
-        .set({ yourCost: sql`ROUND(${distributorSkus.listPrice} * ${mult}, 2)` })
+        .set({
+          yourCost: sql`ROUND(ROUND(${distributorSkus.listPrice} * ${base}, 2) * (1 + ${freight}), 2)`,
+        })
         .where(
           and(
             eq(distributorSkus.distributorId, input.distributorId),

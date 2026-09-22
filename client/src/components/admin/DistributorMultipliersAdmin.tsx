@@ -108,10 +108,10 @@ export default function DistributorMultipliersAdmin() {
           <CardDescription className="text-sm leading-relaxed">
             One multiplier per supply line. <strong>Base</strong> = core cost
             fraction of the distributor's list.{" "}
-            <strong>Freight / Tariff</strong> = separate add-on (changes when
-            tariff rates change). Our cost ={" "}
-            <strong>list × (Base + Freight)</strong>. Saving re-costs every SKU
-            automatically.
+            <strong>Tariff / freight rate</strong> = the percentage added over
+            that core cost (changes when tariff rates change). Our cost ={" "}
+            <strong>(list × Base) × (1 + Tariff)</strong>. Saving re-costs every
+            SKU automatically.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
@@ -126,7 +126,7 @@ export default function DistributorMultipliersAdmin() {
               const freight = num(parts.freight);
               const eff =
                 base != null || freight != null
-                  ? (base ?? 0) + (freight ?? 0)
+                  ? (base ?? 0) * (1 + (freight ?? 0))
                   : null;
               const avgList =
                 r.avgListPrice != null ? Number(r.avgListPrice) : null;
@@ -196,7 +196,7 @@ export default function DistributorMultipliersAdmin() {
                       </div>
                       <div className="space-y-1.5">
                         <label className="block text-sm font-semibold text-foreground">
-                          Freight / Tariff
+                          Tariff / freight rate
                         </label>
                         <Input
                           type="number"
@@ -279,7 +279,7 @@ export default function DistributorMultipliersAdmin() {
                       onClick={() => {
                         if (!effValid) {
                           toast.error(
-                            "Effective (Base + Freight) must be between 0.01 and 1.00"
+                            "Landed cost factor (Base × (1 + Tariff)) must be between 0.01 and 1.00"
                           );
                           return;
                         }
