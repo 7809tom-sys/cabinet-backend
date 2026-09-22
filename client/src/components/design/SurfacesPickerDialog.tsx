@@ -116,21 +116,30 @@ export function SurfacesPickerDialog({
   );
 
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
-  const preferredItems = useMemo(() => preferredProducts.map((product) => ({
+  const preferredIds = useMemo(
+    () => preferredProducts.map((product) => product.id).filter(Number.isInteger),
+    [preferredProducts],
+  );
+  const { data: verifiedPreferredProducts, isLoading: preferredProductsLoading } = trpc.surfaces.designerByIds.useQuery(
+    { ids: preferredIds },
+    { enabled: open && category === "Preferred" && preferredIds.length > 0 },
+  );
+  const preferredItems = useMemo(() => (verifiedPreferredProducts ?? []).map((product) => ({
       id: product.id,
-      pelicanCode: null,
+      pelicanCode: product.pelicanCode,
       slug: product.slug,
-    name: product.name,
-    category: product.productCategory,
-    subCategory: product.subCategory,
-    size: product.size,
-    imageUrl: product.imageUrl,
-    materialImageUrl: product.materialImageUrl,
-    sellPrice: product.sellPrice,
-    coverageSqFt: product.coverageSqFt ?? null,
-    unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn ?? null,
-  })), [preferredProducts]);
+      name: product.name,
+      category: product.category,
+      subCategory: product.subCategory,
+      size: product.size,
+      imageUrl: product.imageUrl,
+      materialImageUrl: product.materialImageUrl,
+      sellPrice: product.sellPrice,
+      coverageSqFt: product.coverageSqFt ?? null,
+      unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn ?? null,
+    })), [verifiedPreferredProducts]);
   const items = category === "Preferred" ? preferredItems : data?.items ?? [];
+  const paletteLoading = category === "Preferred" ? preferredProductsLoading : isLoading;
   const visibleItems = useMemo(() => {
     const searched = category !== "Preferred" || !debounced
       ? items
@@ -190,6 +199,9 @@ export function SurfacesPickerDialog({
               className="pl-9"
             />
           </div>
+          {category === "Preferred" && (
+            <p className="text-[10px] leading-relaxed text-muted-foreground">Saved favorites remain in your catalog list. This Designer view shows only favorites that are active, priced, Designer-enabled, and verified for an exact material or fixture role.</p>
+          )}
           {category === "Sinks & Faucets" && (
             <p className="text-[10px] leading-relaxed text-muted-foreground">Only fixtures with a source-verified 3D profile are shown here. Choose a sink and faucet through a compatible sink base to place their measured 3D models in the kitchen; adding an item here also retains it in the quote.</p>
           )}
@@ -235,7 +247,7 @@ export function SurfacesPickerDialog({
         {/* Grid */}
         <ScrollArea className="flex-1">
           <div className="px-6 py-4">
-            {category !== "Preferred" && isLoading ? (
+            {paletteLoading ? (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 {Array.from({ length: 6 }).map((_, i) => (
                   <Skeleton key={i} className="h-44 w-full rounded-lg" />
@@ -243,7 +255,7 @@ export function SurfacesPickerDialog({
               </div>
             ) : visibleItems.length === 0 ? (
               <div className="py-14 text-center text-sm text-muted-foreground">
-                {category === "Preferred" ? "No preferred products match your search." : `No ${category.toLowerCase()} items match your search.`}
+                {category === "Preferred" ? "No saved products currently meet the verified Designer gate." : `No ${category.toLowerCase()} items match your search.`}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

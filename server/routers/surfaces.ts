@@ -164,6 +164,31 @@ export const surfacesRouter = router({
         .filter((r) => r.sellPrice != null && r.sellPrice > 0);
     }),
 
+  /**
+   * Resolves saved favorites through the same live, verified-only gate as the
+   * Designer palette. Preferences remain catalog favorites; only this response
+   * may place a product into an exact design or design quote.
+   */
+  designerByIds: publicProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db || input.ids.length === 0) return [];
+      const map = await loadMarkupMap(db);
+      const rows = await db
+        .select()
+        .from(pelicanProducts)
+        .where(and(
+          inArray(pelicanProducts.id, input.ids),
+          eq(pelicanProducts.isActive, true),
+          eq(pelicanProducts.showInDesigner, true),
+        ));
+      return rows
+        .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
+        .filter((row) => row.sellPrice != null && row.sellPrice > 0)
+        .filter(isPelicanDesignerReady);
+    }),
+
   // Save the customer's Surfaces & Fixtures profile so they can explicitly load it
   // into the Design Tool LATER (no auto-advance). One live profile per user: we
   // upsert by keeping only the newest row of kind="profile". Requires sign-in so

@@ -13,4 +13,12 @@ describe("Surfaces picker 3D material readiness", () => {
     expect(source).toContain("imageUrl: p.imageUrl");
     expect(source).toContain("materialImageUrl: p.materialImageUrl");
   });
+
+  it("resolves saved favorites through the same verified Designer source rather than stale browser data", () => {
+    expect(source).toContain("trpc.surfaces.designerByIds.useQuery");
+    expect(source).toContain("const preferredIds = useMemo");
+    expect(source).toContain("pelicanCode: product.pelicanCode");
+    expect(source).toContain("No saved products currently meet the verified Designer gate.");
+    expect(source).toContain("Saved favorites remain in your catalog list.");
+  });
 });
