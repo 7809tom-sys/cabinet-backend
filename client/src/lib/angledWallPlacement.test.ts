@@ -1683,9 +1683,9 @@ describe("cabinet-supported peninsula runs", () => {
 
 		  expect(parentSurface).toMatchObject({ depth: 42, miteredEnd: true });
 		  expect(childSurface).toMatchObject({ depth: 42, miteredStart: true });
-		  expect(shared.length).toBeGreaterThanOrEqual(1);
+		  expect(shared).toHaveLength(2);
 		  expect(parentPolygon).toHaveLength(4);
-		  expect(childPolygon).toHaveLength(4);
+		  expect(childPolygon).toHaveLength(5);
 		  for (const polygon of [parentPolygon, childPolygon]) {
 		    expect(polygon.some((point, index) => {
 		      const next = polygon[(index + 1) % polygon.length]!;

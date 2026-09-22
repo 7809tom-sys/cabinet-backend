@@ -8304,6 +8304,7 @@ function countertopSurfaceWithSquareCornerMiter(
   edge: CountertopRunEndEdge,
   outerCorner: CountertopPlanPoint,
   atStart: boolean,
+  bridgePoint?: CountertopPlanPoint,
 ): CountertopSurface {
   const local = countertopSurfaceLocalPolygon(surface);
   // The inner endpoint is already the measured bend. Re-inserting that same
@@ -8312,6 +8313,25 @@ function countertopSurfaceWithSquareCornerMiter(
   // original bend vertex and replace only the physical outer endpoint so both
   // slabs share one clean, square seam from bend to outside intersection.
   local[edge.outerIndex] = countertopSurfaceLocalPointFromWorld(surface, outerCorner);
+
+  // A seating/bar projection can make the far run's original inside corner sit
+  // beyond the adjoining run's physical end. In that case the two slabs need a
+  // short second seam vertex as well. Without it the new outer-corner trim is
+  // mathematically valid but leaves a triangular hole between the two countertop
+  // faces. Add it only when it is distinct from the endpoint already present.
+  if (bridgePoint) {
+    const bridgeLocal = countertopSurfaceLocalPointFromWorld(surface, bridgePoint);
+    const innerLocal = local[edge.innerIndex]!;
+    const outerLocal = local[edge.outerIndex]!;
+    const isDistinct = Math.hypot(bridgeLocal.x - innerLocal.x, bridgeLocal.y - innerLocal.y) > 1e-6
+      && Math.hypot(bridgeLocal.x - outerLocal.x, bridgeLocal.y - outerLocal.y) > 1e-6;
+    if (isDistinct) {
+      const insertAt = (edge.outerIndex + 1) % local.length === edge.innerIndex
+        ? edge.innerIndex
+        : edge.outerIndex + 1;
+      local.splice(insertAt, 0, bridgeLocal);
+    }
+  }
   return {
     ...surface,
     polygon: local,
@@ -8361,7 +8381,7 @@ export function miteredPeninsulaCountertopSurfaces(
 	            : null;
 	          if (parentEdge && childEdge && outerCorner) {
 	            resolved[parentIndex] = countertopSurfaceWithSquareCornerMiter(parentSurface, parentEdge, outerCorner, false);
-	            resolved[childIndex] = countertopSurfaceWithSquareCornerMiter(childSurface, childEdge, outerCorner, true);
+	            resolved[childIndex] = countertopSurfaceWithSquareCornerMiter(childSurface, childEdge, outerCorner, true, parentEdge.innerPoint);
 	            continue;
 	          }
 	        }
