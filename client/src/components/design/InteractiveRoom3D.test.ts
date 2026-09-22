@@ -41,6 +41,37 @@ const baseScene: InteractiveRoomScene = {
   materials: { cabinet: { publicName: null, name: "Sample", color: null, finish: null, doorStyle: null, doorPanelType: null }, defaults: { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" } },
 };
 
+describe("3D fallback appliance run seams", () => {
+  it("keeps a DB18 flush to a 30-inch range instead of using the countertop overhang as run spacing", () => {
+    const root = new THREE.Group();
+    const cursor: Record<string, number> = {};
+    addCabinet(root, {
+      distributorSkuId: 0,
+      masterCode: "RANGE-30",
+      description: '30" Freestanding Range',
+      placementType: "appliance",
+      width: 30,
+      height: 36,
+      depth: 25,
+    }, "back", cursor, 144, 120, "#b99a6b", "#f8f8f6");
+    addCabinet(root, {
+      distributorSkuId: 18,
+      masterCode: "DB18",
+      description: '18" Three Drawer Base',
+      placementType: "base",
+      width: 18,
+      height: 34.5,
+      depth: 24,
+    }, "back", cursor, 144, 120, "#b99a6b", "#f8f8f6");
+
+    const [range, db18] = root.children;
+    expect(range?.userData.catalogApplianceEnvelope).toMatchObject({ widthIn: 30 });
+    // Center-to-center = 30/2 + 18/2: a true zero-gap cabinet seam.
+    expect((db18!.position.x - range!.position.x) * 12).toBeCloseTo(24, 6);
+    expect(cursor.back).toBe(51);
+  });
+});
+
 describe("side-aware peninsula countertop meshes", () => {
   it("adds one continuous 12-inch seating slab across cabinet voids plus a waterfall only at the exposed end", () => {
     const root = new THREE.Group();

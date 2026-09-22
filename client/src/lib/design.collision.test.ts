@@ -31,6 +31,15 @@ describe("design placement collision prevention", () => {
     expect(hasCollision(drawerBase, [b33])).toBe(false);
   });
 
+  it("snaps DB18 flush to either edge of a freestanding 30-inch range", () => {
+    const range = placed({ uid: "range", masterCode: "RANGE-30", description: '30" Freestanding Range', placement: "appliance", x: 36, y: 0, width: 30, depth: 25, height: 36 });
+    const rightPreview = placed({ uid: "db18-right", masterCode: "DB18", description: '18" Drawer Base', x: 68, y: 0, width: 18, depth: 24, height: 34.5 });
+    const leftPreview = placed({ uid: "db18-left", masterCode: "DB18", description: '18" Drawer Base', x: 16, y: 0, width: 18, depth: 24, height: 34.5 });
+
+    expect(snapPosition(rightPreview, DEFAULT_ROOM, [range])).toMatchObject({ x: 66, y: 0, snappedCabinet: true });
+    expect(snapPosition(leftPreview, DEFAULT_ROOM, [range])).toMatchObject({ x: 18, y: 0, snappedCabinet: true });
+  });
+
   it("allows separate floating shelves on the same wall span only when their mounted heights do not overlap", () => {
     const lowerShelf = placed({ uid: "shelf-54", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 54, mountBottomAdjusted: true });
     const upperShelf = placed({ uid: "shelf-66", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 66, mountBottomAdjusted: true });

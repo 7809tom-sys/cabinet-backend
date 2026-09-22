@@ -2903,7 +2903,13 @@ export function addCabinet(
       : resolvedHeightIn;
   const key = wallKey === "left" ? "left" : wallKey === "right" ? "right" : wallKey === "front" ? "front" : "back";
   const along = cursor[key] ?? 3;
-  cursor[key] = along + widthIn + 1.5;
+  // A 1½-inch countertop overhang belongs only at the exposed cabinet front.
+  // It is not a gap in a cabinet run. In the suggestion/fallback scene this
+  // cursor is the placement authority, so adding the historical 1½-inch step
+  // here left every base appliance seam visibly open (for example DB18 beside
+  // a 30-inch range) even though the Plan's snap rule correctly allows a flush
+  // edge. Advance by the actual measured box width only.
+  cursor[key] = along + widthIn;
 
   let x = along + widthIn / 2;
   let z = depthIn / 2;
