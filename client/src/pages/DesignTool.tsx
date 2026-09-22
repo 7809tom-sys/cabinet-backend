@@ -1054,10 +1054,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      startOffset: peninsula?.startOffset ?? 0,
     });
     setWallSettingsOpen(true);
-    setActiveWall(requestedWallId);
-    setPlacementTarget("wall");
+	    setActiveWall(requestedWallId);
+	    setPlacementTarget("wall");
 	  }, [activeWall, room]);
-  const saveWallSettings = useCallback(() => {
+	  const applyDrywallAppearanceToAllRoomWalls = useCallback(() => {
+	    const draft = wallSettingsDraft;
+	    if (!draft || draft.kind !== "peninsula" || !draft.drywallBackPonyWall) return;
+	    setRoom((previous) => ({
+	      ...previous,
+	      wallAppearance: { color: draft.drywallColor, texture: draft.drywallTexture },
+	    }));
+	    toast.success("Applied this drywall color and texture to all room walls.");
+	  }, [wallSettingsDraft]);
+	  const saveWallSettings = useCallback(() => {
     const draft = wallSettingsDraft;
     if (!draft) return;
     const length = Math.max(6, Math.round((Number(draft.length) || 6) * 8) / 8);
@@ -13050,7 +13059,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                      </div>
 	                      {wallSettingsDraft.drywallBackPonyWall && (
 	                        <div data-testid="peninsula-drywall-finish-picker" className="grid grid-cols-2 gap-2 rounded-md border border-[#d8c7a1] bg-[#fffdf8] p-2.5">
-	                          <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Paint color
+	                          <div className="grid gap-1">
+	                            <div className="flex items-center justify-between gap-1">
+	                              <span className="text-xs font-semibold text-[#634b20]">Paint color</span>
+	                              <Button
+	                                type="button"
+	                                variant="outline"
+	                                size="sm"
+	                                data-testid="apply-pony-wall-appearance-to-all-walls"
+	                                onClick={applyDrywallAppearanceToAllRoomWalls}
+	                                className="h-6 shrink-0 border-[#cdbb94] px-1.5 text-[9px] font-semibold text-[#634b20]"
+	                              >
+	                                Apply to all walls
+	                              </Button>
+	                            </div>
 	                            <span className="flex items-center gap-2">
 	                              <Input
 	                                type="color"
@@ -13061,7 +13083,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                              />
 	                              <span className="min-w-0 truncate font-mono text-[10px] font-normal text-muted-foreground">{wallSettingsDraft.drywallColor.toUpperCase()}</span>
 	                            </span>
-	                          </label>
+	                          </div>
 	                          <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Wall texture
 	                            <select
 	                              value={wallSettingsDraft.drywallTexture}

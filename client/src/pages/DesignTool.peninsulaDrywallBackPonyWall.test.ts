@@ -31,4 +31,14 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
     expect(threeD).toContain("const drywallAppearance = drywallPonyWallAppearance(ponyWall)");
     expect(threeD).toContain("drywallColor: drywallFinished ? drywallAppearance.color : null");
   });
+
+  it("can apply the selected pony-wall finish immediately to every physical room wall", () => {
+    expect(designTool).toContain('data-testid="apply-pony-wall-appearance-to-all-walls"');
+    expect(designTool).toContain("Apply to all walls");
+    expect(designTool).toContain("const applyDrywallAppearanceToAllRoomWalls");
+    expect(designTool).toContain("wallAppearance: { color: draft.drywallColor, texture: draft.drywallTexture }");
+    expect(designTool).toContain("Applied this drywall color and texture to all room walls.");
+    expect(threeD).toContain("const resolvedRoomWallAppearance = roomWallAppearance(roomOverride)");
+    expect(threeD).toContain("roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null");
+  });
 });

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -7351,6 +7351,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     threeScene.add(warmLight);
 
 	    const materialDefaults = { ...(scene.materials?.defaults ?? { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" }), countertop: countertopFinish };
+	    const resolvedRoomWallAppearance = roomWallAppearance(roomOverride);
+	    const hasRoomWallAppearance = Boolean(roomOverride?.wallAppearance);
 	    const textureLoader = new THREE.TextureLoader();
 	    const loadSurfaceTexture = (
 	      source: ThreeDProductMaterialSource | null,
@@ -7499,7 +7501,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
-    const wallMaterial = new THREE.MeshStandardMaterial({ color: materialDefaults.wall, roughness: 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+	    const wallMaterial = new THREE.MeshStandardMaterial({ color: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roughness: hasRoomWallAppearance ? resolvedRoomWallAppearance.roughness : 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     const roomEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#d1cbc1", roughness: 0.58, metalness: 0.04 });
     const measuredWallSegments = threeDMeasuredWallSegments(roomOverride);
     const explicitWallSegments = measuredWallSegments.length
@@ -7527,7 +7529,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       const wall = new THREE.Mesh(new THREE.PlaneGeometry(length, sideWallHeight), wallMaterial.clone());
       wall.position.set(transform.x, transform.y, transform.z);
       wall.rotation.y = transform.rotationY;
-      wall.userData = { roomWall: true, physicalWallSide: side, customWallId: customWall?.id ?? null, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side] };
+	      wall.userData = { roomWall: true, physicalWallSide: side, customWallId: customWall?.id ?? null, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side], roomWallColor: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null };
       if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);

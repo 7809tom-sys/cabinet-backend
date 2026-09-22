@@ -4,8 +4,9 @@ import {
   makePeninsulaDrywallBackPonyWall,
   makePeninsulaPonyWall,
   peninsulaRunEndpoints,
-  ponyWallFitsRoom,
-  ponyWallPlanFrame,
+	ponyWallFitsRoom,
+	ponyWallPlanFrame,
+	roomWallAppearance,
   type PeninsulaRun,
   type RoomData,
 } from "./design";
@@ -99,6 +100,11 @@ describe("peninsula-attached pony walls", () => {
 	      roughness: 0.78,
 	    });
 	    expect(drywallPonyWallAppearance({ drywallColor: "#506d92", drywallTexture: "orange-peel" })).toEqual({
+	      color: "#506d92",
+	      texture: "orange-peel",
+	      roughness: 0.9,
+	    });
+	    expect(roomWallAppearance({ wallAppearance: { color: "#506d92", texture: "orange-peel" } })).toEqual({
 	      color: "#506d92",
 	      texture: "orange-peel",
 	      roughness: 0.9,

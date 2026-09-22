@@ -1186,6 +1186,12 @@ export interface WallCeiling {
   slopeFrom?: "start" | "end";
 }
 
+/** A single painted finish applied uniformly to the room's perimeter or custom walls. */
+export interface RoomWallAppearance {
+  color?: string;
+  texture?: DrywallPonyWallTexture;
+}
+
 export interface RoomData {
   width: number;
   depth: number;
@@ -1198,6 +1204,8 @@ export interface RoomData {
    *  (top/bottom/left/right). A wall absent here uses `ceilingHeight`. Lets a
    *  room have a different (or sloped) ceiling on each wall. */
   wallCeilings?: Partial<Record<WallSide, WallCeiling>>;
+  /** Optional painted finish shared by every physical perimeter/custom room wall. */
+  wallAppearance?: RoomWallAppearance;
   /** Polygon room: ordered vertices defining the room shape. When present,
    *  the room is a polygon; when absent, it's the classic rectangle. */
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
@@ -9442,6 +9450,22 @@ export function drywallPonyWallAppearance(ponyWall: Pick<PonyWall, "drywallColor
     texture,
     roughness: option.roughness,
   };
+}
+
+/**
+ * Resolves the single paint finish shared by the physical room shell. Reusing
+ * the pony-wall appearance contract guarantees the Apply to all walls action
+ * cannot make Plan and 3D disagree about color or texture defaults.
+ */
+export function roomWallAppearance(room: Pick<RoomData, "wallAppearance"> | null | undefined): {
+  color: string;
+  texture: DrywallPonyWallTexture;
+  roughness: number;
+} {
+  return drywallPonyWallAppearance({
+    drywallColor: room?.wallAppearance?.color,
+    drywallTexture: room?.wallAppearance?.texture,
+  });
 }
 
 export interface PonyWall {
