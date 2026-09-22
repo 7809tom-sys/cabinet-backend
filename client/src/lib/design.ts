@@ -8548,11 +8548,16 @@ function unionCountertopSurfacesAtVisibleBoundary(
   const outline = [first.start, first.end];
   let current = first.end;
   while (!sameCountertopPlanPoint(current, outline[0]!) && remaining.length > 0) {
-    const nextIndex = remaining.findIndex((segment) => sameCountertopPlanPoint(segment.start, current, 0.001));
+    let nextIndex = remaining.findIndex((segment) => sameCountertopPlanPoint(segment.start, current, 0.001));
+    let reverseNext = false;
+    if (nextIndex < 0) {
+      nextIndex = remaining.findIndex((segment) => sameCountertopPlanPoint(segment.end, current, 0.001));
+      reverseNext = nextIndex >= 0;
+    }
     if (nextIndex < 0) return null;
     const [next] = remaining.splice(nextIndex, 1);
     if (!next) return null;
-    current = next.end;
+    current = reverseNext ? next.start : next.end;
     outline.push(current);
   }
   const resolvedOutline = removeConsecutiveCountertopPlanDuplicates(outline);
@@ -8583,6 +8588,86 @@ function unionCountertopSurfacesAtVisibleBoundary(
     linearInches: Math.max(0.1, maxX - minX),
     runLinearInches: (left.runLinearInches ?? left.linearInches ?? 0) + (right.runLinearInches ?? right.linearInches ?? 0),
     areaInches: countertopPolygonArea(resolvedOutline),
+    ponyWallBarOverhangIn: Math.max(left.ponyWallBarOverhangIn ?? 0, right.ponyWallBarOverhangIn ?? 0) || undefined,
+    ponyWallBackExtensionIn: Math.max(left.ponyWallBackExtensionIn ?? 0, right.ponyWallBackExtensionIn ?? 0) || undefined,
+  };
+}
+
+/**
+ * A three-leg 45° assembly can leave the final miter touching the prior merged
+ * outline at exactly one point. Two areas that only touch at a vertex cannot be
+ * represented as one simple polygon without the short physical bridge between
+ * their adjacent outside edges. Select the smallest non-crossing bridge cycle;
+ * this fills only the measured join rather than taking a convex hull that could
+ * project past cabinet fronts.
+ */
+function unionCountertopSurfacesAtVertexBridge(
+  left: CountertopSurface,
+  right: CountertopSurface,
+  rootRunId: string,
+): CountertopSurface | null {
+  const leftPolygon = countertopSurfacePlanPolygon(left);
+  const rightPolygon = countertopSurfacePlanPolygon(right);
+  if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
+  const walkWithoutShared = (polygon: CountertopPlanPoint[], sharedIndex: number, step: 1 | -1) => {
+    const path: CountertopPlanPoint[] = [];
+    for (let index = (sharedIndex + step + polygon.length) % polygon.length, guard = 0; guard < polygon.length - 1; guard += 1) {
+      path.push(polygon[index]!);
+      index = (index + step + polygon.length) % polygon.length;
+    }
+    return path;
+  };
+  const expectedArea = countertopPolygonArea(leftPolygon) + countertopPolygonArea(rightPolygon);
+  let best: CountertopPlanPoint[] | null = null;
+  let bestDifference = Number.POSITIVE_INFINITY;
+  for (let leftIndex = 0; leftIndex < leftPolygon.length; leftIndex += 1) {
+    for (let rightIndex = 0; rightIndex < rightPolygon.length; rightIndex += 1) {
+      if (!sameCountertopPlanPoint(leftPolygon[leftIndex]!, rightPolygon[rightIndex]!, 0.125)) continue;
+      for (const leftStep of [1, -1] as const) {
+        for (const rightStep of [1, -1] as const) {
+          const outline = removeConsecutiveCountertopPlanDuplicates([
+            ...walkWithoutShared(leftPolygon, leftIndex, leftStep),
+            ...walkWithoutShared(rightPolygon, rightIndex, rightStep),
+          ]);
+          if (outline.length < 3 || countertopPolygonSelfIntersects(outline)) continue;
+          const area = countertopPolygonArea(outline);
+          if (area <= COLLISION_EPSILON_IN) continue;
+          const difference = Math.abs(area - expectedArea);
+          if (difference < bestDifference) {
+            best = outline;
+            bestDifference = difference;
+          }
+        }
+      }
+    }
+  }
+  if (!best) return null;
+  const minX = Math.min(...best.map((point) => point.x));
+  const maxX = Math.max(...best.map((point) => point.x));
+  const minY = Math.min(...best.map((point) => point.y));
+  const maxY = Math.max(...best.map((point) => point.y));
+  const terminalRunIds = [left.peninsulaTerminalRunId, right.peninsulaTerminalRunId].filter((id): id is string => Boolean(id));
+  const runIds = Array.from(new Set([
+    ...(left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : [])),
+    ...(right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : [])),
+  ]));
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0.1, maxX - minX),
+    depth: Math.max(0.1, maxY - minY),
+    kind: "base",
+    rotation: 0,
+    peninsulaRunId: rootRunId,
+    peninsulaRunIds: runIds,
+    ...(terminalRunIds.length === 1 ? { peninsulaTerminalRunId: terminalRunIds[0] } : {}),
+    runStartIn: 0,
+    polygon: best.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+    miteredStart: left.miteredStart || right.miteredStart,
+    miteredEnd: left.miteredEnd || right.miteredEnd,
+    linearInches: Math.max(0.1, maxX - minX),
+    runLinearInches: (left.runLinearInches ?? left.linearInches ?? 0) + (right.runLinearInches ?? right.linearInches ?? 0),
+    areaInches: countertopPolygonArea(best),
     ponyWallBarOverhangIn: Math.max(left.ponyWallBarOverhangIn ?? 0, right.ponyWallBarOverhangIn ?? 0) || undefined,
     ponyWallBackExtensionIn: Math.max(left.ponyWallBackExtensionIn ?? 0, right.ponyWallBackExtensionIn ?? 0) || undefined,
   };
@@ -8865,7 +8950,8 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
           // is sound, otherwise walk the measured visible boundary instead.
           const union = directUnion && !countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(directUnion))
             ? directUnion
-            : unionCountertopSurfacesAtVisibleBoundary(left, right, rootRunId);
+            : unionCountertopSurfacesAtVisibleBoundary(left, right, rootRunId)
+              ?? unionCountertopSurfacesAtVertexBridge(left, right, rootRunId);
           if (!union) continue;
           resolved.splice(rightIndex, 1);
           resolved[leftIndex] = union;

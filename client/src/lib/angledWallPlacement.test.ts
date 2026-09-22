@@ -1959,8 +1959,8 @@ describe("cabinet-supported peninsula runs", () => {
     ["right", "left", "right"],
     ["left", "right", "left"],
     ["left", "left", "right"],
-  ] as const)("keeps the %s-side %s/%s straight-to-45-to-straight countertop within its physical depth", (cabinetSide, firstDirection, secondDirection) => {
-    const primary = { id: `projection-${cabinetSide}-${firstDirection}-primary`, parentWall: "left" as const, startOffset: 48, turn: 90 as const, direction: "right" as const, length: 30, height: 34.5, cabinetSide };
+	  ] as const)("keeps the %s-side %s/%s straight-to-45-to-straight countertop within its physical depth", (cabinetSide, firstDirection, secondDirection) => {
+	    const primary = { id: `projection-${cabinetSide}-${firstDirection}-primary`, parentWall: "left" as const, startOffset: 48, turn: 90 as const, direction: "right" as const, length: 30, height: 34.5, cabinetSide, countertopSeatingOverhang: 12 as const };
     const angle = { id: `projection-${cabinetSide}-${firstDirection}-angle`, parentRunId: primary.id, startOffset: 0, turn: 45 as const, direction: firstDirection, length: 42, height: 34.5, cabinetSide };
     const returning = { id: `projection-${cabinetSide}-${firstDirection}-return`, parentRunId: angle.id, startOffset: 0, turn: 45 as const, direction: secondDirection, length: 48, height: 34.5, cabinetSide };
     const room: RoomData = { ...peninsulaRoom, width: 180, depth: 150, peninsulaRuns: [primary, angle, returning] };
@@ -1981,11 +1981,12 @@ describe("cabinet-supported peninsula runs", () => {
     });
     const outline = countertopSurfacePlanPolygon(surface);
     expect(outline.length).toBeGreaterThanOrEqual(8);
-    expect(outline.every((point, index) => {
-      const next = outline[(index + 1) % outline.length]!;
-      return Math.hypot(point.x - next.x, point.y - next.y) > 0.001;
-    })).toBe(true);
-  });
+	    expect(outline.every((point, index) => {
+	      const next = outline[(index + 1) % outline.length]!;
+	      return Math.hypot(point.x - next.x, point.y - next.y) > 0.001;
+	    })).toBe(true);
+	    expect(countertopPolygonSelfIntersects(outline)).toBe(false);
+	  });
 
   it("cuts the peninsula countertop around a stove without changing the connected 45-degree return", () => {
     const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "stove-parent", startOffset: 72, length: 96 };
