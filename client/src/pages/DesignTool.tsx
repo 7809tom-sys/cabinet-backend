@@ -7523,8 +7523,25 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // nudged off it freely (it does not drag the island with it) so users can
   // re-arrange the island run; we just keep every cabinet clamped inside the
   // room. This is the fix for "can't move a cabinet once it's on the island".
-			  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
+	  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
 	    if (!selectedUid) return;
+	    const current = placedRef.current.find((item) => item.uid === selectedUid);
+	    const currentWall = current ? (current.wallId ?? cabinetWall(current, room)) as WallSide : null;
+	    // A keyboard/canvas nudge on an explicit continuous wall must take the
+	    // same authoritative route as a 3D drag. The old rectangular clamp could
+	    // detach an angled cabinet from its drawn wall or preserve a stale run
+	    // offset. `moveCabinet` re-measures the actual run, preserves wallId and
+	    // wallOffset, and retains all existing collision/filler/sink safeguards.
+	    if (current && currentWall && (isCustomRoomWall(room, currentWall) || peninsulaRunById(room, currentWall))) {
+	      moveCabinet(
+	        selectedUid,
+	        Math.round((current.x + dxIn) * 8) / 8,
+	        Math.round((current.y + dyIn) * 8) / 8,
+	        undefined,
+	        true,
+	      );
+	      return;
+	    }
 	    setPlaced((prev) => {
 		      const selected = prev.find((item) => item.uid === selectedUid);
 		      if (!selected) return prev;
@@ -7575,7 +7592,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      placedRef.current = nextPlaced;
 	      return nextPlaced;
 	    });
-	  }, [catalogFillers, selectedUid, room, customPlacementMode]);
+	  }, [catalogFillers, selectedUid, room, customPlacementMode, moveCabinet]);
 
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
