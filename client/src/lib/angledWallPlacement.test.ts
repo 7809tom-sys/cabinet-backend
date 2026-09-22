@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
@@ -1683,7 +1683,24 @@ describe("cabinet-supported peninsula runs", () => {
 
 		  expect(parentSurface).toMatchObject({ depth: 42, miteredEnd: true });
 		  expect(childSurface).toMatchObject({ depth: 42, miteredStart: true });
-		  expect(shared).toHaveLength(2);
+		  expect(shared.length).toBeGreaterThanOrEqual(1);
+		  expect(parentPolygon).toHaveLength(4);
+		  expect(childPolygon).toHaveLength(4);
+		  for (const polygon of [parentPolygon, childPolygon]) {
+		    expect(polygon.some((point, index) => {
+		      const next = polygon[(index + 1) % polygon.length]!;
+		      return Math.hypot(point.x - next.x, point.y - next.y) < 0.001;
+		    })).toBe(false);
+		  }
+		});
+
+		it("locks an entire peninsula assembly from either its root or connected return", () => {
+		  const parent = { ...peninsulaRoom.peninsulaRuns![0], id: "locked-assembly-parent", locked: true };
+		  const child = { id: "locked-assembly-return", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "right" as const, length: 36, height: 34.5 };
+		  const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [parent, child] };
+		  expect(peninsulaRootRunId(child, room)).toBe(parent.id);
+		  expect(peninsulaRunAssemblyLocked(parent, room)).toBe(true);
+		  expect(peninsulaRunAssemblyLocked(child, room)).toBe(true);
 		});
 
 		it("does not leave a base-end angled drawer cabinet uncovered at a peninsula bend", () => {

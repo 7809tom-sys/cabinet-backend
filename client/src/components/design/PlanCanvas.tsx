@@ -5,7 +5,7 @@ import {
   isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint,
+	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
   cabinetWall, wallSpanMeasure, peninsulaRunById,
 	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
@@ -867,8 +867,8 @@ export function PlanCanvas({
     };
   }, []);
 
-  const onPeninsulaAttachmentPointerDown = (event: React.PointerEvent, run: PeninsulaRun) => {
-    if (layoutLocked || !onPeninsulaAttachmentChange) return;
+	const onPeninsulaAttachmentPointerDown = (event: React.PointerEvent, run: PeninsulaRun) => {
+	  if (layoutLocked || peninsulaRunAssemblyLocked(run, room) || !onPeninsulaAttachmentChange) return;
     event.preventDefault();
     event.stopPropagation();
     onSelectWall?.(run.id as WallSide);
@@ -876,9 +876,9 @@ export function PlanCanvas({
     try { (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId); } catch { /* ignore */ }
   };
 
-  const onPeninsulaAttachmentPointerMove = (event: React.PointerEvent) => {
-    const drag = peninsulaAttachmentDrag.current;
-    if (!drag || !onPeninsulaAttachmentChange) return;
+	const onPeninsulaAttachmentPointerMove = (event: React.PointerEvent) => {
+	  const drag = peninsulaAttachmentDrag.current;
+	  if (!drag || peninsulaRunAssemblyLocked(drag.run, room) || !onPeninsulaAttachmentChange) return;
     const point = peninsulaPointFromPointer(event);
     if (!point) return;
     onPeninsulaAttachmentChange(drag.run.id, peninsulaRunStartOffsetAtPoint(drag.run, room, point));
@@ -1403,11 +1403,12 @@ export function PlanCanvas({
 	            })}
 	          </div>;
         })()}
-        {(room.peninsulaRuns ?? []).map((run) => {
-          const { start, radians } = peninsulaRunEndpoints(run, room);
-          const runDegrees = (radians * 180) / Math.PI;
-          const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
-          const active = activeWall === run.id;
+	        {(room.peninsulaRuns ?? []).map((run) => {
+	          const { start, radians } = peninsulaRunEndpoints(run, room);
+	          const runDegrees = (radians * 180) / Math.PI;
+	          const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
+	          const active = activeWall === run.id;
+	          const runLocked = peninsulaRunAssemblyLocked(run, room);
           const parentWall = run.parentWall;
           const primaryAttachmentMeasure = !run.parentRunId && parentWall
             ? Math.max(0, Number(run.startOffset) || 0)
@@ -1441,27 +1442,27 @@ export function PlanCanvas({
               data-testid="peninsula-run-segment"
               role="button"
               tabIndex={0}
-              aria-label={run.parentRunId
-                ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint`
-                : `Select ${run.label ?? "peninsula run"}; hold and drag it along the adjoining ${wallLabel[run.parentWall ?? "top"]} wall to move the attachment point`}
-              title={run.parentRunId
-                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high. Right-click for Attributes.`
-                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high. Right-click for Attributes; hold and drag the line to move its attachment along the adjoining wall.`}
+	              aria-label={run.parentRunId
+	                ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint${runLocked ? " and locked" : ""}`
+	                : `Select ${run.label ?? "peninsula run"}; ${runLocked ? "its attachment is locked" : `hold and drag it along the adjoining ${wallLabel[run.parentWall ?? "top"]} wall to move the attachment point`}`}
+	              title={run.parentRunId
+	                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high${runLocked ? ". Peninsula assembly locked." : ". Right-click for Attributes."}`
+	                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high.${runLocked ? " Peninsula assembly locked; unlock in Attributes before moving its attachment." : " Right-click for Attributes; hold and drag the line to move its attachment along the adjoining wall."}`}
               onPointerDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 onSelectWall?.(run.id as WallSide);
-                if (!run.parentRunId) onPeninsulaAttachmentPointerDown(event, run);
-              }}
-              onPointerMove={run.parentRunId ? undefined : onPeninsulaAttachmentPointerMove}
-              onPointerUp={run.parentRunId ? undefined : onPeninsulaAttachmentPointerUp}
+	                if (!run.parentRunId && !runLocked) onPeninsulaAttachmentPointerDown(event, run);
+	              }}
+	              onPointerMove={run.parentRunId || runLocked ? undefined : onPeninsulaAttachmentPointerMove}
+	              onPointerUp={run.parentRunId || runLocked ? undefined : onPeninsulaAttachmentPointerUp}
               onContextMenu={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 onSelectWall?.(run.id as WallSide);
                 onOpenWallSettings?.(run.id as WallSide);
               }}
-              className={`absolute z-[3] h-3 cursor-pointer rounded-full border-2 shadow-sm ${active ? "border-[#d4a75a] bg-[#1a2744]" : "border-[#1a2744] bg-[#d4a75a]/80"}`}
+	              className={`absolute z-[3] h-3 rounded-full border-2 shadow-sm ${runLocked ? "cursor-default" : "cursor-pointer"} ${active ? "border-[#d4a75a] bg-[#1a2744]" : "border-[#1a2744] bg-[#d4a75a]/80"}`}
 	              style={{
 	                left: start.x * ppi,
 	                top: start.y * ppi - 6,
@@ -1480,10 +1481,10 @@ export function PlanCanvas({
 	                  transformOrigin: "center",
 	                }}
 	              >
-	                {run.parentRunId ? `PENINSULA · 45° ${run.direction} RETURN` : `PENINSULA · ${formatEighthInches(run.length)}`}
+	                {run.parentRunId ? `PENINSULA · ${run.turn}° ${run.direction} RETURN` : `PENINSULA · ${formatEighthInches(run.length)}`}{runLocked ? " · LOCKED" : ""}
 	              </span>
 	              {active && <>
-                {!run.parentRunId && <button
+	                {!run.parentRunId && !runLocked && <button
                   type="button"
                   aria-label="Drag joined peninsula end along adjoining wall"
                   title="Hold and drag along the adjoining wall to move this peninsula attachment"

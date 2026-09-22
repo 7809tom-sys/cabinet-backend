@@ -1258,7 +1258,33 @@ export interface PeninsulaRun {
   countertopPonyWallBarOverhang?: 0 | 10 | 12;
   /** A full-height counter panel at this run's exposed far end. */
   countertopWaterfallEnd?: boolean;
+  /**
+   * Freezes the whole connected peninsula assembly at its current measured
+   * attachment and return geometry. Stored on the root run; children resolve
+   * the same protection through peninsulaRunAssemblyLocked().
+   */
+  locked?: boolean;
   label?: string;
+}
+
+/** Finds the root of a connected peninsula assembly without trusting run order. */
+export function peninsulaRootRunId(run: PeninsulaRun, room: Pick<RoomData, "peninsulaRuns">): string {
+  const runs = room.peninsulaRuns ?? [];
+  const visited = new Set<string>();
+  let current = run;
+  while (current.parentRunId && !visited.has(current.id)) {
+    visited.add(current.id);
+    const parent = runs.find((candidate) => candidate.id === current.parentRunId);
+    if (!parent) break;
+    current = parent;
+  }
+  return current.id;
+}
+
+/** A lock on any selected peninsula segment protects its root and every return. */
+export function peninsulaRunAssemblyLocked(run: PeninsulaRun, room: Pick<RoomData, "peninsulaRuns">): boolean {
+  const rootId = peninsulaRootRunId(run, room);
+  return Boolean((room.peninsulaRuns ?? []).find((candidate) => candidate.id === rootId)?.locked);
 }
 
 /**
@@ -8276,17 +8302,16 @@ function countertopLineIntersection(
 function countertopSurfaceWithSquareCornerMiter(
   surface: CountertopSurface,
   edge: CountertopRunEndEdge,
-  joint: CountertopPlanPoint,
   outerCorner: CountertopPlanPoint,
   atStart: boolean,
 ): CountertopSurface {
   const local = countertopSurfaceLocalPolygon(surface);
+  // The inner endpoint is already the measured bend. Re-inserting that same
+  // point created a zero-length polygon edge. Three.js can triangulate that
+  // degenerate edge into the detached triangular top seen in 3D. Keep the
+  // original bend vertex and replace only the physical outer endpoint so both
+  // slabs share one clean, square seam from bend to outside intersection.
   local[edge.outerIndex] = countertopSurfaceLocalPointFromWorld(surface, outerCorner);
-  const jointLocal = countertopSurfaceLocalPointFromWorld(surface, joint);
-  const count = local.length;
-  const innerToOuter = (edge.innerIndex + 1) % count === edge.outerIndex;
-  const insertionIndex = innerToOuter ? edge.outerIndex : edge.outerIndex + 1;
-  local.splice(insertionIndex, 0, jointLocal);
   return {
     ...surface,
     polygon: local,
@@ -8335,8 +8360,8 @@ export function miteredPeninsulaCountertopSurfaces(
 	            ? countertopLineIntersection(parentEdge.outerPoint, parentTangent, childEdge.outerPoint, childTangent)
 	            : null;
 	          if (parentEdge && childEdge && outerCorner) {
-	            resolved[parentIndex] = countertopSurfaceWithSquareCornerMiter(parentSurface, parentEdge, parentGeometry.end, outerCorner, false);
-	            resolved[childIndex] = countertopSurfaceWithSquareCornerMiter(childSurface, childEdge, parentGeometry.end, outerCorner, true);
+	            resolved[parentIndex] = countertopSurfaceWithSquareCornerMiter(parentSurface, parentEdge, outerCorner, false);
+	            resolved[childIndex] = countertopSurfaceWithSquareCornerMiter(childSurface, childEdge, outerCorner, true);
 	            continue;
 	          }
 	        }

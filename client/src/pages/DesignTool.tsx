@@ -113,7 +113,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -986,6 +986,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    drywallColor: string;
 	    drywallTexture: DrywallPonyWallTexture;
 	    startOffset: number;
+	    locked: boolean;
 	  }>(null);
 	  /** One-shot reversible snapshot for the explicit Apply to all walls action. */
 	  const [allWallsAppearanceUndo, setAllWallsAppearanceUndo] = useState<null | {
@@ -1058,7 +1059,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      drywallColor: existingDrywallBack?.drywallColor ?? DEFAULT_DRYWALL_PONY_WALL_COLOR,
 	      drywallTexture: existingDrywallBack?.drywallTexture ?? "smooth",
 	      startOffset: peninsula?.startOffset ?? 0,
-    });
+	      locked: peninsula ? peninsulaRunAssemblyLocked(peninsula, room) : false,
+	    });
     setWallSettingsOpen(true);
 	    setActiveWall(requestedWallId);
 	    setPlacementTarget("wall");
@@ -1106,8 +1108,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         : Math.max(0, Math.min(parentLength - 6, Math.round((Number(draft.startOffset) || 0) * 8) / 8));
       const turn = draft.angle === 90 ? 90 : 45;
       const direction: PeninsulaDirection = draft.angle === -45 ? "left" : draft.angle === 45 ? "right" : draft.direction;
-      const proposed = {
-        ...current,
+	      const proposed = {
+	        ...current,
         startOffset,
         length,
         height,
@@ -1117,8 +1119,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        countertopSeatingOverhang: draft.countertopSeatingOverhang,
 	        countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0,
 	        countertopWaterfallEnd: draft.countertopWaterfallEnd,
-      } as PeninsulaRun;
-      const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
+	        locked: draft.locked,
+	      } as PeninsulaRun;
+	      const geometryChanged = current.length !== proposed.length || current.startOffset !== proposed.startOffset || current.turn !== proposed.turn || current.direction !== proposed.direction;
+	      const assemblyLocked = peninsulaRunAssemblyLocked(current, room);
+	      if (assemblyLocked && draft.locked && geometryChanged) {
+	        toast.error("Unlock this peninsula before changing its attachment, turn, direction, or length.");
+	        return;
+	      }
 	      if (geometryChanged && wallCabinets.length > 0) {
 	        toast.error("Move or remove cabinets on this peninsula before changing its split point, angle, direction, or length. Height may be edited without moving cabinets.");
 	        return;
@@ -1141,24 +1149,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      setRoom((previous) => {
 	        const runs = previous.peninsulaRuns ?? [];
-	        const rootIdFor = (candidate: PeninsulaRun): string => {
-	          const visited = new Set<string>();
-	          let resolved = candidate;
-	          while (resolved.parentRunId && !visited.has(resolved.id)) {
-	            visited.add(resolved.id);
-	            const parent = runs.find((run) => run.id === resolved.parentRunId);
-	            if (!parent) break;
-	            resolved = parent;
-	          }
-	          return resolved.id;
-	        };
+	        const rootIdFor = (candidate: PeninsulaRun): string => peninsulaRootRunId(candidate, { peninsulaRuns: runs });
 	        const rootId = rootIdFor(current);
 	        return {
 	          ...previous,
 	          peninsulaRuns: runs.map((run) => {
 	            if (rootIdFor(run) !== rootId) return run;
 	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0, countertopWaterfallEnd: draft.countertopWaterfallEnd };
-	            return run.id === current.id ? { ...withContinuousCountertop, ...savedRun } : withContinuousCountertop;
+	            if (run.id === current.id) return { ...withContinuousCountertop, ...savedRun };
+	            return run.id === rootId ? { ...withContinuousCountertop, locked: draft.locked } : withContinuousCountertop;
 	          }),
 	        };
 	      });
@@ -1210,12 +1209,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setWallSettingsOpen(false);
     toast.success(`Updated ${draft.label}.`);
 	  }, [island, openings.length, placed, room, sinks.length, wallSettingsDraft]);
-  const requestPeninsulaDeletion = useCallback(() => {
-    const draft = wallSettingsDraft;
-    if (!draft || draft.kind !== "peninsula") return;
-    const run = peninsulaRunById(room, draft.wallId);
-    if (!run) return;
-    const cabinetCount = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id).length;
+	const requestPeninsulaDeletion = useCallback(() => {
+	  const draft = wallSettingsDraft;
+	  if (!draft || draft.kind !== "peninsula") return;
+	  const run = peninsulaRunById(room, draft.wallId);
+	  if (!run) return;
+	  if (peninsulaRunAssemblyLocked(run, room)) {
+	    toast.info("Unlock this peninsula before deleting a run or connected return.");
+	    return;
+	  }
+	  const cabinetCount = placed.filter((cabinet) => cabinetWall(cabinet, room) === run.id).length;
     setPeninsulaDeletePrompt({
       runId: run.id,
       label: run.label ?? draft.label ?? "peninsula",
@@ -1280,9 +1283,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setCustomWallDeletePrompt(null);
     toast.success(`Deleted ${prompt.label}. All other measured walls remain unchanged.`);
   }, [customWallDeletePrompt, room.customWalls, room.vertices]);
-  const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
-    const run = peninsulaRunById(room, runId);
-    if (!run || layoutLocked || run.parentRunId || !run.parentWall) return;
+	  const movePeninsulaAttachment = useCallback((runId: string, requestedStartOffset: number) => {
+	    const run = peninsulaRunById(room, runId);
+	    if (!run || layoutLocked || run.parentRunId || !run.parentWall) return;
+	    if (peninsulaRunAssemblyLocked(run, room)) {
+	      toast.info("This peninsula is locked. Unlock the peninsula before moving its wall attachment.");
+	      return;
+	    }
     const parentLength = wallLength(run.parentWall, room);
     const startOffset = Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(requestedStartOffset * 8) / 8));
     if (Math.abs(run.startOffset - startOffset) < 0.01) return;
@@ -1311,7 +1318,22 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     setRoom(proposedRoom);
     if (movedByUid.size > 0) setPlaced((previous) => previous.map((cabinet) => movedByUid.get(cabinet.uid) ?? cabinet));
-  }, [layoutLocked, placed, room]);
+	  }, [layoutLocked, placed, room]);
+	  const togglePeninsulaAssemblyLock = useCallback((runId: string) => {
+	    if (layoutLocked) {
+	      toast.info("Unlock the whole room layout before changing a peninsula lock.");
+	      return;
+	    }
+	    const run = peninsulaRunById(room, runId);
+	    if (!run) return;
+	    const rootId = peninsulaRootRunId(run, room);
+	    const nextLocked = !peninsulaRunAssemblyLocked(run, room);
+	    setRoom((previous) => ({
+	      ...previous,
+	      peninsulaRuns: (previous.peninsulaRuns ?? []).map((candidate) => candidate.id === rootId ? { ...candidate, locked: nextLocked } : candidate),
+	    }));
+	    toast.success(nextLocked ? "Peninsula locked — its wall attachment and connected returns are frozen." : "Peninsula unlocked — measured edits are available again.");
+	  }, [layoutLocked, room]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -3737,11 +3759,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWall ? " and a snapped pony wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to each clear run.`);
   }, [autoFillCabinets, layoutLocked, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
-  const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
-    if (layoutLocked) return;
-    const parent = peninsulaRunById(room, parentRunId);
-    if (!parent) return;
-    const candidate: PeninsulaRun = {
+	const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
+	  if (layoutLocked) return;
+	  const parent = peninsulaRunById(room, parentRunId);
+	  if (!parent) return;
+	  if (peninsulaRunAssemblyLocked(parent, room)) {
+	    toast.info("Unlock this peninsula before adding a connected return.");
+	    return;
+	  }
+	  const candidate: PeninsulaRun = {
       id: `peninsula_return_${Date.now().toString(36)}`,
       parentRunId: parent.id,
       startOffset: 0,
@@ -10090,17 +10116,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               })
 	            )}
 	          </div>
-	          {(room.peninsulaRuns ?? []).map((run) => (
-	            <button
-	              key={run.id}
-	              type="button"
-	              onClick={() => { setActiveWall(run.id as WallSide); setPlacementTarget("wall"); setDrawMode(false); }}
-	              className={`rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${activeWall === run.id ? "bg-[#d4a75a] text-[#1a2744]" : "border border-[#d4a75a] text-[#1a2744] hover:bg-[#fff4d8]"}`}
-	              title="Select this peninsula run for cabinet placement"
-	            >
-	              Peninsula · {run.turn}° {run.direction}
-	            </button>
-	          ))}
+	          {(room.peninsulaRuns ?? []).map((run) => {
+	            const peninsulaLocked = peninsulaRunAssemblyLocked(run, room);
+	            return <div key={run.id} className="flex items-center gap-0.5">
+	              <button
+	                type="button"
+	                onClick={() => { setActiveWall(run.id as WallSide); setPlacementTarget("wall"); setDrawMode(false); }}
+	                className={`rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${activeWall === run.id ? "bg-[#d4a75a] text-[#1a2744]" : "border border-[#d4a75a] text-[#1a2744] hover:bg-[#fff4d8]"}`}
+	                title="Select this peninsula run for cabinet placement"
+	              >
+	                Peninsula · {run.turn}° {run.direction}
+	              </button>
+	              <button
+	                type="button"
+	                data-testid={`toggle-peninsula-lock-${run.id}`}
+	                onClick={() => togglePeninsulaAssemblyLock(run.id)}
+	                disabled={layoutLocked}
+	                aria-label={peninsulaLocked ? "Unlock peninsula assembly" : "Lock peninsula assembly"}
+	                title={peninsulaLocked ? "Unlock this peninsula and its connected returns" : "Lock this peninsula and its connected returns"}
+	                className={`rounded p-1 transition-colors disabled:opacity-45 ${peninsulaLocked ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+	              >
+	                {peninsulaLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
+	              </button>
+	            </div>;
+	          })}
 	          <button
             onClick={() => {
               setLayoutLocked((v) => !v);
@@ -13115,6 +13154,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          <option value="right">Right side — cabinet backs meet this face</option>
 	                        </select>
 	                      </label>
+	                      <div data-testid="peninsula-assembly-lock" className="flex items-center gap-3 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-3 py-2.5">
+	                        {wallSettingsDraft.locked ? <Lock className="h-4 w-4 shrink-0 text-[#634b20]" /> : <LockOpen className="h-4 w-4 shrink-0 text-[#634b20]" />}
+	                        <div className="min-w-0 flex-1">
+	                          <Label htmlFor="peninsula-assembly-lock-toggle" className="text-xs font-semibold text-[#1a2744]">Lock peninsula assembly</Label>
+	                          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">Freezes this wall attachment and every connected return. Cabinets and normal countertop selections remain available.</p>
+	                        </div>
+	                        <Switch
+	                          id="peninsula-assembly-lock-toggle"
+	                          aria-label="Lock peninsula assembly against accidental movement"
+	                          checked={wallSettingsDraft.locked}
+	                          onCheckedChange={(locked) => setWallSettingsDraft((draft) => draft ? { ...draft, locked } : draft)}
+	                        />
+	                      </div>
 	                      <p className="text-[11px] leading-4 text-muted-foreground">This is the authoritative peninsula face for new cabinets, measured openings, fit recommendations, seating, and waterfall direction. Existing cabinets keep their saved face.</p>
 	                      <div data-testid="peninsula-drywall-back-pony-wall" className="flex items-center gap-3 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-3 py-2.5">
 	                        <Columns3 className="h-4 w-4 shrink-0 text-[#634b20]" />
