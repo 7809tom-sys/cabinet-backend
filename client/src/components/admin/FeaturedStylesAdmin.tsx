@@ -59,6 +59,7 @@ interface AdminStyle {
   centerRailWidth: string | null;
   profileNotes: string | null;
   profileDescription?: string | null;
+  sourceSpecification?: string | null;
   cornerSwatchImageUrl?: string | null;
   isActive: boolean;
 }
@@ -289,6 +290,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
+  const [sourceSpecification, setSourceSpecification] = useState(style.sourceSpecification ?? "");
   const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
   const [newSceneUrl, setNewSceneUrl] = useState("");
   const [newSceneSourceNote, setNewSceneSourceNote] = useState("");
@@ -316,6 +318,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
     setProfileNotes(s.profileNotes ?? "");
     setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
+    setSourceSpecification(s.sourceSpecification ?? "");
     setCornerSwatchImageUrl(s.cornerSwatchImageUrl ?? "");
   };
 
@@ -350,6 +353,8 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     : hasRailText || hasStileText
       ? "partial"
       : "blank";
+  const hasFrameCitation = sourceSpecification.trim().length > 0;
+  const designerFrameReady = frameEntryStatus === "complete" && hasFrameCitation;
 
   function handleSave() {
     if (!ourName.trim()) {
@@ -358,6 +363,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     }
     if ((hasRailText && enteredRail == null) || (hasStileText && enteredStile == null)) {
       toast.error("Rail and stile measurements must be positive values in inches");
+      return;
+    }
+    if (frameEntryStatus === "complete" && !sourceSpecification.trim()) {
+      toast.error("A source citation is required before a frame can render in Designer");
       return;
     }
     const flatFreightValue = flatFreightDollars.trim();
@@ -396,6 +405,7 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
+      sourceSpecification: sourceSpecification.trim() || null,
     });
   }
 
@@ -591,10 +601,10 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
               <p className="text-xs text-muted-foreground mt-0.5">Enter widths in inches (e.g. <code>0.5</code> = 1/2", <code>3</code> = 3"). Applies to all door style types — Shaker, Slim Shaker, Double Shaker, Raised Panel, Beaded, Inset, Slab, etc.</p>
             </div>
             <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-background/70 px-2.5 py-2 text-xs">
-              {frameEntryStatus === "complete" ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" /> : <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />}
+              {designerFrameReady ? <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-700" /> : <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700" />}
               <div>
-                <span className="font-semibold text-foreground">{frameEntryStatus === "complete" ? "Ready for Designer" : frameEntryStatus === "partial" ? "Partial frame entry" : "No frame measurement entered"}</span>
-                <p className="mt-0.5 text-muted-foreground">{frameEntryStatus === "complete" ? "The saved rail and stile values are the Designer’s rendered frame dimensions for this style." : frameEntryStatus === "partial" ? "Enter both rail and stile widths to record a complete verified frame. A blank dimension keeps the neutral fallback." : "Leave blank only when a verified source measurement is unavailable; the Designer retains its neutral fallback."}</p>
+                <span className="font-semibold text-foreground">{designerFrameReady ? "Ready for Designer" : frameEntryStatus === "complete" ? "Source citation needed" : frameEntryStatus === "partial" ? "Partial frame entry" : "No frame measurement entered"}</span>
+                <p className="mt-0.5 text-muted-foreground">{designerFrameReady ? "The cited rail and stile values are the Designer’s rendered frame dimensions for this exact style." : frameEntryStatus === "complete" ? "Add the official source citation before these dimensions can render. The Designer will retain its neutral fallback." : frameEntryStatus === "partial" ? "Enter both rail and stile widths to record a complete verified frame. A blank dimension keeps the neutral fallback." : "Leave blank only when a verified source measurement is unavailable; the Designer retains its neutral fallback."}</p>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
@@ -634,6 +644,16 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 />
                 <p className="text-xs text-muted-foreground">Mid rail if any</p>
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ed-frame-source">Official frame source citation</Label>
+              <Input
+                id="ed-frame-source"
+                value={sourceSpecification}
+                onChange={(event) => setSourceSpecification(event.target.value)}
+                placeholder="e.g. Skyline 2026 Slim Shaker catalog — exact style code SS-DW"
+              />
+              <p className="text-xs text-muted-foreground">Required with rail and stile measurements. Cite the official document and exact supplier style code; generic family assumptions do not render.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ed-profile-notes">Profile Notes</Label>

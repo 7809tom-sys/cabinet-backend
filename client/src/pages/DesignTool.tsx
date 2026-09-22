@@ -64,6 +64,7 @@ import { buildPreSavePlanReview, unsuitableWallCabinetAboveRefrigerator, type Pr
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
+import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -951,7 +952,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     endLength: number;
     cabinetSide: PeninsulaCabinetSide;
 	    applianceCode: "none" | "DW-24" | "WINE-24";
-	    seatingOverhang: 10 | 12;
+	    seatingOverhang: 0 | 10 | 12 | 15;
 	    waterfall: boolean;
 	    addPonyWall: boolean;
 	    ponyWallLength: number;
@@ -979,8 +980,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     angle: CompassWallAngle;
     direction: PeninsulaDirection;
 	    cabinetSide: PeninsulaCabinetSide;
-	    countertopSeatingOverhang: 0 | 10 | 12;
-	    countertopPonyWallBarOverhang: 0 | 10 | 12;
+	    countertopSeatingOverhang: 0 | 10 | 12 | 15;
+	    countertopPonyWallBarOverhang: 0 | 10 | 12 | 15;
 	    countertopWaterfallEnd: boolean;
 	    drywallBackPonyWall: boolean;
 	    drywallColor: string;
@@ -1027,7 +1028,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       endLength: 36,
       cabinetSide: "left",
 	      applianceCode: "none",
-	      seatingOverhang: 12,
+	      // A normal 24-inch base uses the standard 1½-inch finished edge.
+	      // Seating is explicit so a new peninsula never gains a bar projection by accident.
+	      seatingOverhang: 0,
 	      waterfall: false,
 	      addPonyWall: false,
 	      ponyWallLength: 36,
@@ -3099,12 +3102,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   }, [doorStyles]);
   // Per-style frame inset map: uses the authored stile width from the Door Style
   // information page. Zenith Sage's documented 3-inch stile becomes a 12px
-  // elevation reveal so its recessed panels match the real cabinet profile.
+  // elevation reveal so its recessed panels match the real cabinet profile. A
+  // partial record intentionally falls back to the neutral face; never infer a
+  // missing companion stile or rail.
   const frameInsetById = useMemo(() => {
     const m = new Map<number, number>();
     doorStyles?.forEach((d) => {
-      const s = d as { id: number; stileWidth?: string | number | null };
-      const inset = frameInsetPxFromInches(s.stileWidth);
+      const s = d as { id: number; stileWidth?: string | number | null; railWidth?: string | number | null };
+      const frame = completeDoorFrameMetrics(s);
+      const inset = frameInsetPxFromInches(frame?.stileWidth);
       if (inset != null) m.set(s.id, inset);
     });
     return m;
@@ -3120,13 +3126,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const m = new Map<number, { stileInches?: number | null; railInches?: number | null }>();
     doorStyles?.forEach((d) => {
       const s = d as { id: number; stileWidth?: string | number | null; railWidth?: string | number | null };
-      const stile = Number(s.stileWidth);
-      const rail = Number(s.railWidth);
-      const metrics = {
-        ...(Number.isFinite(stile) && stile > 0 ? { stileInches: stile } : {}),
-        ...(Number.isFinite(rail) && rail > 0 ? { railInches: rail } : {}),
-      };
-      if (Object.keys(metrics).length > 0) m.set(s.id, metrics);
+      const frame = completeDoorFrameMetrics(s);
+      if (frame) m.set(s.id, { stileInches: frame.stileWidth, railInches: frame.railWidth });
     });
     return m;
   }, [doorStyles]);
@@ -6712,7 +6713,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    setSinks((current) => normalizeSinkFixturesToBases(current, nextPlaced, room));
 	  }, [room]);
 
-	  const applyIslandSeatingOverhang = useCallback((overhangIn: 0 | 10 | 12) => {
+	  const applyIslandSeatingOverhang = useCallback((overhangIn: 0 | 10 | 12 | 15) => {
 	    const prompt = islandSeatingOverhangPrompt;
 	    setIslandSeatingOverhangPrompt(null);
 	    if (!prompt || !island || overhangIn === 0) return;
@@ -9607,11 +9608,12 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const assignedStyle = doorStyles?.find((style) => style.id === assignedStyleId) ?? null;
       if (!assignedStyle) return [];
       const frameStyle = assignedStyle as typeof assignedStyle & { railWidth?: string | number | null; stileWidth?: string | number | null };
+      const frame = completeDoorFrameMetrics(frameStyle);
       return [[cabinet.uid, {
         doorStyle: assignedStyle.doorStyle ?? null,
         doorPanelType: assignedStyle.doorPanelType ?? null,
-        railWidth: frameStyle.railWidth ?? null,
-        stileWidth: frameStyle.stileWidth ?? null,
+        railWidth: frame?.railWidth ?? null,
+        stileWidth: frame?.stileWidth ?? null,
       }]];
     })),
     [placed, styleId, doorStyles],
@@ -9754,7 +9756,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
-      catalogDoorProfile={activeStyle ? { doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null, doorPanelType: activeStyle.doorPanelType ?? null, railWidth: (activeStyle as typeof activeStyle & { railWidth?: string | number | null }).railWidth ?? null, stileWidth: (activeStyle as typeof activeStyle & { stileWidth?: string | number | null }).stileWidth ?? null } : null}
+      catalogDoorProfile={activeStyle ? (() => {
+        const frame = completeDoorFrameMetrics(activeStyle as typeof activeStyle & { railWidth?: string | number | null; stileWidth?: string | number | null });
+        return {
+          doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
+          doorPanelType: activeStyle.doorPanelType ?? null,
+          railWidth: frame?.railWidth ?? null,
+          stileWidth: frame?.stileWidth ?? null,
+        };
+      })() : null}
 	      catalogFinishName={activeStyleName}
 	      catalogFinishProductId={styleId ?? null}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
@@ -13251,22 +13261,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                          <select
 	                            value={wallSettingsDraft.countertopPonyWallBarOverhang}
 	                            aria-label="Bar countertop extension across drywall pony wall"
-	                            onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopPonyWallBarOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)}
+	                            onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopPonyWallBarOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)}
 	                            className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground"
 	                          >
-	                            <option value={0}>Standard top — stops at cabinet backs</option>
-	                            <option value={10}>10 in. bar — crosses wall + extends 10 in.</option>
+	                            <option value={0}>Standard 1½ in. edge — stops at cabinet backs</option>
+	                            {wallSettingsDraft.countertopPonyWallBarOverhang === 10 && <option value={10}>10 in. bar (legacy)</option>}
 	                            <option value={12}>12 in. bar — crosses wall + extends 12 in.</option>
+	                            <option value={15}>15 in. bar — crosses wall + extends 15 in.</option>
 	                          </select>
 	                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Covers the full cabinet run, crosses the finished 4½ in. drywall pony wall, then creates the selected bar projection behind it.</span>
 	                        </label>
 	                      )}
 	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
 	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Seating overhang
-	                          <select value={wallSettingsDraft.countertopSeatingOverhang} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopSeatingOverhang: Number(event.target.value) as 0 | 10 | 12 } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
-	                            <option value={0}>Standard edge</option>
-	                            <option value={10}>10 in. seating</option>
+	                          <select value={wallSettingsDraft.countertopSeatingOverhang} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopSeatingOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
+	                            <option value={0}>Standard 1½ in. edge</option>
+	                            {wallSettingsDraft.countertopSeatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
 	                            <option value={12}>12 in. seating</option>
+	                            <option value={15}>15 in. seating</option>
 	                          </select>
 	                        </label>
 	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Exposed far end
@@ -13406,14 +13418,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                      </select>
 	                    </label>
 	                    <div className="grid grid-cols-2 gap-2">
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Seating overhang
-	                        <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 10 | 12 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"><option value={10}>10 in.</option><option value={12}>12 in.</option></select>
+	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Front edge / seating overhang
+	                        <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                          <option value={0}>Standard 1½ in. cabinet edge</option>
+	                          {peninsulaWizardDraft.seatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
+	                          <option value={12}>12 in. seating</option>
+	                          <option value={15}>15 in. seating</option>
+	                        </select>
 	                      </label>
 	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground">
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
 	                      </label>
 	                    </div>
-	                    <p className="text-[11px] leading-4 text-muted-foreground">The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end and a measured pony wall that follows the final peninsula endpoint. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
+	                    <p className="text-[11px] leading-4 text-muted-foreground">Regular base cabinets receive the standard 1½ in. finished edge. Choose 12 or 15 in. only for actual seating. The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end and a measured pony wall that follows the final peninsula endpoint. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
 	                  </div>
 	                </div>
 	              )}
@@ -14616,8 +14633,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          </AlertDialogHeader>
 	          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
 	            <AlertDialogCancel onClick={() => applyIslandSeatingOverhang(0)}>No seating overhang</AlertDialogCancel>
-	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(10)}>Add 10 in. seating</AlertDialogAction>
 	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(12)}>Add 12 in. seating</AlertDialogAction>
+	            <AlertDialogAction onClick={() => applyIslandSeatingOverhang(15)}>Add 15 in. seating</AlertDialogAction>
 	          </AlertDialogFooter>
 		        </AlertDialogContent>
 		      </AlertDialog>
@@ -15824,12 +15841,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
 	                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
-	                catalogDoorProfile={activeStyle ? {
-	                  doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
-	                  doorPanelType: activeStyle.doorPanelType ?? null,
-	                  railWidth: (activeStyle as typeof activeStyle & { railWidth?: string | number | null }).railWidth ?? null,
-	                  stileWidth: (activeStyle as typeof activeStyle & { stileWidth?: string | number | null }).stileWidth ?? null,
-	                } : null}
+	                catalogDoorProfile={activeStyle ? (() => {
+	                  const frame = completeDoorFrameMetrics(activeStyle as typeof activeStyle & { railWidth?: string | number | null; stileWidth?: string | number | null });
+	                  return {
+	                    doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
+	                    doorPanelType: activeStyle.doorPanelType ?? null,
+	                    railWidth: frame?.railWidth ?? null,
+	                    stileWidth: frame?.stileWidth ?? null,
+	                  };
+	                })() : null}
 	                catalogFinishName={activeStyleName}
 	                catalogFinishProductId={styleId ?? null}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}

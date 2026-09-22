@@ -768,7 +768,8 @@ export function rotateIslandScene(
 }
 
 export type IslandCountertopRect = { x: number; y: number; width: number; depth: number; rotation?: number };
-export type IslandSeatingOverhangIn = 10 | 12;
+/** Legacy 10-inch plans stay intact; new seating choices start at 12 inches. */
+export type IslandSeatingOverhangIn = 10 | 12 | 15;
 
 function unrotatePlacedFromIslandCenter(cabinet: PlacedCabinet, island: IslandZone, clockwiseDegrees: number): PlacedCabinet {
   const before = placedFootprint(cabinet);

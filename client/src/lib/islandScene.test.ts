@@ -417,7 +417,7 @@ describe("island mini-scene geometry", () => {
     });
   });
 
-  it("extends only the selected shallow-wall island face by the chosen 10-inch or 12-inch seating depth", () => {
+  it("preserves legacy 10-inch plans and supports the current 12-inch or 15-inch seating depths", () => {
     const backBase = islandFacePlacement(cabinet({ uid: "back-base" }), island, "back", 0);
     const frontWallCabinet = nextIslandFacePlacement(
       cabinet({ uid: "front-w2430", masterCode: "W-24-30", description: "24 inch by 30 inch wall cabinet", placement: "wall", depth: 12, height: 30 }),
@@ -427,8 +427,10 @@ describe("island mini-scene geometry", () => {
     )!;
     const tenInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 10);
     const twelveInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 12);
+    const fifteenInch = islandWithFaceSeatingOverhang(island, [backBase, frontWallCabinet], "front", 15);
 	    expect(islandCountertopRect(tenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 47.5 });
 	    expect(islandCountertopRect(twelveInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 49.5 });
+	    expect(islandCountertopRect(fifteenInch, [backBase, frontWallCabinet])).toEqual({ x: 34.5, y: 34.5, width: 27, depth: 52.5 });
     expect(twelveInch.countertopWidthAnchoredToZone).toBe(false);
     expect(twelveInch.countertopDepthAnchoredToZone).toBe(false);
   });

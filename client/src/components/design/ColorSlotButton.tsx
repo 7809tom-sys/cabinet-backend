@@ -17,6 +17,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
+import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -38,6 +39,7 @@ type StyleOption = {
   doorStyle?: string | null;
   railWidth?: string | number | null;
   stileWidth?: string | number | null;
+  sourceSpecification?: string | null;
   centerRailWidth?: string | number | null;
   profileNotes?: string | null;
   cornerSwatchImageUrl?: string | null;
@@ -162,6 +164,7 @@ export function ColorSlotButton({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
+  const selectedFrameMetrics = completeDoorFrameMetrics(style as StyleOption | null);
 
   // Group the styles by distributor (supply line) via the shared, unit-tested
   // helper. Groups are ordered by their neutral label so the list is stable;
@@ -554,12 +557,15 @@ export function ColorSlotButton({
                 ? t("dt_cs_click_use")
                 : t("dt_cs_optional_second")}
           </span>
-          {/* Frame measurements — shown when set */}
-          {hasStyle && (style as StyleOption)?.railWidth && (
+          {/* Only a complete frame record can represent the selected style. */}
+          {hasStyle && selectedFrameMetrics && (
             <span className="block text-[9px] text-muted-foreground/80 mt-0.5">
-              Rail {(style as StyleOption).railWidth}&quot; · Stile {(style as StyleOption).stileWidth ?? "—"}&quot;
+              Rail {selectedFrameMetrics.railWidth}&quot; · Stile {selectedFrameMetrics.stileWidth}&quot;
               {(style as StyleOption).centerRailWidth ? ` · Ctr ${(style as StyleOption).centerRailWidth}"` : ""}
             </span>
+          )}
+          {hasStyle && !selectedFrameMetrics && (
+            <span className="block text-[9px] text-muted-foreground/80 mt-0.5">Frame spec pending — neutral face shown</span>
           )}
         </span>
       </button>

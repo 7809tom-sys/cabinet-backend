@@ -23,6 +23,14 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('45° end from the straight run');
   });
 
+  it("defaults ordinary peninsula cabinets to the 1½-inch finished edge and limits new seating choices to 12 or 15 inches", () => {
+    expect(source).toContain('seatingOverhang: 0,');
+    expect(source).toContain('Standard 1½ in. cabinet edge');
+    expect(source).toContain('12 in. seating');
+    expect(source).toContain('15 in. seating');
+    expect(source).toContain('Regular base cabinets receive the standard 1½ in. finished edge');
+  });
+
   it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
     expect(source).toContain('addPonyWall: boolean;');
     expect(source).toContain('data-testid="peninsula-pony-wall-option"');

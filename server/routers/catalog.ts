@@ -200,6 +200,7 @@ export const doorStylesRouter = router({
         centerRailWidth: doorStyles.centerRailWidth,
         profileNotes: doorStyles.profileNotes,
         profileDescription: doorStyles.profileDescription,
+        sourceSpecification: doorStyles.sourceSpecification,
         cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
       };
       const available = await availableStyleIds(db);
@@ -391,6 +392,7 @@ export const doorStylesRouter = router({
         centerRailWidth: doorStyles.centerRailWidth,
         profileNotes: doorStyles.profileNotes,
         profileDescription: doorStyles.profileDescription,
+        sourceSpecification: doorStyles.sourceSpecification,
         cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
         isBuilderGrade: doorStyles.isBuilderGrade,
         isActive: doorStyles.isActive,
@@ -489,6 +491,7 @@ export const doorStylesRouter = router({
         centerRailWidth: z.number().min(0).max(99).nullable().optional(),
         profileNotes: z.string().max(256).nullable().optional(),
         profileDescription: z.string().nullable().optional(),
+        sourceSpecification: z.string().max(512).nullable().optional(),
         cornerSwatchImageUrl: z.string().max(512).nullable().optional(),
         isActive: z.boolean().optional(),
       })
@@ -522,6 +525,7 @@ export const doorStylesRouter = router({
       if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
       if (fields.profileNotes !== undefined) patch.profileNotes = fields.profileNotes?.trim() || null;
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
+      if (fields.sourceSpecification !== undefined) patch.sourceSpecification = fields.sourceSpecification?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
       if (Object.keys(patch).length === 0) return { ok: true };

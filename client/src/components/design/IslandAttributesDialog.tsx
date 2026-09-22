@@ -70,27 +70,28 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
     { key: "countertopOffsetX", label: "Slab left/right offset" },
 	    { key: "countertopOffsetY", label: "Slab front/back offset" },
 	  ];
-	  const applyRearSeatingOverhang = (value: "automatic" | "12") => {
+	  const applyRearSeatingOverhang = (value: "automatic" | "12" | "15") => {
 	    if (value === "automatic") {
 	      setDraft((current) => current ? { ...current, countertopDepth: null, countertopOffsetY: 0, countertopDepthAnchoredToZone: false } : current);
 	      return;
 	    }
+	    const seatingInches = Number(value) as 12 | 15;
 	    // The work zone remains the authoritative cabinet envelope. A seating
-	    // option expands only the continuous countertop 12 inches behind its
+	    // option expands only the continuous countertop by the selected 12- or 15-inch amount behind its
 	    // back run; it never adds, moves, or changes a cabinet.
 	    setDraft((current) => current ? {
 	      ...current,
-	      countertopDepth: current.depth + 12,
-	      countertopOffsetY: -6,
+	      countertopDepth: current.depth + seatingInches,
+	      countertopOffsetY: -seatingInches / 2,
 	      countertopDepthAnchoredToZone: true,
 	    } : current);
 	  };
-	  const rearSeatingOverhang = draft.countertopDepth != null
-	    && Math.abs(draft.countertopDepth - (draft.depth + 12)) < 0.01
-	    && Math.abs(Number(draft.countertopOffsetY ?? 0) + 6) < 0.01
-	    && draft.countertopDepthAnchoredToZone === true
-	    ? "12"
-	    : "automatic";
+	  const rearSeatingOverhang = ([12, 15] as const).find((inches) =>
+	    draft.countertopDepth != null
+	    && Math.abs(draft.countertopDepth - (draft.depth + inches)) < 0.01
+	    && Math.abs(Number(draft.countertopOffsetY ?? 0) + inches / 2) < 0.01
+	    && draft.countertopDepthAnchoredToZone === true,
+	  )?.toString() ?? "automatic";
 		  const effectiveOverhang = effectiveIslandOverhangIn(draft);
 		  const selectedCountertopOption = draft.countertopProductId == null
 		    ? null
@@ -179,11 +180,12 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 	          </div>
 	          <div className="space-y-1">
 	            <Label className="text-xs">Rear seating</Label>
-	            <Select value={rearSeatingOverhang} onValueChange={(value) => applyRearSeatingOverhang(value as "automatic" | "12")}>
+	            <Select value={rearSeatingOverhang} onValueChange={(value) => applyRearSeatingOverhang(value as "automatic" | "12" | "15")}>
 	            <SelectTrigger className="h-8 text-xs" data-testid="island-seating-overhang"><SelectValue /></SelectTrigger>
 	            <SelectContent>
 	              <SelectItem value="automatic">Automatic standard slab</SelectItem>
 	              <SelectItem value="12">12 in. behind the back run for seating</SelectItem>
+	              <SelectItem value="15">15 in. behind the back run for seating</SelectItem>
 	            </SelectContent>
 	            </Select>
 	          </div>

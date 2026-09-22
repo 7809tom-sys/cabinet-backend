@@ -120,7 +120,20 @@ describe("IslandAttributesDialog", () => {
 		  expect(guidanceText).toContain("48 in.");
 		  expect(guidanceText).toContain("60 in.");
 		  expect(screen.getByTestId("island-seating-overhang")).toBeTruthy();
-		  expect(screen.getByText("Rear seating")).toBeTruthy();
+			expect(screen.getByText("Rear seating")).toBeTruthy();
+		});
+
+		it("offers 12- and 15-inch seating while preserving the automatic 1.5-inch standard edge", () => {
+		  const onApply = vi.fn();
+		  render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
+		  fireEvent.click(screen.getByTestId("island-seating-overhang"));
+		  fireEvent.click(screen.getByRole("option", { name: /15 in\. behind the back run/i }));
+		  fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+		  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
+		    countertopDepth: island.depth + 15,
+		    countertopOffsetY: -7.5,
+		    countertopDepthAnchoredToZone: true,
+		  }));
 		});
 
 		it("keeps optional zone and slab dimensions collapsed while leaving every measurement editable", () => {

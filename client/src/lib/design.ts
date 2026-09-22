@@ -1252,10 +1252,10 @@ export interface PeninsulaRun {
   height: number;
   /** Default face for new cabinets placed on this two-sided peninsula run. */
   cabinetSide?: PeninsulaCabinetSide;
-  /** Extra seating projection past the cabinet front on the selected cabinet side. */
-  countertopSeatingOverhang?: 0 | 10 | 12;
+  /** Extra seating projection past the standard 1½-inch cabinet edge. */
+  countertopSeatingOverhang?: 0 | 10 | 12 | 15;
   /** Bar projection that carries the slab across a drywall pony wall and past its back face. */
-  countertopPonyWallBarOverhang?: 0 | 10 | 12;
+  countertopPonyWallBarOverhang?: 0 | 10 | 12 | 15;
   /** A full-height counter panel at this run's exposed far end. */
   countertopWaterfallEnd?: boolean;
   /**
@@ -1427,7 +1427,7 @@ export function peninsulaRunById(room: RoomData, wallId?: string | null): Penins
 export function peninsulaCountertopSeatingOverhang(
   run: PeninsulaRun,
   room: Pick<RoomData, "peninsulaRuns">,
-): 0 | 10 | 12 {
+): 0 | 10 | 12 | 15 {
   const lineage: PeninsulaRun[] = [];
   const visited = new Set<string>();
   let current: PeninsulaRun | undefined = run;
@@ -1440,10 +1440,10 @@ export function peninsulaCountertopSeatingOverhang(
   }
   const root = lineage[lineage.length - 1];
   const rootValue = root?.countertopSeatingOverhang;
-  if (rootValue === 0 || rootValue === 10 || rootValue === 12) return rootValue;
+  if (rootValue === 0 || rootValue === 10 || rootValue === 12 || rootValue === 15) return rootValue;
   for (let index = lineage.length - 2; index >= 0; index -= 1) {
     const value = lineage[index]?.countertopSeatingOverhang;
-    if (value === 10 || value === 12) return value;
+    if (value === 10 || value === 12 || value === 15) return value;
   }
   return 0;
 }
@@ -1456,7 +1456,7 @@ export function peninsulaCountertopSeatingOverhang(
 export function peninsulaCountertopPonyWallBarOverhang(
   run: PeninsulaRun,
   room: Pick<RoomData, "peninsulaRuns">,
-): 0 | 10 | 12 {
+): 0 | 10 | 12 | 15 {
   const lineage: PeninsulaRun[] = [];
   const visited = new Set<string>();
   let current: PeninsulaRun | undefined = run;
@@ -1467,10 +1467,10 @@ export function peninsulaCountertopPonyWallBarOverhang(
   }
   const root = lineage[lineage.length - 1];
   const rootValue = root?.countertopPonyWallBarOverhang;
-  if (rootValue === 0 || rootValue === 10 || rootValue === 12) return rootValue;
+  if (rootValue === 0 || rootValue === 10 || rootValue === 12 || rootValue === 15) return rootValue;
   for (let index = lineage.length - 2; index >= 0; index -= 1) {
     const value = lineage[index]?.countertopPonyWallBarOverhang;
-    if (value === 10 || value === 12) return value;
+    if (value === 10 || value === 12 || value === 15) return value;
   }
   return 0;
 }
