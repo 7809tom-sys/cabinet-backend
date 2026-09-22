@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { getDb } from "../db";
-import { verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
+import { verifiedPelicanFaucetProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
 
 // Public procedure — a minimal unauthenticated context is enough.
 function publicCtx(): TrpcContext {
@@ -73,7 +73,7 @@ describe("surfaces.recommended", () => {
     }
   });
 
-  it("splits sink vs faucet by subCategory and excludes accessories", async () => {
+  it("returns only source-measured Designer fixtures and excludes accessories", async () => {
     const db = await getDb();
     if (!db) return;
     const caller = appRouter.createCaller(publicCtx());
@@ -84,6 +84,7 @@ describe("surfaces.recommended", () => {
       expect(r.subCategory).toBe("Sinks");
       // No mis-filed accessory parts (clips, grids, strainers, etc.)
       expect(ACCESSORY.test(r.name)).toBe(false);
+      expect(verifiedPelicanSinkProfile(r.pelicanCode)).not.toBeNull();
     }
 
     const faucets = (await caller.surfaces.recommended({ role: "faucet", limit: 8 })) as Rec[];
@@ -91,10 +92,11 @@ describe("surfaces.recommended", () => {
       expect(r.category).toBe("Sinks & Faucets");
       expect(r.subCategory).toBe("Faucets");
       expect(ACCESSORY.test(r.name)).toBe(false);
+      expect(verifiedPelicanFaucetProfile(r.pelicanCode)).not.toBeNull();
     }
   });
 
-  it("prioritizes source-verified sink profiles so a standard SB-36 has selectable fixtures", async () => {
+  it("keeps source-verified sink profiles available to a standard SB-36", async () => {
     const db = await getDb();
     if (!db) return;
     const caller = appRouter.createCaller(publicCtx());
