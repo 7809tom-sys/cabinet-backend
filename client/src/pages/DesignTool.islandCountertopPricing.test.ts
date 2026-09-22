@@ -14,4 +14,10 @@ describe("Designer island countertop pricing", () => {
 	    expect(source).toContain("island, countertop, backsplashHeightMode");
 	    expect(source).toContain("estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}");
   });
+
+  it("passes the same price-locked countertop slab measurement into the material picker", () => {
+    expect(source).toContain("countertopPriceLines={surfaceCartLines");
+    expect(source).toContain("/countertop|quartz\\s+slab/i.test(line.category ?? \"\")");
+    expect(source).toContain("qtyNote: line.qtyNote");
+  });
 });

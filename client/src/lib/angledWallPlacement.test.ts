@@ -3,6 +3,7 @@ import type { RoomData, PlacedCabinet } from "./design";
 import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
+import { buildSurfaceCartLines } from "./surfaceCartLines";
 
 const angledRoom: RoomData = {
   width: 240,
@@ -1584,6 +1585,59 @@ describe("cabinet-supported peninsula runs", () => {
 	  expect(peninsulaCountertopPonyWallBarOverhang(run, barRoom)).toBe(12);
 	  expect(peninsulaCountertopPonyWallBackExtensionIn(run, barRoom)).toBe(16.5);
 	  expect(surface).toMatchObject({ depth: 42, ponyWallBarOverhangIn: 12, ponyWallBackExtensionIn: 16.5 });
+	});
+
+	it("prices the full bar-top coverage across the drywall pony wall, not the cabinet-depth-only slab", () => {
+	  const standardRoom: RoomData = {
+	    ...peninsulaRoom,
+	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left" }],
+	  };
+	  const barRoom: RoomData = {
+	    ...peninsulaRoom,
+	    peninsulaRuns: [{ ...peninsulaRoom.peninsulaRuns![0], cabinetSide: "left", countertopPonyWallBarOverhang: 12 }],
+	  };
+	  const standardSpot = wallPlacementAt(0, 96, 24, "peninsula-90-right" as any, standardRoom, "left");
+	  const standardCabinet = {
+	    ...peninsulaCabinet("standard-priced-peninsula", 0),
+	    ...standardSpot,
+	    width: 96,
+	    wallId: standardSpot.wallId,
+	    wallOffset: standardSpot.wallOffset,
+	    peninsulaSide: "left" as const,
+	  };
+	  const barSpot = wallPlacementAt(0, 96, 24, "peninsula-90-right" as any, barRoom, "left");
+	  const barCabinet = {
+	    ...standardCabinet,
+	    uid: "bar-priced-peninsula",
+	    ...barSpot,
+	    wallId: barSpot.wallId,
+	    wallOffset: barSpot.wallOffset,
+	  };
+
+	  const standardMeasurement = countertopArea([standardCabinet], null, null, standardRoom);
+	  const barMeasurement = countertopArea([barCabinet], null, null, barRoom);
+	  expect(standardMeasurement.perimeterSquareFeet).toBe(Math.ceil(((96 * 25.5) / 144) * 10) / 10);
+	  expect(barMeasurement.perimeterSquareFeet).toBe(Math.ceil(((96 * 42) / 144) * 10) / 10);
+	  expect(barMeasurement.perimeterSquareFeet).toBeGreaterThan(standardMeasurement.perimeterSquareFeet);
+
+	  const slab = { id: 88, name: "Quoted quartz slab", category: "Quartz Slabs (Countertops)", size: '24" x 24"', sellPrice: 100, countertopScope: "perimeter" as const };
+	  const standardLine = buildSurfaceCartLines([slab], "homeowner", {
+	    backsplashSqFt: 0,
+	    flooringSqFt: 0,
+	    countertopSqFt: standardMeasurement.squareFeet,
+	    perimeterCountertopSqFt: standardMeasurement.perimeterSquareFeet,
+	    islandCountertopSqFt: 0,
+	  })[0]!;
+	  const barLine = buildSurfaceCartLines([slab], "homeowner", {
+	    backsplashSqFt: 0,
+	    flooringSqFt: 0,
+	    countertopSqFt: barMeasurement.squareFeet,
+	    perimeterCountertopSqFt: barMeasurement.perimeterSquareFeet,
+	    islandCountertopSqFt: 0,
+	  })[0]!;
+	  expect(barLine.qty).toBeGreaterThan(standardLine.qty);
+	  expect(barLine.qtyNote).toContain(`${barMeasurement.perimeterSquareFeet.toFixed(1)} sq ft wall-run`);
+	  expect((barLine.unitPrice ?? 0) * barLine.qty).toBeGreaterThan((standardLine.unitPrice ?? 0) * standardLine.qty);
 	});
 
 	it("covers both joined peninsula legs when an ERB corner base supports their shared bend", () => {

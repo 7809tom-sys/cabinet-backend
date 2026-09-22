@@ -14474,6 +14474,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        onOpenChange={setSurfacesOpen}
 	        selected={selectedSurfaces}
 	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
+	        countertopPriceLines={surfaceCartLines
+	          .filter((line) => /countertop|quartz\s+slab/i.test(line.category ?? ""))
+	          .map((line) => ({
+	            name: line.name,
+	            qty: line.qty,
+	            unitPrice: line.unitPrice,
+	            qtyNote: line.qtyNote,
+	          }))}
 	        onToggle={(item) => {
 	          const role = surfaceRole(item);
 	          if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet") {

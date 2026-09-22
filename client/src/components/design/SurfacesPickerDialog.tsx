@@ -52,6 +52,7 @@ export function SurfacesPickerDialog({
   selected,
   onToggle,
   estimatedSubtotal,
+  countertopPriceLines = [],
   backsplashHeightMode = "standard",
   onBacksplashHeightModeChange,
   countertopBacksplashHeightIn = 0,
@@ -63,6 +64,13 @@ export function SurfacesPickerDialog({
   onToggle: (item: SelectedSurface) => void;
   /** Measured cart subtotal for selected surfaces, including area-based quantities. */
   estimatedSubtotal?: number | null;
+  /** Price-locked countertop lines measured from the live rendered cabinet footprint. */
+  countertopPriceLines?: Array<{
+    name: string;
+    qty: number;
+    unitPrice: number | null;
+    qtyNote?: string;
+  }>;
   backsplashHeightMode?: "standard" | "full-height";
   onBacksplashHeightModeChange?: (mode: "standard" | "full-height") => void;
   countertopBacksplashHeightIn?: 0 | 2.5 | 3;
@@ -199,6 +207,21 @@ export function SurfacesPickerDialog({
                 </div>
               </div>
               <p className="sm:col-span-2 text-[10px] leading-relaxed text-muted-foreground">12-inch wall tile is continuous only above countertop-supported cabinet and appliance runs. Standard ends at upper cabinets; a range continues to its hood. Full-height coverage increases material quantity and price.</p>
+            </div>
+          )}
+          {category === "Quartz Slabs (Countertops)" && countertopPriceLines.length > 0 && (
+            <div data-testid="countertop-priced-coverage" className="rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs">
+              <div className="mb-1 font-semibold text-[#60491b]">Measured countertop pricing</div>
+              <div className="space-y-1 text-muted-foreground">
+                {countertopPriceLines.map((line) => (
+                  <p key={`${line.name}:${line.qty}:${line.unitPrice ?? "pending"}`}>
+                    <span className="font-medium text-foreground">{line.name}</span>
+                    {line.qtyNote ? ` — ${line.qtyNote}` : ` — ${line.qty} ${line.qty === 1 ? "slab" : "slabs"}`}
+                    {line.unitPrice != null ? ` · ${formatPrice(line.unitPrice * line.qty)}` : " · pricing pending"}
+                  </p>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">The bar extension across a drywall pony wall is included in this measured coverage. Supplier pricing is per whole slab, so the total changes when that added coverage requires another slab.</p>
             </div>
           )}
         </div>
