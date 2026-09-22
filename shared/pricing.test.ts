@@ -48,46 +48,55 @@ describe("priceLadder", () => {
   });
 });
 
-describe("computeFeeStack — defaults (1% damage, 10% tech cap $100, 4% card)", () => {
-  it("card order under the tech cap", () => {
-    // cabinets $500 = 50000; damage 1% = 500; tech 10% = 5000 (< $100 cap? no,
-    // 5000 = $50 < $10000 cap → uncapped); freight $0.
-    const fs = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "card", isAffiliateOrder: true });
+describe("computeFeeStack — affiliate-cost-only fees", () => {
+  it("assesses an affiliate's cost invoice without increasing customer checkout", () => {
+    // Affiliate cost $500; customer merchandise $800 + $75 freight.
+    const fs = computeFeeStack({
+      cabinetSubtotalCents: 80000,
+      freightCents: 7500,
+      affiliateCostCents: 50000,
+      paymentMethod: "card",
+      isAffiliateOrder: true,
+    });
     expect(fs.damageFeeCents).toBe(500);
     expect(fs.techFeeCents).toBe(5000);
     expect(fs.techFeeCapped).toBe(false);
-    expect(fs.preCardTotalCents).toBe(55500);
-    // card fee 4% of 55500 = 2220
-    expect(fs.cardFeeCents).toBe(2220);
-    expect(fs.totalCents).toBe(57720);
+    // Card fee is 4% of affiliate cost only, with no fee-on-fee or freight basis.
+    expect(fs.cardFeeCents).toBe(2000);
+    expect(fs.affiliateTotalCostCents).toBe(57500);
+    expect(fs.totalCents).toBe(87500);
   });
 
   it("caps the tech fee at $100 for large orders", () => {
     // cabinets $2000 = 200000; tech 10% = 20000 → capped to 10000 ($100)
-    const fs = computeFeeStack({ cabinetSubtotalCents: 200000, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true });
+    const fs = computeFeeStack({ cabinetSubtotalCents: 300000, affiliateCostCents: 200000, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true });
     expect(fs.techFeeCents).toBe(10000);
     expect(fs.techFeeCapped).toBe(true);
   });
 
-  it("approved ACH waives the 4% card fee", () => {
-    const fs = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "ach", achApproved: true });
+  it("approved affiliate ACH waives the 4% card fee", () => {
+    const fs = computeFeeStack({ cabinetSubtotalCents: 70000, affiliateCostCents: 50000, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true });
     expect(fs.cardFeeCents).toBe(0);
-    expect(fs.totalCents).toBe(fs.preCardTotalCents);
+    expect(fs.affiliateTotalCostCents).toBe(55500);
   });
 
-  it("unapproved ACH still pays the card fee until approved", () => {
-    const fs = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "ach", achApproved: false });
+  it("unapproved affiliate ACH still pays the card fee until approved", () => {
+    const fs = computeFeeStack({ cabinetSubtotalCents: 70000, affiliateCostCents: 50000, paymentMethod: "ach", achApproved: false, isAffiliateOrder: true });
     expect(fs.cardFeeCents).toBeGreaterThan(0);
   });
 
-  it("includes freight in the card-fee base but not the damage/tech base", () => {
-    const noFreight = computeFeeStack({ cabinetSubtotalCents: 50000, paymentMethod: "card" });
-    const withFreight = computeFeeStack({ cabinetSubtotalCents: 50000, freightCents: 10000, paymentMethod: "card" });
-    // Damage + tech identical (based on cabinet subtotal only)
+  it("does not apply affiliate fees to a customer checkout, retail, or freight", () => {
+    const noFreight = computeFeeStack({ cabinetSubtotalCents: 50000, affiliateCostCents: 30000, paymentMethod: "card", isAffiliateOrder: true });
+    const withFreight = computeFeeStack({ cabinetSubtotalCents: 50000, freightCents: 10000, affiliateCostCents: 30000, paymentMethod: "card", isAffiliateOrder: true });
     expect(withFreight.damageFeeCents).toBe(noFreight.damageFeeCents);
     expect(withFreight.techFeeCents).toBe(noFreight.techFeeCents);
-    // Card fee grows because freight is in the pre-card total
-    expect(withFreight.cardFeeCents).toBeGreaterThan(noFreight.cardFeeCents);
+    expect(withFreight.cardFeeCents).toBe(noFreight.cardFeeCents);
+    expect(withFreight.totalCents - noFreight.totalCents).toBe(10000);
+    const customer = computeFeeStack({ cabinetSubtotalCents: 50000, freightCents: 10000, paymentMethod: "card" });
+    expect(customer.damageFeeCents).toBe(0);
+    expect(customer.techFeeCents).toBe(0);
+    expect(customer.cardFeeCents).toBe(0);
+    expect(customer.totalCents).toBe(60000);
   });
 
   it("zero subtotal yields a zero stack", () => {

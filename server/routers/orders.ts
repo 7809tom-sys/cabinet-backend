@@ -9,7 +9,7 @@ import {
   buildOrderEmailText,
   type NetsuiteOrderLine,
 } from "@shared/netsuiteOrder";
-import { getDb, getPlatformPricingSettings, notInConflict } from "../db";
+import { getDb, notInConflict } from "../db";
 import {
   cabinets,
   distributorSkus,
@@ -43,7 +43,6 @@ import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
 import { calcSalesTax } from "@shared/usSalesTax";
-import { computeFeeStack } from "@shared/pricing";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 
 // Map the order tierEnum to the shared PricingTier.
@@ -1696,28 +1695,19 @@ export const ordersRouter = router({
 
       const merchandiseCents = Math.max(0, Math.round(Number(order.totalAmount ?? 0) * 100));
       const freightCents = order.deliveryMethod === "pickup" ? 0 : order.freightQuoteCents;
-      const feeStack = computeFeeStack(
-        {
-          cabinetSubtotalCents: merchandiseCents,
-          freightCents,
-          paymentMethod: "card",
-          isAffiliateOrder: order.affiliateId != null,
-        },
-        await getPlatformPricingSettings(),
-      );
       const salesTaxCents = Math.max(0, Math.round(Number(order.taxAmount ?? 0) * 100));
       return {
         requestNumber: order.requestNumber,
         paid: order.status === "confirmed" && Boolean(order.stripePaymentIntentId),
         paymentPending: order.status === "submitted",
-        amountCents: feeStack.totalCents + salesTaxCents,
+        amountCents: merchandiseCents + freightCents + salesTaxCents,
         breakdown: {
           merchandiseCents,
           freightCents,
           salesTaxCents,
-          damageFeeCents: feeStack.damageFeeCents,
-          techFeeCents: feeStack.techFeeCents,
-          cardFeeCents: feeStack.cardFeeCents,
+          damageFeeCents: 0,
+          techFeeCents: 0,
+          cardFeeCents: 0,
         },
       };
     }),
@@ -1793,27 +1783,9 @@ export const ordersRouter = router({
         });
       }
 
-      const feeStack = computeFeeStack(
-        {
-          cabinetSubtotalCents: merchandiseCents,
-          freightCents: verifiedFreightCents,
-          paymentMethod: "card",
-          isAffiliateOrder: order.affiliateId != null,
-        },
-        await getPlatformPricingSettings(),
-      );
       const salesTaxCents = Math.max(0, Math.round(Number(order.taxAmount ?? 0) * 100));
       if (salesTaxCents > 0) {
         stripeLines.push({ description: "Sales tax", quantity: 1, unitPriceCents: salesTaxCents });
-      }
-      if (feeStack.damageFeeCents > 0) {
-        stripeLines.push({ description: "Damage coverage", quantity: 1, unitPriceCents: feeStack.damageFeeCents });
-      }
-      if (feeStack.techFeeCents > 0) {
-        stripeLines.push({ description: "Technology fee", quantity: 1, unitPriceCents: feeStack.techFeeCents });
-      }
-      if (feeStack.cardFeeCents > 0) {
-        stripeLines.push({ description: "Card processing fee", quantity: 1, unitPriceCents: feeStack.cardFeeCents });
       }
 
       if (stripeLines.length === 0) {
@@ -1844,14 +1816,14 @@ export const ordersRouter = router({
       return {
         url,
         sessionId,
-        amountCents: feeStack.totalCents + salesTaxCents,
+        amountCents: merchandiseCents + verifiedFreightCents + salesTaxCents,
         breakdown: {
           merchandiseCents,
           freightCents: verifiedFreightCents,
           salesTaxCents,
-          damageFeeCents: feeStack.damageFeeCents,
-          techFeeCents: feeStack.techFeeCents,
-          cardFeeCents: feeStack.cardFeeCents,
+          damageFeeCents: 0,
+          techFeeCents: 0,
+          cardFeeCents: 0,
         },
       };
     }),

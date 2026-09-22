@@ -54,18 +54,17 @@ export default function FeeSystemDoc() {
 
   const s: PlatformPricingSettings = normalizePricingSettings(data ?? null);
 
-  // Worked example: a $10,000 cabinet order with $600 freight.
+  // Worked example: a $10,000 affiliate cabinet-cost invoice.
   const exampleBaseCents = 1_000_000; // $10,000 internal base cost
   const ladder = priceLadder(exampleBaseCents, s);
 
-  const exampleCabinetSubtotal = ladder.affiliateCents; // what an affiliate pays
-  const exampleFreight = 60_000; // $600
+  const exampleAffiliateCost = ladder.affiliateCents;
   const card = computeFeeStack(
-    { cabinetSubtotalCents: exampleCabinetSubtotal, freightCents: exampleFreight, paymentMethod: "card" },
+    { cabinetSubtotalCents: 0, affiliateCostCents: exampleAffiliateCost, paymentMethod: "card", isAffiliateOrder: true },
     s,
   );
   const ach = computeFeeStack(
-    { cabinetSubtotalCents: exampleCabinetSubtotal, freightCents: exampleFreight, paymentMethod: "ach", achApproved: true },
+    { cabinetSubtotalCents: 0, affiliateCostCents: exampleAffiliateCost, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true },
     s,
   );
 
@@ -129,8 +128,8 @@ export default function FeeSystemDoc() {
           <section className="mt-6">
             <h2 className="font-serif text-lg font-bold">1. Price ladder</h2>
             <p className="mt-1 text-sm">
-              Each cabinet line is built up from our internal base cost. Every rung compounds on the one
-              before it (markup-on-markup), matching how margin actually stacks through the supply chain.
+              Each cabinet line is derived from our internal base cost. Each configured markup is measured
+              against that same cost; there is no markup-on-markup chaining.
             </p>
             <table className="mt-3 w-full border-collapse text-sm">
               <thead>
@@ -153,12 +152,12 @@ export default function FeeSystemDoc() {
                 </tr>
                 <tr className="border-b border-[#1a2236]/10">
                   <td className="py-1.5 font-medium">Affiliate cost</td>
-                  <td className="py-1.5">wholesale + {pct(s.affiliateMarkupBps)}</td>
+                  <td className="py-1.5">base + {pct(s.affiliateMarkupBps)}</td>
                   <td className="py-1.5 text-right tabular-nums">{formatCents(ladder.affiliateCents)}</td>
                 </tr>
                 <tr>
                   <td className="py-1.5 font-medium">Suggested retail</td>
-                  <td className="py-1.5">affiliate + {pct(s.retailMarkupBps)}</td>
+                  <td className="py-1.5">base + {pct(s.retailMarkupBps)}</td>
                   <td className="py-1.5 text-right font-semibold tabular-nums">{formatCents(ladder.suggestedRetailCents)}</td>
                 </tr>
               </tbody>
@@ -170,17 +169,17 @@ export default function FeeSystemDoc() {
             <h2 className="font-serif text-lg font-bold">2. Order fees</h2>
             <ul className="mt-2 space-y-1.5 text-sm">
               <li>
-                <span className="font-semibold">Damage coverage — {pct(s.damageFeeBps)}.</span> Applied to the
-                cabinet subtotal on <em>every</em> order, all tiers, to cover freight damage / replacements.
+                <span className="font-semibold">Damage coverage — {pct(s.damageFeeBps)}.</span> Applied only to an
+                affiliate’s cabinet cost invoice, never to customer retail or freight.
               </li>
               <li>
                 <span className="font-semibold">Technology fee — {pct(s.techFeeBps)}, capped at {formatCents(s.techFeeCapCents)}.</span>{" "}
-                On the cabinet subtotal; never exceeds the cap per transaction.
+                On the affiliate’s cabinet cost; never exceeds the cap per transaction.
               </li>
               <li>
-                <span className="font-semibold">Card processing — {pct(s.cardFeeBps)}.</span> Charged on the final
-                total (cabinets + freight + damage + tech) for card payments. An approved bank transfer (ACH)
-                <strong> waives this fee</strong>.
+                <span className="font-semibold">Card processing — {pct(s.cardFeeBps)}.</span> Charged only on the
+                affiliate’s cabinet cost for card-funded affiliate invoices. An approved bank transfer (ACH)
+                <strong> waives this fee</strong>. Customer retail and freight never form a fee base.
               </li>
             </ul>
           </section>
@@ -189,8 +188,7 @@ export default function FeeSystemDoc() {
           <section className="mt-6">
             <h2 className="font-serif text-lg font-bold">3. Worked example</h2>
             <p className="mt-1 text-sm">
-              An affiliate order with a {formatCents(exampleCabinetSubtotal)} cabinet subtotal and{" "}
-              {formatCents(exampleFreight)} freight, shown both ways:
+              An affiliate cost invoice with a {formatCents(exampleAffiliateCost)} cabinet cost, shown both ways.
             </p>
             <table className="mt-3 w-full border-collapse text-sm">
               <thead>
@@ -202,14 +200,9 @@ export default function FeeSystemDoc() {
               </thead>
               <tbody>
                 <tr className="border-b border-[#1a2236]/10">
-                  <td className="py-1.5">Cabinet subtotal</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(card.cabinetSubtotalCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(ach.cabinetSubtotalCents)}</td>
-                </tr>
-                <tr className="border-b border-[#1a2236]/10">
-                  <td className="py-1.5">Freight</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(card.freightCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(ach.freightCents)}</td>
+                  <td className="py-1.5">Affiliate cabinet cost</td>
+                  <td className="py-1.5 text-right tabular-nums">{formatCents(card.affiliateCostCents)}</td>
+                  <td className="py-1.5 text-right tabular-nums">{formatCents(ach.affiliateCostCents)}</td>
                 </tr>
                 <tr className="border-b border-[#1a2236]/10">
                   <td className="py-1.5">Damage fee ({pct(s.damageFeeBps)})</td>
@@ -224,9 +217,9 @@ export default function FeeSystemDoc() {
                   <td className="py-1.5 text-right tabular-nums">{formatCents(ach.techFeeCents)}</td>
                 </tr>
                 <tr className="border-b border-[#1a2236]/10">
-                  <td className="py-1.5">Subtotal before card fee</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(card.preCardTotalCents)}</td>
-                  <td className="py-1.5 text-right tabular-nums">{formatCents(ach.preCardTotalCents)}</td>
+                  <td className="py-1.5">Customer retail / freight fee base</td>
+                  <td className="py-1.5 text-right tabular-nums">$0.00</td>
+                  <td className="py-1.5 text-right tabular-nums">$0.00</td>
                 </tr>
                 <tr className="border-b border-[#1a2236]/10">
                   <td className="py-1.5">Card fee ({pct(s.cardFeeBps)})</td>
@@ -234,14 +227,14 @@ export default function FeeSystemDoc() {
                   <td className="py-1.5 text-right tabular-nums text-green-700">waived</td>
                 </tr>
                 <tr>
-                  <td className="py-2 font-bold">Customer pays</td>
-                  <td className="py-2 text-right font-bold tabular-nums">{formatCents(card.totalCents)}</td>
-                  <td className="py-2 text-right font-bold tabular-nums">{formatCents(ach.totalCents)}</td>
+                  <td className="py-2 font-bold">Affiliate cost total</td>
+                  <td className="py-2 text-right font-bold tabular-nums">{formatCents(card.affiliateTotalCostCents)}</td>
+                  <td className="py-2 text-right font-bold tabular-nums">{formatCents(ach.affiliateTotalCostCents)}</td>
                 </tr>
               </tbody>
             </table>
             <p className="mt-2 text-xs text-muted-foreground">
-              Choosing an approved bank transfer saves {formatCents(card.totalCents - ach.totalCents)} on this order.
+              Choosing an approved bank transfer saves {formatCents(card.affiliateTotalCostCents - ach.affiliateTotalCostCents)} on this affiliate cost invoice.
             </p>
           </section>
 

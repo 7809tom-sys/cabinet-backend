@@ -14,7 +14,7 @@ import {
   flooringMaterial,
   type PlanAnnotation,
 	  wallDimensions, cabinetWallRunSegment, retainedWallSegmentForSplit, type DimensionSeg,
-	  type PonyWall, clampPonyWall, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
+		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
 import { CheckCircle2, Compass, X, RotateCw } from "lucide-react";
@@ -1794,23 +1794,33 @@ export function PlanCanvas({
           </div>
         )}
         {/* Pony walls — free-standing half-walls rendered as solid dark rectangles */}
-        {ponyWalls.map((pw) => {
-          const isPonySelected = pw.uid === selectedPonyWallUid;
-	          const ponyFrame = ponyWallPlanFrame(pw, room);
-	          const ponyDegrees = (ponyFrame.radians * 180) / Math.PI;
-	          const attachedToPeninsula = ponyFrame.attachedToPeninsula;
-	          const isDrywallBackedPeninsula = attachedToPeninsula && pw.peninsulaPlacement === "behind-cabinets" && pw.finish === "drywall";
-	          const drywallAppearance = drywallPonyWallAppearance(pw);
-	          const drywallPlanBackground = drywallPonyWallPreviewBackground(pw);
-          const ponyStyle: React.CSSProperties = attachedToPeninsula
-            ? {
-                left: ponyFrame.start.x * ppi,
-                top: ponyFrame.start.y * ppi - (ponyFrame.depth * ppi) / 2,
-                width: ponyFrame.width * ppi,
-                height: ponyFrame.depth * ppi,
-                transform: `rotate(${ponyDegrees}deg)`,
-                transformOrigin: "0 50%",
-              }
+	        {ponyWalls.map((pw) => {
+	          const isPonySelected = pw.uid === selectedPonyWallUid;
+		          const ponyFrame = ponyWallPlanFrame(pw, room);
+		          const ponyFootprint = ponyWallMiteredFootprint(pw, ponyWalls, room);
+		          const ponyDegrees = (ponyFrame.radians * 180) / Math.PI;
+		          const attachedToPeninsula = ponyFrame.attachedToPeninsula;
+		          const isDrywallBackedPeninsula = attachedToPeninsula && pw.peninsulaPlacement === "behind-cabinets" && pw.finish === "drywall";
+		          const drywallAppearance = drywallPonyWallAppearance(pw);
+		          const drywallPlanBackground = drywallPonyWallPreviewBackground(pw);
+		          const localXs = ponyFootprint.corners.map((corner) => corner.x);
+		          const localZs = ponyFootprint.corners.map((corner) => corner.z);
+		          const minLocalX = Math.min(...localXs);
+		          const maxLocalX = Math.max(...localXs);
+		          const minLocalZ = Math.min(...localZs);
+		          const maxLocalZ = Math.max(...localZs);
+		          const miteredPonyClip = ponyFootprint.miteredStart || ponyFootprint.miteredEnd
+		            ? `polygon(${ponyFootprint.corners.map((corner) => `${((corner.x - minLocalX) / Math.max(0.001, maxLocalX - minLocalX)) * 100}% ${((corner.z - minLocalZ) / Math.max(0.001, maxLocalZ - minLocalZ)) * 100}%`).join(", ")})`
+		            : undefined;
+	          const ponyStyle: React.CSSProperties = attachedToPeninsula
+	            ? {
+	                left: (ponyFrame.start.x + Math.cos(ponyFrame.radians) * minLocalX - Math.sin(ponyFrame.radians) * minLocalZ) * ppi,
+	                top: (ponyFrame.start.y + Math.sin(ponyFrame.radians) * minLocalX + Math.cos(ponyFrame.radians) * minLocalZ) * ppi,
+	                width: (maxLocalX - minLocalX) * ppi,
+	                height: (maxLocalZ - minLocalZ) * ppi,
+	                transform: `rotate(${ponyDegrees}deg)`,
+	                transformOrigin: "0 0",
+	              }
             : {
                 left: pw.x * ppi,
                 top: pw.y * ppi,
@@ -1827,8 +1837,9 @@ export function PlanCanvas({
               ...ponyStyle,
 	              background: isDrywallBackedPeninsula ? drywallPlanBackground : "#2a3550",
 	              border: isPonySelected ? "2px solid #f59e0b" : isDrywallBackedPeninsula ? "2px solid #8b8274" : "2px solid #1a2744",
-              borderRadius: 2,
-              cursor: layoutLocked || attachedToPeninsula ? "default" : "move",
+	              borderRadius: 2,
+		              clipPath: miteredPonyClip,
+	              cursor: layoutLocked || attachedToPeninsula ? "default" : "move",
               zIndex: isPonySelected ? 20 : 2,
               boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
             }}

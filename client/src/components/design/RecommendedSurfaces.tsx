@@ -33,6 +33,7 @@ type RecItem = {
   subCategory: string | null;
   size: string | null;
   imageUrl: string | null;
+  materialImageUrl: string | null;
   sellPrice: number | null;
 };
 
@@ -45,6 +46,7 @@ function toSurface(p: RecItem): SelectedSurface {
     subCategory: p.subCategory,
     size: p.size,
     imageUrl: p.imageUrl,
+    materialImageUrl: p.materialImageUrl,
     sellPrice: p.sellPrice,
   };
 }

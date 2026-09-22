@@ -48,6 +48,10 @@ export default function CheckoutSuccess() {
     );
   }
 
+  const affiliateOnlyFeeCents = checkout.data.breakdown.damageFeeCents
+    + checkout.data.breakdown.techFeeCents
+    + checkout.data.breakdown.cardFeeCents;
+
   return (
     <CheckoutPanel icon={<CheckCircle2 className="h-7 w-7 text-emerald-600" />} title="Payment confirmed">
       <p>
@@ -57,7 +61,7 @@ export default function CheckoutSuccess() {
         <dt className="text-muted-foreground">Merchandise</dt><dd className="text-right font-medium">{formatCents(checkout.data.breakdown.merchandiseCents)}</dd>
         <dt className="text-muted-foreground">Verified shipping</dt><dd className="text-right font-medium">{formatCents(checkout.data.breakdown.freightCents)}</dd>
         <dt className="text-muted-foreground">Sales tax</dt><dd className="text-right font-medium">{formatCents(checkout.data.breakdown.salesTaxCents)}</dd>
-        <dt className="text-muted-foreground">Approved fees</dt><dd className="text-right font-medium">{formatCents(checkout.data.breakdown.damageFeeCents + checkout.data.breakdown.techFeeCents + checkout.data.breakdown.cardFeeCents)}</dd>
+        {affiliateOnlyFeeCents > 0 && <><dt className="text-muted-foreground">Approved affiliate fees</dt><dd className="text-right font-medium">{formatCents(affiliateOnlyFeeCents)}</dd></>}
       </dl>
       <Button asChild className="mt-6">
         <Link href="/catalog"><ReceiptText className="mr-2 h-4 w-4" /> Continue shopping</Link>

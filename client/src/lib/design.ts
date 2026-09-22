@@ -10041,6 +10041,177 @@ export function ponyWallPlanFrame(
   };
 }
 
+export interface PonyWallMiteredFootprint {
+  frame: PonyWallPlanFrame;
+  /** Local plan points in perimeter order: start/left, start/right, end/right, end/left. */
+  corners: Array<{ x: number; z: number }>;
+  miteredStart: boolean;
+  miteredEnd: boolean;
+}
+
+type PonyWallJoinAnchor = {
+  endpoint: "start" | "end";
+  point: { x: number; y: number };
+};
+
+const PONY_WALL_JOIN_TOLERANCE_IN = 0.125;
+
+function ponyWallJoinAnchors(
+  ponyWall: PonyWall,
+  room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
+): PonyWallJoinAnchor[] {
+  const run = ponyWall.peninsulaRunId
+    ? room.peninsulaRuns?.find((candidate) => candidate.id === ponyWall.peninsulaRunId)
+    : undefined;
+  if (!run) return [];
+  const endpoints = peninsulaRunEndpoints(run, room);
+  if (ponyWall.peninsulaPlacement === "behind-cabinets") {
+    return [
+      { endpoint: "start", point: endpoints.start },
+      { endpoint: "end", point: endpoints.end },
+    ];
+  }
+  return [{
+    endpoint: "start",
+    point: ponyWall.peninsulaEnd === "start" ? endpoints.start : endpoints.end,
+  }];
+}
+
+function crossPlan(left: { x: number; y: number }, right: { x: number; y: number }) {
+  return left.x * right.y - left.y * right.x;
+}
+
+function planLineIntersection(
+  origin: { x: number; y: number },
+  direction: { x: number; y: number },
+  otherOrigin: { x: number; y: number },
+  otherDirection: { x: number; y: number },
+) {
+  const denominator = crossPlan(direction, otherDirection);
+  if (Math.abs(denominator) <= 1e-6) return null;
+  const offset = { x: otherOrigin.x - origin.x, y: otherOrigin.y - origin.y };
+  const distance = crossPlan(offset, otherDirection) / denominator;
+  return { x: origin.x + direction.x * distance, y: origin.y + direction.y * distance };
+}
+
+/**
+ * Produces the exact miter footprint for a pony wall when it meets another
+ * same-thickness, same-height peninsula wall. The joint plane bisects the two
+ * wall directions, so both cut faces share the same physical edge instead of
+ * leaving the triangular gap produced by two square-ended boxes.
+ */
+export function ponyWallMiteredFootprint(
+  ponyWall: PonyWall,
+  ponyWalls: PonyWall[],
+  room: Pick<RoomData, "width" | "depth" | "peninsulaRuns">,
+): PonyWallMiteredFootprint {
+  const frame = ponyWallPlanFrame(ponyWall, room);
+  const halfDepth = frame.depth / 2;
+  let startNeg = 0;
+  let startPos = 0;
+  let endNeg = frame.width;
+  let endPos = frame.width;
+  let miteredStart = false;
+  let miteredEnd = false;
+  if (!frame.attachedToPeninsula) {
+    return {
+      frame,
+      corners: [{ x: startNeg, z: -halfDepth }, { x: startPos, z: halfDepth }, { x: endPos, z: halfDepth }, { x: endNeg, z: -halfDepth }],
+      miteredStart,
+      miteredEnd,
+    };
+  }
+
+  const tangent = { x: Math.cos(frame.radians), y: Math.sin(frame.radians) };
+  const normal = { x: -tangent.y, y: tangent.x };
+  const ownAnchors = ponyWallJoinAnchors(ponyWall, room);
+  for (const anchor of ownAnchors) {
+    const neighbor = ponyWalls.find((candidate) => {
+      if (candidate.uid === ponyWall.uid) return false;
+      const candidateFrame = ponyWallPlanFrame(candidate, room);
+      if (!candidateFrame.attachedToPeninsula) return false;
+      if (Math.abs(candidateFrame.depth - frame.depth) > PONY_WALL_JOIN_TOLERANCE_IN) return false;
+      if (Math.abs(candidateFrame.height - frame.height) > PONY_WALL_JOIN_TOLERANCE_IN) return false;
+      return ponyWallJoinAnchors(candidate, room).some((candidateAnchor) => (
+        Math.hypot(candidateAnchor.point.x - anchor.point.x, candidateAnchor.point.y - anchor.point.y) <= PONY_WALL_JOIN_TOLERANCE_IN
+      ));
+    });
+    if (!neighbor) continue;
+    const neighborFrame = ponyWallPlanFrame(neighbor, room);
+    const neighborAnchor = ponyWallJoinAnchors(neighbor, room).find((candidateAnchor) => (
+      Math.hypot(candidateAnchor.point.x - anchor.point.x, candidateAnchor.point.y - anchor.point.y) <= PONY_WALL_JOIN_TOLERANCE_IN
+    ));
+    if (!neighborAnchor) continue;
+    const neighborTangent = { x: Math.cos(neighborFrame.radians), y: Math.sin(neighborFrame.radians) };
+    const incoming = anchor.endpoint === "end" ? tangent : { x: -tangent.x, y: -tangent.y };
+    const outgoing = neighborAnchor.endpoint === "start" ? neighborTangent : { x: -neighborTangent.x, y: -neighborTangent.y };
+    const bisectorLength = Math.hypot(incoming.x + outgoing.x, incoming.y + outgoing.y);
+    if (bisectorLength <= 1e-6) continue;
+    let seamDirection = { x: (incoming.x + outgoing.x) / bisectorLength, y: (incoming.y + outgoing.y) / bisectorLength };
+    // Drywall pony walls sit behind their cabinet runs, so their centerlines are
+    // deliberately offset at a turn. The miter must therefore start at the
+    // shared cabinet-side vertex and finish at the *outer-face* intersection,
+    // not at a generic centerline bisector. This gives both boards the same cut.
+    if (ponyWall.peninsulaPlacement === "behind-cabinets" && neighbor.peninsulaPlacement === "behind-cabinets") {
+      const ownCenterAtAnchor = {
+        x: frame.start.x + tangent.x * (anchor.endpoint === "end" ? frame.width : 0),
+        y: frame.start.y + tangent.y * (anchor.endpoint === "end" ? frame.width : 0),
+      };
+      const neighborCenterAtAnchor = {
+        x: neighborFrame.start.x + neighborTangent.x * (neighborAnchor.endpoint === "end" ? neighborFrame.width : 0),
+        y: neighborFrame.start.y + neighborTangent.y * (neighborAnchor.endpoint === "end" ? neighborFrame.width : 0),
+      };
+      const ownFaceNormal = {
+        x: (anchor.point.x - ownCenterAtAnchor.x) / (frame.depth / 2),
+        y: (anchor.point.y - ownCenterAtAnchor.y) / (frame.depth / 2),
+      };
+      const neighborFaceNormal = {
+        x: (neighborAnchor.point.x - neighborCenterAtAnchor.x) / (neighborFrame.depth / 2),
+        y: (neighborAnchor.point.y - neighborCenterAtAnchor.y) / (neighborFrame.depth / 2),
+      };
+      const outerJoin = planLineIntersection(
+        { x: anchor.point.x - ownFaceNormal.x * frame.depth, y: anchor.point.y - ownFaceNormal.y * frame.depth },
+        tangent,
+        { x: neighborAnchor.point.x - neighborFaceNormal.x * neighborFrame.depth, y: neighborAnchor.point.y - neighborFaceNormal.y * neighborFrame.depth },
+        neighborTangent,
+      );
+      if (outerJoin) {
+        const seamLength = Math.hypot(outerJoin.x - anchor.point.x, outerJoin.y - anchor.point.y);
+        if (seamLength > 1e-6) {
+          seamDirection = {
+            x: (outerJoin.x - anchor.point.x) / seamLength,
+            y: (outerJoin.y - anchor.point.y) / seamLength,
+          };
+        }
+      }
+    }
+    const denominator = crossPlan(tangent, seamDirection);
+    if (Math.abs(denominator) <= 1e-6) continue;
+    const jointLocalX = (anchor.point.x - frame.start.x) * tangent.x + (anchor.point.y - frame.start.y) * tangent.y;
+    const jointLocalZ = (anchor.point.x - frame.start.x) * normal.x + (anchor.point.y - frame.start.y) * normal.y;
+    const slope = -crossPlan(normal, seamDirection) / denominator;
+    const at = (z: number) => jointLocalX + slope * (z - jointLocalZ);
+    const neg = at(-halfDepth);
+    const pos = at(halfDepth);
+    if (![neg, pos].every(Number.isFinite) || Math.max(Math.abs(neg - jointLocalX), Math.abs(pos - jointLocalX)) > frame.depth * 6) continue;
+    if (anchor.endpoint === "start") {
+      startNeg = neg;
+      startPos = pos;
+      miteredStart = true;
+    } else {
+      endNeg = neg;
+      endPos = pos;
+      miteredEnd = true;
+    }
+  }
+  return {
+    frame,
+    corners: [{ x: startNeg, z: -halfDepth }, { x: startPos, z: halfDepth }, { x: endPos, z: halfDepth }, { x: endNeg, z: -halfDepth }],
+    miteredStart,
+    miteredEnd,
+  };
+}
+
 /** Creates a measured pony-wall continuation that stays snapped to a peninsula endpoint. */
 export function makePeninsulaPonyWall(
   run: PeninsulaRun,

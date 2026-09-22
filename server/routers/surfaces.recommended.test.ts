@@ -22,6 +22,7 @@ type Rec = {
   subCategory: string | null;
   size: string | null;
   imageUrl: string | null;
+  materialImageUrl?: string | null;
   sellPrice: number | null;
   unsupportedOverhangLimitIn?: number | null;
 };
@@ -45,6 +46,7 @@ describe("surfaces.recommended", () => {
       expect(r.sellPrice).not.toBeNull();
       expect(r.sellPrice ?? 0).toBeGreaterThan(0);
       expect(r.imageUrl && r.imageUrl.length > 0).toBe(true);
+      expect(r.materialImageUrl && r.materialImageUrl.length > 0).toBe(true);
     }
   });
 
@@ -57,6 +59,7 @@ describe("surfaces.recommended", () => {
     for (const r of rows) {
       expect(r.category).toBe("Tile & Mosaic");
       expect(r.imageUrl && r.imageUrl.length > 0).toBe(true);
+      expect(r.materialImageUrl && r.materialImageUrl.length > 0).toBe(true);
     }
   });
 
@@ -68,6 +71,7 @@ describe("surfaces.recommended", () => {
     for (const r of rows) {
       expect(r.category).toBe("Quartz Slabs (Countertops)");
       expect(r.sellPrice ?? 0).toBeGreaterThan(0);
+      expect(r.materialImageUrl && r.materialImageUrl.length > 0).toBe(true);
       expect(Object.prototype.hasOwnProperty.call(r, "unsupportedOverhangLimitIn")).toBe(true);
       expect(r.unsupportedOverhangLimitIn == null || Number.isFinite(r.unsupportedOverhangLimitIn)).toBe(true);
     }

@@ -6,6 +6,7 @@ import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { isPelicanDesignerReady } from "../lib/pelicanDesignerReadiness";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -88,6 +89,18 @@ export const pelicanRouter = router({
       const conds = [eq(pelicanProducts.isActive, true), hasPriceData() as any];
       if (scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
+      if (scope === "designer") {
+        const readyRows = await db
+          .select()
+          .from(pelicanProducts)
+          .where(and(...conds));
+        const counts = new Map<string, number>();
+        for (const row of readyRows) {
+          if (!isPelicanDesignerReady(row)) continue;
+          counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
+        }
+        return Array.from(counts, ([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
+      }
       const rows = await db
         .select({ category: pelicanProducts.category, count: sql<number>`count(*)` })
         .from(pelicanProducts)
@@ -130,6 +143,25 @@ export const pelicanRouter = router({
         );
       }
       const where = and(...conds);
+      if (input.scope === "designer") {
+        const designerRows = await db
+          .select()
+          .from(pelicanProducts)
+          .where(where)
+          .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name));
+        const readyRows = designerRows.filter(isPelicanDesignerReady);
+        const suggested = input.search || input.subCategory || input.offset > 0
+          ? []
+          : readyRows.filter((row) => row.isPopular).slice(0, 12);
+        const page = readyRows.slice(input.offset, input.offset + input.limit);
+        const subCategories = Array.from(new Set(readyRows.map((row) => row.subCategory).filter((value): value is string => Boolean(value))));
+        return {
+          suggested: suggested.map((r) => withPricing(r, markupMap)),
+          items: page.map((r) => withPricing(r, markupMap)),
+          total: readyRows.length,
+          subCategories,
+        };
+      }
       const suggestedRows =
         input.search || input.subCategory || input.offset > 0
           ? []

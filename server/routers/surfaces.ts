@@ -6,8 +6,7 @@ import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
-import { pelicanFixtureRole } from "../lib/pelicanFixtureRole";
-import { verifiedPelicanFaucetProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
+import { isPelicanDesignerReady, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -91,19 +90,6 @@ function roleFilter(role: RecommendedRole) {
   }
 }
 
-/**
- * Catalog photos support selection cards only; they must never be treated as a
- * source for fixture geometry. A sink or faucet can enter the Designer only
- * when its Pelican code resolves to a measured technical profile. Other active
- * Pelican fixtures can remain catalog products, but cannot create an inaccurate
- * 3D sink or faucet.
- */
-function hasVerifiedDesignerFixtureProfile(role: RecommendedRole, pelicanCode: string | null): boolean {
-  if (role === "sink") return Boolean(verifiedPelicanSinkProfile(pelicanCode));
-  if (role === "faucet") return Boolean(verifiedPelicanFaucetProfile(pelicanCode));
-  return true;
-}
-
 export const surfacesRouter = router({
   // A short, curated set of recommended real Pelican products PER ROLE for the
   // Design Tool's surface sections (flooring / backsplash / countertop / sink /
@@ -153,11 +139,12 @@ export const surfacesRouter = router({
           coverageSqFt: r.coverageSqFt ? parseFloat(String(r.coverageSqFt)) : null,
           unsupportedOverhangLimitIn: r.unsupportedOverhangLimitIn == null ? null : Number(r.unsupportedOverhangLimitIn),
           imageUrl: r.imageUrl,
+          materialImageUrl: r.materialImageUrl,
           sellPrice: sellPriceOf(r, map),
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
-        .filter((r) => (input.role === "sink" || input.role === "faucet" ? pelicanFixtureRole(r) === input.role : true))
-        .filter((r) => hasVerifiedDesignerFixtureProfile(input.role, r.pelicanCode));
+        .filter((r) => pelicanDesignerRole(r) === input.role)
+        .filter(isPelicanDesignerReady);
       return recommendations.slice(0, input.limit);
     }),
 

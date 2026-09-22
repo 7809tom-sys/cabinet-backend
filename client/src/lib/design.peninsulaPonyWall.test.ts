@@ -3,10 +3,11 @@ import {
 	drywallPonyWallAppearance,
 	drywallPonyWallPreviewBackground,
   makePeninsulaDrywallBackPonyWall,
-  makePeninsulaPonyWall,
-  peninsulaRunEndpoints,
-	ponyWallFitsRoom,
-	ponyWallPlanFrame,
+	  makePeninsulaPonyWall,
+	  peninsulaRunEndpoints,
+		ponyWallFitsRoom,
+		ponyWallMiteredFootprint,
+		ponyWallPlanFrame,
 	roomWallAppearance,
   type PeninsulaRun,
   type RoomData,
@@ -93,6 +94,29 @@ describe("peninsula-attached pony walls", () => {
 	    const extendedRoom: RoomData = { ...room, peninsulaRuns: [extended, return45] };
 	    expect(ponyWallPlanFrame(ponyWall, extendedRoom).width).toBe(84);
 	  });
+
+  it("uses mirrored miter cuts when matching drywall pony walls meet at a 45-degree peninsula joint", () => {
+    const parentWall = makePeninsulaDrywallBackPonyWall(primary, room, { depth: 4.5, height: 40 });
+    const returnWall = makePeninsulaDrywallBackPonyWall(return45, room, { depth: 4.5, height: 40 });
+    const parent = ponyWallMiteredFootprint(parentWall, [parentWall, returnWall], room);
+    const child = ponyWallMiteredFootprint(returnWall, [parentWall, returnWall], room);
+
+    expect(parent.miteredEnd).toBe(true);
+    expect(child.miteredStart).toBe(true);
+    // The shared bisector intentionally replaces both square ends, removing
+    // the triangular visual gap at the joined 45-degree pony-wall corner.
+    expect(parent.corners[2]!.x).not.toBeCloseTo(parent.corners[3]!.x, 8);
+    expect(child.corners[0]!.x).not.toBeCloseTo(child.corners[1]!.x, 8);
+    const toPlanPoint = (frame: typeof parent.frame, corner: { x: number; z: number }) => ({
+      x: frame.start.x + Math.cos(frame.radians) * corner.x - Math.sin(frame.radians) * corner.z,
+      y: frame.start.y + Math.sin(frame.radians) * corner.x + Math.cos(frame.radians) * corner.z,
+    });
+    const parentCut = [parent.corners[2]!, parent.corners[3]!].map((corner) => toPlanPoint(parent.frame, corner));
+    const childCut = [child.corners[0]!, child.corners[1]!].map((corner) => toPlanPoint(child.frame, corner));
+    for (const point of parentCut) {
+      expect(Math.min(...childCut.map((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y)))).toBeLessThan(1e-7);
+    }
+  });
 
 	  it("uses safe paint and texture defaults for legacy or malformed drywall settings", () => {
 	    expect(drywallPonyWallAppearance({ drywallColor: "not-a-color", drywallTexture: "rough-cement" as any })).toEqual({

@@ -34,8 +34,7 @@ interface FeeForm {
 
 // Sample figures used purely for the live preview.
 const SAMPLE_BASE_CENTS = 10000; // $100 base cabinet cost
-const SAMPLE_SUBTOTAL_CENTS = 500000; // $5,000 cabinet subtotal
-const SAMPLE_FREIGHT_CENTS = 25000; // $250 freight
+const SAMPLE_AFFILIATE_COST_CENTS = 500000; // $5,000 affiliate cabinet cost
 
 function formToSettings(f: FeeForm): PlatformPricingSettings {
   return {
@@ -81,11 +80,11 @@ export default function FeeSystemAdmin() {
     const settings = formToSettings(form);
     const ladder = priceLadder(SAMPLE_BASE_CENTS, settings);
     const card = computeFeeStack(
-      { cabinetSubtotalCents: SAMPLE_SUBTOTAL_CENTS, freightCents: SAMPLE_FREIGHT_CENTS, paymentMethod: "card" },
+      { cabinetSubtotalCents: 0, affiliateCostCents: SAMPLE_AFFILIATE_COST_CENTS, paymentMethod: "card", isAffiliateOrder: true },
       settings,
     );
     const ach = computeFeeStack(
-      { cabinetSubtotalCents: SAMPLE_SUBTOTAL_CENTS, freightCents: SAMPLE_FREIGHT_CENTS, paymentMethod: "ach", achApproved: true },
+      { cabinetSubtotalCents: 0, affiliateCostCents: SAMPLE_AFFILIATE_COST_CENTS, paymentMethod: "ach", achApproved: true, isAffiliateOrder: true },
       settings,
     );
     return { ladder, card, ach };
@@ -131,9 +130,9 @@ export default function FeeSystemAdmin() {
               <Receipt className="h-5 w-5" /> Fee System (price ladder + order fees)
             </CardTitle>
             <CardDescription>
-              The platform price ladder and the order fee stack. The damage fee applies to{" "}
-              <strong>every</strong> order; the tech fee is capped; the card fee applies to card
-              payments only (an approved bank/ACH transfer waives it).
+              The platform price ladder and the affiliate-cost fee stack. Damage, technology, and card
+              fees apply <strong>only to an affiliate’s cabinet cost</strong>; they never increase customer
+              retail or freight. An approved affiliate bank/ACH transfer waives the card fee.
             </CardDescription>
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0 bg-background">
@@ -160,8 +159,8 @@ export default function FeeSystemAdmin() {
             Order fee stack
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
-            {pctField("Damage fee", "damagePct", "every order")}
-            {pctField("Tech fee", "techPct", "of cabinet subtotal")}
+            {pctField("Damage fee", "damagePct", "of affiliate cabinet cost only")}
+            {pctField("Tech fee", "techPct", "of affiliate cabinet cost only")}
             <div>
               <Label className="text-xs uppercase tracking-wide text-muted-foreground">Tech fee cap</Label>
               <div className="relative mt-1">
@@ -176,7 +175,7 @@ export default function FeeSystemAdmin() {
               </div>
               <p className="mt-1 text-[11px] text-muted-foreground">per transaction</p>
             </div>
-            {pctField("Card fee", "cardPct", "card only; ACH waived")}
+            {pctField("Card fee", "cardPct", "affiliate cost only; ACH waived")}
           </div>
         </div>
 
@@ -198,7 +197,7 @@ export default function FeeSystemAdmin() {
               </div>
               <div>
                 <div className="mb-1 text-xs text-muted-foreground">
-                  Order: {formatCents(SAMPLE_SUBTOTAL_CENTS)} cabinets + {formatCents(SAMPLE_FREIGHT_CENTS)} freight
+                  Affiliate cost invoice: {formatCents(SAMPLE_AFFILIATE_COST_CENTS)} cabinets
                 </div>
                 <ul className="space-y-0.5 text-sm">
                   <li className="flex justify-between"><span className="text-muted-foreground">Damage fee</span><span className="font-medium">{formatCents(preview.card.damageFeeCents)}</span></li>
@@ -207,8 +206,8 @@ export default function FeeSystemAdmin() {
                     <span className="font-medium">{formatCents(preview.card.techFeeCents)}</span>
                   </li>
                   <li className="flex justify-between"><span className="text-muted-foreground">Card fee</span><span className="font-medium">{formatCents(preview.card.cardFeeCents)}</span></li>
-                  <li className="flex justify-between border-t border-border pt-1"><span>Total (card)</span><span className="font-bold">{formatCents(preview.card.totalCents)}</span></li>
-                  <li className="flex justify-between"><span className="text-muted-foreground">Total (ACH, fee-free)</span><span className="font-semibold">{formatCents(preview.ach.totalCents)}</span></li>
+                  <li className="flex justify-between border-t border-border pt-1"><span>Affiliate cost total (card)</span><span className="font-bold">{formatCents(preview.card.affiliateTotalCostCents)}</span></li>
+                  <li className="flex justify-between"><span className="text-muted-foreground">Affiliate cost total (ACH)</span><span className="font-semibold">{formatCents(preview.ach.affiliateTotalCostCents)}</span></li>
                 </ul>
               </div>
             </div>

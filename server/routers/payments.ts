@@ -2,9 +2,8 @@ import { z } from "zod";
 import { eq, desc, isNotNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, adminProcedure, router } from "../_core/trpc";
-import { getDb, getPlatformPricingSettings } from "../db";
+import { getDb } from "../db";
 import { paymentSettings, payments, orderRequests } from "../../drizzle/schema";
-import { computeFeeStack } from "@shared/pricing";
 import { chargeOpaque, type AuthNetCredentials } from "../authorizeNet";
 import { ENV } from "../_core/env";
 import { resolveStripeCredentials } from "../stripeConfig";
@@ -227,20 +226,11 @@ export const paymentsRouter = router({
         });
       }
 
-      // Recompute the fee stack + grand total on the server (card payment).
-      // Tech fee is ONLY charged on affiliate-referred orders.
-      const feeSettings = await getPlatformPricingSettings();
-      const stack = computeFeeStack(
-        {
-          cabinetSubtotalCents: merchandiseCents,
-          freightCents: verifiedFreightCents,
-          paymentMethod: "card",
-          isAffiliateOrder: order.affiliateId != null,
-        },
-        feeSettings,
-      );
-      const amountCents = stack.totalCents;
-      const feesCents = stack.damageFeeCents + stack.techFeeCents + stack.cardFeeCents;
+      // Customer payment includes only the persisted merchandise and verified
+      // freight. Affiliate-only damage, technology, and card fees are settled
+      // from the affiliate's cost invoice and never added here.
+      const amountCents = merchandiseCents + verifiedFreightCents;
+      const feesCents = 0;
 
       // Record a pending payment row first so every attempt is auditable.
       const insert = await db.insert(payments).values({
@@ -312,10 +302,10 @@ export const paymentsRouter = router({
         amountCents,
         breakdown: {
           merchandiseCents,
-          damageFeeCents: stack.damageFeeCents,
-          techFeeCents: stack.techFeeCents,
+          damageFeeCents: 0,
+          techFeeCents: 0,
           freightCents: verifiedFreightCents,
-          cardFeeCents: stack.cardFeeCents,
+          cardFeeCents: 0,
           totalCents: amountCents,
         },
         cardLast4: result.cardLast4,

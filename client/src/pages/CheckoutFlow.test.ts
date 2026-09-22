@@ -24,7 +24,8 @@ describe("customer hosted checkout flow", () => {
     expect(handoff).toContain("trpc.orders.createStripeCheckout.useMutation");
     expect(handoff).toContain('window.open(url, "_blank", "noopener,noreferrer")');
     expect(handoff).toContain("Proceed to secure payment");
-    expect(handoff).toContain("server-calculated merchandise, verified shipping, sales tax");
+    expect(handoff).toContain("server-calculated merchandise, verified shipping, and sales tax");
+    expect(handoff).toContain("Affiliate-only cost fees are never added to a customer checkout");
   });
 
   it("provides payment-confirmed and cancelled return pages", () => {

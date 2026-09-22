@@ -943,7 +943,6 @@ function AffiliateAnalyticsAdmin({ affiliateId }: { affiliateId: number }) {
 }
 
 // ─── Admin Pricing Panel ──────────────────────────────────────────────────────
-const BASELINE_PCT = 0.05;
 const DAMAGE_PCT = 0.01;
 const CC_PCT = 0.04;
 const IT_PCT = 0.10;
@@ -951,12 +950,12 @@ const IT_MAX = 100;
 const PRICE_CATEGORIES = ["base", "wall", "tall", "vanity", "specialty"] as const;
 type PriceCategory = typeof PRICE_CATEGORIES[number];
 const PRICE_CATEGORY_LABELS: Record<PriceCategory, string> = { base: "Base Cabinets", wall: "Wall Cabinets", tall: "Tall / Pantry", vanity: "Vanity", specialty: "Specialty" };
-function computeFloor(retail: number) {
-  const baseline = retail * (1 + BASELINE_PCT);
-  const afterDamage = baseline * (1 + DAMAGE_PCT);
-  const afterCC = afterDamage * (1 + CC_PCT);
-  const itFee = Math.min(retail * IT_PCT, IT_MAX);
-  return { baseline, afterDamage, afterCC, itFee, floor: afterCC + itFee };
+function computeFloor(affiliateCost: number) {
+  const baseline = affiliateCost;
+  const damageFee = affiliateCost * DAMAGE_PCT;
+  const cardFee = affiliateCost * CC_PCT;
+  const itFee = Math.min(affiliateCost * IT_PCT, IT_MAX);
+  return { baseline, damageFee, cardFee, itFee, floor: affiliateCost + damageFee + cardFee + itFee };
 }
 function bpsToPercent(bps: number) { return (bps / 100).toFixed(2); }
 function percentToBps(pct: string) { return Math.round(parseFloat(pct) * 100); }
@@ -984,10 +983,10 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
     setInitialized(true);
   }
 
-  const retail = parseFloat(calcRetail) || 0;
-  const { baseline, afterDamage, afterCC, itFee, floor } = useMemo(() => computeFloor(retail), [retail]);
+  const affiliateCost = parseFloat(calcRetail) || 0;
+  const { baseline, damageFee, cardFee, itFee, floor } = useMemo(() => computeFloor(affiliateCost), [affiliateCost]);
   const defaultMarkupBps = percentToBps(defaultPct || "0");
-  const customerPrice = floor * (1 + defaultMarkupBps / 10000);
+  const customerPrice = affiliateCost * (1 + defaultMarkupBps / 10000);
 
   function save() {
     const defaultBps = percentToBps(defaultPct || "0");
@@ -1005,20 +1004,19 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
   return (
     <div className="space-y-5 max-w-2xl">
       <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-        <p className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4 text-primary" /> Cost Floor Calculator</p>
+        <p className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4 text-primary" /> Affiliate Cost Invoice Calculator</p>
         <div className="flex items-end gap-3">
           <div className="space-y-1 flex-1 max-w-xs">
-            <Label className="text-xs">Cabinet Dealz retail price ($)</Label>
+            <Label className="text-xs">Affiliate cabinet cost ($)</Label>
             <Input type="number" value={calcRetail} onChange={(e) => setCalcRetail(e.target.value)} placeholder="1000" />
           </div>
         </div>
         <div className="rounded-lg border border-border overflow-hidden text-sm">
           {[
-            ["Cabinet Dealz retail", `$${retail.toFixed(2)}`],
-            ["+5% affiliate baseline", `$${baseline.toFixed(2)}`],
-            ["+1% damage protection", `$${afterDamage.toFixed(2)}`],
-            ["+4% credit card fee", `$${afterCC.toFixed(2)}`],
-            ["+IT/platform fee (10%, max $100)", `$${itFee.toFixed(2)}`],
+            ["Affiliate cabinet cost", `$${baseline.toFixed(2)}`],
+            ["Damage protection (1% of cost)", `$${damageFee.toFixed(2)}`],
+            ["Credit card fee (4% of cost)", `$${cardFee.toFixed(2)}`],
+            ["IT/platform fee (10% of cost, max $100)", `$${itFee.toFixed(2)}`],
           ].map(([label, val]) => (
             <div key={label} className="flex justify-between px-3 py-1.5 border-b border-border last:border-0">
               <span className="text-muted-foreground text-xs">{label}</span>
@@ -1026,12 +1024,12 @@ function AffiliatePricingAdmin({ affiliateId }: { affiliateId: number }) {
             </div>
           ))}
           <div className="flex justify-between px-3 py-2 bg-amber-50 font-semibold text-sm">
-            <span>Cost floor</span><span className="tabular-nums text-amber-700">${floor.toFixed(2)}</span>
+            <span>Affiliate invoice total</span><span className="tabular-nums text-amber-700">${floor.toFixed(2)}</span>
           </div>
         </div>
         {defaultMarkupBps > 0 && (
           <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm flex justify-between">
-            <span className="text-emerald-800">Customer pays ({bpsToPercent(defaultMarkupBps)}% markup)</span>
+            <span className="text-emerald-800">Suggested customer price — cabinet cost only ({bpsToPercent(defaultMarkupBps)}% markup)</span>
             <span className="tabular-nums font-semibold text-emerald-800">${customerPrice.toFixed(2)}</span>
           </div>
         )}

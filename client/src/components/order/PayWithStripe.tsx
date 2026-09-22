@@ -46,7 +46,7 @@ export default function PayWithStripe({ orderRequestId, orderNumber }: PayWithSt
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="rounded-md border border-emerald-200/80 bg-background/70 px-3 py-2 text-xs text-muted-foreground dark:border-emerald-900/70">
-          Stripe will show the server-calculated merchandise, verified shipping, sales tax, and any approved payment fees before you pay. A paid Stripe confirmation completes order <strong className="text-foreground">{orderNumber}</strong>.
+          Stripe will show the server-calculated merchandise, verified shipping, and sales tax before you pay. Affiliate-only cost fees are never added to a customer checkout. A paid Stripe confirmation completes order <strong className="text-foreground">{orderNumber}</strong>.
         </div>
         <Button
           className="w-full gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90"

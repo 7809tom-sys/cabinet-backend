@@ -135,7 +135,13 @@ export function SurfacesPickerDialog({
     const searched = category !== "Preferred" || !debounced
       ? items
       : items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(debounced.toLowerCase()));
-    return searched.filter((item) => item.category !== "Sinks & Faucets" || hasVerifiedPelicanFixtureProfile(item.pelicanCode));
+    return searched.filter((item) => {
+      if (item.category === "Sinks & Faucets") return hasVerifiedPelicanFixtureProfile(item.pelicanCode);
+      const isMaterialRole = item.category === "Flooring"
+        || item.category === "Tile & Mosaic"
+        || item.category === "Quartz Slabs (Countertops)";
+      return isMaterialRole && Boolean(item.materialImageUrl?.trim());
+    });
   }, [category, debounced, items]);
 
   return (
@@ -146,7 +152,7 @@ export function SurfacesPickerDialog({
             <Waves className="h-5 w-5 text-[var(--color-gold)]" /> Surfaces & Fixtures
           </DialogTitle>
           <DialogDescription className="hidden sm:block text-xs sm:text-sm">
-            Add Pelican finishes to this design. Selected items are carried into your quote.
+            Add source-ready Pelican finishes and fixtures to this design. Selected items are carried into your quote.
           </DialogDescription>
         </DialogHeader>
 

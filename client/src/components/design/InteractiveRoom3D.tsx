@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -6473,17 +6473,51 @@ function addThreeDCountertopUpstands(
   }
 }
 
-function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData) {
+function miteredPonyWallGeometry(corners: Array<{ x: number; z: number }>, height: number) {
+  const positions = new Float32Array([
+    corners[0]!.x * INCH, 0, corners[0]!.z * INCH,
+    corners[1]!.x * INCH, 0, corners[1]!.z * INCH,
+    corners[2]!.x * INCH, 0, corners[2]!.z * INCH,
+    corners[3]!.x * INCH, 0, corners[3]!.z * INCH,
+    corners[0]!.x * INCH, height * INCH, corners[0]!.z * INCH,
+    corners[1]!.x * INCH, height * INCH, corners[1]!.z * INCH,
+    corners[2]!.x * INCH, height * INCH, corners[2]!.z * INCH,
+    corners[3]!.x * INCH, height * INCH, corners[3]!.z * INCH,
+  ]);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geometry.setIndex([
+    0, 2, 1, 0, 3, 2,
+    4, 5, 6, 4, 6, 7,
+    0, 1, 5, 0, 5, 4,
+    1, 2, 6, 1, 6, 5,
+    2, 3, 7, 2, 7, 6,
+    3, 0, 4, 3, 4, 7,
+  ]);
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData, ponyWalls: PonyWall[]) {
+  const footprint = ponyWallMiteredFootprint(ponyWall, ponyWalls, room);
   const transform = ponyWallTransform(ponyWall, room);
   const drywallFinished = ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall";
   const drywallAppearance = drywallPonyWallAppearance(ponyWall);
+  const material = new THREE.MeshStandardMaterial({ color: drywallFinished ? drywallAppearance.color : "#ede9e1", roughness: drywallFinished ? drywallAppearance.roughness : 0.86 });
+  const hasMiteredJoin = footprint.miteredStart || footprint.miteredEnd;
   const wall = new THREE.Mesh(
-    new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
-    new THREE.MeshStandardMaterial({ color: drywallFinished ? drywallAppearance.color : "#ede9e1", roughness: drywallFinished ? drywallAppearance.roughness : 0.86 }),
+    hasMiteredJoin
+      ? miteredPonyWallGeometry(footprint.corners, footprint.frame.height)
+      : new THREE.BoxGeometry(transform.width, transform.height, transform.depth),
+    material,
   );
-  wall.position.set(transform.x, transform.y, transform.z);
+  if (hasMiteredJoin) {
+    wall.position.set(footprint.frame.start.x * INCH, 0, footprint.frame.start.y * INCH);
+  } else {
+    wall.position.set(transform.x, transform.y, transform.z);
+  }
   wall.rotation.y = transform.rotation;
-  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null, drywallFinished, peninsulaPlacement: ponyWall.peninsulaPlacement ?? null, drywallColor: drywallFinished ? drywallAppearance.color : null, drywallTexture: drywallFinished ? drywallAppearance.texture : null };
+  wall.userData = { ponyWallUid: ponyWall.uid, peninsulaRunId: ponyWall.peninsulaRunId ?? null, drywallFinished, peninsulaPlacement: ponyWall.peninsulaPlacement ?? null, drywallColor: drywallFinished ? drywallAppearance.color : null, drywallTexture: drywallFinished ? drywallAppearance.texture : null, miteredStart: footprint.miteredStart, miteredEnd: footprint.miteredEnd, continuousMiteredJoin: hasMiteredJoin };
   root.add(wall);
 }
 
@@ -7691,7 +7725,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      catalogIslandCountertopColor ?? materialDefaults.countertop,
 		      islandCountertopTexture,
 		    );
-	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall, room);
+	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall, room, ponyWalls);
 	    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
 	    catalogRoot.traverse((node) => {
 	      if (!(node instanceof THREE.Mesh)) return;

@@ -12,12 +12,12 @@
 //   Every tier marks up off the SAME base cost (independent margins) — no
 //   markup-on-markup chaining. Each percentage is measured against cost.
 //
-// Order fee stack (on the cabinet subtotal unless noted):
-//   • Damage fee  — damageFeeBps of cabinet subtotal, EVERY order, all tiers
-//   • Tech fee    — techFeeBps of cabinet subtotal, CAPPED at techFeeCapCents
-//                   *** AFFILIATE ORDERS ONLY — waived for direct contractor/wholesale/homeowner ***
-//   • Card fee    — cardFeeBps of the FINAL total (cabinets+freight+damage+tech),
-//                   CARD payments only; ACH/bank transfer waives it
+// Affiliate fee stack (on the affiliate's cost only):
+//   • Damage fee  — damageFeeBps of the affiliate cabinet cost
+//   • Tech fee    — techFeeBps of the affiliate cabinet cost, CAPPED at techFeeCapCents
+//   • Card fee    — cardFeeBps of the affiliate cabinet cost, CARD payments only
+// These internal affiliate fees never increase a homeowner's retail checkout or
+// freight. Direct contractor/wholesale/homeowner orders have no affiliate fees.
 //
 // Defaults encode the owner's spec: affiliate 5%, damage 1%, tech 10% cap $100,
 // card 4%.
@@ -44,13 +44,13 @@ export interface PlatformPricingSettings {
   affiliateMarkupBps: number;
   /** Base cost → suggested retail markup (off cost; customer-facing fallback). */
   retailMarkupBps: number;
-  /** Damage coverage fee on cabinet subtotal — every order, all tiers. */
+  /** Damage coverage fee on the affiliate's cabinet cost. */
   damageFeeBps: number;
-  /** Technology fee on cabinet subtotal. */
+  /** Technology fee on the affiliate's cabinet cost. */
   techFeeBps: number;
   /** Hard cap on the tech fee, in cents. */
   techFeeCapCents: number;
-  /** Card processing fee on the final total — card payments only. */
+  /** Card processing fee on the affiliate's cabinet cost — card payments only. */
   cardFeeBps: number;
 }
 
@@ -123,45 +123,50 @@ export function priceLadder(
 export type PaymentMethod = "card" | "ach";
 
 export interface FeeStackInput {
-  /** Cabinet merchandise subtotal in cents (drives damage + tech fees). */
+  /** Customer-facing cabinet merchandise subtotal in cents. */
   cabinetSubtotalCents: number;
-  /** Freight in cents (part of the final total but not the fee base). */
+  /** Customer freight in cents. It is never an affiliate-fee base. */
   freightCents?: number;
   /** "card" adds the card fee; "ach" (bank transfer) waives it. */
   paymentMethod: PaymentMethod;
-  /** Only matters for ACH: an unapproved ACH still pays the card fee until the
-   *  admin approves the transfer. Defaults to true (approved) for card. */
+  /** Only matters for an affiliate ACH invoice: an approved transfer waives the card fee. */
   achApproved?: boolean;
   /**
-   * Tech fee (10%, capped at $100) is charged ONLY on affiliate-referred orders.
-   * Direct contractor / wholesale / homeowner orders are exempt.
-   * Defaults to false (no tech fee) when omitted.
+   * True only for an affiliate's internal cost invoice. Customer retail checkouts
+   * never become affiliate fee bases merely because the order was referred.
    */
   isAffiliateOrder?: boolean;
+  /** The affiliate's actual cabinet cost in cents. Required to assess any fee. */
+  affiliateCostCents?: number;
 }
 
 export interface FeeStack {
   cabinetSubtotalCents: number;
   freightCents: number;
-  /** 1% of cabinet subtotal (all orders). */
+  /** Customer merchandise + freight; does not include affiliate-only fees. */
+  customerTotalCents: number;
+  /** Actual affiliate cabinet cost supplied for the affiliate invoice. */
+  affiliateCostCents: number;
+  /** 1% of affiliate cost; zero for a customer/direct order. */
   damageFeeCents: number;
-  /** 10% of cabinet subtotal, capped at $100. Affiliate orders only — 0 for direct orders. */
+  /** 10% of affiliate cost, capped at $100; zero for a customer/direct order. */
   techFeeCents: number;
   /** True when the cap clipped the tech fee. */
   techFeeCapped: boolean;
-  /** Subtotal before the card fee: cabinets + freight + damage + tech. */
+  /** Customer retail checkout: merchandise + freight, before tax. */
   preCardTotalCents: number;
-  /** 4% of the pre-card total, or 0 for approved ACH. */
+  /** 4% of affiliate cost, or 0 for approved affiliate ACH/direct customer orders. */
   cardFeeCents: number;
-  /** Final amount the customer pays. */
+  /** The affiliate's cabinet cost plus affiliate-only fees; excludes freight. */
+  affiliateTotalCostCents: number;
+  /** Final customer checkout amount before tax: merchandise + freight only. */
   totalCents: number;
 }
 
 /**
- * Compute the full deterministic fee stack for an order. The card fee applies to
- * the FINAL pre-card total (cabinets + freight + damage + tech). An ACH transfer
- * that has been approved through the system waives the card fee; an unapproved
- * ACH (or any card payment) still pays it.
+ * Compute the customer checkout and a separate affiliate-cost fee stack. Fee
+ * percentages apply only to an explicit affiliate cost; they never use retail
+ * merchandise, freight, tax, or a derived/guessed supplier cost.
  */
 export function computeFeeStack(
   input: FeeStackInput,
@@ -169,32 +174,39 @@ export function computeFeeStack(
 ): FeeStack {
   const cabinetSubtotalCents = Math.max(0, roundCents(input.cabinetSubtotalCents));
   const freightCents = Math.max(0, roundCents(input.freightCents ?? 0));
-
-  // Damage fee — every order, all tiers, on the cabinet subtotal.
-  const damageFeeCents = applyBps(cabinetSubtotalCents, settings.damageFeeBps);
-
-  // Tech fee — affiliate orders ONLY. Direct contractor/wholesale/homeowner orders are exempt.
-  const techFeeRaw = input.isAffiliateOrder
-    ? applyBps(cabinetSubtotalCents, settings.techFeeBps)
+  const isAffiliateCostInvoice = Boolean(input.isAffiliateOrder && input.affiliateCostCents != null);
+  const affiliateCostCents = isAffiliateCostInvoice
+    ? Math.max(0, roundCents(input.affiliateCostCents ?? 0))
     : 0;
-  const techFeeCapped = !!(input.isAffiliateOrder && settings.techFeeCapCents > 0 && techFeeRaw > settings.techFeeCapCents);
+
+  // Each extra fee is based only on the affiliate's actual cabinet cost.
+  const damageFeeCents = isAffiliateCostInvoice ? applyBps(affiliateCostCents, settings.damageFeeBps) : 0;
+
+  const techFeeRaw = isAffiliateCostInvoice
+    ? applyBps(affiliateCostCents, settings.techFeeBps)
+    : 0;
+  const techFeeCapped = Boolean(isAffiliateCostInvoice && settings.techFeeCapCents > 0 && techFeeRaw > settings.techFeeCapCents);
   const techFeeCents = techFeeCapped ? settings.techFeeCapCents : techFeeRaw;
 
-  const preCardTotalCents = cabinetSubtotalCents + freightCents + damageFeeCents + techFeeCents;
+  const customerTotalCents = cabinetSubtotalCents + freightCents;
 
-  // Card fee — only on card payments (or unapproved ACH). Approved ACH waives it.
+  // Card fee — only for an affiliate cost invoice. Freight and other fees never compound it.
   const achWaives = input.paymentMethod === "ach" && (input.achApproved ?? false);
-  const cardFeeCents = achWaives ? 0 : applyBps(preCardTotalCents, settings.cardFeeBps);
+  const cardFeeCents = !isAffiliateCostInvoice || achWaives ? 0 : applyBps(affiliateCostCents, settings.cardFeeBps);
+  const affiliateTotalCostCents = affiliateCostCents + damageFeeCents + techFeeCents + cardFeeCents;
 
   return {
     cabinetSubtotalCents,
     freightCents,
+    customerTotalCents,
+    affiliateCostCents,
     damageFeeCents,
     techFeeCents,
     techFeeCapped,
-    preCardTotalCents,
+    preCardTotalCents: customerTotalCents,
     cardFeeCents,
-    totalCents: preCardTotalCents + cardFeeCents,
+    affiliateTotalCostCents,
+    totalCents: customerTotalCents,
   };
 }
 

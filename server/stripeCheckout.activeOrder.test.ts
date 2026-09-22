@@ -20,10 +20,12 @@ describe("active order Stripe Checkout", () => {
     expect(stripeProcedure).toContain('order.userId !== ctx.user.id && ctx.user.role !== "admin"');
     expect(stripeProcedure).toContain('order.status !== "submitted"');
     expect(stripeProcedure).toContain('order.deliveryMethod === "ship" && !order.freightQuoteVerified');
-    expect(stripeProcedure).toContain("await getPlatformPricingSettings()");
     expect(stripeProcedure).toContain('description: "Sales tax"');
-    expect(stripeProcedure).toContain('description: "Damage coverage"');
-    expect(stripeProcedure).toContain('description: "Card processing fee"');
+    expect(stripeProcedure).toContain("amountCents: merchandiseCents + verifiedFreightCents + salesTaxCents");
+    expect(stripeProcedure).not.toContain('description: "Damage coverage"');
+    expect(stripeProcedure).not.toContain('description: "Technology fee"');
+    expect(stripeProcedure).not.toContain('description: "Card processing fee"');
+    expect(stripeProcedure).not.toContain("computeFeeStack");
     expect(stripeProcedure).not.toContain("input.freightCents");
     expect(stripeProcedure).not.toContain("input.amountCents");
   });
