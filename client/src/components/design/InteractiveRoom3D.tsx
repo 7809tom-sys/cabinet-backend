@@ -5031,6 +5031,18 @@ export function threeDPeninsulaCountertopGeometry(surface: CountertopSurface, le
   return geometry;
 }
 
+/**
+ * A miter changes a slab's plan area, not its physical front-to-back depth.
+ * The 3D extrusion must retain the measured surface depth used to author its
+ * local polygon. Deriving depth from area ÷ length recenters a 45°-cut slab
+ * around the wrong axis and makes the return appear detached from its join.
+ */
+export function threeDPeninsulaCountertopPhysicalDepth(surface: CountertopSurface, length: number): number {
+  const physicalDepth = Number(surface.depth);
+  if (Number.isFinite(physicalDepth) && physicalDepth > 0) return physicalDepth;
+  return Math.max(0.1, (surface.areaInches ?? length * 25.5) / Math.max(0.1, length));
+}
+
 export function addThreeDPeninsulaCountertops(
   root: THREE.Group,
   room: RoomData,
@@ -5043,7 +5055,7 @@ export function addThreeDPeninsulaCountertops(
     const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     if (!run) continue;
     const length = Math.max(0.1, surface.linearInches ?? run.length);
-    const depth = Math.max(0.1, (surface.areaInches ?? length * 25.5) / length);
+    const depth = threeDPeninsulaCountertopPhysicalDepth(surface, length);
     const planRotation = (surface.rotation ?? 0) * Math.PI / 180;
     const rotation = threeDPlanRotation(planRotation);
     const planTangent = { x: Math.cos(planRotation), z: Math.sin(planRotation) };
@@ -5059,7 +5071,7 @@ export function addThreeDPeninsulaCountertops(
     const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
     slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-	    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, runStartIn: surface.runStartIn ?? 0, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: true, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: true, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
     root.add(slab);
     const reachesFarEnd = (surface.runStartIn ?? 0) + length >= run.length - 0.01;
     if (!peninsulaCountertopWaterfallEnd(run, room) || !reachesFarEnd) continue;

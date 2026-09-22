@@ -13,8 +13,9 @@ import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serialize
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetSelectionPriority, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
+import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
-import { nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -147,6 +148,48 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(childSlab?.userData.miteredStart).toBe(true);
     expect(parentSlab?.rotation.y).toBeCloseTo(Math.PI / 2, 6);
     expect(childSlab?.rotation.y).toBeCloseTo(Math.PI * 3 / 4, 6);
+  });
+
+  it("keeps the 3D 45-degree return on its authored 2D miter points rather than recentering it from reduced miter area", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 144,
+      depth: 144,
+      ceilingHeight: 96,
+      peninsulaRuns: [
+        { id: "left-miter-parent-3d", parentWall: "top", startOffset: 72, turn: 90, direction: "right", length: 48, height: 34.5, cabinetSide: "left", countertopSeatingOverhang: 12 },
+        { id: "left-miter-child-3d", parentRunId: "left-miter-parent-3d", startOffset: 0, turn: 45, direction: "right", length: 36, height: 34.5, cabinetSide: "left" },
+      ],
+    };
+    const [parentRun, childRun] = room.peninsulaRuns!;
+    const parentSpot = wallPlacementAt(0, parentRun.length, 24, parentRun.id as any, room, "left");
+    const childSpot = wallPlacementAt(0, childRun.length, 24, childRun.id as any, room, "left");
+    const placed = [
+      { uid: "left-miter-parent-base", cabinetId: 1, masterCode: "B-48", placement: "base", ...parentSpot, width: parentRun.length, depth: 24, height: 34.5, wallId: parentRun.id, wallOffset: 0, peninsulaSide: "left" } as PlacedCabinet,
+      { uid: "left-miter-child-base", cabinetId: 2, masterCode: "B-36", placement: "base", ...childSpot, width: childRun.length, depth: 24, height: 34.5, wallId: childRun.id, wallOffset: 0, peninsulaSide: "left" } as PlacedCabinet,
+    ];
+    const childSurface = countertopSurfaces(placed, room).find((surface) => surface.peninsulaRunId === childRun.id)!;
+    const expectedPlanPoints = countertopSurfacePlanPolygon(childSurface);
+    const length = childSurface.linearInches ?? childRun.length;
+    const reducedAverageDepth = (childSurface.areaInches ?? 0) / length;
+
+    expect(reducedAverageDepth).not.toBeCloseTo(childSurface.depth, 6);
+    expect(threeDPeninsulaCountertopPhysicalDepth(childSurface, length)).toBeCloseTo(childSurface.depth, 6);
+
+    addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
+    const childSlab = root.children.find((item) => item.userData.peninsulaRunId === childRun.id) as THREE.Mesh;
+    expect(childSlab.userData.physicalDepthIn).toBeCloseTo(childSurface.depth, 6);
+    childSlab.updateMatrixWorld(true);
+    const positions = childSlab.geometry.getAttribute("position");
+    const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
+      .fromBufferAttribute(positions, index)
+      .applyMatrix4(childSlab.matrixWorld));
+
+    for (const expected of expectedPlanPoints) {
+      expect(worldVertices.some((vertex) =>
+        Math.hypot(vertex.x - expected.x / 12, vertex.z - expected.y / 12) < 1e-5,
+      )).toBe(true);
+    }
   });
 });
 
