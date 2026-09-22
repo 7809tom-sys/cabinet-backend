@@ -41,9 +41,13 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("catalogIslandCountertopImageUrl={threeDIslandCountertop.imageUrl}");
 	    expect(designToolSource).toContain("catalogIslandCountertopColor={threeDIslandCountertop.color}");
     expect(designToolSource).toContain("catalogFlooringProductId={threeDSurfaceProductIds.flooring}");
-    expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
+	    expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
 	    expect(designToolSource).toContain("savedDesignId={currentSavedDesignId ?? null}");
-    expect(designToolSource).toContain("onToggle={(item) => {");
+	    expect(designToolSource).toContain("selectedSurfaceIdsForMaterialRefresh");
+	    expect(designToolSource).toContain("trpc.surfaces.designerByIds.useQuery");
+	    expect(designToolSource).toContain("nextMaterialImageUrl = product.materialImageUrl?.trim() || surface.materialImageUrl || null");
+	    expect(designToolSource).toContain("Older saved designs and the opt-in Surfaces hand-off persisted the product");
+	    expect(designToolSource).toContain("onToggle={(item) => {");
     expect(designToolSource).toContain('if (role === "flooring" || role === "backsplash" || role === "countertop" || role === "sink" || role === "faucet")');
     expect(designToolSource).toContain("addRecommendedSurface(item, role);");
 	    expect(rendererSource).toContain('materialOnlyNoGeometryChange: true');

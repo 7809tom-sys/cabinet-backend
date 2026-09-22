@@ -802,6 +802,36 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const [surfacesOpen, setSurfacesOpen] = useState(false);
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
+  // Older saved designs and the opt-in Surfaces hand-off persisted the product
+  // identity before the approved material-only swatch field was available.
+  // Resolve the current source record on load so a verified saved product
+  // reaches the actual 3D material props after refresh without ever using a
+  // catalog photo as a texture.
+  const selectedSurfaceIdsForMaterialRefresh = useMemo(
+    () => Array.from(new Set(selectedSurfaces.map((surface) => surface.id).filter(Number.isInteger))),
+    [selectedSurfaces],
+  );
+  const { data: verifiedSelectedSurfaceRecords } = trpc.surfaces.designerByIds.useQuery(
+    { ids: selectedSurfaceIdsForMaterialRefresh },
+    { enabled: selectedSurfaceIdsForMaterialRefresh.length > 0 },
+  );
+  useEffect(() => {
+    if (!verifiedSelectedSurfaceRecords?.length) return;
+    const byId = new Map(verifiedSelectedSurfaceRecords.map((product) => [product.id, product]));
+    setSelectedSurfaces((current) => {
+      let changed = false;
+      const refreshed = current.map((surface) => {
+        const product = byId.get(surface.id);
+        if (!product) return surface;
+        const nextMaterialImageUrl = product.materialImageUrl?.trim() || surface.materialImageUrl || null;
+        const nextPelicanCode = product.pelicanCode ?? surface.pelicanCode ?? null;
+        if (nextMaterialImageUrl === (surface.materialImageUrl ?? null) && nextPelicanCode === (surface.pelicanCode ?? null)) return surface;
+        changed = true;
+        return { ...surface, materialImageUrl: nextMaterialImageUrl, pelicanCode: nextPelicanCode };
+      });
+      return changed ? refreshed : current;
+    });
+  }, [verifiedSelectedSurfaceRecords]);
   const { data: recommendedCountertopProducts } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 24 });
   const countertopProductChoices = useMemo<SelectedSurface[]>(() => {
     const byId = new Map<number, SelectedSurface>();
