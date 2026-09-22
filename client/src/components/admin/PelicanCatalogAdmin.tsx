@@ -28,7 +28,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Waves, Search, Star } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Search, ShieldCheck, Star, Waves } from "lucide-react";
 
 const CATEGORIES = [
   "Sinks & Faucets",
@@ -62,9 +62,17 @@ export default function PelicanCatalogAdmin() {
     limit: 200,
     offset: 0,
   });
+  const { data: readinessAudit, isLoading: readinessAuditLoading } = trpc.pelican.designerReadinessAudit.useQuery();
+  const readinessById = useMemo(
+    () => new Map((readinessAudit?.rows ?? []).map((row) => [row.id, row])),
+    [readinessAudit],
+  );
 
   const setVisibility = trpc.pelican.setVisibility.useMutation({
-    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onSuccess: () => {
+      void utils.pelican.adminList.invalidate();
+      void utils.pelican.designerReadinessAudit.invalidate();
+    },
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
   const setPopular = trpc.pelican.setPopular.useMutation({
@@ -72,12 +80,16 @@ export default function PelicanCatalogAdmin() {
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
   const setCoverage = trpc.pelican.setCoverage.useMutation({
-    onSuccess: () => utils.pelican.adminList.invalidate(),
+    onSuccess: () => {
+      void utils.pelican.adminList.invalidate();
+      void utils.pelican.designerReadinessAudit.invalidate();
+    },
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
   const setUnsupportedOverhangLimit = trpc.pelican.setUnsupportedOverhangLimit.useMutation({
     onSuccess: () => {
       void utils.pelican.adminList.invalidate();
+      void utils.pelican.designerReadinessAudit.invalidate();
       toast.success("Verified structural overhang limit saved.");
     },
     onError: (e) => toast.error(e.message || "The structural overhang limit could not be saved."),
@@ -85,6 +97,7 @@ export default function PelicanCatalogAdmin() {
   const setMaterialImage = trpc.pelican.setMaterialImage.useMutation({
     onSuccess: () => {
       void utils.pelican.adminList.invalidate();
+      void utils.pelican.designerReadinessAudit.invalidate();
       toast.success("3D material swatch updated.");
     },
     onError: (e) => toast.error(e.message || "The material swatch could not be updated."),
@@ -105,6 +118,58 @@ export default function PelicanCatalogAdmin() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {readinessAuditLoading ? (
+          <div className="h-24 animate-pulse rounded-lg border bg-muted/30" />
+        ) : readinessAudit && (
+          <section data-testid="pelican-designer-readiness-audit" className="rounded-xl border border-sky-200 bg-sky-50/60 p-3.5 dark:border-sky-900 dark:bg-sky-950/20">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <div className="flex items-center gap-1.5 text-sm font-semibold text-sky-950 dark:text-sky-100">
+                  <ShieldCheck className="h-4 w-4" /> Designer evidence audit
+                </div>
+                <p className="mt-0.5 max-w-3xl text-xs leading-relaxed text-muted-foreground">
+                  Every row marked for Designer is checked against its source price, category role, approved material or measured fixture profile, and the required order/placement evidence. This report does not invent missing dimensions, coverage, or overhang limits.
+                </p>
+              </div>
+              <Badge variant={readinessAudit.totals.evidenceComplete === readinessAudit.totals.configured ? "default" : "outline"} className="whitespace-nowrap">
+                {readinessAudit.totals.evidenceComplete}/{readinessAudit.totals.configured} evidence-complete
+              </Badge>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <div className="rounded-md border bg-background/70 p-2.5">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Configured rows</div>
+                <div className="mt-0.5 text-xl font-semibold">{readinessAudit.totals.configured}</div>
+              </div>
+              <div className="rounded-md border border-emerald-200 bg-emerald-50/80 p-2.5 dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-emerald-800 dark:text-emerald-300">Exact palette role ready</div>
+                <div className="mt-0.5 flex items-center gap-1 text-xl font-semibold text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-4 w-4" />{readinessAudit.totals.paletteReady}</div>
+              </div>
+              <div className="rounded-md border border-amber-200 bg-amber-50/80 p-2.5 dark:border-amber-900 dark:bg-amber-950/30">
+                <div className="text-[10px] font-medium uppercase tracking-wide text-amber-800 dark:text-amber-300">Evidence needs review</div>
+                <div className="mt-0.5 flex items-center gap-1 text-xl font-semibold text-amber-700 dark:text-amber-300"><AlertTriangle className="h-4 w-4" />{readinessAudit.totals.configured - readinessAudit.totals.evidenceComplete}</div>
+              </div>
+            </div>
+            <div className="mt-3 grid gap-3 lg:grid-cols-[1.2fr_1fr]">
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Role coverage</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {readinessAudit.roles.map((role) => (
+                    <Badge key={role.role} variant="secondary" className="gap-1 text-[10px]">
+                      {role.role}: <strong>{role.paletteReady}/{role.configured}</strong>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Top evidence blockers</div>
+                <div className="space-y-0.5 text-xs text-muted-foreground">
+                  {readinessAudit.blockers.slice(0, 3).map((blocker) => <div key={blocker.reason}>{blocker.count} · {blocker.reason}</div>)}
+                  {readinessAudit.blockers.length === 0 && <div>All configured rows have their required evidence.</div>}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
         <div className="flex flex-wrap items-center gap-3">
           <Select value={category} onValueChange={setCategory}>
             <SelectTrigger className="w-[240px]">
@@ -159,6 +224,7 @@ export default function PelicanCatalogAdmin() {
                   <TableHead className="text-center">Active</TableHead>
                   <TableHead className="text-center">Catalog</TableHead>
                   <TableHead className="text-center">Designer</TableHead>
+                  <TableHead className="min-w-[160px]">Readiness</TableHead>
                   <TableHead className="text-center">Featured</TableHead>
                   <TableHead className="text-right">Sq ft/Box</TableHead>
                   <TableHead className="min-w-[160px] text-right">Unsupported overhang (in.)</TableHead>
@@ -166,7 +232,9 @@ export default function PelicanCatalogAdmin() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.map((it: any) => (
+                {items.map((it: any) => {
+                  const readiness = readinessById.get(it.id);
+                  return (
                   <TableRow key={it.id}>
                     <TableCell>
                       <div className="font-medium">{it.name}</div>
@@ -209,6 +277,20 @@ export default function PelicanCatalogAdmin() {
                           setVisibility.mutate({ id: it.id, showInDesigner: v })
                         }
                       />
+                    </TableCell>
+                    <TableCell>
+                      {readiness ? (
+                        <div className="space-y-0.5">
+                          <Badge variant={readiness.evidenceComplete ? "default" : "outline"} className={`text-[10px] ${readiness.evidenceComplete ? "bg-emerald-600 hover:bg-emerald-600" : "border-amber-300 text-amber-800 dark:text-amber-300"}`}>
+                            {readiness.evidenceComplete ? "Evidence complete" : "Evidence needed"}
+                          </Badge>
+                          <div className="line-clamp-2 text-[10px] leading-snug text-muted-foreground">
+                            {readiness.evidenceComplete ? `${readiness.role} · verified` : readiness.blockers[0] ?? "Review source evidence"}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not configured</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <Button
@@ -288,7 +370,8 @@ export default function PelicanCatalogAdmin() {
                       />
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

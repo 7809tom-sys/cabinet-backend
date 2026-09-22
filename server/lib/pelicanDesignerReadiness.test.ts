@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  auditPelicanDesignerReadiness,
   hasApprovedPelicanMaterialSwatch,
   hasVerifiedPelicanFixtureProfile,
   isPelicanDesignerReady,
@@ -41,5 +42,68 @@ describe("Pelican Designer readiness policy", () => {
     expect(isPelicanDesignerReady(faucet)).toBe(true);
     expect(isPelicanDesignerReady(unmeasuredSink)).toBe(false);
     expect(pelicanDesignerReadinessReason(unmeasuredSink)).toBe("Measured technical fixture profile required");
+  });
+
+  it("audits every configured row without inventing material, coverage, price, or fixture evidence", () => {
+    const audit = auditPelicanDesignerReadiness([
+      {
+        id: 1,
+        category: "Flooring",
+        subCategory: "Planks & Flooring",
+        pelicanCode: "PL-FLOOR-READY",
+        name: "Ready floor",
+        isActive: true,
+        showInDesigner: true,
+        listPrice: "45.00",
+        imageUrl: "/catalog/ready-floor.webp",
+        materialImageUrl: "/manus-storage/ready-floor-swatch.webp",
+        size: '9" x 60"',
+        coverageSqFt: "22.1",
+      },
+      {
+        id: 2,
+        category: "Quartz Slabs (Countertops)",
+        subCategory: "Quartz Slab",
+        pelicanCode: "PL-COUNTER-BLOCKED",
+        name: "Unverified counter",
+        isActive: true,
+        showInDesigner: true,
+        listPrice: "500.00",
+        imageUrl: "/catalog/counter.webp",
+        materialImageUrl: null,
+        size: '126" x 63"',
+        unsupportedOverhangLimitIn: null,
+      },
+      {
+        id: 3,
+        category: "Sinks & Faucets",
+        subCategory: "Sinks",
+        pelicanCode: "PL-HA128 R15 16G",
+        name: "Measured sink",
+        isActive: true,
+        showInDesigner: true,
+        yourCost: "275.00",
+        imageUrl: "/catalog/sink.webp",
+      },
+      {
+        id: 4,
+        category: "Range Tops",
+        subCategory: "Gas",
+        pelicanCode: "PL-RANGE-NOT-READY",
+        name: "Range without geometry",
+        isActive: true,
+        showInDesigner: true,
+        listPrice: "900.00",
+        imageUrl: "/catalog/range.webp",
+        size: '30" x 24"',
+      },
+    ]);
+
+    expect(audit.totals).toMatchObject({ configured: 4, paletteReady: 2, unsupportedRole: 1, missingStructuralOverhangLimit: 1 });
+    expect(audit.rows.find((row) => row.id === 1)).toMatchObject({ role: "flooring", paletteReady: true, sourceCoverage: true });
+    expect(audit.rows.find((row) => row.id === 2)).toMatchObject({ role: "countertop", paletteReady: false, structuralOverhangLimit: false });
+    expect(audit.rows.find((row) => row.id === 3)).toMatchObject({ role: "sink", sourceDimensions: true, approvedRepresentation: true, paletteReady: true });
+    expect(audit.rows.find((row) => row.id === 4)?.blockers).toContain("No exact supported Designer role");
+    expect(audit.blockers.find((blocker) => blocker.reason === "No exact supported Designer role")?.count).toBe(1);
   });
 });

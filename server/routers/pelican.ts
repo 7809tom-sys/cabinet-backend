@@ -6,7 +6,7 @@ import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
-import { isPelicanDesignerReady } from "../lib/pelicanDesignerReadiness";
+import { auditPelicanDesignerReadiness, isPelicanDesignerReady } from "../lib/pelicanDesignerReadiness";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -290,6 +290,20 @@ export const pelicanRouter = router({
         .where(where);
       return { items: items.map((r) => withPricing(r, markupMap)), total: Number(total) };
     }),
+
+  /** Evidence-only audit of every row configured for the Designer palette. */
+  designerReadinessAudit: adminProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) {
+      return auditPelicanDesignerReadiness([]);
+    }
+    const rows = await db
+      .select()
+      .from(pelicanProducts)
+      .where(eq(pelicanProducts.showInDesigner, true))
+      .orderBy(asc(pelicanProducts.category), asc(pelicanProducts.subCategory), asc(pelicanProducts.name));
+    return auditPelicanDesignerReadiness(rows);
+  }),
 
   getMarkups: adminProcedure.query(async () => {
     const db = await getDb();

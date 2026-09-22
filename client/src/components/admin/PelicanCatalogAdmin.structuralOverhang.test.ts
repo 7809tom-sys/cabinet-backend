@@ -10,4 +10,13 @@ describe("Pelican countertop structural overhang administration", () => {
     expect(source).toContain('step="0.125"');
     expect(source).toContain("setUnsupportedOverhangLimit.mutate");
   });
+
+  it("shows the evidence audit and each configured row's explicit readiness state", () => {
+    expect(source).toContain("trpc.pelican.designerReadinessAudit.useQuery");
+    expect(source).toContain('data-testid="pelican-designer-readiness-audit"');
+    expect(source).toContain("Designer evidence audit");
+    expect(source).toContain('"Evidence complete"');
+    expect(source).toContain('"Evidence needed"');
+    expect(source).toContain("designerReadinessAudit.invalidate");
+  });
 });
