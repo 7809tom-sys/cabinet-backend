@@ -136,7 +136,7 @@ import { buildTrimCartLines,
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
-import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -7709,25 +7709,49 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      return commit(candidate);
 	    }
-	    const delta = (direction === "left" || direction === "right") && screenPlanDelta
-	      ? screenPlanDelta
-	      : threeDPlanMoveDelta(cabinet, room, direction, step);
-	    const movedCandidate = {
-	      ...cabinet,
-	      x: Math.round((cabinet.x + delta.x) * 8) / 8,
-	      y: Math.round((cabinet.y + delta.y) * 8) / 8,
-	      ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
-	    };
-	    const candidate = snapWallCabinetToOwningWall(movedCandidate, room);
+    // Continuous-wall and peninsula runs have their own measured wall frame.
+    // Use that same frame for the 3D arrows as catalog placement and Plan drag,
+    // rather than treating an arbitrary custom wall as the generic right wall.
+    // A screen-space delta is intentionally reserved for the viewer's regular
+    // cardinal-wall gesture; an explicit measured run always retains its real
+    // wall identity, offset, rotation, and flush depth, including touch/drag
+    // gestures that supply a screen delta.
+    const measuredWallTarget = threeDMeasuredWallMoveTarget(cabinet, room, direction, step);
+    if (measuredWallTarget?.constrainedToWall) {
+      return blocked(`${cabinet.masterCode} stays flush to its measured wall. Use Left/Right to move along the wall.`);
+    }
+    if (measuredWallTarget
+      && Math.abs(measuredWallTarget.candidate.x - cabinet.x) <= COLLISION_EPSILON_IN
+      && Math.abs(measuredWallTarget.candidate.y - cabinet.y) <= COLLISION_EPSILON_IN
+      && Math.abs((measuredWallTarget.candidate.wallOffset ?? 0) - (cabinet.wallOffset ?? 0)) <= COLLISION_EPSILON_IN) {
+      return blocked(`${cabinet.masterCode} cannot move ${direction}; it is already at this measured wall run's end.`);
+    }
+    const delta = measuredWallTarget
+      ? { x: measuredWallTarget.candidate.x - cabinet.x, y: measuredWallTarget.candidate.y - cabinet.y }
+      : (direction === "left" || direction === "right") && screenPlanDelta
+        ? screenPlanDelta
+        : threeDPlanMoveDelta(cabinet, room, direction, step);
+    const movedCandidate = measuredWallTarget?.candidate ?? {
+      ...cabinet,
+      x: Math.round((cabinet.x + delta.x) * 8) / 8,
+      y: Math.round((cabinet.y + delta.y) * 8) / 8,
+      ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
+    };
+    const candidate = measuredWallTarget?.candidate ?? snapWallCabinetToOwningWall(movedCandidate, room);
 	    const peers = peersWithoutLinkedFiller;
 	    // D-pad movement is an explicit incremental edit. Do not run automatic
 	    // seam attraction here: a one-inch move beside an existing seam would
 	    // otherwise snap back to its starting position and appear nonfunctional.
 	    // Room bounds and positive-overlap collision checks below remain strict.
 	    const footprint = rotatedSize(candidate);
-		    if (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth) {
-		      return blocked(`${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`);
-		    }
+        // `wallPlacementAt` already clamps an explicit continuous-wall run to
+        // its true measured endpoints. Applying the old rectangular canvas
+        // bound afterwards can falsely reject a valid diagonal or open-path
+        // wall placement simply because the drawing's bounding box is not the
+        // physical room boundary. Cardinal-room placements retain that guard.
+	    if (!measuredWallTarget && (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth)) {
+	      return blocked(`${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`);
+	    }
 		    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
 		      return blocked(wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${cabinet.masterCode} cannot move ${direction} because it would overlap another item.`);
 	    }

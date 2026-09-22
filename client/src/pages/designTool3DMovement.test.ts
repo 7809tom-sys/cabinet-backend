@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { elevationBox, hasCollision, STD } from "@/lib/design";
-import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 
 const room = { width: 144, depth: 120, ceilingHeight: 96 } as const;
 
@@ -20,6 +20,77 @@ describe("3D cabinet movement plan mapping", () => {
     expect(threeDPlanMoveDelta(frontWall, room as any, "in", 1)).toEqual({ x: 0, y: -1 });
     expect(threeDPlanMoveDelta(leftWall, room as any, "left", 6)).toEqual({ x: 0, y: 6 });
     expect(threeDPlanMoveDelta(leftWall, room as any, "in", 6)).toEqual({ x: 6, y: 0 });
+  });
+
+  it("uses a continuous wall's measured direction instead of treating it as the generic right wall", () => {
+    const continuousRoom = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 120, y: 120 },
+      ],
+      customWalls: [{ id: "wall-45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 }],
+    } as const;
+    const diagonalBase = {
+      uid: "diagonal-base",
+      masterCode: "B-30",
+      description: "30 inch base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 30,
+      depth: 24,
+      height: 34.5,
+      rotation: 45,
+      wallId: "wall-45",
+      wallOffset: 24,
+    } as any;
+
+    const right = threeDPlanMoveDelta(diagonalBase, continuousRoom as any, "right", 6);
+    expect(right.x).toBeCloseTo(6 * Math.SQRT1_2, 10);
+    expect(right.y).toBeCloseTo(6 * Math.SQRT1_2, 10);
+    const left = threeDPlanMoveDelta(diagonalBase, continuousRoom as any, "left", 6);
+    expect(left.x).toBeCloseTo(-6 * Math.SQRT1_2, 10);
+    expect(left.y).toBeCloseTo(-6 * Math.SQRT1_2, 10);
+  });
+
+  it("re-seats a 3D continuous-wall move with its updated exact run offset and flush depth", () => {
+    const continuousRoom = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 120, y: 120 },
+      ],
+      customWalls: [{ id: "wall-45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 }],
+    } as const;
+    const diagonalBase = {
+      uid: "diagonal-base",
+      masterCode: "B-30",
+      description: "30 inch base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 30,
+      depth: 24,
+      height: 34.5,
+      rotation: 45,
+      wallId: "wall-45",
+      wallOffset: 24,
+    } as any;
+
+    const right = threeDMeasuredWallMoveTarget(diagonalBase, continuousRoom as any, "right", 6);
+    expect(right).toMatchObject({ constrainedToWall: false, candidate: { wallId: "wall-45", wallOffset: 30, rotation: 45 } });
+    expect(right!.candidate.x).toBeCloseTo(3 * Math.SQRT2, 8);
+    expect(right!.candidate.y).toBeCloseTo(3 * Math.SQRT2 + 12 * Math.SQRT2, 8);
+
+    const inward = threeDMeasuredWallMoveTarget(diagonalBase, continuousRoom as any, "in", 6);
+    expect(inward).toMatchObject({ constrainedToWall: true, candidate: diagonalBase });
   });
 
 	  it("allows a 30-inch depth move and limits oversized input to the controlled attributes range", () => {
