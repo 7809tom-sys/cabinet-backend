@@ -1753,7 +1753,7 @@
 - [x] Make normal back-wall catalog placement resolve the valid 36-inch opening instead of a stale pointer-sized 1½-inch gap
 - [x] Make the Placement panel’s Island mode control visible and self-explanatory from the collapsed Designer toolbar
 - [x] Prevent the floating Placement control from overlapping adjacent Designer buttons at desktop and compact widths
-- [ ] Verify whether the visible refrigerator front-panel strip is required clearance filler or an unintended enclosure gap, and correct only the latter
+- [x] Verify whether the visible refrigerator front-panel strip is required clearance filler or an unintended enclosure gap, and correct only the latter. Verified: it is the intentional 3/4-inch finished architectural refrigerator end panel on each side of the 36-inch appliance (37.5-inch total enclosure), not a filler, a 42-inch refrigerator, or an unintended gap; the dedicated no-hardware 3D panel renderer preserves that meaning.
 - [x] Fill the open void below the countertop behind W30-30 island back-face cabinets using their selected island floor treatment
 - [x] Reorganize all Designer toolbar control groups so no buttons overlap at the reported desktop and compact widths
 - [x] Debounce repeated island-resize collision warnings while retaining the valid resize block and clear reason

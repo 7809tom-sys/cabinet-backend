@@ -87,6 +87,20 @@ describe("refrigerator assembly reconciliation", () => {
     expect(hasCollision(bridge, normalized.filter((entry) => entry.uid !== bridge.uid))).toBe(false);
   });
 
+  it("treats each visible 3/4-inch refrigerator side strip as a finished end panel, not an enclosure gap or filler", () => {
+    const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
+    const panels = normalized.filter((entry) => entry.refrigeratorAssemblyId === "fridge" && /panel$/i.test(entry.refrigeratorAssemblyRole ?? ""));
+    const fridge = normalized.find((entry) => entry.uid === "fridge")!;
+
+    expect(fridge).toMatchObject({ width: 36, refrigeratorPanelMode: "both" });
+    expect(panels).toHaveLength(2);
+    expect(panels.map((panel) => panel.width)).toEqual([0.75, 0.75]);
+    expect(panels.every((panel) => panel.customProfile === "refrigerator-end-panel" && panel.subCategory === "Refrigerator End Panel")).toBe(true);
+    // The intentional enclosure is 36" appliance + two 3/4" architectural
+    // skins, not a 42" appliance or an unexplained spacer at its front.
+    expect(fridge.width + panels.reduce((total, panel) => total + panel.width, 0)).toBeCloseTo(37.5);
+  });
+
   it("shifts the complete enclosure together to retain the restored left panel without moving an earlier neighbor", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(true), room);
     expect(normalized.find((entry) => entry.uid === "neighbor")).toMatchObject({ x: 0, width: 24 });
