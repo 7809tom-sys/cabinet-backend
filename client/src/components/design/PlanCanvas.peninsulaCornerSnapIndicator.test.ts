@@ -12,7 +12,10 @@ describe("peninsula 90-degree corner snap feedback", () => {
     expect(source).toContain('data-testid="peninsula-corner-snap-indicator"');
     expect(source).toContain("90° BEND SNAP");
     expect(source).toContain("data-peninsula-corner-snap-confirmed");
-    expect(source).toContain("isWindowCenteredSink || isSeatedPeninsulaCorner ? \"motion-safe:animate-pulse\"");
+    expect(source).toContain("showPeninsulaCornerSnapFeedback?: boolean");
+    expect(source).toContain("const showSeatedPeninsulaCornerFeedback = isSeatedPeninsulaCorner && showPeninsulaCornerSnapFeedback;");
+    expect(source).toContain("isWindowCenteredSink || showSeatedPeninsulaCornerFeedback ? \"motion-safe:animate-pulse\"");
+    expect(source).toContain("{showSeatedPeninsulaCornerFeedback && (");
   });
 
   it("confirms the successful peninsula bend snap in the placement toast", () => {

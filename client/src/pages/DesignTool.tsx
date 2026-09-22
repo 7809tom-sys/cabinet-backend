@@ -239,6 +239,9 @@ const DESIGN_TIER_TO_SHARED: Record<PricingTier, "wholesale" | "contractor" | "h
   Homeowner: "homeowner",
 };
 
+/** A per-browser Designer preference; it never changes saved geometry or placement rules. */
+const PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE = "cabinetdealz.designer.show-peninsula-corner-snap-feedback";
+
 function priceOf(
   row: {
     wholesalePrice: string | null;
@@ -1313,6 +1316,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Alignment assistance is independent from custom-overlap mode. Disabling it
   // leaves every physical collision and opening-clearance check in force.
   const [automaticSnapping, setAutomaticSnapping] = useState(true);
+  const [showPeninsulaCornerSnapFeedback, setShowPeninsulaCornerSnapFeedback] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.localStorage.getItem(PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE) !== "false";
+  });
+  useEffect(() => {
+    window.localStorage.setItem(
+      PENINSULA_CORNER_SNAP_FEEDBACK_PREFERENCE,
+      showPeninsulaCornerSnapFeedback ? "true" : "false",
+    );
+  }, [showPeninsulaCornerSnapFeedback]);
   // D-pad nudge step size: 1" (normal) or 0.25" (fine)
   const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
   // Accordion: which palette group headers the user has explicitly collapsed.
@@ -10334,11 +10347,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     <StickyNote className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_ann_add")}</span>
                   </button>
-                  <button onClick={() => setAutoDimensions((d) => !d)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
-                    <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
-                    {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
-                  </button>
+	                  <button onClick={() => setAutoDimensions((d) => !d)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+	                    <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
+	                    <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
+	                    {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+	                  </button>
+	                  <div data-testid="mobile-peninsula-snap-feedback-setting" className="mx-2 my-1 flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
+	                    <Compass className="h-4 w-4 shrink-0 text-muted-foreground" />
+	                    <div className="min-w-0 flex-1">
+	                      <Label htmlFor="mobile-peninsula-snap-feedback" className="text-sm font-medium">90° corner snap feedback</Label>
+	                      <p className="text-[10px] leading-4 text-muted-foreground">Show the green glow and bend-snap badge.</p>
+	                    </div>
+	                    <Switch
+	                      id="mobile-peninsula-snap-feedback"
+	                      aria-label="Show 90 degree peninsula corner snap feedback"
+	                      checked={showPeninsulaCornerSnapFeedback}
+	                      onCheckedChange={setShowPeninsulaCornerSnapFeedback}
+	                    />
+	                  </div>
 	                  <button onClick={() => { setMoreSheetOpen(false); openOrCreateIsland(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
                     <Square className="h-4 w-4 text-muted-foreground shrink-0" />
                     <span className="flex-1 text-left">{t("dt_sh_island_zone")}</span>
@@ -10831,14 +10857,23 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               >
                 <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_light_rail_btn")}
               </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={valance}
-                onCheckedChange={() => { trimOverride.current.valance = true; setValance((v) => !v); }}
-              >
-                <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_valance_btn")}
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
+	              <DropdownMenuCheckboxItem
+	                checked={valance}
+	                onCheckedChange={() => { trimOverride.current.valance = true; setValance((v) => !v); }}
+	              >
+	                <PanelTop className="h-3.5 w-3.5 mr-2" /> {t("dt_sh_valance_btn")}
+	              </DropdownMenuCheckboxItem>
+	              <DropdownMenuSeparator />
+	              <DropdownMenuLabel className="text-xs text-muted-foreground">Designer settings</DropdownMenuLabel>
+	              <DropdownMenuCheckboxItem
+	                data-testid="desktop-peninsula-snap-feedback-setting"
+	                checked={showPeninsulaCornerSnapFeedback}
+	                onCheckedChange={setShowPeninsulaCornerSnapFeedback}
+	              >
+	                <Compass className="h-3.5 w-3.5 mr-2" /> 90° corner snap feedback
+	              </DropdownMenuCheckboxItem>
+	              <DropdownMenuSeparator />
+	              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
               <DropdownMenuItem
                 onSelect={addManualFiller}
                 disabled={layoutLocked}
@@ -12515,6 +12550,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               showWallLayer={showWallLayer}
               measureMode={measureMode}
               autoDimensions={autoDimensions}
+              showPeninsulaCornerSnapFeedback={showPeninsulaCornerSnapFeedback}
               island={island}
 	              islandDepthTransition={islandDepthTransition}
               onIslandChange={applyIslandAttributes}
@@ -12742,10 +12778,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  onUnlockCorner={unlockCornerSnap}
 	                  onOpenAttributes={openAttributes}
                   onDropNew={handleDropNew}
-                  showWallLayer={showWallLayer}
-                  measureMode={measureMode}
-              autoDimensions={autoDimensions}
-                  island={island}
+	                  showWallLayer={showWallLayer}
+	                  measureMode={measureMode}
+	              autoDimensions={autoDimensions}
+	                  showPeninsulaCornerSnapFeedback={showPeninsulaCornerSnapFeedback}
+	                  island={island}
 	                  islandDepthTransition={islandDepthTransition}
                   onIslandChange={applyIslandAttributes}
                   onIslandMove={moveIsland}

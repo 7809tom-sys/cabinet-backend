@@ -257,6 +257,8 @@ interface Props {
   measureMode?: boolean;
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
   autoDimensions?: boolean;
+  /** User preference for the non-structural 90-degree peninsula snap glow and badge. */
+  showPeninsulaCornerSnapFeedback?: boolean;
   island?: IslandZone | null;
   /** A short-lived cue emitted after a safe Back-face island depth expansion. */
   islandDepthTransition?: { fromDepth: number; toDepth: number; key: number } | null;
@@ -385,7 +387,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, autoDimensions = false, island = null, onIslandChange, onIslandMove,
+  showWallLayer, measureMode = false, autoDimensions = false, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
@@ -2080,6 +2082,8 @@ export function PlanCanvas({
 	              && peninsulaRunById(room, p.wallId as WallSide),
 	            );
 	            const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
+	            const showSeatedPeninsulaCornerFeedback = isSeatedPeninsulaCorner && showPeninsulaCornerSnapFeedback;
+	            const showProtectedCornerFeedback = isSeatedProtectedCorner && (!isSeatedPeninsulaCorner || showPeninsulaCornerSnapFeedback);
             const cornerPlacementTooltip = cornerStatus
               ? cornerStatus.placement === "clearance"
                 ? `${cornerStatus.angle}° inside corner · ${cornerStatus.clearanceIn}" required clearance`
@@ -2112,7 +2116,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-	                } ${isWindowCenteredSink || isSeatedPeninsulaCorner ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: bodyLeft * ppi,
                   top: bodyTop * ppi,
@@ -2127,7 +2131,7 @@ export function PlanCanvas({
                     ? "3px solid #a87f33"
 	                  : isWindowCenteredSink
 	                  ? "3px solid #059669"
-	                  : isSeatedPeninsulaCorner || isSeatedProtectedCorner
+	                  : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "2.5px solid #16a34a"
                     : isSelected
                     ? "2px solid #1a2744"
@@ -2142,7 +2146,7 @@ export function PlanCanvas({
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
 	                  : isWindowCenteredSink
 	                  ? "0 0 0 5px rgba(16,185,129,0.42), 0 0 22px rgba(16,185,129,0.7), inset 0 0 0 1px rgba(255,255,255,0.92)"
-	                    : isSeatedPeninsulaCorner || isSeatedProtectedCorner
+	                    : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
@@ -2161,7 +2165,7 @@ export function PlanCanvas({
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
-	                {isSeatedPeninsulaCorner && (
+	                {showSeatedPeninsulaCornerFeedback && (
 	                  <span
 	                    data-testid="peninsula-corner-snap-indicator"
 	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
@@ -2177,7 +2181,7 @@ export function PlanCanvas({
 	                      Centered to window
 	                    </span>
 	                  )}
-                  {cornerStatus && (
+	                  {cornerStatus && (!isSeatedPeninsulaCorner || showPeninsulaCornerSnapFeedback) && (
                     <span
                       data-testid="corner-placement-indicator"
                       className={`pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2 -translate-y-[calc(100%+4px)] whitespace-nowrap rounded px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow ${cornerStatus.placement === "clearance" ? "bg-[#9a6717]" : "bg-emerald-700"}`}
@@ -2475,7 +2479,7 @@ export function PlanCanvas({
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
                   </div>
                 )}
-              {isSeatedProtectedCorner && onUnlockCorner && !cabinetsLocked && (
+	              {isSeatedProtectedCorner && onUnlockCorner && !cabinetsLocked && (
                 <div
                   role="tooltip"
                   data-testid="corner-snap-unlock-tooltip"
