@@ -26,6 +26,36 @@ describe("Designer legacy alias price resolution", () => {
     })]);
   });
 
+  it("prices a verified legacy wall-filler alias through the current published F342 source row", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: 9390177, styleId: 390019, masterCode: "WF342" }],
+      distributorId: 180001,
+    });
+
+    expect(rows).toEqual([expect.objectContaining({
+      cabinetId: 9390177,
+      styleId: 390019,
+      listPrice: "46.00",
+      homeownerPrice: "25.44",
+    })]);
+  });
+
+  it("prices the explicit WR3624 catalog alias through its verified current refrigerator-wall source", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: 9390189, styleId: 390019, masterCode: "WR3624" }],
+      distributorId: 180001,
+    });
+
+    expect(rows).toEqual([expect.objectContaining({
+      cabinetId: 9390189,
+      styleId: 390019,
+      listPrice: "643.00",
+      homeownerPrice: "355.58",
+    })]);
+  });
+
   it("does not manufacture a price when no approved alias exists", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({

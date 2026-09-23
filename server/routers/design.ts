@@ -826,7 +826,7 @@ export const designRouter = router({
         if (!masterCodeByRequestedId.has(cabinetId)) masterCodeByRequestedId.set(cabinetId, masterCode);
       }
       const requestedCodes = Array.from(new Set(Array.from(masterCodeByRequestedId.values())));
-      const approvedAliases = requestedCodes.length > 0
+      const approvedMasterAliases = requestedCodes.length > 0
         ? await db
           .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
           .from(skuMasterAliases)
@@ -835,7 +835,30 @@ export const designRouter = router({
             eq(skuMasterAliases.conflictStatus, "ok"),
           ))
         : [];
-      const canonicalCodeByAlias = new Map(approvedAliases.map((alias) => [alias.aliasCode, alias.masterCode] as const));
+      // Cabinet aliases are another explicit catalog authority: e.g. the
+      // verified legacy WR3624 alias resolves to current supplier master
+      // WR3624(W362424). Treat it exactly like an approved SKU-master alias,
+      // never as a fuzzy code or dimension match.
+      const aliasCanon = sql<string>`UPPER(REPLACE(REPLACE(REPLACE(${cabinetAliases.alias}, '-', ''), ' ', ''), '_', ''))`;
+      const normalizedRequestedCodes = Array.from(new Set(requestedCodes.map((code) => normalizedDesignPriceCode(code)).filter(Boolean)));
+      const approvedCabinetAliases = normalizedRequestedCodes.length > 0
+        ? await db
+          .select({ aliasCode: cabinetAliases.alias, masterCode: cabinets.masterCode })
+          .from(cabinetAliases)
+          .innerJoin(cabinets, eq(cabinets.id, cabinetAliases.cabinetId))
+          .where(and(
+            inArray(aliasCanon, normalizedRequestedCodes),
+            ne(cabinets.conflictStatus, "conflict"),
+          ))
+        : [];
+      const canonicalCodeByAlias = new Map<string, string>();
+      for (const alias of approvedMasterAliases) canonicalCodeByAlias.set(alias.aliasCode, alias.masterCode);
+      for (const alias of approvedCabinetAliases) {
+        const normalizedAlias = normalizedDesignPriceCode(alias.aliasCode);
+        for (const requestedCode of requestedCodes) {
+          if (normalizedDesignPriceCode(requestedCode) === normalizedAlias) canonicalCodeByAlias.set(requestedCode, alias.masterCode);
+        }
+      }
       const candidateCodes = Array.from(new Set(requestedCodes.flatMap((code) => [code, canonicalCodeByAlias.get(code)].filter((value): value is string => Boolean(value)))));
       const candidateCabinets = candidateCodes.length > 0
         ? await db
