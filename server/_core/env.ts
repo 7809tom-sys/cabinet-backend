@@ -36,4 +36,7 @@ export const ENV = {
   // Gemini Nano Banana image generation is server-only. Never expose this key
   // through Vite or return it from an administrator status endpoint.
   geminiApiKey: process.env.GEMINI_API_KEY ?? "",
+  // ElevenLabs supports approved server-mediated audio workflows only. Never
+  // publish this credential through Vite or return it from status procedures.
+  elevenLabsApiKey: process.env.ELEVENLABS_API_KEY ?? "",
 };

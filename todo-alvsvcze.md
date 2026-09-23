@@ -1595,9 +1595,9 @@
 - [x] Expand the Compact Workspace Catalog into a tablet-style cabinet picker that leaves enough room to browse and select cabinets
 - [x] Make the bottom cabinet-controls panel fit within small laptop viewports above the operating-system taskbar
 - [x] Restore a visible, keyboard-reachable Move control in Compact Workspace whenever a movable cabinet is selected
-- [ ] Add an ElevenLabs Operations entry with purpose, connection status, secure setup guidance, and activation readiness without exposing credentials
-- [ ] Add an administrator-only server-side ElevenLabs connection check that reports configured, connected, or failed without returning the credential
-- [ ] Verify whether ElevenLabs supports the required customer kitchen-image generation workflow before enabling or representing it as an image provider
+- [x] Add an ElevenLabs Operations entry with purpose, connection status, secure setup guidance, and activation readiness without exposing credentials
+- [x] Add an administrator-only server-side ElevenLabs connection check that reports configured, connected, or failed without returning the credential
+- [x] Verify whether ElevenLabs supports the required customer kitchen-image generation workflow before enabling or representing it as an image provider. Official ElevenLabs documentation confirms the authenticated `/v1/user` endpoint with `xi-api-key` and documents voice, music, sound, dubbing, and transcription APIs—not kitchen-image generation—so the Operations entry explicitly limits it to approved audio workflows and states it is not an image provider.
 - [x] Verify Gemini Nano Banana image capability and server-side model-account connection without exposing credentials
 - [x] Add Gemini image-provider connection status and safe setup guidance to Administration Operations
 - [ ] Integrate Gemini Nano Banana image creation only through an approved server-side image-service contract while retaining exact saved-plan, phone, CRM, and illustrative-output safeguards

@@ -56,6 +56,7 @@ import { favoritesRouter } from "./routers/favorites";
 import { preferredProductsRouter } from "./routers/preferredProducts";
 import { designPhotoRendersRouter } from "./routers/designPhotoRenders";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
+import { operationsProvidersRouter } from "./routers/operationsProviders";
 
 export const appRouter = router({
   system: systemRouter,
@@ -122,6 +123,7 @@ export const appRouter = router({
   preferredProducts: preferredProductsRouter,
   designPhotoRenders: designPhotoRendersRouter,
   adminStickyNotes: adminStickyNotesRouter,
+  operationsProviders: operationsProvidersRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -81,6 +81,7 @@ import PriceShop10x10 from "@/pages/PriceShop10x10";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
 import AdminStickyNotes from "@/components/admin/AdminStickyNotes";
 import GeminiImageProviderAdmin from "@/components/admin/GeminiImageProviderAdmin";
+import ElevenLabsOperationsAdmin from "@/components/admin/ElevenLabsOperationsAdmin";
 import { ManualAiRenderQueueAdmin } from "@/components/admin/ManualAiRenderQueueAdmin";
 import StripePaymentSettingsAdmin from "@/components/admin/StripePaymentSettingsAdmin";
 
@@ -162,6 +163,7 @@ const GROUPS = [
       { value: "coverage", label: "Designer Coverage" },
       { value: "designer-availability", label: "Designer Availability" },
       { value: "gemini-image-provider", label: "AI Image Provider" },
+      { value: "elevenlabs-operations", label: "ElevenLabs Audio" },
       { value: "manual-ai-renders", label: "Manual AI Renders" },
       { value: "team-notes", label: "Team Notes" },
     ],
@@ -528,6 +530,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="coverage" className="mt-6"><AdminTabHelp tab="coverage" /><DesignerCoverageAdmin /></TabsContent>
         <TabsContent value="designer-availability" className="mt-6"><AdminTabHelp tab="designer-availability" /><DesignerAvailabilityAdmin /></TabsContent>
         <TabsContent value="gemini-image-provider" className="mt-6"><GeminiImageProviderAdmin /></TabsContent>
+        <TabsContent value="elevenlabs-operations" className="mt-6"><ElevenLabsOperationsAdmin /></TabsContent>
         <TabsContent value="manual-ai-renders" className="mt-6"><ManualAiRenderQueueAdmin /></TabsContent>
         <TabsContent value="team-notes" className="mt-6"><AdminStickyNotes /></TabsContent>
 
