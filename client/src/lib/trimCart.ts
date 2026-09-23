@@ -24,6 +24,14 @@ export const TRIM_MASTER_CODES: Record<TrimKind, string | null> = {
   valance: "VA-48", // Arched valance (only VA-48 exists in catalog; trimmed to fit on site)
 };
 
+// A few supplier catalogs preserve the product-family suffix inside the actual
+// master code. Keep the short, shared trim key for existing layouts, while also
+// accepting the verified source code. The resolved cart line always returns the
+// real source masterCode; this list only makes the lookup resilient.
+export const TRIM_MASTER_CODE_ALIASES: Partial<Record<TrimKind, readonly string[]>> = {
+  toeKick: ["TK-8(TKC)"],
+};
+
 // A resolved, priced trim SKU for one style (as returned by the
 // design.trimSkusForStyles procedure, after tier resolution on the client).
 export interface TrimPrice {
@@ -51,6 +59,26 @@ export interface ActiveTrim {
 }
 
 /**
+ * Resolves one priced trim product by its shared design key and any verified
+ * catalog-code variants. Never manufactures a substitute price or SKU.
+ */
+export function trimPriceForKind(
+  kind: TrimKind,
+  priceByCode: Map<string, TrimPrice>,
+): TrimPrice | undefined {
+  const code = TRIM_MASTER_CODES[kind];
+  if (code) {
+    const direct = priceByCode.get(code);
+    if (direct) return direct;
+  }
+  for (const alias of TRIM_MASTER_CODE_ALIASES[kind] ?? []) {
+    const matched = priceByCode.get(alias);
+    if (matched) return matched;
+  }
+  return undefined;
+}
+
+/**
  * Build priced cart lines for the active trims of a single-style design.
  *
  * @param trims       active trims with their piece counts (pieces > 0 to count)
@@ -73,9 +101,7 @@ export function buildTrimCartLines(
   const out: TrimCartLine[] = [];
   for (const t of trims) {
     if (!t || t.pieces <= 0) continue;
-    const code = TRIM_MASTER_CODES[t.kind];
-    if (!code) continue; // no buyable code → quote-only
-    const priced = priceByCode.get(code);
+    const priced = trimPriceForKind(t.kind, priceByCode);
     if (!priced || !(priced.unitPrice > 0)) continue; // no SKU for this style → quote-only
     out.push({
       masterCode: priced.masterCode,
@@ -98,8 +124,6 @@ export function trimHasPrice(
   kind: TrimKind,
   priceByCode: Map<string, TrimPrice>,
 ): boolean {
-  const code = TRIM_MASTER_CODES[kind];
-  if (!code) return false;
-  const p = priceByCode.get(code);
+  const p = trimPriceForKind(kind, priceByCode);
   return !!p && p.unitPrice > 0;
 }

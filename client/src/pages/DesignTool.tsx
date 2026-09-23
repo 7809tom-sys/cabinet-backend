@@ -128,6 +128,7 @@ import {
 	} from "@/lib/design";
 import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandAssemblyClearance, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
+  trimPriceForKind,
   TRIM_MASTER_CODES,
   type ActiveTrim,
   type TrimKind,
@@ -4035,8 +4036,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       valance: "Arched valance",
     };
     for (const trim of activeTrims) {
-      const code = TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase();
-      if (pricedCodes.has(code)) continue;
+      const priced = trimPriceForKind(trim.kind, trimPriceByCode);
+      const code = priced?.masterCode ?? TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase();
+      if (priced && pricedCodes.has(priced.masterCode)) continue;
       out.push({
         code,
         description: trimLabels[trim.kind],
@@ -4114,7 +4116,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (island) out.push({ code: "ISLAND-LAYOUT", description: "Kitchen island structure", category: "Layout feature", qty: 1, supplier: "Fabricator / quote", dimensions: `${island.width}\" W × ${island.depth}\" D`, unitPrice: null });
     if (ponyWalls.length > 0) out.push({ code: "PONY-WALL", description: "Pony wall construction", category: "Layout feature", qty: ponyWalls.length, supplier: "Contractor / quote", unitPrice: null });
     return out;
-  }, [activeStyleName, activeTrims, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hwSchedule, island, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks]);
+  }, [activeStyleName, activeTrims, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hwSchedule, island, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks, trimPriceByCode]);
 
   const materialsListRows = useMemo(() => buildMaterialsListRows({
     buildRows,
@@ -14047,7 +14049,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   );
                 })()}
                 {toeKick && toeKickOrder && effectiveTrimPieces.toeKick > 0 && (() => {
-                  const p = trimPriceByCode.get("TK-8");
+                  const p = trimPriceForKind("toeKick", trimPriceByCode);
                   const pcs = effectiveTrimPieces.toeKick;
                   const ext = p && p.unitPrice > 0 ? p.unitPrice * pcs : null;
                   return (
@@ -14163,10 +14165,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     catalog SKU remains quote-only and is excluded. */}
                 {(() => {
                   const crownCode = TRIM_MASTER_CODES.crown;
-                  const cm = crownCode ? trimPriceByCode.get(crownCode) : undefined;
-                  const tk = trimPriceByCode.get("TK-8");
-                  const bam = trimPriceByCode.get("BAM");
-                  const lrm = trimPriceByCode.get("LRM-8");
+                  const cm = crownCode ? trimPriceForKind("crown", trimPriceByCode) : undefined;
+                  const tk = trimPriceForKind("toeKick", trimPriceByCode);
+                  const bam = trimPriceForKind("batten", trimPriceByCode);
+                  const lrm = trimPriceForKind("lightRail", trimPriceByCode);
                   let sub = 0;
                   if (crown && effectiveTrimPieces.crown > 0 && cm && cm.unitPrice > 0) sub += cm.unitPrice * effectiveTrimPieces.crown;
                   if (toeKick && effectiveTrimPieces.toeKick > 0 && tk && tk.unitPrice > 0) sub += tk.unitPrice * effectiveTrimPieces.toeKick;

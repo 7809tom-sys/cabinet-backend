@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildTrimCartLines,
   trimHasPrice,
+  trimPriceForKind,
   TRIM_MASTER_CODES,
   type ActiveTrim,
   type TrimPrice,
@@ -16,6 +17,12 @@ const TK: TrimPrice = { cabinetId: 101, masterCode: "TK-8", description: "Toe Ki
 const LR: TrimPrice = { cabinetId: 102, masterCode: "LRM-8", description: "Light Rail 8'", unitPrice: 120 };
 const BAM: TrimPrice = { cabinetId: 103, masterCode: "BAM", description: "Batten Molding", unitPrice: 60 };
 const CROWN: TrimPrice = { cabinetId: 9390046, masterCode: "LCM8", description: 'Crown Molding - 96"', unitPrice: 94.44 };
+const PRESTON_TK: TrimPrice = {
+  cabinetId: 9390073,
+  masterCode: "TK-8(TKC)",
+  description: 'Toe Kick 8\' Plywood - 96"',
+  unitPrice: 25.44,
+};
 
 describe("buildTrimCartLines", () => {
   it("prices active trims that have a SKU for the style, scoped to the design styleId", () => {
@@ -48,6 +55,21 @@ describe("buildTrimCartLines", () => {
       styleLabel: "Aura Cream (Ashford)",
       unitPrice: 94.44,
       qty: 3,
+    }]);
+  });
+
+  it("resolves the verified Preston TK-8(TKC) catalog code without inventing a TK-8 substitute", () => {
+    const map = priceMap({ "TK-8(TKC)": PRESTON_TK });
+
+    expect(trimPriceForKind("toeKick", map)).toEqual(PRESTON_TK);
+    expect(trimHasPrice("toeKick", map)).toBe(true);
+    expect(buildTrimCartLines([{ kind: "toeKick", pieces: 2 }], 390020, "Air Dawn (Preston)", map)).toEqual([{
+      masterCode: "TK-8(TKC)",
+      name: 'Toe Kick 8\' Plywood - 96"',
+      styleId: 390020,
+      styleLabel: "Air Dawn (Preston)",
+      unitPrice: 25.44,
+      qty: 2,
     }]);
   });
 
