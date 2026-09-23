@@ -2462,24 +2462,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // override, else the design default). Build the distinct (cabinetId, styleId)
   // pairs the design actually uses so we fetch every needed price in one call.
   const pricePairs = useMemo(() => {
-    if (!styleId) return [] as Array<{ cabinetId: number; styleId: number }>;
+    if (!styleId) return [] as Array<{ cabinetId: number; styleId: number; masterCode: string }>;
     const seen = new Set<string>();
-    const pairs: Array<{ cabinetId: number; styleId: number }> = [];
-    const push = (cabinetId: number, sid: number) => {
+    const pairs: Array<{ cabinetId: number; styleId: number; masterCode: string }> = [];
+    const push = (cabinetId: number, sid: number, masterCode: string) => {
       if (cabinetId <= 0) return;
-      const key = `${cabinetId}:${sid}`;
+      const key = `${cabinetId}:${sid}:${masterCode}`;
       if (seen.has(key)) return;
       seen.add(key);
-      pairs.push({ cabinetId, styleId: sid });
+      pairs.push({ cabinetId, styleId: sid, masterCode });
     };
     placed.forEach((p) => {
-      push(pricingIdForPlacedCabinet(p), pricingStyleIdFor(p) ?? styleId);
+      push(pricingIdForPlacedCabinet(p), pricingStyleIdFor(p) ?? styleId, p.masterCode);
       // Fetch the exact same-style glass product. Some lines use a separately
       // priced replacement door; others use a complete GD cabinet variant.
       if (p.glassDoor) {
         const gdCode = glassDoorAddonCodeFor(p) ?? `${p.masterCode}GD`;
         const gdCab = glassDoorCatalogProduct(gdCode);
-        if (gdCab) push(gdCab.id, pricingStyleIdFor(p) ?? styleId);
+        if (gdCab) push(gdCab.id, pricingStyleIdFor(p) ?? styleId, gdCab.masterCode);
       }
     });
     return pairs;

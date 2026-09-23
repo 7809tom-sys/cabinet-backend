@@ -788,7 +788,14 @@ export const designRouter = router({
     .input(
       z.object({
         pairs: z
-          .array(z.object({ cabinetId: z.number(), styleId: z.number() }))
+          .array(z.object({
+            cabinetId: z.number(),
+            styleId: z.number(),
+            // Saved placement geometry retains its historical masterCode even
+            // when a retired database id is no longer catalog-visible. This is
+            // used only to follow an approved alias to a source record.
+            masterCode: z.string().min(1).max(120).optional(),
+          }))
           .max(2000),
         distributorId: z.number().optional(),
       })
@@ -797,14 +804,77 @@ export const designRouter = router({
       const db = await getDb();
       if (!db || input.pairs.length === 0) return [];
 
-      // Collect the distinct ids so we can fetch in a single IN-query, then
-      // filter back down to the exact requested pairs in memory.
-      const cabinetIds = Array.from(new Set(input.pairs.map((p) => p.cabinetId)));
+      // Saved plans can retain a retired product record whose source-truth
+      // master code is an approved alias (for example 3-DB24 -> 3DB24). Resolve
+      // that explicit alias to the currently published catalog record before
+      // price lookup. This is intentionally alias-table-only: no punctuation
+      // stripping or dimension guessing can create a price for an unknown item.
+      const requestedCabinetIds = Array.from(new Set(input.pairs.map((p) => p.cabinetId)));
       const styleIds = Array.from(new Set(input.pairs.map((p) => p.styleId)));
-      const wanted = new Set(input.pairs.map((p) => `${p.cabinetId}:${p.styleId}`));
+
+      const requestedCabinets = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .from(cabinets)
+        .where(inArray(cabinets.id, requestedCabinetIds));
+      const persistedMasterCodeByRequestedId = new Map<number, string>();
+      for (const pair of input.pairs) {
+        const masterCode = pair.masterCode?.trim();
+        if (masterCode) persistedMasterCodeByRequestedId.set(pair.cabinetId, masterCode);
+      }
+      const masterCodeByRequestedId = new Map(requestedCabinets.map((cabinet) => [cabinet.id, persistedMasterCodeByRequestedId.get(cabinet.id) ?? cabinet.masterCode] as const));
+      for (const [cabinetId, masterCode] of Array.from(persistedMasterCodeByRequestedId.entries())) {
+        if (!masterCodeByRequestedId.has(cabinetId)) masterCodeByRequestedId.set(cabinetId, masterCode);
+      }
+      const requestedCodes = Array.from(new Set(Array.from(masterCodeByRequestedId.values())));
+      const approvedAliases = requestedCodes.length > 0
+        ? await db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(and(
+            inArray(skuMasterAliases.aliasCode, requestedCodes),
+            eq(skuMasterAliases.conflictStatus, "ok"),
+          ))
+        : [];
+      const canonicalCodeByAlias = new Map(approvedAliases.map((alias) => [alias.aliasCode, alias.masterCode] as const));
+      const candidateCodes = Array.from(new Set(requestedCodes.flatMap((code) => [code, canonicalCodeByAlias.get(code)].filter((value): value is string => Boolean(value)))));
+      const candidateCabinets = candidateCodes.length > 0
+        ? await db
+          .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+          .from(cabinets)
+          .where(and(inArray(cabinets.masterCode, candidateCodes), ne(cabinets.conflictStatus, "conflict")))
+        : [];
+      const cabinetIdsByMasterCode = new Map<string, number[]>();
+      for (const cabinet of candidateCabinets) {
+        const ids = cabinetIdsByMasterCode.get(cabinet.masterCode) ?? [];
+        ids.push(cabinet.id);
+        cabinetIdsByMasterCode.set(cabinet.masterCode, ids);
+      }
+      const candidateIdsByRequestedId = new Map<number, number[]>();
+      for (const requestedId of requestedCabinetIds) {
+        const requestedCode = masterCodeByRequestedId.get(requestedId);
+        if (!requestedCode) continue;
+        const sourceCodes = [requestedCode, canonicalCodeByAlias.get(requestedCode)].filter((value): value is string => Boolean(value));
+        candidateIdsByRequestedId.set(requestedId, Array.from(new Set(sourceCodes.flatMap((code) => cabinetIdsByMasterCode.get(code) ?? []))));
+      }
+      const candidateCabinetIds = Array.from(new Set(Array.from(candidateIdsByRequestedId.values()).flat()));
+      if (candidateCabinetIds.length === 0) return [];
+
+      // Map an authorized source row back to each requested saved-plan cabinet
+      // id. The response intentionally preserves the requested id so the client
+      // price map and placed geometry remain stable while its canonical source
+      // price is used.
+      const requestedIdsBySourcePair = new Map<string, number[]>();
+      for (const pair of input.pairs) {
+        for (const sourceCabinetId of candidateIdsByRequestedId.get(pair.cabinetId) ?? []) {
+          const key = `${sourceCabinetId}:${pair.styleId}`;
+          const ids = requestedIdsBySourcePair.get(key) ?? [];
+          ids.push(pair.cabinetId);
+          requestedIdsBySourcePair.set(key, ids);
+        }
+      }
 
       const conditions = [
-        inArray(distributorSkus.cabinetId, cabinetIds),
+        inArray(distributorSkus.cabinetId, candidateCabinetIds),
         inArray(distributorSkus.styleId, styleIds),
         eq(distributorSkus.isAvailable, true),
         eq(distributorSkus.isPublished, true),
@@ -832,31 +902,34 @@ export const designRouter = router({
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...conditions));
 
-      // Best (cheapest contractor) row per (cabinetId, styleId) pair, limited to
-      // the exact pairs that were requested.
-      const best = new Map<string, (typeof rows)[number]>();
+      // Best (cheapest contractor) row per requested pair. An authorized legacy
+      // alias may resolve to a different canonical cabinet id in the query, but
+      // it must return under the requested id for the saved design's price map.
+      const best = new Map<string, { requestedCabinetId: number; row: (typeof rows)[number] }>();
       for (const r of rows) {
-        const key = `${r.cabinetId}:${r.styleId}`;
-        if (!wanted.has(key)) continue;
-        const cur = best.get(key);
-        if (!cur) { best.set(key, r); continue; }
-        const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
-        const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
-        if (a < b) best.set(key, r);
+        const requestedIds = requestedIdsBySourcePair.get(`${r.cabinetId}:${r.styleId}`) ?? [];
+        for (const requestedCabinetId of requestedIds) {
+          const key = `${requestedCabinetId}:${r.styleId}`;
+          const cur = best.get(key);
+          if (!cur) { best.set(key, { requestedCabinetId, row: r }); continue; }
+          const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
+          const b = Number(cur.row.contractorPrice ?? cur.row.wholesalePrice ?? Infinity);
+          if (a < b) best.set(key, { requestedCabinetId, row: r });
+        }
       }
       // Resolve each customer tier through the shared pricing policy. Each
       // returned line is already available + published and must resolve from a
       // verified cost/list basis through the saved tier markup; never bypass
       // this resolver with stale stored columns.
       const ps = await getPricingSettings();
-      return Array.from(best.values()).map((r) => ({
-        cabinetId: r.cabinetId,
-        styleId: Number(r.styleId),
-        listPrice: r.listPrice,
-        adjustedListPrice: r.adjustedListPrice,
-        wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
-        contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
-        homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+      return Array.from(best.values()).map(({ requestedCabinetId, row }) => ({
+        cabinetId: requestedCabinetId,
+        styleId: Number(row.styleId),
+        listPrice: row.listPrice,
+        adjustedListPrice: row.adjustedListPrice,
+        wholesalePrice: sellPriceForTier(row, ps, "wholesale")?.toFixed(2) ?? null,
+        contractorPrice: sellPriceForTier(row, ps, "contractor")?.toFixed(2) ?? null,
+        homeownerPrice: sellPriceForTier(row, ps, "homeowner")?.toFixed(2) ?? null,
       }));
     }),
 
