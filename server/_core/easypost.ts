@@ -1,13 +1,11 @@
-// ─── EasyPost live LTL freight provider ─────────────────────────────────────────
-// Thin server-side client that asks EasyPost for a real LTL freight rate for a
-// set of pallets. This is the ONLY freight code that touches the network; all the
-// pallet/cube/floor math is pure (see shared/liveFreight.ts) and unit-tested.
+// ─── EasyPost live freight and parcel provider ──────────────────────────────────
 //
-// We use EasyPost's Shipment API with a single parcel per pallet is not ideal for
-// LTL, so instead we create ONE shipment carrying the carrier-package list via the
-// "carrier_accounts"/freight flow. EasyPost's freight rating returns rate objects
-// with a `rate` in dollars; we pick the lowest and convert to cents.
+// The application separates two truthfully different rating paths:
+// - `easypostQuote` sends LTL pallet data and is used for freight shipments.
+// - `easypostParcelQuote` sends one verified carton at a time and is used only
+//   after the shared carrier-rule gate accepts every carton as a parcel.
 //
+// Both functions return only live carrier rates; no price is estimated here.
 // API key: passed in from shippingSettings.liveApiKey (test keys start with EZTK,
 // live keys with EZAK). We never log the key.
 
@@ -16,6 +14,15 @@ export interface LivePallet {
   widthIn: number;
   heightIn: number;
   weightLbs: number;
+}
+
+/** One verified carton for a parcel-carrier rate request. */
+export interface LiveParcel {
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightLbs: number;
+  label?: string | null;
 }
 
 export interface LiveQuoteAddress {
@@ -39,6 +46,13 @@ export interface LiveQuoteRequest {
   toAddress?: LiveQuoteAddress;
 }
 
+export interface LiveParcelQuoteRequest {
+  fromZip: string;
+  toZip: string;
+  parcels: LiveParcel[];
+  residential?: boolean;
+}
+
 export interface LiveQuoteResult {
   ok: boolean;
   amountCents: number; // lowest rate found, in cents
@@ -53,6 +67,18 @@ export interface LiveQuoteResult {
   retryAfterMs?: number;
 }
 
+export interface LiveParcelQuoteResult extends LiveQuoteResult {
+  /** Actual carrier/service chosen separately for every carton. */
+  packages: Array<{
+    label: string | null;
+    carrier: string;
+    service: string;
+    amountCents: number;
+    transitDays?: number;
+    estimatedDeliveryDate?: string;
+  }>;
+}
+
 const EASYPOST_BASE = "https://api.easypost.com/v2";
 
 function authHeader(apiKey: string): string {
@@ -63,10 +89,8 @@ function authHeader(apiKey: string): string {
 // Build the EasyPost shipment payload for an LTL freight shipment. EasyPost models
 // freight via a shipment with `freight` parcels (carrier_package). We send each
 // pallet as a parcel item with weight in ounces (EasyPost expects ounces).
-function buildPayload(req: LiveQuoteRequest) {
-  // EasyPost weight is in ounces.
+function buildFreightPayload(req: LiveQuoteRequest) {
   const totalWeightOz = req.pallets.reduce((s, p) => s + p.weightLbs * 16, 0);
-  // For freight, the largest pallet dims represent the handling unit.
   const first = req.pallets[0];
   return {
     shipment: {
@@ -86,10 +110,40 @@ function buildPayload(req: LiveQuoteRequest) {
   };
 }
 
+function buildParcelPayload(req: Pick<LiveParcelQuoteRequest, "fromZip" | "toZip" | "residential">, parcel: LiveParcel) {
+  return {
+    shipment: {
+      to_address: { zip: req.toZip, country: "US", residential: !!req.residential },
+      from_address: { zip: req.fromZip, country: "US" },
+      parcel: {
+        length: parcel.lengthIn,
+        width: parcel.widthIn,
+        height: parcel.heightIn,
+        // EasyPost parcel weight is ounces; the catalog continues to store lbs.
+        weight: parcel.weightLbs * 16,
+      },
+    },
+  };
+}
+
+function isSupportedParcelCarrier(carrier: string | undefined): boolean {
+  const normalized = (carrier ?? "").toLowerCase();
+  return normalized.includes("ups") || normalized.includes("fedex") || normalized.includes("usps");
+}
+
+function noParcelRate(error: string): LiveParcelQuoteResult {
+  return { ok: false, amountCents: 0, error, packages: [] };
+}
+
+function parseProviderError(status: number, body: unknown): string {
+  const message = (body as { error?: { message?: unknown } } | null)?.error?.message;
+  return typeof message === "string" && message.trim() ? message : `EasyPost HTTP ${status}`;
+}
+
 export async function easypostQuote(
   apiKey: string,
   req: LiveQuoteRequest,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = fetch,
 ): Promise<LiveQuoteResult> {
   if (!apiKey) return { ok: false, amountCents: 0, error: "Missing API key" };
   if (!req.fromZip) return { ok: false, amountCents: 0, error: "Missing origin ZIP" };
@@ -103,18 +157,13 @@ export async function easypostQuote(
         Authorization: authHeader(apiKey),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(buildPayload(req)),
+      body: JSON.stringify(buildFreightPayload(req)),
     });
 
     if (!res.ok) {
-      let msg = `EasyPost HTTP ${res.status}`;
-      try {
-        const body = (await res.json()) as { error?: { message?: string } };
-        if (body?.error?.message) msg = body.error.message;
-      } catch {
-        /* ignore parse error */
-      }
-      return { ok: false, amountCents: 0, error: msg };
+      let body: unknown = null;
+      try { body = await res.json(); } catch { /* retain status */ }
+      return { ok: false, amountCents: 0, error: parseProviderError(res.status, body) };
     }
 
     const data = (await res.json()) as {
@@ -169,4 +218,89 @@ export async function easypostQuote(
       error: err instanceof Error ? err.message : "Network error contacting EasyPost",
     };
   }
+}
+
+/**
+ * Rate each verified carton with EasyPost and sum the actual selected rates.
+ * EasyPost returns parcel weights in ounces and dimensions in inches; carrier
+ * filtering is intentionally limited to UPS, FedEx, and USPS.
+ */
+export async function easypostParcelQuote(
+  apiKey: string,
+  req: LiveParcelQuoteRequest,
+  fetchImpl: typeof fetch = fetch,
+): Promise<LiveParcelQuoteResult> {
+  if (!apiKey) return noParcelRate("Missing API key");
+  if (!req.fromZip) return noParcelRate("Missing origin ZIP");
+  if (!req.toZip) return noParcelRate("Missing destination ZIP");
+  if (!req.parcels.length) return noParcelRate("No verified parcels to quote");
+
+  const packages: LiveParcelQuoteResult["packages"] = [];
+  try {
+    // Rate one carton at a time so we do not invent a multi-box consolidation or
+    // use a carrier service that applies only to another carton in the shipment.
+    for (const parcel of req.parcels) {
+      const res = await fetchImpl(`${EASYPOST_BASE}/shipments`, {
+        method: "POST",
+        headers: {
+          Authorization: authHeader(apiKey),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(buildParcelPayload(req, parcel)),
+      });
+      if (!res.ok) {
+        let body: unknown = null;
+        try { body = await res.json(); } catch { /* retain status */ }
+        return noParcelRate(parseProviderError(res.status, body));
+      }
+
+      const data = (await res.json()) as {
+        rates?: Array<{
+          rate?: string;
+          carrier?: string;
+          service?: string;
+          delivery_days?: number;
+          delivery_date?: string;
+        }>;
+      };
+      const candidates = (data.rates ?? [])
+        .filter((rate) => isSupportedParcelCarrier(rate.carrier))
+        .map((rate) => ({
+          amountCents: Math.round(Number(rate.rate) * 100),
+          carrier: rate.carrier ?? "",
+          service: rate.service ?? "",
+          transitDays: Number.isInteger(rate.delivery_days) && (rate.delivery_days ?? 0) > 0 ? rate.delivery_days : undefined,
+          estimatedDeliveryDate: /^\d{4}-\d{2}-\d{2}$/.test(rate.delivery_date ?? "") ? rate.delivery_date : undefined,
+        }))
+        .filter((rate) => Number.isFinite(rate.amountCents) && rate.amountCents > 0)
+        .sort((a, b) => a.amountCents - b.amountCents);
+      const best = candidates[0];
+      if (!best) return noParcelRate(`No UPS, FedEx, or USPS parcel rate returned for ${parcel.label ?? "a carton"}`);
+      packages.push({ label: parcel.label ?? null, ...best });
+    }
+  } catch (error) {
+    return noParcelRate(error instanceof Error ? error.message : "Network error contacting EasyPost");
+  }
+
+  const amountCents = packages.reduce((sum, entry) => sum + entry.amountCents, 0);
+  const carrier = Array.from(new Set(packages.map((entry) => entry.carrier))).join(", ");
+  const service = Array.from(new Set(packages.map((entry) => entry.service))).join(", ");
+  const transitDays = packages.reduce<number | undefined>((max, entry) =>
+    entry.transitDays != null ? Math.max(max ?? 0, entry.transitDays) : max,
+  undefined);
+  const estimatedDeliveryDate = packages
+    .map((entry) => entry.estimatedDeliveryDate)
+    .filter((date): date is string => Boolean(date))
+    .sort()
+    .at(-1);
+
+  return {
+    ok: true,
+    amountCents,
+    carrier: carrier || undefined,
+    service: service || undefined,
+    transitDays,
+    estimatedDeliveryDate,
+    packages,
+  };
 }

@@ -18,4 +18,13 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain("shipmentGroups,");
     expect(source).toContain("Carrier shipping is unavailable for");
   });
+
+  it("uses parcel rating only after verified carton eligibility and otherwise retains the LTL plan", () => {
+    expect(source).toContain("resolveParcelShipmentMode(resolvedGroup.parcelPackages)");
+    expect(source).toContain('liveProvider === "easypost" && parcelDecision.mode === "parcel"');
+    expect(source).toContain("easypostParcelQuote(liveKey");
+    expect(source).toContain('transportMode: "parcel"');
+    expect(source).toContain('transportMode: "ltl"');
+    expect(source).toContain('source: "parcel"');
+  });
 });

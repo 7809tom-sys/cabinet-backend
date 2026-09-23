@@ -612,8 +612,17 @@ export default function Cart() {
                     return (
                       <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
                         <div className="font-medium text-foreground">{group.label}</div>
-                        <div>{group.palletCount} pallet{group.palletCount === 1 ? "" : "s"} · Class {group.freightClass} · {group.totalContentsWeightLbs} lb contents · {group.totalWeightLbs} lb billed</div>
-                        {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                        {group.transportMode === "parcel" ? (
+                          <>
+                            <div>{group.parcelCount ?? group.parcels?.length ?? 0} verified carton{(group.parcelCount ?? group.parcels?.length ?? 0) === 1 ? "" : "s"} · Live UPS/FedEx/USPS service</div>
+                            {group.parcels?.map((parcel, index) => <div key={index}>Carton {index + 1}{parcel.label ? ` · ${parcel.label}` : ""}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb{parcel.carrier ? ` · ${parcel.carrier}${parcel.service ? ` ${parcel.service}` : ""}` : ""}{parcel.amountCents != null ? ` · $${(parcel.amountCents / 100).toFixed(2)}` : ""}</div>)}
+                          </>
+                        ) : (
+                          <>
+                            <div>{group.palletCount} pallet{group.palletCount === 1 ? "" : "s"} · Class {group.freightClass} · {group.totalContentsWeightLbs} lb contents · {group.totalWeightLbs} lb billed</div>
+                            {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                          </>
+                        )}
                         <div className="mt-2 flex items-start gap-2 rounded-md bg-primary/5 p-2 text-foreground">
                           <CalendarClock className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
                           <div>

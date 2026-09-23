@@ -24,6 +24,13 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Pallet {index + 1}");
   });
 
+  it("shows a live parcel method only when the carrier returned eligible verified cartons", () => {
+    expect(cartSource).toContain('group.transportMode === "parcel"');
+    expect(cartSource).toContain("Live UPS/FedEx/USPS service");
+    expect(cartSource).toContain("verified carton");
+    expect(cartSource).toContain("parcel.carrier");
+  });
+
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {
     expect(builderSource).toContain("applyCartCheckoutPrefill(line, cartLine)");
     expect(prefillSource).toContain("cartDistributorId: item.distributorId ?? null");

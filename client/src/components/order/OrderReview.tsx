@@ -1227,7 +1227,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                 {(freightEstimate.data.rateGroups ?? []).map((group) => (
                   <div key={group.key} className="flex items-start justify-between gap-3 text-xs">
                     <span>
-                      {group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
+                      {group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
                     </span>
                     <span className="shrink-0">${(group.baseAmountCents / 100).toFixed(2)}</span>
                   </div>

@@ -323,8 +323,8 @@ export default function ShippingAdmin() {
             <Plug className="h-5 w-5 text-primary" /> Shipping Mode
           </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Choose how freight is priced. <strong>Live quote</strong> calls a carrier API for a real
-            LTL rate (no estimates). Until a key is connected, the storefront shows
+            Choose how shipping is priced. <strong>Live quote</strong> calls a carrier API for a real
+            parcel or LTL rate (no estimates). EasyPost evaluates verified cartons for UPS, FedEx, and USPS before using LTL pallets. Until a key is connected, the storefront shows
             "shipping quoted on your order" rather than a guessed amount.
           </p>
         </CardHeader>
@@ -348,7 +348,7 @@ export default function ShippingAdmin() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="easypost">EasyPost (LTL freight)</SelectItem>
+                  <SelectItem value="easypost">EasyPost (UPS/FedEx/USPS parcel + LTL)</SelectItem>
                   <SelectItem value="freightquote">Freightquote by C.H. Robinson</SelectItem>
                   <SelectItem value="globaltranz">GlobalTranz</SelectItem>
                   <SelectItem value="worldwideexpress">Worldwide Express (WWEX)</SelectItem>
@@ -375,7 +375,7 @@ export default function ShippingAdmin() {
             />
             <p className="text-xs text-muted-foreground">
               Stored securely server-side and never displayed back. Use your <strong>test key</strong>{" "}
-              first to verify, then switch to the live key.
+              first to verify, then switch to the live key. Parcel rates use only verified carton dimensions and packaged weight; missing or oversized cartons remain on the LTL path.
             </p>
           </div>
 

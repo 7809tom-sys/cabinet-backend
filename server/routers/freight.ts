@@ -9,6 +9,7 @@ import {
   cabinets,
   distributors,
   distributorSkus,
+  distributorCabinetOverrides,
   doorStyles,
   kitchenDesigns,
   type ShippingSettings,
@@ -37,7 +38,12 @@ import {
   type PalletCaps,
   type FreightItemPackage,
 } from "@shared/liveFreight";
-import { easypostQuote, type LiveQuoteAddress } from "../_core/easypost";
+import {
+  easypostParcelQuote,
+  easypostQuote,
+  type LiveQuoteAddress,
+  type LiveParcel,
+} from "../_core/easypost";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 import { freightquoteQuote } from "../_core/freightquote";
@@ -52,6 +58,10 @@ import {
   type DistributorShippingRuleMode,
   type DistributorZipRate,
 } from "@shared/distributorShipping";
+import {
+  resolveParcelShipmentMode,
+  type AuthoritativeParcelPackage,
+} from "@shared/parcelEligibility";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -160,14 +170,18 @@ function attachFreightQuoteToken(
   };
 }
 
-// Resolve packaged weight + cubic feet per order line from the catalog, with the
-// configured fallbacks. Returns both the per-line packages (for pallet building)
-// and the flat per-line weights (for the legacy estimator).
+// Resolve packaged weight + cubic feet per order line from the catalog. LTL may
+// use the existing configured fallbacks, but the parcel path receives only true
+// carton fields: a missing package record is never invented into a parcel.
 async function resolvePackages(
   items: FreightItemInput[],
   row: ShippingSettings | null,
   fallbackWeight: number
-): Promise<{ packages: FreightItemPackage[]; weighted: { weightLbs: number | null; qty: number }[] }> {
+): Promise<{
+  packages: FreightItemPackage[];
+  weighted: { weightLbs: number | null; qty: number }[];
+  parcelPackages: AuthoritativeParcelPackage[];
+}> {
   const fallbackCubicFt = row ? Number(row.defaultCabinetCubicFt) : 8;
 
   const ids = items
@@ -178,7 +192,10 @@ async function resolvePackages(
     .filter((c): c is string => typeof c === "string" && c.length > 0);
 
   type Pkg = {
-    weight: number | null;
+    id: number;
+    code: string;
+    packageWeight: number | null;
+    fallbackWeight: number | null;
     l: number | null;
     w: number | null;
     h: number | null;
@@ -187,8 +204,22 @@ async function resolvePackages(
     physicalDepth: number | null;
     isTrim: boolean;
   };
+  type PackageOverride = {
+    distributorId: number;
+    cabinetId: number;
+    packageWeight: number | null;
+    fallbackWeight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+    physicalWidth: number | null;
+    physicalHeight: number | null;
+    physicalDepth: number | null;
+  };
+  const numeric = (value: unknown): number | null => value == null ? null : Number(value);
   const byId = new Map<number, Pkg>();
   const byCode = new Map<string, Pkg>();
+  const overridesByDistributorCabinet = new Map<string, PackageOverride>();
 
   if (ids.length > 0 || codes.length > 0) {
     const db = await getDb();
@@ -197,6 +228,7 @@ async function resolvePackages(
         const rows = await db
           .select({
             id: cabinets.id,
+            code: cabinets.masterCode,
             weight: cabinets.pkgWeight,
             fallbackWeight: cabinets.weight,
             l: cabinets.pkgLength,
@@ -212,17 +244,16 @@ async function resolvePackages(
           .where(inArray(cabinets.id, ids));
         for (const r of rows) {
           byId.set(r.id, {
-            weight: r.weight != null
-              ? Number(r.weight)
-              : r.fallbackWeight != null
-                ? Number(r.fallbackWeight)
-                : null,
-            l: r.l != null ? Number(r.l) : null,
-            w: r.w != null ? Number(r.w) : null,
-            h: r.h != null ? Number(r.h) : null,
-            physicalWidth: r.physicalWidth != null ? Number(r.physicalWidth) : null,
-            physicalHeight: r.physicalHeight != null ? Number(r.physicalHeight) : null,
-            physicalDepth: r.physicalDepth != null ? Number(r.physicalDepth) : null,
+            id: r.id,
+            code: r.code,
+            packageWeight: numeric(r.weight),
+            fallbackWeight: numeric(r.fallbackWeight),
+            l: numeric(r.l),
+            w: numeric(r.w),
+            h: numeric(r.h),
+            physicalWidth: numeric(r.physicalWidth),
+            physicalHeight: numeric(r.physicalHeight),
+            physicalDepth: numeric(r.physicalDepth),
             isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
         }
@@ -230,6 +261,7 @@ async function resolvePackages(
       if (codes.length > 0) {
         const rows = await db
           .select({
+            id: cabinets.id,
             code: cabinets.masterCode,
             weight: cabinets.pkgWeight,
             fallbackWeight: cabinets.weight,
@@ -246,19 +278,61 @@ async function resolvePackages(
           .where(inArray(cabinets.masterCode, codes));
         for (const r of rows) {
           byCode.set(r.code, {
-            weight: r.weight != null
-              ? Number(r.weight)
-              : r.fallbackWeight != null
-                ? Number(r.fallbackWeight)
-                : null,
-            l: r.l != null ? Number(r.l) : null,
-            w: r.w != null ? Number(r.w) : null,
-            h: r.h != null ? Number(r.h) : null,
-            physicalWidth: r.physicalWidth != null ? Number(r.physicalWidth) : null,
-            physicalHeight: r.physicalHeight != null ? Number(r.physicalHeight) : null,
-            physicalDepth: r.physicalDepth != null ? Number(r.physicalDepth) : null,
+            id: r.id,
+            code: r.code,
+            packageWeight: numeric(r.weight),
+            fallbackWeight: numeric(r.fallbackWeight),
+            l: numeric(r.l),
+            w: numeric(r.w),
+            h: numeric(r.h),
+            physicalWidth: numeric(r.physicalWidth),
+            physicalHeight: numeric(r.physicalHeight),
+            physicalDepth: numeric(r.physicalDepth),
             isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
+        }
+      }
+
+      const resolvedCabinetIds = Array.from(new Set([
+        ...ids,
+        ...Array.from(byCode.values()).map((pkg) => pkg.id),
+      ]));
+      const distributorIds = Array.from(new Set(
+        items.map((item) => item.distributorId).filter((id): id is number => typeof id === "number"),
+      ));
+      if (resolvedCabinetIds.length > 0 && distributorIds.length > 0) {
+        const rows = await db
+          .select({
+            distributorId: distributorCabinetOverrides.distributorId,
+            cabinetId: distributorCabinetOverrides.cabinetId,
+            packageWeight: distributorCabinetOverrides.pkgWeight,
+            fallbackWeight: distributorCabinetOverrides.weight,
+            l: distributorCabinetOverrides.pkgLength,
+            w: distributorCabinetOverrides.pkgWidth,
+            h: distributorCabinetOverrides.pkgHeight,
+            physicalWidth: distributorCabinetOverrides.physicalWidth,
+            physicalHeight: distributorCabinetOverrides.height,
+            physicalDepth: distributorCabinetOverrides.depth,
+          })
+          .from(distributorCabinetOverrides)
+          .where(and(
+            inArray(distributorCabinetOverrides.cabinetId, resolvedCabinetIds),
+            inArray(distributorCabinetOverrides.distributorId, distributorIds),
+          ));
+        for (const record of rows) {
+          const override: PackageOverride = {
+            distributorId: record.distributorId,
+            cabinetId: record.cabinetId,
+            packageWeight: numeric(record.packageWeight),
+            fallbackWeight: numeric(record.fallbackWeight),
+            l: numeric(record.l),
+            w: numeric(record.w),
+            h: numeric(record.h),
+            physicalWidth: numeric(record.physicalWidth),
+            physicalHeight: numeric(record.physicalHeight),
+            physicalDepth: numeric(record.physicalDepth),
+          };
+          overridesByDistributorCabinet.set(`${override.distributorId}:${override.cabinetId}`, override);
         }
       }
     }
@@ -266,6 +340,7 @@ async function resolvePackages(
 
   const packages: FreightItemPackage[] = [];
   const weighted: { weightLbs: number | null; qty: number }[] = [];
+  const parcelPackages: AuthoritativeParcelPackage[] = [];
 
   for (const it of items) {
     const pkg =
@@ -274,15 +349,27 @@ async function resolvePackages(
         : it.masterCode
           ? byCode.get(it.masterCode)
           : undefined;
+    const override = pkg && it.distributorId != null
+      ? overridesByDistributorCabinet.get(`${it.distributorId}:${pkg.id}`)
+      : undefined;
+    const packageWeight = override?.packageWeight ?? pkg?.packageWeight ?? null;
+    const packageLength = override?.l ?? pkg?.l ?? null;
+    const packageWidth = override?.w ?? pkg?.w ?? null;
+    const packageHeight = override?.h ?? pkg?.h ?? null;
+    const physicalWidth = override?.physicalWidth ?? pkg?.physicalWidth ?? null;
+    const physicalHeight = override?.physicalHeight ?? pkg?.physicalHeight ?? null;
+    const physicalDepth = override?.physicalDepth ?? pkg?.physicalDepth ?? null;
 
     const resolvedWeight =
-      it.weightLbs != null ? it.weightLbs : pkg?.weight ?? null;
+      it.weightLbs != null
+        ? it.weightLbs
+        : packageWeight ?? override?.fallbackWeight ?? pkg?.fallbackWeight ?? null;
     weighted.push({ weightLbs: resolvedWeight, qty: it.qty });
 
     const cubicFt = packagedCubicFt(
-      pkg?.l ?? null,
-      pkg?.w ?? null,
-      pkg?.h ?? null,
+      packageLength,
+      packageWidth,
+      packageHeight,
       fallbackCubicFt
     );
     packages.push({
@@ -290,18 +377,30 @@ async function resolvePackages(
       cubicFt,
       qty: it.qty,
       maxPackageLengthIn: Math.max(
-        pkg?.l ?? 0,
-        pkg?.w ?? 0,
-        pkg?.h ?? 0,
-        pkg?.physicalWidth ?? 0,
-        pkg?.physicalHeight ?? 0,
-        pkg?.physicalDepth ?? 0,
+        packageLength ?? 0,
+        packageWidth ?? 0,
+        packageHeight ?? 0,
+        physicalWidth ?? 0,
+        physicalHeight ?? 0,
+        physicalDepth ?? 0,
       ) || null,
       isTrim: pkg?.isTrim ?? false,
     });
+    const hasAuthoritativePackage = [packageLength, packageWidth, packageHeight, packageWeight]
+      .every((value) => value != null && value > 0);
+    for (let unit = 0; unit < it.qty; unit += 1) {
+      parcelPackages.push({
+        lengthIn: packageLength,
+        widthIn: packageWidth,
+        heightIn: packageHeight,
+        weightLbs: packageWeight,
+        hasAuthoritativePackage,
+        label: pkg?.code ?? it.masterCode ?? null,
+      });
+    }
   }
 
-  return { packages, weighted };
+  return { packages, weighted, parcelPackages };
 }
 
 // ─── Freight origin resolution (nearest distributor warehouse) ───────────────
@@ -1271,11 +1370,107 @@ export const freightRouter = router({
             settings.defaultCabinetWeightLbs,
           );
           const plan = buildPallets(resolvedGroup.packages, caps);
+          if (group.distributorRuleFeeCents != null) {
+            totalBillableWeightLbs += plan.totalWeightLbs;
+            shipmentGroups.push({
+              label: group.label,
+              originZip: group.originZip,
+              freightClass: liveFreightClass,
+              transportMode: "ltl",
+              palletCount: plan.palletCount,
+              totalWeightLbs: plan.totalWeightLbs,
+              totalContentsWeightLbs: plan.totalContentsWeightLbs,
+              totalCubicFt: plan.totalCubicFt,
+              pallets: plan.pallets.map((pallet) => ({
+                lengthIn: pallet.lengthIn,
+                widthIn: pallet.widthIn,
+                heightIn: pallet.heightIn,
+                weightLbs: pallet.weightLbs,
+                contentsWeightLbs: pallet.contentsWeightLbs,
+                contentsCubicFt: pallet.contentsCubicFt,
+              })),
+            });
+            rateGroups.push({
+              key: group.key,
+              label: `${group.label} · ${group.distributorRuleLabel ?? "Distributor fixed freight"}`,
+              originZip: group.originZip,
+              source: "plan_b",
+              baseAmountCents: group.distributorRuleFeeCents,
+              palletCount: plan.palletCount,
+            });
+            continue;
+          }
+
+          // EasyPost is the configured provider that can return live parcel
+          // services. Every carton must pass the UPS/FedEx/USPS screen first;
+          // otherwise the group remains on the established LTL pallet path.
+          const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
+          if (liveProvider === "easypost" && parcelDecision.mode === "parcel") {
+            const parcelCartons: LiveParcel[] = parcelDecision.packageResults.map((result, index) => {
+              const carton = result.package;
+              if (!carton) throw new Error("Parcel mode requires normalized carton data.");
+              return {
+                lengthIn: carton.lengthIn,
+                widthIn: carton.widthIn,
+                heightIn: carton.heightIn,
+                weightLbs: carton.weightLbs,
+                label: resolvedGroup.parcelPackages[index]?.label ?? null,
+              };
+            });
+            const parcelWeight = parcelCartons.reduce((sum, carton) => sum + carton.weightLbs, 0);
+            const live = await easypostParcelQuote(liveKey, {
+              fromZip: group.originZip,
+              toZip: input.destinationZip,
+              parcels: parcelCartons,
+              residential: input.accessorials?.residential,
+            });
+            const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
+            const shipmentGroup: FreightShipmentGroup = {
+              label: group.label,
+              originZip: group.originZip,
+              freightClass: "Parcel",
+              transportMode: "parcel",
+              palletCount: 0,
+              totalWeightLbs: parcelWeight,
+              totalContentsWeightLbs: parcelWeight,
+              totalCubicFt: 0,
+              pallets: [],
+              parcelCount: parcelCartons.length,
+              parcels: parcelCartons.map((carton, index) => ({
+                ...carton,
+                label: carton.label ?? null,
+                carrier: live.packages[index]?.carrier,
+                service: live.packages[index]?.service,
+                amountCents: live.packages[index]?.amountCents,
+              })),
+              transitDays: live.transitDays,
+              estimatedDeliveryDate: live.estimatedDeliveryDate,
+            };
+            shipmentGroups.push(shipmentGroup);
+            totalBillableWeightLbs += parcelWeight;
+            if (live.ok) {
+              rateGroups.push({
+                key: group.key,
+                label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${parcelCartons.length} carton${parcelCartons.length === 1 ? "" : "s"}`,
+                originZip: group.originZip,
+                source: "parcel",
+                baseAmountCents: live.amountCents,
+                carrier: carrierLabel,
+                transitDays: live.transitDays,
+                estimatedDeliveryDate: live.estimatedDeliveryDate,
+              });
+            } else {
+              failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
+            }
+            continue;
+          }
+
           totalBillableWeightLbs += plan.totalWeightLbs;
           const shipmentGroup: FreightShipmentGroup = {
             label: group.label,
             originZip: group.originZip,
             freightClass: liveFreightClass,
+            transportMode: "ltl",
             palletCount: plan.palletCount,
             totalWeightLbs: plan.totalWeightLbs,
             totalContentsWeightLbs: plan.totalContentsWeightLbs,
@@ -1287,20 +1482,9 @@ export const freightRouter = router({
               weightLbs: pallet.weightLbs,
               contentsWeightLbs: pallet.contentsWeightLbs,
               contentsCubicFt: pallet.contentsCubicFt,
-          })),
+            })),
           };
           shipmentGroups.push(shipmentGroup);
-          if (group.distributorRuleFeeCents != null) {
-            rateGroups.push({
-              key: group.key,
-              label: `${group.label} · ${group.distributorRuleLabel ?? "Distributor fixed freight"}`,
-              originZip: group.originZip,
-              source: "plan_b",
-              baseAmountCents: group.distributorRuleFeeCents,
-              palletCount: plan.palletCount,
-            });
-            continue;
-          }
           const liveReq: LiveRateRequest = {
             fromZip: group.originZip,
             toZip: input.destinationZip,

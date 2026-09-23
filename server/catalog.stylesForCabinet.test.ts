@@ -13,6 +13,7 @@ import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
 import { cabinets, distributorSkus, doorStyles } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
+import { TEMPORARY_ONE_DOLLAR_TEST_SKU } from "../shared/temporaryCheckoutTest";
 
 function publicCtx(): TrpcContext {
   return {
@@ -65,5 +66,31 @@ describe("catalog.stylesForCabinet", () => {
 
     expect(airDawn?.name).toBe("Air Dawn (Preston)");
     expect(airDawn?.name).not.toBe("Slim White Oak");
+  });
+
+  it("keeps the temporary one-dollar checkout SKU purchasable with an active style", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const rows = await db
+      .select({ cabinetId: cabinets.id, styleId: distributorSkus.styleId })
+      .from(cabinets)
+      .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+      .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
+      .where(and(
+        eq(cabinets.masterCode, TEMPORARY_ONE_DOLLAR_TEST_SKU),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        eq(doorStyles.isActive, true),
+      ))
+      .limit(1);
+
+    expect(rows).toHaveLength(1);
+    const caller = appRouter.createCaller(publicCtx());
+    const styles = await caller.pricing.stylesForCabinet({ cabinetId: rows[0].cabinetId });
+    const checkoutStyle = styles.find((style) => style.styleId === rows[0].styleId);
+
+    expect(checkoutStyle?.homeownerPrice).toBe("1.00");
+    expect(checkoutStyle?.name).toBeTruthy();
   });
 });

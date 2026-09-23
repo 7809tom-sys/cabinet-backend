@@ -52,7 +52,7 @@ export interface FreightRateGroup {
   key: string;
   label: string;
   originZip: string;
-  source: "live" | "plan_b";
+  source: "live" | "parcel" | "plan_b";
   baseAmountCents: number;
   carrier?: string | null;
   palletCount?: number;
@@ -70,16 +70,32 @@ export interface FreightPalletDetail {
   contentsCubicFt: number;
 }
 
+/** A source-verified carton and its live parcel carrier selection. */
+export interface FreightParcelDetail {
+  label: string | null;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightLbs: number;
+  carrier?: string;
+  service?: string;
+  amountCents?: number;
+}
+
 /** One style-origin shipment within a cart's live freight result. */
 export interface FreightShipmentGroup {
   label: string;
   originZip: string;
   freightClass: string;
+  /** LTL uses pallets; parcel is available only after carrier-rule screening. */
+  transportMode?: "ltl" | "parcel";
   palletCount: number;
   totalWeightLbs: number;
   totalContentsWeightLbs: number;
   totalCubicFt: number;
   pallets: FreightPalletDetail[];
+  parcelCount?: number;
+  parcels?: FreightParcelDetail[];
   /** Carrier transit after pickup; warehouse processing time is separate. */
   transitDays?: number;
   /** Carrier-provided estimated arrival date for the quoted pickup date. */
@@ -132,7 +148,7 @@ export function combineStyleFreightGroups(input: {
   }
 
   const lines: FreightQuoteLine[] = groups.map((group) => ({
-    label: `${group.source === "live" ? "Plan A live" : "Plan B fallback"} — ${group.label}`,
+    label: `${group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} — ${group.label}`,
     amountCents: Math.round(group.baseAmountCents),
   }));
 
