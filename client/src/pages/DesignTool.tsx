@@ -4854,7 +4854,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         }
         const side = cabinetWall(finalCab, room);
         const requestedAlong = side === "top" || side === "bottom" ? finalCab.x : finalCab.y;
-        const nearestAlong = nearestAvailableWallStart(
+        const nearestAlong = magneticAvailableWallStart(
           freeSegmentsOnWall(
             side,
             room,
@@ -8610,7 +8610,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           0,
           selected.placement,
         );
-	        const along = nearestAvailableWallStart(segments, requestedAlong, selected.width);
+        const along = magneticAvailableWallStart(segments, requestedAlong, selected.width);
 	        if (along == null) {
 	          const message = `${selected.masterCode} does not fit in an open span on this ${peninsula ? "peninsula" : customWall?.label ?? "wall"}.`;
           setPlacementWarning(message);
