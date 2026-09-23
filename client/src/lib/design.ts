@@ -2125,7 +2125,13 @@ export function fmtIn(n: number): string {
 // Width/depth are rotation-aware (a turned cabinet swaps its footprint), while
 // height comes from the placed height (with a sensible bucket fallback).
 export function dimLabel(p: PlacedCabinet): string {
-  let { w, d } = rotatedSize(p);
+  // Product dimensions describe the manufactured cabinet, not its screen-space
+  // axis-aligned envelope. A 3DB18 stays 18-by-24 when it is seated on a 45°
+  // continuous wall; reporting its 29.70-inch diagonal bounding box falsely
+  // makes the user think that a different product was placed and obscures the
+  // true run span used by snapping, collision, pricing, and materials.
+  let w = Math.max(0, Number(p.width) || 0);
+  let d = Math.max(0, Number(p.depth) || 0);
   const h = placedHeight(p);
   // Fillers (FILL-3, FILL-6): the plan width/depth may be swapped when placed on
   // a vertical wall (rotation 90/270). The TRUE filler width is encoded in the
@@ -3840,7 +3846,7 @@ export function isBridgeOverRange(a: PlacedCabinet, b: PlacedCabinet): boolean {
   );
 }
 
-export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
+export function conflictingUids(placed: PlacedCabinet[], room?: RoomData): Set<string> {
   const conflicts = new Set<string>();
   for (let i = 0; i < placed.length; i++) {
     for (let j = i + 1; j < placed.length; j++) {
@@ -3864,7 +3870,15 @@ export function conflictingUids(placed: PlacedCabinet[]): Set<string> {
       // A floor refrigerator is tall enough to occupy the wall-cabinet band;
       // standard base appliances remain below it.
       if (!verticalEnvelopesOverlap(a, b)) continue;
-      if (footprintsOverlap(a, b)) {
+      // A 45° continuous-wall run is stored as an axis-aligned plan envelope.
+      // Two cabinets can share that envelope while their physical along-wall
+      // spans meet at exactly one edge. When room geometry is available, use
+      // the same wall-aware collision gate used for placement and 3D movement;
+      // retain the legacy rectangle fallback for callers without a room.
+      const physicalOverlap = room
+        ? cabinetPlacementCollisionDetail(a, [b], room) != null
+        : footprintsOverlap(a, b);
+      if (physicalOverlap) {
         conflicts.add(a.uid);
         conflicts.add(b.uid);
       }
@@ -6478,6 +6492,33 @@ export function nearestAvailableWallStart(
       ? candidate
       : best;
   });
+}
+
+/**
+ * Applies the Designer's ordinary near-edge magnetic behavior to an explicit
+ * continuous wall or peninsula run. The measured wall remains the authority:
+ * a cabinet can be placed freely within a clear segment when it is not near an
+ * edge, but a drag within the shared snap threshold resolves to the exact
+ * adjoining run seam. This avoids tiny visual gaps and prevents a later 3D
+ * chassis from disagreeing with the plan collision model.
+ */
+export function magneticAvailableWallStart(
+  segments: WallSegment[],
+  requestedStart: number,
+  span: number,
+  threshold = STD.SNAP_THRESHOLD,
+): number | null {
+  const nearest = nearestAvailableWallStart(segments, requestedStart, span);
+  if (nearest == null || !Number.isFinite(threshold) || threshold < 0) return nearest;
+  const edgeCandidates = segments
+    .filter((segment) => segment.length + 0.001 >= span)
+    .flatMap((segment) => [
+      segment.start,
+      segment.start + segment.length - span,
+    ])
+    .filter((edge) => Math.abs(edge - requestedStart) <= threshold + COLLISION_EPSILON_IN)
+    .sort((left, right) => Math.abs(left - requestedStart) - Math.abs(right - requestedStart) || left - right);
+  return edgeCandidates[0] ?? nearest;
 }
 
 export function freeSegmentsOnWall(

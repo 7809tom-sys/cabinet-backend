@@ -114,7 +114,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -3549,7 +3549,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     [placed, room]
   );
   const conflictUids = useMemo(() => {
-    const set = conflictingUids(placed);
+    // Keep the warning rail on the same physical wall-run collision rule as
+    // catalog drops, Plan drags, 3D drags, and mobile nudges. A diagonal
+    // screen envelope is not an appliance-in-cabinet collision.
+    const set = conflictingUids(placed, room);
     // (ceilingViolationUids declared above)
     // Blind corner rule: a blind corner whose neighbor isn't pulled the
     // required 3" off the corner is also a conflict.
@@ -7246,7 +7249,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          const nextStart = explicitCornerOffset != null
 	            ? explicitCornerOffset
 	            : shouldMagnetSnapToRun
-	            ? nearestAvailableWallStart(segments, desiredStart, cabinet.width)
+	            ? magneticAvailableWallStart(segments, desiredStart, cabinet.width)
 		            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
 		          if (nextStart == null) {
 		            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "custom wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;

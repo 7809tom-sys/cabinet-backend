@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-	  freeSegmentsOnWall, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -3196,6 +3196,47 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const conflicts = conflictingUids([base, range]);
     expect(conflicts.has("b")).toBe(true);
     expect(conflicts.has("r")).toBe(true);
+  });
+
+  it("keeps a 3DB18 flush beside a 30-inch range on a measured 45-degree wall without a false appliance conflict", () => {
+    const room: RoomData = {
+      width: 240,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [{ id: "start", x: 0, y: 0 }, { id: "end", x: 160, y: 160 }],
+      customWalls: [{ id: "wall-45", startVertexId: "start", endVertexId: "end", lockedAngle: 45 }],
+    };
+    const rangeSpot = wallPlacementAt(48, 30, 25, "wall-45" as any, room);
+    const range = cab({
+      uid: "range", masterCode: "RANGE-30", description: '30" Freestanding Range', placement: "appliance",
+      ...rangeSpot, width: 30, depth: 25, height: 36, wallId: "wall-45", wallOffset: 48,
+    });
+    const drawerSpot = wallPlacementAt(78, 18, 24, "wall-45" as any, room);
+    const drawerBase = cab({
+      uid: "3db18", masterCode: "3DB18", description: '18" Three Drawer Base Cabinet', placement: "base",
+      ...drawerSpot, width: 18, depth: 24, wallId: "wall-45", wallOffset: 78,
+    });
+
+    // The visible 29.7-inch diagonal envelopes overlap, but the real 30" and
+    // 18" wall spans meet precisely at 78". The Designer warning must follow
+    // the same wall-aware rule used by plan and 3D placement.
+    expect(conflictingUids([range, drawerBase])).toEqual(new Set(["range", "3db18"]));
+    expect(conflictingUids([range, drawerBase], room)).toEqual(new Set());
+    expect(dimLabel(drawerBase)).toBe('18"W × 34.5"H × 24"D');
+
+    const overlappingSpot = wallPlacementAt(77, 18, 24, "wall-45" as any, room);
+    const overlappingDrawerBase = { ...drawerBase, ...overlappingSpot, wallOffset: 77 };
+    expect(conflictingUids([range, overlappingDrawerBase], room)).toEqual(new Set(["range", "3db18"]));
+  });
+
+  it("magnetically seats a 3DB18 at the exposed 30-inch range edge on a continuous wall", () => {
+    const gaps = [{ start: 0, length: 48 }, { start: 78, length: 130 }];
+    expect(magneticAvailableWallStart(gaps, 80.5, 18)).toBe(78);
+    // The same helper preserves a deliberate position outside the 6-inch snap
+    // capture range; turning off Designer snapping remains unnecessary for a
+    // genuinely intentional larger gap.
+    expect(magneticAvailableWallStart(gaps, 96, 18)).toBe(96);
   });
 
   it("flags a 70-inch refrigerator that overlaps a wall cabinet in the 54-inch upper zone", () => {

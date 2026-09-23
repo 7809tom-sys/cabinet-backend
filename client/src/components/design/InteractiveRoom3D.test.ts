@@ -69,6 +69,13 @@ describe("3D fallback appliance run seams", () => {
     // Center-to-center = 30/2 + 18/2: a true zero-gap cabinet seam.
     expect((db18!.position.x - range!.position.x) * 12).toBeCloseTo(24, 6);
     expect(cursor.back).toBe(51);
+
+    let rangeChassis: THREE.Mesh | null = null;
+    range?.traverse((item) => {
+      if (item.userData.freestandingRangeChassis && item instanceof THREE.Mesh) rangeChassis = item;
+    });
+    expect(rangeChassis).not.toBeNull();
+    expect(((rangeChassis!.geometry as THREE.BoxGeometry).parameters.width as number) * 12).toBeCloseTo(30, 6);
   });
 });
 

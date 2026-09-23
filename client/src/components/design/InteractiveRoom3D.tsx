@@ -3214,11 +3214,14 @@ export function addCabinet(
   } else if (isFreestandingRange) {
     // A range is a floor appliance, not a cabinet carcass. A dedicated chassis,
     // lower recess, and four feet keep the product front from reading as a box.
+    // Its body must still occupy the exact approved 30-inch placement width:
+    // shrinking the chassis created a visible gap beside an edge-snapped DB18
+    // even though the plan, collision model, and order takeoff were flush.
     const footHeight = Math.min(0.12, bodyHeight * 0.06);
     const topClearance = 0.06;
     const chassisHeight = Math.max(0.2, bodyHeight - footHeight - topClearance);
     const chassisMaterial = new THREE.MeshStandardMaterial({ color: rangeAppearance?.bodyColor ?? "#1b2026", roughness: 0.34, metalness: 0.58 });
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth - 0.045, chassisHeight, bodyDepth - 0.035), chassisMaterial);
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, chassisHeight, bodyDepth), chassisMaterial);
     chassis.position.y = -bodyHeight / 2 + footHeight + chassisHeight / 2;
     chassis.userData = { applianceCode: sku.masterCode, freestandingRangeChassis: true, rangeFloorClearanceIn: footHeight / INCH, rangeFinish: rangeAppearance?.finish, rangeFuel: rangeAppearance?.fuel };
     cabinet.add(chassis);
