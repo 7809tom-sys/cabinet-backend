@@ -9728,7 +9728,17 @@ export function wallGaps(
   /** Minimum gap size to report (default 1" — show every gap). */
   minLen = 1
 ): WallGap[] {
-  const sides: WallSide[] = ["top", "bottom", "left", "right"];
+  // The 3D catalog drag preview uses this list to describe its highlighted
+  // opening. Include every explicit continuous-wall segment as well as the
+  // four rectangular-room sides so a DW-24 on a 45° builder wall sees the
+  // exact same SB36/DB36 opening that Plan placement and collision checks use.
+  const sides = Array.from(new Set<WallSide>([
+    "top",
+    "bottom",
+    "left",
+    "right",
+    ...(room.customWalls ?? []).map((wall) => wall.id as WallSide),
+  ]));
   const layers: Array<"base" | "wall"> = ["base", "wall"];
   const gaps: WallGap[] = [];
   for (const side of sides) {
