@@ -26,7 +26,6 @@ interface MarginForm {
 interface EnforcementResult {
   updated: number;
   costPlusTier: number;
-  sourceListRetail: number;
   skippedUnpriced: number;
   unpublishedUnpriced: number;
 }
@@ -191,8 +190,8 @@ export default function MarginsAdmin() {
               <p className="font-semibold">Pricing enforced on save</p>
               <p className="mt-1 leading-relaxed">
                 Refreshed <strong>{lastEnforcement.updated.toLocaleString()}</strong>{" "}
-                priced SKU rows: {lastEnforcement.costPlusTier.toLocaleString()} cost-plus-tier rows and{" "}
-                {lastEnforcement.sourceListRetail.toLocaleString()} approved source-list retail rows.
+                priced SKU rows from their verified source cost/list basis. All homeowner,
+                contractor, and wholesale prices now follow the saved tier margins.
                 {lastEnforcement.skippedUnpriced > 0 && (
                   <>
                     {" "}

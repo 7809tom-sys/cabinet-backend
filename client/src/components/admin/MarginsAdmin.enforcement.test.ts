@@ -14,5 +14,7 @@ describe("MarginsAdmin pricing enforcement feedback", () => {
     expect(source).toContain("Save and enforce pricing");
     expect(source).toContain("unpriced source rows were left excluded");
     expect(source).toContain("made unavailable and unpublished");
+    expect(source).toContain("follow the saved tier margins");
+    expect(source).not.toContain("approved source-list retail rows");
   });
 });
