@@ -112,7 +112,7 @@ function priceStatusFor(args: {
   if (args.unitPrice != null) return "priced";
   // Historical placed cabinet geometry stays visible for repair, but a cabinet,
   // filler, panel, trim, or cabinet accessory without a verified source price is
-  // unavailable—not a sellable $0 or vague pending price.
+  // unavailable—not a sellable $0 or vague unresolved state.
   if (args.section === "cabinet" && (args.sourceUids?.length ?? 0) > 0) return "unavailable";
   return "quote_required";
 }

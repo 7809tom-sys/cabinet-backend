@@ -256,9 +256,9 @@ function priceOf(
   },
   tier: PricingTier,
 ): number | null {
-  // A price that cannot be resolved from an authorized catalog row is pending,
-  // not a $0 sale. Returning null lets every downstream quote/cart flow show
-  // the existing pending-price state instead of inventing a free item.
+  // A price that cannot be resolved from an authorized catalog row is never a
+  // $0 sale. Returning null makes a cabinet unavailable and makes a genuine
+  // quote-only non-cabinet line explicit instead of inventing a free item.
   return resolveTierPrice(DESIGN_TIER_TO_SHARED[tier], row);
 }
 
@@ -3065,7 +3065,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
   }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
 
-  // Cabinet-preview lines preserve exact placement UIDs and pending-price
+  // Cabinet-preview lines preserve exact placement UIDs and unavailable
   // cabinets. Complete trim, surface, fixture, and cart parity is added below.
   const interactive3dCabinetPricingLines = useMemo(() => {
     const lines = buildDesignPreviewPricingLines({
@@ -3440,7 +3440,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }));
     // Appliances are already part of the live Design Tool palette. They are
     // presentation/plan items unless a distributor exposes a priced SKU, so the
-    // itemized drawer accurately marks them as price pending when applicable.
+    // itemized drawer accurately marks unpriced appliances as quote-required.
     const appliances = appliancePalette.map((item) => ({
       id: Number(item.id), masterCode: item.masterCode, description: item.description ?? null, category: "Appliance" as const, catalogGroup: "Appliances" as const,
       placement: item.placement ?? "appliance", width: dim(item.width, 30), height: dim(item.height, 36), depth: footprintDepth(item),

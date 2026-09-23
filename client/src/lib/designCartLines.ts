@@ -176,7 +176,7 @@ export function bundleCabinetPricingSignature(placed: PlacedCabinet[], styleId: 
 /**
  * Pricing rows for the interactive 3D quote. These intentionally mirror every
  * placed cabinet in the saved 2D plan: priced cabinets contribute to the
- * subtotal, while unpriced cabinets remain visible as pending-price lines.
+ * subtotal, while unpriced cabinets remain visible as unavailable lines.
  * Trim, surfaces, fixtures, and launch-stage visual appliances remain outside
  * this cabinet-design subtotal.
  */
@@ -201,7 +201,7 @@ export function buildDesignPreviewPricingLines({
     ) continue;
     const basePrice = unitPriceFor(cabinet);
     // A missing catalog price must never erase a cabinet from the 3D order
-    // overlay. Retain it as an explicit pending line; do not infer or invent a
+    // overlay. Retain it as an explicit unavailable line; do not infer or invent a
     // replacement amount from another distributor, tier, or style.
     const adjustedUnitPrice = adjustedDesignUnitPrice(cabinet, basePrice);
     const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
@@ -262,7 +262,7 @@ export function buildDesignPreviewPricingLines({
 
 /**
  * Build the exact 3D order drawer from the price-locked lines that are sent to
- * cart/checkout, while preserving pending placed cabinets and their selection
+ * cart/checkout, while preserving unavailable placed cabinets and their selection
  * UIDs. Priced cabinet preview lines contribute identity only; their amount is
  * always taken from the cart handoff so every visible total has one basis.
  */
