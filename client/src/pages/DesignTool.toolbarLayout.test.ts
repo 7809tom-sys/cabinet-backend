@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 const designActionsSource = readFileSync(new URL("../components/design/DesignActions.tsx", import.meta.url), "utf8");
+const roomSizeSource = readFileSync(new URL("../components/design/RoomSizeControl.tsx", import.meta.url), "utf8");
 
 describe("designer toolbar layout", () => {
   it("keeps the More-menu portal state hook inside the Design Tool component", () => {
@@ -84,9 +85,10 @@ describe("designer toolbar layout", () => {
     expect(source).not.toContain('sm:left-1/2 sm:right-auto sm:-translate-x-1/2');
   });
 
-  it("keeps Floor Plan and Room Size visible in compact desktop workspace and reachable on mobile", () => {
+  it("keeps Room Size visible in compact desktop workspace and reachable on mobile", () => {
     expect(source).toContain('className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
-    expect(source).toContain('aria-label="Open Floor Plan and Room Size"');
+    expect(roomSizeSource).toContain('aria-label="Open room size"');
+    expect(roomSizeSource).toContain("<span>Room size</span>");
     expect(source).toContain("<RoomSizeControl");
   });
 

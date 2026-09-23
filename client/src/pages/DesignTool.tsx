@@ -10028,9 +10028,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           size="sm"
           className="hidden lg:inline-flex shrink-0"
           onClick={() => setCompactWorkspaceOverride((mode) => isCompactWorkspace ? "expanded" : "compact")}
-          title={isCompactWorkspace ? "Show Catalog and Price panels beside the canvas" : "Collapse Catalog and Price panels to give the canvas more room"}
+          title={isCompactWorkspace ? "Show the Catalog and Price & cart panels beside the canvas" : "Hide the Catalog and Price & cart panels to give the canvas more room"}
+          aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas" : "Hide Catalog and Price & cart panels to focus the canvas"}
+          data-testid="compact-workspace-show-panels-trigger"
         >
-          <Columns3 className="mr-1.5 h-3.5 w-3.5" /> {isCompactWorkspace ? "Full workspace" : "Compact workspace"}
+          <Columns3 className="mr-1.5 h-3.5 w-3.5" /> {isCompactWorkspace ? "Show panels" : "Focus canvas"}
         </Button>
         {isCompactWorkspace && (
           <>

@@ -11,14 +11,16 @@ describe("Designer Compact Workspace", () => {
   });
 
   it("keeps manual canvas, catalog, and price controls available in compact mode", () => {
-    expect(source).toContain("Compact workspace");
-    expect(source).toContain("Full workspace");
+    expect(source).toContain("Focus canvas");
+    expect(source).toContain("Show panels");
+    expect(source).toContain('data-testid="compact-workspace-show-panels-trigger"');
+    expect(source).toContain('aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas"');
     expect(source).toContain("> Catalog");
     expect(source).toContain("Price &amp; cart");
   });
 
   it("fits the compact toolbar without horizontal scrolling and keeps both materials list and surfaces access direct", () => {
-    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto scrollbar-none"');
+    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto');
     expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
     expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
     expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');

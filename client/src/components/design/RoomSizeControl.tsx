@@ -332,11 +332,11 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
             variant="outline"
             size="sm"
             className="h-8 gap-1.5 px-2 text-xs"
-            title={`Floor Plan · ${t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}`}
-            aria-label="Open Floor Plan and Room Size"
+            title={`Edit room size · ${t("dt_room_label_h", { w: fmt(wDisp), d: fmt(dDisp), h: fmt(inchesToFeetInches(roomCeiling(room))) })}`}
+            aria-label="Open room size"
           >
             <Maximize className="h-3.5 w-3.5" />
-            <span>Floor plan</span>
+            <span>Room size</span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-80 max-h-[80vh] overflow-y-auto" align="start">
