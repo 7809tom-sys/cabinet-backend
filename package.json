@@ -5,11 +5,12 @@
   "license": "MIT",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch server/_core/index.ts",
-    "build": "vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
+    "build": "pnpm run test:designer-responsive && vite build && esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:designer-responsive": "vitest run client/src/pages/DesignTool.responsiveRelease.test.ts client/src/pages/DesignTool.compactWorkspace.test.ts client/src/pages/DesignTool.mobileAttributes.test.ts client/src/pages/DesignTool.toolbarLayout.test.ts client/src/pages/DesignTool.mobileToolbarRemoval.test.ts",
     "seed:room-layout": "node scripts/seed-room-layout-presets.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
   },
