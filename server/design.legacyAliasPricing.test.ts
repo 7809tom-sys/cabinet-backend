@@ -41,6 +41,21 @@ describe("Designer legacy alias price resolution", () => {
     })]);
   });
 
+  it("prices the verified BF-3 base-filler alias through the same authorized F342 filler source", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: 9390017, styleId: 390019, masterCode: "BF-3" }],
+      distributorId: 180001,
+    });
+
+    expect(rows).toEqual([expect.objectContaining({
+      cabinetId: 9390017,
+      styleId: 390019,
+      listPrice: "46.00",
+      homeownerPrice: "25.44",
+    })]);
+  });
+
   it("prices the explicit WR3624 catalog alias through its verified current refrigerator-wall source", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({
