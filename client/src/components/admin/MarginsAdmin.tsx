@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
 import { Percent, Save, TrendingUp } from "lucide-react";
 
@@ -37,7 +36,6 @@ export default function MarginsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading, error } = trpc.pricing.adminGetMargins.useQuery();
   const [form, setForm] = useState<MarginForm | null>(null);
-  const [distMarkups, setDistMarkups] = useState<Record<number, string>>({});
   const [lastEnforcement, setLastEnforcement] = useState<EnforcementResult | null>(null);
 
   useEffect(() => {
@@ -49,11 +47,6 @@ export default function MarginsAdmin() {
       contractorPct: String(bpsToPct(s.contractorMarkupBps)),
       wholesalePct: String(bpsToPct(s.wholesaleMarkupBps)),
     });
-    const m: Record<number, string> = {};
-    for (const d of data.distributors) {
-      m[d.id] = String(Math.round((Number(d.markupPercent ?? 0) || 0) * 100));
-    }
-    setDistMarkups(m);
   }, [data]);
 
   const saveMargins = trpc.pricing.adminUpdateMargins.useMutation({
@@ -68,14 +61,6 @@ export default function MarginsAdmin() {
       utils.pricing.adminGetMargins.invalidate();
     },
     onError: (e) => toast.error(e.message || "Failed to save margins"),
-  });
-
-  const setDistMarkup = trpc.pricing.adminSetDistributorMarkup.useMutation({
-    onSuccess: () => {
-      toast.success("Distributor markup updated");
-      utils.pricing.adminGetMargins.invalidate();
-    },
-    onError: (e) => toast.error(e.message || "Failed to update distributor"),
   });
 
   // Live preview: a sample $100 base price through each tier multiplier.
@@ -225,71 +210,6 @@ export default function MarginsAdmin() {
             <Save className="h-4 w-4" />
             {saveMargins.isPending ? "Saving and enforcing…" : "Save and enforce pricing"}
           </Button>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Per-supply-line markup overrides</CardTitle>
-          <CardDescription>
-            Optional markup applied to an individual supply line (e.g. a series
-            line sold at a premium). Stored per distributor; 0% = no override.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {data && data.distributors.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No active supply lines yet.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Supply line</TableHead>
-                  <TableHead>Mode</TableHead>
-                  <TableHead className="w-[160px]">Markup %</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data?.distributors.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-medium">
-                      {d.displayMode === "series" && d.seriesName ? d.seriesName : d.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground text-sm capitalize">
-                      {d.displayMode || "neutral"}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.5"
-                        value={distMarkups[d.id] ?? "0"}
-                        onChange={(e) =>
-                          setDistMarkups({ ...distMarkups, [d.id]: e.target.value })
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={setDistMarkup.isPending}
-                        onClick={() =>
-                          setDistMarkup.mutate({
-                            distributorId: d.id,
-                            markupPercent: (parseFloat(distMarkups[d.id] ?? "0") || 0) / 100,
-                          })
-                        }
-                      >
-                        Save
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
         </CardContent>
       </Card>
 

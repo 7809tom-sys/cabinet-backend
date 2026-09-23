@@ -3949,22 +3949,7 @@ export const pricingRouter = router({
   // supply lines; the per-tier bps nudge a whole tier up/down. 10000 = no change.
   adminGetMargins: adminProcedure.query(async () => {
     const s = await getPricingSettings();
-    const distRows = await (async () => {
-      const db = await getDb();
-      if (!db) return [] as { id: number; name: string | null; markupPercent: string | null; displayMode: string | null; seriesName: string | null }[];
-      return db
-        .select({
-          id: distributors.id,
-          name: distributors.name,
-          markupPercent: distributors.markupPercent,
-          displayMode: distributors.displayMode,
-          seriesName: distributors.seriesName,
-        })
-        .from(distributors)
-        .where(eq(distributors.isActive, true))
-        .orderBy(asc(distributors.name));
-    })();
-    return { settings: s, distributors: distRows };
+    return { settings: s };
   }),
 
   adminUpdateMargins: adminProcedure
@@ -4005,20 +3990,6 @@ export const pricingRouter = router({
     .mutation(async ({ ctx, input }) => {
       await updatePlatformPricingSettings(input, ctx.user?.openId);
       return await getPlatformPricingSettings();
-    }),
-
-  // Per-distributor markup override. Reuses the distributor.markupPercent lever
-  // (decimal fraction, e.g. 0.15 = +15%) so the margins tab can edit it inline.
-  adminSetDistributorMarkup: adminProcedure
-    .input(z.object({ distributorId: z.number().int(), markupPercent: z.number().min(0).max(10) }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "No database" });
-      await db
-        .update(distributors)
-        .set({ markupPercent: String(input.markupPercent) })
-        .where(eq(distributors.id, input.distributorId));
-      return { success: true } as const;
     }),
 
   // ─── Per-distributor cost Multiplier tab ─────────────────────────────────────
