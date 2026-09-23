@@ -317,7 +317,7 @@ export default function ShippingAdmin() {
   return (
     <div className="space-y-6">
       {/* ── Shipping mode + live provider ─────────────────────────────── */}
-      <Card>
+      <Card id="shipping-live-provider">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Plug className="h-5 w-5 text-primary" /> Shipping Mode

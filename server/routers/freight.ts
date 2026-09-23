@@ -957,7 +957,6 @@ async function simulateFreight(input: {
   mode: FreightSimulationMode;
   allowMissingStyleOriginFallback?: boolean;
   forceCarrierQuote?: boolean;
-  useWwexStagingConnection?: boolean;
 }) {
   const settingsRow = await loadSettingsRow();
   if (!settingsRow) {
@@ -990,18 +989,13 @@ async function simulateFreight(input: {
   const unavailable: string[] = [];
   let totalBillableWeightLbs = 0;
   const shouldRequestCarrier = input.mode === "saved_configuration";
-  const shouldUseWwexStaging = input.useWwexStagingConnection === true;
-  const carrierSettings = shouldUseWwexStaging
-    ? { ...settingsRow, liveProvider: "worldwideexpress" as const, wwexEnvironment: "sandbox" as const }
-    : settingsRow;
   const savedSpeedshipClass = normalizeSpeedshipFreightClass(settingsRow.freightClass);
   // WWEX only accepts documented Speedship LTL classes. Apply the same
   // normalization used by customer quotes to every admin test path so an old
   // stored class such as "75" cannot cause a 422 from the carrier.
-  const freightClass = carrierSettings.liveProvider === "worldwideexpress"
+  const freightClass = settingsRow.liveProvider === "worldwideexpress"
     ? savedSpeedshipClass ?? "175"
     : settingsRow.freightClass;
-  const freightClassDefaultedForStaging = shouldUseWwexStaging && savedSpeedshipClass == null;
 
   for (const group of styleGroups) {
     const resolvedGroup = await resolvePackages(
@@ -1047,11 +1041,11 @@ async function simulateFreight(input: {
           palletCount: plan.palletCount,
         });
       }
-    } else if (shouldRequestCarrier && carrierSettings.liveProvider !== "estimator") {
+    } else if (shouldRequestCarrier && settingsRow.liveProvider !== "estimator") {
       const live = await requestLiveRate({
-        provider: carrierSettings.liveProvider,
-        settings: carrierSettings,
-        liveApiKey: carrierSettings.liveApiKey ?? "",
+        provider: settingsRow.liveProvider,
+        settings: settingsRow,
+        liveApiKey: settingsRow.liveApiKey ?? "",
         request: {
           fromZip: group.originZip,
           toZip: destinationZip,
@@ -1147,14 +1141,13 @@ async function simulateFreight(input: {
     deliveryType: input.accessorials?.residential ? "residential" as const : "business" as const,
     liftgate: input.accessorials?.liftgate === true,
     quoteMode: settingsRow.quoteMode,
-    provider: carrierSettings.liveProvider,
-    providerEnvironment: liveProviderEnvironment(carrierSettings),
+    provider: settingsRow.liveProvider,
+    providerEnvironment: liveProviderEnvironment(settingsRow),
     carrierRetryAt: groups.reduce<number | null>((latest, group) => {
       if (group.carrierRetryAt == null) return latest;
       return latest == null || group.carrierRetryAt > latest ? group.carrierRetryAt : latest;
     }, null),
     freightClass,
-    freightClassDefaultedForStaging,
     merchandiseSubtotalCents: input.merchandiseSubtotalCents,
     totalUnits: overallLoad.units,
     isKitchen,
@@ -1730,7 +1723,7 @@ export const freightRouter = router({
       designId: z.number().int().positive(),
       destinationZip: z.string().min(3).max(16),
       accessorials: accessorialsSchema,
-      mode: z.enum(["pallet_preview", "saved_configuration", "plan_b"]),
+      mode: z.enum(["pallet_preview", "saved_configuration"]),
     }))
     .mutation(async ({ input }) => {
       const plan = await savedDesignFreightInput(input.designId);
@@ -1742,7 +1735,6 @@ export const freightRouter = router({
         mode: input.mode,
         allowMissingStyleOriginFallback: true,
         forceCarrierQuote: true,
-        useWwexStagingConnection: true,
       });
       return { ...simulation, savedDesign: plan.savedDesign };
     }),

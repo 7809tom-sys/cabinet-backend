@@ -13,16 +13,19 @@ import { toast } from "sonner";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "../../../../server/routers";
 
-type SimulationMode = "pallet_preview" | "saved_configuration" | "plan_b";
+type SimulationMode = "pallet_preview" | "saved_configuration";
 type SavedDesignSimulationResult = inferRouterOutputs<AppRouter>["freight"]["adminSimulateSavedDesignFreight"];
+type SimulationResultMode = SimulationMode | "plan_b";
 
 const money = (cents: number | null | undefined) =>
   cents == null ? "Not configured" : `$${(cents / 100).toFixed(2)}`;
 
-const modeLabel: Record<SimulationMode, string> = {
+const modeLabel: Record<SimulationResultMode, string> = {
   pallet_preview: "Pallets only",
-  saved_configuration: "Carrier shipping quote",
-  plan_b: "Plan B only",
+  saved_configuration: "Configured carrier quote",
+  // Kept only to render a historic cached result; Saved Design Shipping Test
+  // can no longer submit a Plan B request.
+  plan_b: "Historic Plan B result",
 };
 
 function formatCooldown(milliseconds: number): string {
@@ -107,8 +110,6 @@ export default function FreightTestLab() {
   }
 
   const result = resultsByMode[mode];
-  const planAResult = resultsByMode.saved_configuration;
-  const planBResult = resultsByMode.plan_b;
   const selectedDesign = designsQuery.data?.find((design) => String(design.id) === selectedDesignId);
   const carrierRateLimited = /temporarily rate-limited/i.test(result?.quote?.reason ?? "");
   const activeCarrierRetryAt = result?.carrierRetryAt ?? carrierRetryAt;
@@ -166,7 +167,7 @@ export default function FreightTestLab() {
         <section className="space-y-3" aria-labelledby="freight-test-settings-heading">
           <div>
             <h3 id="freight-test-settings-heading" className="font-semibold">2. Delivery ZIP and test path</h3>
-            <p className="text-xs text-muted-foreground">Enter the delivery ZIP here, then request a WWEX staging carrier quote for the saved design. The test never creates an order, payment, shipment, or customer quote. Use Pallets only when you need dimensions and weight without a carrier request.</p>
+              <p className="text-xs text-muted-foreground">Enter the delivery ZIP here, then request a quote from the carrier configured in Operations. A saved-design test never substitutes a Plan B fee, estimate, or staging connection for a carrier response. The test never creates an order, payment, shipment, or customer quote. Use Pallets only when you need dimensions and weight without a carrier request.</p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
@@ -196,9 +197,8 @@ export default function FreightTestLab() {
               <Select value={mode} onValueChange={(value) => { setMode(value as SimulationMode); invalidateResults(); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="saved_configuration">WWEX staging carrier quote</SelectItem>
+                  <SelectItem value="saved_configuration">Configured carrier quote — live response only</SelectItem>
                   <SelectItem value="pallet_preview">Pallets only — no shipping cost</SelectItem>
-                  <SelectItem value="plan_b">Plan B shipping cost only</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -226,7 +226,7 @@ export default function FreightTestLab() {
                 <><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Requesting carrier quote…</>
               ) : carrierCooldownActive ? (
                 <>Retry carrier quote in {formatCooldown(carrierCooldownRemainingMs)}</>
-              ) : mode === "pallet_preview" ? "Build pallet preview" : mode === "plan_b" ? "Test Plan B fee" : "Get carrier shipping quote"}
+              ) : mode === "pallet_preview" ? "Build pallet preview" : "Get configured carrier quote"}
             </Button>
             {carrierCooldownActive && (
               <p id="wwex-retry-countdown" role="status" aria-live="polite" className="text-xs font-medium tabular-nums text-amber-800 dark:text-amber-200">
@@ -234,24 +234,6 @@ export default function FreightTestLab() {
               </p>
             )}
           </div>
-          {(planAResult || planBResult) && (
-            <div className="grid grid-cols-1 gap-3 border-t pt-4 sm:grid-cols-2" aria-label="Plan A and Plan B comparison">
-              <div className="border p-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier shipping quote</div>
-                <div className="mt-1 text-xl font-semibold">
-                  {planAResult?.quote?.available ? money(planAResult.quote.totalCents) : "Not run or unavailable"}
-                </div>
-                {planAResult?.quote && !planAResult.quote.available && <p className="mt-1 text-xs text-destructive">{planAResult.quote.reason}</p>}
-              </div>
-              <div className="border p-3">
-                <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Plan B only</div>
-                <div className="mt-1 text-xl font-semibold">
-                  {planBResult?.quote?.available ? money(planBResult.quote.totalCents) : "Not run or unavailable"}
-                </div>
-                {planBResult?.quote && !planBResult.quote.available && <p className="mt-1 text-xs text-destructive">{planBResult.quote.reason}</p>}
-              </div>
-            </div>
-          )}
         </section>
 
         {result && (
@@ -267,7 +249,6 @@ export default function FreightTestLab() {
               <div className="text-right text-xs text-muted-foreground">
                 <div>{modeLabel[result.mode]}</div>
                 <div>{result.provider} {result.providerEnvironment ? `· ${result.providerEnvironment}` : ""}</div>
-                {result.freightClassDefaultedForStaging && <div>Staging class 175 used · saved setting unchanged</div>}
               </div>
             </div>
 
@@ -283,7 +264,7 @@ export default function FreightTestLab() {
                   {carrierRateLimited ? (
                     <p className="text-sm font-medium text-foreground">{carrierCooldownActive ? `WWEX is temporarily busy. Retry available in ${formatCooldown(carrierCooldownRemainingMs)}; your saved credentials do not need to be replaced.` : "WWEX is temporarily busy. The cooldown has ended, so you can retry; your saved credentials do not need to be replaced."}</p>
                   ) : (
-                    <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="#worldwide-express-settings">Configure carrier quote settings</a>
+                    <a className="inline-flex text-sm font-medium text-primary underline underline-offset-4" href="/admin?tab=shipping#shipping-live-provider">Open carrier setup</a>
                   )}
                 </div>
               )}

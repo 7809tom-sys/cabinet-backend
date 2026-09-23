@@ -1898,13 +1898,13 @@
 - [x] Make test shipping cost the default Shipping Test action while retaining a separate pallets-only preview option
 - [x] Return a clearly labeled test-only estimator cost when the configured live freight provider cannot produce a rate, without changing customer quote behavior
 - [x] Apply the configured kitchen freight minimum to test-only estimator fallback costs so a kitchen design never displays an under-floor amount
-- [ ] Make the saved-design Shipping Test request a live carrier quote only, with a clear Operations setup path when the provider endpoint is missing
+- [x] Make the saved-design Shipping Test request a live carrier quote only, with a clear Operations setup path when the provider endpoint is missing. The saved-design endpoint now accepts only a pallet preview or the currently configured carrier request; it never sends the request through a forced WWEX staging override, estimator, or Plan B fallback. Unavailable carrier setup remains an explicit unavailable result and points directly to Operations → Shipping configuration. The underlying generic Plan B simulator remains isolated from the saved-design test path.
 - [x] Verify whether saved Worldwide Express Client ID and Client Secret support an automatic live endpoint, without requiring the user to provide additional URLs (official production token endpoint verified; live rate endpoint remains explicitly required)
 - [x] Use the official Worldwide Express production OAuth discovery token endpoint when the saved production token URL is blank, without guessing the separate rate endpoint
 - [ ] Verify the saved WWEX staging credentials and rate path separately from production so Shipping Test never labels a staging response as a live carrier quote
 - [ ] Complete the documented Speedship LTL payload fields required by the staging shopFlow endpoint after the authenticated rate request returned HTTP 422
 - [ ] Align Shipping Test with the verified complete WWEX staging quote envelope and label any staging result as non-production
-- [x] Route Operations Shipping Test through the configured Speedship staging connection while leaving customer quote provider settings unchanged
+- [x] Route Operations Shipping Test through the configured Speedship staging connection while leaving customer quote provider settings unchanged **(superseded)**. Saved-design Shipping Test now follows the configured carrier environment and labels a result with that environment; the staging-only behavior was removed so a test can never imply that a staging response is a live quote.
 - [x] Ensure every system freight quote invokes the configured carrier rate path and returns explicit unavailability rather than an estimator, planning amount, or zero-price fallback
 - [x] Supply the documented non-empty, ZIP-based Speedship address envelope for Operations rate tests without collecting or inventing a customer street address
 - [x] Use a documented valid cabinet freight class for the Operations-only WWEX staging test when the saved carrier class is unsupported, without changing stored shipping settings

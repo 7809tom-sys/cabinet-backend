@@ -84,19 +84,18 @@ describe("Operations Freight Test Lab", () => {
     expect(JSON.stringify(result)).not.toContain("quoteToken");
   });
 
-  it("exposes saved-design selection and a test-only saved-design simulation to administrators", () => {
+  it("exposes saved-design selection and a configured-carrier-only test to administrators", () => {
     const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
     expect(source).toContain("adminListSimulationDesigns: adminProcedure");
     expect(source).toContain("adminSimulateSavedDesignFreight: adminProcedure");
     expect(source).toContain("savedDesignFreightInput(input.designId)");
     expect(source).toContain("allowMissingStyleOriginFallback: true");
     expect(source).toContain("forceCarrierQuote: true");
-    expect(source).toContain("useWwexStagingConnection: true");
-    expect(source).toContain('liveProvider: "worldwideexpress" as const');
-    expect(source).toContain('wwexEnvironment: "sandbox" as const');
     expect(source).toContain('savedSpeedshipClass ?? "175"');
-    expect(source).toContain('carrierSettings.liveProvider === "worldwideexpress"');
-    expect(source).toContain('const freightClass = carrierSettings.liveProvider');
+    expect(source).toContain('settingsRow.liveProvider === "worldwideexpress"');
+    expect(source).toContain('const freightClass = settingsRow.liveProvider');
+    expect(source).toContain('mode: z.enum(["pallet_preview", "saved_configuration"])');
+    expect(source).not.toContain("useWwexStagingConnection");
     expect(source).toContain("customer quotes still require a style ZIP");
     expect(source).toContain("missingOriginStyle");
     expect(source).toContain("distributorName: matchedStyle.distributorName");
