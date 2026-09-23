@@ -89,4 +89,13 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(threeDAddPath).toContain("if (!dropTarget) { addCabinet(cabinet");
     expect(source.match(/onAddCatalogItem=\{addFromInteractive3d\}/g)).toHaveLength(2);
   });
+
+  it("uses the same magnetic measured-wall seam resolver for drag, snap-to-wall, and collision recovery", () => {
+    const addPath = sourceBetween("const addCabinet = useCallback", "const addManualFiller");
+    const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
+    const snapToWallPath = sourceBetween("const snapSelectedToWall = useCallback", "const deleteCabinet");
+    expect(addPath).toContain("magneticAvailableWallStart(");
+    expect(dragPath).toContain("magneticAvailableWallStart(segments, desiredStart, cabinet.width)");
+    expect(snapToWallPath).toContain("magneticAvailableWallStart(segments, requestedAlong, selected.width)");
+  });
 });
