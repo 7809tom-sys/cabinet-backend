@@ -4044,9 +4044,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         description: trimLabels[trim.kind],
         category: "Trim & molding",
         qty: trim.pieces,
-        supplier: "Cabinet supplier / quote",
+        supplier: priced ? (lockedDistributorId != null ? distributorNameById.get(lockedDistributorId) ?? "Cabinet supplier" : "Cabinet supplier") : "Cabinet supplier / quote",
         styleColor,
-        unitPrice: null,
+        // The compact material list is a customer-facing BOM, so reuse the
+        // exact tier-resolved trim price already shown in Price & Cart. A
+        // current source SKU such as TK-8(TKC) must never appear as pending
+        // merely because its historic short key was TK-8.
+        unitPrice: priced?.unitPrice ?? null,
       });
     }
 
@@ -4116,7 +4120,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (island) out.push({ code: "ISLAND-LAYOUT", description: "Kitchen island structure", category: "Layout feature", qty: 1, supplier: "Fabricator / quote", dimensions: `${island.width}\" W × ${island.depth}\" D`, unitPrice: null });
     if (ponyWalls.length > 0) out.push({ code: "PONY-WALL", description: "Pony wall construction", category: "Layout feature", qty: ponyWalls.length, supplier: "Contractor / quote", unitPrice: null });
     return out;
-  }, [activeStyleName, activeTrims, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hwSchedule, island, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks, trimPriceByCode]);
+  }, [activeStyleName, activeTrims, backsplashMaterialId, cartableLines, counter, countertop, countertopMaterialId, distributorNameById, edgeProfileId, flooringMaterialId, flooringPattern, furniture, hwSchedule, island, lockedDistributorId, ponyWalls.length, room.depth, room.width, selectedSurfaces, sinks, trimPriceByCode]);
 
   const materialsListRows = useMemo(() => buildMaterialsListRows({
     buildRows,

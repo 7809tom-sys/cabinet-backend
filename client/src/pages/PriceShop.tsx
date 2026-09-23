@@ -224,12 +224,12 @@ export default function PriceShop() {
                   <TableRow key={i} className={!item.available ? "opacity-50" : ""}>
                     <TableCell className="text-sm">{item.label}</TableCell>
                     <TableCell className="text-center">{item.qty}</TableCell>
-                    <TableCell className="text-right">
-                      {item.unitPrice ? `$${Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
-                    </TableCell>
-                    <TableCell className="text-right font-medium">
-                      {item.lineTotal ? `$${Number(item.lineTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "N/A"}
-                    </TableCell>
+	                    <TableCell className={`text-right ${item.available ? "" : "text-rose-700 font-medium"}`}>
+	                      {item.unitPrice ? `$${Number(item.unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "Unavailable"}
+	                    </TableCell>
+	                    <TableCell className={`text-right font-medium ${item.available ? "" : "text-rose-700"}`}>
+	                      {item.lineTotal ? `$${Number(item.lineTotal).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "Unavailable"}
+	                    </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right text-emerald-700">
                         {item.unitCost ? `$${Number(item.unitCost).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}

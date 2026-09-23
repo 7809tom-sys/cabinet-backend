@@ -337,12 +337,12 @@ export default function PriceShop10x10() {
                         <div className="text-xs text-muted-foreground">{item.masterCode}</div>
                       </TableCell>
                       <TableCell className="text-right">{item.qty}</TableCell>
-                      <TableCell className="text-right">
-                        {item.unitPrice ? `$${Number(item.unitPrice).toFixed(2)}` : <span className="text-muted-foreground text-xs">N/A</span>}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {item.lineTotal ? `$${Number(item.lineTotal).toFixed(2)}` : <span className="text-muted-foreground text-xs">—</span>}
-                      </TableCell>
+	                      <TableCell className={`text-right ${item.available ? "" : "text-rose-700 font-medium"}`}>
+	                        {item.unitPrice ? `$${Number(item.unitPrice).toFixed(2)}` : "Unavailable"}
+	                      </TableCell>
+	                      <TableCell className={`text-right font-medium ${item.available ? "" : "text-rose-700"}`}>
+	                        {item.lineTotal ? `$${Number(item.lineTotal).toFixed(2)}` : "Unavailable"}
+	                      </TableCell>
                       {isAdmin && (
                         <TableCell className="text-right text-emerald-600 text-sm">
                           {item.unitCost ? `$${Number(item.unitCost).toFixed(2)}` : "—"}

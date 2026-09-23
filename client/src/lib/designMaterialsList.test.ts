@@ -97,6 +97,32 @@ describe("complete Designer materials list", () => {
     expect(html).not.toContain("Pending");
   });
 
+  it("retains an authorized toe-kick trim price in Materials & Parts", () => {
+    const pricedTrim = buildMaterialsListRows({
+      buildRows: [],
+      pricingLines: [],
+      supplements: [{
+        code: "TK-8(TKC)",
+        description: "Toe kick",
+        category: "Trim & molding",
+        qty: 2,
+        supplier: "Preston",
+        styleColor: "Air Dawn (Preston)",
+        unitPrice: 25.44,
+      }],
+      defaultStyleName: "Air Dawn (Preston)",
+    });
+
+    expect(pricedTrim).toEqual([expect.objectContaining({
+      code: "TK-8(TKC)",
+      section: "cabinet",
+      supplier: "Preston",
+      unitPrice: 25.44,
+      lineTotal: 50.88,
+      priceStatus: "priced",
+    })]);
+  });
+
   it("keeps an island-placed 30-inch wall cabinet in the cabinet invoice and materials output", () => {
     const islandWallRows = buildMaterialsListRows({
       buildRows: [

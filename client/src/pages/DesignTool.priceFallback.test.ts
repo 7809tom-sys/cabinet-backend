@@ -20,6 +20,12 @@ describe("Designer verified price fallback", () => {
     expect(source).toContain("return price == null ? [] : [[row.cabinetId, price] as const];");
   });
 
+  it("passes a verified trim price through to Materials & Parts rather than relabeling it quote-only", () => {
+    expect(source).toContain("const priced = trimPriceForKind(trim.kind, trimPriceByCode);");
+    expect(source).toContain("unitPrice: priced?.unitPrice ?? null,");
+    expect(source).not.toContain('supplier: "Cabinet supplier / quote",\n        styleColor,\n        unitPrice: null,');
+  });
+
   it("marks an unpriced cabinet unavailable rather than presenting a vague N/A amount", () => {
     expect(source).toContain('lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable"');
     expect(source).not.toContain('lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A"');
