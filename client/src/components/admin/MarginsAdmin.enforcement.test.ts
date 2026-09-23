@@ -13,5 +13,6 @@ describe("MarginsAdmin pricing enforcement feedback", () => {
     expect(source).toContain("Pricing enforced on save");
     expect(source).toContain("Save and enforce pricing");
     expect(source).toContain("unpriced source rows were left excluded");
+    expect(source).toContain("made unavailable and unpublished");
   });
 });

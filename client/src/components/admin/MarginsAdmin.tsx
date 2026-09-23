@@ -28,6 +28,7 @@ interface EnforcementResult {
   costPlusTier: number;
   sourceListRetail: number;
   skippedUnpriced: number;
+  unpublishedUnpriced: number;
 }
 
 // Sample base price used purely for the live preview.
@@ -197,6 +198,13 @@ export default function MarginsAdmin() {
                     {" "}
                     <strong>{lastEnforcement.skippedUnpriced.toLocaleString()}</strong>{" "}
                     unpriced source rows were left excluded—no $0 or inferred customer price was created.
+                    {lastEnforcement.unpublishedUnpriced > 0 && (
+                      <>
+                        {" "}
+                        <strong>{lastEnforcement.unpublishedUnpriced.toLocaleString()}</strong>{" "}
+                        of those rows were also made unavailable and unpublished.
+                      </>
+                    )}
                   </>
                 )}
               </p>

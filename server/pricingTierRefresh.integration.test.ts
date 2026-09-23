@@ -1,8 +1,8 @@
-import { and, eq, isNotNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { getDb, getPricingSettings } from "./db";
+import { getDb, getPricingSettings, recalculateStoredTierPrices } from "./db";
 import { distributorSkus } from "../drizzle/schema";
 
 function adminContext(): TrpcContext {
@@ -52,6 +52,7 @@ describe("pricing.adminUpdateMargins tier refresh", () => {
     expect(result.recalculation.costPlusTier + result.recalculation.sourceListRetail)
       .toBe(result.recalculation.updated);
     expect(result.recalculation.skippedUnpriced).toBeGreaterThanOrEqual(0);
+    expect(result.recalculation.unpublishedUnpriced).toBeGreaterThanOrEqual(0);
     const [stored] = await db
       .select({
         wholesalePrice: distributorSkus.wholesalePrice,
@@ -65,5 +66,43 @@ describe("pricing.adminUpdateMargins tier refresh", () => {
     expect(Number(stored?.wholesalePrice)).toBe(cents(cost * settings.wholesaleMarkupBps / 10000));
     expect(Number(stored?.contractorPrice)).toBe(cents(cost * settings.contractorMarkupBps / 10000));
     expect(Number(stored?.homeownerPrice)).toBe(cents(cost * settings.homeownerMarkupBps / 10000));
+  });
+
+  it("removes an unpriced source row from public availability rather than inventing a sell price", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [unpriced] = await db
+      .select({
+        id: distributorSkus.id,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+      })
+      .from(distributorSkus)
+      .where(and(
+        isNull(distributorSkus.yourCost),
+        isNull(distributorSkus.adjustedListPrice),
+        isNull(distributorSkus.listPrice),
+      ))
+      .limit(1);
+    if (!unpriced) return;
+
+    try {
+      await db.update(distributorSkus)
+        .set({ isAvailable: true, isPublished: true })
+        .where(eq(distributorSkus.id, unpriced.id));
+      const result = await recalculateStoredTierPrices(await getPricingSettings());
+      expect(result.unpublishedUnpriced).toBeGreaterThanOrEqual(1);
+
+      const [after] = await db
+        .select({ isAvailable: distributorSkus.isAvailable, isPublished: distributorSkus.isPublished })
+        .from(distributorSkus)
+        .where(eq(distributorSkus.id, unpriced.id))
+        .limit(1);
+      expect(after).toMatchObject({ isAvailable: false, isPublished: false });
+    } finally {
+      await db.update(distributorSkus)
+        .set({ isAvailable: unpriced.isAvailable, isPublished: unpriced.isPublished })
+        .where(eq(distributorSkus.id, unpriced.id));
+    }
   });
 });

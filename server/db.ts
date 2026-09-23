@@ -334,6 +334,8 @@ export type TierPriceRecalculation = {
   sourceListRetail: number;
   /** Rows without a durable cost/list input; intentionally never given an invented price. */
   skippedUnpriced: number;
+  /** Public rows made unavailable because a verified source price/cost is absent. */
+  unpublishedUnpriced: number;
 };
 
 export async function recalculateStoredTierPrices(
@@ -349,6 +351,7 @@ export async function recalculateStoredTierPrices(
       costPlusTier: 0,
       sourceListRetail: 0,
       skippedUnpriced: 0,
+      unpublishedUnpriced: 0,
     };
   }
   const activeSettings = settings ?? await getPricingSettings();
@@ -356,11 +359,14 @@ export async function recalculateStoredTierPrices(
   const contractorMultiplier = Number(activeSettings.contractorMarkupBps) / 10000;
   const wholesaleMultiplier = Number(activeSettings.wholesaleMarkupBps) / 10000;
   const durableCost = sql`COALESCE(${distributorSkus.yourCost}, ${distributorSkus.adjustedListPrice}, ${distributorSkus.listPrice})`;
+  const hasAuthorizedBase = sql`${durableCost} IS NOT NULL AND ${durableCost} > 0`;
+  const lacksAuthorizedBase = sql`${durableCost} IS NULL OR ${durableCost} <= 0`;
   const [audit] = await db
     .select({
-      updated: sql<number>`SUM(CASE WHEN ${durableCost} IS NOT NULL THEN 1 ELSE 0 END)`,
+      updated: sql<number>`SUM(CASE WHEN ${hasAuthorizedBase} THEN 1 ELSE 0 END)`,
       sourceListRetail: sql<number>`0`,
-      skippedUnpriced: sql<number>`SUM(CASE WHEN ${durableCost} IS NULL THEN 1 ELSE 0 END)`,
+      skippedUnpriced: sql<number>`SUM(CASE WHEN ${lacksAuthorizedBase} THEN 1 ELSE 0 END)`,
+      unpublishedUnpriced: sql<number>`SUM(CASE WHEN ${lacksAuthorizedBase} AND (${distributorSkus.isAvailable} = 1 OR ${distributorSkus.isPublished} = 1) THEN 1 ELSE 0 END)`,
     })
     .from(distributorSkus)
     ;
@@ -368,6 +374,7 @@ export async function recalculateStoredTierPrices(
   const updated = Number(audit?.updated ?? 0);
   const sourceListRetail = Number(audit?.sourceListRetail ?? 0);
   const skippedUnpriced = Number(audit?.skippedUnpriced ?? 0);
+  const unpublishedUnpriced = Number(audit?.unpublishedUnpriced ?? 0);
 
   await db
     .update(distributorSkus)
@@ -376,12 +383,23 @@ export async function recalculateStoredTierPrices(
       contractorPrice: sql`ROUND(${durableCost} * ${contractorMultiplier}, 2)`,
       homeownerPrice: sql`ROUND(${durableCost} * ${homeownerMultiplier}, 2)`,
     })
-    .where(sql`${durableCost} IS NOT NULL`);
+    .where(hasAuthorizedBase);
+
+  // Customer-facing inventory cannot be active/published without a verified
+  // source cost/list basis. Preserve the source record for audit and future
+  // pricing, but remove it from every sellable surface instead of exposing $0
+  // or a guessed price.
+  await db
+    .update(distributorSkus)
+    .set({ isAvailable: false, isPublished: false })
+    .where(lacksAuthorizedBase);
+
   return {
     updated,
     costPlusTier: Math.max(0, updated - sourceListRetail),
     sourceListRetail,
     skippedUnpriced,
+    unpublishedUnpriced,
   };
 }
 
