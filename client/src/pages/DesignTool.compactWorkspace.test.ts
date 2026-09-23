@@ -58,9 +58,9 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("canShowCompactMoveControl && compactMoveControlsOpen");
   });
 
-  it("keeps the complete cabinet Attributes editor directly reachable on a tablet", () => {
-    expect(source).toContain('data-testid="compact-workspace-attributes-trigger"');
-    expect(source).toContain("isCompactWorkspace && !measureMode");
+  it("keeps the complete cabinet Attributes editor directly reachable on every tablet and desktop touch workspace", () => {
+    expect(source).toContain('data-testid="desktop-touch-attributes-trigger"');
+    expect(source).toContain("!isMobile && !measureMode");
     expect(source).toContain("onClick={() => openAttributes(selectedCab.uid)}");
     expect(source).toContain("Open every property for this cabinet, including exact wall position and corner clearance");
   });

@@ -11361,10 +11361,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <Move className="h-3.5 w-3.5" /> Move
                 </Button>
               )}
-              {isCompactWorkspace && !measureMode && (
+              {!isMobile && !measureMode && (
                 <Button
                   type="button"
-                  data-testid="compact-workspace-attributes-trigger"
+                  data-testid="desktop-touch-attributes-trigger"
                   variant="outline"
                   size="sm"
                   className="h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold"
