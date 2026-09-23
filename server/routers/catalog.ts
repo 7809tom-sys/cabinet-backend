@@ -2669,6 +2669,7 @@ export const cabinetsRouter = router({
         page: z.number().int().min(0).default(0),
         limit: z.number().int().min(1).max(200).default(100),
         missingOnly: z.boolean().default(false),
+        cartonDataMissingOnly: z.boolean().default(false),
         search: z.string().optional(),
         category: z.string().optional(),
       })
@@ -2680,6 +2681,11 @@ export const cabinetsRouter = router({
       if (input.missingOnly) {
         conditions.push(
           sql`(${cabinets.weight} IS NULL OR ${cabinets.weight} = 0 OR ${cabinets.pkgLength} IS NULL OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgWeight} IS NULL)`
+        );
+      }
+      if (input.cartonDataMissingOnly) {
+        conditions.push(
+          sql`(${cabinets.pkgLength} IS NULL OR ${cabinets.pkgLength} <= 0 OR ${cabinets.pkgWidth} IS NULL OR ${cabinets.pkgWidth} <= 0 OR ${cabinets.pkgHeight} IS NULL OR ${cabinets.pkgHeight} <= 0 OR ${cabinets.pkgWeight} IS NULL OR ${cabinets.pkgWeight} <= 0)`
         );
       }
       if (input.search) {

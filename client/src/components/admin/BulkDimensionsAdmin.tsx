@@ -285,6 +285,7 @@ function DimRow({
 export function BulkDimensionsAdmin() {
   const [page, setPage] = useState(0);
   const [missingOnly, setMissingOnly] = useState(false);
+  const [cartonDataMissingOnly, setCartonDataMissingOnly] = useState(false);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState<string>("");
@@ -295,6 +296,7 @@ export function BulkDimensionsAdmin() {
     page,
     limit: PAGE_SIZE,
     missingOnly,
+    cartonDataMissingOnly,
     search: search || undefined,
     category: category || undefined,
   });
@@ -313,8 +315,8 @@ export function BulkDimensionsAdmin() {
     utils.cabinets.adminListDimensions.invalidate();
   }, [refetch, utils]);
 
-  const missingCount = rows.filter(
-    (r) => !r.weight || Number(r.weight) === 0 || !r.pkgLength || !r.pkgWidth || !r.pkgHeight || !r.pkgWeight
+  const missingCartonDataCount = rows.filter(
+    (r) => Number(r.pkgLength) <= 0 || Number(r.pkgWidth) <= 0 || Number(r.pkgHeight) <= 0 || Number(r.pkgWeight) <= 0
   ).length;
 
   return (
@@ -329,9 +331,9 @@ export function BulkDimensionsAdmin() {
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-muted-foreground">{total} cabinets</span>
-          {missingCount > 0 && (
+          {missingCartonDataCount > 0 && (
             <Badge variant="destructive" className="text-xs">
-              {missingCount} missing data on this page
+              {missingCartonDataCount} missing carton data on this page
             </Badge>
           )}
         </div>
@@ -380,6 +382,19 @@ export function BulkDimensionsAdmin() {
             Missing data only
           </Label>
         </div>
+
+        {/* This is distinct from the legacy all-dimension audit: parcel rating
+            requires only a source carton L/W/H and packaged weight. */}
+        <div className="flex items-center gap-2">
+          <Switch
+            id="carton-data-missing-only"
+            checked={cartonDataMissingOnly}
+            onCheckedChange={(v) => { setCartonDataMissingOnly(v); setPage(0); }}
+          />
+          <Label htmlFor="carton-data-missing-only" className="text-sm cursor-pointer">
+            Missing carton data only
+          </Label>
+        </div>
       </div>
 
       {/* Table */}
@@ -389,7 +404,7 @@ export function BulkDimensionsAdmin() {
         </div>
       ) : rows.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
-          {missingOnly ? "All cabinets have complete dimension data ✓" : "No cabinets found"}
+          {missingOnly || cartonDataMissingOnly ? "No cabinets match this data-audit filter ✓" : "No cabinets found"}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border">
