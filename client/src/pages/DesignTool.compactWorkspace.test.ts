@@ -58,6 +58,13 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("canShowCompactMoveControl && compactMoveControlsOpen");
   });
 
+  it("keeps the complete cabinet Attributes editor directly reachable on a tablet", () => {
+    expect(source).toContain('data-testid="compact-workspace-attributes-trigger"');
+    expect(source).toContain("isCompactWorkspace && !measureMode");
+    expect(source).toContain("onClick={() => openAttributes(selectedCab.uid)}");
+    expect(source).toContain("Open every property for this cabinet, including exact wall position and corner clearance");
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');

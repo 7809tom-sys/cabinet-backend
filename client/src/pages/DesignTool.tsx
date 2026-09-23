@@ -11361,6 +11361,19 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   <Move className="h-3.5 w-3.5" /> Move
                 </Button>
               )}
+              {isCompactWorkspace && !measureMode && (
+                <Button
+                  type="button"
+                  data-testid="compact-workspace-attributes-trigger"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold"
+                  onClick={() => openAttributes(selectedCab.uid)}
+                  title="Open every property for this cabinet, including exact wall position and corner clearance"
+                >
+                  <Wrench className="h-3.5 w-3.5" /> Attributes
+                </Button>
+              )}
               {(() => {
                 const editConfigHref = isAdmin
                   ? cabinetEditConfigHref(selectedCab.masterCode, selectedCab.cabinetId)
