@@ -46,6 +46,10 @@ describe("affiliate white-label HTML head", () => {
     expect(html).toContain('property="og:url" content="https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop"');
     expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"');
     expect(html).toContain('data-affiliate-seo="true"');
+    expect(html).toContain('data-affiliate-seo-noscript="true"');
+    expect(html).toContain("Explore a complete-kitchen planning path");
+    expect(html).toContain("Service area: Austin, Round Rock.");
+    expect(html).toContain('href="/store/reaves-way-cabinet-shop/kitchens"');
     expect(html).toContain('"telephone":"+1-555-0100"');
     expect(html).toContain('"email":"hello@reaves.example"');
     expect(html).toContain('"address":"125 Main Street, Austin, TX"');
@@ -82,6 +86,7 @@ describe("affiliate white-label HTML head", () => {
 
     expect(html).toContain('name="robots" content="noindex, nofollow"');
     expect(html).not.toContain('data-affiliate-seo="true"');
+    expect(html).not.toContain('data-affiliate-seo-noscript="true"');
   });
 
   it("uses the kitchen discovery page copy for the first crawler-visible affiliate response", () => {
@@ -96,6 +101,8 @@ describe("affiliate white-label HTML head", () => {
 
     expect(html).toContain("<title>Plan Your Complete Kitchen with Reaves Way Cabinet Shop</title>");
     expect(html).toContain('name="description" content="Explore kitchen styles, complete package ideas, and a guided design-to-quote path with Reaves Way Cabinet Shop."');
+    expect(html).toContain("Plan your complete kitchen with Reaves Way Cabinet Shop");
+    expect(html).toContain('href="/store/reaves-way-cabinet-shop/bundles"');
     expect(html).not.toContain("Serving");
   });
 });

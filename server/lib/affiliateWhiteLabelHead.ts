@@ -86,6 +86,49 @@ function replaceAffiliateSeoJsonLd(html: string, data: Record<string, unknown>[]
   );
 }
 
+function stripAffiliateNoscript(html: string): string {
+  return html.replace(/\s*<noscript\s+data-affiliate-seo-noscript[^>]*>[\s\S]*?<\/noscript>/gi, "");
+}
+
+/**
+ * Gives a verified affiliate storefront meaningful raw HTML without guessing any
+ * local claims. It is rendered only for the handful of indexable storefront
+ * discovery routes; checkout, cart, and other operational paths remain absent.
+ */
+function injectAffiliateNoscript(
+  html: string,
+  input: {
+    indexable: boolean;
+    storeName: string;
+    tagline: string;
+    serviceAreas: string[];
+    slug: string;
+    pageTitle: string;
+  },
+): string {
+  const withoutExisting = stripAffiliateNoscript(html);
+  if (!input.indexable) return withoutExisting;
+
+  const basePath = `/store/${encodeURIComponent(input.slug)}`;
+  const storeName = escapeHtml(input.storeName);
+  const tagline = escapeHtml(input.tagline);
+  const serviceSentence = input.serviceAreas.length > 0
+    ? `<p>Service area: ${input.serviceAreas.map(escapeHtml).join(", ")}.</p>`
+    : "";
+  const isKitchenPath = /plan your complete kitchen/i.test(input.pageTitle);
+  const isPackagesPath = /kitchen packages/i.test(input.pageTitle);
+  const document = isKitchenPath
+    ? `<main aria-labelledby="affiliate-crawl-title"><h1 id="affiliate-crawl-title">Plan your complete kitchen with ${storeName}</h1><p>${tagline}</p>${serviceSentence}<p>Choose a kitchen direction, explore a Kitchen Package or layout, then prepare the complete project for a quote discussion.</p><ol><li>Choose a kitchen look.</li><li>Start with a Kitchen Package or layout.</li><li>Bring cabinet, surface, fixture, and delivery decisions together for the project.</li></ol><nav aria-label="Kitchen planning paths"><a href="${basePath}/bundles">Explore Kitchen Packages</a> · <a href="${basePath}/design">Open kitchen designer</a></nav></main>`
+    : isPackagesPath
+      ? `<main aria-labelledby="affiliate-crawl-title"><h1 id="affiliate-crawl-title">Kitchen Packages with ${storeName}</h1><p>${tagline}</p>${serviceSentence}<p>Explore ready-to-customize complete kitchen package ideas before moving into kitchen planning, design, and quote review.</p><p><a href="${basePath}/kitchens">Plan a complete kitchen</a> · <a href="${basePath}/design">Open kitchen designer</a></p></main>`
+      : `<main aria-labelledby="affiliate-crawl-title"><h1 id="affiliate-crawl-title">${storeName}</h1><p>${tagline}</p>${serviceSentence}<p>Explore a complete-kitchen planning path before selecting a cabinet line, layout, surfaces, fixtures, and delivery information.</p><nav aria-label="Storefront discovery"><a href="${basePath}/kitchens">Plan a complete kitchen</a> · <a href="${basePath}/bundles">Explore Kitchen Packages</a></nav></main>`;
+  const block = `<noscript data-affiliate-seo-noscript="true">${document}</noscript>`;
+  const rootPattern = /(<div\s+id=["']root["'][^>]*><\/div>)/i;
+  return rootPattern.test(withoutExisting)
+    ? withoutExisting.replace(rootPattern, `$1${block}`)
+    : withoutExisting.replace("</body>", `${block}</body>`);
+}
+
 /**
  * Replaces the platform head before a white-label affiliate SPA is delivered.
  * This prevents a pre-JavaScript tab, bookmark, crawler, or share preview from
@@ -165,8 +208,16 @@ export function injectAffiliateWhiteLabelHead(
   }
   const slugJson = JSON.stringify(brand.slug).replace(/</g, "\\u003c");
   const routingBootstrap = `<script>window.__AFFILIATE_SLUG__=${slugJson};(function(){var p=window.location.pathname;if(p.indexOf('/store/')===0||p.indexOf('/api/')===0)return;var s=p==='/'?'':p;window.location.replace('/store/'+window.__AFFILIATE_SLUG__+s+window.location.search);})();</script>`;
-  return out.replace(
+  const headed = out.replace(
     "<head>",
     `<head>${routingBootstrap}`,
   );
+  return injectAffiliateNoscript(headed, {
+    indexable,
+    storeName,
+    tagline,
+    serviceAreas,
+    slug: brand.slug,
+    pageTitle: title,
+  });
 }
