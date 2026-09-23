@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const designToolSource = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 const rendererSource = readFileSync(new URL("../components/design/InteractiveRoom3D.tsx", import.meta.url), "utf8");
+const surfacesPickerSource = readFileSync(new URL("../components/design/SurfacesPickerDialog.tsx", import.meta.url), "utf8");
 
 describe("Designer programmed photoreal material wiring", () => {
   it("uses Administration imagery as the cabinet source and the verified Rustic Hickory center grain as a material-only map", () => {
@@ -21,13 +22,19 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);");
 	    expect(designToolSource).toContain("const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);");
 	    expect(designToolSource).toContain('? perimeterCountertopSurface');
-	    expect(designToolSource).toContain("const flooring = [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\") ?? null;");
+	    expect(designToolSource).toContain("const activeFlooringSurface = useMemo(");
+	    expect(designToolSource).toContain("const activeBacksplashSurface = useMemo(");
+	    expect(designToolSource).toContain("activeThreeDSurface(selectedSurfaces.filter((surface) => surfaceRole(surface) === \"backsplash\"))");
+	    expect(designToolSource).toContain("role === \"flooring\" ? activeFlooringSurface : activeBacksplashSurface");
+	    expect(designToolSource).toContain("setActiveThreeDSurface(backsplash, item.id)");
+	    expect(designToolSource).toContain("key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? \"none\"}");
+	    expect(designToolSource).toContain("threeDSurfaceProductIds.backsplash");
 	    expect(designToolSource).toContain("82: \"/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp\"");
 	    expect(designToolSource).toContain("40: \"/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp\"");
 	    expect(designToolSource).toContain("54: \"/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp\"");
 	    expect(designToolSource).not.toContain("?? selected.imageUrl");
-	    expect(designToolSource).toContain('key={`active-floor-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}');
-	    expect(designToolSource).toContain('key={`active-floor-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}`}');
+	    expect(designToolSource).toContain('key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}');
+	    expect(designToolSource).toContain('key={`active-surfaces-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}');
 	    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
@@ -42,6 +49,10 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("catalogIslandCountertopColor={threeDIslandCountertop.color}");
     expect(designToolSource).toContain("catalogFlooringProductId={threeDSurfaceProductIds.flooring}");
 	    expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
+	    expect(designToolSource).toContain("activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}");
+	    expect(designToolSource).toContain("onSetActiveThreeDBacksplash={setActiveBacksplashSurface}");
+	    expect(surfacesPickerSource).toContain('data-testid={`surface-use-in-3d-${p.id}`}');
+	    expect(surfacesPickerSource).toContain('"Use in 3D wall"');
 	    expect(designToolSource).toContain("savedDesignId={currentSavedDesignId ?? null}");
 	    expect(designToolSource).toContain("selectedSurfaceIdsForMaterialRefresh");
 	    expect(designToolSource).toContain("trpc.surfaces.designerByIds.useQuery");

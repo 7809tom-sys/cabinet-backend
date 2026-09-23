@@ -41,6 +41,28 @@ type CountertopSurfaceLike = {
   countertopScope?: CountertopScope;
 };
 
+/**
+ * A design may retain several tile or flooring products in its quote, while a
+ * single 3D surface can show only one material at a time. This explicit marker
+ * preserves the owner's choice without deleting the other quote lines. Legacy
+ * records without the marker keep their historical last-added display order.
+ */
+export type ThreeDActiveSurfaceLike = {
+  id: number;
+  threeDActive?: boolean;
+};
+
+export function activeThreeDSurface<T extends ThreeDActiveSurfaceLike>(surfaces: readonly T[]): T | null {
+  return [...surfaces].reverse().find((surface) => surface.threeDActive === true)
+    ?? surfaces.at(-1)
+    ?? null;
+}
+
+/** Marks one already-selected product as the material rendered for its 3D role. */
+export function setActiveThreeDSurface<T extends ThreeDActiveSurfaceLike>(surfaces: readonly T[], id: number): T[] {
+  return surfaces.map((surface) => ({ ...surface, threeDActive: surface.id === id }));
+}
+
 export function isCountertopSurfacePick(surface: Pick<CountertopSurfaceLike, "category" | "subCategory" | "name">): boolean {
   const text = `${surface.category} ${surface.subCategory ?? ""} ${surface.name}`.toLowerCase();
   return text.includes("countertop") || text.includes("quartz slab");

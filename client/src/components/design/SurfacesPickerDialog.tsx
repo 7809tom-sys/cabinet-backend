@@ -35,6 +35,8 @@ export type SelectedSurface = {
   imageUrl?: string | null;
   /** Optional approved material-only image for the 3D scene. */
   materialImageUrl?: string | null;
+  /** Explicit product used to dress this role in the 3D scene; other selections stay in the quote. */
+  threeDActive?: boolean;
   sellPrice: number | null;
   /** Wall-run versus island countertop assignment. Undefined is the legacy whole-design behavior. */
   countertopScope?: CountertopScope;
@@ -60,6 +62,8 @@ export function SurfacesPickerDialog({
   onBacksplashHeightModeChange,
   countertopBacksplashHeightIn = 0,
   onCountertopBacksplashHeightChange,
+  activeThreeDBacksplashId = null,
+  onSetActiveThreeDBacksplash,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -78,6 +82,9 @@ export function SurfacesPickerDialog({
   onBacksplashHeightModeChange?: (mode: "standard" | "full-height") => void;
   countertopBacksplashHeightIn?: 0 | 2.5 | 3;
   onCountertopBacksplashHeightChange?: (height: 0 | 2.5 | 3) => void;
+  /** The one selected tile/mosaic product currently dressing 3D wall segments. */
+  activeThreeDBacksplashId?: number | null;
+  onSetActiveThreeDBacksplash?: (item: SelectedSurface) => void;
 }) {
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
   const [search, setSearch] = useState("");
@@ -268,6 +275,8 @@ export function SurfacesPickerDialog({
                     CATEGORY_GRADIENT[p.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
                   const hasThreeDMaterialRole = /floor|tile|mosaic|backsplash|countertop|quartz|slab/i.test(`${p.category ?? ""} ${p.subCategory ?? ""}`);
                   const hasApprovedMaterialSwatch = Boolean(p.materialImageUrl?.trim());
+                  const isBacksplash = p.category === "Tile & Mosaic";
+                  const isActiveThreeDBacksplash = isBacksplash && activeThreeDBacksplashId === p.id;
                   const item: SelectedSurface = {
                     id: p.id,
                     pelicanCode: p.pelicanCode,
@@ -314,6 +323,18 @@ export function SurfacesPickerDialog({
                           <p data-testid={`surface-material-readiness-${p.id}`} className={`text-[10px] font-medium leading-snug ${hasApprovedMaterialSwatch ? "text-emerald-700" : "text-amber-800"}`}>
                             {hasApprovedMaterialSwatch ? "3D material swatch ready" : "3D material swatch pending — neutral preview"}
                           </p>
+                        )}
+                        {isSel && isBacksplash && onSetActiveThreeDBacksplash && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={isActiveThreeDBacksplash ? "default" : "outline"}
+                            className="h-7 w-full text-[11px]"
+                            data-testid={`surface-use-in-3d-${p.id}`}
+                            onClick={() => onSetActiveThreeDBacksplash(item)}
+                          >
+                            {isActiveThreeDBacksplash ? "Used in 3D wall" : "Use in 3D wall"}
+                          </Button>
                         )}
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-sm font-bold text-[var(--color-navy)] dark:text-foreground">

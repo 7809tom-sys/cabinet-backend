@@ -9,6 +9,8 @@ import {
   guessFlooringMaterialId,
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
+  activeThreeDSurface,
+  setActiveThreeDSurface,
   setCountertopSurfaceForScope,
   SURFACE_SELECTION_KEY,
   type SurfaceSelection,
@@ -73,6 +75,31 @@ describe("scoped countertop selections", () => {
     ], "island");
     expect(activeCountertopForScope(next, "perimeter")?.id).toBe(1);
     expect(activeCountertopForScope(next, "island")?.id).toBe(1);
+  });
+});
+
+describe("active 3D surface choice", () => {
+  const backsplash = (id: number, name: string, threeDActive?: boolean) => ({
+    id,
+    name,
+    category: "Tile & Mosaic",
+    threeDActive,
+  });
+
+  it("preserves legacy last-added display behavior until an owner makes an explicit 3D choice", () => {
+    const surfaces = [backsplash(183, "Desert Clay"), backsplash(164, "Concord Square")];
+    expect(activeThreeDSurface(surfaces)).toMatchObject({ id: 164, name: "Concord Square" });
+  });
+
+  it("makes an explicit 3D material choice without deleting the other selected quote products", () => {
+    const surfaces = [backsplash(183, "Desert Clay"), backsplash(164, "Concord Square")];
+    const next = setActiveThreeDSurface(surfaces, 183);
+    expect(next).toHaveLength(2);
+    expect(next).toEqual([
+      expect.objectContaining({ id: 183, threeDActive: true }),
+      expect.objectContaining({ id: 164, threeDActive: false }),
+    ]);
+    expect(activeThreeDSurface(next)).toMatchObject({ id: 183, name: "Desert Clay" });
   });
 });
 
