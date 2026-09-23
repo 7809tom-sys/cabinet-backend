@@ -114,7 +114,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -4953,6 +4953,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      if (selectedCornerBaseTarget) {
 	        toast.success(`${finalCab.masterCode} aligned directly above ${selectedCornerBaseTarget.masterCode}'s corner.`);
+	      }
+	      const applianceSnap = continuousWallApplianceSnapInfo(finalCab, committedRun, room);
+	      if (applianceSnap) {
+	        const neighbors = [applianceSnap.before?.masterCode, applianceSnap.after?.masterCode]
+	          .filter((code): code is string => Boolean(code));
+	        const wallLabel = room.customWalls?.find((wall) => wall.id === applianceSnap.wallId)?.label ?? "continuous wall";
+	        toast.success(
+	          `${finalCab.masterCode} snapped flush on ${wallLabel}: 0\" gap, 0\" overlap${neighbors.length ? ` · next to ${neighbors.join(" + ")}` : ""}.`,
+	        );
 	      }
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);

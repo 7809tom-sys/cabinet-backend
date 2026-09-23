@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement,
+	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -3224,10 +3224,26 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
       uid: "dw24", masterCode: "DW-24", description: "24 inch Dishwasher", placement: "appliance",
       ...dishwasherSpot, width: 24, depth: 24, wallId: "diag", wallOffset: 36,
     });
-    expect(baseOpeningOverlaps([dishwasher], [window], room)).toEqual(new Set());
-    expect(conflictingUids([...bases, dishwasher], room)).toEqual(new Set());
+	    expect(baseOpeningOverlaps([dishwasher], [window], room)).toEqual(new Set());
+	    expect(conflictingUids([...bases, dishwasher], room)).toEqual(new Set());
+	    expect(continuousWallApplianceSnapInfo(dishwasher, [...bases, dishwasher], room)).toMatchObject({
+	      wallId: "diag",
+	      before: { uid: "sb36", masterCode: "SB36" },
+	      after: { uid: "db36", masterCode: "DB36" },
+	    });
 
-    const floorDoor: WallOpening = {
+	    // A near miss must never earn the green flush indicator: it is a real
+	    // positive overlap, even though the 45-degree screen bounds look similar.
+	    const overlappingDishwasher = cab({
+	      ...dishwasher,
+	      uid: "dw24-overlap",
+	      ...wallPlacementAt(35.5, 24, 24, "diag" as any, room),
+	      wallOffset: 35.5,
+	    });
+	    expect(continuousWallApplianceSnapInfo(overlappingDishwasher, [...bases, overlappingDishwasher], room)).toBeNull();
+	    expect(conflictingUids([...bases, overlappingDishwasher], room)).toEqual(new Set(["sb36", "dw24-overlap"]));
+
+	    const floorDoor: WallOpening = {
       ...window, uid: "door-at-dw", kind: "door", label: "Door", sill: 0,
     };
     const doorSegments = freeSegmentsOnWall("diag" as any, room, bases, [floorDoor], 24, 0, "appliance");

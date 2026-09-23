@@ -8,7 +8,7 @@ describe("PlanCanvas protected-corner snap feedback", () => {
     expect(source).toContain('const isSeatedErb36 = p.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "") === "ERB36"');
     expect(source).toContain('ERB36 corner snap confirmed');
     expect(source).toContain('const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;');
-    expect(source).toContain('data-corner-snap-confirmed={isSeatedProtectedCorner ? "true" : undefined}');
+    expect(source).toContain('data-corner-snap-confirmed={isSeatedProtectedCorner || isSeatedPeninsulaCorner ? "true" : undefined}');
     expect(source).toContain('"2.5px solid #16a34a"');
     expect(source).toContain('rgba(34,197,94,0.58)');
     expect(source).toContain('"ERB36 · locked"');
@@ -30,5 +30,13 @@ describe("PlanCanvas protected-corner snap feedback", () => {
 
   it("uses room-aware collision geometry for the visible conflict state", () => {
     expect(source).toContain("cabinetPlacementCollisionDetail(p, cabinets, room) != null");
+  });
+
+  it("shows selected continuous-wall appliances a truthful flush-snap indicator", () => {
+    expect(source).toContain("continuousWallApplianceSnapInfo(p, cabinets, room)");
+    expect(source).toContain('data-continuous-wall-appliance-snap-confirmed={applianceSnap ? "true" : undefined}');
+    expect(source).toContain('data-testid="continuous-wall-appliance-snap-indicator"');
+    expect(source).toContain('FLUSH SNAP · 0\\"');
+    expect(source).toContain('0\\" gap · 0\\" overlap');
   });
 });

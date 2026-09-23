@@ -10,4 +10,10 @@ describe("Designer DB24 and dishwasher placement tooltips", () => {
     expect(source).toContain("Hover for dimensions &amp; flush-seam clearance");
     expect(source).toContain("formatEighthInches(placementDetail.dimensions.depth)");
   });
+
+  it("confirms a continuous-wall appliance only after a true physical flush seam", () => {
+    expect(source).toContain("continuousWallApplianceSnapInfo(finalCab, committedRun, room)");
+    expect(source).toContain('snapped flush on ${wallLabel}: 0\\" gap, 0\\" overlap');
+    expect(source).toContain('next to ${neighbors.join(" + ")}');
+  });
 });

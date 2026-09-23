@@ -6,7 +6,7 @@ import {
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
-  cabinetWall, wallSpanMeasure, peninsulaRunById,
+  cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo,
 	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
@@ -2072,6 +2072,21 @@ export function PlanCanvas({
 	            const isWindowCenteredSink = sinkWindowSnap?.cabinetUid === p.uid;
             const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
             const isAppliance = p.placement === "appliance";
+            // Keep appliance confirmation tied to the same measured-wall spans
+            // used by collision and drop placement. The indicator is selected-only
+            // so tightly packed continuous runs remain readable on phones.
+            const applianceSnap = isAppliance && isSelected
+              ? continuousWallApplianceSnapInfo(p, cabinets, room)
+              : null;
+            const applianceSnapNeighborCodes = applianceSnap
+              ? [applianceSnap.before?.masterCode, applianceSnap.after?.masterCode].filter((code): code is string => Boolean(code)).join(" + ")
+              : "";
+            const applianceSnapWallLabel = applianceSnap
+              ? room.customWalls?.find((wall) => wall.id === applianceSnap.wallId)?.label ?? "continuous wall"
+              : "";
+            const applianceSnapTooltip = applianceSnap
+              ? `${p.masterCode} appliance snap confirmed on ${applianceSnapWallLabel} · 0\" gap · 0\" overlap${applianceSnapNeighborCodes ? ` · flush to ${applianceSnapNeighborCodes}` : ""}`
+              : null;
             const cabFinish = finishFor ? finishFor(p) : finish;
             const faceFill = isAppliance ? "#b9bdc4" : cabFinish.face;
             const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
@@ -2133,7 +2148,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback || applianceSnap ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: bodyLeft * ppi,
                   top: bodyTop * ppi,
@@ -2146,7 +2161,7 @@ export function PlanCanvas({
                     ? "2.5px solid #dc2626"
                     : isAttributesTarget
                     ? "3px solid #a87f33"
-	                  : isWindowCenteredSink
+	                  : isWindowCenteredSink || applianceSnap
 	                  ? "3px solid #059669"
 	                  : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "2.5px solid #16a34a"
@@ -2161,7 +2176,7 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
                     : isAttributesTarget
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
-	                  : isWindowCenteredSink
+	                  : isWindowCenteredSink || applianceSnap
 	                  ? "0 0 0 5px rgba(16,185,129,0.42), 0 0 22px rgba(16,185,129,0.7), inset 0 0 0 1px rgba(255,255,255,0.92)"
 	                    : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
@@ -2173,13 +2188,14 @@ export function PlanCanvas({
                   transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
                   transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
-	                title={splitFillerTooltip ?? cornerPlacementTooltip ?? placementHoverTooltip ?? `${p.masterCode} — ${p.description}`}
+	                title={splitFillerTooltip ?? applianceSnapTooltip ?? cornerPlacementTooltip ?? placementHoverTooltip ?? `${p.masterCode} — ${p.description}`}
                 tabIndex={splitFillerTooltip ? 0 : undefined}
                 aria-describedby={splitFillerTooltip ? `split-filler-tooltip-${p.uid}` : undefined}
                 data-cabinet-attributes-target={isAttributesTarget ? "true" : undefined}
 	                data-corner-snap-confirmed={isSeatedProtectedCorner || isSeatedPeninsulaCorner ? "true" : undefined}
 	                data-peninsula-corner-snap-confirmed={isSeatedPeninsulaCorner ? "true" : undefined}
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
+	                data-continuous-wall-appliance-snap-confirmed={applianceSnap ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
 	                {showSeatedPeninsulaCornerFeedback && (
@@ -2193,6 +2209,16 @@ export function PlanCanvas({
 	                  </span>
 	                )}
 	                <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden px-0.5 relative">
+	                  {applianceSnap && (
+	                    <span
+	                      data-testid="continuous-wall-appliance-snap-indicator"
+	                      className="pointer-events-none absolute left-1/2 bottom-0 z-30 inline-flex -translate-x-1/2 translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
+	                      title={applianceSnapTooltip ?? undefined}
+	                    >
+	                      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+	                      FLUSH SNAP · 0\"
+	                    </span>
+	                  )}
 	                  {isWindowCenteredSink && (
 	                    <span data-testid="sink-window-snap-cabinet-indicator" className="pointer-events-none absolute left-1/2 bottom-0 z-30 -translate-x-1/2 translate-y-[calc(100%+5px)] whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow">
 	                      Centered to window

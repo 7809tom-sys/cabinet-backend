@@ -7551,6 +7551,55 @@ export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): num
   return side === "top" || side === "bottom" ? size.w : size.d;
 }
 
+export type ContinuousWallApplianceSnapInfo = {
+  wallId: WallSide;
+  /** Floor-run cabinet touching the appliance's start edge, if any. */
+  before: PlacedCabinet | null;
+  /** Floor-run cabinet touching the appliance's end edge, if any. */
+  after: PlacedCabinet | null;
+};
+
+/**
+ * Reports a true physical appliance seam on a Continuous Wall Builder segment.
+ * This uses the measured wall's catalog-width run offsets rather than rotated
+ * screen envelopes, so a 45° wall can confirm a flush DW-24/SB36/DB36 run
+ * without ever treating a positive overlap as a valid snap.
+ */
+export function continuousWallApplianceSnapInfo(
+  appliance: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room: RoomData,
+): ContinuousWallApplianceSnapInfo | null {
+  if (appliance.placement !== "appliance") return null;
+  const wallId = cabinetWall(appliance, room);
+  if (!isCustomRoomWall(room, wallId)) return null;
+
+  const start = wallRunOffset(appliance, wallId, room);
+  const end = start + wallRunSpan(appliance, wallId, room);
+  if (end - start <= COLLISION_EPSILON_IN) return null;
+
+  const floorRunPeers = placed.filter((candidate) => {
+    if (candidate.uid === appliance.uid) return false;
+    if (candidate.placement !== "base" && candidate.placement !== "appliance") return false;
+    // A sink fixture is intentionally nested within a sink base, not a physical
+    // cabinet-side neighbor for a dishwasher seam.
+    if (candidate.placement === "appliance" && isSinkAppliance(candidate)) return false;
+    return cabinetWall(candidate, room) === wallId;
+  });
+
+  const before = floorRunPeers.find((candidate) => {
+    const candidateStart = wallRunOffset(candidate, wallId, room);
+    const candidateEnd = candidateStart + wallRunSpan(candidate, wallId, room);
+    return Math.abs(candidateEnd - start) <= COLLISION_EPSILON_IN;
+  }) ?? null;
+  const after = floorRunPeers.find((candidate) => {
+    const candidateStart = wallRunOffset(candidate, wallId, room);
+    return Math.abs(candidateStart - end) <= COLLISION_EPSILON_IN;
+  }) ?? null;
+
+  return before || after ? { wallId, before, after } : null;
+}
+
 /**
  * Continuous Wall Builder rooms use only their explicit measured segments.
  * Re-seat stale graph-bound or far-dragged cabinets on the closest real wall,
