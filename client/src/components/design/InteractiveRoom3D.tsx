@@ -3261,6 +3261,30 @@ export function addCabinet(
     };
     cabinet.add(shelfBody);
     bodyMeshes.push(shelfBody);
+  } else if (isFloorDishwasher) {
+    // A fitted dishwasher holds the same measured 24-inch opening as a base
+    // cabinet, but it is an appliance—not a cabinet-finish side panel. The
+    // former generic body used bodyMaterial here, leaving a visible door-style
+    // strip at the dishwasher edge even after neighboring filler toe kicks
+    // were correctly suppressed. Only an explicitly panel-ready appliance may
+    // inherit the selected cabinet finish.
+    const dishwasherChassisMaterial = isPanelReadyAppliance
+      ? bodyMaterial
+      : new THREE.MeshStandardMaterial({ color: "#59616a", roughness: 0.34, metalness: 0.58 });
+    const dishwasherChassis = new THREE.Mesh(
+      new THREE.BoxGeometry(bodyWidth, bodyHeight, bodyDepth),
+      dishwasherChassisMaterial,
+    );
+    dishwasherChassis.userData = {
+      applianceCode: sku.masterCode,
+      dishwasherChassis: true,
+      floorApplianceEnvelope: true,
+      ...(isPanelReadyAppliance
+        ? { selectedFinishSideSkin: true }
+        : { neutralApplianceSidesAndTop: true, usesDoorImage: false }),
+    };
+    cabinet.add(dishwasherChassis);
+    bodyMeshes.push(dishwasherChassis);
   } else if (!isPlacedHood) {
 		    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
 		    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;

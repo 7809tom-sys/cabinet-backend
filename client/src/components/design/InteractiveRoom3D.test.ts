@@ -6414,6 +6414,66 @@ describe("interactive 3D room scene helpers", () => {
     expect(counterBounds.max.y).toBeCloseTo(36 / 12, 8);
   });
 
+  it("uses a neutral appliance chassis at a dishwasher edge instead of a cabinet-finish side mesh", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -24,
+      cabinetId: 24,
+      masterCode: "DW-24",
+      description: "24 inch Built-In Dishwasher",
+      placementType: "appliance",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+
+    let chassis: THREE.Mesh | null = null;
+    const cabinetFinishMeshes: THREE.Mesh[] = [];
+    root.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      if (node.userData.dishwasherChassis) chassis = node;
+      if (node.userData.selectedFinishSideSkin || node.userData.selectedStyleSideSkin) cabinetFinishMeshes.push(node);
+    });
+
+    expect(chassis).not.toBeNull();
+    expect(chassis!.userData).toMatchObject({
+      dishwasherChassis: true,
+      floorApplianceEnvelope: true,
+      neutralApplianceSidesAndTop: true,
+      usesDoorImage: false,
+    });
+    expect(chassis!.userData.selectedFinishSideSkin).toBeUndefined();
+    expect(chassis!.userData.selectedStyleSideSkin).toBeUndefined();
+    expect((chassis!.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("59616a");
+    expect(cabinetFinishMeshes).toHaveLength(0);
+  });
+
+  it("retains the selected cabinet finish only for an explicitly panel-ready dishwasher", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -25,
+      cabinetId: 25,
+      masterCode: "DW-24-PANEL",
+      description: "24 inch Panel-Ready Integrated Dishwasher",
+      placementType: "appliance",
+      width: 24,
+      height: 34.5,
+      depth: 24,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 12, rotation: 0, bottom: 0 });
+
+    let chassis: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.dishwasherChassis) chassis = node;
+    });
+    expect(chassis?.userData).toMatchObject({ dishwasherChassis: true, selectedFinishSideSkin: true });
+    expect(chassis?.userData.panelReadyFinish).toBeUndefined();
+    expect((chassis!.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("8a9ba8");
+  });
+
   it("renders a range as a freestanding floor appliance rather than a cabinet box", () => {
     const root = new THREE.Group();
     addCabinet(root, {

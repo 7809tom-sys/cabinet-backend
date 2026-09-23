@@ -1411,7 +1411,7 @@
 - [x] Exclude all fitted-filler toe-kick meshes from dishwasher-adjacent opening edges to remove visible cabinet-finish blocks while retaining the appliance toe kick
 - [x] Identify and remove the remaining small cabinet-finish support block immediately beside the dishwasher after the fitted-filler exclusion
 - [x] Replace the expanded mobile countertop-material grid with a compact clickable chooser that preserves cabinet-list space and the current selection
-- [ ] Trace and remove the still-visible dishwasher-side cabinet-finish mesh that remains after the base-filler toe-kick suppression
+- [x] Trace and remove the residual **dishwasher-side cabinet-finish mesh** that remained after base-filler toe-kick suppression. The floor dishwasher had been falling through the generic base-carcass branch, so its hidden chassis inherited the selected cabinet finish and appeared as a cabinet side at the appliance edge. A standard dishwasher now uses a neutral appliance chassis while retaining its authoritative 24-inch × 34½-inch × 24-inch envelope, recessed appliance toe kick, flush face, countertop support, and all controls. The selected finish remains only for an explicitly panel-ready dishwasher. Validation: 348 focused 3D/dishwasher/ERB36 seam/tooltip regressions (2 skipped), TypeScript, production build, local Designer/health HTTP 200, and clean diff integrity passed.
 - [x] Extend the dishwasher-edge safeguard to older/manual base filler records identified by catalog code or description
 - [x] Add a visible Island mode / Wall mode control so catalog additions route only to the active placement region
 - [x] Restrict Island mode cabinet and cabinet-part placement to the configured island footprint while preserving ordinary wall placement in Wall mode
