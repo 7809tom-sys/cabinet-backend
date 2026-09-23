@@ -34,6 +34,19 @@ describe("main SEO head", () => {
     expect(html).toContain('name="robots" content="index, follow, max-image-preview:large"');
   });
 
+  it("places a factual complete-kitchen document in the raw HTML for no-JavaScript crawlers", () => {
+    const html = injectMainSeoHead(shell, {
+      canonicalUrl: "https://www.cabinetdealz.com/kitchens",
+      requestPath: "/kitchens",
+    });
+
+    expect(html).toContain('data-main-seo-noscript="true"');
+    expect(html).toContain("Plan the kitchen you want to live in");
+    expect(html).toContain("Kitchen Packages provide a ready-to-customize starting point");
+    expect(html).toContain('href="/bundles"');
+    expect(html).toContain('href="/design"');
+  });
+
   it("keeps private design workspaces out of search and avoids public schema", () => {
     const html = injectMainSeoHead(shell, {
       canonicalUrl: "https://www.cabinetdealz.com/design",
@@ -42,6 +55,8 @@ describe("main SEO head", () => {
 
     expect(html).toContain('name="robots" content="noindex, nofollow"');
     expect(html).not.toContain('data-main-seo="true"');
+    expect(html).not.toContain('data-main-seo-noscript="true"');
+    expect(html).not.toContain("Plan the kitchen you want to live in");
   });
 
   it("emits noindex social metadata and a token-scoped preview image for an already authorized shared 3D view", () => {
