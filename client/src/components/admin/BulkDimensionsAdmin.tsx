@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { CheckCircle, AlertCircle, ImageIcon, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { evaluateParcelEligibility } from "@shared/parcelEligibility";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -98,6 +99,19 @@ function DimRow({
     !row.pkgWidth ||
     !row.pkgHeight ||
     !row.pkgWeight;
+  const parcelEligibility = evaluateParcelEligibility({
+    lengthIn: Number(row.pkgLength),
+    widthIn: Number(row.pkgWidth),
+    heightIn: Number(row.pkgHeight),
+    weightLbs: Number(row.pkgWeight),
+    hasAuthoritativePackage: Boolean(
+      Number(row.pkgLength) > 0
+      && Number(row.pkgWidth) > 0
+      && Number(row.pkgHeight) > 0
+      && Number(row.pkgWeight) > 0,
+    ),
+    label: row.masterCode,
+  });
 
   const set = (field: keyof DraftRow) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setDraft((d) => ({ ...d, [field]: e.target.value }));
@@ -219,6 +233,28 @@ function DimRow({
         />
       </td>
 
+      {/* Carrier-screened parcel eligibility — never a price or guarantee. */}
+      <td className="px-2 py-2 align-middle whitespace-nowrap">
+        {parcelEligibility.eligibleCarriers.length > 0 ? (
+          <div className="space-y-0.5">
+            <Badge className="border-emerald-300 bg-emerald-50 text-[10px] text-emerald-800 hover:bg-emerald-50" variant="outline">
+              Parcel: {parcelEligibility.eligibleCarriers.map((carrier) => carrier.toUpperCase()).join(" / ")}
+            </Badge>
+            {parcelEligibility.package?.uspsOversized && (
+              <p className="text-[10px] text-amber-700">USPS oversized; live rate required</p>
+            )}
+          </div>
+        ) : parcelEligibility.package ? (
+          <Badge className="border-amber-300 bg-amber-50 text-[10px] text-amber-800 hover:bg-amber-50" variant="outline">
+            Freight only
+          </Badge>
+        ) : (
+          <Badge className="border-amber-300 bg-amber-50 text-[10px] text-amber-800 hover:bg-amber-50" variant="outline">
+            Carton data required
+          </Badge>
+        )}
+      </td>
+
       {/* Catalog image */}
       <td className="px-2 py-2 align-middle min-w-[220px]">
         <MediaPicker
@@ -288,7 +324,7 @@ export function BulkDimensionsAdmin() {
         <div>
           <h2 className="text-lg font-semibold">Dimensions & Weight Editor</h2>
           <p className="text-sm text-muted-foreground">
-            Edit assembled weight, package dimensions, and catalog images for all cabinets.
+            Edit assembled weight, supplier carton dimensions, packaged weight, and catalog images. Parcel badges are eligibility screens only; checkout still requires a live UPS, FedEx, or USPS rate.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm">
@@ -368,6 +404,7 @@ export function BulkDimensionsAdmin() {
                 <th className="px-1 py-2 text-center font-medium">Pkg W (in)</th>
                 <th className="px-1 py-2 text-center font-medium">Pkg H (in)</th>
                 <th className="px-2 py-2 text-center font-medium">Pkg Wt (lbs)</th>
+                <th className="px-2 py-2 text-left font-medium">Carrier fit</th>
                 <th className="px-2 py-2 text-left font-medium">Image</th>
                 <th className="px-2 py-2 text-center font-medium"></th>
               </tr>
