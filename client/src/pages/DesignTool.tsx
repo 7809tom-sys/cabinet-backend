@@ -13868,9 +13868,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                       {/* Price + edit/delete controls */}
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
-                          <div className="font-semibold leading-none">
-                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A") : "—"}
-                          </div>
+	                          <div className={`font-semibold leading-none ${styleId && lineTotal == null ? "text-rose-700" : ""}`}>
+	                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable") : "—"}
+	                          </div>
                           {styleId && g.qty > 1 && adjustedUnitPrice != null && (
                             <div className="text-[9px] text-muted-foreground mt-0.5">${adjustedUnitPrice.toFixed(2)} ea</div>
                           )}

@@ -856,7 +856,13 @@ export const designRouter = router({
       for (const alias of approvedCabinetAliases) {
         const normalizedAlias = normalizedDesignPriceCode(alias.aliasCode);
         for (const requestedCode of requestedCodes) {
-          if (normalizedDesignPriceCode(requestedCode) === normalizedAlias) canonicalCodeByAlias.set(requestedCode, alias.masterCode);
+          // An approved SKU-master alias is a direct catalog truth mapping. A
+          // legacy cabinet-alias record can be useful only when that primary
+          // mapping is absent; it must never overwrite the approved master with
+          // a retired/inactive cabinet code that happens to use the same alias.
+          if (normalizedDesignPriceCode(requestedCode) === normalizedAlias && !canonicalCodeByAlias.has(requestedCode)) {
+            canonicalCodeByAlias.set(requestedCode, alias.masterCode);
+          }
         }
       }
       const candidateCodes = Array.from(new Set(requestedCodes.flatMap((code) => [code, canonicalCodeByAlias.get(code)].filter((value): value is string => Boolean(value)))));

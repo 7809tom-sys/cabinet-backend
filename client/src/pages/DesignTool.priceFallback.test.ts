@@ -20,6 +20,11 @@ describe("Designer verified price fallback", () => {
     expect(source).toContain("return price == null ? [] : [[row.cabinetId, price] as const];");
   });
 
+  it("marks an unpriced cabinet unavailable rather than presenting a vague N/A amount", () => {
+    expect(source).toContain('lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable"');
+    expect(source).not.toContain('lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A"');
+  });
+
   it("normalizes saved foreign cabinet finish overrides after the independent door-style list resolves", () => {
     expect(source).toContain("clearForeignSavedStyleOverrides(current, lockedDistributorId, styleDistributorIdById)");
     expect(source).toContain("if (lockedDistributorId == null || styleDistributorIdById.size === 0) return;");

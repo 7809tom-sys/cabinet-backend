@@ -56,6 +56,21 @@ describe("Designer legacy alias price resolution", () => {
     })]);
   });
 
+  it("keeps the approved master alias primary when a legacy cabinet-alias record disagrees", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: 9390124, styleId: 390019, masterCode: "W-21-42" }],
+      distributorId: 180001,
+    });
+
+    expect(rows).toEqual([expect.objectContaining({
+      cabinetId: 9390124,
+      styleId: 390019,
+      listPrice: "502.00",
+      homeownerPrice: "277.61",
+    })]);
+  });
+
   it("does not manufacture a price when no approved alias exists", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({
