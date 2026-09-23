@@ -56,6 +56,21 @@ describe("Designer legacy alias price resolution", () => {
     })]);
   });
 
+  it("prices the verified REP2496 refrigerator-panel shorthand through the current REPV2496 source", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: 9390208, styleId: 390019, masterCode: "REP2496" }],
+      distributorId: 180001,
+    });
+
+    expect(rows).toEqual([expect.objectContaining({
+      cabinetId: 9390208,
+      styleId: 390019,
+      listPrice: "275.00",
+      homeownerPrice: "152.08",
+    })]);
+  });
+
   it("prices the explicit WR3624 catalog alias through its verified current refrigerator-wall source", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({
