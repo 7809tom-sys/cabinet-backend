@@ -29,7 +29,12 @@ describe("Designer Madison tier pricing", () => {
       distributorId: 210002,
     });
     const [source] = await db
-      .select({ yourCost: distributorSkus.yourCost })
+      .select({
+        id: distributorSkus.id,
+        yourCost: distributorSkus.yourCost,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+      })
       .from(distributorSkus)
       .where(and(
         eq(distributorSkus.cabinetId, threeDrawerBase!.id),
@@ -49,5 +54,46 @@ describe("Designer Madison tier pricing", () => {
       listPrice: "1050.00",
       homeownerPrice: expectedHomeowner,
     });
+  });
+
+  it("does not return an unavailable or unpublished source line to the Designer", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [threeDrawerBase] = await db
+      .select({ id: cabinets.id })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "3DB24"));
+    if (!threeDrawerBase) return;
+
+    const [source] = await db
+      .select({
+        id: distributorSkus.id,
+        isAvailable: distributorSkus.isAvailable,
+        isPublished: distributorSkus.isPublished,
+      })
+      .from(distributorSkus)
+      .where(and(
+        eq(distributorSkus.cabinetId, threeDrawerBase.id),
+        eq(distributorSkus.styleId, 330019),
+        eq(distributorSkus.distributorId, 210002),
+      ))
+      .limit(1);
+    if (!source) return;
+
+    try {
+      await db.update(distributorSkus)
+        .set({ isAvailable: true, isPublished: false })
+        .where(eq(distributorSkus.id, source.id));
+      const caller = appRouter.createCaller(publicCtx());
+      const prices = await caller.design.priceForCabinetsByStyles({
+        pairs: [{ cabinetId: threeDrawerBase.id, styleId: 330019 }],
+        distributorId: 210002,
+      });
+      expect(prices).toEqual([]);
+    } finally {
+      await db.update(distributorSkus)
+        .set({ isAvailable: source.isAvailable, isPublished: source.isPublished })
+        .where(eq(distributorSkus.id, source.id));
+    }
   });
 });

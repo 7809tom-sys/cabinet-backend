@@ -807,6 +807,7 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, cabinetIds),
         inArray(distributorSkus.styleId, styleIds),
         eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
       ];
       if (input.distributorId) {
         conditions.push(eq(distributorSkus.distributorId, input.distributorId));
@@ -843,10 +844,10 @@ export const designRouter = router({
         const b = Number(cur.contractorPrice ?? cur.wholesalePrice ?? Infinity);
         if (a < b) best.set(key, r);
       }
-      // Resolve each customer tier through the shared pricing policy. Cost-plus
-      // lines use their configured cost base and tier markup, while a verified
-      // source-list distributor (such as Madison) preserves its source list as
-      // homeowner retail. Never bypass this resolver with stale stored columns.
+      // Resolve each customer tier through the shared pricing policy. Each
+      // returned line is already available + published and must resolve from a
+      // verified cost/list basis through the saved tier markup; never bypass
+      // this resolver with stale stored columns.
       const ps = await getPricingSettings();
       return Array.from(best.values()).map((r) => ({
         cabinetId: r.cabinetId,
