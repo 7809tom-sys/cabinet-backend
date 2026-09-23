@@ -458,6 +458,9 @@ export default function ShippingAdmin() {
           {liveMode && form.liveProvider === "worldwideexpress" && (
             <div id="worldwide-express-settings" className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Worldwide Express (WWEX) — OAuth2 Credentials</p>
+              <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                <strong>Parcel program:</strong> SpeedShip supports WWEX/UPS parcel services, but these saved fields currently authorize the verified LTL shopFlow route only. Do not point carton parcels at the LTL rate URL. Enable WWEX parcel rating only after your WWEX representative supplies the account-authorized parcel endpoint, request/response schema, and the correct sandbox or production scope.
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-xs">Client ID</Label>

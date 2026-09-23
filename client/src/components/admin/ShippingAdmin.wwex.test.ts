@@ -43,4 +43,11 @@ describe("ShippingAdmin WWEX verification controls", () => {
     expect(source).not.toContain("https://api-sandbox.wwex.com");
     expect(source).not.toContain("https://api.wwex.com");
   });
+
+  it("distinguishes WWEX parcel services from the verified LTL shopFlow setup", () => {
+    expect(source).toContain("SpeedShip supports WWEX/UPS parcel services");
+    expect(source).toContain("verified LTL shopFlow route only");
+    expect(source).toContain("Do not point carton parcels at the LTL rate URL");
+    expect(source).toContain("account-authorized parcel endpoint, request/response schema");
+  });
 });
