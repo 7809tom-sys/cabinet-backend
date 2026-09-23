@@ -3803,7 +3803,10 @@ export const pricingRouter = router({
         .select({
           styleId: distributorSkus.styleId,
           styleCode: doorStyles.styleCode,
-          ourName: doorStyles.ourName,
+          // Customer-facing catalog, Designer, cart, and materials-list labels
+          // must use the verified white-label alias where one exists. ourName is
+          // the internal generic/master name and remains the safe fallback only.
+          name: sql<string>`COALESCE(NULLIF(${doorStyles.aliasName}, ''), ${doorStyles.ourName})`,
           doorStyle: doorStyles.doorStyle,
           finish: doorStyles.finish,
           color: doorStyles.color,
@@ -3863,7 +3866,7 @@ export const pricingRouter = router({
       // Within the same distributor+style pair, prefer the lowest contractor price.
       const byStyle = new Map<string, (typeof rows)[number]>();
       for (const r of rows) {
-        const styleKey = (r.styleCode || r.ourName || String(r.styleId)).toUpperCase();
+        const styleKey = (r.styleCode || r.name || String(r.styleId)).toUpperCase();
         const key = `${styleKey}__DIST_${r.distributorId ?? 0}`;
         const existing = byStyle.get(key);
         if (!existing) {
@@ -3908,7 +3911,7 @@ export const pricingRouter = router({
           return {
             styleId: r.styleId,
             styleCode: r.styleCode,
-            name: r.ourName,
+            name: r.name,
             doorStyle: r.doorStyle,
             finish: r.finish,
             color: r.color,
