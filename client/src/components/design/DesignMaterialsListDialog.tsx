@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { materialsListCsv, materialsListPricedTotal, materialsListPrintHtml, type MaterialsListRow } from "@/lib/designMaterialsList";
 
-function money(value: number | null): string {
-  return value == null ? "Price pending" : `$${value.toFixed(2)}`;
+function money(row: MaterialsListRow, value: number | null): string {
+  if (value != null) return `$${value.toFixed(2)}`;
+  return row.priceStatus === "unavailable" ? "Unavailable" : "Quote required";
 }
 
 function fileSlug(value: string): string {
@@ -33,7 +34,8 @@ export function DesignMaterialsListDialog({
   const title = `${brandName?.trim() || "Cabinet Dealz"} Materials & Parts List`;
   const cabinetRows = rows.filter((row) => row.section === "cabinet");
   const otherRows = rows.filter((row) => row.section === "other");
-  const pendingCount = rows.filter((row) => row.unitPrice == null).length;
+  const unavailableCabinetCount = rows.filter((row) => row.priceStatus === "unavailable").length;
+  const quoteRequiredCount = rows.filter((row) => row.priceStatus === "quote_required").length;
 
   const downloadCsv = () => {
     const csv = materialsListCsv(rows);
@@ -97,8 +99,8 @@ export function DesignMaterialsListDialog({
           <td className="px-2 py-2 min-w-[130px]">{row.styleColor}</td>
           <td className="px-2 py-2 whitespace-nowrap">{row.dimensions}</td>
           <td className="px-2 py-2 text-right tabular-nums">{row.qty}</td>
-          <td className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${row.unitPrice == null ? "text-amber-700" : ""}`}>{money(row.unitPrice)}</td>
-          <td className={`px-2 py-2 text-right whitespace-nowrap font-semibold tabular-nums ${row.lineTotal == null ? "text-amber-700" : ""}`}>{money(row.lineTotal)}</td>
+          <td className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${row.priceStatus === "unavailable" ? "text-rose-700" : row.unitPrice == null ? "text-amber-700" : ""}`}>{money(row, row.unitPrice)}</td>
+          <td className={`px-2 py-2 text-right whitespace-nowrap font-semibold tabular-nums ${row.priceStatus === "unavailable" ? "text-rose-700" : row.lineTotal == null ? "text-amber-700" : ""}`}>{money(row, row.lineTotal)}</td>
           <td className="px-2 py-2 min-w-[180px] text-slate-600">{row.notes || "—"}</td>
         </tr>
       ))}
@@ -152,7 +154,11 @@ export function DesignMaterialsListDialog({
 
         <div className="shrink-0 border-t border-slate-200 bg-white px-4 py-3 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
-	            <span className="text-slate-600">{cabinetRows.length} cabinet & part rows · {otherRows.length} other rows · <span className="font-semibold text-amber-700">{pendingCount} pending-price rows</span></span>
+            <span className="text-slate-600">
+              {cabinetRows.length} cabinet & part rows · {otherRows.length} other rows
+              {unavailableCabinetCount > 0 && <span className="font-semibold text-rose-700"> · {unavailableCabinetCount} unavailable cabinet line{unavailableCabinetCount === 1 ? "" : "s"}</span>}
+              {quoteRequiredCount > 0 && <span className="font-semibold text-amber-700"> · {quoteRequiredCount} quote-required line{quoteRequiredCount === 1 ? "" : "s"}</span>}
+            </span>
             <span className="text-sm font-bold text-[#1a2744]">Priced total: ${materialsListPricedTotal(rows).toFixed(2)}</span>
           </div>
         </div>

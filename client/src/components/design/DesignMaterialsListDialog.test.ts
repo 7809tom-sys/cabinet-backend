@@ -17,7 +17,9 @@ describe("complete Design materials and parts dialog", () => {
     expect(dialogSource).toContain("flex shrink-0 flex-wrap gap-2");
     expect(dialogSource).toContain("Unit price");
     expect(dialogSource).toContain("Line total");
-    expect(dialogSource).toContain("Price pending");
+    expect(dialogSource).toContain('"Unavailable"');
+    expect(dialogSource).toContain('"Quote required"');
+    expect(dialogSource).toContain("unavailable cabinet line");
     expect(dialogSource).toContain("Use the red trash button at the left of each placed item");
     expect(dialogSource).toContain("<Trash2 className=\"h-4 w-4\" />");
     expect(dialogSource).toContain("sticky left-0");

@@ -63,8 +63,38 @@ describe("complete Designer materials list", () => {
     expect(base).toMatchObject({ supplier: "Ashford", styleColor: "Aura Cream", dimensions: '24\" W × 34.5\" H × 24\" D', qty: 2, unitPrice: 300, lineTotal: 600 });
     expect(base.sourceUids).toEqual(["b24-1", "b24-2"]);
     expect(rows.find((row) => row.code === "PEL-90")).toMatchObject({ supplier: "Backsplash", qty: 3, unitPrice: 48, lineTotal: 144, notes: "30 sq ft including overage" });
-    expect(rows.find((row) => row.code === "PEL-91")).toMatchObject({ unitPrice: null, lineTotal: null, notes: "Price pending / quote required" });
+	    expect(rows.find((row) => row.code === "PEL-91")).toMatchObject({ unitPrice: null, lineTotal: null, priceStatus: "quote_required", notes: "Quote required" });
 	    expect(materialsListPricedTotal(rows)).toBe(1589);
+  });
+
+  it("marks an unpriced placed cabinet unavailable rather than calling it price pending", () => {
+    const unresolved = buildMaterialsListRows({
+      buildRows: [{
+        sourceUids: ["legacy-cabinet"],
+        code: "UNVERIFIED-BASE",
+        description: "Legacy base cabinet without an approved source alias",
+        widthIn: 24,
+        heightIn: 34.5,
+        depthIn: 24,
+        placement: "base",
+        color: "Aura Cream",
+        qty: 1,
+        unitPrice: null,
+      }],
+      pricingLines: [],
+      defaultStyleName: "Aura Cream",
+    });
+
+    expect(unresolved).toEqual([expect.objectContaining({
+      section: "cabinet",
+      unitPrice: null,
+      lineTotal: null,
+      priceStatus: "unavailable",
+      notes: "Not purchasable — verified supplier price required",
+    })]);
+    const html = materialsListPrintHtml({ rows: unresolved });
+    expect(html).toContain("Unavailable cabinet lines: 1");
+    expect(html).not.toContain("Pending");
   });
 
   it("keeps an island-placed 30-inch wall cabinet in the cabinet invoice and materials output", () => {
@@ -224,7 +254,7 @@ describe("complete Designer materials list", () => {
 	    expect(csv).toContain('2,Cabinets & cabinet parts,BF-3,Base filler cut to 2.5 inches,Filler');
 	    expect(csv).toContain('4,Cabinets & cabinet parts,REP-2496,Refrigerator end panel,Panel');
 	    expect(csv).toContain('C,Other materials,FRIDGE-36,French Door Refrigerator,Appliances');
-    expect(csv).toContain("D,Other materials,PEL-91,Oak Flooring,Flooring,Flooring,Natural,20 sq ft carton,1,,,Price pending / quote required");
+	    expect(csv).toContain("D,Other materials,PEL-91,Oak Flooring,Flooring,Flooring,Natural,20 sq ft carton,1,,,Quote required");
   });
 
   it("builds a printable landscape table with both sections, exact totals, and escaped text", () => {
@@ -232,7 +262,7 @@ describe("complete Designer materials list", () => {
 	    expect(html).toContain("Numbered Cabinets &amp; Cabinet Parts");
     expect(html).toContain("Other Materials &amp; Parts — Alphabetical");
 	    expect(html).toContain("Priced total: $1589.00");
-	    expect(html).toContain("Pending price lines: 5");
+	    expect(html).toContain("Quote-required lines: 5");
     expect(html).toContain("Tom&#039;s &lt;Kitchen&gt;");
     expect(html).toContain("@page{size:letter landscape");
   });
