@@ -9062,7 +9062,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		                </div>
 		                <div className="mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
 		                  <span className="truncate">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</span>
-		                  <span className="font-semibold text-foreground">{line?.lineTotal == null ? "Price pending" : `$${line.lineTotal.toFixed(2)}`}</span>
+		                  <span className={`font-semibold ${line?.lineTotal == null ? "text-rose-700" : "text-foreground"}`}>{line?.lineTotal == null ? "Unavailable" : `$${line.lineTotal.toFixed(2)}`}</span>
 		                </div>
 		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
 		              </div>
