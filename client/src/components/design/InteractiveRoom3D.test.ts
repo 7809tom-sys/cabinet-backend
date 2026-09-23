@@ -77,6 +77,116 @@ describe("3D fallback appliance run seams", () => {
     expect(rangeChassis).not.toBeNull();
     expect(((rangeChassis!.geometry as THREE.BoxGeometry).parameters.width as number) * 12).toBeCloseTo(30, 6);
   });
+
+  it("keeps an explicit 45-degree continuous-wall range opening and rendered chassis flush to a 3DB18", () => {
+    const room = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 12, y: 12 },
+        { id: "b", x: 132, y: 132 },
+      ],
+      customWalls: [{ id: "wall-45", startVertexId: "a", endVertexId: "b" }],
+    } as RoomData;
+    const makePlaced = (uid: string, masterCode: string, placement: PlacedCabinet["placement"], width: number, depth: number, wallOffset: number): PlacedCabinet => ({
+      uid,
+      cabinetId: 0,
+      masterCode,
+      description: masterCode === "RANGE-30" ? '30" Freestanding Range' : '18" Three Drawer Base Cabinet',
+      placement,
+      width,
+      depth,
+      height: placement === "appliance" ? 36 : 34.5,
+      ...wallPlacementAt(wallOffset, width, depth, "wall-45", room),
+      wallId: "wall-45",
+      wallOffset,
+    });
+    // The opening is exactly the catalog range width: 30" to 60" is the
+    // range, with an ordinary base ending at its left edge and the 3DB18
+    // beginning at its exposed right edge.
+    const b18 = makePlaced("b18", "B18", "base", 18, 24, 12);
+    const range = makePlaced("range", "RANGE-30", "appliance", 30, 25, 30);
+    const db18 = makePlaced("db18", "3-DB18", "base", 18, 24, 60);
+    const rangeTransform = existingCabinetTransform(range, room);
+    const b18Transform = existingCabinetTransform(b18, room);
+    const db18Transform = existingCabinetTransform(db18, room);
+    const tangent = new THREE.Vector3(Math.SQRT1_2, 0, Math.SQRT1_2);
+    const along = (transform: { x: number; z: number }) => transform.x * tangent.x + transform.z * tangent.z;
+    // existingCabinetTransform is returned in Plan inches; the centers differ
+    // by 30/2 + 18/2 along the measured wall tangent.
+    expect(along(rangeTransform) - along(b18Transform)).toBeCloseTo(24, 6);
+    expect(along(db18Transform) - along(rangeTransform)).toBeCloseTo(24, 6);
+
+    const root = new THREE.Group();
+    const cursor: Record<string, number> = {};
+    for (const cabinet of [b18, range, db18]) {
+      addCabinet(
+        root,
+        existingCabinetSku(cabinet, room),
+        null,
+        cursor,
+        room.width,
+        room.depth,
+        "#b99a6b",
+        "#f8f8f6",
+        undefined,
+        existingCabinetTransform(cabinet, room),
+      );
+    }
+    root.updateMatrixWorld(true);
+    const b18Root = root.children.find((node) => node.userData.placedUid === "b18")!;
+    const rangeRoot = root.children.find((node) => node.userData.placedUid === "range")!;
+    const db18Root = root.children.find((node) => node.userData.placedUid === "db18")!;
+    let chassis: THREE.Mesh | null = null;
+    let leftBody: THREE.Mesh | null = null;
+    let drawerBody: THREE.Mesh | null = null;
+    rangeRoot.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.freestandingRangeChassis) chassis = node;
+    });
+    b18Root.traverse((node) => {
+      const parameters = node instanceof THREE.Mesh ? (node.geometry as THREE.BoxGeometry).parameters : null;
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && Math.abs(Number(parameters?.width) * 12 - 18) < 0.001 && Math.abs(Number(parameters?.depth) * 12 - 24) < 0.001) leftBody = node;
+    });
+    db18Root.traverse((node) => {
+      const parameters = node instanceof THREE.Mesh ? (node.geometry as THREE.BoxGeometry).parameters : null;
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && Math.abs(Number(parameters?.width) * 12 - 18) < 0.001 && Math.abs(Number(parameters?.depth) * 12 - 24) < 0.001) drawerBody = node;
+    });
+    expect(chassis).not.toBeNull();
+    expect(leftBody).not.toBeNull();
+    expect(drawerBody).not.toBeNull();
+    const localAxis = new THREE.Vector3(1, 0, 0).transformDirection(rangeRoot.matrixWorld);
+    const chassisWidth = Number((chassis!.geometry as THREE.BoxGeometry).parameters.width);
+    const leftWidth = Number((leftBody!.geometry as THREE.BoxGeometry).parameters.width);
+    const drawerWidth = Number((drawerBody!.geometry as THREE.BoxGeometry).parameters.width);
+    const rangeLeft = chassis!.localToWorld(new THREE.Vector3(-chassisWidth / 2, 0, 0)).dot(localAxis);
+    const rangeRight = chassis!.localToWorld(new THREE.Vector3(chassisWidth / 2, 0, 0)).dot(localAxis);
+    const leftCabinetRight = leftBody!.localToWorld(new THREE.Vector3(leftWidth / 2, 0, 0)).dot(localAxis);
+    const drawerLeft = drawerBody!.localToWorld(new THREE.Vector3(-drawerWidth / 2, 0, 0)).dot(localAxis);
+    // This is the acceptance measurement from the actual Three.js mesh plane,
+    // not the 2D collision or opening model: no rendered floor channel is
+    // allowed between a range chassis and an adjoining cabinet.
+    const rangeWidthIn = (rangeRight - rangeLeft) * 12;
+    const leftGapIn = (rangeLeft - leftCabinetRight) * 12;
+    const rightGapIn = (drawerLeft - rangeRight) * 12;
+    expect(rangeWidthIn).toBeCloseTo(30, 6);
+    expect(leftGapIn).toBeGreaterThanOrEqual(-1 / 16);
+    expect(leftGapIn).toBeLessThanOrEqual(1 / 16);
+    expect(rightGapIn).toBeGreaterThanOrEqual(-1 / 16);
+    expect(rightGapIn).toBeLessThanOrEqual(1 / 16);
+
+    const counterFor = (uid: string) => root.children.find((node) => node instanceof THREE.Mesh && node.userData.placedUid === uid && Number(node.userData.countertopDepthIn) > 0) as THREE.Mesh;
+    const leftCounter = counterFor("b18");
+    const rightCounter = counterFor("db18");
+    expect(leftCounter).toBeTruthy();
+    expect(rightCounter).toBeTruthy();
+    const leftCounterWidth = Number((leftCounter.geometry as THREE.BoxGeometry).parameters.width);
+    const rightCounterWidth = Number((rightCounter.geometry as THREE.BoxGeometry).parameters.width);
+    const leftCounterRight = leftCounter.localToWorld(new THREE.Vector3(leftCounterWidth / 2, 0, 0)).dot(localAxis);
+    const rightCounterLeft = rightCounter.localToWorld(new THREE.Vector3(-rightCounterWidth / 2, 0, 0)).dot(localAxis);
+    expect((rangeLeft - leftCounterRight) * 12).toBeLessThanOrEqual(1 / 16);
+    expect((rightCounterLeft - rangeRight) * 12).toBeLessThanOrEqual(1 / 16);
+  });
 });
 
 describe("side-aware peninsula countertop meshes", () => {

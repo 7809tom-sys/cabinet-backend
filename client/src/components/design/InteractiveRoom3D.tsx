@@ -5002,13 +5002,22 @@ export function existingCabinetTransform(
   // Move In/Move Out adjustments intact, but seat legacy end runs flush so their
   // backs do not float inside the room.
   const isPeninsulaCabinet = Boolean(room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId));
+  // A Continuous Wall Builder run is an explicit measured segment, not a
+  // legacy rectangular-room edge. A 45-degree base or appliance can happen to
+  // be near the rectangular room's front/left boundary; re-seating it to that
+  // unrelated wall changes its center independently of the adjoining cabinet
+  // and creates a visible range-side gap in 3D. Its `wallId` + `wallOffset`
+  // placement already describes the exact, authoritative wall plane.
+  const isMeasuredWallCabinet = isCustomRoomWall(room as RoomData, cabinet.wallId);
   const legacyWall = hasPlacedRoom
     && !isPeninsulaCabinet
+    && !isMeasuredWallCabinet
     && !cabinet.islandFace
     && cabinet.placement === "wall"
     ? cabinetWall(cabinet, room as RoomData)
     : hasPlacedRoom
       && !isPeninsulaCabinet
+      && !isMeasuredWallCabinet
       && !cabinet.islandFace
       && !cabinet.depthPositionAdjusted
       && cabinet.placement === "base"
