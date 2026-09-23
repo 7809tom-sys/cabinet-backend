@@ -2643,7 +2643,7 @@ describe("wall cabinet clearance from doors/windows", () => {
   it("pads openings by the clearance when computing wall free segments", () => {
     // Window 54..90 on a 144 wall. With 3" clearance the blocked band becomes
     // 51..93, so the right-hand free segment starts at 93 (not 90).
-    const segs = freeSegmentsOnWall("top", room, [], [topWindow(54)], 9, WALL_OPENING_CLEARANCE_IN);
+    const segs = freeSegmentsOnWall("top", room, [], [topWindow(54)], 9, WALL_OPENING_CLEARANCE_IN, "wall");
     const right = segs.find((s) => s.start >= 90);
     expect(right).toBeDefined();
     expect(right!.start).toBeCloseTo(93, 1);
@@ -3187,6 +3187,45 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 	    expect(spot?.openingUid).toBe("diagonal-sink-window");
     expect(spot?.spot.wallId).toBe("diag");
     expect(spot?.spot.wallOffset).toBeCloseTo(60, 8);
+  });
+
+  it("keeps a 24-inch dishwasher opening available below a window on a diagonal continuous wall", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 120 }],
+      customWalls: [{ id: "diag", startVertexId: "a", endVertexId: "b", label: "Diagonal wall", lockedAngle: 45 }],
+    };
+    const sb36Spot = wallPlacementAt(0, 36, 24, "diag" as any, room);
+    const db36Spot = wallPlacementAt(60, 36, 24, "diag" as any, room);
+    const bases: PlacedCabinet[] = [
+      cab({ uid: "sb36", masterCode: "SB36", description: "36 inch Sink Base", placement: "base", ...sb36Spot, width: 36, depth: 24, wallId: "diag", wallOffset: 0 }),
+      cab({ uid: "db36", masterCode: "DB36", description: "36 inch Drawer Base", placement: "base", ...db36Spot, width: 36, depth: 24, wallId: "diag", wallOffset: 60 }),
+    ];
+    const window: WallOpening = {
+      uid: "window-over-dw", kind: "window", label: "Window", side: "diag" as any,
+      offset: 36, width: 24, height: 36, sill: 36,
+    };
+
+    const applianceSegments = freeSegmentsOnWall("diag" as any, room, bases, [window], 24, 0, "appliance");
+    expect(applianceSegments).toContainEqual({ start: 36, length: 24 });
+    expect(nearestAvailableWallStart(applianceSegments, 36, 24)).toBe(36);
+
+    const dishwasherSpot = wallPlacementAt(36, 24, 24, "diag" as any, room);
+    const dishwasher = cab({
+      uid: "dw24", masterCode: "DW-24", description: "24 inch Dishwasher", placement: "appliance",
+      ...dishwasherSpot, width: 24, depth: 24, wallId: "diag", wallOffset: 36,
+    });
+    expect(baseOpeningOverlaps([dishwasher], [window], room)).toEqual(new Set());
+    expect(conflictingUids([...bases, dishwasher], room)).toEqual(new Set());
+
+    const floorDoor: WallOpening = {
+      ...window, uid: "door-at-dw", kind: "door", label: "Door", sill: 0,
+    };
+    const doorSegments = freeSegmentsOnWall("diag" as any, room, bases, [floorDoor], 24, 0, "appliance");
+    expect(doorSegments.some((segment) => segment.start <= 36 && segment.start + segment.length >= 60)).toBe(false);
   });
 
   it("STILL flags a range appliance overlapping an ordinary base cabinet", () => {

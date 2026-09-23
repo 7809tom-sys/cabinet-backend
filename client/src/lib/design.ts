@@ -6458,9 +6458,10 @@ export function baseOpeningOverlaps(
 
 // ─── Free wall segments (break the run around openings) ─────────────────────
 // Compute the OPEN gaps along a wall's run axis, after removing the run-axis
-// extents of (a) base cabinets already on that wall and (b) door/window
-// openings on that wall. Auto-Fill then tiles each returned segment separately
-// so cabinets break cleanly around a doorway instead of running under it.
+// extents of existing same-layer cabinets and the openings that actually block
+// that layer. Windows reserve the upper/wall-cabinet layer but a base cabinet,
+// drawer base, or dishwasher can legitimately sit below a window. Floor-level
+// doors and cased openings still break every floor run.
 //
 // Returns segments as { start, length } in inches along the wall's run axis
 // (X for top/bottom walls, Y for left/right). Only segments >= `minLen` are
@@ -6655,10 +6656,16 @@ export function freeSegmentsOnWall(
     blocked.push({ s: start, e: start + span });
   }
 
-  // Openings on this wall (a door/window interrupts the run at its position).
-  // Pad by openingClearance on both sides so wall cabinets keep their distance.
+  // Openings on this wall. A window only blocks the upper/wall-cabinet layer;
+  // a base, appliance, or tall run may pass under it. A door or cased opening
+  // blocks the floor layers as well. This deliberately matches
+  // baseOpeningOverlaps(), so a valid DW-24 opening does not first appear free
+  // in Plan and then disappear during the placement/collision step.
+  const openingBlocksLayer = (opening: WallOpening) =>
+    layer === "wall" || blocksFloorRun(opening.kind);
   for (const o of openings) {
     if (o.side !== side) continue;
+    if (!openingBlocksLayer(o)) continue;
     if (candidate && wallCabinetClearsWindow(candidate, o, room, openingClearance)) continue;
     blocked.push({
       s: Math.max(wallStart, o.offset - openingClearance),
