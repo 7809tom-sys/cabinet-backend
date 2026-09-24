@@ -13,6 +13,13 @@ describe("Pelican surface price base", () => {
     expect(sellPriceOf(product, markups)).toBe(20.63);
   });
 
+  it("uses a positive authorized list price when imported cost is null", () => {
+    const product = { category, yourCost: null, listPrice: "12.50" };
+    expect(positivePelicanPriceBase(product)).toBe(12.5);
+    expect(computeSellPrice(product, markups)).toBe(20.63);
+    expect(sellPriceOf(product, markups)).toBe(20.63);
+  });
+
   it("uses a positive landed cost ahead of the list price", () => {
     const product = { category, yourCost: "8.00", listPrice: "12.50" };
     expect(positivePelicanPriceBase(product)).toBe(8);
