@@ -974,6 +974,12 @@ function QuickInvoiceDialog({
             <div className="space-y-2">
               <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} source={prefill?.cabinetOrderSource} />
               <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} source={selectedDesign?.catalogSubtotalSource} emptyAmountLabel={label("Not priced", "Sin precio")} />
+              {selectedDesign && !kitchenDesign.enabled && (
+                <p className="-mt-1 px-1 text-[11px] text-amber-700">
+                  {label("This plan needs a verified cart/order subtotal before it can be invoiced. ", "Este plano necesita un subtotal verificado de carrito/pedido antes de facturarse. ")}
+                  <a className="font-semibold underline underline-offset-2" href={`/design?load=${selectedDesign.designId}`}>{label("Open plan to prepare the order", "Abrir plano para preparar el pedido")}</a>
+                </p>
+              )}
               <ServiceRow id="invoice-shipping" title={label("Shipping", "Envío")} state={shipping} setState={setShipping} source={prefill?.shippingSource} emptyAmountLabel={label("Quote required", "Cotización requerida")} />
               {prefill?.shippingNote && <p className="-mt-1 px-1 text-[11px] text-amber-700">{prefill.shippingNote}</p>}
               <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} source={prefill?.installationSource} />

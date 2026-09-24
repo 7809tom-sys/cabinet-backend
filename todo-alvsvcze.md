@@ -2719,3 +2719,4 @@
 - [x] Preserve a saved plan ID when its exact design BOM replaces an empty or already synchronized cart, allowing checkout to save the authoritative merchandise subtotal and signed freight quote against that plan
 - [x] Update the manual B24 shorthand regression to validate canonical identity through separator-insensitive normalization rather than a stale dashed display-code assumption
 - [x] Show a clear cart disclosure when an exact saved kitchen plan is linked, explaining that verified merchandise and carrier shipping remain separate and shipping requires a current carrier quote
+- [x] Add a CRM Quick PDF Invoice link from an unpriced linked plan back to its saved Designer record, directing users to prepare a verified order rather than type a fictitious plan price
