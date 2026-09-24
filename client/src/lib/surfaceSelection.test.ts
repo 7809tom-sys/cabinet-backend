@@ -169,6 +169,22 @@ describe("verified saved surface refresh", () => {
       expect.objectContaining({ id: 82, sellPrice: null, materialImageUrl: null }),
     ]);
   });
+
+  it("preserves an already current selection reference across a query refetch", () => {
+    const current = { ...savedFloor, sellPrice: 74.25, materialImageUrl: "/bahia-approved.webp", pelicanCode: "BAHIA-12MIL", subCategory: "Planks & Flooring", size: '7" x 48"', coverageSqFt: 23.5, name: "Bahia 12mil Vinyl Flooring" };
+    const refreshed = refreshVerifiedSurfaceSelections([current], [{
+      id: 82,
+      pelicanCode: "BAHIA-12MIL",
+      name: "Bahia 12mil Vinyl Flooring",
+      category: "Flooring",
+      subCategory: "Planks & Flooring",
+      size: '7" x 48"',
+      materialImageUrl: "/bahia-approved.webp",
+      coverageSqFt: "23.5",
+      sellPrice: 74.25,
+    }]);
+    expect(refreshed[0]).toBe(current);
+  });
 });
 
 // The repo runs vitest under the "node" environment (no DOM), so provide a

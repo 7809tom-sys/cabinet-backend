@@ -135,10 +135,11 @@ export function refreshVerifiedSurfaceSelections<T extends RefreshableSurfaceSel
     // authorized price base. Preserve the design selection as evidence, but remove
     // its stale sell price and 3D swatch when it no longer passes that gate.
     if (!record) {
+      if (selection.sellPrice == null && (selection.materialImageUrl ?? null) == null) return selection;
       return { ...selection, sellPrice: null, materialImageUrl: null } as T;
     }
     const coverage = Number(record.coverageSqFt);
-    return {
+    const next = {
       ...selection,
       pelicanCode: record.pelicanCode ?? null,
       name: record.name,
@@ -149,6 +150,17 @@ export function refreshVerifiedSurfaceSelections<T extends RefreshableSurfaceSel
       coverageSqFt: Number.isFinite(coverage) && coverage > 0 ? coverage : null,
       sellPrice: record.sellPrice,
     } as T;
+    if (
+      next.pelicanCode === (selection.pelicanCode ?? null) &&
+      next.name === selection.name &&
+      next.category === selection.category &&
+      next.subCategory === (selection.subCategory ?? null) &&
+      next.size === (selection.size ?? null) &&
+      next.materialImageUrl === (selection.materialImageUrl ?? null) &&
+      next.coverageSqFt === (selection.coverageSqFt ?? null) &&
+      next.sellPrice === selection.sellPrice
+    ) return selection;
+    return next;
   });
 }
 
