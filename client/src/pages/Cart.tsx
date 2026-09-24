@@ -281,6 +281,16 @@ export default function Cart() {
         </Button>
       </div>
 
+      {sourceDesignId != null && (
+        <div data-testid="saved-plan-order-link" className="mb-6 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-4 text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+          <Lock className="mt-0.5 h-5 w-5 shrink-0 text-blue-700 dark:text-blue-300" />
+          <div>
+            <p className="font-semibold">Saved kitchen plan linked to this order</p>
+            <p className="mt-1 text-sm">Checkout will save this plan’s verified merchandise subtotal separately and requires a current carrier quote before shipping can be submitted.</p>
+          </div>
+        </div>
+      )}
+
       {(supplierConflict || isMixedSupplier) && (
         <div
           role="alert"

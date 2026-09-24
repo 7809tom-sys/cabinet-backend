@@ -2718,3 +2718,4 @@
 - [x] Mirror every shared L-corner turn in the deterministic 3D renderer so WER wall easy-reach corners keep the same open-face direction as the correct 2D plan at each room corner
 - [x] Preserve a saved plan ID when its exact design BOM replaces an empty or already synchronized cart, allowing checkout to save the authoritative merchandise subtotal and signed freight quote against that plan
 - [x] Update the manual B24 shorthand regression to validate canonical identity through separator-insensitive normalization rather than a stale dashed display-code assumption
+- [x] Show a clear cart disclosure when an exact saved kitchen plan is linked, explaining that verified merchandise and carrier shipping remain separate and shipping requires a current carrier quote
