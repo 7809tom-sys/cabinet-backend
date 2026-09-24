@@ -4,6 +4,7 @@ import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
+import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
 import { isPelicanDesignerReady, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
@@ -30,14 +31,12 @@ function markupBpsFor(map: MarkupMap, category: string): number {
   if (map[category] !== undefined) return map[category];
   return DEFAULT_MARKUP_BPS[category] ?? 0;
 }
-function sellPriceOf(
+export function sellPriceOf(
   p: { listPrice: string | null; yourCost: string | null; category: string },
   map: MarkupMap
 ): number | null {
-  const costStr = p.yourCost ?? p.listPrice;
-  if (costStr == null) return null;
-  const cost = Number(costStr);
-  if (!Number.isFinite(cost)) return null;
+  const cost = positiveAuthorizedSurfaceBase(p);
+  if (cost == null) return null;
   const bps = markupBpsFor(map, p.category);
   return Math.round(cost * (1 + bps / 10000) * 100) / 100;
 }

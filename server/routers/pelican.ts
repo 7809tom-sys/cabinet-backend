@@ -6,6 +6,7 @@ import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
+import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerReady } from "../lib/pelicanDesignerReadiness";
 
 const CategoryEnum = z.enum([
@@ -44,14 +45,19 @@ function markupBpsFor(map: MarkupMap, category: string): number {
   return DEFAULT_MARKUP_BPS[category] ?? 0;
 }
 
-function computeSellPrice(
+/**
+ * Resolve the verified source basis without letting a legacy zero placeholder
+ * suppress a positive authorized list price. A positive landed cost wins; when
+ * it is absent or zero, a positive supplier list price is the lawful fallback.
+ */
+export const positivePelicanPriceBase = positiveAuthorizedSurfaceBase;
+
+export function computeSellPrice(
   product: { listPrice: string | null; yourCost: string | null; category: string },
   map: MarkupMap
 ): number | null {
-  const costStr = product.yourCost ?? product.listPrice;
-  if (costStr == null) return null;
-  const cost = Number(costStr);
-  if (!Number.isFinite(cost)) return null;
+  const cost = positivePelicanPriceBase(product);
+  if (cost == null) return null;
   const bps = markupBpsFor(map, product.category);
   return Math.round(cost * (1 + bps / 10000) * 100) / 100;
 }
@@ -185,7 +191,12 @@ export const pelicanRouter = router({
       const subs = await db
         .selectDistinct({ subCategory: pelicanProducts.subCategory })
         .from(pelicanProducts)
-        .where(and(eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true)));
+        .where(and(
+          eq(pelicanProducts.category, input.category),
+          eq(pelicanProducts.isActive, true),
+          hasPriceData() as any,
+          eq(pelicanProducts.showInCatalog, true),
+        ));
       return {
         suggested: suggestedRows.map((r) => withPricing(r, markupMap)),
         items: itemRows.map((r) => withPricing(r, markupMap)),
@@ -201,7 +212,12 @@ export const pelicanRouter = router({
       const [row] = await db
         .select()
         .from(pelicanProducts)
-        .where(eq(pelicanProducts.slug, input.slug))
+        .where(and(
+          eq(pelicanProducts.slug, input.slug),
+          eq(pelicanProducts.isActive, true),
+          eq(pelicanProducts.showInCatalog, true),
+          hasPriceData() as any,
+        ))
         .limit(1);
       if (!row) return null;
       const markupMap = await loadMarkupMap(db);
@@ -237,7 +253,8 @@ export const pelicanRouter = router({
             eq(pelicanProducts.category, row.category),
             eq(pelicanProducts.subCategory, pairedSub),
             eq(pelicanProducts.isActive, true),
-            eq(pelicanProducts.showInCatalog, true)
+            eq(pelicanProducts.showInCatalog, true),
+            hasPriceData() as any,
           )
         )
         .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
@@ -374,6 +391,19 @@ export const pelicanRouter = router({
       if (input.showInDesigner !== undefined) patch.showInDesigner = input.showInDesigner;
       if (input.isActive !== undefined) patch.isActive = input.isActive;
       if (Object.keys(patch).length) {
+        const [existing] = await db
+          .select({ listPrice: pelicanProducts.listPrice, yourCost: pelicanProducts.yourCost })
+          .from(pelicanProducts)
+          .where(eq(pelicanProducts.id, input.id))
+          .limit(1);
+        if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Surface product not found." });
+        const requestsPublicAvailability = patch.isActive === true || patch.showInCatalog === true || patch.showInDesigner === true;
+        if (requestsPublicAvailability && positiveAuthorizedSurfaceBase(existing) == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "An item without a positive authorized cost or list price cannot be activated or published.",
+          });
+        }
         await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
       }
       return { success: true } as const;
@@ -390,14 +420,30 @@ export const pelicanRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) return { success: false } as const;
-      const patch: Record<string, string> = {};
+      const [existing] = await db
+        .select({ listPrice: pelicanProducts.listPrice, yourCost: pelicanProducts.yourCost })
+        .from(pelicanProducts)
+        .where(eq(pelicanProducts.id, input.id))
+        .limit(1);
+      if (!existing) throw new TRPCError({ code: "NOT_FOUND", message: "Surface product not found." });
+      const patch: Record<string, string | boolean> = {};
       if (input.listPrice !== undefined) patch.listPrice = String(input.listPrice);
       if (input.yourCost !== undefined) patch.yourCost = String(input.yourCost);
       if (input.markupPercent !== undefined) patch.markupPercent = String(input.markupPercent);
+      const resultingBase = positiveAuthorizedSurfaceBase({
+        listPrice: input.listPrice === undefined ? existing.listPrice : String(input.listPrice),
+        yourCost: input.yourCost === undefined ? existing.yourCost : String(input.yourCost),
+      });
+      if (resultingBase == null) {
+        patch.isActive = false;
+        patch.showInCatalog = false;
+        patch.showInDesigner = false;
+        patch.isPopular = false;
+      }
       if (Object.keys(patch).length) {
         await db.update(pelicanProducts).set(patch).where(eq(pelicanProducts.id, input.id));
       }
-      return { success: true } as const;
+      return { success: true, unpublished: resultingBase == null } as const;
     }),
   /** Set the box coverage (sq ft per box) for tile/flooring products. */
   setCoverage: adminProcedure
