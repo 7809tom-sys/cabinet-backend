@@ -80,6 +80,7 @@ import { BulkDimensionsAdmin } from "@/components/admin/BulkDimensionsAdmin";
 import BundleDealsAdmin from "@/components/admin/BundleDealsAdmin";
 import PriceShop10x10 from "@/pages/PriceShop10x10";
 import MediaLibraryAdmin from "@/components/admin/MediaLibraryAdmin";
+import { GeneratedDesignImagesAdmin } from "@/components/admin/GeneratedDesignImagesAdmin";
 import AdminStickyNotes from "@/components/admin/AdminStickyNotes";
 import GeminiImageProviderAdmin from "@/components/admin/GeminiImageProviderAdmin";
 import ElevenLabsOperationsAdmin from "@/components/admin/ElevenLabsOperationsAdmin";
@@ -143,6 +144,7 @@ const GROUPS = [
       { value: "bundle-deals", label: "📦 Kitchen Packages" },
       { value: "price-shop-10x10", label: "10×10 Price Shop" },
       { value: "media-library", label: "📁 Media Library" },
+      { value: "generated-design-images", label: "✨ Generated Design Images" },
     ],
   },
   {
@@ -521,6 +523,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="bundle-deals" className="mt-6"><BundleDealsAdmin /></TabsContent>
         <TabsContent value="price-shop-10x10" className="mt-6"><PriceShop10x10 /></TabsContent>
         <TabsContent value="media-library" className="mt-6"><MediaLibraryAdmin /></TabsContent>
+        <TabsContent value="generated-design-images" className="mt-6"><GeneratedDesignImagesAdmin /></TabsContent>
 
         {/* Pricing */}
         <TabsContent value="multipliers" className="mt-6"><DistributorMultipliersAdmin /></TabsContent>

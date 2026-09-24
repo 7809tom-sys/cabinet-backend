@@ -1301,19 +1301,23 @@ export const designPhotoRendersRouter = router({
     }),
 
   getGeminiImageTestJob: protectedProcedure
-    .input(z.object({ designId: z.number().int().positive() }))
+    // `0` is the documented administrator-current-snapshot identifier. It has
+    // no kitchen_designs record, but its completed test must remain reopenable
+    // after an admin refreshes the Final preview dialog.
+    .input(z.object({ designId: z.number().int().nonnegative() }))
     .query(async ({ ctx, input }) => {
       if (ctx.user.role !== "admin") throw new TRPCError({ code: "FORBIDDEN", message: "Admin only" });
       const db = await getDb();
       if (!db) return null;
-      const design = await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
+      const administratorSnapshot = input.designId === 0;
+      const design = administratorSnapshot ? null : await loadOwnedSavedDesign(db, ctx.user.id, input.designId);
       const [job] = await db.select().from(designGeminiImageTestJobs).where(and(
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
-        eq(designGeminiImageTestJobs.kitchenDesignId, design.id),
+        eq(designGeminiImageTestJobs.kitchenDesignId, design?.id ?? 0),
       )).orderBy(desc(designGeminiImageTestJobs.updatedAt)).limit(1);
-      if (!job || job.designRevision !== savedPhotoPlanRevision(design) || job.planFingerprint !== savedPhotoPlanFingerprint(design)) return null;
+      if (!job || (!administratorSnapshot && (job.designRevision !== savedPhotoPlanRevision(design!) || job.planFingerprint !== savedPhotoPlanFingerprint(design!)))) return null;
       if (job.status === "queued") queueGeminiImageTestJob(job.id);
-      return { jobId: job.id, status: job.status, errorMessage: job.errorMessage, startedAt: job.startedAt, nextRetryAt: job.nextRetryAt, retryCount: job.retryCount };
+      return { jobId: job.id, status: job.status, imageUrl: job.imageUrl, errorMessage: job.errorMessage, startedAt: job.startedAt, nextRetryAt: job.nextRetryAt, retryCount: job.retryCount };
     }),
 
   pollGeminiImageTest: protectedProcedure

@@ -4,6 +4,7 @@ import type { SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import { isApplianceCode } from "@/lib/design";
 import { isCatalogFiller } from "@/lib/catalogFiller";
 import { normalizeFinalMaterialSelections } from "@/lib/surfaceSelection";
+import { equivalentTrimMasterCodes } from "@/lib/trimCart";
 
 export type MaterialsListSection = "cabinet" | "other";
 export type MaterialsListPriceStatus = "priced" | "quote_required" | "unavailable";
@@ -159,7 +160,13 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
     if (row.code === "CUSTOM-ADJ" && args.pricingLines.length > 0) return false;
     return true;
   })) {
-    const sameCode = pricing.filter(({ line }) => line.masterCode === build.code);
+    // A legacy build sheet can retain a shared trim key (TK-8) while the
+    // selected supplier's verified buyable line keeps its source SKU
+    // (TK-8(TKC)). Treat only approved trim-family aliases as the same line;
+    // do not broaden regular cabinet matching or invent a substitute price.
+    const sameCode = pricing.filter(({ line }) => (
+      line.masterCode === build.code || equivalentTrimMasterCodes(line.masterCode, build.code)
+    ));
     const lockedBuildPrice = safePrice(build.pricingUnitPrice);
     const exactLocked = lockedBuildPrice == null ? null : sameCode.find(({ line }) =>
       (!build.color || line.styleLabel === build.color) &&
@@ -176,8 +183,8 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
     rows.push({
       sourceUids: build.sourceUids,
       section,
-      code: build.code,
-      description: build.description,
+      code: exact?.line.masterCode ?? build.code,
+      description: exact?.line.name ?? build.description,
       category: section === "cabinet" ? cabinetPartCategory({ code: build.code, description: build.description, category: build.placement }) : build.placement || "Other",
       supplier: exact ? supplierFor(exact.line, names, defaultSupplier) : defaultSupplier,
       styleColor: build.color?.trim() || exact?.line.styleLabel?.trim() || args.defaultStyleName?.trim() || "—",

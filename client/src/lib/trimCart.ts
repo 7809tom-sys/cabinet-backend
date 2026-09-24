@@ -32,6 +32,29 @@ export const TRIM_MASTER_CODE_ALIASES: Partial<Record<TrimKind, readonly string[
   toeKick: ["TK-8(TKC)"],
 };
 
+/**
+ * Returns the auto-trim family for either its short shared design key or a
+ * verified supplier-specific catalog code.  Build sheets created before a
+ * supplier import can retain the short key (for example `TK-8`), while the
+ * buyable supplier line correctly retains the source code (`TK-8(TKC)`).
+ */
+export function trimKindForMasterCode(masterCode: string | null | undefined): TrimKind | null {
+  const code = masterCode?.trim();
+  if (!code) return null;
+  for (const kind of Object.keys(TRIM_MASTER_CODES) as TrimKind[]) {
+    if (TRIM_MASTER_CODES[kind] === code) return kind;
+    if ((TRIM_MASTER_CODE_ALIASES[kind] ?? []).includes(code)) return kind;
+  }
+  return null;
+}
+
+/** True when two design/source codes represent the same approved trim family. */
+export function equivalentTrimMasterCodes(left: string | null | undefined, right: string | null | undefined): boolean {
+  if (left === right) return true;
+  const leftKind = trimKindForMasterCode(left);
+  return leftKind != null && leftKind === trimKindForMasterCode(right);
+}
+
 // A resolved, priced trim SKU for one style (as returned by the
 // design.trimSkusForStyles procedure, after tier resolution on the client).
 export interface TrimPrice {

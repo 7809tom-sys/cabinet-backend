@@ -7148,13 +7148,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const manualAiHandoffMutation = trpc.designPhotoRenders.prepareManualAiHandoff.useMutation();
   const startGeminiImageTestMutation = trpc.designPhotoRenders.startGeminiImageTest.useMutation();
   const pollGeminiImageTestMutation = trpc.designPhotoRenders.pollGeminiImageTest.useMutation();
+  // Keep the mutation callback—not the mutable hook result—in the polling
+  // effect dependencies. The hook result changes when a poll begins/ends;
+  // depending on it restarts the effect and can mark an in-flight completion
+  // response inactive before it reaches the completed-image dialog.
+  const pollGeminiImageTest = pollGeminiImageTestMutation.mutateAsync;
   const savedGeminiImageTestQuery = trpc.designPhotoRenders.getSavedGeminiImageTest.useQuery(
     { designId: savedDesignId ?? 0 },
     { enabled: isPhotoQualityTest && Boolean(savedDesignId) },
   );
   const geminiImageTestJobQuery = trpc.designPhotoRenders.getGeminiImageTestJob.useQuery(
     { designId: savedDesignId ?? 0 },
-    { enabled: isPhotoQualityTest && Boolean(savedDesignId) },
+    // Administrator snapshots deliberately use designId 0. Query those too so
+    // a completed image remains recoverable after a refresh or a remount.
+    { enabled: isPhotoQualityTest },
   );
   const latestCustomerReadyImageQuery = trpc.designPhotoRenders.getLatestCustomerReadyImage.useQuery(
     { designId: savedDesignId ?? 0 },
@@ -8820,6 +8827,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 
   useEffect(() => {
     const job = geminiImageTestJobQuery.data;
+    if (job?.status === "completed" && job.imageUrl && geminiImageTestJobId === job.jobId) {
+      setGeminiImageTest({ referenceUrl: photoRenderReferenceUrl, imageUrl: job.imageUrl });
+      setGeminiImageTestJobId(null);
+      setGeminiImageTestError(null);
+      return;
+    }
     if (job?.status === "queued" && job.nextRetryAt) {
       const retryAt = new Date(job.nextRetryAt).getTime();
       setGeminiImageTestJobId(job.jobId);
@@ -8859,7 +8872,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     let active = true;
     const check = async () => {
       try {
-        const result = await pollGeminiImageTestMutation.mutateAsync({ jobId: geminiImageTestJobId });
+        const result = await pollGeminiImageTest({ jobId: geminiImageTestJobId });
         if (!active) return;
         if (result.status === "completed") {
           setGeminiImageTest({ referenceUrl: photoRenderReferenceUrl, imageUrl: result.imageUrl });
@@ -8880,7 +8893,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     void check();
     const timer = window.setInterval(() => { void check(); }, 5_000);
     return () => { active = false; window.clearInterval(timer); };
-  }, [geminiImageTestJobId, photoRenderReferenceUrl, pollGeminiImageTestMutation, savedDesignId, utils]);
+  }, [geminiImageTestJobId, photoRenderReferenceUrl, pollGeminiImageTest, savedDesignId, utils]);
 
   const startGeminiImageTest = async () => {
     if (!isPhotoQualityTest) return;
@@ -8915,6 +8928,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     const saved = savedGeminiImageTestQuery.data;
     if (!saved) return;
     setGeminiImageTest({ referenceUrl: null, imageUrl: saved.imageUrl });
+  };
+
+  const openCompletedGeminiImageTest = () => {
+    const completed = geminiImageTestJobQuery.data;
+    if (completed?.status !== "completed" || !completed.imageUrl) return;
+    setGeminiImageTest({ referenceUrl: null, imageUrl: completed.imageUrl });
+    setGeminiImageTestError(null);
   };
 
   const requestPhotoVerification = async () => {
@@ -9204,6 +9224,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          <DialogDescription>We create one locked reference package from your saved plan, selected CabinetDealz and Pelican products, and camera view. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
           {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+	          {isPhotoQualityTest && geminiImageTestJobQuery.data?.status === "completed" && geminiImageTestJobQuery.data.imageUrl && <section data-testid="completed-gemini-image-test" className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950"><p className="font-semibold">Google image test is ready</p><p className="mt-1">The completed illustrative image is saved and can be reopened after a refresh, including for an administrator snapshot.</p><Button data-testid="open-completed-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openCompletedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open completed Google image</Button></section>}
 	          {isPhotoQualityTest && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 		          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 		            <p className="font-semibold">Your exact plan is protected before a photo-quality image is made.</p>

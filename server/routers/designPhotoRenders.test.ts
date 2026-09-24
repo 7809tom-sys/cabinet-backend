@@ -112,6 +112,9 @@ describe("design photo render safeguards", () => {
     expect(source).toContain("startGeminiImageTest: protectedProcedure");
     expect(source).toContain("pollGeminiImageTest: protectedProcedure");
     expect(source).toContain("getGeminiImageTestJob: protectedProcedure");
+    expect(source).toContain("designId: z.number().int().nonnegative()");
+    expect(source).toContain("const administratorSnapshot = input.designId === 0");
+    expect(source).toContain("imageUrl: job.imageUrl");
     expect(source).toContain('if (ctx.user.role !== "admin")');
     expect(source).toContain("const administratorSnapshot = input.provenance.designId === 0");
     expect(source).toContain("validatePhotoProvenanceAgainstSavedDesign(input.provenance, design!)");

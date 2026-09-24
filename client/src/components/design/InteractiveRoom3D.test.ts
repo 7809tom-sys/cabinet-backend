@@ -7155,7 +7155,13 @@ describe("final high-resolution preview controls", () => {
     expect(source).toContain("Try Google again in ${geminiCooldownLabel}");
 	    expect(source).toContain('data-testid="gemini-image-test-result"');
 	    expect(source).toContain('data-testid="open-saved-gemini-image-test"');
-    expect(source).toContain("const startGeminiImageTest = async () =>");
+	    expect(source).toContain('data-testid="completed-gemini-image-test"');
+	    expect(source).toContain('data-testid="open-completed-gemini-image-test"');
+	    expect(source).toContain("const openCompletedGeminiImageTest = () =>");
+	    expect(source).toContain("getGeminiImageTestJob.useQuery(");
+	    expect(source).toContain("{ enabled: isPhotoQualityTest }");
+	    expect(source).toContain('job?.status === "completed" && job.imageUrl');
+	    expect(source).toContain("const startGeminiImageTest = async () =>");
     expect(source).toContain("const openSavedGeminiImageTest = () =>");
     expect(source).toContain("trpc.designPhotoRenders.startGeminiImageTest.useMutation()");
     expect(source).toContain("trpc.designPhotoRenders.pollGeminiImageTest.useMutation()");

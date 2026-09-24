@@ -55,6 +55,7 @@ import { roomLayoutsRouter } from "./routers/roomLayouts";
 import { favoritesRouter } from "./routers/favorites";
 import { preferredProductsRouter } from "./routers/preferredProducts";
 import { designPhotoRendersRouter } from "./routers/designPhotoRenders";
+import { generatedDesignImagesRouter } from "./routers/generatedDesignImages";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 import { operationsProvidersRouter } from "./routers/operationsProviders";
 
@@ -122,6 +123,7 @@ export const appRouter = router({
   favorites: favoritesRouter,
   preferredProducts: preferredProductsRouter,
   designPhotoRenders: designPhotoRendersRouter,
+  generatedDesignImages: generatedDesignImagesRouter,
   adminStickyNotes: adminStickyNotesRouter,
   operationsProviders: operationsProvidersRouter,
 });
