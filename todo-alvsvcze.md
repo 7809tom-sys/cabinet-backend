@@ -2722,3 +2722,5 @@
 - [x] Add a CRM Quick PDF Invoice link from an unpriced linked plan back to its saved Designer record, directing users to prepare a verified order rather than type a fictitious plan price
 - [x] Make 3D crown molding use the same normalized L-corner envelope as WER wall easy-reach cabinets, following both 12-inch exposed cabinet faces with flush 45° miters while hiding crown at the two adjoining cabinet-run junctions
 - [x] Mark a direct Designer gap-fill as an installed priced filler so base-run countertops, 3D rendering, and Materials & Parts span the filler instead of leaving a false countertop void
+- [x] Add a persistent CRM **Labor** selector for an eligible affiliate installation estimate and show its positive verified amount as a separately labeled charge in the consolidated Quick PDF Invoice total; the draft does not alter an order, supplier price, or carrier quote.
+- [x] Let a straight wall cabinet magnetically seat edge-to-edge against the rotated WDC2430 diagonal wall-corner envelope, including a near 1/8-inch overlap, while retaining the block for any larger real wall-cabinet overlap.

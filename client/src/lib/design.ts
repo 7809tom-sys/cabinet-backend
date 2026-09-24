@@ -2794,10 +2794,28 @@ export function snapCabinetSeamOverlap(
       const overlapY = Math.min(next.y + size.d, other.y + otherSize.d) - Math.max(next.y, other.y);
       const axis = (((next.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
       const otherAxis = (((other.rotation % 180) + 180) % 180) === 90 ? "vertical" : "horizontal";
-      if (axis !== otherAxis) continue;
-      const crossOverlap = axis === "horizontal" ? overlapY : overlapX;
+      const nextCornerKind = placedCornerGeometryKind(next);
+      const otherCornerKind = placedCornerGeometryKind(other);
+      const isTrueCornerEnvelope = (kind: PlacedCornerGeometryKind) => (
+        kind === "l-shape" || kind === "diagonal" || kind === "corner-drawer" || kind === "triangle"
+      );
+      const nextIsCornerEnvelope = isTrueCornerEnvelope(nextCornerKind);
+      const otherIsCornerEnvelope = isTrueCornerEnvelope(otherCornerKind);
+      // A wall diagonal/L corner has a corner-specific rotation, which differs
+      // from the straight cabinet on one of its two adjoining walls. Measure
+      // that pair along the straight cabinet's wall axis so a near edge can
+      // resolve to true zero-overlap contact instead of being rejected by a
+      // one-eighth-inch rectangular-envelope collision. Two corner envelopes
+      // still retain their normal collision behavior.
+      const seamAxis = axis === otherAxis
+        ? axis
+        : next.placement === "wall" && nextIsCornerEnvelope !== otherIsCornerEnvelope
+          ? nextIsCornerEnvelope ? otherAxis : axis
+          : null;
+      if (!seamAxis) continue;
+      const crossOverlap = seamAxis === "horizontal" ? overlapY : overlapX;
       if (crossOverlap <= COLLISION_EPSILON_IN) continue;
-      if (axis === "horizontal") {
+      if (seamAxis === "horizontal") {
         const nextCenter = next.x + size.w / 2;
         const otherCenter = other.x + otherSize.w / 2;
         const seamDelta = nextCenter <= otherCenter

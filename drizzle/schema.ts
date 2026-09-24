@@ -1422,6 +1422,10 @@ export const crmDeals = mysqlTable("crm_deals", {
     "verified_plan_image_request",
   ]).default("manual").notNull(),
   orderRequestId: int("orderRequestId"),
+  // An affiliate may select one reviewed labor estimate for the deal. Its amount
+  // remains an independently sourced line, but the CRM Quick PDF can present it
+  // with the verified merchandise and freight in one customer-facing total.
+  laborEstimateId: int("laborEstimateId"),
   proApplicationId: int("proApplicationId"),
   referralCode: varchar("referralCode", { length: 32 }),
   // Follow-up
@@ -1434,7 +1438,14 @@ export const crmDeals = mysqlTable("crm_deals", {
   needsHelpClosing: boolean("needsHelpClosing").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, (t) => ({
+  laborEstimateIdx: index("crm_deals_labor_estimate_idx").on(t.laborEstimateId),
+  laborEstimateFk: foreignKey({
+    name: "crm_deals_labor_estimate_fk",
+    columns: [t.laborEstimateId],
+    foreignColumns: [affiliateInstallationEstimates.id],
+  }).onDelete("set null").onUpdate("cascade"),
+}));
 
 export type CrmDeal = typeof crmDeals.$inferSelect;
 export type InsertCrmDeal = typeof crmDeals.$inferInsert;

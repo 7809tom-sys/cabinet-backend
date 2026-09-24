@@ -2,22 +2,23 @@ import { describe, expect, it } from "vitest";
 import { buildCrmQuickInvoiceHtml, crmQuickInvoiceTotal } from "./crmQuickInvoice";
 
 describe("CRM quick invoice", () => {
-  it("totals selected cabinet, design, and installation services without negative amounts", () => {
+  it("totals selected cabinet, design, labor, and shipping services without negative amounts", () => {
     expect(crmQuickInvoiceTotal([
       { description: "Cabinet Order", amount: 4200 },
       { description: "Kitchen Design", amount: 250 },
-      { description: "Installation", amount: 1300 },
+      { description: "Labor", amount: 1300 },
+      { description: "Shipping", amount: 184.5 },
       { description: "Adjustment", amount: -20 },
-    ])).toBe(5750);
+    ])).toBe(5934.5);
   });
 
   it("recalculates the final amount when a preview price is edited before PDF generation", () => {
     const lines = [
       { description: "Cabinet Order", amount: 4200 },
       { description: "Kitchen Design", amount: 250 },
-      { description: "Installation", amount: 1300 },
+      { description: "Labor", amount: 1300 },
     ];
-    const editedPreviewLines = lines.map((line) => line.description === "Installation" ? { ...line, amount: 1450 } : line);
+    const editedPreviewLines = lines.map((line) => line.description === "Labor" ? { ...line, amount: 1450 } : line);
 
     expect(crmQuickInvoiceTotal(editedPreviewLines)).toBe(5900);
   });
@@ -62,12 +63,12 @@ describe("CRM quick invoice", () => {
       customerName: "Tom <Kitchen>",
       customerEmail: "tom@example.com",
       linkedDesignName: "Aspin kitchen",
-      notes: "Cabinet order plus installation.",
+      notes: "Cabinet order plus labor.",
       brand: { storeName: "Reaves Way Cabinet Shop", logoUrl: "https://example.com/reaves-way-logo.png", primaryColor: "#123456", accentColor: "#C79A4B" },
       lines: [
         { description: "Cabinet Order", amount: 4200 },
         { description: "Kitchen Design", amount: 250 },
-        { description: "Installation", amount: 1300 },
+        { description: "Labor", amount: 1300 },
       ],
     });
 
@@ -75,7 +76,7 @@ describe("CRM quick invoice", () => {
     expect(html).toContain("Aspin kitchen");
     expect(html).toContain("Cabinet Order");
     expect(html).toContain("Kitchen Design");
-    expect(html).toContain("Installation");
+    expect(html).toContain("Labor");
     expect(html).toContain("$5,750.00");
     expect(html).toContain("Reaves Way Cabinet Shop");
     expect(html).toContain("reaves-way-logo.png");

@@ -1093,6 +1093,13 @@
       "when": 1789965761309,
       "tag": "0155_distributor_glass_inclusion",
       "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "5",
+      "when": 1790280516292,
+      "tag": "0156_equal_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }

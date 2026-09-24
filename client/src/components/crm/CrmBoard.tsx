@@ -73,6 +73,7 @@ interface DealRow {
   updatedAt: string | Date;
   affiliateId?: number | null;
   needsHelpClosing?: boolean;
+  laborEstimateId?: number | null;
 }
 
 type CrmInvoicePrefill = {
@@ -81,8 +82,18 @@ type CrmInvoicePrefill = {
   shippingAmount: string | number | null;
   shippingSource: string | null;
   shippingNote: string | null;
-  installationAmount: string | number | null;
-  installationSource: string | null;
+  laborAmount: string | number | null;
+  laborSource: string | null;
+};
+
+type CrmLaborEstimate = {
+  id: number;
+  orderRequestId: number | null;
+  customerName: string | null;
+  customerEmail: string | null;
+  status: "draft" | "shared" | "accepted" | "cancelled";
+  totalAmount: string | number;
+  updatedAt: string | Date;
 };
 
 type LinkedInvoiceDesign = {
@@ -629,6 +640,14 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
     onSuccess: () => { utils.crm.deal.invalidate({ id: dealId! }); utils.crm.board.invalidate(); },
     onError: () => toast.error("Update failed"),
   });
+  const setLaborEstimate = trpc.crm.setLaborEstimate.useMutation({
+    onSuccess: () => {
+      utils.crm.deal.invalidate({ id: dealId! });
+      utils.crm.board.invalidate();
+      toast.success(lang === "es" ? "Mano de obra actualizada" : "Labor selection updated");
+    },
+    onError: (error) => toast.error(error.message || (lang === "es" ? "No se pudo actualizar la mano de obra" : "Couldn't update labor selection")),
+  });
 
   const { data: linkable } = trpc.crm.linkableDesigns.useQuery(undefined, { enabled: dealId != null });
   const [designToLink, setDesignToLink] = useState<string>("");
@@ -650,12 +669,14 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
   const linkedDesigns = (data?.linkedDesigns ?? []) as LinkedInvoiceDesign[];
   const invoiceBrand = (data as { invoiceBrand?: CrmQuickInvoiceBrand } | undefined)?.invoiceBrand;
   const invoicePrefill = (data as { invoicePrefill?: CrmInvoicePrefill } | undefined)?.invoicePrefill;
+  const laborEstimates = (data?.laborEstimates ?? []) as CrmLaborEstimate[];
   const emails = (data?.emails ?? []) as {
     id: number; toEmail: string; fromEmail: string; subject: string; body: string;
     sentByName: string | null; sentAt: string | Date;
   }[];
   const linkedIds = new Set(linkedDesigns.map((l) => l.designId));
   const availableDesigns = (linkable ?? []).filter((d) => !linkedIds.has(d.id));
+  const selectedLaborEstimateIsEligible = Boolean(deal?.laborEstimateId && laborEstimates.some((estimate) => estimate.id === deal.laborEstimateId));
 
   return (
     <Sheet open={dealId != null} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -742,6 +763,31 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 </div>
               </div>
 
+              <div className="rounded-lg border border-border p-3">
+                <Label htmlFor="crm-labor-estimate" className="text-xs font-semibold text-muted-foreground">{lang === "es" ? "Mano de obra" : "Labor"}</Label>
+                <Select
+                  value={selectedLaborEstimateIsEligible && deal.laborEstimateId != null ? String(deal.laborEstimateId) : "none"}
+                  onValueChange={(value) => setLaborEstimate.mutate({ dealId: deal.id, laborEstimateId: value === "none" ? null : Number(value) })}
+                  disabled={setLaborEstimate.isPending || (laborEstimates.length === 0 && deal.laborEstimateId == null)}
+                >
+                  <SelectTrigger id="crm-labor-estimate" className="mt-1.5"><SelectValue placeholder={lang === "es" ? "Sin mano de obra seleccionada" : "No labor selected"} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">{lang === "es" ? "No incluir mano de obra" : "Do not include labor"}</SelectItem>
+                    {laborEstimates.map((estimate) => (
+                      <SelectItem key={estimate.id} value={String(estimate.id)}>
+                        {lang === "es" ? "Estimado de mano de obra" : "Labor estimate"} #{estimate.id} · {money(String(estimate.totalAmount))} · {estimate.status}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {laborEstimates.length === 0 ? (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">{lang === "es" ? "No hay estimados de mano de obra elegibles para este cliente o pedido." : "No eligible labor estimate is linked to this customer or order."}</p>
+                ) : (
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">{lang === "es" ? "La selección se agrega como una línea de mano de obra separada en el total de la factura PDF." : "The selection is added as a separate Labor line in the consolidated PDF invoice total."}</p>
+                )}
+                {deal.laborEstimateId != null && !selectedLaborEstimateIsEligible && <p className="mt-1.5 text-[11px] text-amber-700">{lang === "es" ? "El estimado seleccionado ya no está disponible; elija otro o elimine la selección." : "The selected labor estimate is no longer available; choose another or clear the selection."}</p>}
+              </div>
+
               <QuickInvoiceDialog deal={deal} dealId={deal.id} linkedDesigns={linkedDesigns} brand={invoiceBrand} prefill={invoicePrefill} lang={lang} />
 
               <Button variant="ghost" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => remove.mutate({ id: deal.id })} disabled={remove.isPending}>
@@ -790,7 +836,7 @@ function QuickInvoiceDialog({
   const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(prefill?.cabinetOrderAmount ?? 0) > 0 && !hasPricedLinkedPlan, amount: prefill?.cabinetOrderAmount?.toString() ?? "" });
   const [kitchenDesign, setKitchenDesign] = useState({ enabled: Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0, amount: linkedDesigns[0]?.catalogSubtotal?.toString() ?? "" });
   const [shipping, setShipping] = useState({ enabled: Number(prefill?.shippingAmount ?? 0) >= 0 && prefill?.shippingAmount != null, amount: prefill?.shippingAmount?.toString() ?? "" });
-  const [installation, setInstallation] = useState({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
+  const [labor, setLabor] = useState({ enabled: Number(prefill?.laborAmount ?? 0) > 0, amount: prefill?.laborAmount?.toString() ?? "" });
   const [selectedDesignId, setSelectedDesignId] = useState<string>(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
   const [notes, setNotes] = useState("");
   const [previewLines, setPreviewLines] = useState<CrmQuickInvoiceLine[] | null>(null);
@@ -800,11 +846,11 @@ function QuickInvoiceDialog({
     setCabinetOrder({ enabled: Number(prefill?.cabinetOrderAmount ?? 0) > 0 && !nextHasPricedLinkedPlan, amount: prefill?.cabinetOrderAmount?.toString() ?? "" });
     setKitchenDesign({ enabled: Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0, amount: linkedDesigns[0]?.catalogSubtotal?.toString() ?? "" });
     setShipping({ enabled: Number(prefill?.shippingAmount ?? 0) >= 0 && prefill?.shippingAmount != null, amount: prefill?.shippingAmount?.toString() ?? "" });
-    setInstallation({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
+    setLabor({ enabled: Number(prefill?.laborAmount ?? 0) > 0, amount: prefill?.laborAmount?.toString() ?? "" });
     setSelectedDesignId(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
     setNotes("");
     setPreviewLines(null);
-  }, [deal.id, linkedDesigns.length, linkedDesigns[0]?.id, linkedDesigns[0]?.catalogSubtotal, prefill?.cabinetOrderAmount, prefill?.shippingAmount, prefill?.installationAmount]);
+  }, [deal.id, linkedDesigns.length, linkedDesigns[0]?.id, linkedDesigns[0]?.catalogSubtotal, prefill?.cabinetOrderAmount, prefill?.shippingAmount, prefill?.laborAmount]);
 
   const addActivity = trpc.crm.addActivity.useMutation({
     onSuccess: () => utils.crm.deal.invalidate({ id: dealId }),
@@ -852,7 +898,7 @@ function QuickInvoiceDialog({
       lineFor(cabinetOrder.enabled, label("Cabinet Order", "Pedido de gabinetes"), cabinetOrder.amount),
       selectedDesignCharge,
       lineFor(shipping.enabled, label("Shipping", "Envío"), shipping.amount),
-      lineFor(installation.enabled, label("Installation", "Instalación"), installation.amount),
+      lineFor(labor.enabled, label("Labor", "Mano de obra"), labor.amount),
       ...includedMaterials,
     ].filter((line): line is CrmQuickInvoiceLine => line !== null);
   }
@@ -982,7 +1028,7 @@ function QuickInvoiceDialog({
               )}
               <ServiceRow id="invoice-shipping" title={label("Shipping", "Envío")} state={shipping} setState={setShipping} source={prefill?.shippingSource} emptyAmountLabel={label("Quote required", "Cotización requerida")} />
               {prefill?.shippingNote && <p className="-mt-1 px-1 text-[11px] text-amber-700">{prefill.shippingNote}</p>}
-              <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} source={prefill?.installationSource} />
+              <ServiceRow id="invoice-labor" title={label("Labor", "Mano de obra")} state={labor} setState={setLabor} source={prefill?.laborSource} />
             </div>
             <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>
               <Select value={selectedDesignId} onValueChange={chooseLinkedDesign}>

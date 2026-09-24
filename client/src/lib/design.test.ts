@@ -3868,6 +3868,41 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(hasCollision(snapped, [left])).toBe(false);
   });
 
+  it("seats a straight wall cabinet against the rotated envelope of a WDC2430 corner at exact zero overlap", () => {
+    const wdc = cab({
+      uid: "wdc-top-right",
+      masterCode: "WDC2430",
+      description: "24 inch Diagonal Wall Corner Cabinet",
+      placement: "wall",
+      x: 120,
+      y: 0,
+      width: 24,
+      depth: 12,
+      height: 30,
+      rotation: 90,
+      mountBottom: 54,
+    });
+    const nearSeam = cab({
+      uid: "w1530-next-to-wdc",
+      masterCode: "W-1530",
+      description: "15 inch x 30 inch Wall Cabinet",
+      placement: "wall",
+      x: 105.125,
+      y: 0,
+      width: 15,
+      depth: 12,
+      height: 30,
+      rotation: 0,
+      mountBottom: 54,
+    });
+
+    expect(hasCollision(nearSeam, [wdc])).toBe(true);
+    const snapped = snapCabinetSeamOverlap(nearSeam, [wdc], CABINET_CONFLICT_LOCK_IN);
+    expect(snapped.x).toBe(105);
+    expect(snapped.x + snapped.width).toBe(wdc.x);
+    expect(hasCollision(snapped, [wdc])).toBe(false);
+  });
+
   it("enforces exact-zero adjacency for horizontal and rotated base-cabinet runs", () => {
     const horizontal = cab({ uid: "horizontal-base", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0 });
     const horizontalMoving = cab({ uid: "horizontal-moving", placement: "base", x: 23.95, y: 0, width: 18, depth: 24, rotation: 0 });
