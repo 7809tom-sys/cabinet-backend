@@ -5324,14 +5324,33 @@ export function diagonalCornerCrownSegments(bodyWidth: number, bodyDepth: number
 }
 
 function worldCrownEdges(cabinet: PlacedCabinet, room: RoomData): ThreeDCrownPerimeterSegment[] {
-  const width = Math.max(0.125, numberValue(cabinet.width, 24));
-  const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH));
+  const cornerKind = placedCornerGeometryKind(cabinet);
+  // An easy-reach/lazy-Susan wall corner is physically a 24-by-24 L, even
+  // when its catalog row carries the normal 12-inch wall depth. Crown must use
+  // the same normalized body envelope as the rendered cabinet or it will stop
+  // at the shallow catalog rectangle instead of meeting both adjoining runs.
+  const cornerBody = cornerKind === "l-shape" ? threeDCornerBodyDimensions(cabinet) : null;
+  const width = Math.max(0.125, cornerBody?.width ?? numberValue(cabinet.width, 24));
+  const depth = Math.max(0.125, cornerBody?.depth ?? numberValue(cabinet.depth, WALL_DEPTH));
   const transform = existingCabinetTransform(cabinet, room);
   const box = elevationBox(cabinet, room);
   const top = box.bottom + box.height;
-  const diagonalCorner = placedCornerGeometryKind(cabinet) === "diagonal";
+  const diagonalCorner = cornerKind === "diagonal";
+  const lCorner = cornerKind === "l-shape";
+  const lCornerParts = lCorner
+    ? lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : 2 / 3)
+    : null;
   const localEdges = diagonalCorner
     ? diagonalCornerCrownSegments(width, depth).map(({ kind, start, end }) => ({ kind, start, end }))
+    : lCornerParts
+      ? [
+          // Only the two room-facing legs and their short exposed end returns
+          // receive crown. The two back edges are seated against the walls.
+          { kind: "right-return" as const, start: { x: width / 2, z: -depth / 2 }, end: { x: width / 2, z: -depth / 2 + lCornerParts.legDepth } },
+          { kind: "front" as const, start: { x: width / 2, z: -depth / 2 + lCornerParts.legDepth }, end: { x: -width / 2 + lCornerParts.legWidth, z: -depth / 2 + lCornerParts.legDepth } },
+          { kind: "front" as const, start: { x: -width / 2 + lCornerParts.legWidth, z: -depth / 2 + lCornerParts.legDepth }, end: { x: -width / 2 + lCornerParts.legWidth, z: depth / 2 } },
+          { kind: "left-return" as const, start: { x: -width / 2 + lCornerParts.legWidth, z: depth / 2 }, end: { x: -width / 2, z: depth / 2 } },
+        ]
     : [
         { kind: "right-return" as const, start: { x: width / 2, z: -depth / 2 }, end: { x: width / 2, z: depth / 2 } },
         { kind: "front" as const, start: { x: width / 2, z: depth / 2 }, end: { x: -width / 2, z: depth / 2 } },
@@ -5359,29 +5378,45 @@ type CrownFootprint = {
   points: CrownPoint[];
 };
 
-function worldCrownFootprint(cabinet: PlacedCabinet, room: RoomData): CrownFootprint {
-  const width = Math.max(0.125, numberValue(cabinet.width, 24));
-  const depth = Math.max(0.125, numberValue(cabinet.depth, WALL_DEPTH));
+function worldCrownFootprints(cabinet: PlacedCabinet, room: RoomData): CrownFootprint[] {
+  const cornerKind = placedCornerGeometryKind(cabinet);
+  const cornerBody = cornerKind === "l-shape" ? threeDCornerBodyDimensions(cabinet) : null;
+  const width = Math.max(0.125, cornerBody?.width ?? numberValue(cabinet.width, 24));
+  const depth = Math.max(0.125, cornerBody?.depth ?? numberValue(cabinet.depth, WALL_DEPTH));
   const transform = existingCabinetTransform(cabinet, room);
   const box = elevationBox(cabinet, room);
-  const localPoints = placedCornerGeometryKind(cabinet) === "diagonal"
+  const localPointSets = cornerKind === "l-shape"
+    ? (() => {
+        // The coverage helper clips against convex polygons. Preserve the
+        // physical L as its two overlapping rectangular carcass legs instead
+        // of replacing it with a square that would hide crown at a valid run.
+        const parts = lCornerCarcassParts(width, depth, cabinet.placement === "wall" ? 0.5 : 2 / 3);
+        const rectangle = (part: { width: number; depth: number; x: number; z: number }) => [
+          { x: part.x - part.width / 2, z: part.z - part.depth / 2 },
+          { x: part.x + part.width / 2, z: part.z - part.depth / 2 },
+          { x: part.x + part.width / 2, z: part.z + part.depth / 2 },
+          { x: part.x - part.width / 2, z: part.z + part.depth / 2 },
+        ];
+        return [rectangle(parts.backLeg), rectangle(parts.sideLeg)];
+      })()
+    : [cornerKind === "diagonal"
     ? diagonalCornerFootprintVertices(width, depth)
     : [
         { x: -width / 2, z: -depth / 2 },
         { x: width / 2, z: -depth / 2 },
         { x: width / 2, z: depth / 2 },
         { x: -width / 2, z: depth / 2 },
-      ];
+      ]];
   const cos = Math.cos(transform.rotation);
   const sin = Math.sin(transform.rotation);
-  return {
+  return localPointSets.map((localPoints) => ({
     ownerUid: cabinet.uid,
     top: box.bottom + box.height,
     points: localPoints.map((point) => ({
       x: transform.x + point.x * cos + point.z * sin,
       z: transform.z - point.x * sin + point.z * cos,
     })),
-  };
+  }));
 }
 
 /**
@@ -5440,7 +5475,7 @@ export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: Room
   // and removed the matching exposed segment on the opposite side.
   const cabinets = crownEligibleCabinets(placed, room);
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
-  const footprints = cabinets.map((cabinet) => worldCrownFootprint(cabinet, room));
+  const footprints = cabinets.flatMap((cabinet) => worldCrownFootprints(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];
   for (const edge of edges) {
 	    const covered = footprints

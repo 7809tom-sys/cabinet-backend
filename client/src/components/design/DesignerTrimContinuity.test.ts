@@ -350,10 +350,10 @@ describe("continuous cabinet trim", () => {
 	  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
 	});
 
-	it.each([
-	  ["top-left", { x: 0, y: 0, rotation: 0 }, { x: 24, y: 0, rotation: 0 }, { x: 0, y: 24, rotation: 90 }],
-	  ["top-right", { x: 96, y: 0, rotation: 90 }, { x: 72, y: 0, rotation: 0 }, { x: 108, y: 24, rotation: 90 }],
-	  ["bottom-right", { x: 96, y: 72, rotation: 180 }, { x: 72, y: 84, rotation: 180 }, { x: 108, y: 48, rotation: 90 }],
+		it.each([
+		  ["top-left", { x: 0, y: 0, rotation: 0 }, { x: 24, y: 0, rotation: 0 }, { x: 0, y: 24, rotation: 90 }],
+		  ["top-right", { x: 96, y: 0, rotation: 90 }, { x: 72, y: 0, rotation: 0 }, { x: 108, y: 24, rotation: 90 }],
+		  ["bottom-right", { x: 96, y: 72, rotation: 180 }, { x: 72, y: 84, rotation: 180 }, { x: 108, y: 48, rotation: 90 }],
 	  ["bottom-left", { x: 0, y: 72, rotation: 270 }, { x: 24, y: 84, rotation: 180 }, { x: 0, y: 48, rotation: 90 }],
 	] as const)("keeps only the WDC42 diagonal crown when 12-inch runs join both %s wall legs", (_corner, wdc, horizontal, vertical) => {
 	  const room = { width: 120, depth: 96, ceilingHeight: 96 };
@@ -365,10 +365,46 @@ describe("continuous cabinet trim", () => {
 	  const wdcSegments = segments.filter((segment) => segment.ownerUid === "wdc");
 
 	  expect(wdcSegments.map((segment) => segment.kind)).toEqual(["diagonal-front"]);
-	  expect(wdcSegments[0]?.length).toBeCloseTo(Math.hypot(12, 12), 6);
-	});
+		  expect(wdcSegments[0]?.length).toBeCloseTo(Math.hypot(12, 12), 6);
+		});
 
-	it("does not shrink the standard 3D toe-kick width at cabinet seams", () => {
+		it.each([
+		  ["top-left", { x: 0, y: 0, rotation: 0 }, { x: 24, y: 0, rotation: 0 }, { x: 0, y: 24, rotation: 90 }],
+		  ["top-right", { x: 96, y: 0, rotation: 90 }, { x: 72, y: 0, rotation: 0 }, { x: 108, y: 24, rotation: 90 }],
+		  ["bottom-right", { x: 96, y: 72, rotation: 180 }, { x: 72, y: 84, rotation: 180 }, { x: 108, y: 48, rotation: 90 }],
+		  ["bottom-left", { x: 0, y: 72, rotation: 270 }, { x: 24, y: 84, rotation: 180 }, { x: 0, y: 48, rotation: 90 }],
+		] as const)("continues crown around both exposed WER2442 faces when upper runs join the %s corner", (_corner, wer, horizontal, vertical) => {
+		  const room = { width: 120, depth: 96, ceilingHeight: 96 };
+		  const cabinets = [
+		    { uid: "horizontal-run", cabinetId: 51, masterCode: "W-24-42", description: "Wall", placement: "wall", ...horizontal, width: 24, height: 42, depth: 12, mountBottom: 54 },
+		    { uid: "wer", cabinetId: 52, masterCode: "WER2442", description: "Wall Easy Reach Corner", placement: "wall", ...wer, width: 24, height: 42, depth: 12, mountBottom: 54, cornerType: "l-shape" },
+		    { uid: "vertical-run", cabinetId: 53, masterCode: "W-24-42", description: "Wall", placement: "wall", ...vertical, width: 24, height: 42, depth: 12, mountBottom: 54 },
+		  ] as never[];
+		  const segments = threeDCrownPerimeterSegments(cabinets, room);
+		  const root = new THREE.Group();
+		  addThreeDCrownMolding(root, cabinets, room, undefined, "#ffffff");
+		  const werSegments = segments.filter((segment) => segment.ownerUid === "wer");
+
+		  // A wall easy-reach has two 12-inch room-facing legs. Its crown follows
+		  // both legs, while the two cabinet-run junctions remain hidden.
+		  expect(werSegments.map((segment) => segment.kind)).toEqual(["front", "front"]);
+		  expect(werSegments.map((segment) => segment.length)).toEqual([12, 12]);
+		  expect(segments.filter((segment) => segment.kind.endsWith("return"))).toHaveLength(2);
+		  const lCornerMiter = threeDCrownMiterJoints(segments).find((joint) => joint.ownerUids[0] === "wer" && joint.ownerUids[1] === "wer");
+		  expect(lCornerMiter).toBeDefined();
+		  const miterEndpoints = segments.flatMap((segment, segmentIndex) => [
+		    { segment, segmentIndex, atStart: true, point: segment.start },
+		    { segment, segmentIndex, atStart: false, point: segment.end },
+		  ]).filter((endpoint) => Math.hypot(endpoint.point.x - lCornerMiter!.point.x, endpoint.point.z - lCornerMiter!.point.z) <= 0.25);
+		  expect(miterEndpoints).toHaveLength(2);
+		  const raisedTips = miterEndpoints.map((endpoint) => {
+		    const positions = (root.children[endpoint.segmentIndex] as THREE.Mesh).geometry.getAttribute("position");
+		    return new THREE.Vector3().fromBufferAttribute(positions, endpoint.atStart ? 1 : 5);
+		  });
+		  expect(raisedTips[0]!.distanceTo(raisedTips[1]!)).toBeLessThan(1e-6);
+		});
+
+		it("does not shrink the standard 3D toe-kick width at cabinet seams", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       placementUid: "b24",
