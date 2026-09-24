@@ -50,6 +50,7 @@ export default function PelicanCatalogAdmin() {
   const [category, setCategory] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [unpricedOnly, setUnpricedOnly] = useState(false);
 
   // simple debounce
   useMemo(() => {
@@ -60,6 +61,7 @@ export default function PelicanCatalogAdmin() {
   const { data, isLoading, error } = trpc.pelican.adminList.useQuery({
     category: category === "all" ? undefined : (category as any),
     search: debounced || undefined,
+    unpricedOnly,
     limit: 200,
     offset: 0,
   });
@@ -194,6 +196,14 @@ export default function PelicanCatalogAdmin() {
               className="pl-9"
             />
           </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background px-3 py-2 text-xs font-medium text-foreground">
+            <Switch
+              checked={unpricedOnly}
+              onCheckedChange={setUnpricedOnly}
+              aria-label="Show only items missing a verified source price"
+            />
+            Needs source price
+          </label>
           {data && (
             <span className="text-sm text-muted-foreground">
               {data.total} item{data.total === 1 ? "" : "s"}
@@ -211,7 +221,9 @@ export default function PelicanCatalogAdmin() {
           </p>
         ) : items.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            No Pelican items match your filters.
+            {unpricedOnly
+              ? "No unpriced surface items remain in this audit scope."
+              : "No Pelican items match your filters."}
           </p>
         ) : (
           <div className="overflow-x-auto">

@@ -78,4 +78,9 @@ describe("Pelican price publication enforcement", () => {
       await db.delete(pelicanProducts).where(eq(pelicanProducts.id, id));
     }
   });
+
+  it("returns only records with no positive authorized source base in the administrator unpriced audit", async () => {
+    const result = await caller.pelican.adminList({ unpricedOnly: true, limit: 500 });
+    expect(result.items.every((item) => Number(item.yourCost) <= 0 && Number(item.listPrice) <= 0)).toBe(true);
+  });
 });

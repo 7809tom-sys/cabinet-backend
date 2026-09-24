@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, asc, desc, eq, gt, like, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, like, not, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
@@ -269,6 +269,7 @@ export const pelicanRouter = router({
       z.object({
         category: CategoryEnum.optional(),
         search: z.string().trim().optional(),
+        unpricedOnly: z.boolean().default(false),
         limit: z.number().min(1).max(500).default(100),
         offset: z.number().min(0).default(0),
       })
@@ -279,6 +280,7 @@ export const pelicanRouter = router({
       const markupMap = await loadMarkupMap(db);
       const conds = [] as any[];
       if (input.category) conds.push(eq(pelicanProducts.category, input.category));
+      if (input.unpricedOnly) conds.push(not(hasPriceData()!) as any);
       if (input.search) {
         const search = input.search.trim();
         const q = `%${search}%`;
