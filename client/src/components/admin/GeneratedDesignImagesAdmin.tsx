@@ -91,7 +91,7 @@ export function GeneratedDesignImagesAdmin() {
           </div>
         </CardHeader>
         <CardContent className="pt-0 text-xs text-indigo-950">
-          An image remains private until the **Room-scene carousel** switch is enabled for a selected door style. Enabling it adds the exact generated file to that style’s active room-scene carousel; disabling it removes it from public display without deleting the generated image or its design record.
+          An image remains private until the **Room-scene carousel** switch is enabled for a selected door style. Enabling it adds the exact generated file to that style’s active room-scene carousel; changing the selected finish moves it there, so one exact kitchen image cannot appear as more than one cabinet finish. Disabling it removes it from public display without deleting the generated image or its design record.
         </CardContent>
       </Card>
 

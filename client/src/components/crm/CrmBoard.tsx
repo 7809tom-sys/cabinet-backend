@@ -78,6 +78,9 @@ interface DealRow {
 type CrmInvoicePrefill = {
   cabinetOrderAmount: string | number | null;
   cabinetOrderSource: string | null;
+  shippingAmount: string | number | null;
+  shippingSource: string | null;
+  shippingNote: string | null;
   installationAmount: string | number | null;
   installationSource: string | null;
 };
@@ -783,21 +786,25 @@ function QuickInvoiceDialog({
 }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
-  const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(prefill?.cabinetOrderAmount ?? deal.estimatedValue ?? 0) > 0, amount: prefill?.cabinetOrderAmount?.toString() ?? deal.estimatedValue ?? "" });
+  const hasPricedLinkedPlan = Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0;
+  const [cabinetOrder, setCabinetOrder] = useState({ enabled: Number(prefill?.cabinetOrderAmount ?? 0) > 0 && !hasPricedLinkedPlan, amount: prefill?.cabinetOrderAmount?.toString() ?? "" });
   const [kitchenDesign, setKitchenDesign] = useState({ enabled: Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0, amount: linkedDesigns[0]?.catalogSubtotal?.toString() ?? "" });
+  const [shipping, setShipping] = useState({ enabled: Number(prefill?.shippingAmount ?? 0) >= 0 && prefill?.shippingAmount != null, amount: prefill?.shippingAmount?.toString() ?? "" });
   const [installation, setInstallation] = useState({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
   const [selectedDesignId, setSelectedDesignId] = useState<string>(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
   const [notes, setNotes] = useState("");
   const [previewLines, setPreviewLines] = useState<CrmQuickInvoiceLine[] | null>(null);
 
   useEffect(() => {
-    setCabinetOrder({ enabled: Number(prefill?.cabinetOrderAmount ?? deal.estimatedValue ?? 0) > 0, amount: prefill?.cabinetOrderAmount?.toString() ?? deal.estimatedValue ?? "" });
+    const nextHasPricedLinkedPlan = Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0;
+    setCabinetOrder({ enabled: Number(prefill?.cabinetOrderAmount ?? 0) > 0 && !nextHasPricedLinkedPlan, amount: prefill?.cabinetOrderAmount?.toString() ?? "" });
     setKitchenDesign({ enabled: Number(linkedDesigns[0]?.catalogSubtotal ?? 0) > 0, amount: linkedDesigns[0]?.catalogSubtotal?.toString() ?? "" });
+    setShipping({ enabled: Number(prefill?.shippingAmount ?? 0) >= 0 && prefill?.shippingAmount != null, amount: prefill?.shippingAmount?.toString() ?? "" });
     setInstallation({ enabled: Number(prefill?.installationAmount ?? 0) > 0, amount: prefill?.installationAmount?.toString() ?? "" });
     setSelectedDesignId(linkedDesigns[0] ? String(linkedDesigns[0].id) : "none");
     setNotes("");
     setPreviewLines(null);
-  }, [deal.id, deal.estimatedValue, linkedDesigns.length, linkedDesigns[0]?.id, linkedDesigns[0]?.catalogSubtotal, prefill?.cabinetOrderAmount, prefill?.installationAmount]);
+  }, [deal.id, linkedDesigns.length, linkedDesigns[0]?.id, linkedDesigns[0]?.catalogSubtotal, prefill?.cabinetOrderAmount, prefill?.shippingAmount, prefill?.installationAmount]);
 
   const addActivity = trpc.crm.addActivity.useMutation({
     onSuccess: () => utils.crm.deal.invalidate({ id: dealId }),
@@ -844,6 +851,7 @@ function QuickInvoiceDialog({
     return [
       lineFor(cabinetOrder.enabled, label("Cabinet Order", "Pedido de gabinetes"), cabinetOrder.amount),
       selectedDesignCharge,
+      lineFor(shipping.enabled, label("Shipping", "Envío"), shipping.amount),
       lineFor(installation.enabled, label("Installation", "Instalación"), installation.amount),
       ...includedMaterials,
     ].filter((line): line is CrmQuickInvoiceLine => line !== null);
@@ -906,18 +914,19 @@ function QuickInvoiceDialog({
     });
   }
 
-  const ServiceRow = ({ id, title, state, setState, source }: {
+  const ServiceRow = ({ id, title, state, setState, source, emptyAmountLabel }: {
     id: string;
     title: string;
     state: { enabled: boolean; amount: string };
     setState: (state: { enabled: boolean; amount: string }) => void;
     source?: string | null;
+    emptyAmountLabel?: string;
   }) => (
     <div className="rounded-md border border-border p-2.5">
       <div className="grid grid-cols-[auto_minmax(0,1fr)_7rem] items-center gap-2">
         <Checkbox id={id} checked={state.enabled} onCheckedChange={(checked) => setState({ ...state, enabled: checked === true })} />
         <Label htmlFor={id} className="cursor-pointer text-sm font-medium">{title}</Label>
-        <Input aria-label={`${title} amount`} type="number" min="0" step="0.01" placeholder="$0.00" value={state.amount} onChange={(event) => setState({ ...state, amount: event.target.value })} disabled={!state.enabled} />
+        <Input aria-label={`${title} amount`} type="number" min="0" step="0.01" placeholder={emptyAmountLabel ?? "$0.00"} value={state.amount} onChange={(event) => setState({ ...state, amount: event.target.value })} disabled={!state.enabled} />
       </div>
       {source && <p className="mt-1 pl-8 text-[11px] text-muted-foreground">{label("Imported from ", "Importado de ")}{source}</p>}
     </div>
@@ -964,7 +973,9 @@ function QuickInvoiceDialog({
             <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. You will review and edit the prices before opening the final PDF.", "Seleccione las partes de este prospecto para facturar. Podrá revisar y editar los precios antes de abrir el PDF final.")}</p>
             <div className="space-y-2">
               <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} source={prefill?.cabinetOrderSource} />
-              <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} source={selectedDesign?.catalogSubtotalSource} />
+              <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} source={selectedDesign?.catalogSubtotalSource} emptyAmountLabel={label("Not priced", "Sin precio")} />
+              <ServiceRow id="invoice-shipping" title={label("Shipping", "Envío")} state={shipping} setState={setShipping} source={prefill?.shippingSource} emptyAmountLabel={label("Quote required", "Cotización requerida")} />
+              {prefill?.shippingNote && <p className="-mt-1 px-1 text-[11px] text-amber-700">{prefill.shippingNote}</p>}
               <ServiceRow id="invoice-installation" title={label("Installation", "Instalación")} state={installation} setState={setInstallation} source={prefill?.installationSource} />
             </div>
             <Field label={label("Linked design (optional)", "Diseño vinculado (opcional)")}>

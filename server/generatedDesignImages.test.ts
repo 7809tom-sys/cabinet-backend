@@ -23,6 +23,13 @@ describe("generated design image library contracts", () => {
     expect(source).toContain("generated-design-image:");
   });
 
+  it("keeps one exact generated kitchen associated with only one approved cabinet finish", () => {
+    expect(source).toContain("const sourceScenes = await db.select");
+    expect(source).toContain("const otherSourceSceneIds = sourceScenes.filter");
+    expect(source).toContain("await db.delete(doorStyleRoomScenes).where(inArray(doorStyleRoomScenes.id, otherSourceSceneIds))");
+    expect(source).toContain("scene.isActive && !current.isActive");
+  });
+
   it("registers the review folder as a root tRPC service", () => {
     expect(rootRouter).toContain('import { generatedDesignImagesRouter } from "./routers/generatedDesignImages";');
     expect(rootRouter).toContain("generatedDesignImages: generatedDesignImagesRouter");

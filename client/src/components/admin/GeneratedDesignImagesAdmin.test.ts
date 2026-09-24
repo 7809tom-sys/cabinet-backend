@@ -19,6 +19,7 @@ describe("GeneratedDesignImagesAdmin", () => {
     expect(source).toContain("setRoomSceneCarousel.useMutation");
     expect(source).toContain("Private until approved");
     expect(source).toContain("Approved and active in the room-scene carousel.");
+    expect(source).toContain("one exact kitchen image cannot appear as more than one cabinet finish");
   });
 
   it("is available from the grouped administration navigation", () => {

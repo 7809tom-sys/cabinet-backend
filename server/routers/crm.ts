@@ -35,7 +35,7 @@ import {
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
-import { usableInvoicePrefill } from "../crmInvoicePrefill";
+import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
 import { crmCustomerImportIdentities, prepareCrmCustomerImport } from "@shared/crmCustomerListImport";
 
@@ -324,13 +324,18 @@ export const crmRouter = router({
       for (const share of shareRows) {
         if (share.kitchenDesignId != null && !shareByDesignId.has(share.kitchenDesignId)) shareByDesignId.set(share.kitchenDesignId, share);
       }
-      const linkedDesigns = linkedDesignRows.map((link) => {
+      let linkedDesigns = linkedDesignRows.map((link) => {
         const savedDesign = savedDesignById.get(link.designId);
         const share = shareByDesignId.get(link.designId);
+        const shareSubtotal = Number(share?.orderSubtotal ?? 0);
         return {
           ...link,
-          catalogSubtotal: share?.orderSubtotal ?? null,
-          catalogSubtotalSource: share?.orderSubtotal != null ? "Saved design catalog subtotal" : null,
+          // A zero plan share is not an authorized sell price. Keep it out of
+          // the invoice until a verified saved-order subtotal exists.
+          catalogSubtotal: Number.isFinite(shareSubtotal) && shareSubtotal > 0 ? share?.orderSubtotal ?? null : null,
+          catalogSubtotalSource: Number.isFinite(shareSubtotal) && shareSubtotal > 0
+            ? "Saved design catalog subtotal"
+            : "No verified plan price yet",
           materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets),
         };
       });
@@ -354,17 +359,24 @@ export const crmRouter = router({
         primaryColor: "#172033",
         accentColor: "#B5893D",
       };
-      // Use the source application amounts as invoice defaults. A direct order
-      // link wins; legacy designer leads may recover a same-affiliate order by
-      // the customer's email address.
+      // Use source application amounts as invoice defaults. A direct order link
+      // wins. For a linked plan, an order saved against that plan is safer than
+      // an email match because a customer may have multiple kitchen projects.
+      // Legacy leads can still recover a same-affiliate order by customer email.
       const orderScope = deal.affiliateId == null
         ? isNull(orderRequests.affiliateId)
         : eq(orderRequests.affiliateId, deal.affiliateId);
       const linkedOrderRows = deal.orderRequestId == null
         ? []
         : await db.select().from(orderRequests).where(eq(orderRequests.id, deal.orderRequestId)).limit(1);
-      const matchedOrderRows = linkedOrderRows[0] || !deal.contactEmail
-        ? linkedOrderRows
+      const designOrderRows = linkedOrderRows[0] || linkedDesignIds.length === 0
+        ? []
+        : await db.select().from(orderRequests)
+          .where(and(inArray(orderRequests.kitchenDesignId, linkedDesignIds), orderScope))
+          .orderBy(desc(orderRequests.updatedAt))
+          .limit(1);
+      const matchedOrderRows = linkedOrderRows[0] || designOrderRows[0] || !deal.contactEmail
+        ? (linkedOrderRows[0] ? linkedOrderRows : designOrderRows)
         : await db.select().from(orderRequests)
           .where(and(eq(orderRequests.originatorEmail, deal.contactEmail), orderScope))
           .orderBy(desc(orderRequests.updatedAt))
@@ -392,6 +404,33 @@ export const crmRouter = router({
         status: invoiceOrder.status,
         source: `Order ${invoiceOrder.requestNumber}`,
       } : null);
+      const shippingPrefill = verifiedFreightInvoicePrefill(invoiceOrder ? {
+        freightQuoteCents: invoiceOrder.freightQuoteCents,
+        freightQuoteVerified: invoiceOrder.freightQuoteVerified,
+        deliveryMethod: invoiceOrder.deliveryMethod,
+        status: invoiceOrder.status,
+        source: `Verified shipping quote · Order ${invoiceOrder.requestNumber}`,
+      } : null);
+      // A submitted order can be tied directly to a saved plan. When it is,
+      // prefer that signed merchandise subtotal over a presentation-share
+      // snapshot, and keep the signed freight separate on its own invoice line.
+      // This avoids both a stale $0 plan amount and the error of treating freight
+      // as merchandise.
+      if (invoiceOrder?.kitchenDesignId != null) {
+        const orderDesignId = invoiceOrder.kitchenDesignId;
+        const orderPlanPrefill = usableInvoicePrefill({
+          totalAmount: invoiceOrder.totalAmount,
+          status: invoiceOrder.status,
+          source: `Order ${invoiceOrder.requestNumber} merchandise subtotal`,
+        });
+        linkedDesigns = linkedDesigns.map((linkedDesign) => linkedDesign.designId === orderDesignId
+          ? {
+              ...linkedDesign,
+              catalogSubtotal: orderPlanPrefill.amount,
+              catalogSubtotalSource: orderPlanPrefill.source ?? "No verified plan price yet",
+            }
+          : linkedDesign);
+      }
       const installationPrefill = usableInvoicePrefill(invoiceInstallation ? {
         totalAmount: invoiceInstallation.totalAmount,
         status: invoiceInstallation.status,
@@ -400,6 +439,9 @@ export const crmRouter = router({
       const invoicePrefill = {
         cabinetOrderAmount: cabinetOrderPrefill.amount,
         cabinetOrderSource: cabinetOrderPrefill.source,
+        shippingAmount: shippingPrefill.amount,
+        shippingSource: shippingPrefill.source,
+        shippingNote: shippingPrefill.note,
         installationAmount: installationPrefill.amount,
         installationSource: installationPrefill.source,
       };

@@ -141,7 +141,13 @@ export const generatedDesignImagesRouter = router({
       }
       const scenesByKey = new Map<string, typeof sceneRows[number]>();
       for (const scene of sceneRows) {
-        if (scene.sourceNote && !scenesByKey.has(scene.sourceNote)) scenesByKey.set(scene.sourceNote, scene);
+        if (!scene.sourceNote) continue;
+        const current = scenesByKey.get(scene.sourceNote);
+        // A generated kitchen belongs to one approved finish at a time. Prefer
+        // an active association if a historical inactive association exists.
+        if (!current || (scene.isActive && !current.isActive) || (scene.isActive === current.isActive && scene.id > current.id)) {
+          scenesByKey.set(scene.sourceNote, scene);
+        }
       }
 
       return {
@@ -194,14 +200,22 @@ export const generatedDesignImagesRouter = router({
       if (!style) throw new TRPCError({ code: "NOT_FOUND", message: "Choose a valid Door Style before adding this image to the room-scene carousel." });
 
       const sourceNote = generatedImageSourceKey(input.source, input.sourceId);
-      const [existing] = await db.select({ id: doorStyleRoomScenes.id }).from(doorStyleRoomScenes).where(and(
-        eq(doorStyleRoomScenes.styleId, input.styleId),
-        eq(doorStyleRoomScenes.sourceNote, sourceNote),
-      )).limit(1);
+      const sourceScenes = await db.select({ id: doorStyleRoomScenes.id, styleId: doorStyleRoomScenes.styleId })
+        .from(doorStyleRoomScenes)
+        .where(eq(doorStyleRoomScenes.sourceNote, sourceNote));
+      const existing = sourceScenes.find((scene) => scene.styleId === input.styleId) ?? null;
 
       if (!input.active) {
         if (existing) await db.update(doorStyleRoomScenes).set({ isActive: false }).where(eq(doorStyleRoomScenes.id, existing.id));
         return { active: false, sceneId: existing?.id ?? null };
+      }
+      // Moving the same generated kitchen to a different cabinet finish removes
+      // its old carousel association. The generated image and locked plan stay
+      // in the review folder, while public presentation cannot claim the exact
+      // kitchen belongs to more than one finish.
+      const otherSourceSceneIds = sourceScenes.filter((scene) => scene.styleId !== input.styleId).map((scene) => scene.id);
+      if (otherSourceSceneIds.length > 0) {
+        await db.delete(doorStyleRoomScenes).where(inArray(doorStyleRoomScenes.id, otherSourceSceneIds));
       }
       if (existing) {
         await db.update(doorStyleRoomScenes).set({ isActive: true, isVerified: true }).where(eq(doorStyleRoomScenes.id, existing.id));

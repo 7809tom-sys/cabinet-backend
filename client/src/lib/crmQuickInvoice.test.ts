@@ -37,6 +37,24 @@ describe("CRM quick invoice", () => {
     })).toContain("Included material · 2 × 24 in Base Cabinet");
   });
 
+  it("adds a separately labeled shipping line once to the printable invoice total", () => {
+    const lines = [
+      { description: "Kitchen Design — Oak kitchen", amount: 4875.5 },
+      { description: "Shipping", amount: 184.5 },
+      { description: "Included material · 2 × 24 in Base Cabinet", amount: 0, kind: "included" as const },
+    ];
+    expect(crmQuickInvoiceTotal(lines)).toBe(5060);
+    const html = buildCrmQuickInvoiceHtml({
+      invoiceNumber: "CRM-43-20260924",
+      issuedOn: "September 24, 2026",
+      customerName: "Tom",
+      lines,
+    });
+    expect(html).toContain("Shipping");
+    expect(html).toContain("$184.50");
+    expect(html).toContain("$5,060.00");
+  });
+
   it("renders the customer, linked design, selected services, and notes safely into a printable invoice", () => {
     const html = buildCrmQuickInvoiceHtml({
       invoiceNumber: "CRM-42-20260814",
