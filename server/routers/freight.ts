@@ -1437,6 +1437,7 @@ export const freightRouter = router({
                 service: live.packages[index]?.service,
                 amountCents: live.packages[index]?.amountCents,
               })),
+              parcelReviewWarnings: parcelDecision.operationalWarnings,
               transitDays: live.transitDays,
               estimatedDeliveryDate: live.estimatedDeliveryDate,
             };
@@ -1450,6 +1451,7 @@ export const freightRouter = router({
                 source: "parcel",
                 baseAmountCents: live.amountCents,
                 carrier: carrierLabel,
+                parcelReviewWarnings: parcelDecision.operationalWarnings,
                 transitDays: live.transitDays,
                 estimatedDeliveryDate: live.estimatedDeliveryDate,
               });

@@ -53,6 +53,36 @@ describe("carrier-backed parcel eligibility", () => {
     expect(result.carriers.find((carrier) => carrier.carrier === "usps")?.reasons.join(" ")).toMatch(/70 lb/i);
   });
 
+  it("keeps a handling-review carton parcel-eligible while flagging carrier thresholds", () => {
+    const result = evaluateParcelEligibility({
+      lengthIn: 50,
+      widthIn: 24,
+      heightIn: 8,
+      weightLbs: 72,
+      hasAuthoritativePackage: true,
+    });
+
+    expect(result.eligibleCarriers).toEqual(["ups", "fedex"]);
+    expect(result.requiresFreight).toBe(false);
+    expect(result.operationalWarnings.join(" ")).toMatch(/UPS Additional Handling/i);
+    expect(result.operationalWarnings.join(" ")).toMatch(/FedEx Additional Handling/i);
+    expect(result.operationalWarnings.join(" ")).toMatch(/heavy-package label/i);
+  });
+
+  it("flags but does not hard-reject the UPS/FedEx large-package threshold before the 165-inch limit", () => {
+    const result = evaluateParcelEligibility({
+      lengthIn: 97,
+      widthIn: 12,
+      heightIn: 8,
+      weightLbs: 80,
+      hasAuthoritativePackage: true,
+    });
+
+    expect(result.eligibleCarriers).toEqual(["ups", "fedex"]);
+    expect(result.operationalWarnings.join(" ")).toMatch(/Large Package review/i);
+    expect(result.operationalWarnings.join(" ")).toMatch(/FedEx Oversize/i);
+  });
+
   it("requires freight for a carton above UPS and FedEx parcel length limits", () => {
     const result = evaluateParcelEligibility({
       lengthIn: 109,
@@ -113,5 +143,16 @@ describe("carrier-backed parcel eligibility", () => {
     ]);
     expect(freight.mode).toBe("freight");
     expect(freight.eligibleCarriers).toEqual([]);
+  });
+
+  it("carries handling-review flags to the shipment decision without changing parcel mode", () => {
+    const result = resolveParcelShipmentMode([
+      { lengthIn: 50, widthIn: 24, heightIn: 8, weightLbs: 72, hasAuthoritativePackage: true },
+      { lengthIn: 36, widthIn: 24, heightIn: 7, weightLbs: 48, hasAuthoritativePackage: true },
+    ]);
+
+    expect(result.mode).toBe("parcel");
+    expect(result.eligibleCarriers).toEqual(["ups", "fedex"]);
+    expect(result.operationalWarnings.join(" ")).toMatch(/Additional Handling/i);
   });
 });

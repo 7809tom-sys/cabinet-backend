@@ -38,6 +38,7 @@ export interface NormalizedParcelPackage {
   heightIn: number;
   weightLbs: number;
   lengthPlusGirthIn: number;
+  cubicIn: number;
   /** USPS Ground Advantage permits 108–130 in, but classifies it as oversized. */
   uspsOversized: boolean;
 }
@@ -46,6 +47,8 @@ export interface CarrierParcelEligibility {
   carrier: ParcelCarrier;
   eligible: boolean;
   reasons: string[];
+  /** Rating and packing review flags. These never override a live carrier response. */
+  operationalWarnings: string[];
   serviceHint: string;
 }
 
@@ -55,6 +58,8 @@ export interface ParcelEligibilityResult {
   eligibleCarriers: ParcelCarrier[];
   requiresFreight: boolean;
   reasons: string[];
+  /** Applicable handling and oversize review flags for the verified carton. */
+  operationalWarnings: string[];
 }
 
 export interface ParcelShipmentModeResult {
@@ -62,6 +67,7 @@ export interface ParcelShipmentModeResult {
   eligibleCarriers: ParcelCarrier[];
   packageResults: ParcelEligibilityResult[];
   reasons: string[];
+  operationalWarnings: string[];
 }
 
 export const PARCEL_CARRIER_LIMITS: Readonly<Record<ParcelCarrier, {
@@ -133,6 +139,7 @@ export function normalizeParcelPackage(input: AuthoritativeParcelPackage): {
       heightIn,
       weightLbs: roundedWeight,
       lengthPlusGirthIn,
+      cubicIn: lengthIn * widthIn * heightIn,
       uspsOversized: lengthPlusGirthIn > 108,
     },
     reasons,
@@ -146,8 +153,9 @@ export function carrierParcelEligibility(
 ): CarrierParcelEligibility {
   const limits = PARCEL_CARRIER_LIMITS[carrier];
   const reasons = [...inputReasons];
+  const operationalWarnings: string[] = [];
   if (!parcel) {
-    return { carrier, eligible: false, reasons, serviceHint: limits.serviceHint };
+    return { carrier, eligible: false, reasons, operationalWarnings, serviceHint: limits.serviceHint };
   }
 
   if (parcel.weightLbs > limits.maxWeightLbs) {
@@ -160,10 +168,39 @@ export function carrierParcelEligibility(
     reasons.push(`${carrier.toUpperCase()} maximum length plus girth is ${limits.maxLengthPlusGirthIn} in; this carton is ${parcel.lengthPlusGirthIn} in.`);
   }
 
+  // The following thresholds can add carrier handling or oversize charges, but
+  // are not hard parcel rejections. The carrier's returned rate remains final.
+  const carrierLabel = carrier === "fedex" ? "FedEx" : "UPS";
+  if (carrier === "ups" || carrier === "fedex") {
+    const handlingTriggers: string[] = [];
+    if (parcel.weightLbs > 50) handlingTriggers.push(`${parcel.weightLbs} lb packaged weight exceeds 50 lb`);
+    if (parcel.lengthIn > 48) handlingTriggers.push(`${parcel.lengthIn} in length exceeds 48 in`);
+    if (parcel.widthIn > 30) handlingTriggers.push(`${parcel.widthIn} in second-longest side exceeds 30 in`);
+    if (parcel.lengthPlusGirthIn > 105) handlingTriggers.push(`${parcel.lengthPlusGirthIn} in length plus girth exceeds 105 in`);
+    if (parcel.cubicIn > 10368) handlingTriggers.push(`${parcel.cubicIn} cubic in exceeds 10,368 cubic in`);
+    if (handlingTriggers.length > 0) {
+      operationalWarnings.push(`${carrierLabel} Additional Handling may apply: ${handlingTriggers.join("; ")}.`);
+    }
+
+    const oversizeTriggers: string[] = [];
+    if (parcel.weightLbs > 110) oversizeTriggers.push(`${parcel.weightLbs} lb packaged weight exceeds 110 lb`);
+    if (parcel.lengthIn > 96) oversizeTriggers.push(`${parcel.lengthIn} in length exceeds 96 in`);
+    if (parcel.lengthPlusGirthIn > 130) oversizeTriggers.push(`${parcel.lengthPlusGirthIn} in length plus girth exceeds 130 in`);
+    if (parcel.cubicIn > 17280) oversizeTriggers.push(`${parcel.cubicIn} cubic in exceeds 17,280 cubic in`);
+    if (oversizeTriggers.length > 0) {
+      operationalWarnings.push(`${carrierLabel} Oversize / Large Package review is required: ${oversizeTriggers.join("; ")}.`);
+    }
+
+    if (carrier === "ups" && parcel.weightLbs > 70) {
+      operationalWarnings.push("UPS requires a heavy-package label for a carton over 70 lb.");
+    }
+  }
+
   return {
     carrier,
     eligible: reasons.length === 0,
     reasons,
+    operationalWarnings,
     serviceHint: limits.serviceHint,
   };
 }
@@ -180,6 +217,7 @@ export function evaluateParcelEligibility(input: AuthoritativeParcelPackage): Pa
     eligibleCarriers,
     requiresFreight: eligibleCarriers.length === 0,
     reasons: normalized.reasons,
+    operationalWarnings: Array.from(new Set(carriers.flatMap((carrier) => carrier.operationalWarnings))),
   };
 }
 
@@ -198,6 +236,7 @@ export function resolveParcelShipmentMode(
       eligibleCarriers: [],
       packageResults,
       reasons: ["Add a carton with verified package data to evaluate parcel shipping."],
+      operationalWarnings: [],
     };
   }
 
@@ -210,5 +249,6 @@ export function resolveParcelShipmentMode(
     eligibleCarriers,
     packageResults,
     reasons: Array.from(new Set(reasons)),
+    operationalWarnings: Array.from(new Set(packageResults.flatMap((result) => result.operationalWarnings))),
   };
 }

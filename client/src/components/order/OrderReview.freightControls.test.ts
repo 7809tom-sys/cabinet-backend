@@ -34,6 +34,8 @@ describe("OrderReview freight accessorial controls", () => {
   it("shows each live parcel, Plan A, or Plan B style-origin group and persists the exact quote before hosted payment", () => {
     expect(source).toContain('group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"');
     expect(source).toContain("freightEstimate.data.rateGroups");
+    expect(source).toContain("group.parcelReviewWarnings?.length");
+    expect(source).toContain("Carrier handling review:");
     expect(source).toContain("freightQuoteToken: deliveryMethod === \"ship\" && !hasOnlyTemporaryFreeShippingItems");
     expect(source).toContain("freightEstimate.data?.quoteToken");
     expect(source).toContain("setSubmittedRequestNumber(res.requestNumber)");

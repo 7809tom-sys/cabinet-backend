@@ -46,7 +46,7 @@ The parcel route sends each verified carton separately to EasyPost. This avoids 
 
 The review repair adds three controls. First, the quote function rejects a parcel when the dimensions or weight are not positive whole numbers, which prevents a fractional or malformed package from bypassing the normalizer. Second, the freight router passes the common eligible-carrier set produced by the shared parcel screen. Third, the rate selector filters returned services to that set before it chooses a rate. A carton that is eligible for UPS only cannot be priced with a returned USPS or FedEx rate.
 
-This is still not a carrier contract engine. The live carrier response controls final service availability, negotiated price, surcharges, transit promise, and later carrier audit. The next expansion should classify handling and oversize risk separately from hard rejection, rather than hard-coding public surcharge dollar amounts that can vary by contract and effective date.
+This is still not a carrier contract engine. The live carrier response controls final service availability, negotiated price, surcharges, transit promise, and later carrier audit. The application now classifies handling and oversize risk separately from hard rejection, without hard-coding public surcharge dollar amounts that can vary by contract and effective date.
 
 ## Worldwide Express / SpeedShip Review
 
@@ -66,7 +66,7 @@ The package must also define package units, addresses, residential and accessori
 
 ## Recommended Next Controls
 
-The immediate integration boundary is repaired. The next engineering work should add a **classification layer** that exposes UPS Additional Handling, UPS Large Package, UPS heavy-package-label status, FedEx Additional Handling, FedEx Oversize, and dimensional-weight risk. These are warnings and rating factors, not automatic parcel rejections.
+The immediate integration boundary and the first **classification layer** are complete. The package editor, cart, and order review now expose UPS Additional Handling, UPS Large Package, UPS heavy-package-label status, FedEx Additional Handling, and FedEx Oversize as review flags. These are warnings and rating factors, not automatic parcel rejections. Dimensional-weight risk remains a carrier-rating concern because the public rules and negotiated accounts can differ by effective date and service.
 
 The catalog should also capture authoritative outer-carton form data. Relevant fields include whether the item is fully corrugated and enclosed, soft-pack status, wrapping or banding, cylindrical form, protrusions, wheels, handles, straps, and irregular-sort characteristics. Until those fields are verified, the application should disclose that carrier handling charges or refusal can still apply.
 

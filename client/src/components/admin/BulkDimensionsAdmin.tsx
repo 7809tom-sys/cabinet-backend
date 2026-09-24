@@ -243,6 +243,14 @@ function DimRow({
             {parcelEligibility.package?.uspsOversized && (
               <p className="text-[10px] text-amber-700">USPS oversized; live rate required</p>
             )}
+            {parcelEligibility.operationalWarnings.length > 0 && (
+              <p
+                className="text-[10px] text-amber-700"
+                title={parcelEligibility.operationalWarnings.join("\n")}
+              >
+                Carrier handling review required
+              </p>
+            )}
           </div>
         ) : parcelEligibility.package ? (
           <Badge className="border-amber-300 bg-amber-50 text-[10px] text-amber-800 hover:bg-amber-50" variant="outline">

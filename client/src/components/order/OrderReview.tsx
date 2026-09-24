@@ -1225,11 +1225,18 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                   <span>${(freightEstimate.data.totalCents / 100).toFixed(2)}</span>
                 </div>
                 {(freightEstimate.data.rateGroups ?? []).map((group) => (
-                  <div key={group.key} className="flex items-start justify-between gap-3 text-xs">
-                    <span>
-                      {group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
-                    </span>
-                    <span className="shrink-0">${(group.baseAmountCents / 100).toFixed(2)}</span>
+                  <div key={group.key} className="text-xs">
+                    <div className="flex items-start justify-between gap-3">
+                      <span>
+                        {group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
+                      </span>
+                      <span className="shrink-0">${(group.baseAmountCents / 100).toFixed(2)}</span>
+                    </div>
+                    {group.parcelReviewWarnings?.length ? (
+                      <p className="mt-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">
+                        Carrier handling review: {group.parcelReviewWarnings.join(" ")}
+                      </p>
+                    ) : null}
                   </div>
                 ))}
                 <p className="text-xs text-emerald-800">

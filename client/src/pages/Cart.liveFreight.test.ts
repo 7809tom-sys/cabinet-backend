@@ -29,6 +29,8 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Live UPS/FedEx/USPS service");
     expect(cartSource).toContain("verified carton");
     expect(cartSource).toContain("parcel.carrier");
+    expect(cartSource).toContain("group.parcelReviewWarnings?.length");
+    expect(cartSource).toContain("Carrier handling review:");
   });
 
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {

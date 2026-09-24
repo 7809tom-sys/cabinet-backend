@@ -56,6 +56,8 @@ export interface FreightRateGroup {
   baseAmountCents: number;
   carrier?: string | null;
   palletCount?: number;
+  /** Parcel handling or oversize review flags. Live carrier rating remains final. */
+  parcelReviewWarnings?: string[];
   transitDays?: number;
   estimatedDeliveryDate?: string;
 }
@@ -96,6 +98,8 @@ export interface FreightShipmentGroup {
   pallets: FreightPalletDetail[];
   parcelCount?: number;
   parcels?: FreightParcelDetail[];
+  /** Carrier threshold flags; the live carrier rate remains the final authority. */
+  parcelReviewWarnings?: string[];
   /** Carrier transit after pickup; warehouse processing time is separate. */
   transitDays?: number;
   /** Carrier-provided estimated arrival date for the quoted pickup date. */

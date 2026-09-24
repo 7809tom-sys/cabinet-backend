@@ -29,4 +29,9 @@ describe("BulkDimensionsAdmin parcel eligibility", () => {
     expect(source).toContain("Parcel: {parcelEligibility.eligibleCarriers");
     expect(source).toContain("Carrier fit");
   });
+
+  it("surfaces handling review without changing a parcel-eligible carton into freight-only", () => {
+    expect(source).toContain("parcelEligibility.operationalWarnings.length > 0");
+    expect(source).toContain("Carrier handling review required");
+  });
 });
