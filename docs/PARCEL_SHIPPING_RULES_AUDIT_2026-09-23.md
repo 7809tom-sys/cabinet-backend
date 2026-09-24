@@ -58,6 +58,10 @@ For that reason, the current system does not send a parcel request to Worldwide 
 
 > Worldwide Express parcel integration must remain disabled until the account representative provides a versioned, account-authorized parcel integration package. The existing LTL endpoint and payload must never be reused or inferred for parcel shipping.
 
+### Owner-provided activation timing
+
+On September 24, 2026, the owner reported that Worldwide Express expects to enable **UPS parcel service under the existing Worldwide Express login during the following week**. This is an expected account-activation milestone, not yet an authorization to send parcel requests. When Worldwide Express confirms activation, CabinetDealz must first run a non-booking UPS parcel rate request using the documented account endpoint and the same login's authorized credentials. The parcel provider remains disabled unless that request returns an authenticated, eligible UPS rate and the service response can be mapped without reusing the LTL ShopFlow payload.
+
 ## Required Information Before Enabling Worldwide Express Parcel Rates
 
 Worldwide Express should provide written confirmation that the account is entitled to SpeedShip parcel rating and identify the authorized carriers and services. The integration package must include separate sandbox and production base URLs, exact paths, HTTP methods, OAuth audience and scopes, account or billing identifiers, request and response schemas, and successful/failed sample payloads.
