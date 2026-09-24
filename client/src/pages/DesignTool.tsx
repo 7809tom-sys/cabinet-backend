@@ -8964,7 +8964,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     countertopBacksplashHeightIn,
     flooringMaterialId,
     flooringPattern,
-    selectedSurfaces,
+    selectedSurfaces: normalizeInstalledMaterialSelections(selectedSurfaces),
     cabinetsLocked,
     sinks,
     roomType,
@@ -9188,7 +9188,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -9518,7 +9518,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         styleId,
         lockedDistributorId,
         roomType,
-        selectedSurfaces,
+        selectedSurfaces: normalizeInstalledMaterialSelections(selectedSurfaces),
         // Preserve designer state that determines the sink/faucet's visual
         // setting and associated countertop when the customer opens a bundle.
         countertop,
@@ -11190,7 +11190,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             island={island}
             furniture={furniture}
             ponyWalls={ponyWalls}
-            selectedSurfaces={selectedSurfaces}
+            selectedSurfaces={normalizeInstalledMaterialSelections(selectedSurfaces)}
             threeDPresentation={threeDPresentationForSave}
             styleId={styleId}
             lockedDistributorId={lockedDistributorId}
