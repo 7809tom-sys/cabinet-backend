@@ -11,6 +11,7 @@ import {
   guessCountertopMaterialId,
   activeThreeDSurface,
   normalizeFinalMaterialSelections,
+  refreshVerifiedSurfaceSelections,
   setActiveThreeDSurface,
   setCountertopSurfaceForScope,
   SURFACE_SELECTION_KEY,
@@ -127,6 +128,46 @@ describe("final installed material selection", () => {
     ]);
 
     expect(final).toEqual([expect.objectContaining({ id: 52, threeDActive: true })]);
+  });
+});
+
+describe("verified saved surface refresh", () => {
+  const savedFloor = {
+    id: 82,
+    name: "Old flooring name",
+    category: "Flooring",
+    sellPrice: 1,
+    materialImageUrl: "/old-floor.webp",
+    coverageSqFt: 12,
+  };
+
+  it("replaces stale saved surface price and material data with the verified live record", () => {
+    const refreshed = refreshVerifiedSurfaceSelections([savedFloor], [{
+      id: 82,
+      pelicanCode: "BAHIA-12MIL",
+      name: "Bahia 12mil Vinyl Flooring",
+      category: "Flooring",
+      subCategory: "Planks & Flooring",
+      size: '7" x 48"',
+      materialImageUrl: "/bahia-approved.webp",
+      coverageSqFt: "23.5",
+      sellPrice: 74.25,
+    }]);
+
+    expect(refreshed).toEqual([expect.objectContaining({
+      id: 82,
+      pelicanCode: "BAHIA-12MIL",
+      name: "Bahia 12mil Vinyl Flooring",
+      materialImageUrl: "/bahia-approved.webp",
+      coverageSqFt: 23.5,
+      sellPrice: 74.25,
+    })]);
+  });
+
+  it("keeps an unavailable saved product visible as a selection but clears its stale purchase price and 3D swatch", () => {
+    expect(refreshVerifiedSurfaceSelections([savedFloor], [])).toEqual([
+      expect.objectContaining({ id: 82, sellPrice: null, materialImageUrl: null }),
+    ]);
   });
 });
 

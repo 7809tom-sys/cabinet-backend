@@ -95,6 +95,63 @@ export function normalizeFinalMaterialSelections<T extends FinalMaterialSurfaceL
   });
 }
 
+/**
+ * Refresh saved Design Tool surface selections from the verified Designer query.
+ * Records omitted by that query are no longer active/published/priceable, so their
+ * old saved amount must be cleared rather than reaching a new material list or cart.
+ */
+export type VerifiedSurfaceSelectionRecord = {
+  id: number;
+  pelicanCode?: string | null;
+  name: string;
+  category: string;
+  subCategory?: string | null;
+  size?: string | null;
+  materialImageUrl?: string | null;
+  coverageSqFt?: string | number | null;
+  sellPrice: number | null;
+};
+
+type RefreshableSurfaceSelection = {
+  id: number;
+  pelicanCode?: string | null;
+  name: string;
+  category: string;
+  subCategory?: string | null;
+  size?: string | null;
+  materialImageUrl?: string | null;
+  coverageSqFt?: number | null;
+  sellPrice: number | null;
+};
+
+export function refreshVerifiedSurfaceSelections<T extends RefreshableSurfaceSelection>(
+  selections: readonly T[],
+  verifiedRecords: readonly VerifiedSurfaceSelectionRecord[],
+): T[] {
+  const verifiedById = new Map(verifiedRecords.map((record) => [record.id, record]));
+  return selections.map((selection) => {
+    const record = verifiedById.get(selection.id);
+    // The server only returns active, Designer-available items with a positive
+    // authorized price base. Preserve the design selection as evidence, but remove
+    // its stale sell price and 3D swatch when it no longer passes that gate.
+    if (!record) {
+      return { ...selection, sellPrice: null, materialImageUrl: null } as T;
+    }
+    const coverage = Number(record.coverageSqFt);
+    return {
+      ...selection,
+      pelicanCode: record.pelicanCode ?? null,
+      name: record.name,
+      category: record.category,
+      subCategory: record.subCategory ?? null,
+      size: record.size ?? null,
+      materialImageUrl: record.materialImageUrl?.trim() || null,
+      coverageSqFt: Number.isFinite(coverage) && coverage > 0 ? coverage : null,
+      sellPrice: record.sellPrice,
+    } as T;
+  });
+}
+
 export function isCountertopSurfacePick(surface: Pick<CountertopSurfaceLike, "category" | "subCategory" | "name">): boolean {
   const text = `${surface.category} ${surface.subCategory ?? ""} ${surface.name}`.toLowerCase();
   return text.includes("countertop") || text.includes("quartz slab");
