@@ -1289,8 +1289,10 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(right).toBeLessThan(down);
 		    expect(rendererSource).toContain('direction="up" onMove={requestCabinetMove}');
 		    expect(rendererSource).toContain('direction="down" onMove={requestCabinetMove}');
-		    expect(rendererSource).toContain('direction="left" onMove={requestCabinetMove}');
-		    expect(rendererSource).toContain('direction="right" onMove={requestCabinetMove}');
+	    expect(rendererSource).toContain('direction="left" onMove={requestCabinetMove}');
+	    expect(rendererSource).toContain('direction="right" onMove={requestCabinetMove}');
+	    expect(rendererSource).toContain('className="grid grid-cols-3 gap-0.5"');
+	    expect(rendererSource).not.toContain('max-md:[&>span]:hidden md:grid-cols-3');
 	  });
 
   it("walks from a decorative 3D face to the placed cabinet root for description and Edit Config identity", () => {
