@@ -2721,3 +2721,4 @@
 - [x] Show a clear cart disclosure when an exact saved kitchen plan is linked, explaining that verified merchandise and carrier shipping remain separate and shipping requires a current carrier quote
 - [x] Add a CRM Quick PDF Invoice link from an unpriced linked plan back to its saved Designer record, directing users to prepare a verified order rather than type a fictitious plan price
 - [x] Make 3D crown molding use the same normalized L-corner envelope as WER wall easy-reach cabinets, following both 12-inch exposed cabinet faces with flush 45° miters while hiding crown at the two adjoining cabinet-run junctions
+- [x] Mark a direct Designer gap-fill as an installed priced filler so base-run countertops, 3D rendering, and Materials & Parts span the filler instead of leaving a false countertop void

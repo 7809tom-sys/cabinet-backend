@@ -5604,8 +5604,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
       );
       const spot = wallPlacementAt(gap.start, width, depth, gap.side, room);
+      // A direct gap-fill is an installed, priced trim piece—not a loose panel.
+      // Persist the same installation contract used by the measured filler dialog
+      // so the 3D scene, plan/materials calculation, and countertop all extend
+      // across the finished base-run end.
+      const fillerUid = makeUid();
       const newCab: PlacedCabinet = {
-        uid: makeUid(),
+        uid: fillerUid,
         cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
         description: fittedCatalogFillerDescription(fillerDef, w),
@@ -5625,6 +5630,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         numberOfDrawers: 0,
         catalogImageUrl: fillerDef.catalogImageUrl ?? null,
         styleId: styleIdRef.current ?? null,
+        fillerPieceGroupId: `filler-group-${fillerUid}`,
+        fillerBillingRole: "primary",
+        fillerTotalWidth: width,
+        fillerPlacementMode: "right",
       };
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
