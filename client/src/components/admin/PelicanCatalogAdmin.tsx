@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Search, ShieldCheck, Star, Waves } from "lucide-react";
+import { positiveAuthorizedSurfaceBase } from "../../../../shared/surfacePricing";
 
 const CATEGORIES = [
   "Sinks & Faucets",
@@ -219,7 +220,7 @@ export default function PelicanCatalogAdmin() {
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead className="text-right">Source Base</TableHead>
                   <TableHead className="text-right">Sell</TableHead>
                   <TableHead className="text-center">Active</TableHead>
                   <TableHead className="text-center">Catalog</TableHead>
@@ -244,7 +245,7 @@ export default function PelicanCatalogAdmin() {
                       {it.category}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {money(it.yourCost ?? it.listPrice)}
+                      {money(positiveAuthorizedSurfaceBase(it))}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       {money(it.sellPrice)}
