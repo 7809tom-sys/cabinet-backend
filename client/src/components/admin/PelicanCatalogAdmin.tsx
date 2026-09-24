@@ -78,6 +78,18 @@ export default function PelicanCatalogAdmin() {
     },
     onError: (e) => toast.error(e.message || "Failed to update"),
   });
+  const setPricing = trpc.pelican.setPricing.useMutation({
+    onSuccess: (result) => {
+      void utils.pelican.adminList.invalidate();
+      void utils.pelican.designerReadinessAudit.invalidate();
+      if (result.unpublished) {
+        toast.warning("No positive verified source price remains. This item is now unavailable and unpublished.");
+      } else {
+        toast.success("Verified source price saved.");
+      }
+    },
+    onError: (e) => toast.error(e.message || "The source price could not be saved."),
+  });
   const setPopular = trpc.pelican.setPopular.useMutation({
     onSuccess: () => utils.pelican.adminList.invalidate(),
     onError: (e) => toast.error(e.message || "Failed to update"),
@@ -232,7 +244,7 @@ export default function PelicanCatalogAdmin() {
                 <TableRow>
                   <TableHead>Item</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Source Base</TableHead>
+                  <TableHead className="min-w-[190px] text-right">Verified Source Price</TableHead>
                   <TableHead className="text-right">Sell</TableHead>
                   <TableHead className="text-center">Active</TableHead>
                   <TableHead className="text-center">Catalog</TableHead>
@@ -264,6 +276,59 @@ export default function PelicanCatalogAdmin() {
                           {sourceBasis.kind === "landed_cost" ? "Verified cost" : "Supplier list"}
                         </div>
                       )}
+                      <div className="mt-2 grid grid-cols-2 gap-1.5 text-left">
+                        <label className="text-[10px] font-medium text-muted-foreground">
+                          Cost
+                          <input
+                            aria-label={`Verified cost for ${it.name}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="mt-0.5 h-7 w-full rounded border border-border bg-transparent px-1.5 text-right text-xs text-foreground"
+                            defaultValue={it.yourCost == null ? "" : Number(it.yourCost)}
+                            placeholder="—"
+                            onBlur={(event) => {
+                              const raw = event.target.value.trim();
+                              if (raw === "") return;
+                              const next = Number(raw);
+                              if (!Number.isFinite(next) || next < 0) {
+                                toast.error("Enter a non-negative verified source cost.");
+                                event.target.value = it.yourCost == null ? "" : String(it.yourCost);
+                                return;
+                              }
+                              if (next !== Number(it.yourCost ?? 0)) {
+                                setPricing.mutate({ id: it.id, yourCost: next });
+                              }
+                            }}
+                          />
+                        </label>
+                        <label className="text-[10px] font-medium text-muted-foreground">
+                          List
+                          <input
+                            aria-label={`Supplier list price for ${it.name}`}
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            className="mt-0.5 h-7 w-full rounded border border-border bg-transparent px-1.5 text-right text-xs text-foreground"
+                            defaultValue={it.listPrice == null ? "" : Number(it.listPrice)}
+                            placeholder="—"
+                            onBlur={(event) => {
+                              const raw = event.target.value.trim();
+                              if (raw === "") return;
+                              const next = Number(raw);
+                              if (!Number.isFinite(next) || next < 0) {
+                                toast.error("Enter a non-negative supplier list price.");
+                                event.target.value = it.listPrice == null ? "" : String(it.listPrice);
+                                return;
+                              }
+                              if (next !== Number(it.listPrice ?? 0)) {
+                                setPricing.mutate({ id: it.id, listPrice: next });
+                              }
+                            }}
+                          />
+                        </label>
+                      </div>
+                      <p className="mt-1 text-[10px] leading-snug text-muted-foreground">Blank keeps the existing source value. Saving both fields as 0 makes the item unavailable.</p>
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       {money(it.sellPrice)}
