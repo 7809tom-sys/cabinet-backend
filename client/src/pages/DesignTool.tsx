@@ -189,7 +189,7 @@ import {
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
   activeThreeDSurface,
-  setActiveThreeDSurface,
+  normalizeFinalMaterialSelections,
   setCountertopSurfaceForScope,
   type SurfaceRole,
 } from "@/lib/surfaceSelection";
@@ -867,13 +867,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       ? { name: selected.name, unsupportedOverhangLimitIn: selected.unsupportedOverhangLimitIn ?? null }
       : null;
   }, [islandCountertopSurface, perimeterCountertopSurface]);
-  // A kitchen has one active installed floor. When a customer chooses another
-  // flooring product, it replaces the prior active flooring pick rather than
-  // leaving an old first row to silently control the rendered material.
-  const normalizeActiveFloorSelection = (surfaces: SelectedSurface[]) => {
-    const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === "flooring");
-    return surfaces.filter((surface) => surfaceRole(surface) !== "flooring" || surface.id === activeFloor?.id);
-  };
+  // A final kitchen has one installed floor and backsplash. This shared cleanup
+  // removes a superseded product from the saved selection rather than leaving it
+  // in cart or Materials & Parts after the rendered material changes.
+  const normalizeInstalledMaterialSelections = (surfaces: SelectedSurface[]) =>
+    normalizeFinalMaterialSelections(surfaces);
   const toggleSurface = (item: SelectedSurface) =>
     setSelectedSurfaces((prev) => {
       if (surfaceRole(item) === "flooring") {
@@ -882,26 +880,20 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         return [...prev.filter((surface) => surfaceRole(surface) !== "flooring"), item];
       }
       if (surfaceRole(item) === "backsplash") {
-        if (prev.some((surface) => surface.id === item.id)) return prev.filter((surface) => surface.id !== item.id);
-        // Preserve every selected tile in the quote, while the latest deliberate
-        // add becomes the single 3D wall material until the owner changes it.
-        return [
-          ...prev.map((surface) => surfaceRole(surface) === "backsplash" ? { ...surface, threeDActive: false } : surface),
-          { ...item, threeDActive: true },
-        ];
+        const activeBacksplash = activeThreeDSurface(prev.filter((surface) => surfaceRole(surface) === "backsplash"));
+        if (activeBacksplash?.id === item.id) return prev.filter((surface) => surfaceRole(surface) !== "backsplash");
+        return [...prev.filter((surface) => surfaceRole(surface) !== "backsplash"), { ...item, threeDActive: true }];
       }
       if (prev.some((surface) => surface.id === item.id)) return prev.filter((surface) => surface.id !== item.id);
       return [...prev, item];
     });
   const setActiveBacksplashSurface = useCallback((item: SelectedSurface) => {
     setSelectedSurfaces((prev) => {
-      const backsplash = prev.filter((surface) => surfaceRole(surface) === "backsplash");
-      const updatedById = new Map(setActiveThreeDSurface(backsplash, item.id).map((surface) => [surface.id, surface]));
-      return prev.map((surface) => updatedById.get(surface.id) ?? surface);
+      return [...prev.filter((surface) => surfaceRole(surface) !== "backsplash"), { ...item, threeDActive: true }];
     });
     const materialId = guessBacksplashMaterialId(item);
     if (materialId) setBacksplashMaterialId(materialId);
-    toast.success(`${item.name} now dresses the 3D wall`);
+    toast.success(`${item.name} is now the final backsplash material`);
   }, []);
   // Recommended-surface picker (Surfaces palette tab): toggle the exact Pelican
   // product in selectedSurfaces (so it hits the cart + satisfies the 3D View
@@ -928,7 +920,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     const already = role === "flooring"
       ? [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === "flooring")?.id === item.id
-      : selectedSurfaces.some((surface) => surface.id === item.id);
+      : role === "backsplash"
+        ? activeThreeDSurface(selectedSurfaces.filter((surface) => surfaceRole(surface) === "backsplash"))?.id === item.id
+        : selectedSurfaces.some((surface) => surface.id === item.id);
     toggleSurface(item);
     if (already) return; // removal: leave the 2D material as-is (harmless)
     const pick = {
@@ -2846,11 +2840,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (d.roomType && ["kitchen", "bathroom", "laundry", "closet", "other"].includes(d.roomType)) {
         setRoomType(d.roomType as RoomType);
       }
-      // Restore the exact Pelican surface & fixture picks and re-sync the
-      // built-in 2D-render materials (floor/backsplash/countertop) from them,
-      // so a reloaded design shows the same surfaces in the cart, the 3D gate,
-      // and the plan/elevation fill.
-      const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);
+      // Restore the exact final Pelican surface & fixture picks and re-sync the
+      // built-in 2D-render materials (floor/backsplash/countertop) from them.
+      // Legacy draft duplicates are collapsed so old materials cannot reappear
+      // in the cart, Materials & Parts, or 3D scene after a reload.
+      const surfaces = normalizeInstalledMaterialSelections(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);
       setSelectedSurfaces(surfaces);
       applySurfaceRenderMaterials(surfaces);
       setSelectedUid(null);
@@ -9075,10 +9069,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           if (typeof d.flooringMaterialId === "string") setFlooringMaterialId(d.flooringMaterialId);
           if (typeof d.flooringPattern === "string") setFlooringPattern(d.flooringPattern as import("@/lib/design").FlooringLayoutPattern);
           if (typeof d.cabinetsLocked === "boolean") setCabinetsLocked(d.cabinetsLocked);
-          // Restore the exact Pelican surface & fixture picks so the cart, the
-          // 3D View gate and the plan/elevation fill all match the draft.
+          // Restore the exact final Pelican surface & fixture picks so the cart,
+          // 3D View gate and plan/elevation fill cannot retain replaced materials.
           if (Array.isArray(d.selectedSurfaces)) {
-            const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);
+            const restoredSurfaces = normalizeInstalledMaterialSelections(d.selectedSurfaces as SelectedSurface[]);
             setSelectedSurfaces(restoredSurfaces);
             applySurfaceRenderMaterials(restoredSurfaces);
           }
@@ -9177,7 +9171,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       if (surfaces.length > 0) {
         setSelectedSurfaces((prev) => {
           const seen = new Set(prev.map((s) => s.id));
-          return [...prev, ...surfaces.filter((s) => !seen.has(s.id))];
+          return normalizeInstalledMaterialSelections([...prev, ...surfaces.filter((s) => !seen.has(s.id))]);
         });
       }
       if (applied > 0 || surfaces.length > 0) {

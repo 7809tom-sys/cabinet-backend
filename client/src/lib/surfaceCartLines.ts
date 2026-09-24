@@ -1,12 +1,16 @@
 import type { PricingTier } from "@shared/pricingTier";
+import { normalizeFinalMaterialSelections } from "@/lib/surfaceSelection";
 
 /** Minimal shape of a picked surface/fixture (subset of SelectedSurface). */
 export type SurfacePick = {
   id: number;
   name: string;
   category: string;
+  subCategory?: string | null;
   size?: string | null;
   sellPrice: number | null;
+  /** Explicit active marker retained on legacy surface selections. */
+  threeDActive?: boolean;
   /** Sq ft per box/carton for tile, backsplash, and flooring products. */
   coverageSqFt?: number | null;
   /** Countertop assignment; legacy undefined applies the product to the combined design area. */
@@ -105,7 +109,10 @@ export function buildSurfaceCartLines(
   areas?: RoomAreas | null,
 ): SurfaceCartLine[] {
   const lines: SurfaceCartLine[] = [];
-  for (const s of surfaces) {
+  // A replaced flooring or backsplash product is not part of the final kitchen.
+  // Normalize defensively here as well as in the Designer state so stale saved
+  // selections cannot leak into cart pricing or checkout.
+  for (const s of normalizeFinalMaterialSelections(surfaces)) {
     if (s.sellPrice == null) continue; // skip unpriced (quote-only) picks
     const label = s.size ? `${s.category} · ${s.size}` : s.category;
     let qty = 1;

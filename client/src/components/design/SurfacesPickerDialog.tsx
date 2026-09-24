@@ -171,7 +171,7 @@ export function SurfacesPickerDialog({
             <Waves className="h-5 w-5 text-[var(--color-gold)]" /> Surfaces & Fixtures
           </DialogTitle>
           <DialogDescription className="hidden sm:block text-xs sm:text-sm">
-            Add source-ready Pelican finishes and fixtures to this design. Selected items are carried into your quote.
+            Add source-ready Pelican finishes and fixtures to this design. A new flooring or backsplash choice replaces the prior material everywhere in the final kitchen.
           </DialogDescription>
         </DialogHeader>
 
@@ -331,9 +331,10 @@ export function SurfacesPickerDialog({
                             variant={isActiveThreeDBacksplash ? "default" : "outline"}
                             className="h-7 w-full text-[11px]"
                             data-testid={`surface-use-in-3d-${p.id}`}
+                            disabled={isActiveThreeDBacksplash}
                             onClick={() => onSetActiveThreeDBacksplash(item)}
                           >
-                            {isActiveThreeDBacksplash ? "Used in 3D wall" : "Use in 3D wall"}
+                            {isActiveThreeDBacksplash ? "Final 3D wall material" : "Use in 3D wall"}
                           </Button>
                         )}
                         <div className="flex items-center justify-between pt-1">

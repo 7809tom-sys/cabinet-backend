@@ -1,3 +1,5 @@
+import { surfaceRole } from "@/lib/pelican";
+
 // Shared contract for the Surfaces & Fixtures wizard -> Design Tool hand-off.
 //
 // The wizard lets a customer choose their flooring, backsplash tile, countertop,
@@ -61,6 +63,36 @@ export function activeThreeDSurface<T extends ThreeDActiveSurfaceLike>(surfaces:
 /** Marks one already-selected product as the material rendered for its 3D role. */
 export function setActiveThreeDSurface<T extends ThreeDActiveSurfaceLike>(surfaces: readonly T[], id: number): T[] {
   return surfaces.map((surface) => ({ ...surface, threeDActive: surface.id === id }));
+}
+
+type FinalMaterialSurfaceLike = ThreeDActiveSurfaceLike & {
+  category?: string | null;
+  subCategory?: string | null;
+  name?: string | null;
+};
+
+/**
+ * A final kitchen has one installed flooring product and one installed backsplash
+ * product. Replacing either must remove the prior material from the saved design,
+ * cart, materials list, and 3D scene—not merely change a display marker. Distinct
+ * perimeter and island countertop assignments intentionally remain independent.
+ *
+ * For legacy saved designs, an explicit 3D backsplash choice wins; otherwise the
+ * most recently selected material is the final installed selection.
+ */
+export function normalizeFinalMaterialSelections<T extends FinalMaterialSurfaceLike>(surfaces: readonly T[]): T[] {
+  const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === "flooring") ?? null;
+  const activeBacksplash = activeThreeDSurface(surfaces.filter((surface) => surfaceRole(surface) === "backsplash"));
+
+  return surfaces.flatMap((surface) => {
+    const role = surfaceRole(surface);
+    if (role === "flooring" && surface.id !== activeFloor?.id) return [];
+    if (role === "backsplash") {
+      if (surface.id !== activeBacksplash?.id) return [];
+      return [{ ...surface, threeDActive: true } as T];
+    }
+    return [surface];
+  });
 }
 
 export function isCountertopSurfacePick(surface: Pick<CountertopSurfaceLike, "category" | "subCategory" | "name">): boolean {

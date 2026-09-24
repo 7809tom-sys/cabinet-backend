@@ -3,6 +3,7 @@ import type { CartItem } from "@/contexts/CartContext";
 import type { SelectedSurface } from "@/components/design/SurfacesPickerDialog";
 import { isApplianceCode } from "@/lib/design";
 import { isCatalogFiller } from "@/lib/catalogFiller";
+import { normalizeFinalMaterialSelections } from "@/lib/surfaceSelection";
 
 export type MaterialsListSection = "cabinet" | "other";
 export type MaterialsListPriceStatus = "priced" | "quote_required" | "unavailable";
@@ -132,7 +133,21 @@ function appendNote(primary: string, secondary: string): string {
 export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRow[] {
   const names = args.distributorNames ?? new Map<number, string>();
   const defaultSupplier = args.defaultDistributorName?.trim() || (args.defaultDistributorId != null ? names.get(args.defaultDistributorId) : null) || "Cabinet supplier";
-  const pricing = args.pricingLines.map((line, index) => ({ line, index, consumed: false }));
+  const finalSelectedSurfaces = normalizeFinalMaterialSelections(args.selectedSurfaces ?? []);
+  const finalFloorCode = finalSelectedSurfaces.find((surface) => /floor/i.test(surface.category))?.id ?? null;
+  const finalBacksplashCode = finalSelectedSurfaces.find((surface) => /tile|mosaic|backsplash/i.test(surface.category))?.id ?? null;
+  const pricing = args.pricingLines
+    // Surface cart rows are derived exclusively from the final installed floor
+    // and backsplash. Retain independent historic PEL rows when this list does
+    // not identify a replacement for that material role.
+    .filter((line) => {
+      if (!line.masterCode.startsWith("PEL-")) return true;
+      const category = line.category?.toLowerCase() ?? "";
+      if (finalFloorCode != null && category.includes("floor")) return line.masterCode === `PEL-${finalFloorCode}`;
+      if (finalBacksplashCode != null && /tile|mosaic|backsplash/.test(category)) return line.masterCode === `PEL-${finalBacksplashCode}`;
+      return true;
+    })
+    .map((line, index) => ({ line, index, consumed: false }));
   const rows: Omit<MaterialsListRow, "label">[] = [];
 
   for (const build of args.buildRows.filter((row) => {
@@ -196,8 +211,11 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
     });
   }
 
-  const pricedSurfaceCodes = new Set(args.pricingLines.map((line) => line.masterCode));
-  for (const surface of args.selectedSurfaces ?? []) {
+  const pricedSurfaceCodes = new Set(pricing.map(({ line }) => line.masterCode));
+  // Only materials retained in the final kitchen selection belong in the BOM.
+  // This defensive normalization protects exports from legacy drafts that still
+  // contain an earlier floor or backsplash after the customer picked a replacement.
+  for (const surface of finalSelectedSurfaces) {
     const code = `PEL-${surface.id}`;
     if (pricedSurfaceCodes.has(code)) continue;
     const unitPrice = safePrice(surface.sellPrice);

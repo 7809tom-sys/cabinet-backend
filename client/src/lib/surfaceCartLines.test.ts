@@ -74,6 +74,15 @@ describe("buildSurfaceCartLines", () => {
     expect(lines[0].masterCode).toBe("PEL-101");
   });
 
+  it("prices only the final backsplash when a legacy selection still contains a replaced tile", () => {
+    const prior = { ...tileNoPrice, id: 304, name: "Prior Tile", sellPrice: 8.5, threeDActive: false };
+    const final = { ...tileNoPrice, id: 305, name: "Final Tile", sellPrice: 12.5, threeDActive: true };
+
+    expect(buildSurfaceCartLines([prior, final], "homeowner")).toEqual([
+      expect.objectContaining({ masterCode: "PEL-305", name: "Final Tile", unitPrice: 12.5 }),
+    ]);
+  });
+
   it("does not include an unpriced range top in the design or cart total", () => {
     const rangeTop: SurfacePick = {
       id: 707,

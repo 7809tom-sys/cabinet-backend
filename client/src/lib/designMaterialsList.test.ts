@@ -123,6 +123,23 @@ describe("complete Designer materials list", () => {
     })]);
   });
 
+  it("lists only the final backsplash after a customer replaces an earlier tile", () => {
+    const materials = buildMaterialsListRows({
+      buildRows: [],
+      pricingLines: [
+        { masterCode: "PEL-183", name: "Prior Desert Clay", styleId: -183, styleLabel: "Tile & Mosaic", distributorId: null, tier: "homeowner", unitPrice: 9, qty: 3, category: "Tile & Mosaic" },
+        { masterCode: "PEL-164", name: "Final Concord Square", styleId: -164, styleLabel: "Tile & Mosaic", distributorId: null, tier: "homeowner", unitPrice: 12, qty: 3, category: "Tile & Mosaic" },
+      ],
+      selectedSurfaces: [
+        { id: 183, slug: "prior-desert-clay", name: "Prior Desert Clay", category: "Tile & Mosaic", sellPrice: 9, threeDActive: false },
+        { id: 164, slug: "final-concord-square", name: "Final Concord Square", category: "Tile & Mosaic", sellPrice: 12, threeDActive: true },
+      ],
+    });
+
+    expect(materials.map((row) => row.code)).toEqual(["PEL-164"]);
+    expect(materials[0]).toMatchObject({ description: "Final Concord Square", unitPrice: 12, lineTotal: 36 });
+  });
+
   it("keeps an island-placed 30-inch wall cabinet in the cabinet invoice and materials output", () => {
     const islandWallRows = buildMaterialsListRows({
       buildRows: [

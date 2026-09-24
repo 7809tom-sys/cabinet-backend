@@ -15,18 +15,19 @@ describe("Designer programmed photoreal material wiring", () => {
   });
 
 	  it("keeps all staged catalog imagery out of 3D texture props while providing verified Astoria, Bahia, and Acorn flooring maps", () => {
-	    expect(designToolSource).toContain("const activeFloor = [...surfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
 	    expect(designToolSource).toContain("return [...prev.filter((surface) => surfaceRole(surface) !== \"flooring\"), item];");
 	    expect(designToolSource).toContain("const activeFloor = [...prev].reverse().find((surface) => surfaceRole(surface) === \"flooring\");");
 	    expect(designToolSource).toContain("? [...selectedSurfaces].reverse().find((surface) => surfaceRole(surface) === \"flooring\")?.id === item.id");
-	    expect(designToolSource).toContain("const restoredSurfaces = normalizeActiveFloorSelection(d.selectedSurfaces as SelectedSurface[]);");
-	    expect(designToolSource).toContain("const surfaces = normalizeActiveFloorSelection(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);");
+	    expect(designToolSource).toContain("normalizeFinalMaterialSelections");
+	    expect(designToolSource).toContain("const restoredSurfaces = normalizeInstalledMaterialSelections(d.selectedSurfaces as SelectedSurface[]);");
+	    expect(designToolSource).toContain("const surfaces = normalizeInstalledMaterialSelections(Array.isArray(d.selectedSurfaces) ? d.selectedSurfaces : []);");
+	    expect(designToolSource).toContain("return [...prev.filter((surface) => surfaceRole(surface) !== \"backsplash\"), { ...item, threeDActive: true }];");
+	    expect(designToolSource).not.toContain("Preserve every selected tile in the quote");
 	    expect(designToolSource).toContain('? perimeterCountertopSurface');
 	    expect(designToolSource).toContain("const activeFlooringSurface = useMemo(");
 	    expect(designToolSource).toContain("const activeBacksplashSurface = useMemo(");
 	    expect(designToolSource).toContain("activeThreeDSurface(selectedSurfaces.filter((surface) => surfaceRole(surface) === \"backsplash\"))");
 	    expect(designToolSource).toContain("role === \"flooring\" ? activeFlooringSurface : activeBacksplashSurface");
-	    expect(designToolSource).toContain("setActiveThreeDSurface(backsplash, item.id)");
 	    expect(designToolSource).toContain("key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? \"none\"}");
 	    expect(designToolSource).toContain("threeDSurfaceProductIds.backsplash");
 	    expect(designToolSource).toContain("82: \"/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp\"");

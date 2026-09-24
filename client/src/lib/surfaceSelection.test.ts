@@ -10,6 +10,7 @@ import {
   guessBacksplashMaterialId,
   guessCountertopMaterialId,
   activeThreeDSurface,
+  normalizeFinalMaterialSelections,
   setActiveThreeDSurface,
   setCountertopSurfaceForScope,
   SURFACE_SELECTION_KEY,
@@ -100,6 +101,32 @@ describe("active 3D surface choice", () => {
       expect.objectContaining({ id: 164, threeDActive: false }),
     ]);
     expect(activeThreeDSurface(next)).toMatchObject({ id: 183, name: "Desert Clay" });
+  });
+});
+
+describe("final installed material selection", () => {
+  it("keeps only the current flooring and explicitly active backsplash while preserving fixtures and scoped countertops", () => {
+    const final = normalizeFinalMaterialSelections([
+      { id: 11, name: "Prior Oak", category: "Flooring" },
+      { id: 12, name: "Final Ash", category: "Flooring" },
+      { id: 21, name: "Prior Subway", category: "Tile & Mosaic", threeDActive: false },
+      { id: 22, name: "Final Mosaic", category: "Tile & Mosaic", threeDActive: true },
+      { ...countertop(31, "Wall Quartz"), countertopScope: "perimeter" as const },
+      { ...countertop(32, "Island Quartz"), countertopScope: "island" as const },
+      { id: 41, name: "Sink", category: "Sinks & Faucets", subCategory: "Sinks" },
+    ]);
+
+    expect(final.map((surface) => surface.id)).toEqual([12, 22, 31, 32, 41]);
+    expect(final.find((surface) => surface.id === 22)).toMatchObject({ threeDActive: true });
+  });
+
+  it("uses the latest legacy backsplash when no explicit active marker exists", () => {
+    const final = normalizeFinalMaterialSelections([
+      { id: 51, name: "Prior Tile", category: "Tile & Mosaic" },
+      { id: 52, name: "Final Tile", category: "Tile & Mosaic" },
+    ]);
+
+    expect(final).toEqual([expect.objectContaining({ id: 52, threeDActive: true })]);
   });
 });
 
