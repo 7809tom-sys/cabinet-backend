@@ -337,7 +337,7 @@ export const pelicanRouter = router({
       .select({
         category: pelicanProducts.category,
         productCount: sql<number>`count(*)`,
-        avgCost: sql<number>`avg(coalesce(${pelicanProducts.yourCost}, ${pelicanProducts.listPrice}))`,
+        avgCost: sql<number>`avg(case when ${pelicanProducts.yourCost} > 0 then ${pelicanProducts.yourCost} when ${pelicanProducts.listPrice} > 0 then ${pelicanProducts.listPrice} else null end)`,
       })
       .from(pelicanProducts)
       .where(eq(pelicanProducts.isActive, true))
