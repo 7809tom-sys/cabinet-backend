@@ -6,8 +6,10 @@ const source = readFileSync(new URL("./PelicanCatalogAdmin.tsx", import.meta.url
 describe("Pelican catalog administration price base", () => {
   it("shows the same verified positive source base used by public price resolvers", () => {
     expect(source).toContain('from "../../../../shared/surfacePricing"');
-    expect(source).toContain("positiveAuthorizedSurfaceBase(it)");
+    expect(source).toContain("authorizedSurfacePriceBasis(it)");
     expect(source).toContain(">Source Base<");
+    expect(source).toContain('"Verified cost"');
+    expect(source).toContain('"Supplier list"');
     expect(source).not.toContain("money(it.yourCost ?? it.listPrice)");
   });
 });

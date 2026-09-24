@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "sonner";
 import { AlertTriangle, CheckCircle2, Search, ShieldCheck, Star, Waves } from "lucide-react";
-import { positiveAuthorizedSurfaceBase } from "../../../../shared/surfacePricing";
+import { authorizedSurfacePriceBasis } from "../../../../shared/surfacePricing";
 
 const CATEGORIES = [
   "Sinks & Faucets",
@@ -235,6 +235,7 @@ export default function PelicanCatalogAdmin() {
               <TableBody>
                 {items.map((it: any) => {
                   const readiness = readinessById.get(it.id);
+                  const sourceBasis = authorizedSurfacePriceBasis(it);
                   return (
                   <TableRow key={it.id}>
                     <TableCell>
@@ -245,7 +246,12 @@ export default function PelicanCatalogAdmin() {
                       {it.category}
                     </TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {money(positiveAuthorizedSurfaceBase(it))}
+                      <div>{money(sourceBasis?.amount)}</div>
+                      {sourceBasis && (
+                        <div className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {sourceBasis.kind === "landed_cost" ? "Verified cost" : "Supplier list"}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
                       {money(it.sellPrice)}

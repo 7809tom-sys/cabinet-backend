@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { computeSellPrice, positivePelicanPriceBase } from "./routers/pelican";
 import { sellPriceOf } from "./routers/surfaces";
+import { authorizedSurfacePriceBasis } from "../shared/surfacePricing";
 
 describe("Pelican surface price base", () => {
   const category = "Flooring";
@@ -8,6 +9,7 @@ describe("Pelican surface price base", () => {
 
   it("uses a positive authorized list price when a legacy cost placeholder is zero", () => {
     const product = { category, yourCost: "0.00", listPrice: "12.50" };
+    expect(authorizedSurfacePriceBasis(product)).toEqual({ amount: 12.5, kind: "supplier_list" });
     expect(positivePelicanPriceBase(product)).toBe(12.5);
     expect(computeSellPrice(product, markups)).toBe(20.63);
     expect(sellPriceOf(product, markups)).toBe(20.63);
@@ -22,6 +24,7 @@ describe("Pelican surface price base", () => {
 
   it("uses a positive landed cost ahead of the list price", () => {
     const product = { category, yourCost: "8.00", listPrice: "12.50" };
+    expect(authorizedSurfacePriceBasis(product)).toEqual({ amount: 8, kind: "landed_cost" });
     expect(positivePelicanPriceBase(product)).toBe(8);
     expect(computeSellPrice(product, markups)).toBe(13.2);
   });
