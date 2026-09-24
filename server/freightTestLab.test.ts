@@ -117,4 +117,10 @@ describe("Operations Freight Test Lab", () => {
     expect(source).not.toContain("estimateFreight(");
   });
 
+  it("normalizes the legacy Worldwide Freight live-test class through the same safe allow-list", () => {
+    const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
+    expect(source).toContain('row.liveProvider === "worldwideexpress"');
+    expect(source).toContain('normalizeSpeedshipFreightClass(row.freightClass) ?? "175"');
+  });
+
 });

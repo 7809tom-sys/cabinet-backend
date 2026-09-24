@@ -23,6 +23,7 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain("resolveParcelShipmentMode(resolvedGroup.parcelPackages)");
     expect(source).toContain('liveProvider === "easypost" && parcelDecision.mode === "parcel"');
     expect(source).toContain("easypostParcelQuote(liveKey");
+    expect(source).toContain("eligibleCarriers: parcelDecision.eligibleCarriers");
     expect(source).toContain('transportMode: "parcel"');
     expect(source).toContain('transportMode: "ltl"');
     expect(source).toContain('source: "parcel"');

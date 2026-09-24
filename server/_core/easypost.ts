@@ -1,3 +1,5 @@
+import type { NormalizedParcelPackage, ParcelCarrier } from "../../shared/parcelEligibility";
+
 // ─── EasyPost live freight and parcel provider ──────────────────────────────────
 //
 // The application separates two truthfully different rating paths:
@@ -16,14 +18,13 @@ export interface LivePallet {
   weightLbs: number;
 }
 
-/** One verified carton for a parcel-carrier rate request. */
-export interface LiveParcel {
-  lengthIn: number;
-  widthIn: number;
-  heightIn: number;
-  weightLbs: number;
+/**
+ * One normalized carton for a parcel-carrier rate request. These are the exact
+ * whole-inch and whole-pound values already evaluated by the carrier screen.
+ */
+export type LiveParcel = Pick<NormalizedParcelPackage, "lengthIn" | "widthIn" | "heightIn" | "weightLbs"> & {
   label?: string | null;
-}
+};
 
 export interface LiveQuoteAddress {
   locality: string;
@@ -50,6 +51,8 @@ export interface LiveParcelQuoteRequest {
   fromZip: string;
   toZip: string;
   parcels: LiveParcel[];
+  /** Intersection of carrier envelopes that accepted every normalized carton. */
+  eligibleCarriers: ParcelCarrier[];
   residential?: boolean;
 }
 
@@ -126,9 +129,35 @@ function buildParcelPayload(req: Pick<LiveParcelQuoteRequest, "fromZip" | "toZip
   };
 }
 
-function isSupportedParcelCarrier(carrier: string | undefined): boolean {
+function supportedParcelCarrierKey(carrier: string | undefined): ParcelCarrier | null {
   const normalized = (carrier ?? "").toLowerCase();
-  return normalized.includes("ups") || normalized.includes("fedex") || normalized.includes("usps");
+  if (normalized.includes("ups")) return "ups";
+  if (normalized.includes("fedex")) return "fedex";
+  if (normalized.includes("usps")) return "usps";
+  return null;
+}
+
+function isEligibleParcelCarrier(carrier: string | undefined, eligibleCarriers: ParcelCarrier[]): boolean {
+  const key = supportedParcelCarrierKey(carrier);
+  return key != null && eligibleCarriers.includes(key);
+}
+
+function parcelCarrierLabel(carrier: ParcelCarrier): string {
+  if (carrier === "fedex") return "FedEx";
+  if (carrier === "usps") return "USPS";
+  return "UPS";
+}
+
+function formatParcelCarrierLabels(carriers: ParcelCarrier[]): string {
+  const labels = carriers.map(parcelCarrierLabel);
+  if (labels.length < 2) return labels[0] ?? "approved";
+  if (labels.length === 2) return `${labels[0]} or ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, or ${labels.at(-1)}`;
+}
+
+function isNormalizedParcel(parcel: LiveParcel): boolean {
+  return [parcel.lengthIn, parcel.widthIn, parcel.heightIn, parcel.weightLbs]
+    .every((value) => Number.isInteger(value) && value > 0);
 }
 
 function noParcelRate(error: string): LiveParcelQuoteResult {
@@ -234,6 +263,10 @@ export async function easypostParcelQuote(
   if (!req.fromZip) return noParcelRate("Missing origin ZIP");
   if (!req.toZip) return noParcelRate("Missing destination ZIP");
   if (!req.parcels.length) return noParcelRate("No verified parcels to quote");
+  if (!req.eligibleCarriers.length) return noParcelRate("No carrier passed the verified parcel eligibility screen.");
+  if (req.parcels.some((parcel) => !isNormalizedParcel(parcel))) {
+    return noParcelRate("Parcel quotes require the positive whole-inch and whole-pound carton values approved by the parcel eligibility screen.");
+  }
 
   const packages: LiveParcelQuoteResult["packages"] = [];
   try {
@@ -264,7 +297,7 @@ export async function easypostParcelQuote(
         }>;
       };
       const candidates = (data.rates ?? [])
-        .filter((rate) => isSupportedParcelCarrier(rate.carrier))
+        .filter((rate) => isEligibleParcelCarrier(rate.carrier, req.eligibleCarriers))
         .map((rate) => ({
           amountCents: Math.round(Number(rate.rate) * 100),
           carrier: rate.carrier ?? "",
@@ -275,7 +308,10 @@ export async function easypostParcelQuote(
         .filter((rate) => Number.isFinite(rate.amountCents) && rate.amountCents > 0)
         .sort((a, b) => a.amountCents - b.amountCents);
       const best = candidates[0];
-      if (!best) return noParcelRate(`No UPS, FedEx, or USPS parcel rate returned for ${parcel.label ?? "a carton"}`);
+      if (!best) {
+        const carrierNames = formatParcelCarrierLabels(req.eligibleCarriers);
+        return noParcelRate(`No live ${carrierNames} parcel rate returned for ${parcel.label ?? "a carton"}`);
+      }
       packages.push({ label: parcel.label ?? null, ...best });
     }
   } catch (error) {

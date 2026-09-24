@@ -17,6 +17,7 @@ const PARCEL_REQ: LiveParcelQuoteRequest = {
   fromZip: "30303",
   toZip: "90210",
   residential: true,
+  eligibleCarriers: ["ups", "fedex", "usps"],
   parcels: [
     { lengthIn: 36, widthIn: 24, heightIn: 7, weightLbs: 48, label: "B12" },
     { lengthIn: 24, widthIn: 24, heightIn: 7, weightLbs: 36, label: "B24" },
@@ -131,5 +132,34 @@ describe("easypostParcelQuote", () => {
     expect(result.ok).toBe(false);
     expect(result.error).toMatch(/UPS, FedEx, or USPS/i);
     expect(result.packages).toEqual([]);
+  });
+
+  it("filters a live response to carriers that passed every carton's eligibility screen", async () => {
+    const fetchMock = vi.fn(async () => jsonResponse({
+      rates: [
+        { rate: "12.00", carrier: "USPS", service: "GroundAdvantage" },
+        { rate: "19.00", carrier: "UPS", service: "Ground" },
+      ],
+    }));
+
+    const result = await easypostParcelQuote("EZTK_test", {
+      ...PARCEL_REQ,
+      eligibleCarriers: ["ups"],
+      parcels: [PARCEL_REQ.parcels[0]],
+    }, fetchMock as unknown as typeof fetch);
+
+    expect(result).toMatchObject({ ok: true, amountCents: 1900, carrier: "UPS", service: "Ground" });
+  });
+
+  it("rejects unnormalized carton values before contacting a live carrier", async () => {
+    const fetchMock = vi.fn();
+    const result = await easypostParcelQuote("EZTK_test", {
+      ...PARCEL_REQ,
+      parcels: [{ lengthIn: 36.25, widthIn: 24, heightIn: 7, weightLbs: 48, label: "B12" }],
+    }, fetchMock as unknown as typeof fetch);
+
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/whole-inch and whole-pound/i);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

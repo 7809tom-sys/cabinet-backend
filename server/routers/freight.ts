@@ -1415,6 +1415,7 @@ export const freightRouter = router({
               fromZip: group.originZip,
               toZip: input.destinationZip,
               parcels: parcelCartons,
+              eligibleCarriers: parcelDecision.eligibleCarriers,
               residential: input.accessorials?.residential,
             });
             const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
@@ -1913,7 +1914,9 @@ export const freightRouter = router({
           heightIn: p.heightIn,
           weightLbs: p.weightLbs,
         })),
-        freightClass: row.freightClass,
+        freightClass: row.liveProvider === "worldwideexpress"
+          ? normalizeSpeedshipFreightClass(row.freightClass) ?? "175"
+          : row.freightClass ?? "175",
         residential: input.residential,
         },
       });
