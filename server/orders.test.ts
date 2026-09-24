@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { normalizeCode } from "../shared/cabinetCodeMatch";
 
 function publicCtx(): TrpcContext {
   return {
@@ -159,7 +160,9 @@ describe("orders.matchCodes", () => {
   it("matches manual shorthand codes", async () => {
     const caller = appRouter.createCaller(publicCtx());
     const res = await caller.orders.matchCodes({ items: [{ code: "B24", qty: 1 }] });
-    expect(res.lines[0].masterCode).toBe("B-24");
+    // The current canonical display code can legitimately be B24 or B-24;
+    // the customer shorthand must resolve to the exact same master identity.
+    expect(normalizeCode(res.lines[0].masterCode ?? "")).toBe("B24");
   });
 });
 

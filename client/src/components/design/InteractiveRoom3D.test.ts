@@ -2240,6 +2240,17 @@ describe("interactive 3D room scene helpers", () => {
     expect(existingCabinetTransform(erb, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
   });
 
+  it("mirrors a WER wall easy-reach corner like the matching plan footprint instead of reversing it in 3D", () => {
+    const room = { width: 120, depth: 120, ceilingHeight: 96 } as never;
+    const wer = {
+      uid: "wer2442-top-right", cabinetId: 2442, masterCode: "WER2442", description: "Wall Easy Reach Corner",
+      placement: "wall", x: 96, y: 0, width: 24, depth: 12, height: 42, rotation: 90, numberOfDoors: 2, numberOfDrawers: 0,
+    } as never;
+    // The 2D corner is correct at top-right. Three.js must mirror the clockwise
+    // plan turn so the easy-reach's two open faces point back into the room.
+    expect(existingCabinetTransform(wer, room).rotation).toBeCloseTo(Math.PI * 1.5, 12);
+  });
+
   it("keeps a snapped ERB36 seated at its actual diagonal custom-wall vertex in 3D", () => {
     const room: RoomData = {
       width: 180,

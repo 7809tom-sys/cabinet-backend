@@ -501,7 +501,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   );
   const panelDrawerMode = isMobile || isCompactWorkspace;
   const [, navigate] = useLocation();
-  const { addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
+  const { items: cartItems, sourceDesignId: cartSourceDesignId, addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
     if (typeof window === "undefined") return null;
     const p = new URLSearchParams(window.location.search).get("panel");
@@ -3443,6 +3443,16 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       toast.info(t("dt_cart_nothing"));
       return;
     }
+    // A saved design must replace an empty (or already synchronized) cart so
+    // checkout preserves its exact plan ID. That links the authoritative order
+    // merchandise subtotal and signed freight quote back to this plan for CRM;
+    // appending a plan to unrelated cart items deliberately drops that link.
+    if (currentSavedDesignId != null && (cartItems.length === 0 || cartSourceDesignId === currentSavedDesignId)) {
+      replaceWithDesignItems(cartableLines, currentSavedDesignId);
+      toast.success(t("dt_cart_added", { n: cartableLines.reduce((count, line) => count + line.qty, 0) }));
+      navigate("/cart");
+      return;
+    }
     // If the cart already holds items from a DIFFERENT distributor, adding would
     // be rejected line-by-line. Offer to clear and start fresh with this design.
     if (
@@ -3468,7 +3478,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     } else {
       toast.error(t("dt_cart_failed"));
     }
-  }, [cartableLines, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, navigate, t]);
+  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, t]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
     if (cartableLines.length === 0) {

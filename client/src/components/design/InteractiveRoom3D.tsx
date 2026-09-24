@@ -4896,12 +4896,12 @@ export function threeDRoomFacingRotation(
 			  if (explicitAngle === 45 || explicitAngle === 135 || explicitAngle === 225 || explicitAngle === 315) return threeDPlanRotation(fallbackRotation);
 	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
-  const code = `${cabinet.masterCode ?? ""}`.replace(/[^a-z0-9]/gi, "").toUpperCase();
   // L-corner carcasses use a local notch/front convention opposite the clockwise
-  // 2D corner turn. Mirror that turn so both Lazy Susan and easy-reach fronts
-  // face the room at left- and right-hand corners, while their backs stay at the
-  // two adjoining walls.
-  if (kind === "l-shape" && /^(?:LSB?|ERB|BER)\d/.test(code)) return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
+  // 2D corner turn. Mirror every shared L-corner classification so lazy-Susan
+  // and both base and wall easy-reach families (including WER) keep their
+  // fronts toward the room at left- and right-hand corners while their backs
+  // stay against the two adjoining walls.
+  if (kind === "l-shape") return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
 	  // Non-standard corner bodies retain their saved 2D quarter-turn so their
 	  // authored specialty fronts and physical footprints stay on the same walls.
 	  // A blind corner is the exception: its carcass is rectangular, so the saved
