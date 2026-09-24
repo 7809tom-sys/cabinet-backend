@@ -568,12 +568,32 @@ describe("interactive 3D room scene helpers", () => {
 						curated: true, proceduralFallback: false, physicalWidthIn: 12.05, physicalDepthIn: 12.05,
 						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 12.05, backsplashGroutJointIn: 1 / 16,
 					});
-				expect(threeDProductMaterialSource("backsplash", "Golden Trace", "/manus-storage/pelican/244_approved.png")).toMatchObject({
+					expect(threeDProductMaterialSource("backsplash", "Golden Trace", "/manus-storage/pelican/244_approved.png")).toMatchObject({
 						url: "/manus-storage/golden_trace_11_81x11_81_marble_aluminum_mosaic_8ce14587.webp", key: "golden-trace-11.81in-marble-aluminum-mosaic",
 						curated: true, proceduralFallback: false, physicalWidthIn: 11.81, physicalDepthIn: 11.81,
 						backsplashPatternKind: "interlocking-mosaic", backsplashModuleIn: 11.81, backsplashGroutJointIn: 1 / 16,
 					});
-		  });
+					const sourceIdentityCases = [
+						{ productId: 47, key: "arctic-vail-10.71in-interlocking-hex-mosaic", pattern: "interlocking-mosaic", moduleIn: 10.71 },
+						{ productId: 142, key: "carbon-hex-12.80in-marble-hex-mosaic", pattern: "interlocking-mosaic", moduleIn: 12.8 },
+						{ productId: 144, key: "carrara-subway-11.97in-running-bond-mosaic", pattern: "subway-mosaic", moduleIn: 11.97 },
+						{ productId: 149, key: "cloudline-marble-11.81in-staggered-glass-marble-mosaic", pattern: "subway-mosaic", moduleIn: 11.81 },
+						{ productId: 164, key: "concord-square-11.81in-glass-marble-mosaic", pattern: "interlocking-mosaic", moduleIn: 11.81 },
+						{ productId: 183, key: "desert-clay-11.81in-interlocking-mosaic", pattern: "interlocking-mosaic", moduleIn: 11.81 },
+						{ productId: 242, key: "glacier-shift-12.05in-recycled-glass-herringbone", pattern: "interlocking-mosaic", moduleIn: 12.05 },
+						{ productId: 244, key: "golden-trace-11.81in-marble-aluminum-mosaic", pattern: "interlocking-mosaic", moduleIn: 11.81 },
+					] as const;
+					for (const patternCase of sourceIdentityCases) {
+						expect(threeDProductMaterialSource("backsplash", "Legacy renamed tile", null, { productId: patternCase.productId })).toMatchObject({
+							key: patternCase.key,
+							curated: true,
+							proceduralFallback: false,
+							backsplashPatternKind: patternCase.pattern,
+							backsplashModuleIn: patternCase.moduleIn,
+							backsplashGroutJointIn: 1 / 16,
+						});
+					}
+			  });
 
 		  it("keeps adjacent Calacatta countertop pieces continuous in one physical slab coordinate system", () => {
 		    const first = threeDCountertopSlabTextureTransform({ centerXIn: 12, centerZIn: 12.75, localWidthIn: 24, localDepthIn: 25.5, rotation: 0 });

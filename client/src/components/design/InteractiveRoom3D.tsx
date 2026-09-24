@@ -731,13 +731,13 @@ export function threeDProductMaterialSource(
 	role: ThreeDProductSurfaceRole,
 	productName: string | null | undefined,
 	originalUrl: string | null | undefined,
-	flooringMetadata?: { productId?: number | null; category?: string | null; subCategory?: string | null; size?: string | null },
+	surfaceMetadata?: { productId?: number | null; category?: string | null; subCategory?: string | null; size?: string | null },
 ): ThreeDProductMaterialSource | null {
 	const normalizedName = (productName ?? "").trim().toLowerCase();
-	const productId = flooringMetadata?.productId ?? null;
-  const flooringProfile = role === "flooring"
-    ? threeDFlooringPatternProfile({ name: productName, ...flooringMetadata })
-    : null;
+	const productId = surfaceMetadata?.productId ?? null;
+	const flooringProfile = role === "flooring"
+		? threeDFlooringPatternProfile({ name: productName, ...surfaceMetadata })
+		: null;
 	if (role === "flooring" && (normalizedName === "bahia 12mil vinyl flooring" || productId === 82)) {
     return {
       url: THREE_D_BAHIA_12MIL_FLOOR_URL,
@@ -798,7 +798,7 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: null,
     };
   }
-	if (role === "backsplash" && normalizedName === "desert clay") {
+	if (role === "backsplash" && (normalizedName === "desert clay" || productId === 183)) {
 	  return {
 	    url: THREE_D_DESERT_CLAY_MOSAIC_URL,
       key: "desert-clay-11.81in-interlocking-mosaic",
@@ -816,7 +816,7 @@ export function threeDProductMaterialSource(
 	    backsplashGroutJointIn: 1 / 16,
 	  };
 	}
-	if (role === "backsplash" && normalizedName === "arctic vail") {
+	if (role === "backsplash" && (normalizedName === "arctic vail" || productId === 47)) {
 	  return {
 	    url: THREE_D_ARCTIC_VAIL_MOSAIC_URL,
 	    key: "arctic-vail-10.71in-interlocking-hex-mosaic",
@@ -834,7 +834,7 @@ export function threeDProductMaterialSource(
 	    backsplashGroutJointIn: 1 / 16,
 	  };
 	}
-	if (role === "backsplash" && normalizedName === "carbon hex") {
+	if (role === "backsplash" && (normalizedName === "carbon hex" || productId === 142)) {
 	  return {
 	    url: THREE_D_CARBON_HEX_MOSAIC_URL,
 	    key: "carbon-hex-12.80in-marble-hex-mosaic",
@@ -882,7 +882,7 @@ export function threeDProductMaterialSource(
       staggerOffsetsIn: null,
 	  };
 	}
-	if (role === "backsplash" && normalizedName === "carrara subway") {
+	if (role === "backsplash" && (normalizedName === "carrara subway" || productId === 144)) {
 		return {
 			url: THREE_D_CARRARA_SUBWAY_MOSAIC_URL,
 			key: "carrara-subway-11.97in-running-bond-mosaic",
@@ -900,7 +900,7 @@ export function threeDProductMaterialSource(
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}
-	if (role === "backsplash" && normalizedName === "cloudline marble") {
+	if (role === "backsplash" && (normalizedName === "cloudline marble" || productId === 149)) {
 		return {
 			url: THREE_D_CLOUDLINE_MARBLE_MOSAIC_URL,
 			key: "cloudline-marble-11.81in-staggered-glass-marble-mosaic",
@@ -918,7 +918,7 @@ export function threeDProductMaterialSource(
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}
-	if (role === "backsplash" && normalizedName === "concord square") {
+	if (role === "backsplash" && (normalizedName === "concord square" || productId === 164)) {
 		return {
 			url: THREE_D_CONCORD_SQUARE_MOSAIC_URL,
 			key: "concord-square-11.81in-glass-marble-mosaic",
@@ -936,7 +936,7 @@ export function threeDProductMaterialSource(
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}
-	if (role === "backsplash" && normalizedName === "glacier shift") {
+	if (role === "backsplash" && (normalizedName === "glacier shift" || productId === 242)) {
 		return {
 			url: THREE_D_GLACIER_SHIFT_HERRINGBONE_URL,
 			key: "glacier-shift-12.05in-recycled-glass-herringbone",
@@ -954,7 +954,7 @@ export function threeDProductMaterialSource(
 			backsplashGroutJointIn: 1 / 16,
 		};
 	}
-	if (role === "backsplash" && normalizedName === "golden trace") {
+	if (role === "backsplash" && (normalizedName === "golden trace" || productId === 244)) {
 		return {
 			url: THREE_D_GOLDEN_TRACE_MOSAIC_URL,
 			key: "golden-trace-11.81in-marble-aluminum-mosaic",
@@ -7553,7 +7553,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      catalogIslandCountertopName ?? catalogCountertopName,
 		      catalogIslandCountertopImageUrl ?? catalogCountertopImageUrl,
 		    );
-	    const backsplashSource = threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl);
+	    const backsplashSource = threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl, {
+	      productId: catalogBacksplashProductId,
+	    });
 	    const floorTexture = loadSurfaceTexture(floorSource, "flooring", room.width, room.depth);
 		    const countertopTexture = loadSurfaceTexture(countertopSource, "countertop", room.width, room.depth);
 		    const islandCountertopTexture = loadSurfaceTexture(islandCountertopSource, "countertop", room.width, room.depth);

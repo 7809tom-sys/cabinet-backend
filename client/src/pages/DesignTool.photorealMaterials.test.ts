@@ -41,9 +41,11 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
     expect(designToolSource).toContain("catalogFlooringCategory={threeDFlooringProductMetadata?.category}");
     expect(designToolSource).toContain("catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}");
-    expect(designToolSource).toContain("catalogFlooringSize={threeDFlooringProductMetadata?.size}");
-    expect(designToolSource).toContain("catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}");
-    expect(designToolSource).toContain("const threeDSurfaceProductIds = useMemo(() =>");
+	    expect(designToolSource).toContain("catalogFlooringSize={threeDFlooringProductMetadata?.size}");
+	    expect(designToolSource).toContain("catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}");
+	    expect(rendererSource).toContain('threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl, {');
+	    expect(rendererSource).toContain("productId: catalogBacksplashProductId");
+	    expect(designToolSource).toContain("const threeDSurfaceProductIds = useMemo(() =>");
 	    expect(designToolSource).toContain("catalogCountertopProductId={threeDSurfaceProductIds.countertop}");
 	    expect(designToolSource).toContain("catalogIslandCountertopProductId={threeDIslandCountertop.productId}");
 	    expect(designToolSource).toContain("catalogIslandCountertopImageUrl={threeDIslandCountertop.imageUrl}");
