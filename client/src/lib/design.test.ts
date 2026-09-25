@@ -627,6 +627,11 @@ describe("refrigerator surround enclosure", () => {
     expect(enclosure).toEqual({ mountBottom: 72, top: 96 });
     expect(enclosure.top).toBe(96);
   });
+
+  it("holds the same 72-inch refrigerator upper datum under a taller ceiling", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
+    expect(refrigeratorSurroundElevation(room, 70, 24)).toEqual({ mountBottom: 72, top: 96 });
+  });
 });
 
 describe("per-wall ceiling (flat + sloped)", () => {
@@ -1919,7 +1924,7 @@ describe("countertopSurfaces", () => {
     expect(s.width).toBe(42); // 36 + 6" trade maximum
   });
 
-  it("uses an ERB36 at a 45-degree peninsula bend to support two mitered run slabs plus its real exterior leg", () => {
+  it("uses an ERB36 at a 45-degree peninsula bend to support the unified countertop on both connected runs", () => {
     const parent = { id: "erb-counter-parent", parentWall: "top" as const, startOffset: 72, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "right" as const };
     const child = { id: "erb-counter-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
     const room: RoomData = { ...ROOM_12x10, peninsulaRuns: [parent, child] };
@@ -1939,29 +1944,17 @@ describe("countertopSurfaces", () => {
     expect(peninsulaCornerCabinetSupportsCountertop(erb, parent, room)).toBe(true);
     expect(peninsulaCornerCabinetSupportsCountertop(erb, child, room)).toBe(true);
     const surfaces = countertopSurfaces([erb, returnBase], room);
-    expect(surfaces).toHaveLength(3);
-    const parentSlab = surfaces.find((surface) => surface.peninsulaRunId === parent.id && !surface.peninsulaCornerSupportExtension)!;
-    const childSlab = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
-    const exteriorLeg = surfaces.find((surface) => surface.peninsulaCornerSupportExtension)!;
-    expect(parentSlab).toMatchObject({ kind: "base", miteredEnd: true });
-    expect(childSlab).toMatchObject({ kind: "base", miteredStart: true });
-    expect(exteriorLeg).toMatchObject({ kind: "base", peninsulaRunId: parent.id, peninsulaCornerSupportExtension: true });
-    // The two base-run slabs share the same physical 45° edge. The ERB's real
-    // exterior L leg is retained as its own supported piece instead of being
-    // swallowed into an invented seamless polygon.
-    const parentPolygon = countertopSurfacePlanPolygon(parentSlab);
-    const childPolygon = countertopSurfacePlanPolygon(childSlab);
-    const exteriorPolygon = countertopSurfacePlanPolygon(exteriorLeg);
-    const sharedMiterPoints = parentPolygon.filter((point) => childPolygon.some((other) => (
-      Math.hypot(point.x - other.x, point.y - other.y) < 1e-6
-    )));
-    // A real miter seam is a shared edge (two endpoints), not a one-point
-    // contact and not an invented seamless polygon through the L corner.
-    expect(sharedMiterPoints).toHaveLength(2);
-    expect(exteriorPolygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
-    expect(countertopPolygonSelfIntersects(parentPolygon)).toBe(false);
-    expect(countertopPolygonSelfIntersects(childPolygon)).toBe(false);
-    expect(countertopPolygonSelfIntersects(exteriorPolygon)).toBe(false);
+    expect(surfaces).toHaveLength(1);
+    expect(surfaces).toMatchObject([{
+      kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id],
+    }]);
+    const polygon = countertopSurfacePlanPolygon(surfaces[0]!);
+    // The usual 25½-inch peninsula run reaches only x=97.5 here. The ERB's
+    // real exterior L leg ends at x=108 and carries the standard 1½-inch edge;
+    // its full cabinet-supported footprint must survive the shared 45° union.
+    expect(polygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
+    expect(countertopPolygonSelfIntersects(polygon)).toBe(false);
+    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
   });
 });
 
@@ -2601,10 +2594,10 @@ describe("wall cabinet elevation rules", () => {
     expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a short 12in bridge wall cabinet tops at 84in (bottom 72)", () => {
+  it("a short 12in ordinary wall cabinet starts at the standard 54in datum", () => {
     const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
-    expect(box.bottom).toBe(72);
-    expect(box.bottom + box.height).toBe(84);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(66);
   });
 
   it("a tall 36in wall cabinet is bottom-anchored at 54in (tops at 90)", () => {
@@ -2700,21 +2693,20 @@ describe("wall cabinet elevation rules", () => {
 	  });
 
   // ── Taller-ceiling behavior ───────────────────────────────────────────────
-  it("keeps the 84in top line on a standard 8ft ceiling (room passed)", () => {
+  it("keeps a short ordinary wall cabinet at 54in on a standard 8ft ceiling", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
     const box = elevationBox(bridge, room);
-    expect(box.bottom).toBe(72);
-    expect(box.bottom + box.height).toBe(84);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(66);
   });
 
-  it("hangs a short bridge upper higher on a 10ft ceiling so it finishes near the ceiling", () => {
+  it("keeps a short ordinary wall cabinet at 54in on a 10ft ceiling", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
-    // topLine = 120 - 12 reveal = 108; a 12in bridge bottoms at 96, tops at 108.
     const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
     const box = elevationBox(bridge, room);
-    expect(box.bottom).toBe(96);
-    expect(box.bottom + box.height).toBe(108);
+    expect(box.bottom).toBe(54);
+    expect(box.bottom + box.height).toBe(66);
   });
 
   it("hangs a glass stacker from the higher top line on a 9ft ceiling", () => {
@@ -3435,7 +3427,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 
   it("flags a 70-inch refrigerator that overlaps a wall cabinet in the 54-inch upper zone", () => {
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 0, y: 0, width: 36, depth: 24, height: 70 });
-    const wall = cab({ uid: "wall", masterCode: "WR3624", description: "36 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 30 });
+    const wall = cab({ uid: "wall", masterCode: "WR3624", description: "36 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 36, depth: 12, height: 30, mountBottom: 54 });
 
     expect(hasCollision(fridge, [wall])).toBe(true);
     expect(conflictingUids([fridge, wall])).toEqual(new Set(["fridge", "wall"]));
@@ -3461,7 +3453,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
 
-  it("aligns a short WR3624 top with an adjoining 42-inch wall-cabinet run", () => {
+  it("keeps a short WR3624 two inches above a resized refrigerator beside an adjoining wall-cabinet run", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const adjoining = cab({ uid: "left-wall", masterCode: "W-1242", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 68 });
@@ -3469,11 +3461,24 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 
     const normalized = normalizeRefrigeratorBayUppers([adjoining, fridge, fridgeWall], room);
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
-    const adjoiningBox = elevationBox(adjoining, room);
     const upperBox = elevationBox(normalizedUpper, room);
 
+    expect(normalizedUpper.mountBottom).toBe(70);
+    expect(upperBox).toEqual({ bottom: 70, height: 24 });
+  });
+
+  it("does not pull a refrigerator upper above its 72-inch datum for a taller adjoining wall cabinet", () => {
+    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    const adjoining = cab({ uid: "left-tall-wall", masterCode: "W-1248", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 48, mountBottom: 54 });
+    const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 70 });
+    const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 12, y: 0, width: 36, depth: 24, height: 24 });
+
+    const normalized = normalizeRefrigeratorBayUppers([adjoining, fridge, fridgeWall], room);
+    const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
+
+    expect(elevationBox(adjoining, room)).toEqual({ bottom: 54, height: 48 });
     expect(normalizedUpper.mountBottom).toBe(72);
-    expect(upperBox.bottom + upperBox.height).toBe(adjoiningBox.bottom + adjoiningBox.height);
+    expect(elevationBox(normalizedUpper, room)).toEqual({ bottom: 72, height: 24 });
   });
 
   it("raises legacy refrigerator end panels to the same 96-inch cap as the refrigerator cabinet", () => {
@@ -3489,7 +3494,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 96 });
   });
 
-  it("keeps either refrigerator end panel on the floor when a legacy adjacent base left a raised mount height", () => {
+  it("keeps each refrigerator end panel on the floor at its selected source height", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
     for (const uid of ["left-panel", "right-panel"]) {
       const panel = cab({
@@ -3504,7 +3509,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
         height: 60,
         mountBottom: 36,
       });
-      expect(elevationBox(panel, room)).toEqual({ bottom: 0, height: 108 });
+      expect(elevationBox(panel, room)).toEqual({ bottom: 0, height: 60 });
     }
   });
 

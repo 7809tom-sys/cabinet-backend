@@ -5302,13 +5302,7 @@ export function addThreeDPeninsulaCountertops(
     const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     if (!run) continue;
     const isUnifiedAssembly = Boolean(surface.peninsulaRunIds && surface.peninsulaRunIds.length > 1);
-    // A polygon is authored in the surface's own width/depth frame.  This is
-    // normally the run span, but a real ERB/BER exterior L leg is shorter than
-    // its owning run.  Using the full run length would translate that corner
-    // piece sideways in 3D, visibly separating it from the cabinet it covers.
-    const length = Math.max(0.1, surface.polygon?.length
-      ? surface.width
-      : isUnifiedAssembly ? surface.width : surface.linearInches ?? run.length);
+    const length = Math.max(0.1, isUnifiedAssembly ? surface.width : surface.linearInches ?? run.length);
     const depth = threeDPeninsulaCountertopPhysicalDepth(surface, length);
     const planRotation = (surface.rotation ?? 0) * Math.PI / 180;
     const rotation = threeDPlanRotation(planRotation);
@@ -5321,34 +5315,11 @@ export function addThreeDPeninsulaCountertops(
       slabDepthIn: Number(countertopTexture.userData?.physicalDepthIn) || 79,
     }) : null;
     const material = new THREE.MeshPhysicalMaterial({ color: mappedTexture ? "#ffffff" : counterColor, map: mappedTexture, ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)) });
-    material.userData = {
-      selectedSurfaceRole: "countertop",
-      // Each 45° return is represented by its actual fabricated run slab;
-      // material identity must not imply an invented seamless corner piece.
-      peninsulaFabricatedSlab: true,
-      materialOnlyNoGeometryChange: true,
-    };
+    material.userData = { selectedSurfaceRole: "countertop", peninsulaContinuousSlab: true, materialOnlyNoGeometryChange: true };
     const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
     slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-    slab.userData = {
-      peninsulaCountertop: true,
-      peninsulaRunId: run.id,
-      peninsulaRunIds: surface.peninsulaRunIds ?? [run.id],
-      unifiedPeninsulaAssembly: isUnifiedAssembly,
-      fabricatedCountertopPiece: !isUnifiedAssembly,
-      physicalMiterSeam: Boolean(surface.miteredStart || surface.miteredEnd),
-      peninsulaCornerSupportExtension: Boolean(surface.peninsulaCornerSupportExtension),
-      runStartIn: surface.runStartIn ?? 0,
-      physicalDepthIn: depth,
-      seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room),
-      ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room),
-      ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room),
-      bridgesCabinetVoids: true,
-      preservesRangeOpening: true,
-      miteredStart: surface.miteredStart ?? false,
-      miteredEnd: surface.miteredEnd ?? false,
-    };
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: true, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
     root.add(slab);
     const terminalRun = surface.peninsulaTerminalRunId
       ? room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? run

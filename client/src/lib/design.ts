@@ -4246,11 +4246,12 @@ export function elevationBox(
   p: PlacedCabinet,
   room?: { ceilingHeight?: number } | null
 ): { bottom: number; height: number } {
-  // Refrigerator enclosure panels are full architectural skins. They must never
-  // inherit a neighboring base cabinet's mount height from a legacy surround or
-  // catalogue import: both sides run from finished floor to the room ceiling.
+  // Refrigerator enclosure panels are full architectural skins. They never
+  // inherit a neighboring base cabinet's mount height or an arbitrary room
+  // ceiling: their selected/source height is kept until assembly normalization
+  // sizes the pair to the refrigerator bridge's physical cap.
   if (isRefrigeratorEndPanel(p)) {
-    return { bottom: 0, height: room?.ceilingHeight ?? 96 };
+    return { bottom: 0, height: placedHeight(p) };
   }
   // A shallow wall cabinet used on an island is a counter-height opposing face,
   // not a room-wall upper. Its top aligns with the adjoining base cabinet box.
@@ -4328,20 +4329,17 @@ export function elevationBox(
         return { bottom: STD.COUNTERTOP_HEIGHT, height: h };
       }
     }
-    // 3) SHORT wall cabinets (under 30" tall — e.g. 12"/15"/18"/24" bridges and
-    //    over-appliance boxes) ride HIGH: they stay TOP-anchored at the upper-run
-    //    top line so their TOP finishes flush with the standard uppers and their
-    //    bottom moves UP the wall accordingly (a 12" bottoms at 72" on an 8ft
-    //    ceiling, higher on a taller one). Clamped at 0 so an oversized box never
-    //    goes below the floor.
-    if (h < 30) {
-      return { bottom: Math.max(0, topLine - h), height: h };
+    // 3) Dedicated refrigerator uppers have one appliance-relative exception:
+    //    absent a saved/normalized custom height, a WR cabinet begins at 72"
+    //    above the floor for the standard 70" refrigerator. A live matching
+    //    refrigerator remains authoritative through normalizeRefrigeratorBayUppers.
+    if (isRefrigeratorWallCabinet(p)) {
+      return { bottom: 72, height: h };
     }
-    // 4) Standard/tall wall cabinets (30"+) are BOTTOM-anchored at the standard
-    //    54" mount line (18" above a 36" counter), so 30", 36" and 42" boxes all
-    //    start their bottom at 54" and simply rise higher toward the ceiling as
-    //    they get taller (a 30" tops at 84", a 42" tops at 96"). Users who want a
-    //    different position set an explicit mountBottom (branch #1), which wins.
+    // 4) All ordinary wall cabinets — including short bridge boxes — are
+    //    BOTTOM-anchored at the standard 54" mount line (18" above a 36"
+    //    counter). Users who want a different position set an explicit
+    //    mountBottom (branch #1), which wins.
     return { bottom: WALL_MOUNT_BOTTOM, height: h };
   }
   // baseTop: specialty items (knee drawers, spice racks) that sit in the
@@ -6195,49 +6193,31 @@ export function reconcileRefrigeratorAssemblies(
  * the shared top lets the designer size every refrigerator surround piece from
  * the exact same physical elevation.
  */
-export function refrigeratorSurroundElevation(room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
-  const enclosure = room ?? DEFAULT_ROOM;
-  const mountBottom = Math.max(fridgeTop + 2, wallCabinetTopLine(enclosure) - upperHeight);
+export function refrigeratorSurroundElevation(_room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
+  // The refrigerator establishes this assembly's vertical datum. The bridge
+  // begins two inches above the appliance (72 inches above the floor for the
+  // confirmed 70-inch refrigerator) irrespective of adjacent uppers or room
+  // ceiling height, then the finished side panels use the same cap.
+  const mountBottom = fridgeTop + 2;
   return { mountBottom, top: mountBottom + upperHeight };
-}
-
-function adjoiningWallCabinetTop(
-  cabinet: PlacedCabinet,
-  placed: PlacedCabinet[],
-  room: RoomData,
-): number | null {
-  const side = cabinetWall(cabinet, room);
-  const cabinetStart = wallRunOffset(cabinet, side, room);
-  const cabinetEnd = cabinetStart + wallRunSpan(cabinet, side, room);
-  let closestGap = Number.POSITIVE_INFINITY;
-  let adjoiningTop: number | null = null;
-  for (const neighbor of placed) {
-    if (neighbor.uid === cabinet.uid || neighbor.placement !== "wall" || isStacker(neighbor)) continue;
-    if (cabinetWall(neighbor, room) !== side || !isAgainstWall(neighbor, side, room)) continue;
-    const start = wallRunOffset(neighbor, side, room);
-    const end = start + wallRunSpan(neighbor, side, room);
-    const gap = Math.min(Math.abs(end - cabinetStart), Math.abs(start - cabinetEnd));
-    if (gap > CABINET_SEAM_SNAP_IN + COLLISION_EPSILON_IN) continue;
-    const box = elevationBox(neighbor, room);
-    const top = box.bottom + box.height;
-    if (gap < closestGap - COLLISION_EPSILON_IN || (Math.abs(gap - closestGap) <= COLLISION_EPSILON_IN && top > (adjoiningTop ?? 0))) {
-      closestGap = gap;
-      adjoiningTop = top;
-    }
-  }
-  return adjoiningTop;
 }
 
 function refrigeratorUpperMountBottom(
   cabinet: PlacedCabinet,
-  placed: PlacedCabinet[],
+  _placed: PlacedCabinet[],
   room: RoomData,
   fridgeTop: number,
   upperHeight: number,
 ): number {
-  const surroundMount = refrigeratorSurroundElevation(room, fridgeTop, upperHeight).mountBottom;
-  const adjoiningTop = adjoiningWallCabinetTop(cabinet, placed, room);
-  return Math.max(surroundMount, adjoiningTop == null ? surroundMount : adjoiningTop - upperHeight);
+  // A refrigerator upper is datum-controlled by its own appliance, not by a
+  // neighboring tall or unusually high upper.  It begins two inches above the
+  // refrigerator (72 inches for the confirmed 70-inch refrigerator); otherwise
+  // a neighboring 48-inch wall cabinet could incorrectly pull this 24-inch WR
+  // box up to 78 or 84 inches.  The surrounding panels follow this same cap.
+  // `cabinet` and `_placed` remain part of this private contract so legacy
+  // normalizers continue to call one resolver for every saved assembly.
+  void cabinet;
+  return refrigeratorSurroundElevation(room, fridgeTop, upperHeight).mountBottom;
 }
 
 /**
@@ -9332,25 +9312,77 @@ function unionCountertopSurfacesAtSharedMiterVertex(
 }
 
 /**
- * Preserves each physical countertop piece at a 45° peninsula return.  The
- * prior implementation folded touching pieces into a single concave polygon,
- * which erased the fabricator seam and could grow a false, continuous top
- * across the corner.  `miteredPeninsulaCountertopSurfaces` has already cut the
- * two actual run slabs to their shared 45° line; keep those two pieces intact
- * so Plan, 3D, takeoff, and price agree with the install drawing.
- *
- * The established export name remains for saved-design/API compatibility.  It
- * now performs the required no-union boundary instead of inventing a seamless
- * corner slab.  A 90° return likewise remains its individual trimmed pieces.
+ * A 45° peninsula return is one fabricated countertop path, not a second
+ * floating countertop. Miter first, then fold every touching segment of each
+ * 45° assembly into one concave Plan polygon. A 90° return stays as its two
+ * cleanly mitered fabricated pieces, matching the existing trade convention.
  */
 export function unifiedFortyFivePeninsulaCountertopSurfaces(
   surfaces: CountertopSurface[],
-  _room: RoomData,
+  room: RoomData,
 ): CountertopSurface[] {
-  return surfaces.map((surface) => ({
+  const resolved: CountertopSurface[] = surfaces.map((surface) => ({
     ...surface,
     polygon: surface.polygon?.map((point) => ({ ...point })),
   }));
+  const rootsWithFortyFiveReturns = new Set<string>();
+  for (const run of room.peninsulaRuns ?? []) {
+    if (!run.parentRunId || run.turn !== 45) continue;
+    rootsWithFortyFiveReturns.add(peninsulaRootRunId(run, room));
+  }
+
+  for (const rootRunId of Array.from(rootsWithFortyFiveReturns)) {
+    let merged = true;
+    while (merged) {
+      merged = false;
+      for (let leftIndex = 0; leftIndex < resolved.length && !merged; leftIndex += 1) {
+        const left = resolved[leftIndex]!;
+        const leftRuns = left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : []);
+        if (!leftRuns.some((id) => {
+          const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
+          return run && peninsulaRootRunId(run, room) === rootRunId;
+        })) continue;
+        for (let rightIndex = leftIndex + 1; rightIndex < resolved.length; rightIndex += 1) {
+          const right = resolved[rightIndex]!;
+          const rightRuns = right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : []);
+          if (!rightRuns.some((id) => {
+            const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
+            return run && peninsulaRootRunId(run, room) === rootRunId;
+          })) continue;
+          const directUnion = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
+            ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId, room);
+          // Inside 45° returns with a deep seating/bar extension can overlap on
+          // more than the front miter vertex. The historic apex walk crosses
+          // those physical edges and Three.js then triangulates a pointed spike
+          // or omits a countertop triangle. Prefer its concise outline when it
+          // is sound, otherwise walk the measured visible boundary instead.
+          const union = directUnion && !countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(directUnion))
+            ? directUnion
+            : unionCountertopSurfacesAtVisibleBoundary(left, right, rootRunId)
+              ?? unionCountertopSurfacesAtVertexBridge(left, right, rootRunId);
+          if (!union) continue;
+          resolved.splice(rightIndex, 1);
+          resolved[leftIndex] = union;
+          merged = true;
+          break;
+        }
+      }
+    }
+  }
+  return resolved.map((surface) => {
+    const runIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
+    if (runIds.length < 2) return surface;
+    const firstRun = runIds
+      .map((id) => room.peninsulaRuns?.find((candidate) => candidate.id === id))
+      .find((run): run is PeninsulaRun => Boolean(run));
+    const rootRunId = firstRun ? peninsulaRootRunId(firstRun, room) : undefined;
+    if (!rootRunId || !rootsWithFortyFiveReturns.has(rootRunId)) return surface;
+    const terminal = (room.peninsulaRuns ?? []).find((run) => (
+      peninsulaRootRunId(run, room) === rootRunId
+      && !(room.peninsulaRuns ?? []).some((candidate) => candidate.parentRunId === run.id)
+    ));
+    return terminal ? { ...surface, peninsulaTerminalRunId: terminal.id } : surface;
+  });
 }
 
 /**

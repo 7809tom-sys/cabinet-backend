@@ -127,7 +127,7 @@ import {
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
 	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
-  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
+  fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsCountertop, bearsIslandCountertop,
   type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
@@ -6488,12 +6488,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           const fridgeCenterAlong = fridgeStart + fw / 2;
           const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
-          // Hang so its TOP finishes at the wall-cabinet top line (flush with a
-          // pantry/tall run cap); a taller stepped box hangs lower at the bottom
-          // while sharing that top line. mountBottom = topLine - height.
-          // Determine the actual fridge height for mountBottom:
-          // use opts.fridgeHeight if the user changed it, otherwise use the
-          // stored fridge height, falling back to the standard 70" catalog height.
+          // The selected refrigerator establishes the upper's datum.  It hangs
+          // two inches above that appliance (72" for the standard 70" fridge),
+          // rather than being pulled up by the room ceiling or a neighboring wall
+          // cabinet. The side panels share the resulting cap.
           const surroundElevation = refrigeratorSurroundElevation(room, actualFridgeHeight, aHeight);
           const mountBottom = surroundElevation.mountBottom;
           refrigeratorSurroundTop = surroundElevation.top;
@@ -6517,10 +6515,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             styleId: styleIdRef.current ?? null,
             refrigeratorAssemblyId: fridge.uid,
             refrigeratorAssemblyRole: "bridge",
-            // A refrigerator upper must clear the appliance and finish on the
-            // same cap line as adjacent tall cabinetry whenever the ceiling
-            // allows it. The larger bottom wins, preventing a 24" WR cabinet
-            // from cutting into a 70" refrigerator.
+            // A refrigerator upper must clear its appliance by two inches. It is
+            // intentionally not top-aligned with a neighboring tall cabinet.
             mountBottom,
           });
         }
@@ -6699,8 +6695,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // ── One-click "Built-in Refrigerator + Pantry End" preset ──────────────────
   // Composes a finished built-in run at the ACTIVE wall's largest open segment,
   // from the wall corner inward: a 96" pantry → the refrigerator flanked by tall
-  // REPV end panels → the deep 27", +6"-taller refrigerator wall cabinet over the
-  // fridge (top-aligned to the run cap) → standard uppers filling the remainder.
+  // REPV end panels → the deep 27", +6"-taller refrigerator wall cabinet two
+  // inches above the fridge → standard 54"-bottom uppers filling the remainder.
   // Continuous crown is enabled so it wraps the stepped top line. Everything is
   // movable/deletable afterward. Fires a fetch, then places when data lands.
   const [builtinRunArmed, setBuiltinRunArmed] = useState(false);
@@ -6727,7 +6723,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (segments.length === 0) { toast.info(t("dt_t_wall_full")); return; }
     const seg = [...segments].sort((a, b) => b.length - a.length)[0];
     const side = activeWall;
-    const topLine = wallCabinetTopLine(room);
     const num = (v: unknown, d: number) => { const n = parseFloat(String(v ?? "")); return Number.isFinite(n) && n > 0 ? n : d; };
     const widest = (rows: DesignCabinet[] | undefined) =>
       rows && rows.length ? [...rows].sort((a, b) => num(b.width, 0) - num(a.width, 0))[0] : undefined;
@@ -6798,9 +6793,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
           rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
           catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-          // The deep refrigerator upper begins at the refrigerator top rather
-          // than the generic 54" wall mount, while retaining the run cap.
-          mountBottom: Math.max(fridgeDef.elevHeight, staggeredMountBottom(topLine, aHeight)),
+          // The deep refrigerator upper begins two inches above the 70" fridge:
+          // a 72" mounting datum, independent of the room ceiling or pantry cap.
+          mountBottom: refrigeratorSurroundElevation(room, fridgeDef.elevHeight, aHeight).mountBottom,
         });
       }
       along += fridgeW;
@@ -6818,7 +6813,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       along += panelThick;
     }
 
-    // 5) Fill the remaining run with standard uppers (mounted at the run cap).
+    // 5) Fill the remaining run with standard uppers at the 54" mounting datum.
     let remaining = seg.start + seg.length - along;
     const wallPool = [...(data.wallCabs || [])].sort((a, b) => num(b.width, 0) - num(a.width, 0));
     let guard = 0;
@@ -6834,7 +6829,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         placement: "wall", x: spot.x, y: spot.y, width: cw, depth: STD.WALL_DEPTH, height: ch,
         rotation: spot.rotation, numberOfDoors: cab.numberOfDoors ?? undefined,
         catalogImageUrl: cab.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-        mountBottom: Math.max(STD.WALL_MOUNT_BOTTOM, staggeredMountBottom(topLine, ch)),
+        mountBottom: STD.WALL_MOUNT_BOTTOM,
       });
       along += cw;
       remaining -= cw;
