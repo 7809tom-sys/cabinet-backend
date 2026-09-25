@@ -3550,6 +3550,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    return interactive3dCatalogItems.find((item) => Number(item.sourceCabinetId ?? item.id) === Number(catalogDragPreview.id) && (item.glassDoorAddonCode ?? null) === (catalogDragPreview.glassDoorAddonCode ?? null) && item.category === category) ?? null;
   }, [catalogDragPreview, interactive3dCatalogItems, paletteType]);
 
+  const showCartSuccessToast = useCallback((itemCount: number) => {
+    toast.success("Items successfully added to cart", {
+      description: `${itemCount} priced item${itemCount === 1 ? " is" : "s are"} ready to review in your cart.`,
+      duration: 5000,
+    });
+  }, []);
+
   const addAllToCart = useCallback(async () => {
     if (cartableLines.length === 0) {
       toast.info(t("dt_cart_nothing"));
@@ -3561,7 +3568,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // appending a plan to unrelated cart items deliberately drops that link.
     if (currentSavedDesignId != null && (cartItems.length === 0 || cartSourceDesignId === currentSavedDesignId)) {
       replaceWithDesignItems(cartableLines, currentSavedDesignId);
-      toast.success(t("dt_cart_added", { n: cartableLines.reduce((count, line) => count + line.qty, 0) }));
+      showCartSuccessToast(cartableLines.reduce((count, line) => count + line.qty, 0));
       navigate("/cart");
       return;
     }
@@ -3585,12 +3592,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (res.ok) added += line.qty;
     }
     if (added > 0) {
-      toast.success(t("dt_cart_added", { n: added }));
+      showCartSuccessToast(added);
       navigate("/cart");
     } else {
       toast.error(t("dt_cart_failed"));
     }
-  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, t]);
+  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, showCartSuccessToast, t]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
     if (cartableLines.length === 0) {

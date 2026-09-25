@@ -33,5 +33,9 @@ describe("complete Design materials and parts dialog", () => {
     expect(designToolSource).toContain("<DesignMaterialsListDialog");
     expect(designToolSource).toContain("onAddPricedItemsToCart={() => void addAllToCart()}");
     expect(designToolSource).toContain("pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}");
+    expect(designToolSource).toContain('toast.success("Items successfully added to cart"');
+    expect(designToolSource).toContain('priced item${itemCount === 1 ? " is" : "s are"} ready to review in your cart.');
+    expect(designToolSource).toContain("duration: 5000");
+    expect(designToolSource.match(/showCartSuccessToast\(/g)).toHaveLength(2);
   });
 });
