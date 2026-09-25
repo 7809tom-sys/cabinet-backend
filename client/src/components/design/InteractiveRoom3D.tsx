@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
+import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
@@ -160,6 +161,13 @@ type SceneSku = {
 		  fillerPlacementMode?: "left" | "right" | "split" | null;
 	  fillerMiterAngle?: 45 | null;
 	  fillerMiteredEnd?: "start" | "end" | null;
+	  fillerTransitionKind?: "angled-wedge" | null;
+	  fillerTransitionNeighborUid?: string | null;
+	  fillerTransitionRearWidthIn?: number | null;
+	  fillerTransitionFrontWidthIn?: number | null;
+	  fillerTransitionStockWidthIn?: number | null;
+	  fillerIndependentCabinetSupport?: boolean | null;
+	  fillerTransitionFootprint?: Array<{ x: number; y: number }> | null;
 		  countertopRearExtensionIn?: number | null;
 	  islandFace?: PlacedCabinet["islandFace"];
 	  islandCounterHeightWallCabinet?: boolean | null;
@@ -2931,6 +2939,52 @@ export function miteredFillerPrismGeometry(
   return geometry;
 }
 
+/** Extrudes the exact convex Plan footprint of a measured angled transition vertically. */
+export function angledTransitionFillerPrismGeometry(
+  footprint: Array<{ x: number; y: number }>,
+  height: number,
+): THREE.BufferGeometry {
+  const points = footprint.length >= 3 ? footprint : [{ x: 0, y: 0 }, { x: 0.1, y: 0 }, { x: 0, y: 0.1 }];
+  const halfHeight = height / 2;
+  const count = points.length;
+  const vertices = [
+    ...points.flatMap((point) => [point.x, -halfHeight, point.y]),
+    ...points.flatMap((point) => [point.x, halfHeight, point.y]),
+  ];
+  const indices: number[] = [];
+  for (let index = 1; index < count - 1; index += 1) {
+    indices.push(0, index + 1, index);
+    indices.push(count, count + index, count + index + 1);
+  }
+  for (let index = 0; index < count; index += 1) {
+    const next = (index + 1) % count;
+    indices.push(index, next, count + next, index, count + next, count + index);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
+/** Converts world-plan inches into one cabinet group's local Three.js X/Z frame. */
+export function angledTransitionLocalFootprint(
+  footprint: Array<{ x: number; y: number }>,
+  transform: { x: number; z: number; rotation: number },
+): Array<{ x: number; y: number }> {
+  const cosine = Math.cos(transform.rotation);
+  const sine = Math.sin(transform.rotation);
+  return footprint.map((point) => {
+    const dx = point.x - transform.x;
+    const dz = point.y - transform.z;
+    return {
+      x: (cosine * dx - sine * dz) * INCH,
+      y: (sine * dx + cosine * dz) * INCH,
+    };
+  });
+}
+
 export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -3030,11 +3084,15 @@ export function addCabinet(
 	    isInstalledFillerPiece
 	    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
 	  );
+	  const isAngledTransitionFiller = sku.fillerTransitionKind === "angled-wedge"
+	    && Array.isArray(sku.fillerTransitionFootprint)
+	    && sku.fillerTransitionFootprint.length >= 3;
 	  const isMiteredWallFiller = isWall
+	    && !isAngledTransitionFiller
 	    && sku.fillerMiterAngle === 45
 	    && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
-	  const isFrontFlushFillerBoard = isBaseFillerPiece || isMiteredWallFiller;
-	  const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
+	  const isFrontFlushFillerBoard = !isAngledTransitionFiller && (isBaseFillerPiece || isMiteredWallFiller);
+	  const suppressInstalledFillerToeKick = isBaseFillerPiece && (isAngledTransitionFiller || Boolean(surfaceTextures?.suppressFittedFillerToeKick));
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
   const bottom = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
@@ -3387,11 +3445,16 @@ export function addCabinet(
     cabinet.add(dishwasherChassis);
     bodyMeshes.push(dishwasherChassis);
 	  } else if (!isPlacedHood) {
-			    const fillerBodyDepth = isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth;
-			    const body = new THREE.Mesh(
-			      isMiteredWallFiller
-			        ? miteredFillerPrismGeometry(bodyWidth, bodyHeight, fillerBodyDepth, sku.fillerMiteredEnd!)
-			        : new THREE.BoxGeometry(bodyWidth, bodyHeight, fillerBodyDepth),
+		    const fillerBodyDepth = isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth;
+		    const transitionFootprint = isAngledTransitionFiller
+		      ? angledTransitionLocalFootprint(sku.fillerTransitionFootprint!, { x, z, rotation })
+		      : null;
+		    const body = new THREE.Mesh(
+		      transitionFootprint
+		        ? angledTransitionFillerPrismGeometry(transitionFootprint, bodyHeight)
+		        : isMiteredWallFiller
+		        ? miteredFillerPrismGeometry(bodyWidth, bodyHeight, fillerBodyDepth, sku.fillerMiteredEnd!)
+		        : new THREE.BoxGeometry(bodyWidth, bodyHeight, fillerBodyDepth),
 			      bodyMaterial,
 			    );
 			    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
@@ -3402,6 +3465,14 @@ export function addCabinet(
 	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
 		      ...(isFrontFlushFillerBoard ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
 		      ...(isMiteredWallFiller ? { angledWallMiteredFiller: true, miterAngle: 45, miteredEnd: sku.fillerMiteredEnd } : {}),
+		      ...(isAngledTransitionFiller ? {
+		        angledWallTransitionFiller: true,
+		        fullDepthMeasuredFootprint: true,
+		        rearWidthIn: sku.fillerTransitionRearWidthIn,
+		        frontWidthIn: sku.fillerTransitionFrontWidthIn,
+		        stockWidthIn: sku.fillerTransitionStockWidthIn,
+		        cabinetsIndependentlySupported: sku.fillerIndependentCabinetSupport === true,
+		      } : {}),
 		    };
     cabinet.add(body);
     bodyMeshes.push(body);
@@ -7069,6 +7140,12 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 		    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
 	    fillerMiterAngle: cabinet.fillerMiterAngle ?? null,
 	    fillerMiteredEnd: cabinet.fillerMiteredEnd ?? null,
+	    fillerTransitionKind: cabinet.fillerTransitionKind ?? null,
+	    fillerTransitionNeighborUid: cabinet.fillerTransitionNeighborUid ?? null,
+	    fillerTransitionRearWidthIn: cabinet.fillerTransitionRearWidthIn ?? null,
+	    fillerTransitionFrontWidthIn: cabinet.fillerTransitionFrontWidthIn ?? null,
+	    fillerTransitionStockWidthIn: cabinet.fillerTransitionStockWidthIn ?? null,
+	    fillerIndependentCabinetSupport: cabinet.fillerIndependentCabinetSupport ?? null,
 		    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
 	    islandFace: cabinet.islandFace ?? null,
 	    islandCounterHeightWallCabinet: cabinet.islandCounterHeightWallCabinet ?? null,
@@ -8064,12 +8141,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (!disposed) setDoorTextureState(state);
     };
     if (renderExistingDesign) {
-      for (const cabinet of placed) {
-        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
+	      for (const cabinet of placed) {
+	        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
 	        const baseSku = existingCabinetSku(cabinet, room);
+	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, placed);
         const sku = {
           ...baseSku,
           catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),
+	          fillerTransitionFootprint: transitionFootprint,
         };
         const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, cabinetFinishOverrides, finish);
         const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);

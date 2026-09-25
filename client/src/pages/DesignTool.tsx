@@ -135,7 +135,7 @@ import { buildTrimCartLines,
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
-import { automaticAngledWallFiller } from "@/lib/angledWallFiller";
+import { automaticAngledWallFiller, measuredAngledWallTransition } from "@/lib/angledWallFiller";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
 import { rangeCompanionProposal, type RangeCompanionProposal } from "@/lib/rangeCompanion";
@@ -4981,25 +4981,40 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          return;
 	        }
 	        committedRun = withRequiredFiller;
-	      }
-	      if (!requestedIslandFace && finalCab.placement === "wall") {
-	        const angledFiller = automaticAngledWallFiller(
+		      }
+		      if (!requestedIslandFace && (finalCab.placement === "wall" || finalCab.placement === "base")) {
+		        const requiredTransition = measuredAngledWallTransition(finalCab, room, committedRun);
+		        const angledFiller = automaticAngledWallFiller(
 	          finalCab,
 	          room,
 	          committedRun,
 	          catalogFillers,
 	          makeUid,
-	          styleIdRef.current ?? null,
-	        );
-	        if (angledFiller) {
-	          const resolution = appendCollisionFreePlacements(committedRun, [angledFiller.filler], room);
-	          if (resolution.placed.some((item) => item.uid === angledFiller.filler.uid)) {
-	            committedRun = resolution.placed;
-	            setFillerInsertionTransition({ uids: [angledFiller.filler.uid], key: Date.now() });
-	            toast.success(`${angledFiller.filler.masterCode} was fitted to the ${formatInches(angledFiller.gapIn)} 45° wall seam with a mitered ${angledFiller.miterAt} cut.`);
-	          }
-	        }
-	      }
+		          styleIdRef.current ?? null,
+		        );
+		        if (requiredTransition && !angledFiller) {
+		          const message = `The ${formatInches(requiredTransition.rearGapIn)} rear / ${formatInches(requiredTransition.frontGapIn)} face 45° transition was not added because the selected cabinet line has no real filler stock wide enough for this cut.`;
+		          setPlacementWarning(message);
+		          toast.error(message);
+		          return;
+		        }
+		        if (angledFiller) {
+		          const sourcePrice = unitPriceFor(angledFiller.filler);
+		          if (sourcePrice == null || !Number.isFinite(sourcePrice) || sourcePrice <= 0) {
+		            const message = `${angledFiller.filler.masterCode} and ${finalCab.masterCode} were not added because this selected-line filler has no positive authorized price.`;
+		            setPlacementWarning(message);
+		            toast.error(message);
+		            return;
+		          } else {
+		            const resolution = appendCollisionFreePlacements(committedRun, [angledFiller.filler], room);
+		            if (resolution.placed.some((item) => item.uid === angledFiller.filler.uid)) {
+		              committedRun = resolution.placed;
+		              setFillerInsertionTransition({ uids: [angledFiller.filler.uid], key: Date.now() });
+		              toast.success(`${angledFiller.filler.masterCode} was fitted as a ${formatInches(angledFiller.rearGapIn)} rear / ${formatInches(angledFiller.frontGapIn)} face 45° transition. One real catalog filler is price-locked at $${sourcePrice.toFixed(2)}; both cabinets remain independently supported.`);
+		            }
+		          }
+		        }
+		      }
 
 	      // ── Now do all state updates and side effects exactly once ──────────
 	      setPlacementWarning(null);

@@ -21,6 +21,7 @@ import { CheckCircle2, Compass, X, RotateCw } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
 import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 
@@ -2181,8 +2182,26 @@ export function PlanCanvas({
 	              && peninsulaRunById(room, p.wallId as WallSide),
 	            );
 	            const isMiteredAngledWallFiller = p.placement === "wall"
+	              && p.fillerTransitionKind !== "angled-wedge"
 	              && p.fillerMiterAngle === 45
 	              && (p.fillerMiteredEnd === "start" || p.fillerMiteredEnd === "end");
+	            const transitionFootprint = angledWallTransitionFootprint(p, room, cabinets)
+	              ?? (p.fillerTransitionPlanFootprint?.length ? p.fillerTransitionPlanFootprint : null);
+	            const transitionBounds = transitionFootprint
+	              ? {
+	                  minX: Math.min(...transitionFootprint.map((point) => point.x)),
+	                  maxX: Math.max(...transitionFootprint.map((point) => point.x)),
+	                  minY: Math.min(...transitionFootprint.map((point) => point.y)),
+	                  maxY: Math.max(...transitionFootprint.map((point) => point.y)),
+	                }
+	              : null;
+	            const transitionClipPath = transitionBounds && transitionFootprint
+	              ? `polygon(${transitionFootprint.map((point) => {
+	                  const width = Math.max(0.01, transitionBounds.maxX - transitionBounds.minX);
+	                  const depth = Math.max(0.01, transitionBounds.maxY - transitionBounds.minY);
+	                  return `${((point.x - transitionBounds.minX) / width) * 100}% ${((point.y - transitionBounds.minY) / depth) * 100}%`;
+	                }).join(", ")})`
+	              : null;
 	            const miterCutPercent = Math.min(100, Math.max(0, (0.75 / Math.max(0.01, Number(p.width) || 0.01)) * 100));
 	            const miterClipPath = isMiteredAngledWallFiller
 	              ? p.fillerMiteredEnd === "start"
@@ -2226,10 +2245,10 @@ export function PlanCanvas({
                   measureMode ? "cursor-crosshair" : "cursor-move"
 	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback || applianceSnap || showWallSnapSuccess ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
-                  left: bodyLeft * ppi,
-                  top: bodyTop * ppi,
-                  width: bodyW * ppi,
-                  height: bodyD * ppi,
+	                  left: (transitionBounds?.minX ?? bodyLeft) * ppi,
+	                  top: (transitionBounds?.minY ?? bodyTop) * ppi,
+	                  width: (transitionBounds ? transitionBounds.maxX - transitionBounds.minX : bodyW) * ppi,
+	                  height: (transitionBounds ? transitionBounds.maxY - transitionBounds.minY : bodyD) * ppi,
                   background: isWall
                     ? `repeating-linear-gradient(45deg, ${edgeColor}33, ${edgeColor}33 6px, ${edgeColor}55 6px, ${edgeColor}55 12px), ${faceFill}`
                     : faceFill,
@@ -2264,9 +2283,9 @@ export function PlanCanvas({
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
 	                  borderRadius: (isCorner && !isBlind) ? 0 : 2,
-	                  clipPath: miterClipPath,
-	                  transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
-                  transformOrigin: lockedAngledRun ? "center" : undefined,
+	                  clipPath: transitionClipPath ?? miterClipPath,
+	                  transform: transitionBounds ? undefined : lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
+	                  transformOrigin: transitionBounds ? undefined : lockedAngledRun ? "center" : undefined,
                 }}
 	                title={splitFillerTooltip ?? applianceSnapTooltip ?? cornerPlacementTooltip ?? placementHoverTooltip ?? `${p.masterCode} — ${p.description}`}
                 tabIndex={splitFillerTooltip ? 0 : undefined}
@@ -2278,6 +2297,7 @@ export function PlanCanvas({
 	                data-continuous-wall-appliance-snap-confirmed={applianceSnap ? "true" : undefined}
 	                data-wall-snap-confirmed={showWallSnapSuccess ? "true" : undefined}
 	                data-angled-wall-mitered-filler={isMiteredAngledWallFiller ? "true" : undefined}
+	                data-angled-wall-transition-filler={transitionBounds ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
 		                {showWallSnapSuccess && (
@@ -2290,15 +2310,24 @@ export function PlanCanvas({
 		                    WALL SNAP
 		                  </span>
 		                )}
-		                {isMiteredAngledWallFiller && (
+	                {isMiteredAngledWallFiller && (
 		                  <span
 		                    data-testid="angled-wall-mitered-filler-indicator"
 		                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-amber-200 bg-[#9a6717] px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow"
 		                    title="Selected-line filler cut with a 45° miter at the continuous-wall vertex"
 		                  >
-		                    45° MITER FILLER
-		                  </span>
-		                )}
+	                    45° MITER FILLER
+	                  </span>
+	                )}
+	                {transitionBounds && (
+	                  <span
+	                    data-testid="angled-wall-transition-filler-indicator"
+	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-amber-200 bg-[#7c5313] px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow"
+	                    title={`Measured 45° transition: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} rear / ${formatEighthInches(Number(p.fillerTransitionFrontWidthIn) || 0)} face. One source-priced ${p.masterCode}; both cabinets remain independently supported.`}
+	                  >
+	                    45° TRANSITION
+	                  </span>
+	                )}
 		                {showSeatedPeninsulaCornerFeedback && (
 	                  <span
 	                    data-testid="peninsula-corner-snap-indicator"

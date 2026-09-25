@@ -504,6 +504,20 @@ export interface PlacedCabinet {
 	fillerMiterAngle?: 45 | null;
 	/** Which end of the filler is cut at the 45-degree wall vertex. */
 	fillerMiteredEnd?: "start" | "end" | null;
+	/** Full-depth wedge/trapezoid between independently supported square cabinets. */
+	fillerTransitionKind?: "angled-wedge" | null;
+	/** Cabinet on the adjoining measured wall that owns the other transition edge. */
+	fillerTransitionNeighborUid?: string | null;
+	/** Exact measured gap at the wall/rear edge of the transition. */
+	fillerTransitionRearWidthIn?: number | null;
+	/** Exact measured gap between the two visible cabinet face-side corners. */
+	fillerTransitionFrontWidthIn?: number | null;
+	/** Real catalog filler stock width selected to cover the larger measured edge. */
+	fillerTransitionStockWidthIn?: number | null;
+	/** Exact room-plan footprint of the fabricated wedge/trapezoid at placement time. */
+	fillerTransitionPlanFootprint?: Array<{ x: number; y: number }> | null;
+	/** Installation contract: each cabinet remains independently wall-supported. */
+	fillerIndependentCabinetSupport?: boolean | null;
 	/**
    * A WBC's required F342 is integrated into the cabinet face rather than being
    * a second cabinet footprint. The priced line remains persisted for the cart,
@@ -2492,7 +2506,9 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 }
 
 function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
-  return isMiteredWallFiller(cabinet)
+  return cabinet.fillerTransitionKind === "angled-wedge" && (cabinet.fillerTransitionPlanFootprint?.length ?? 0) >= 3
+    ? [cabinet.fillerTransitionPlanFootprint!.map((point) => ({ x: point.x, y: point.y }))]
+    : isMiteredWallFiller(cabinet)
     ? [miteredWallFillerBodyPolygon(cabinet)]
     : placedCornerGeometryKind(cabinet) === "l-shape"
     ? lCornerBodyPolygons(cabinet)
@@ -2664,6 +2680,25 @@ function isMiteredWallFillerJoinPeer(
 }
 
 /**
+ * A measured wedge belongs to exactly two independently supported cabinets.
+ * Those named side faces are allowed to touch the transition; every other
+ * cabinet remains subject to the stored exact-footprint collision check.
+ */
+function isAngledTransitionFillerJoinPeer(
+  filler: PlacedCabinet,
+  peer: PlacedCabinet,
+  room: RoomData,
+): boolean {
+  if (filler.fillerTransitionKind !== "angled-wedge") return false;
+  if (peer.uid !== filler.fillerForCabinetUid && peer.uid !== filler.fillerTransitionNeighborUid) return false;
+  if (peer.placement !== filler.placement) return false;
+  const fillerElevation = elevationBox(filler, room);
+  const peerElevation = elevationBox(peer, room);
+  return Math.abs(fillerElevation.bottom - peerElevation.bottom) <= COLLISION_EPSILON_IN
+    && Math.abs(fillerElevation.height - peerElevation.height) <= COLLISION_EPSILON_IN;
+}
+
+/**
  * Placement-time collision calculation uses physical plan bodies when a
  * peninsula joins an L-corner on its parent wall. This prevents either a 45°
  * diagonal envelope or a square 90° envelope from creating a false setback;
@@ -2683,8 +2718,15 @@ export function cabinetPlacementCollisionDetail(
     const otherCornerReservation = customWallCornerReservationCollision(other, moving, other, room);
     if (otherCornerReservation) return otherCornerReservation;
     if (isMiteredWallFillerJoinPeer(moving, other, room) || isMiteredWallFillerJoinPeer(other, moving, room)) continue;
+		if (isAngledTransitionFillerJoinPeer(moving, other, room) || isAngledTransitionFillerJoinPeer(other, moving, room)) continue;
     const detail = cabinetCollisionDetail(moving, [other]);
     if (!detail) continue;
+		// A measured transition stores its exact convex wedge/trapezoid. Its axis-
+		// aligned saved envelope overlaps both cabinet envelopes by design, but the
+		// physical polygon only touches their side faces. Keep every unrelated body
+		// collision active and waive only false envelope overlap.
+		if ((moving.fillerTransitionKind === "angled-wedge" || other.fillerTransitionKind === "angled-wedge")
+		  && !cabinetPlanBodiesIntersect(moving, other)) continue;
     // For a real diagonal continuous-wall vertex the two cabinets live in
     // different local wall frames. If the exact corner-run reservation says
     // their spans only touch, do not let the overlapping rectangular render

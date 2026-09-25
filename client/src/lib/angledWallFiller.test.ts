@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM, appendCollisionFreePlacements, cabinetPlacementCollisionDetail, type PlacedCabinet, wallLength, wallPlacementAt } from "@/lib/design";
-import { automaticAngledWallFiller } from "./angledWallFiller";
+import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
+import { automaticAngledWallFiller, measuredAngledWallTransition } from "./angledWallFiller";
 
 const room = {
   ...DEFAULT_ROOM,
@@ -20,61 +21,143 @@ const room = {
   ],
 };
 
-function wallCabinet(uid: string, wallId: string, offset: number, width = 24): PlacedCabinet {
-  const spot = wallPlacementAt(offset, width, 12, wallId as any, room);
+function cabinet(
+  uid: string,
+  wallId: string,
+  offset: number,
+  placement: "wall" | "base" = "wall",
+  width = 24,
+): PlacedCabinet {
+  const depth = placement === "wall" ? 12 : 24;
+  const height = placement === "wall" ? 42 : 34.5;
+  const spot = wallPlacementAt(offset, width, depth, wallId as any, room);
   return {
     uid,
     cabinetId: 10,
-    masterCode: "W-2442",
-    description: '24" x 42" Wall Cabinet',
-    placement: "wall",
+    masterCode: placement === "wall" ? "W-2442" : "B-24",
+    description: placement === "wall" ? '24" x 42" Wall Cabinet' : '24" Base Cabinet',
+    placement,
     x: spot.x,
     y: spot.y,
     width,
-    depth: 12,
-    height: 42,
+    depth,
+    height,
     rotation: spot.rotation,
     wallId,
     wallOffset: spot.wallOffset,
+    mountBottom: placement === "wall" ? 54 : 0,
     numberOfDoors: 2,
-    numberOfDrawers: 0,
+    numberOfDrawers: placement === "wall" ? 0 : 1,
   };
 }
 
 const wallFiller = {
   id: 99,
-  masterCode: "WF342",
-  description: '3" x 42" Filler',
+  masterCode: "WF1242",
+  description: '12" x 42" Wall Filler',
   category: "Filler",
   subCategory: "Filler",
-  width: "3",
+  width: "12",
   height: "42",
   depth: "12",
   catalogImageUrl: null,
 };
 
+const baseFiller = {
+  id: 199,
+  masterCode: "BF18",
+  description: '18" Base Filler',
+  category: "Filler",
+  subCategory: "Filler",
+  width: "18",
+  height: "34.5",
+  depth: "24",
+  catalogImageUrl: null,
+};
+
 describe("automaticAngledWallFiller", () => {
-  it("adds a real selected-line filler into the measured 45-degree seam", () => {
+  it("measures and fills both the rear and visible face gaps instead of making a thin one-edge strip", () => {
     const diagonalLength = wallLength("diagonal" as any, room);
-    const neighbor = wallCabinet("neighbor", "diagonal", diagonalLength - 24);
-    const newlyPlaced = wallCabinet("new", "straight", 3);
+    const neighbor = cabinet("neighbor", "diagonal", diagonalLength - 24);
+    const newlyPlaced = cabinet("new", "straight", 3);
 
-    const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [wallFiller], () => "miter-filler", 7);
+    const measurement = measuredAngledWallTransition(newlyPlaced, room, [neighbor, newlyPlaced]);
+    expect(measurement).toMatchObject({
+      rearGapIn: 3,
+      frontGapIn: 6.5,
+      requiredStockWidthIn: 6.5,
+      depthIn: 12,
+      neighborUid: "neighbor",
+    });
+    expect(measurement?.footprint).toHaveLength(4);
 
-    expect(resolution?.gapIn).toBe(3);
-    expect(resolution?.miterAt).toBe("start");
-    expect(resolution?.filler.masterCode).toBe("WF342");
-    expect(resolution?.filler.width).toBe(3);
-    expect(resolution?.filler.fillerMiterAngle).toBe(45);
-    expect(resolution?.filler.fillerMiteredEnd).toBe("start");
-    expect(resolution?.filler.description).toContain('cut to 3"');
-    expect(resolution?.filler.description).toContain("45° miter at wall start");
+    const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [wallFiller], () => "transition-filler", 7);
+
+    expect(resolution).toMatchObject({ gapIn: 6.5, rearGapIn: 3, frontGapIn: 6.5, miterAt: "start" });
+    expect(resolution?.filler).toMatchObject({
+      cabinetId: 99,
+      masterCode: "WF1242",
+      width: 3,
+      nominalWidth: 12,
+      fillerTotalWidth: 6.5,
+      fillerMiterAngle: 45,
+      fillerMiteredEnd: "start",
+      fillerTransitionKind: "angled-wedge",
+      fillerTransitionNeighborUid: "neighbor",
+      fillerTransitionRearWidthIn: 3,
+      fillerTransitionFrontWidthIn: 6.5,
+      fillerTransitionStockWidthIn: 12,
+      fillerIndependentCabinetSupport: true,
+    });
+    expect(resolution?.filler.description).toContain('3" rear / 6.5" face');
+    expect(resolution?.filler.fillerTransitionPlanFootprint).toHaveLength(4);
     expect(cabinetPlacementCollisionDetail(resolution!.filler, [neighbor, newlyPlaced], room)).toBeNull();
     const committed = appendCollisionFreePlacements([neighbor, newlyPlaced], [resolution!.filler], room);
     expect(committed.rejected).toEqual([]);
     expect(committed.placed).toHaveLength(3);
-    const blockingWallCabinet = wallCabinet("blocking", "straight", 0, 3);
+    const blockingWallCabinet = cabinet("blocking", "straight", 0, "wall", 3);
     expect(cabinetPlacementCollisionDetail(resolution!.filler, [blockingWallCabinet], room)).not.toBeNull();
+  });
+
+  it("uses the same full-depth transition contract for square base cabinets", () => {
+    const diagonalLength = wallLength("diagonal" as any, room);
+    const neighbor = cabinet("base-neighbor", "diagonal", diagonalLength - 24, "base");
+    const newlyPlaced = cabinet("base-new", "straight", 3, "base");
+    const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [baseFiller], () => "base-transition", 7);
+
+    expect(resolution).toMatchObject({ rearGapIn: 3, frontGapIn: 15.625, gapIn: 15.625 });
+    expect(resolution?.filler).toMatchObject({
+      placement: "base",
+      cabinetId: 199,
+      masterCode: "BF18",
+      height: 34.5,
+      depth: 24,
+      fillerTransitionKind: "angled-wedge",
+      fillerTotalWidth: 15.625,
+    });
+    expect(cabinetPlacementCollisionDetail(resolution!.filler, [neighbor, newlyPlaced], room)).toBeNull();
+  });
+
+  it("price-locks exactly one real catalog filler at the authoritative resolved unit price", () => {
+    const diagonalLength = wallLength("diagonal" as any, room);
+    const neighbor = cabinet("neighbor", "diagonal", diagonalLength - 24);
+    const newlyPlaced = cabinet("new", "straight", 3);
+    const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [wallFiller], () => "transition-filler", 7)!;
+    const common = {
+      placed: [resolution.filler],
+      styleId: 7,
+      distributorId: 21,
+      tier: "homeowner" as const,
+      styleNameById: new Map([[7, "Selected line"]]),
+      unitPriceFor: (placed: PlacedCabinet) => placed.cabinetId === wallFiller.id ? 88.5 : null,
+    };
+
+    expect(buildDesignCabinetCartLines(common)).toEqual([
+      expect.objectContaining({ masterCode: "WF1242", qty: 1, unitPrice: 88.5, priceLocked: true }),
+    ]);
+    expect(buildDesignPreviewPricingLines(common)).toEqual([
+      expect.objectContaining({ masterCode: "WF1242", qty: 1, unitPrice: 88.5, placementUids: ["transition-filler"] }),
+    ]);
   });
 
   it("does not fabricate trim for a normal 90-degree wall join", () => {
@@ -83,17 +166,18 @@ describe("automaticAngledWallFiller", () => {
       customWalls: room.customWalls.map((wall) => wall.id === "diagonal" ? { ...wall, lockedAngle: undefined } : wall),
     };
     const diagonalLength = wallLength("diagonal" as any, ninetyRoom);
-    const neighbor = wallCabinet("neighbor", "diagonal", diagonalLength - 24);
-    const newlyPlaced = wallCabinet("new", "straight", 3);
+    const neighbor = cabinet("neighbor", "diagonal", diagonalLength - 24);
+    const newlyPlaced = cabinet("new", "straight", 3);
 
-    expect(automaticAngledWallFiller(newlyPlaced, ninetyRoom, [neighbor, newlyPlaced], [wallFiller], () => "miter-filler", null)).toBeNull();
+    expect(automaticAngledWallFiller(newlyPlaced, ninetyRoom, [neighbor, newlyPlaced], [wallFiller], () => "transition-filler", null)).toBeNull();
   });
 
-  it("does not invent a filler when the selected line lacks a source that covers the seam", () => {
+  it("does not invent a filler when the selected line lacks stock that covers the larger measured edge", () => {
     const diagonalLength = wallLength("diagonal" as any, room);
-    const neighbor = wallCabinet("neighbor", "diagonal", diagonalLength - 24);
-    const newlyPlaced = wallCabinet("new", "straight", 3);
+    const neighbor = cabinet("neighbor", "diagonal", diagonalLength - 24);
+    const newlyPlaced = cabinet("new", "straight", 3);
+    const undersized = { ...wallFiller, id: 100, masterCode: "WF342", width: "3", description: '3" x 42" Wall Filler' };
 
-    expect(automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [], () => "miter-filler", null)).toBeNull();
+    expect(automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [undersized], () => "transition-filler", null)).toBeNull();
   });
 });
