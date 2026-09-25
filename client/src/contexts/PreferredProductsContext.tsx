@@ -1,8 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { useLocation, useSearch } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { affiliateSlugFromHostname } from "@/lib/affiliateContext";
+import {
+  resolveStoreScope,
+  scopedBrowserStorageKey,
+  storefrontAccountScope,
+  type StoreScope,
+} from "@/lib/affiliateContext";
 
 export type PreferredProductCategory = "flooring" | "countertop" | "backsplash" | "faucet" | "sink";
 
@@ -32,11 +38,6 @@ export type PreferableCatalogProduct = Omit<PreferredProduct, "category" | "prod
 export const MAX_PREFERRED_PRODUCTS_PER_CATEGORY = 6;
 const STORAGE_KEY = "cd_preferred_products_v1";
 
-function storefrontSlug() {
-  if (typeof window === "undefined") return "main";
-  return affiliateSlugFromHostname(window.location.hostname) ?? "main";
-}
-
 export function preferredCategoryForCatalogProduct(product: Pick<PreferableCatalogProduct, "category" | "productCategory" | "subCategory">): PreferredProductCategory | null {
   const catalogCategory = product.productCategory ?? product.category;
   if (catalogCategory === "Flooring") return "flooring";
@@ -54,10 +55,10 @@ export function preferredReplacementCandidate(products: PreferredProduct[], cate
   return products.find((product) => product.category === category) ?? null;
 }
 
-function readGuestProducts(): PreferredProduct[] {
+function readGuestProducts(storageKey: string): PreferredProduct[] {
   if (typeof window === "undefined") return [];
   try {
-    const value = JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "[]");
+    const value = JSON.parse(window.localStorage.getItem(storageKey) ?? "[]");
     return Array.isArray(value) ? value.filter((item): item is PreferredProduct => Number.isInteger(item?.id) && typeof item?.category === "string") : [];
   } catch {
     return [];
@@ -75,11 +76,12 @@ type PreferredProductsContextValue = {
 
 const PreferredProductsContext = createContext<PreferredProductsContextValue | null>(null);
 
-export function PreferredProductsProvider({ children }: { children: React.ReactNode }) {
+function ScopedPreferredProductsProvider({ children, scope }: { children: React.ReactNode; scope: StoreScope }) {
   const { user } = useAuth();
-  const slug = useMemo(storefrontSlug, []);
+  const slug = storefrontAccountScope(scope);
+  const storageKey = scopedBrowserStorageKey(STORAGE_KEY, scope);
   const utils = trpc.useUtils();
-  const [guestProducts, setGuestProducts] = useState<PreferredProduct[]>(readGuestProducts);
+  const [guestProducts, setGuestProducts] = useState<PreferredProduct[]>(() => readGuestProducts(storageKey));
   const mergedGuestRef = useRef(false);
   const accountList = trpc.preferredProducts.list.useQuery({ storefrontSlug: slug }, { enabled: Boolean(user) });
   const add = trpc.preferredProducts.add.useMutation({ onSuccess: () => void utils.preferredProducts.list.invalidate({ storefrontSlug: slug }) });
@@ -87,8 +89,8 @@ export function PreferredProductsProvider({ children }: { children: React.ReactN
   const products = user ? (accountList.data?.products ?? []) as PreferredProduct[] : guestProducts;
 
   useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem(STORAGE_KEY, JSON.stringify(guestProducts));
-  }, [guestProducts]);
+    if (typeof window !== "undefined") window.localStorage.setItem(storageKey, JSON.stringify(guestProducts));
+  }, [guestProducts, storageKey]);
 
   useEffect(() => {
     if (!user || accountList.isLoading || mergedGuestRef.current || guestProducts.length === 0) return;
@@ -166,6 +168,17 @@ export function PreferredProductsProvider({ children }: { children: React.ReactN
   }), [products, user, accountList.isLoading, isPreferred, togglePreferred, countForCategory]);
 
   return <PreferredProductsContext.Provider value={value}>{children}</PreferredProductsContext.Provider>;
+}
+
+export function PreferredProductsProvider({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const search = useSearch();
+  const scope = resolveStoreScope({
+    pathname: location.split("?")[0],
+    search,
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  });
+  return <ScopedPreferredProductsProvider key={scope} scope={scope}>{children}</ScopedPreferredProductsProvider>;
 }
 
 export function usePreferredProducts() {

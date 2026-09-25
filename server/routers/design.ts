@@ -43,16 +43,33 @@ import {
 async function resolveAffiliateDesignOwner(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   affiliateSlug?: string,
+	includeInactive = false,
 ) {
   const slug = affiliateSlug?.trim().toLowerCase();
-  if (!slug) return null;
+  if (!slug || slug === "owner") return null;
   const rows = await db
-    .select({ id: affiliates.id, storeName: affiliates.storeName, referralCode: affiliates.referralCode })
+    .select({ id: affiliates.id, slug: affiliates.slug, storeName: affiliates.storeName, referralCode: affiliates.referralCode })
     .from(affiliates)
-    .where(and(eq(affiliates.slug, slug), eq(affiliates.status, "active"), eq(affiliates.storefrontEnabled, true)))
+	.where(includeInactive
+	  ? eq(affiliates.slug, slug)
+	  : and(eq(affiliates.slug, slug), eq(affiliates.status, "active"), eq(affiliates.storefrontEnabled, true)))
     .limit(1);
   if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate storefront not found." });
   return rows[0];
+}
+
+const designStoreScopeInput = z.string().trim().min(1).max(255).default("owner");
+
+function designAffiliateScopeCondition(affiliateId: number | null) {
+  return affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId);
+}
+
+function sameDesignScope(left: number | null, right: number | null): boolean {
+  return left === right;
+}
+
+function designScopeLabel(affiliate: { storeName: string } | null): string {
+  return affiliate?.storeName ?? "Cabinet Dealz owner";
 }
 
 function matchesPartialCabinetSearch(masterCode: string, description: string | null, rawSearch: string) {
@@ -1385,7 +1402,8 @@ export const designRouter = router({
         id: z.number().optional(),
         name: z.string().min(1).max(255),
         email: z.string().email().optional(),
-        affiliateSlug: z.string().max(255).optional(),
+        affiliateSlug: designStoreScopeInput,
+        originScope: z.string().trim().min(1).max(255).optional(),
         roomData: z.any(),
         placedCabinets: z.any(),
         selectedSurfaces: z.any().optional(),
@@ -1404,29 +1422,33 @@ export const designRouter = router({
 
       const userId = ctx.user.id;
       const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const originAffiliate = await resolveAffiliateDesignOwner(db, input.originScope ?? input.affiliateSlug);
       const affiliateId = affiliate?.id ?? null;
+      const originAffiliateId = originAffiliate?.id ?? null;
+      if (!sameDesignScope(affiliateId, originAffiliateId)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: `This design was created for ${designScopeLabel(originAffiliate)}. Open that store before saving it.`,
+        });
+      }
       await requireAffiliateDesignerAccess(db, ctx, affiliateId);
 
 	      if (input.id) {
 	        const existing = await db
-          .select({ id: kitchenDesigns.id })
+          .select({ id: kitchenDesigns.id, userId: kitchenDesigns.userId, affiliateId: kitchenDesigns.affiliateId })
           .from(kitchenDesigns)
-          .where(and(
-            eq(kitchenDesigns.id, input.id),
-            eq(kitchenDesigns.userId, userId),
-            affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
-	          ))
+	          .where(eq(kitchenDesigns.id, input.id))
 	          .limit(1);
-        if (!existing.length) {
-          const anyExistingDesign = await db
-            .select({ id: kitchenDesigns.id })
-            .from(kitchenDesigns)
-            .where(eq(kitchenDesigns.id, input.id))
-            .limit(1);
-          if (anyExistingDesign.length) {
+	        if (existing[0]) {
+          if (existing[0].userId !== userId) {
             throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
           }
-	        } else {
+          if (!sameDesignScope(existing[0].affiliateId, affiliateId)) {
+            throw new TRPCError({
+              code: "PRECONDITION_FAILED",
+              message: "This saved design belongs to a different store. Its creator store cannot be changed.",
+            });
+          }
 	          await db
 	            .update(kitchenDesigns)
 	            .set({
@@ -1444,7 +1466,7 @@ export const designRouter = router({
 	            .where(and(
 	              eq(kitchenDesigns.id, input.id),
 	              eq(kitchenDesigns.userId, userId),
-	              affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+	              designAffiliateScopeCondition(affiliateId),
 	            ));
 	          return { id: input.id, recoveredFromStaleId: false };
 	        }
@@ -1529,35 +1551,34 @@ export const designRouter = router({
     }),
 
   rename: protectedProcedure
-    .input(z.object({ id: z.number(), name: z.string().min(1).max(255) }))
+    .input(z.object({ id: z.number(), name: z.string().min(1).max(255), affiliateSlug: designStoreScopeInput }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      // Ensure the design belongs to the requesting user
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
+      const affiliateId = affiliate?.id ?? null;
+      await requireAffiliateDesignerAccess(db, ctx, affiliateId);
       const rows = await db
         .select({ id: kitchenDesigns.id, affiliateId: kitchenDesigns.affiliateId })
         .from(kitchenDesigns)
-        .where(and(eq(kitchenDesigns.id, input.id), eq(kitchenDesigns.userId, ctx.user.id)))
+        .where(and(
+          eq(kitchenDesigns.id, input.id),
+          eq(kitchenDesigns.userId, ctx.user.id),
+          designAffiliateScopeCondition(affiliateId),
+        ))
         .limit(1);
-      if (!rows.length) throw new TRPCError({ code: "NOT_FOUND" });
-      await requireAffiliateDesignerAccess(db, ctx, rows[0].affiliateId);
+      if (!rows.length) throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found." });
       await db.update(kitchenDesigns).set({ name: input.name }).where(eq(kitchenDesigns.id, input.id));
       return { ok: true };
     }),
 
   myDesigns: protectedProcedure
-    .input(z.object({ affiliateSlug: z.string().max(255).optional() }).optional())
+    .input(z.object({ affiliateSlug: designStoreScopeInput }).optional())
     .query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
-    const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug);
+    const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
     await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
-    if (ctx.user.role === "admin") {
-      // Administrators may review every saved plan, including customer,
-      // affiliate, and contractor-owned designs. Editing and ordinary sharing
-      // remain creator-scoped below.
-      return db.select().from(kitchenDesigns);
-    }
     return db
       .select()
       .from(kitchenDesigns)
@@ -1568,32 +1589,55 @@ export const designRouter = router({
     }),
 
   byId: protectedProcedure
-    .input(z.object({ id: z.number(), affiliateSlug: z.string().max(255).optional() }))
+    .input(z.object({ id: z.number(), affiliateSlug: designStoreScopeInput, crmDealId: z.number().int().positive().optional() }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return null;
-      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug);
-      await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
-      const ownerScope = ctx.user.role === "admin"
-        ? undefined
-        : eq(kitchenDesigns.userId, ctx.user.id);
-      const affiliateScope = ctx.user.role === "admin"
-        ? undefined
-        : affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId);
+	  const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, input.crmDealId != null);
+	  if (input.crmDealId != null) {
+	    const [deal] = await db.select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, ownerUserId: crmDeals.ownerUserId })
+	      .from(crmDeals)
+	      .where(eq(crmDeals.id, input.crmDealId))
+	      .limit(1);
+	    const [link] = await db.select({ id: crmDealDesigns.id })
+	      .from(crmDealDesigns)
+	      .where(and(eq(crmDealDesigns.dealId, input.crmDealId), eq(crmDealDesigns.designId, input.id)))
+	      .limit(1);
+	    const expectedAffiliateId = affiliate?.id ?? null;
+	    if (!deal || !link || deal.affiliateId !== expectedAffiliateId) return null;
+	    let canOpenFromCrm = ctx.user.role === "admin";
+	    if (!canOpenFromCrm) {
+	      const access = await resolveAffiliateAccess(db, ctx.user);
+	      if (access) {
+	        canOpenFromCrm = Boolean(access.affiliateId === deal.affiliateId && access.accessCrm);
+	      } else if (ctx.user.role === "designer" || ctx.user.role === "sales_rep") {
+	        canOpenFromCrm = true;
+	      } else if (deal.affiliateId == null) {
+	        canOpenFromCrm = deal.ownerUserId === ctx.user.id;
+	      }
+	    }
+	    if (!canOpenFromCrm) return null;
+	    const rows = await db.select().from(kitchenDesigns).where(and(
+	      eq(kitchenDesigns.id, input.id),
+	      designAffiliateScopeCondition(expectedAffiliateId),
+	    )).limit(1);
+	    return rows[0] ?? null;
+	  }
+	  await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
       const rows = await db
         .select()
         .from(kitchenDesigns)
         .where(and(
           eq(kitchenDesigns.id, input.id),
-          ownerScope,
-          affiliateScope,
+	          eq(kitchenDesigns.userId, ctx.user.id),
+	          designAffiliateScopeCondition(affiliate?.id ?? null),
         ))
         .limit(1);
       return rows[0] ?? null;
     }),
 
   createRemoteShareLink: protectedProcedure
-    .input(z.object({ designId: z.number().int().positive(), affiliateSlug: z.string().max(255).optional() }))
+    .input(z.object({ designId: z.number().int().positive(), affiliateSlug: designStoreScopeInput }))
     .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
@@ -1611,7 +1655,7 @@ export const designRouter = router({
         .from(kitchenDesigns)
         .where(and(
           eq(kitchenDesigns.id, input.designId),
-          affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+	          designAffiliateScopeCondition(affiliateId),
         ))
         .limit(1);
       const design = rows[0];
@@ -1824,7 +1868,7 @@ export const designRouter = router({
   // same projectName (owned by the caller) is priced with the SAME contractor
   // price path the Designer uses, returning per-room subtotals + a grand total.
   projectSummary: protectedProcedure
-    .input(z.object({ projectName: z.string().min(1).max(255), affiliateSlug: z.string().max(255).optional() }))
+    .input(z.object({ projectName: z.string().min(1).max(255), affiliateSlug: designStoreScopeInput }))
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return { projectName: input.projectName, rooms: [], grandTotal: 0, roomCount: 0 };
@@ -1838,7 +1882,7 @@ export const designRouter = router({
           and(
             eq(kitchenDesigns.userId, ctx.user.id),
             eq(kitchenDesigns.projectName, input.projectName),
-            affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
+	            designAffiliateScopeCondition(affiliate?.id ?? null),
           ),
         )
         .orderBy(kitchenDesigns.createdAt);
@@ -1965,14 +2009,16 @@ export const designRouter = router({
     }),
 
   // List the caller's distinct project names (for the project picker).
-  myProjects: protectedProcedure.query(async ({ ctx }) => {
+  myProjects: protectedProcedure.input(z.object({ affiliateSlug: designStoreScopeInput }).optional()).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return [];
-    await requireAffiliateDesignerAccess(db, ctx, null);
+	  const affiliate = await resolveAffiliateDesignOwner(db, input?.affiliateSlug ?? "owner");
+	  const affiliateId = affiliate?.id ?? null;
+	  await requireAffiliateDesignerAccess(db, ctx, affiliateId);
     const rows = await db
       .select()
       .from(kitchenDesigns)
-      .where(eq(kitchenDesigns.userId, ctx.user.id));
+	    .where(and(eq(kitchenDesigns.userId, ctx.user.id), designAffiliateScopeCondition(affiliateId)));
     const byProject = new Map<string, { projectName: string; roomCount: number; updatedAt: Date }>();
     for (const r of rows) {
       const p = (r.projectName ?? "").trim();

@@ -54,6 +54,7 @@ import { translateSpec } from "@/lib/i18n/specPhrases";
 import { nonEmptyStyleCategories } from "@/lib/catalogCategories";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
+import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 import {
   CABINET_ATTENTION_RETURN_URL,
   DESIGNER_COVERAGE_RETURN_URL,
@@ -365,9 +366,12 @@ export default function CabinetDetail({ masterCode }: Props) {
   const canonicalMasterCode = canonicalCabinetDetailCode(masterCode);
   const affiliateSlug = useMemo(() => {
     if (typeof window === "undefined") return undefined;
-    const storeRoute = window.location.pathname.match(/^\/store\/([^/]+)/)?.[1];
-    return storeRoute || window.localStorage.getItem("cd_cart_slug_v1") || undefined;
-  }, []);
+    return affiliateSlugForStoreScope(resolveStoreScope({
+      pathname: window.location.pathname,
+      search: searchStr,
+      hostname: window.location.hostname,
+    })) ?? undefined;
+  }, [searchStr]);
   // When a shopper arrives from a door-style FAMILY page we pre-lock that style
   // (passed as ?style=<styleId>) so the cabinet shows in the family they picked.
   const styleParam = (() => {

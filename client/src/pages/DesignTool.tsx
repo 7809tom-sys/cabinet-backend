@@ -43,6 +43,13 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
+import {
+  affiliateSlugForStoreScope,
+  designerDraftActiveKey,
+  designerDraftStorageKey,
+  migrateLegacyDesignerDraftToOwner,
+  resolveStoreScope,
+} from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
@@ -308,16 +315,33 @@ function DimStepper({
   );
 }
 
-export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?: string }) {
+function resolvedDesignToolStoreScope(affiliateSlugProp: string | undefined, search: string) {
+  const queryAffiliateSlug = new URLSearchParams(search).get("affiliate")?.trim() || null;
+  return resolveStoreScope({
+    pathname: affiliateSlugProp
+      ? `/store/${encodeURIComponent(affiliateSlugProp)}/design`
+      : typeof window !== "undefined" ? window.location.pathname : "/design",
+    search: queryAffiliateSlug ? `?affiliate=${encodeURIComponent(queryAffiliateSlug)}` : search,
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  });
+}
+
+export default function DesignTool(props: { affiliateSlug?: string }) {
+  const search = useSearch();
+  const scope = resolvedDesignToolStoreScope(props.affiliateSlug, search);
+  return <ScopedDesignTool key={scope} {...props} />;
+}
+
+function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?: string }) {
   const { t, lang } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const isAdmin = (user as any)?.role === "admin";
   const search = useSearch();
-  const queryAffiliateSlug = useMemo(() => {
-    const v = new URLSearchParams(search).get("affiliate");
-    return v ? String(v).trim() : null;
-  }, [search]);
-  const affiliateSlug = affiliateSlugProp ?? queryAffiliateSlug;
+  const storeScope = useMemo(
+    () => resolvedDesignToolStoreScope(affiliateSlugProp, search),
+    [affiliateSlugProp, search],
+  );
+  const affiliateSlug = affiliateSlugForStoreScope(storeScope);
   const { data: affiliateBrand } = trpc.affiliates.bySlug.useQuery(
     { slug: affiliateSlug ?? "" },
     { enabled: !!affiliateSlug, retry: false },
@@ -399,9 +423,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       email: contact.email,
       name: contact.name,
       phone: contact.phone,
-      affiliateSlug: affiliateSlug ?? undefined,
+	  affiliateSlug: affiliateSlug ?? undefined,
     });
-  }, [captureLead, affiliateSlug]);
+  }, [affiliateSlug, captureLead]);
   const addOptionalContact = useCallback((contact: Pick<LeadContact, "name" | "phone">) => {
     if (!verifiedEmail || (!contact.name && !contact.phone)) return;
     setVerifiedName(contact.name ?? "");
@@ -411,7 +435,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       email: verifiedEmail,
       name: contact.name,
       phone: contact.phone,
-      affiliateSlug: affiliateSlug ?? undefined,
+	  affiliateSlug: affiliateSlug ?? undefined,
       interaction: "contact_update",
     }, {
       onSuccess: () => toast.success("Contact details saved"),
@@ -430,6 +454,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);
+	const crmDealId = useMemo(() => {
+	  const value = Number(new URLSearchParams(search).get("crmDeal"));
+	  return Number.isInteger(value) && value > 0 ? value : null;
+	}, [search]);
   const [activeSavedDesignId, setActiveSavedDesignId] = useState<number | null>(() => loadDesignId);
   useEffect(() => {
     // A route-provided design must become the active persisted plan.  But when
@@ -443,9 +471,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // read-only entry path into the same renderer and intentionally avoids
   // creating another customer lead merely to validate or support that design.
   useEffect(() => {
-    if (!canAdminReviewSavedDesign(isAdmin, loadDesignId) || verified) return;
+	if (!canAdminReviewSavedDesign(isAdmin, loadDesignId) || verified) return;
     setVerifiedEmail((user as { email?: string | null } | null)?.email ?? "admin@cabinetdealz.local");
-    setVerifiedName((user as { name?: string | null } | null)?.name ?? "Administrator");
+	setVerifiedName((user as { name?: string | null } | null)?.name ?? "Administrator");
     setVerified(true);
   }, [isAdmin, loadDesignId, user, verified]);
   // Optional kitchen package to pre-load (?bundleId=<id>), e.g. from the Kitchen Packages page.
@@ -481,9 +509,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const surfaceSelectionAppliedRef = useRef(false);
   const currentSavedDesignId = activeSavedDesignId ?? loadDesignId;
   const { data: savedDesign } = trpc.design.byId.useQuery(
-    { id: currentSavedDesignId ?? 0, affiliateSlug: affiliateSlug ?? undefined },
-    { enabled: currentSavedDesignId != null && verified && isAuthenticated, retry: 1 }
+	{ id: currentSavedDesignId ?? 0, affiliateSlug: storeScope, crmDealId: crmDealId ?? undefined },
+	{ enabled: currentSavedDesignId != null && isAuthenticated && (verified || crmDealId != null), retry: 1 }
   );
+	useEffect(() => {
+	  if (verified || crmDealId == null || !savedDesign || !isAuthenticated) return;
+	  setVerifiedEmail((user as { email?: string | null } | null)?.email ?? "crm@cabinetdealz.local");
+	  setVerifiedName((user as { name?: string | null } | null)?.name ?? "CRM user");
+	  setVerified(true);
+	}, [crmDealId, isAuthenticated, savedDesign, user, verified]);
 
   // Mobile layout: which slide-up panel is open (catalog picker or cart/BOM).
   // Designer is touch-first: treat anything narrower than a small laptop (1024px)
@@ -9304,13 +9338,15 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // tab is backgrounded (visibilitychange / pagehide — the events mobile browsers
   // reliably fire before freezing/discarding a tab), then restore it on return.
   const draftKey = useMemo(
-    () => `cabinet-dealz:designer-draft:v1:${(verifiedEmail || "guest").toLowerCase()}`,
-    [verifiedEmail],
+    () => designerDraftStorageKey(storeScope, verifiedEmail),
+    [storeScope, verifiedEmail],
   );
+  const activeDraftKey = useMemo(() => designerDraftActiveKey(storeScope), [storeScope]);
 
   // Snapshot the full design into a serializable object.
   const snapshotDraft = usePersistFn(() => ({
-    v: 1,
+    v: 2,
+    originScope: storeScope,
     savedAt: Date.now(),
     room,
     placed,
@@ -9363,6 +9399,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         snap.styleId != null;
       if (worthKeeping) {
         localStorage.setItem(draftKey, JSON.stringify(snap));
+        localStorage.setItem(activeDraftKey, draftKey);
       }
     } catch {
       /* storage full / unavailable — ignore */
@@ -9372,17 +9409,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Restore once, after verification, unless we're loading a saved design.
   useEffect(() => {
     if (!verified || draftRestoredRef.current) return;
-    if (loadDesignId != null) {
-      // A saved-design load owns the canvas; skip draft restore but
+    if (loadDesignId != null || bundleIdParam != null) {
+      // An explicit saved-design/package load owns the canvas; skip draft restore but
       // allow future saves.
       draftRestoredRef.current = true;
       return;
     }
     try {
+      // A v1 draft had no store truth. Move it only to owner and delete the
+      // ambiguous source, even when the current page is an affiliate store.
+      migrateLegacyDesignerDraftToOwner(localStorage, verifiedEmail);
       const raw = localStorage.getItem(draftKey);
       if (raw) {
         const d = JSON.parse(raw);
-        if (d && typeof d === "object") {
+        if (d && typeof d === "object" && d.v === 2 && d.originScope === storeScope) {
+          localStorage.setItem(activeDraftKey, draftKey);
           if (d.room) setRoom(d.room);
           if (Array.isArray(d.placed)) {
             // Normalize appliance placement (same fix as loadSavedDesign)
@@ -9473,7 +9514,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     draftRestoredRef.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verified, draftKey]);
+  }, [verified, draftKey, activeDraftKey, storeScope, verifiedEmail, loadDesignId, bundleIdParam]);
 
   // Pre-select a door style from the ?style=<id> URL param (e.g. "Design with
   // this" CTA from the homepage). Fires once, after the draft has been restored,
@@ -9583,6 +9624,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   const clearDraft = usePersistFn(() => {
     try {
       localStorage.removeItem(draftKey);
+      if (localStorage.getItem(activeDraftKey) === draftKey) localStorage.removeItem(activeDraftKey);
     } catch {
       /* ignore */
     }
@@ -9921,7 +9963,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     try {
       const share = await createRemoteShareLinkMut.mutateAsync({
         designId: designIdForShare,
-        affiliateSlug: affiliateSlug ?? undefined,
+        affiliateSlug: storeScope,
       });
       const url = buildRemoteDesignSessionUrl({ origin: window.location.origin, token: share.token });
       const title = share.designName?.trim() || savedDesign?.name?.trim() || "Kitchen design";
@@ -11585,7 +11627,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	            onReviewPlanFinding={reviewPreSavePlanFinding}
 	            onSaveSuccess={(designName, designId) => {
 	              setActiveSavedDesignId(designId);
-	              void trpcUtils.design.byId.invalidate({ id: designId, affiliateSlug: affiliateSlug ?? undefined });
+	              void trpcUtils.design.byId.invalidate({ id: designId, affiliateSlug: storeScope, crmDealId: crmDealId ?? undefined });
 	              if (!verifiedName && !verifiedPhone && !optionalContactDismissed) {
 	                setShowOptionalContactNudge(true);
 	              }
@@ -16566,7 +16608,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             onChange={(e) => setRenameValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && renameValue.trim() && renameDesignId) {
-                renameMut.mutate({ id: renameDesignId, name: renameValue.trim() });
+                renameMut.mutate({ id: renameDesignId, name: renameValue.trim(), affiliateSlug: storeScope });
               }
             }}
             placeholder="Design name"
@@ -16577,7 +16619,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             <Button
               onClick={() => {
                 if (renameValue.trim() && renameDesignId) {
-                  renameMut.mutate({ id: renameDesignId, name: renameValue.trim() });
+                  renameMut.mutate({ id: renameDesignId, name: renameValue.trim(), affiliateSlug: storeScope });
                 }
               }}
               disabled={!renameValue.trim() || renameMut.isPending}

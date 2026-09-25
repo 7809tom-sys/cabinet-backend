@@ -100,6 +100,12 @@ type LinkedInvoiceDesign = {
   id: number;
   designId: number;
   designName: string;
+	creatorScope: string;
+	creatorStoreName: string;
+	designUrl: string;
+	designUpdatedAt: string | Date;
+	selectedStyleId: number | null;
+	selectedSurfaces: unknown;
   catalogSubtotal: string | number | null;
   catalogSubtotalSource: string | null;
   materialLines: { description: string; quantity: number }[];
@@ -649,7 +655,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
     onError: (error) => toast.error(error.message || (lang === "es" ? "No se pudo actualizar la mano de obra" : "Couldn't update labor selection")),
   });
 
-  const { data: linkable } = trpc.crm.linkableDesigns.useQuery(undefined, { enabled: dealId != null });
+  const { data: linkable } = trpc.crm.linkableDesigns.useQuery({ dealId: dealId ?? undefined }, { enabled: dealId != null });
   const [designToLink, setDesignToLink] = useState<string>("");
   const linkDesign = trpc.crm.linkDesign.useMutation({
     onSuccess: (r) => {
@@ -746,7 +752,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                   <Select value={designToLink} onValueChange={setDesignToLink}>
                     <SelectTrigger className="flex-1"><SelectValue placeholder={availableDesigns.length ? (lang === "es" ? "Elegir un dise\u00f1o guardado\u2026" : "Choose a saved design\u2026") : (lang === "es" ? "Sin dise\u00f1os guardados" : "No saved designs")} /></SelectTrigger>
                     <SelectContent>
-                      {availableDesigns.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+	                  {availableDesigns.map((d) => <SelectItem key={d.id} value={String(d.id)}>{d.name} · {d.creatorStoreName}</SelectItem>)}
                     </SelectContent>
                   </Select>
                   <Button variant="outline" disabled={!designToLink || linkDesign.isPending} onClick={() => linkDesign.mutate({ dealId: deal.id, designId: Number(designToLink) })}>{lang === "es" ? "Vincular" : "Attach"}</Button>
@@ -755,8 +761,15 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                   {linkedDesigns.length === 0 ? (
                     <p className="text-xs text-muted-foreground">{lang === "es" ? "Ning\u00fan dise\u00f1o vinculado." : "No designs linked yet."}</p>
                   ) : linkedDesigns.map((l) => (
-                    <div key={l.id} className="flex items-center justify-between text-sm border border-border rounded-md px-3 py-1.5">
-                      <a href={`/design?load=${l.designId}&preview=3d`} className="text-primary hover:underline truncate">{l.designName}</a>
+	                  <div key={l.id} className="flex items-center justify-between gap-3 text-sm border border-border rounded-md px-3 py-2">
+	                    <div className="min-w-0">
+	                      <a href={l.designUrl} className="text-primary hover:underline truncate block">{l.designName}</a>
+	                      <p className="text-[11px] text-muted-foreground truncate">
+	                        {l.creatorStoreName} · {new Date(l.designUpdatedAt).toLocaleDateString()}
+	                        {l.selectedStyleId ? ` · Style #${l.selectedStyleId}` : ""}
+	                        {Array.isArray(l.selectedSurfaces) && l.selectedSurfaces.length > 0 ? ` · ${l.selectedSurfaces.length} surface selection${l.selectedSurfaces.length === 1 ? "" : "s"}` : ""}
+	                      </p>
+	                    </div>
                       <button className="text-muted-foreground hover:text-red-600 shrink-0 ml-2" onClick={() => unlinkDesign.mutate({ dealId: deal.id, linkId: l.id })} aria-label="Unlink design"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   ))}
@@ -1023,7 +1036,7 @@ function QuickInvoiceDialog({
               {selectedDesign && !kitchenDesign.enabled && (
                 <p className="-mt-1 px-1 text-[11px] text-amber-700">
                   {label("This plan needs a verified cart/order subtotal before it can be invoiced. ", "Este plano necesita un subtotal verificado de carrito/pedido antes de facturarse. ")}
-                  <a className="font-semibold underline underline-offset-2" href={`/design?load=${selectedDesign.designId}`}>{label("Open plan to prepare the order", "Abrir plano para preparar el pedido")}</a>
+	              <a className="font-semibold underline underline-offset-2" href={selectedDesign.designUrl}>{label("Open plan to prepare the order", "Abrir plano para preparar el pedido")}</a>
                 </p>
               )}
               <ServiceRow id="invoice-shipping" title={label("Shipping", "Envío")} state={shipping} setState={setShipping} source={prefill?.shippingSource} emptyAmountLabel={label("Quote required", "Cotización requerida")} />

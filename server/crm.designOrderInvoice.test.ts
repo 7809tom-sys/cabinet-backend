@@ -5,7 +5,7 @@ const source = readFileSync(new URL("./routers/crm.ts", import.meta.url), "utf8"
 
 describe("CRM linked-plan invoice source contract", () => {
   it("prefers an order linked to the selected plan before legacy customer-email recovery", () => {
-    expect(source).toContain("inArray(orderRequests.kitchenDesignId, linkedDesignIds)");
+	  expect(source).toContain("inArray(orderRequests.kitchenDesignId, scopedLinkedDesignIds)");
     expect(source).toContain("linkedOrderRows[0] || designOrderRows[0] || !deal.contactEmail");
   });
 

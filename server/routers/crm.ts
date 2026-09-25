@@ -209,6 +209,17 @@ export function laborEstimateMatchesDeal(
     || sameCustomerEmail(estimate.customerEmail, deal.contactEmail);
 }
 
+function designAffiliateWhere(affiliateId: number | null) {
+  return affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId);
+}
+
+function designScopePath(affiliateSlug: string | null, designId: number, crmDealId?: number | null) {
+  const params = new URLSearchParams({ load: String(designId), preview: "3d" });
+	if (crmDealId != null) params.set("crmDeal", String(crmDealId));
+	const path = affiliateSlug ? `/store/${encodeURIComponent(affiliateSlug)}/design` : "/design";
+	return `${path}?${params.toString()}`;
+}
+
 export const crmRouter = router({
   // ── Import a customer list into the caller's CRM scope ──────────────────────
   importCustomerList: protectedProcedure
@@ -322,26 +333,51 @@ export const crmRouter = router({
       const linkedDesignIds = linkedDesignRows.map((link) => link.designId);
       const savedDesignRows = linkedDesignIds.length === 0
         ? []
-        : await db.select({ id: kitchenDesigns.id, placedCabinets: kitchenDesigns.placedCabinets })
+        : await db.select({
+          id: kitchenDesigns.id,
+          name: kitchenDesigns.name,
+          affiliateId: kitchenDesigns.affiliateId,
+          updatedAt: kitchenDesigns.updatedAt,
+          selectedStyleId: kitchenDesigns.selectedStyleId,
+          selectedSurfaces: kitchenDesigns.selectedSurfaces,
+          placedCabinets: kitchenDesigns.placedCabinets,
+        })
           .from(kitchenDesigns)
           .where(inArray(kitchenDesigns.id, linkedDesignIds));
       const savedDesignById = new Map(savedDesignRows.map((design) => [design.id, design]));
-      const shareRows = linkedDesignIds.length === 0
+	  const scopedLinkedDesignIds = savedDesignRows.filter((design) => design.affiliateId === deal.affiliateId).map((design) => design.id);
+      const shareRows = scopedLinkedDesignIds.length === 0
         ? []
         : await db.select({ kitchenDesignId: threeDRoomShares.kitchenDesignId, orderSubtotal: threeDRoomShares.orderSubtotal, updatedAt: threeDRoomShares.updatedAt })
           .from(threeDRoomShares)
-          .where(inArray(threeDRoomShares.kitchenDesignId, linkedDesignIds))
+	      .where(inArray(threeDRoomShares.kitchenDesignId, scopedLinkedDesignIds))
           .orderBy(desc(threeDRoomShares.updatedAt));
       const shareByDesignId = new Map<number, (typeof shareRows)[number]>();
       for (const share of shareRows) {
         if (share.kitchenDesignId != null && !shareByDesignId.has(share.kitchenDesignId)) shareByDesignId.set(share.kitchenDesignId, share);
       }
-      let linkedDesigns = linkedDesignRows.map((link) => {
+      const linkedAffiliateIds = Array.from(new Set(savedDesignRows.map((design) => design.affiliateId).filter((id): id is number => id != null)));
+      const linkedAffiliateRows = linkedAffiliateIds.length === 0
+        ? []
+        : await db.select({ id: affiliates.id, slug: affiliates.slug, storeName: affiliates.storeName })
+          .from(affiliates)
+          .where(inArray(affiliates.id, linkedAffiliateIds));
+      const linkedAffiliateById = new Map(linkedAffiliateRows.map((affiliate) => [affiliate.id, affiliate]));
+      let linkedDesigns = linkedDesignRows.flatMap((link) => {
         const savedDesign = savedDesignById.get(link.designId);
+	      if (!savedDesign || savedDesign.affiliateId !== deal.affiliateId) return [];
         const share = shareByDesignId.get(link.designId);
         const shareSubtotal = Number(share?.orderSubtotal ?? 0);
-        return {
+	      const creatorAffiliate = savedDesign.affiliateId == null ? null : linkedAffiliateById.get(savedDesign.affiliateId) ?? null;
+        return [{
           ...link,
+	        designName: savedDesign.name,
+	        designUpdatedAt: savedDesign.updatedAt,
+	        creatorScope: creatorAffiliate?.slug ?? "owner",
+	        creatorStoreName: creatorAffiliate?.storeName ?? "Cabinet Dealz",
+	        designUrl: designScopePath(creatorAffiliate?.slug ?? null, savedDesign.id, deal.id),
+	        selectedStyleId: savedDesign.selectedStyleId,
+	        selectedSurfaces: savedDesign.selectedSurfaces,
           // A zero plan share is not an authorized sell price. Keep it out of
           // the invoice until a verified saved-order subtotal exists.
           catalogSubtotal: Number.isFinite(shareSubtotal) && shareSubtotal > 0 ? share?.orderSubtotal ?? null : null,
@@ -349,7 +385,7 @@ export const crmRouter = router({
             ? "Saved design catalog subtotal"
             : "No verified plan price yet",
           materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets),
-        };
+	      }];
       });
       const emails = await db
         .select()
@@ -380,11 +416,11 @@ export const crmRouter = router({
         : eq(orderRequests.affiliateId, deal.affiliateId);
       const linkedOrderRows = deal.orderRequestId == null
         ? []
-        : await db.select().from(orderRequests).where(eq(orderRequests.id, deal.orderRequestId)).limit(1);
-      const designOrderRows = linkedOrderRows[0] || linkedDesignIds.length === 0
+	    : await db.select().from(orderRequests).where(and(eq(orderRequests.id, deal.orderRequestId), orderScope)).limit(1);
+	  const designOrderRows = linkedOrderRows[0] || scopedLinkedDesignIds.length === 0
         ? []
         : await db.select().from(orderRequests)
-          .where(and(inArray(orderRequests.kitchenDesignId, linkedDesignIds), orderScope))
+	      .where(and(inArray(orderRequests.kitchenDesignId, scopedLinkedDesignIds), orderScope))
           .orderBy(desc(orderRequests.updatedAt))
           .limit(1);
       const matchedOrderRows = linkedOrderRows[0] || designOrderRows[0] || !deal.contactEmail
@@ -468,40 +504,67 @@ export const crmRouter = router({
       return { deal, activities, linkedDesigns, emails, invoiceBrand, invoicePrefill, laborEstimates };
     }),
 
-  // ── Saved designs the caller can attach (their own, by name) ────────────────
-  linkableDesigns: protectedProcedure.query(async ({ ctx }) => {
-    const db = await getDb();
-    if (!db) return [];
-    const rows = await db
-      .select({
-        id: kitchenDesigns.id,
-        name: kitchenDesigns.name,
-        updatedAt: kitchenDesigns.updatedAt,
-      })
-      .from(kitchenDesigns)
-      .where(eq(kitchenDesigns.userId, ctx.user.id))
-      .orderBy(desc(kitchenDesigns.updatedAt));
-    return rows;
-  }),
+  // ── Saved designs compatible with this CRM scope/deal ──────────────────────
+  linkableDesigns: protectedProcedure
+	  .input(z.object({ dealId: z.number().int().positive().optional() }).optional())
+	  .query(async ({ ctx, input }) => {
+	    const db = await getDb();
+	    if (!db) return [];
+	    const scope = await resolveScope(ctx);
+	    const deal = input?.dealId != null ? (await getOwnedDeal(ctx, input.dealId)).deal : null;
+	    const targetAffiliateId = deal
+	      ? deal.affiliateId
+	      : scope.kind === "affiliate" ? scope.affiliateId
+	      : scope.kind === "contractor" ? null
+	      : undefined;
+	    const conditions = [];
+	    if (targetAffiliateId !== undefined) conditions.push(designAffiliateWhere(targetAffiliateId));
+	    if (scope.kind === "contractor") conditions.push(eq(kitchenDesigns.userId, scope.userId));
+	    const rows = await db
+	      .select({
+	        id: kitchenDesigns.id,
+	        name: kitchenDesigns.name,
+	        affiliateId: kitchenDesigns.affiliateId,
+	        updatedAt: kitchenDesigns.updatedAt,
+	      })
+	      .from(kitchenDesigns)
+	      .where(conditions.length ? and(...conditions) : undefined)
+	      .orderBy(desc(kitchenDesigns.updatedAt));
+	    const affiliateIds = Array.from(new Set(rows.map((design) => design.affiliateId).filter((id): id is number => id != null)));
+	    const affiliateRows = affiliateIds.length === 0 ? [] : await db
+	      .select({ id: affiliates.id, slug: affiliates.slug, storeName: affiliates.storeName })
+	      .from(affiliates)
+	      .where(inArray(affiliates.id, affiliateIds));
+	    const affiliateById = new Map(affiliateRows.map((affiliate) => [affiliate.id, affiliate]));
+	    return rows.map((design) => {
+	      const affiliate = design.affiliateId == null ? null : affiliateById.get(design.affiliateId) ?? null;
+	      return {
+	        ...design,
+	        creatorScope: affiliate?.slug ?? "owner",
+	        creatorStoreName: affiliate?.storeName ?? "Cabinet Dealz",
+	        designUrl: designScopePath(affiliate?.slug ?? null, design.id, deal?.id),
+	      };
+	    });
+	  }),
 
   // ── Attach a saved design to a deal (snapshots the name) ────────────────────
   linkDesign: protectedProcedure
     .input(z.object({ dealId: z.number().int(), designId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
-      const { db, deal } = await getOwnedDeal(ctx, input.dealId);
-      // The design must belong to the caller.
+      const { db, scope, deal } = await getOwnedDeal(ctx, input.dealId);
       const dRows = await db
         .select()
         .from(kitchenDesigns)
-        .where(
-          and(
-            eq(kitchenDesigns.id, input.designId),
-            eq(kitchenDesigns.userId, ctx.user.id)
-          )
-        )
+	      .where(eq(kitchenDesigns.id, input.designId))
         .limit(1);
       const design = dRows[0];
       if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+	    if (design.affiliateId !== deal.affiliateId) {
+	      throw new TRPCError({ code: "NOT_FOUND", message: "Design is not available in this deal's store." });
+	    }
+	    if (scope.kind === "contractor" && design.userId !== ctx.user.id) {
+	      throw new TRPCError({ code: "NOT_FOUND", message: "Design not found." });
+	    }
       // Avoid duplicate links.
       const existing = await db
         .select()
@@ -521,6 +584,12 @@ export const crmRouter = router({
         linkedByUserId: ctx.user.id,
       });
       await db.update(crmDeals).set({ updatedAt: new Date() }).where(eq(crmDeals.id, deal.id));
+	    await db.insert(crmActivities).values({
+	      dealId: deal.id,
+	      authorUserId: ctx.user.id,
+	      kind: "note",
+	      body: `Saved design linked: ${design.name}.`,
+	    });
       return { ok: true };
     }),
 
@@ -529,6 +598,10 @@ export const crmRouter = router({
     .input(z.object({ dealId: z.number().int(), linkId: z.number().int() }))
     .mutation(async ({ ctx, input }) => {
       const { db, deal } = await getOwnedDeal(ctx, input.dealId);
+	    const links = await db.select({ designName: crmDealDesigns.designName })
+	      .from(crmDealDesigns)
+	      .where(and(eq(crmDealDesigns.id, input.linkId), eq(crmDealDesigns.dealId, deal.id)))
+	      .limit(1);
       await db
         .delete(crmDealDesigns)
         .where(
@@ -537,6 +610,14 @@ export const crmRouter = router({
             eq(crmDealDesigns.dealId, deal.id)
           )
         );
+	    if (links[0]) {
+	      await db.insert(crmActivities).values({
+	        dealId: deal.id,
+	        authorUserId: ctx.user.id,
+	        kind: "note",
+	        body: `Saved design unlinked: ${links[0].designName}.`,
+	      });
+	    }
       return { ok: true };
     }),
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { crmDeals, crmActivities, crmDealDesigns, kitchenDesigns } from "../drizzle/schema";
+import { affiliates, crmDeals, crmActivities, crmDealDesigns, kitchenDesigns } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 function adminCtx(): TrpcContext {
@@ -46,8 +46,13 @@ describe("crm router — design linking", () => {
 
     try {
       // The design shows up as linkable for its owner.
-      const linkable = await caller.crm.linkableDesigns();
-      expect(linkable.some((d) => d.id === design.id)).toBe(true);
+	  const linkable = await caller.crm.linkableDesigns({ dealId });
+	  expect(linkable).toEqual(expect.arrayContaining([expect.objectContaining({
+	    id: design.id,
+	    creatorScope: "owner",
+	    creatorStoreName: "Cabinet Dealz",
+	    designUrl: `/design?load=${design.id}&preview=3d&crmDeal=${dealId}`,
+	  })]));
 
       // Link it.
       const r1 = await caller.crm.linkDesign({ dealId, designId: design.id });
@@ -58,6 +63,9 @@ describe("crm router — design linking", () => {
       const link = detail.linkedDesigns.find((l) => l.designId === design.id);
       expect(link).toBeTruthy();
       expect(link?.designName).toBe("Spec Design — CRM Link");
+	  expect(link?.creatorStoreName).toBe("Cabinet Dealz");
+	  expect(link?.designUrl).toBe(`/design?load=${design.id}&preview=3d&crmDeal=${dealId}`);
+	  expect(detail.activities.some((activity) => activity.body === "Saved design linked: Spec Design — CRM Link.")).toBe(true);
 
       // Linking the same design again is idempotent (no duplicate row).
       const r2 = await caller.crm.linkDesign({ dealId, designId: design.id });
@@ -69,6 +77,7 @@ describe("crm router — design linking", () => {
       await caller.crm.unlinkDesign({ dealId, linkId: link!.id });
       const detail3 = await caller.crm.deal({ id: dealId });
       expect(detail3.linkedDesigns.some((l) => l.designId === design.id)).toBe(false);
+	  expect(detail3.activities.some((activity) => activity.body === "Saved design unlinked: Spec Design — CRM Link.")).toBe(true);
     } finally {
       await caller.crm.remove({ id: dealId }).catch(() => {});
       await cleanup(dealId, [design.id]);
@@ -116,15 +125,24 @@ describe("crm router — design linking", () => {
     }
   });
 
-  it("rejects linking a design the caller does not own", async () => {
+  it("rejects linking an affiliate design to a house deal", async () => {
     const db = await getDb();
     if (!db) return;
     const caller = appRouter.createCaller(adminCtx());
 
-    // Insert a design owned by a DIFFERENT user directly.
+	const affiliateInsert = await db.insert(affiliates).values({
+	  storeName: "Foreign Design Store",
+	  slug: `foreign-design-store-${Date.now()}`,
+	  email: "foreign-design-store@example.test",
+	  referralCode: `FD${Date.now()}`.slice(-24),
+	});
+	const affiliateId = (affiliateInsert as unknown as [{ insertId: number }])[0].insertId;
+
+	// A design owned by another affiliate must not cross into a house deal.
     const otherUserId = 999199;
     const ins = await db.insert(kitchenDesigns).values({
       userId: otherUserId,
+	  affiliateId,
       name: "Foreign Design",
       roomData: { width: 100, depth: 100 },
       placedCabinets: [],
@@ -138,6 +156,7 @@ describe("crm router — design linking", () => {
     } finally {
       await caller.crm.remove({ id: dealId }).catch(() => {});
       await cleanup(dealId, [foreignId]);
+	  await db.delete(affiliates).where(eq(affiliates.id, affiliateId));
     }
   });
 

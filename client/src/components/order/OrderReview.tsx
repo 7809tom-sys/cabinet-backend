@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode, readAffiliateSlug, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
+import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 import { requiresFinishMatch, finishMatchLabel, finishMatchOrderNote } from "@shared/finishMatch";
 import { isUnfinishedExteriorStyleName, unfinishedExteriorSkinNote } from "@shared/skinMatch";
 import { toast } from "sonner";
@@ -222,10 +223,20 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const [liftgateRequired, setLiftgateRequired] = useState(false);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
   const [submittedRequestNumber, setSubmittedRequestNumber] = useState<string | null>(null);
+	const storeScope = resolveStoreScope({
+	  pathname: typeof window !== "undefined" ? window.location.pathname : "/order/new",
+	  search: typeof window !== "undefined" ? window.location.search : "",
+	  hostname: typeof window !== "undefined" ? window.location.hostname : "",
+	});
+	const affiliateSlug = affiliateSlugForStoreScope(storeScope);
   // Sales tax: customer selects their state; we look up the combined rate.
   const [taxState, setTaxState] = useState<string>("");
   // Referral attribution captured from a storefront visit or ?ref= link.
-  const [referralCode, setReferralCode] = useState<string | null>(() => readReferralCode());
+	const [referralCode, setReferralCode] = useState<string | null>(() => {
+	  const explicit = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("ref") : null;
+	  if (explicit) return persistReferralCode(explicit, affiliateSlug ?? undefined);
+	  return affiliateSlug && readAffiliateSlug() === affiliateSlug ? readReferralCode() : null;
+	});
   const referralInfo = trpc.affiliates.byCode.useQuery(
     { code: referralCode ?? "" },
     { enabled: !!referralCode, retry: false }
@@ -355,7 +366,6 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     }
   }, [styleOptions, styleId, initialStyleId]);
 
-  const [affiliateSlug] = useState<string | null>(() => readAffiliateSlug());
   const { data: storeBranding } = trpc.storefront.brandingForSlug.useQuery(
     { slug: affiliateSlug! },
     { enabled: !!affiliateSlug, retry: false }
@@ -630,6 +640,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       originatorPhone: phone || undefined,
       zip: zip || undefined,
       source,
+	  storeScope,
       styleId: selectedStyle?.styleId ?? null,
       styleName: brandedStyleName ?? null,
       tier,

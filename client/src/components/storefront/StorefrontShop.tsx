@@ -746,7 +746,7 @@ function LockedCatalog({
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Truck className="h-4 w-4" /> {t(lang, "ship_not_included")}
           </p>
-          <Link href={withRef("/order/new")}>
+		  <Link href={withRef(slug ? `/store/${slug}/order` : "/order/new")}>
             <Button size="lg" className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
               {t(lang, "family_continue_quote")} <ChevronRight className="h-4 w-4" />
             </Button>

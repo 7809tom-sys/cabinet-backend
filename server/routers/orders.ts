@@ -59,6 +59,7 @@ async function resolveAuthorizedKitchenDesignId(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   user: { id: number; email: string | null; role: string } | null | undefined,
   requestedDesignId: number | undefined,
+	expectedAffiliateId: number | null,
 ): Promise<number | null> {
   if (!requestedDesignId) return null;
   if (!user) {
@@ -70,6 +71,9 @@ async function resolveAuthorizedKitchenDesignId(
     .where(eq(kitchenDesigns.id, requestedDesignId))
     .limit(1);
   if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Saved plan not found." });
+	if (design.affiliateId !== expectedAffiliateId) {
+	  throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This saved plan belongs to a different store. Open the original store before ordering it." });
+	}
   if (user.role === "admin" || design.userId === user.id) return design.id;
 
   const affiliateAccess = await resolveAffiliateAccess(db, user);
@@ -697,6 +701,7 @@ export const ordersRouter = router({
         tier: tierEnum.default("Contractor"),
         lineItems: z.array(lineItemInput).min(1, "Add at least one line item"),
         notes: z.string().max(2000).optional(),
+	    storeScope: z.string().trim().min(1).max(255).default("owner"),
         referralCode: z.string().max(32).optional(),
         deliveryMethod: z.enum(["ship", "pickup"]).optional(),
         deliveryLocationType: z.enum(["business", "residential"]).optional(),
@@ -826,12 +831,23 @@ export const ordersRouter = router({
           message: "Request a current shipping quote before submitting this order.",
         });
       }
-      const kitchenDesignId = await resolveAuthorizedKitchenDesignId(db, ctx.user, input.kitchenDesignId);
-
       // Affiliate attribution: if a referral code was supplied, resolve the
       // active affiliate it belongs to and tag this request.
       let affiliateId: number | null = null;
       let referralCode: string | null = null;
+	  const scopeSlug = input.storeScope.trim().toLowerCase();
+	  if (scopeSlug !== "owner") {
+	    const [scopeAffiliate] = await db
+	      .select({ id: affiliates.id, status: affiliates.status, referralCode: affiliates.referralCode })
+	      .from(affiliates)
+	      .where(eq(affiliates.slug, scopeSlug))
+	      .limit(1);
+	    if (!scopeAffiliate || scopeAffiliate.status !== "active") {
+	      throw new TRPCError({ code: "NOT_FOUND", message: "This affiliate store is not available." });
+	    }
+	    affiliateId = scopeAffiliate.id;
+	    referralCode = scopeAffiliate.referralCode;
+	  }
       const code = normalizeReferralCode(input.referralCode ?? "");
       if (code) {
         const affRows = await db
@@ -841,10 +857,18 @@ export const ordersRouter = router({
           .limit(1);
         const aff = affRows[0];
         if (aff && aff.status === "active") {
+	      if (affiliateId != null && affiliateId !== aff.id) {
+	        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "The referral does not match the active store." });
+	      }
           affiliateId = aff.id;
           referralCode = aff.referralCode;
         }
       }
+	  const expectedDesignAffiliateId = scopeSlug === "owner" ? null : affiliateId;
+	  if (input.kitchenDesignId && affiliateId !== expectedDesignAffiliateId) {
+	    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "This saved plan and referral belong to different stores." });
+	  }
+	  const kitchenDesignId = await resolveAuthorizedKitchenDesignId(db, ctx.user, input.kitchenDesignId, expectedDesignAffiliateId);
 
       // Resolve each stored display name from the affiliate's own branding
       // records. This protects white-label order records from stale or direct

@@ -33,9 +33,10 @@ describe("saved design owner scope", () => {
       roomData: { width: 120, depth: 120 },
       placedCabinets: [],
     });
+    const affiliateSlug = `owner-scope-${Date.now()}`;
     const affiliateInsert = await db.insert(affiliates).values({
       storeName: "Owner Scope Affiliate",
-      slug: `owner-scope-${Date.now()}`,
+	  slug: affiliateSlug,
       email: "owner-scope-affiliate@example.test",
       referralCode: `OWNER${Date.now()}`.slice(-24),
     });
@@ -48,15 +49,55 @@ describe("saved design owner scope", () => {
       placedCabinets: [],
     });
     const affiliateDesignId = (affiliateDesignInsert as unknown as [{ insertId: number }])[0].insertId;
+	const sameUserAffiliateInsert = await db.insert(kitchenDesigns).values({
+	  userId: 998801,
+	  affiliateId,
+	  name: "Same user affiliate kitchen",
+	  roomData: { width: 120, depth: 120 },
+	  placedCabinets: [],
+	});
+	const sameUserAffiliateDesignId = (sameUserAffiliateInsert as unknown as [{ insertId: number }])[0].insertId;
+	const crmCustomerDesignInsert = await db.insert(kitchenDesigns).values({
+	  userId: 998804,
+	  affiliateId: null,
+	  name: "CRM customer house kitchen",
+	  roomData: { width: 132, depth: 120 },
+	  placedCabinets: [],
+	});
+	const crmCustomerDesignId = (crmCustomerDesignInsert as unknown as [{ insertId: number }])[0].insertId;
+	const { id: crmDealId } = await admin.crm.create({ title: "CRM linked customer design" });
+	await admin.crm.linkDesign({ dealId: crmDealId, designId: crmCustomerDesignId });
 
     try {
       expect((await owner.design.myDesigns()).some((design) => design.id === saved.id)).toBe(true);
       expect((await contractor.design.myDesigns()).some((design) => design.id === saved.id)).toBe(false);
       await expect(contractor.design.byId({ id: saved.id })).resolves.toBeNull();
-      expect((await admin.design.myDesigns()).some((design) => design.id === saved.id)).toBe(true);
-      expect((await admin.design.byId({ id: saved.id }))?.name).toBe("Owner-scoped kitchen");
-      expect((await admin.design.myDesigns()).some((design) => design.id === affiliateDesignId)).toBe(true);
-      expect((await admin.design.byId({ id: affiliateDesignId }))?.name).toBe("Affiliate customer kitchen");
+	      // Administration keeps its all-store visibility in CRM procedures. The
+	      // storefront Designer itself is always scoped, even for an admin.
+	      expect((await admin.design.myDesigns()).some((design) => design.id === saved.id)).toBe(false);
+	      await expect(admin.design.byId({ id: saved.id })).resolves.toBeNull();
+	      expect((await admin.design.myDesigns()).some((design) => design.id === affiliateDesignId)).toBe(false);
+	      await expect(admin.design.byId({ id: affiliateDesignId })).resolves.toBeNull();
+	      await expect(admin.design.byId({ id: crmCustomerDesignId })).resolves.toBeNull();
+	      expect((await admin.design.byId({ id: crmCustomerDesignId, affiliateSlug: "owner", crmDealId }))?.name).toBe("CRM customer house kitchen");
+	      await expect(contractor.design.byId({ id: crmCustomerDesignId, affiliateSlug: "owner", crmDealId })).resolves.toBeNull();
+	      await expect(owner.design.byId({ id: sameUserAffiliateDesignId, affiliateSlug: "owner" })).resolves.toBeNull();
+	      expect((await owner.design.byId({ id: sameUserAffiliateDesignId, affiliateSlug }))?.name).toBe("Same user affiliate kitchen");
+	      await expect(owner.design.save({
+	        id: sameUserAffiliateDesignId,
+	        name: "Cross-store overwrite",
+	        affiliateSlug: "owner",
+	        originScope: "owner",
+	        roomData: { width: 120, depth: 120 },
+	        placedCabinets: [],
+	      })).rejects.toThrow("different store");
+	      await expect(owner.design.save({
+	        name: "Mismatched creator scope",
+	        affiliateSlug,
+	        originScope: "owner",
+	        roomData: { width: 120, depth: 120 },
+	        placedCabinets: [],
+	      })).rejects.toThrow("created for Cabinet Dealz owner");
       const recreated = await owner.design.save({
         id: 999999999,
         name: "Recovered stale plan",
@@ -79,10 +120,13 @@ describe("saved design owner scope", () => {
         placedCabinets: [],
       })).rejects.toThrow("Saved design not found");
       await expect(contractor.design.createRemoteShareLink({ designId: saved.id })).rejects.toThrow("You can only share your own saved design");
-    } finally {
+	    } finally {
+	      await admin.crm.remove({ id: crmDealId }).catch(() => {});
       const recovered = await db.select({ id: kitchenDesigns.id }).from(kitchenDesigns).where(and(eq(kitchenDesigns.userId, 998801), eq(kitchenDesigns.name, "Recovered stale plan"))).limit(1);
       if (recovered[0]) await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, recovered[0].id));
-      await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, affiliateDesignId));
+	      await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, sameUserAffiliateDesignId));
+	      await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, affiliateDesignId));
+	      await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, crmCustomerDesignId));
       await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, saved.id));
       await db.delete(affiliates).where(eq(affiliates.id, affiliateId));
     }

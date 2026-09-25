@@ -216,17 +216,17 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 		  it("moves, resizes, rotates, and removes the complete island assembly through authoritative helpers", () => {
     expect(source).toContain("moveIslandScene(island, placedRef.current, room");
     expect(source).toContain("resizeIslandScene(moved.island, moved.placed, room");
-    expect(source).toContain("rotateIslandScene(island, placedRef.current, room)");
+	    expect(source).toContain("rotateIslandScene(island, placedRef.current, room, degrees)");
     expect(source).toContain("normalizeSinkFixturesToBases(current, nextPlaced, room)");
 		  });
 
-		  it("offers Island-only 10-inch or 12-inch seating after a counter-height shallow wall cabinet is committed", () => {
+			  it("offers Island-only 12-inch or 15-inch seating after a counter-height shallow wall cabinet is committed", () => {
 		    expect(source).toContain("finalCab.islandCounterHeightWallCabinet === true");
 		    expect(source).toContain("setIslandSeatingOverhangPrompt({ cabinetCode: finalCab.masterCode, face: requestedIslandFace })");
 		    expect(source).toContain("islandWithFaceSeatingOverhang(island, placedRef.current, prompt.face, overhangIn)");
 		    expect(source).toContain("No seating overhang");
-		    expect(source).toContain("Add 10 in. seating");
-		    expect(source).toContain("Add 12 in. seating");
+			    expect(source).toContain("Add 12 in. seating");
+			    expect(source).toContain("Add 15 in. seating");
 		  });
 
 		  it("requires a selected compatible sink base before the compact Pelican sink picker can place a fixture", () => {

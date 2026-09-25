@@ -16,7 +16,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { toast } from "sonner";
 import { startVersionWatcher, setVersionNotifier } from "@/lib/versionWatcher";
 import { trpc } from "@/lib/trpc";
-import { affiliateStorefrontFallbackPath, affiliateSlugFromHostname } from "@/lib/affiliateContext";
+import {
+  affiliateSlugForStoreScope,
+  affiliateStorefrontFallbackPath,
+  resolveStoreScope,
+} from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
 import { PreferredProductsProvider } from "@/contexts/PreferredProductsContext";
 
@@ -94,10 +98,14 @@ function AppLayout({ children }: { children: React.ReactNode }) {
 }
 
 function CartWithLayout() {
-  // Use the active custom-domain identity first. This protects a customer who
-  // lands directly on /cart before any cart-localStorage state is available.
+  // Branding is URL-owned. A cart created in another store may never repaint
+  // the current owner or affiliate route through browser-storage history.
   const slug = typeof window !== "undefined"
-    ? affiliateSlugFromHostname(window.location.hostname) ?? localStorage.getItem("cd_cart_slug_v1")
+    ? affiliateSlugForStoreScope(resolveStoreScope({
+        pathname: window.location.pathname,
+        search: window.location.search,
+        hostname: window.location.hostname,
+      }))
     : null;
   if (slug) {
     return (

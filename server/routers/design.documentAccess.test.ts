@@ -19,6 +19,8 @@ describe("design document access contract", () => {
     expect(orders).toContain("resolveAuthorizedKitchenDesignId");
     expect(orders).toContain("kitchenDesignId: z.number().int().positive().optional()");
     expect(orders).toContain("kitchenDesignId = await resolveAuthorizedKitchenDesignId");
+	  expect(orders).toContain("design.affiliateId !== expectedAffiliateId");
+	  expect(orders).toContain("This saved plan belongs to a different store");
     expect(orders).toContain("You cannot associate this order with another customer's saved plan.");
   });
 });

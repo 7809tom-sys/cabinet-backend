@@ -12,6 +12,13 @@ import {
   type PlanAnnotation,
 } from "@/lib/design";
 import type { HardwareStyleId } from "@/lib/hardware";
+import {
+  designerDraftActiveKey,
+  designerDraftStorageKey,
+  normalizeStoreScope,
+  resolveStoreScope,
+  type StoreScope,
+} from "@/lib/affiliateContext";
 
 /**
  * Design Presentation — print-optimized page.
@@ -26,17 +33,19 @@ import type { HardwareStyleId } from "@/lib/hardware";
  * 4. Bill of Materials table with pricing
  */
 
-// Same key pattern as DesignTool
-function getDraftKey(): string {
-  // Try to find the draft in localStorage
-  const keys = Object.keys(localStorage).filter((k) =>
-    k.startsWith("cabinet-dealz:designer-draft:v1:")
-  );
-  return keys[0] || "cabinet-dealz:designer-draft:v1:guest";
+// The Design Tool records only the active draft identity for this exact store.
+function getDraftKey(scope: StoreScope): string {
+  const activeKey = designerDraftActiveKey(scope);
+  const activeDraft = localStorage.getItem(activeKey);
+  const expectedPrefix = `cabinet-dealz:designer-draft:v2:${normalizeStoreScope(scope)}:`;
+  return activeDraft?.startsWith(expectedPrefix)
+    ? activeDraft
+    : designerDraftStorageKey(scope, "guest");
 }
 
 interface DraftSnapshot {
   v: number;
+  originScope: StoreScope;
   savedAt: number;
   room: RoomData;
   placed: PlacedCabinet[];
@@ -67,6 +76,11 @@ const WALL_LABELS: Record<WallSide, string> = {
 
 export default function DesignPresentation() {
   const [location] = useLocation();
+  const scope = useMemo(() => resolveStoreScope({
+    pathname: typeof window !== "undefined" ? window.location.pathname : location.split("?")[0],
+    search: typeof window !== "undefined" ? window.location.search : location.split("?")[1] ?? "",
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  }), [location]);
   const savedDesignId = useMemo(() => {
     const value = new URLSearchParams(location.split("?")[1] ?? "").get("designId");
     const designId = Number(value);
@@ -87,17 +101,17 @@ export default function DesignPresentation() {
 
   // Load draft from localStorage
   useEffect(() => {
-    const key = getDraftKey();
+    const key = getDraftKey(scope);
     const raw = localStorage.getItem(key);
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as DraftSnapshot;
-        setDraft(parsed);
+        if (parsed.v === 2 && parsed.originScope === scope) setDraft(parsed);
       } catch {
         // ignore parse errors
       }
     }
-  }, []);
+  }, [scope]);
 
   // Determine which walls have cabinets
   const wallsWithCabinets = useMemo<WallSide[]>(() => {

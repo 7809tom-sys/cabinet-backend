@@ -40,7 +40,7 @@ describe("Design Tool range hood placement wiring", () => {
     const addStart = source.indexOf("const addCabinet = useCallback");
     const addSource = source.slice(addStart, source.indexOf("const addAppliance", addStart));
     expect(addSource).toContain("const requiresRoomCorner");
-    expect(addSource).toContain("isCornerCabinet(c.masterCode, c.description)");
+	  expect(addSource).toContain("requiresRoomCornerPlacement({");
     expect(addSource).toContain("const cornerPreview = {");
     expect(addSource).toContain("peninsulaRunById(room, activeWall)");
     expect(addSource).toContain("nextAvailablePeninsulaCornerPlacement(cornerPreview, activeWall, room, prev)");

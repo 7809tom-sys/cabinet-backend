@@ -14,6 +14,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import type { PlacedCabinet, RoomData, WallOpening, SinkFixture, PlacedFurniture, PonyWall } from "@/lib/design";
 import { roomWithPersistedEntities } from "@/lib/design";
 import type { PreSavePlanReview, PreSavePlanReviewFinding } from "@/lib/preSavePlanReview";
+import { normalizeStoreScope } from "@/lib/affiliateContext";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DesignActions
@@ -278,7 +279,7 @@ function ProjectTotals({ projectName, affiliateSlug, brandName }: { projectName:
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const summary = trpc.design.projectSummary.useQuery(
-    { projectName, affiliateSlug: affiliateSlug ?? undefined },
+    { projectName, affiliateSlug: normalizeStoreScope(affiliateSlug) },
     { enabled: open },
   );
   return (
@@ -365,6 +366,7 @@ export function DesignActions({
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
+  const storeScope = normalizeStoreScope(affiliateSlug);
   const utils = trpc.useUtils();
   const documentAccess = trpc.design.documentAccess.useQuery(
     { designId: currentDesignId ?? 1 },
@@ -420,7 +422,7 @@ export function DesignActions({
       onSaveSuccess?.(savedName, res.id);
       setSaveOpen(false);
       setName("");
-      utils.design.myDesigns.invalidate();
+      utils.design.myDesigns.invalidate({ affiliateSlug: storeScope });
       // Optionally request a quote from the design's owning CRM.
       if (requestQuote) {
         quoteMutation.mutate({
@@ -437,7 +439,7 @@ export function DesignActions({
   });
 
   // Only logged-in users can list their saved designs (protected procedure).
-  const myDesigns = trpc.design.myDesigns.useQuery(affiliateSlug ? { affiliateSlug } : undefined, {
+  const myDesigns = trpc.design.myDesigns.useQuery({ affiliateSlug: storeScope }, {
     enabled: isAuthenticated && loadOpen,
     retry: false,
   });
@@ -453,7 +455,8 @@ export function DesignActions({
       id: currentDesignId ?? undefined,
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
       email: contactEmail ?? undefined,
-      affiliateSlug: affiliateSlug ?? undefined,
+      affiliateSlug: storeScope,
+      originScope: storeScope,
       roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
       placedCabinets: placed,
       selectedSurfaces,
@@ -477,8 +480,9 @@ export function DesignActions({
   };
 
   const openPresentation = () => {
-    const search = currentDesignId ? `?designId=${encodeURIComponent(String(currentDesignId))}` : "";
-    window.open(`/design/presentation${search}`, "_blank", "noopener,noreferrer");
+    const params = new URLSearchParams({ affiliate: storeScope });
+    if (currentDesignId) params.set("designId", String(currentDesignId));
+    window.open(`/design/presentation?${params.toString()}`, "_blank", "noopener,noreferrer");
   };
 
   const openFabricatorSheet = () => {

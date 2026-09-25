@@ -11,9 +11,10 @@ import {
 } from "lucide-react";
 import { OrderReview, type ReviewLine } from "@/components/order/OrderReview";
 import { BarcodeScanTab } from "@/components/order/BarcodeScanTab";
-import { CART_PREFILL_KEY } from "@/pages/Cart";
+import { cartPrefillStorageKey } from "@/pages/Cart";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { applyCartCheckoutPrefill, type CartCheckoutPrefillItem } from "@/lib/cartCheckoutPrefill";
+import { resolveStoreScope } from "@/lib/affiliateContext";
 
 type Source = "ocr" | "csv" | "manual" | "barcode";
 
@@ -29,6 +30,11 @@ function fileToDataUrl(file: File): Promise<string> {
 
 export default function OrderBuilder() {
   const { t } = useLanguage();
+	const storeScope = resolveStoreScope({
+	  pathname: typeof window !== "undefined" ? window.location.pathname : "/order/new",
+	  search: typeof window !== "undefined" ? window.location.search : "",
+	  hostname: typeof window !== "undefined" ? window.location.hostname : "",
+	});
   const [lines, setLines] = useState<ReviewLine[]>([]);
   const [source, setSource] = useState<Source>("ocr");
   const matchCodes = trpc.orders.matchCodes.useMutation();
@@ -44,8 +50,9 @@ export default function OrderBuilder() {
     prefillConsumed.current = true;
     let raw: string | null = null;
     try {
-      raw = sessionStorage.getItem(CART_PREFILL_KEY);
-      if (raw) sessionStorage.removeItem(CART_PREFILL_KEY);
+	  const prefillKey = cartPrefillStorageKey(storeScope);
+	  raw = sessionStorage.getItem(prefillKey);
+	  if (raw) sessionStorage.removeItem(prefillKey);
     } catch {
       return;
     }

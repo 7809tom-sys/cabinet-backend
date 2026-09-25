@@ -19,13 +19,21 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { resolveStorefrontTier, resolveTierPrice } from "@shared/pricingTier";
 import { resolveAffiliateCartUnitPrice, calculateCartLineTotal } from "@shared/affiliateCartPricing";
 import { resolveLockedCheckoutUnitPrice } from "@/lib/checkoutPriceLock";
-import { affiliateSlugFromHostname, affiliateSlugFromPath } from "@/lib/affiliateContext";
+import {
+  affiliateSlugForStoreScope,
+  resolveStoreScope,
+  scopedBrowserStorageKey,
+  type StoreScope,
+} from "@/lib/affiliateContext";
 import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
 import { separateGlassPurchaseItems } from "@/lib/cartGlassPolicy";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
+export function cartPrefillStorageKey(scope: StoreScope) {
+  return scopedBrowserStorageKey(CART_PREFILL_KEY, scope);
+}
 
 function formatCarrierDeliveryDate(value: string): string | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -44,13 +52,15 @@ export default function Cart() {
   const { t, lang } = useLanguage();
   useSeo({ title: t("seo_cart_t"), description: t("seo_cart_d"), lang });
   const {
-    items, removeItem, setQty, clear, zip, setZip, subtotal, count, storefrontSlug, sourceDesignId,
+    items, removeItem, setQty, clear, zip, setZip, subtotal, count, sourceDesignId,
     supplierConflict, clearSupplierConflict,
   } = useCart();
-  const currentAffiliateSlug = storefrontSlug
-    ?? (typeof window !== "undefined"
-      ? affiliateSlugFromPath(window.location.pathname) ?? affiliateSlugFromHostname(window.location.hostname)
-      : null);
+  const storeScope = resolveStoreScope({
+    pathname: typeof window !== "undefined" ? window.location.pathname : "/cart",
+    search: typeof window !== "undefined" ? window.location.search : "",
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  });
+  const currentAffiliateSlug = affiliateSlugForStoreScope(storeScope);
   // Affiliate storefront items already contain the marked-up homeowner price
   // shown to the customer. Do not replace that price with the generic platform
   // tier price returned by the live refresh query.
@@ -243,7 +253,7 @@ export default function Cart() {
       kitchenDesignId: sourceDesignId,
     };
     try {
-      sessionStorage.setItem(CART_PREFILL_KEY, JSON.stringify(prefill));
+      sessionStorage.setItem(cartPrefillStorageKey(storeScope), JSON.stringify(prefill));
     } catch {
       /* ignore */
     }

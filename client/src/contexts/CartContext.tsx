@@ -6,8 +6,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useLocation, useSearch } from "wouter";
 import { canAddToCart } from "@shared/familyLock";
 import { calculateCartSubtotal } from "@/lib/cartTotals";
+import {
+  affiliateSlugForStoreScope,
+  resolveStoreScope,
+  scopedBrowserStorageKey,
+  type StoreScope,
+} from "@/lib/affiliateContext";
 
 export type CartItem = {
   masterCode: string;
@@ -99,6 +106,16 @@ const SLUG_KEY = "cd_cart_slug_v1";
 const SOURCE_DESIGN_KEY = "cd_cart_source_design_v1";
 const SUPPLIER_CONFLICT_KEY = "cd_cart_supplier_conflict_v1";
 
+export function cartStorageKeys(scope: StoreScope) {
+  return {
+    storage: scopedBrowserStorageKey(STORAGE_KEY, scope),
+    zip: scopedBrowserStorageKey(ZIP_KEY, scope),
+    slug: scopedBrowserStorageKey(SLUG_KEY, scope),
+    sourceDesign: scopedBrowserStorageKey(SOURCE_DESIGN_KEY, scope),
+    supplierConflict: scopedBrowserStorageKey(SUPPLIER_CONFLICT_KEY, scope),
+  };
+}
+
 function lineKey(
   i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
 ) {
@@ -107,10 +124,11 @@ function lineKey(
   return `${i.masterCode}::${i.styleId}::${i.tier}::${i.bundleId ?? ""}`;
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
+function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: StoreScope }) {
+  const keys = useMemo(() => cartStorageKeys(scope), [scope]);
   const [items, setItems] = useState<CartItem[]>(() => {
     try {
-      const raw = typeof localStorage !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+      const raw = typeof localStorage !== "undefined" ? localStorage.getItem(keys.storage) : null;
       return raw ? (JSON.parse(raw) as CartItem[]) : [];
     } catch {
       return [];
@@ -118,21 +136,23 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
   const [zip, setZipState] = useState<string | null>(() => {
     try {
-      return typeof localStorage !== "undefined" ? localStorage.getItem(ZIP_KEY) : null;
+      return typeof localStorage !== "undefined" ? localStorage.getItem(keys.zip) : null;
     } catch {
       return null;
     }
   });
   const [storefrontSlug, setStorefrontSlugState] = useState<string | null>(() => {
     try {
-      return typeof localStorage !== "undefined" ? localStorage.getItem(SLUG_KEY) : null;
+      return typeof localStorage !== "undefined"
+        ? localStorage.getItem(keys.slug) ?? affiliateSlugForStoreScope(scope)
+        : affiliateSlugForStoreScope(scope);
     } catch {
       return null;
     }
   });
   const [sourceDesignId, setSourceDesignId] = useState<number | null>(() => {
     try {
-      const value = typeof sessionStorage !== "undefined" ? Number(sessionStorage.getItem(SOURCE_DESIGN_KEY)) : NaN;
+      const value = typeof sessionStorage !== "undefined" ? Number(sessionStorage.getItem(keys.sourceDesign)) : NaN;
       return Number.isInteger(value) && value > 0 ? value : null;
     } catch {
       return null;
@@ -140,7 +160,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   });
   const [supplierConflict, setSupplierConflict] = useState<CartState["supplierConflict"]>(() => {
     try {
-      const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(SUPPLIER_CONFLICT_KEY) : null;
+      const raw = typeof sessionStorage !== "undefined" ? sessionStorage.getItem(keys.supplierConflict) : null;
       if (!raw) return null;
       const parsed = JSON.parse(raw) as Partial<NonNullable<CartState["supplierConflict"]>>;
       if (
@@ -159,41 +179,41 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      if (storefrontSlug) localStorage.setItem(SLUG_KEY, storefrontSlug);
-      else localStorage.removeItem(SLUG_KEY);
+      if (storefrontSlug) localStorage.setItem(keys.slug, storefrontSlug);
+      else localStorage.removeItem(keys.slug);
     } catch { /* ignore */ }
-  }, [storefrontSlug]);
+  }, [keys.slug, storefrontSlug]);
 
   useEffect(() => {
     try {
-      if (sourceDesignId) sessionStorage.setItem(SOURCE_DESIGN_KEY, String(sourceDesignId));
-      else sessionStorage.removeItem(SOURCE_DESIGN_KEY);
+      if (sourceDesignId) sessionStorage.setItem(keys.sourceDesign, String(sourceDesignId));
+      else sessionStorage.removeItem(keys.sourceDesign);
     } catch { /* ignore */ }
-  }, [sourceDesignId]);
+  }, [keys.sourceDesign, sourceDesignId]);
 
   useEffect(() => {
     try {
-      if (supplierConflict) sessionStorage.setItem(SUPPLIER_CONFLICT_KEY, JSON.stringify(supplierConflict));
-      else sessionStorage.removeItem(SUPPLIER_CONFLICT_KEY);
+      if (supplierConflict) sessionStorage.setItem(keys.supplierConflict, JSON.stringify(supplierConflict));
+      else sessionStorage.removeItem(keys.supplierConflict);
     } catch { /* ignore */ }
-  }, [supplierConflict]);
+  }, [keys.supplierConflict, supplierConflict]);
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(keys.storage, JSON.stringify(items));
     } catch {
       /* ignore quota / privacy-mode errors */
     }
-  }, [items]);
+  }, [items, keys.storage]);
 
   useEffect(() => {
     try {
-      if (zip) localStorage.setItem(ZIP_KEY, zip);
-      else localStorage.removeItem(ZIP_KEY);
+      if (zip) localStorage.setItem(keys.zip, zip);
+      else localStorage.removeItem(keys.zip);
     } catch {
       /* ignore */
     }
-  }, [zip]);
+  }, [keys.zip, zip]);
 
   // The cart's lock is the DISTRIBUTOR of whatever is already in it. Style/color
   // are kept only for friendly messaging — they do NOT constrain adds.
@@ -320,6 +340,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items, zip, lockedDistributorId, lockedStyleId, lockedStyleLabel, storefrontSlug, sourceDesignId, supplierConflict]);
 
   return <CartContext.Provider value={api}>{children}</CartContext.Provider>;
+}
+
+export function CartProvider({ children }: { children: ReactNode }) {
+  const [location] = useLocation();
+  const search = useSearch();
+  const scope = resolveStoreScope({
+    pathname: location.split("?")[0],
+    search,
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  });
+  // A scope change remounts the provider before any old in-memory cart can be
+  // written into the next store's keys.
+  return <ScopedCartProvider key={scope} scope={scope}>{children}</ScopedCartProvider>;
 }
 
 export function useCart(): CartState {

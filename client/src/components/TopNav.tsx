@@ -15,6 +15,7 @@ import {
   subscribeDesignerMobileCartCount,
 } from "@/lib/designerMobileCartBridge";
 import { affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
+import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -107,14 +108,14 @@ export function TopNav() {
   });
   const isAffiliate = !!myAffiliateData?.affiliate;
 
-  // Detect affiliate slug from multiple sources:
-  // 1. ?ref= param (referral code)
-  // 2. /store/:slug/* URL path
-  // 3. localStorage (cd_cart_slug_v1)
+  // Referral branding remains explicit. Store identity otherwise comes only
+  // from the current URL/host, never from a previous cart's localStorage.
   const refCode = new URLSearchParams(search).get("ref") ?? "";
-  const storeSlugMatch = location.match(/^\/store\/([^/]+)/);
-  const storeSlug = storeSlugMatch ? storeSlugMatch[1] : null;
-  const storedSlug = typeof localStorage !== "undefined" ? localStorage.getItem("cd_cart_slug_v1") : null;
+  const storeSlug = affiliateSlugForStoreScope(resolveStoreScope({
+    pathname: location.split("?")[0],
+    search,
+    hostname: typeof window !== "undefined" ? window.location.hostname : "",
+  }));
   
   // Query affiliate by referral code OR by slug (for storefront pages)
   const { data: affiliateBrand } = trpc.affiliates.byCode.useQuery(
@@ -122,8 +123,8 @@ export function TopNav() {
     { enabled: !!refCode, staleTime: 5 * 60 * 1000 }
   );
   const { data: affiliateBySlug } = trpc.affiliates.bySlug.useQuery(
-    { slug: storeSlug || storedSlug || "" },
-    { enabled: !refCode && !!(storeSlug || storedSlug), staleTime: 5 * 60 * 1000 }
+    { slug: storeSlug || "" },
+    { enabled: !refCode && !!storeSlug, staleTime: 5 * 60 * 1000 }
   );
   
   // Use whichever affiliate data is available

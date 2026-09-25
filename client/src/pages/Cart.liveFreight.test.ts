@@ -43,7 +43,7 @@ describe("cart live freight quoting", () => {
     expect(cartContextSource).toContain("setSupplierConflict({");
     expect(cartContextSource).toContain("attemptedDistributorId: item.distributorId!");
     expect(cartContextSource).toContain('SUPPLIER_CONFLICT_KEY = "cd_cart_supplier_conflict_v1"');
-    expect(cartContextSource).toContain("sessionStorage.setItem(SUPPLIER_CONFLICT_KEY");
+	  expect(cartContextSource).toContain("sessionStorage.setItem(keys.supplierConflict");
     expect(cartSource).toContain('role="alert"');
     expect(cartSource).toContain("Different supplier item was not added");
     expect(cartSource).toContain("Live freight and order submission require one supplier");
