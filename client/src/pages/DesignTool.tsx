@@ -448,9 +448,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return () => window.clearTimeout(timer);
   }, [optionalContactDismissed, verified, verifiedName, verifiedPhone]);
   // Optional saved design to load (?load=<designId>), e.g. from a CRM deal's
-  // "Linked Designs" list. Loads the saved room + placed cabinets + style.
+  // "Linked Designs" list. A prior Designer link shape used `designId`; honor
+  // it as a read-compatible alias so an existing saved plan cannot silently
+  // fall through to an unrelated local draft (including its generic materials).
+  // New links continue to use the canonical `load` parameter.
   const loadDesignId = useMemo(() => {
-    const v = new URLSearchParams(search).get("load");
+    const params = new URLSearchParams(search);
+    const v = params.get("load") ?? params.get("designId");
     const n = v ? Number(v) : NaN;
     return Number.isFinite(n) ? n : null;
   }, [search]);

@@ -164,6 +164,68 @@ describe("verified saved surface refresh", () => {
     })]);
   });
 
+  it("hydrates the reported saved Bahia floor and active Desert Clay backsplash from verified material-only records", () => {
+    const refreshed = refreshVerifiedSurfaceSelections([
+      {
+        id: 82,
+        slug: "bahia-12mil-vinyl-flooring",
+        name: "Bahia 12mil Vinyl Flooring",
+        category: "Flooring",
+        subCategory: "Planks & Flooring",
+        size: null,
+        imageUrl: "/manus-storage/pelican/82_a8c67515.png",
+        sellPrice: 74.25,
+      },
+      {
+        id: 183,
+        slug: "desert-clay",
+        name: "Desert Clay",
+        category: "Tile & Mosaic",
+        subCategory: "Mosaic",
+        size: "11.81 x 11.81 x 8",
+        imageUrl: "/manus-storage/pelican/183_55da5bcf.png",
+        sellPrice: 22.89,
+        threeDActive: true,
+      },
+    ], [
+      {
+        id: 82,
+        pelicanCode: "Bahia 12mil Vinyl Flooring",
+        name: "Bahia 12mil Vinyl Flooring",
+        category: "Flooring",
+        subCategory: "Planks & Flooring",
+        size: null,
+        materialImageUrl: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp",
+        coverageSqFt: null,
+        sellPrice: 74.25,
+      },
+      {
+        id: 183,
+        pelicanCode: "Desert Clay",
+        name: "Desert Clay",
+        category: "Tile & Mosaic",
+        subCategory: "Mosaic",
+        size: "11.81 x 11.81 x 8",
+        materialImageUrl: "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp",
+        coverageSqFt: "7.75",
+        sellPrice: 22.89,
+      },
+    ]);
+
+    expect(refreshed).toEqual([
+      expect.objectContaining({
+        id: 82,
+        materialImageUrl: "/manus-storage/bahia_12mil_7x48_staggered_floor_551c6d5b.webp",
+      }),
+      expect.objectContaining({
+        id: 183,
+        threeDActive: true,
+        materialImageUrl: "/manus-storage/desert_clay_11_81_interlocking_mosaic_0aa381c4.webp",
+        coverageSqFt: 7.75,
+      }),
+    ]);
+  });
+
   it("keeps an unavailable saved product visible as a selection but clears its stale purchase price and 3D swatch", () => {
     expect(refreshVerifiedSurfaceSelections([savedFloor], [])).toEqual([
       expect.objectContaining({ id: 82, sellPrice: null, materialImageUrl: null }),

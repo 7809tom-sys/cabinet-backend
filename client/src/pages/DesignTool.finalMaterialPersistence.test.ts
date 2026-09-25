@@ -14,4 +14,10 @@ describe("Designer final material persistence", () => {
   it("writes a draft after a direct surface selection changes", () => {
     expect(source).toContain("flooringPattern, selectedSurfaces, cabinetsLocked");
   });
+
+  it("loads an older designId link instead of falling through to a local draft with generic materials", () => {
+    expect(source).toContain('const v = params.get("load") ?? params.get("designId");');
+    expect(source).toContain("trpc.surfaces.designerByIds.useQuery");
+    expect(source).toContain("refreshVerifiedSurfaceSelections(current, verifiedSelectedSurfaceRecords)");
+  });
 });
