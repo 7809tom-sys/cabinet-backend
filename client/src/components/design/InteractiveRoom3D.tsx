@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -482,6 +482,8 @@ interface Props {
   openings?: WallOpening[];
   /** Countertop sink fixtures from the current 2D plan. */
   sinks?: SinkFixture[];
+  /** Source-measured wall pot-fillers attached to valid range/cooktop walls. */
+  potFillers?: PotFillerFixture[];
   /** Island zone, movable furniture, and half walls from the current 2D plan. */
 	  island?: IslandZone | null;
 	  /** A host-issued one-shot request to rotate the camera toward an island face. */
@@ -6326,6 +6328,106 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   addFixtureNode(handle);
 }
 
+/**
+ * Exact wall-anchor transform for a persisted range-associated pot filler.
+ * `forward` follows the range front into the room; the wall stays directly
+ * behind the range even on a 45° custom wall.
+ */
+export function potFillerWallMountTransform(
+  fixture: PotFillerFixture,
+  range: PlacedCabinet,
+  room: RoomData,
+) {
+  const rangeTransform = existingCabinetTransform(range, room);
+  const depthIn = numberValue(normalizedThreeDFootprint(range).d, COUNTERTOP_DEPTH_IN);
+  const forward = { x: Math.sin(rangeTransform.rotation), z: Math.cos(rangeTransform.rotation) };
+  const wallOffset = depthIn / 2 + 0.03;
+  return {
+    x: (rangeTransform.x - forward.x * wallOffset) * INCH,
+    y: (STD.RANGE_COOKING_SURFACE_HEIGHT + fixture.mountHeightAboveCooktopIn) * INCH,
+    z: (rangeTransform.z - forward.z * wallOffset) * INCH,
+    rotation: rangeTransform.rotation,
+    reach: fixture.spoutReachIn * INCH,
+    armDatum: fixture.armDatumIn * INCH,
+  };
+}
+
+/** Render the documented deployed reach envelope, never an invented pivot angle. */
+export function addPotFillerFixture(
+  root: THREE.Group,
+  fixture: PotFillerFixture,
+  range: PlacedCabinet,
+  room: RoomData,
+) {
+  const transform = potFillerWallMountTransform(fixture, range, room);
+  const finishColor = fixture.finish === "matte-black"
+    ? "#24272a"
+    : fixture.finish === "brushed-gold"
+      ? "#b28a42"
+      : fixture.finish === "chrome"
+        ? "#d8dde0"
+        : "#c8d0d4";
+  const material = new THREE.MeshStandardMaterial({
+    color: finishColor,
+    metalness: fixture.finish === "matte-black" ? 0.68 : 0.9,
+    roughness: fixture.finish === "matte-black" ? 0.32 : fixture.finish === "brushed-gold" ? 0.24 : 0.16,
+  });
+  const group = new THREE.Group();
+  group.position.set(transform.x, transform.y, transform.z);
+  group.rotation.y = transform.rotation;
+  group.userData = {
+    potFillerFixture: true,
+    fixtureUid: fixture.uid,
+    rangeUid: fixture.rangeUid,
+    mountingWallId: fixture.mountingWallId,
+    pelicanProductId: fixture.pelicanProductId,
+    pelicanCode: fixture.pelicanCode,
+    pelicanProfileId: fixture.pelicanProfileId,
+    finish: fixture.finish,
+    spoutReachIn: fixture.spoutReachIn,
+    overallSpanIn: fixture.overallSpanIn,
+    armDatumIn: fixture.armDatumIn,
+    fixtureHeightIn: fixture.fixtureHeightIn,
+    outletDatumIn: fixture.outletDatumIn,
+    mountHeightAboveCooktopIn: fixture.mountHeightAboveCooktopIn,
+    sourceMeasuredGeometry: true,
+    articulationState: "deployed-reach-envelope-not-an-invented-pivot-angle",
+  };
+  const plate = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.42, 0.055, 3, 0.025), material);
+  plate.position.set(0, 0, -0.028);
+  plate.userData = { potFillerWallPlate: true, sourceMeasuredGeometry: true };
+  group.add(plate);
+  const valve = new THREE.Mesh(new THREE.CylinderGeometry(0.092, 0.115, 0.3, 20), material);
+  valve.rotation.x = Math.PI / 2;
+  valve.position.z = 0.12;
+  valve.userData = { potFillerValveBody: true, sourceMeasuredGeometry: true };
+  group.add(valve);
+  const firstArmLength = Math.min(transform.armDatum, transform.reach);
+  const secondArmLength = Math.max(0, transform.reach - firstArmLength);
+  const addArm = (length: number, centerZ: number, segment: 1 | 2) => {
+    if (length <= 0.001) return;
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, length, 16), material);
+    arm.rotation.x = Math.PI / 2;
+    arm.position.z = centerZ;
+    arm.userData = { potFillerArm: true, sourceMeasuredGeometry: true, armSegment: segment, lengthIn: length / INCH };
+    group.add(arm);
+  };
+  addArm(firstArmLength, 0.15 + firstArmLength / 2, 1);
+  addArm(secondArmLength, 0.15 + firstArmLength + secondArmLength / 2, 2);
+  [0.15, 0.15 + firstArmLength].forEach((z, index) => {
+    const joint = new THREE.Mesh(new THREE.SphereGeometry(0.072, 16, 12), material);
+    joint.position.z = z;
+    joint.userData = { potFillerSwingJoint: true, sourceMeasuredGeometry: true, swingJointIndex: index + 1 };
+    group.add(joint);
+  });
+  const outlet = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.047, 0.13, 16), material);
+  outlet.position.set(0, -0.065, 0.15 + transform.reach);
+  outlet.userData = { potFillerOutlet: true, sourceMeasuredGeometry: true, sourceOutletDatumIn: fixture.outletDatumIn };
+  group.add(outlet);
+  root.add(group);
+  return group;
+}
+
 export function islandZoneTransform(island: { x: number; y: number; width: number; depth: number }) {
   return {
     x: (island.x + island.width / 2) * INCH,
@@ -6995,7 +7097,7 @@ export function threeDSceneInputDiagnostics(
 }
 
 export type ThreeDDesignParityInput = Pick<Props,
-  "roomOverride" | "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls"
+  "roomOverride" | "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls"
   | "catalogDoorSampleUrl" | "catalogFinishOverride" | "catalogFinishName"
   | "catalogCountertopName" | "catalogCountertopColor" | "initialPresentation"
 >;
@@ -7011,6 +7113,7 @@ export function threeDDesignParitySnapshot({
   placed = [],
   openings = [],
   sinks = [],
+  potFillers = [],
   island = null,
   furniture = [],
   ponyWalls = [],
@@ -7041,6 +7144,10 @@ export function threeDDesignParitySnapshot({
     })),
 	    openings: openings.map((source) => ({ source, transform: openingTransform(source, room) })),
     sinks: sinks.map((source) => ({ source, transform: sinkFixtureTransform(source) })),
+    potFillers: potFillers.map((source) => {
+      const range = potFillerMountedRange(source, placed, room, island);
+      return { source, rangeUid: range?.uid ?? null, transform: range ? potFillerWallMountTransform(source, range, room) : null };
+    }),
     island: island ? { source: island, transform: islandZoneTransform(island) } : null,
     furniture: furniture.map((source) => {
       const definition = FURNITURE_CATALOG.find((entry) => entry.id === source.defId) ?? null;
@@ -7075,6 +7182,7 @@ export function threeDExactPlanGeometryLock(input: ThreeDDesignParityInput) {
     })),
     openings: snapshot.openings.map(({ source, transform }) => ({ uid: source.uid, kind: source.kind, transform })),
     sinks: snapshot.sinks.map(({ source, transform }) => ({ uid: source.uid, type: source.type, transform })),
+    potFillers: snapshot.potFillers.map(({ source, rangeUid, transform }) => ({ uid: source.uid, rangeUid, mountingWallId: source.mountingWallId, pelicanProductId: source.pelicanProductId, transform })),
     island: snapshot.island,
     furniture: snapshot.furniture,
     ponyWalls: snapshot.ponyWalls,
@@ -7093,12 +7201,14 @@ export function threeDSceneRevisionKey(
   doorSampleUrl: string | null | undefined,
   countertopMaterialKey?: string | null,
   catalogFinishColor?: string | null,
+  potFillers: PotFillerFixture[] = [],
 ) {
   return JSON.stringify({ parity: threeDDesignParitySnapshot({
     roomOverride: room,
     placed,
     openings,
     sinks,
+    potFillers,
     island,
     furniture,
     ponyWalls,
@@ -7112,25 +7222,29 @@ export function threeDPlanSyncText({
   placed,
   openings,
   sinks,
+  potFillers,
   island,
   furniture,
   ponyWalls,
-}: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">) {
-  return `Plan sync: ${placed?.length ?? 0} cabinet items · ${openings?.length ?? 0} openings · ${sinks?.length ?? 0} sinks · ${island ? 1 : 0} island · ${furniture?.length ?? 0} furniture · ${ponyWalls?.length ?? 0} pony walls`;
+}: Pick<Props, "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls">) {
+  const potFillerStatus = (potFillers?.length ?? 0) > 0 ? ` · ${potFillers!.length} pot fillers` : "";
+  return `Plan sync: ${placed?.length ?? 0} cabinet items · ${openings?.length ?? 0} openings · ${sinks?.length ?? 0} sinks${potFillerStatus} · ${island ? 1 : 0} island · ${furniture?.length ?? 0} furniture · ${ponyWalls?.length ?? 0} pony walls`;
 }
 
 export function hasPersistedTwoDScene({
   placed,
   openings,
   sinks,
+  potFillers,
   island,
   furniture,
   ponyWalls,
-}: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">) {
+}: Pick<Props, "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls">) {
   return Boolean(
     (placed?.length ?? 0) ||
     (openings?.length ?? 0) ||
     (sinks?.length ?? 0) ||
+    (potFillers?.length ?? 0) ||
     island ||
     (furniture?.length ?? 0) ||
     (ponyWalls?.length ?? 0),
@@ -7139,7 +7253,7 @@ export function hasPersistedTwoDScene({
 
 export function threeDUsesAuthoritativePlanScene(
   roomOverride: RoomData | undefined,
-  input: Pick<Props, "placed" | "openings" | "sinks" | "island" | "furniture" | "ponyWalls">,
+  input: Pick<Props, "placed" | "openings" | "sinks" | "potFillers" | "island" | "furniture" | "ponyWalls">,
 ) {
   return Boolean(roomOverride) || hasPersistedTwoDScene(input);
 }
@@ -7293,7 +7407,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -7424,7 +7538,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [doorTextureState, setDoorTextureState] = useState<"not-requested" | "loading" | "loaded" | "failed">("not-requested");
   const validSuggestions = useMemo(() => scene.suggestions.filter((entry) => entry.sku), [scene.suggestions]);
-  const renderExistingDesign = threeDUsesAuthoritativePlanScene(roomOverride, { placed, openings, sinks, island, furniture, ponyWalls });
+  const renderExistingDesign = threeDUsesAuthoritativePlanScene(roomOverride, { placed, openings, sinks, potFillers, island, furniture, ponyWalls });
   const upperCabinetWallMinimums = useMemo(
     () => roomOverride ? threeDUpperCabinetWallMinimums(placed, roomOverride) : {},
     [placed, roomOverride],
@@ -8000,6 +8114,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    }
 	    for (const opening of openings) addWallOpening(catalogRoot, opening, room);
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
+    for (const potFiller of potFillers) {
+      const mountedRange = potFillerMountedRange(potFiller, placed, room, island);
+      if (mountedRange) addPotFillerFixture(catalogRoot, potFiller, mountedRange, room);
+    }
 		    if (island) addIslandZone(
 		      catalogRoot,
 		      island,
@@ -8063,7 +8181,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
 	  // A catalog filler has already passed geometry/collision validation before this
 	  // cue runs. Animate only its visual group, so the final coordinates and the

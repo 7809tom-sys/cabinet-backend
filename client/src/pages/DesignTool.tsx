@@ -43,7 +43,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useIsMobile } from "@/hooks/useMobile";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
+import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -110,7 +110,7 @@ import {
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
 	  type PlanAnnotation, type CabinetWallDragPreview, makeAnnotation,
-  makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, sinkPlanDimensions, SINK_PRESETS, type SinkFixture, type SinkType,
+  makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
@@ -806,6 +806,26 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // Sink + faucet fixtures placed on the counter.
   const [sinks, setSinks] = useState<SinkFixture[]>([]);
   const [selectedSinkUid, setSelectedSinkUid] = useState<string | null>(null);
+  // Wall pot fillers are distinct source-measured range fixtures. They never
+  // reuse the sink-faucet route because they need an explicit mounting wall and
+  // a project-documented finished-cooktop-to-mount datum.
+  const [potFillers, setPotFillers] = useState<PotFillerFixture[]>([]);
+  const [potFillerDialog, setPotFillerDialog] = useState<{ rangeUid: string; mountHeightText: string } | null>(null);
+  const validPotFillers = useMemo(
+    () => potFillers.filter((fixture) => potFillerMountedRange(fixture, placed, room, island)),
+    [potFillers, placed, room, island],
+  );
+  const potFillerQuantityByProduct = useMemo(() => {
+    // Include every persisted source ID at zero so an invalid/deleted range
+    // cannot leave a stale fixture product in the payable cart.
+    const quantities = new Map<number, number>();
+    potFillers.forEach((fixture) => quantities.set(fixture.pelicanProductId, 0));
+    validPotFillers.forEach((fixture) => quantities.set(
+      fixture.pelicanProductId,
+      (quantities.get(fixture.pelicanProductId) ?? 0) + 1,
+    ));
+    return quantities;
+  }, [potFillers, validPotFillers]);
   // Keep legacy and installed fixtures centered and lengthwise in their owning
   // sink base after a saved design loads or the base moves to another wall.
   useEffect(() => {
@@ -1541,13 +1561,13 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
   // but not jump to another distributor) unless they Unlock to override.
   const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
   const currentSavedPlanPayload = useMemo(() => JSON.stringify({
-    roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+    roomData: roomWithPersistedEntities(room, { openings, sinks, potFillers, island, furniture, ponyWalls }),
     placedCabinets: placed,
     selectedSurfaces,
     threeDPresentation: threeDPresentationForSave,
     selectedStyleId: styleId ?? null,
     selectedDistributorId: lockedDistributorId ?? null,
-  }), [room, openings, sinks, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId]);
+  }), [room, openings, sinks, potFillers, island, furniture, ponyWalls, placed, selectedSurfaces, threeDPresentationForSave, styleId, lockedDistributorId]);
   const isCurrentPlanSaved = useMemo(() => {
     if (!savedDesign || currentSavedDesignId == null) return false;
     return currentSavedPlanPayload === JSON.stringify({
@@ -2800,6 +2820,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       const persisted = d.room?.persistedEntities;
       setOpenings(Array.isArray(persisted?.openings) ? persisted.openings : []);
       setSinks(Array.isArray(persisted?.sinks) ? persisted.sinks : []);
+      setPotFillers(Array.isArray(persisted?.potFillers) ? persisted.potFillers : []);
       setIsland(persisted?.island ?? null);
       setFurniture(Array.isArray(persisted?.furniture) ? persisted.furniture : []);
       setPonyWalls(Array.isArray(persisted?.ponyWalls) ? persisted.ponyWalls : []);
@@ -3350,8 +3371,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       perimeterCountertopSqFt: countertopMeasurement?.perimeterSquareFeet ?? 0,
       islandCountertopSqFt: countertopMeasurement?.islandSquareFeet ?? 0,
     };
-    return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas) as CartItem[];
-  }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn]);
+    return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas, potFillerQuantityByProduct) as CartItem[];
+  }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn, potFillerQuantityByProduct]);
 
   // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
@@ -6167,6 +6188,70 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     { role: "faucet", limit: 6 },
     { enabled: !!sinkBaseDialog }
   );
+  const { data: potFillerProducts } = trpc.surfaces.recommended.useQuery(
+    { role: "pot-filler", limit: 8 },
+    { enabled: !!potFillerDialog },
+  );
+  const potFillerRange = useMemo(
+    () => potFillerDialog ? placed.find((cabinet) => cabinet.uid === potFillerDialog.rangeUid) ?? null : null,
+    [potFillerDialog, placed],
+  );
+  const addPotFillerToRange = useCallback((product: SinkDialogProduct) => {
+    if (!potFillerDialog || !potFillerRange || !isRangeOrCooktop(potFillerRange) || !potFillerRange.wallId) {
+      toast.error("Select a valid range or cooktop with an explicit mounting wall before adding a pot filler.");
+      return;
+    }
+    const profile = verifiedPelicanPotFillerProfile(product.pelicanCode);
+    const mountHeightAboveCooktopIn = Number(potFillerDialog.mountHeightText);
+    const ceilingHeight = room.ceilingHeight ?? 96;
+    const maximumMountHeight = ceilingHeight - STD.RANGE_COOKING_SURFACE_HEIGHT;
+    if (!Number.isFinite(mountHeightAboveCooktopIn) || mountHeightAboveCooktopIn <= 0 || mountHeightAboveCooktopIn > maximumMountHeight) {
+      toast.error(`Enter the documented wall-mount datum above the finished cooktop (greater than 0 and no more than ${formatEighthInches(maximumMountHeight)}).`);
+      return;
+    }
+    if (!profile || product.sellPrice == null || product.sellPrice <= 0) {
+      toast.error("This pot filler lacks a verified profile or positive source-derived price and cannot be added.");
+      return;
+    }
+    const mountingWallId = String(potFillerRange.wallId);
+    const fixture: PotFillerFixture = {
+      uid: `pot-filler-${Date.now()}-${Math.round(Math.random() * 1e6)}`,
+      rangeUid: potFillerRange.uid,
+      mountingWallId,
+      pelicanProductId: product.id,
+      pelicanCode: product.pelicanCode ?? profile.pelicanCode,
+      pelicanProductName: product.name,
+      pelicanProductImage: product.imageUrl,
+      pelicanProfileId: profile.id,
+      finish: profile.finish,
+      mountHeightAboveCooktopIn,
+      spoutReachIn: profile.spoutReachIn,
+      overallSpanIn: profile.overallSpanIn,
+      armDatumIn: profile.armDatumIn,
+      fixtureHeightIn: profile.fixtureHeightIn,
+      outletDatumIn: profile.outletDatumIn,
+      maximumFlowGpmAt60Psi: profile.maximumFlowGpmAt60Psi,
+      installation: profile.installation,
+      requiresProjectSpecificMountHeight: true,
+    };
+    // Exactly one source-specific wall fixture may own a range/cooktop.
+    setPotFillers((current) => [...current.filter((existing) => existing.rangeUid !== potFillerRange.uid), fixture]);
+    setSelectedSurfaces((current) => current.some((surface) => surface.id === product.id)
+      ? current
+      : [...current, {
+        id: product.id,
+        pelicanCode: product.pelicanCode ?? null,
+        slug: product.slug,
+        name: product.name,
+        category: product.category,
+        subCategory: product.subCategory,
+        size: product.size,
+        imageUrl: product.imageUrl,
+        sellPrice: product.sellPrice,
+      }]);
+    setPotFillerDialog(null);
+    toast.success(`${product.name} attached to ${potFillerRange.masterCode || "the range"}.`);
+  }, [potFillerDialog, potFillerRange, room, setSelectedSurfaces]);
   const fridgeForDialog = useMemo(
     () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
     [fridgeDialog, placed]
@@ -9235,6 +9320,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     selectedSurfaces: normalizeInstalledMaterialSelections(selectedSurfaces),
     cabinetsLocked,
     sinks,
+    potFillers,
     roomType,
     activeWall,
     layoutLocked,
@@ -9345,6 +9431,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             applySurfaceRenderMaterials(restoredSurfaces);
           }
           if (Array.isArray(d.sinks)) setSinks(d.sinks);
+          if (Array.isArray(d.potFillers)) setPotFillers(d.potFillers as PotFillerFixture[]);
           if (d.roomType) setRoomType(d.roomType);
           if (d.activeWall) setActiveWall(d.activeWall);
           setLayoutLocked(!!d.layoutLocked);
@@ -9456,7 +9543,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, potFillers, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -9605,6 +9692,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setSelectedUid(null);
     setSelectedOpeningUid(null);
     setSinks([]);
+    setPotFillers([]);
     setSelectedSinkUid(null);
     setFurniture([]);
     setSelectedFurnUid(null);
@@ -9781,7 +9869,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       name: bundleName.trim(),
       description: bundleDesc.trim() || undefined,
       designSnapshot: {
-        room: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
+        room: roomWithPersistedEntities(room, { openings, sinks, potFillers, island, furniture, ponyWalls }),
         placed,
         styleId,
         lockedDistributorId,
@@ -9878,6 +9966,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setOpenings([]);
     setIsland(null);
     setSinks([]);
+    setPotFillers([]);
     setFurniture([]);
     setPonyWalls([]);
     setAnnotations([]);
@@ -10111,6 +10200,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      roomOverride={room}
       openings={openings}
       sinks={sinks}
+      potFillers={potFillers}
       island={island}
       furniture={furniture}
       ponyWalls={ponyWalls}
@@ -13147,6 +13237,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               countertopMaterialId={countertop ? countertopMaterialId : null}
 	              islandCountertopMaterialId={countertop ? island?.countertopMaterialId ?? countertopMaterialId : null}
               sinks={sinks}
+	              potFillers={potFillers}
               selectedSinkUid={selectedSinkUid}
               onSelectSink={selectSink}
               onMoveSink={moveSink}
@@ -13378,6 +13469,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	                  countertopMaterialId={countertop ? countertopMaterialId : null}
 	                  islandCountertopMaterialId={countertop ? island?.countertopMaterialId ?? countertopMaterialId : null}
 	              sinks={sinks}
+	              potFillers={potFillers}
 	              selectedSinkUid={selectedSinkUid}
 	              onSelectSink={selectSink}
               onMoveSink={moveSink}
@@ -14659,6 +14751,21 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                   </Button>
                 </TooltipTrigger><TooltipContent>Sink &amp; faucet options</TooltipContent></Tooltip>
               )}
+              {selectedCab && isRangeOrCooktop(selectedCab) && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button
+                    aria-label="Add or edit wall pot filler"
+                    variant="outline"
+                    className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10"
+                    onClick={() => {
+                      const existing = potFillers.find((fixture) => fixture.rangeUid === selectedCab.uid);
+                      setPotFillerDialog({ rangeUid: selectedCab.uid, mountHeightText: existing ? String(existing.mountHeightAboveCooktopIn) : "" });
+                    }}
+                  >
+                    <Wrench className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger><TooltipContent>{potFillers.some((fixture) => fixture.rangeUid === selectedCab.uid) ? "Edit wall pot filler" : "Add wall pot filler"}</TooltipContent></Tooltip>
+              )}
               <Tooltip><TooltipTrigger asChild>
                 <Button aria-label="Professional designer" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => setProDesignerOpen(true)}>
                   <UserRound className="h-4 w-4" />
@@ -15167,7 +15274,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 		      />
 
 		      {/* Right-click per-cabinet attributes editor */}
-      <CabinetAttributesDialog
+	      <CabinetAttributesDialog
 	        cabinet={attrUid ? placed.find((p) => p.uid === attrUid) ?? null : null}
 	        open={attrOpen}
 	        onOpenChange={(open) => {
@@ -15226,8 +15333,82 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         } : undefined}
         savingMasterConfig={saveMasterCabinetConfig.isPending}
         onSetOvenType={(uid, ovenType) => setCabAttr(uid, { ovenType })}
-        onSetIslandWallBaseTreatment={(uid, treatment) => setCabAttr(uid, { islandWallCabinetBaseTreatment: treatment })}
-      />
+	        onSetIslandWallBaseTreatment={(uid, treatment) => setCabAttr(uid, { islandWallCabinetBaseTreatment: treatment })}
+	      />
+
+      {/* Pot fillers use a dedicated range-wall workflow. Pelican publishes the
+          fixture's measured reach but not a universal installation elevation. */}
+      {potFillerDialog && (
+        <Dialog open onOpenChange={(open) => { if (!open) setPotFillerDialog(null); }}>
+          <DialogContent className="max-h-[min(720px,88vh)] overflow-y-auto sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Wall Pot Filler</DialogTitle>
+              <DialogDescription>
+                Attach a source-measured pot filler only to the wall behind the selected range or cooktop. The mounting datum must come from this project’s drawing or field measurement; it is not supplied by the product sheet.
+              </DialogDescription>
+            </DialogHeader>
+            {!potFillerRange || !isRangeOrCooktop(potFillerRange) || !potFillerRange.wallId ? (
+              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">This item does not have an explicit mounting wall. Close this dialog and select a range or cooktop attached to a physical wall.</div>
+            ) : (
+              <>
+                <div className="rounded-lg border border-border bg-muted/35 p-3 text-sm">
+                  <div className="font-semibold text-foreground">{potFillerRange.masterCode || "Range / Cooktop"}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">Mounting wall: <span className="font-mono">{String(potFillerRange.wallId ?? cabinetWall(potFillerRange, room))}</span>. Island and free-floating placements are blocked.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pot-filler-mount-datum">Finished cooktop to wall-mount datum (inches)</Label>
+                  <Input
+                    id="pot-filler-mount-datum"
+                    inputMode="decimal"
+                    type="number"
+                    min="0.125"
+                    max={Math.max(0, (room.ceilingHeight ?? 96) - STD.RANGE_COOKING_SURFACE_HEIGHT)}
+                    step="0.125"
+                    value={potFillerDialog.mountHeightText}
+                    onChange={(event) => setPotFillerDialog((current) => current ? { ...current, mountHeightText: event.target.value } : current)}
+                    placeholder="Enter documented project measurement"
+                  />
+                  <p className="text-[11px] text-muted-foreground">No default is assumed. The value must be greater than 0 and at or below the room ceiling above the 36-inch finished cooktop.</p>
+                </div>
+                {potFillers.some((fixture) => fixture.rangeUid === potFillerRange.uid) && (
+                  <Button variant="outline" className="w-full border-destructive/50 text-destructive hover:bg-destructive/5" onClick={() => {
+                    setPotFillers((current) => current.filter((fixture) => fixture.rangeUid !== potFillerRange.uid));
+                    setPotFillerDialog(null);
+                    toast.success("Wall pot filler removed from this range.");
+                  }}>
+                    <Trash2 className="mr-2 h-4 w-4" /> Remove pot filler
+                  </Button>
+                )}
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">Choose an exact finish</p>
+                  {(potFillerProducts ?? []).length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border p-3 text-xs text-muted-foreground">No positively priced, source-profiled pot filler is currently available for this range-wall workflow.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                      {(potFillerProducts as SinkDialogProduct[]).map((product) => {
+                        const profile = verifiedPelicanPotFillerProfile(product.pelicanCode);
+                        if (!profile || product.sellPrice == null || product.sellPrice <= 0) return null;
+                        return (
+                          <button key={product.id} type="button" onClick={() => addPotFillerToRange(product)} className="overflow-hidden rounded-lg border border-border text-left transition hover:border-[#a87f33] hover:bg-[#fffaf1]">
+                            <div className="flex gap-2 p-2.5">
+                              {product.imageUrl && <img src={product.imageUrl} alt="Official PL-8369 dimension drawing" className="h-14 w-20 rounded border bg-white object-contain" />}
+                              <div className="min-w-0">
+                                <p className="line-clamp-2 text-xs font-semibold text-foreground">{product.name}</p>
+                                <p className="mt-1 text-[11px] text-muted-foreground">{formatEighthInches(profile.spoutReachIn)} reach · {profile.finish.replaceAll("-", " ")}</p>
+                                <p className="mt-1 text-xs font-bold text-[#1a2744]">{formatPrice(product.sellPrice)}</p>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
 	      <RefrigeratorOptionsDialog
@@ -16255,6 +16436,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                 roomOverride={room}
                 openings={openings}
                 sinks={sinks}
+                potFillers={potFillers}
                 island={island}
                 furniture={furniture}
                 ponyWalls={ponyWalls}

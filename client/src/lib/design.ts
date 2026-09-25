@@ -1664,6 +1664,8 @@ export function removePeninsulaRun(room: RoomData, placed: PlacedCabinet[], runI
 export interface PersistedDesignEntities {
   openings: WallOpening[];
   sinks: SinkFixture[];
+  /** Wall-mounted fixtures are persisted separately from countertop sink fixtures. */
+  potFillers?: PotFillerFixture[];
   island: IslandZone | null;
   furniture: PlacedFurniture[];
   ponyWalls: PonyWall[];
@@ -9899,6 +9901,66 @@ export interface SinkFixture {
   faucetSpoutHeight?: number;
   faucetFinish?: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome" | "oil-rubbed-bronze";
   faucetForm?: "pull-down" | "standard-arc" | "pull-out" | "articulated-swing";
+}
+
+/**
+ * A source-measured wall pot filler attached to one physical range/cooktop wall.
+ * The manufacturer publishes fixture dimensions, not one universal wall-mount
+ * elevation. `mountHeightAboveCooktopIn` is deliberately mandatory so the
+ * Designer never manufactures an installation height.
+ */
+export interface PotFillerFixture {
+  uid: string;
+  rangeUid: string;
+  /** Exact current range/cooktop wall identity, including a custom wall ID. */
+  mountingWallId: string;
+  pelicanProductId: number;
+  pelicanCode: string;
+  pelicanProductName: string;
+  pelicanProductImage?: string | null;
+  pelicanProfileId: string;
+  finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
+  /** Documented per-project distance from finished cooktop to fixture mount datum. */
+  mountHeightAboveCooktopIn: number;
+  /** Source-measured maximum reach; it is not inferred from a catalog image. */
+  spoutReachIn: number;
+  overallSpanIn: number;
+  armDatumIn: number;
+  fixtureHeightIn: number;
+  outletDatumIn: number;
+  maximumFlowGpmAt60Psi: number;
+  installation: "wall-mounted-in-wall-cold-water";
+  requiresProjectSpecificMountHeight: true;
+}
+
+/** A range/cooktop can receive a wall pot filler; built-in ovens cannot. */
+export function isRangeOrCooktop(cabinet: Pick<PlacedCabinet, "masterCode" | "description">): boolean {
+  const code = (cabinet.masterCode ?? "").toUpperCase();
+  const text = `${cabinet.masterCode ?? ""} ${cabinet.description ?? ""}`.toLowerCase();
+  if (/^(?:RANGE|RNG|STOVE|STV|COOKTOP|CT)[\s_-]*(?:\d+)?$/i.test(code)) return true;
+  return /\b(?:freestanding\s+)?(?:range|stove|cooktop)\b/i.test(text)
+    && !/\b(?:wall|built[-\s]?in|single|double)\s+oven\b/i.test(text);
+}
+
+/**
+ * Resolve a fixture only when it remains attached to the same non-island wall
+ * behind its source range/cooktop. Invalid saved fixtures are retained for audit
+ * but intentionally receive no plan/3D/cart representation.
+ */
+export function potFillerMountedRange(
+  fixture: PotFillerFixture,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+  island?: IslandZone | null,
+): PlacedCabinet | null {
+  const range = placed.find((cabinet) => cabinet.uid === fixture.rangeUid);
+  if (!range || !isRangeOrCooktop(range)) return null;
+  // Do not infer a mounting wall from a free-standing plan coordinate. A pot
+  // filler is admissible only when the range has an explicit persisted wall ID.
+  if (!range.wallId) return null;
+  if (range.islandFace || (island != null && isOnIsland(range, island))) return null;
+  const currentWallId = String(range.wallId);
+  return currentWallId === fixture.mountingWallId ? range : null;
 }
 
 export const SINK_PRESETS: Record<SinkType, { name: string; width: number; depth: number }> = {

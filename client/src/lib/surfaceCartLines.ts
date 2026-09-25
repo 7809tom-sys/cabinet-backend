@@ -107,6 +107,8 @@ export function buildSurfaceCartLines(
   surfaces: SurfacePick[],
   tier: "wholesale" | "contractor" | "homeowner",
   areas?: RoomAreas | null,
+  /** Explicit fixture quantities keyed by source product ID; zero suppresses stale selections. */
+  fixtureQuantities?: ReadonlyMap<number, number> | null,
 ): SurfaceCartLine[] {
   const lines: SurfaceCartLine[] = [];
   // A replaced flooring or backsplash product is not part of the final kitchen.
@@ -117,12 +119,17 @@ export function buildSurfaceCartLines(
     const label = s.size ? `${s.category} · ${s.size}` : s.category;
     let qty = 1;
     let qtyNote: string | undefined;
+    if (fixtureQuantities?.has(s.id)) {
+      qty = Math.max(0, Math.floor(fixtureQuantities.get(s.id) ?? 0));
+      if (qty === 0) continue;
+      qtyNote = `${qty} installed ${qty === 1 ? "fixture" : "fixtures"}`;
+    }
     const cat = s.category.toLowerCase();
     const isBacksplash = cat.includes("backsplash") || cat.includes("mosaic") || cat.includes("tile");
     const isFlooring = cat.includes("floor");
     const isCountertop = cat.includes("countertop") || cat.includes("quartz slab");
 
-    if (areas && isCountertop) {
+    if (!fixtureQuantities?.has(s.id) && areas && isCountertop) {
       const rawArea = s.countertopScope === "perimeter"
         ? areas.perimeterCountertopSqFt ?? areas.countertopSqFt ?? 0
         : s.countertopScope === "island"
@@ -134,7 +141,7 @@ export function buildSurfaceCartLines(
         const scopeNote = s.countertopScope === "perimeter" ? " wall-run" : s.countertopScope === "island" ? " island" : "";
         qtyNote = `${rawArea.toFixed(1)} sq ft${scopeNote} ÷ ${slabSqFt.toFixed(1)} sq ft/slab = ${qty} ${qty === 1 ? "slab" : "slabs"}`;
       }
-    } else if (areas && s.coverageSqFt && s.coverageSqFt > 0) {
+    } else if (!fixtureQuantities?.has(s.id) && areas && s.coverageSqFt && s.coverageSqFt > 0) {
       const rawArea = isBacksplash ? areas.backsplashSqFt : isFlooring ? areas.flooringSqFt : 0;
       if (rawArea > 0 && (isBacksplash || isFlooring)) {
         const factor = overageFor(s.category);

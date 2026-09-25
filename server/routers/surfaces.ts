@@ -58,13 +58,13 @@ async function toReferenceUrl(imageUrl: string | null | undefined): Promise<stri
 const SelectionItem = z.object({
   id: z.number().int().positive(),
   category: z.string(),
-  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet", "range-top"]).optional(),
+  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet", "pot-filler", "range-top"]).optional(),
 });
 
 // Roles the Designer surfaces into: each maps to a real Pelican category (and
 // subCategory where a category is shared, e.g. Sinks & Faucets). This is the
 // single server-side source of truth for the Designer's recommended lists.
-const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet", "range-top"]);
+const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet", "pot-filler", "range-top"]);
 type RecommendedRole = z.infer<typeof RECOMMENDED_ROLE>;
 
 function roleFilter(role: RecommendedRole) {
@@ -81,6 +81,7 @@ function roleFilter(role: RecommendedRole) {
       return eq(pelicanProducts.category, "Quartz Slabs (Countertops)");
     case "sink":
     case "faucet":
+    case "pot-filler":
       // Imported subcategories contain historical misclassifications. The
       // response below derives the final placement family from product text.
       return eq(pelicanProducts.category, "Sinks & Faucets");
@@ -112,7 +113,10 @@ export const surfacesRouter = router({
           and(
             roleFilter(input.role),
             eq(pelicanProducts.isActive, true),
-            eq(pelicanProducts.showInDesigner, true),
+            // Pot fillers are intentionally excluded from the generic Designer
+            // palette until this explicit range-wall workflow attaches them to
+            // an eligible range/cooktop and records a project mount datum.
+            input.role === "pot-filler" ? undefined : eq(pelicanProducts.showInDesigner, true),
             isNotNull(pelicanProducts.imageUrl),
             ne(pelicanProducts.imageUrl, "")
           )
@@ -124,7 +128,7 @@ export const surfacesRouter = router({
         )
         // Sink/faucet source labels need post-query classification; request
         // sufficient candidates so misplaced fixtures do not get starved.
-        .limit(input.role === "sink" || input.role === "faucet" ? 480 : input.limit + 12);
+        .limit(input.role === "sink" || input.role === "faucet" || input.role === "pot-filler" ? 480 : input.limit + 12);
       const recommendations = rows
         .map((r) => ({
           id: r.id,
@@ -143,7 +147,7 @@ export const surfacesRouter = router({
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
         .filter((r) => pelicanDesignerRole(r) === input.role)
-        .filter(isPelicanDesignerReady);
+        .filter((r) => input.role === "pot-filler" ? true : isPelicanDesignerReady(r));
       return recommendations.slice(0, input.limit);
     }),
 

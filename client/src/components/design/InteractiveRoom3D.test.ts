@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -5436,17 +5436,44 @@ describe("interactive 3D room scene helpers", () => {
     expect(exactApron).not.toBeNull();
   });
 
-  it("keeps a visible divider for existing double-bowl sink choices", () => {
+	  it("keeps a visible divider for existing double-bowl sink choices", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {
       uid: "sink-double", type: "double", x: 24, y: 48, width: 33, depth: 20, faucet: false, wallSide: "top",
     } as never);
     let divider: THREE.Object3D | null = null;
     root.traverse((node) => { if (node.userData.sinkBowlDivider) divider = node; });
-    expect(divider).not.toBeNull();
-  });
+	    expect(divider).not.toBeNull();
+	  });
 
-  it("renders SB36 with two false drawer fronts, two standard doors, and no false-drawer pull", () => {
+	  it("renders the PL-8369 as a 24-inch range-wall reach envelope without inventing a pivot angle", () => {
+	    const root = new THREE.Group();
+	    const room = { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+	    const range = { uid: "range", cabinetId: 1, masterCode: "RANGE-30", description: "30 inch Range", placement: "appliance", x: 36, y: 0, width: 30, depth: 24, height: 36, rotation: 0, wallId: "top" } as PlacedCabinet;
+	    const fixture = {
+	      uid: "pf", rangeUid: "range", mountingWallId: "top", pelicanProductId: 790, pelicanCode: "PL-8369-BG",
+	      pelicanProductName: "Fountain Series Kitchen Pot Filler - Brushed Gold", pelicanProfileId: "pelican-pl-8369-bg-fountain-wall-pot-filler",
+	      finish: "brushed-gold", mountHeightAboveCooktopIn: 24, spoutReachIn: 24, overallSpanIn: 26.1875, armDatumIn: 13,
+	      fixtureHeightIn: 3.15625, outletDatumIn: 1.875, maximumFlowGpmAt60Psi: 2.2,
+	      installation: "wall-mounted-in-wall-cold-water", requiresProjectSpecificMountHeight: true,
+	    } as const;
+	    const transform = potFillerWallMountTransform(fixture, range, room);
+	    expect(transform.reach * 12).toBeCloseTo(24, 6);
+	    expect(transform.y * 12).toBeCloseTo(60, 6);
+	    addPotFillerFixture(root, fixture, range, room);
+	    const potFiller = root.children.find((node) => node.userData.potFillerFixture);
+	    expect(potFiller?.userData).toMatchObject({
+	      pelicanCode: "PL-8369-BG", spoutReachIn: 24, finish: "brushed-gold",
+	      articulationState: "deployed-reach-envelope-not-an-invented-pivot-angle",
+	    });
+	    const armLengths: number[] = [];
+	    root.traverse((node) => { if (node.userData.potFillerArm) armLengths.push(node.userData.lengthIn); });
+	    expect(armLengths).toHaveLength(2);
+	    expect(armLengths[0]).toBeCloseTo(13, 6);
+	    expect(armLengths[1]).toBeCloseTo(11, 6);
+	  });
+
+	  it("renders SB36 with two false drawer fronts, two standard doors, and no false-drawer pull", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: -89, cabinetId: 89, masterCode: "SB-36", description: "36 inch Sink Base",

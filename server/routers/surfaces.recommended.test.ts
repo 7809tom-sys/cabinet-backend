@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { getDb } from "../db";
-import { verifiedPelicanFaucetProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
+import { verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
 
 // Public procedure — a minimal unauthenticated context is enough.
 function publicCtx(): TrpcContext {
@@ -106,6 +106,19 @@ describe("surfaces.recommended", () => {
     const caller = appRouter.createCaller(publicCtx());
     const sinks = (await caller.surfaces.recommended({ role: "sink", limit: 24 })) as Rec[];
     expect(sinks.some((sink) => Boolean(verifiedPelicanSinkProfile(sink.pelicanCode)))).toBe(true);
+  });
+
+  it("returns positively priced PL-8369 variants only through the dedicated range-wall pot-filler workflow", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const rows = (await caller.surfaces.recommended({ role: "pot-filler", limit: 8 })) as Rec[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.category).toBe("Sinks & Faucets");
+      expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+      expect(verifiedPelicanPotFillerProfile(row.pelicanCode)).not.toBeNull();
+    }
   });
 
   it("honors the requested limit", async () => {

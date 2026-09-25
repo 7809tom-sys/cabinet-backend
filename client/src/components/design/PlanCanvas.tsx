@@ -7,7 +7,7 @@ import {
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
   cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo,
-	  countertopSurfaces, countertopMaterial, type CountertopSurface, type SinkFixture, SINK_PRESETS,
+	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
@@ -314,6 +314,8 @@ interface Props {
   countertopMaterialId?: string | null;
   islandCountertopMaterialId?: string | null;
   sinks?: SinkFixture[];
+  /** Source-measured wall pot-fillers; valid range-wall associations render as exact reach lines. */
+  potFillers?: PotFillerFixture[];
   selectedSinkUid?: string | null;
   onSelectSink?: (uid: string | null) => void;
   onMoveSink?: (uid: string, x: number, y: number) => void;
@@ -395,7 +397,7 @@ export function PlanCanvas({
   drawMode = false, onDrawRoom,
   activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
   layoutLocked = false, lockedWalls,
-  countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], selectedSinkUid = null, onSelectSink, onMoveSink,
+  countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
   furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
   flooringMaterialId = null,
@@ -1741,6 +1743,46 @@ export function PlanCanvas({
                     : s.wallSide === "right" ? <div className="absolute right-[-5px] top-1/2 -translate-y-1/2" style={{ width: Math.max(4, 4 * ppi), height: Math.max(4, 3 * ppi), background: "#5b636b", borderRadius: 2 }} />
                       : <div className="absolute left-1/2 -translate-x-1/2" style={{ top: -5, width: Math.max(4, 3 * ppi), height: Math.max(4, 4 * ppi), background: "#5b636b", borderRadius: 2 }} />
               )}
+            </div>
+          );
+        })}
+
+        {/* Wall pot fillers use their manufacturer-published reach, rooted at
+            the actual wall behind the associated range/cooktop. The dashed line
+            is an installation envelope, not a claimed folded-arm pivot angle. */}
+        {potFillers.map((fixture) => {
+          const range = potFillerMountedRange(fixture, cabinets, room, island);
+          if (!range) return null;
+          const frame = planCabinetRenderFrame(range);
+          const angle = range.rotation || 0;
+          const radians = angle * Math.PI / 180;
+          const forward = { x: Math.sin(radians), y: Math.cos(radians) };
+          const center = { x: frame.bodyLeft + frame.bodyW / 2, y: frame.bodyTop + frame.bodyD / 2 };
+          const rangeDepth = Math.min(frame.bodyW, frame.bodyD);
+          const anchor = {
+            x: center.x - forward.x * (rangeDepth / 2 + 0.03),
+            y: center.y - forward.y * (rangeDepth / 2 + 0.03),
+          };
+          return (
+            <div
+              key={fixture.uid}
+              data-testid="pot-filler-plan-reach"
+              data-range-uid={fixture.rangeUid}
+              className="pointer-events-none absolute z-[4]"
+              style={{
+                left: anchor.x * ppi,
+                top: anchor.y * ppi - Math.max(2, ppi * 0.28),
+                width: fixture.spoutReachIn * ppi,
+                height: Math.max(4, ppi * 0.56),
+                transform: `rotate(${angle}deg)`,
+                transformOrigin: "0 50%",
+              }}
+              title={`${fixture.pelicanProductName}: source-measured ${formatEighthInches(fixture.spoutReachIn)} deployed reach from wall`}
+            >
+              <span className="absolute left-0 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#a87f33] bg-white shadow-sm" />
+              <span className="absolute left-0 right-0 top-1/2 border-t-2 border-dashed border-[#a87f33]" />
+              <span className="absolute right-0 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border-2 border-[#a87f33] bg-[#fffaf1] shadow-sm" />
+              <span className="absolute left-1/2 top-[-14px] -translate-x-1/2 whitespace-nowrap rounded bg-[#fffaf1]/95 px-1 text-[9px] font-bold text-[#765416] shadow-sm">PF · {formatEighthInches(fixture.spoutReachIn)}</span>
             </div>
           );
         })}

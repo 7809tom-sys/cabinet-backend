@@ -29,7 +29,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
   type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
 } from "./design";
 
@@ -538,6 +538,27 @@ describe("persisted 2D entity parity", () => {
       sinks: [{ uid: "sink", faucet: true, width: 33 }],
       island: { x: 48, y: 48, width: 60, depth: 30, countertopOverhang: 3.125 },
     });
+  });
+
+  it("retains a pot filler only on its associated range wall, never a sink or island", () => {
+    const range = {
+      uid: "range", cabinetId: 1, masterCode: "RANGE-30", description: "30 inch Range",
+      placement: "appliance", x: 36, y: 0, width: 30, depth: 24, height: 36, rotation: 0, wallId: "top",
+    } as PlacedCabinet;
+    const fixture = {
+      uid: "pf", rangeUid: "range", mountingWallId: "top", pelicanProductId: 790,
+      pelicanCode: "PL-8369-BG", pelicanProductName: "Fountain Series Kitchen Pot Filler - Brushed Gold",
+      pelicanProfileId: "pelican-pl-8369-bg-fountain-wall-pot-filler", finish: "brushed-gold",
+      mountHeightAboveCooktopIn: 24, spoutReachIn: 24, overallSpanIn: 26.1875,
+      armDatumIn: 13, fixtureHeightIn: 3.15625, outletDatumIn: 1.875,
+      maximumFlowGpmAt60Psi: 2.2, installation: "wall-mounted-in-wall-cold-water",
+      requiresProjectSpecificMountHeight: true,
+    } as const;
+    expect(potFillerMountedRange(fixture, [range], ROOM_12x10)?.uid).toBe("range");
+    expect(potFillerMountedRange({ ...fixture, mountingWallId: "bottom" }, [range], ROOM_12x10)).toBeNull();
+    expect(potFillerMountedRange(fixture, [{ ...range, masterCode: "SB-36", description: "Sink Base" }], ROOM_12x10)).toBeNull();
+    expect(potFillerMountedRange(fixture, [{ ...range, wallId: undefined }], ROOM_12x10)).toBeNull();
+    expect(potFillerMountedRange(fixture, [{ ...range, islandFace: "front" }], ROOM_12x10, { x: 24, y: 0, width: 72, depth: 36 })).toBeNull();
   });
 });
 

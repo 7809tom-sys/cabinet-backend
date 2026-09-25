@@ -98,6 +98,12 @@ describe("buildSurfaceCartLines", () => {
     const [line] = buildSurfaceCartLines([faucet], "homeowner");
     expect(line.tier).toBe("homeowner");
   });
+
+  it("prices a fixture only for its active range-wall installation and suppresses stale selections", () => {
+    const installed = buildSurfaceCartLines([faucet], "homeowner", undefined, new Map([[101, 2]]));
+    expect(installed).toEqual([expect.objectContaining({ qty: 2, qtyNote: "2 installed fixtures" })]);
+    expect(buildSurfaceCartLines([faucet], "homeowner", undefined, new Map([[101, 0]]))).toEqual([]);
+  });
 });
 
 describe("buildSurfaceCartLines — box quantity with overage", () => {
