@@ -3875,6 +3875,51 @@ export function normalizeWd18CountertopMounts(placed: PlacedCabinet[]): PlacedCa
   return changed ? normalized : placed;
 }
 
+/**
+ * Restores the fixed room-wall elevation rule on saved layouts created while
+ * ordinary upper cabinets could inherit a neighboring cabinet's top line.
+ *
+ * Standard room-wall cabinets start at 54 inches. The only automatic exceptions
+ * remain source/installation-specific: WD18 countertop cabinets, stackers,
+ * refrigerator uppers at 72 inches, appliance garages on the countertop, and
+ * a short cabinet that must clear a real sink/window opening. A customer-set
+ * vertical move is explicitly marked and is never rewritten here.
+ */
+export function normalizeStandardWallMounts(
+  placed: PlacedCabinet[],
+  openings: WallOpening[],
+  room: RoomData,
+): PlacedCabinet[] {
+  let changed = false;
+  const normalized = placed.map((cabinet) => {
+    if (
+      cabinet.placement !== "wall"
+      || cabinet.islandFace
+      || cabinet.mountBottomAdjusted
+      || isWd18CountertopDrawerCabinet(cabinet)
+      || isStacker(cabinet)
+    ) return cabinet;
+
+    if (isRefrigeratorWallCabinet(cabinet)) {
+      if (typeof cabinet.mountBottom === "number" && Math.abs(cabinet.mountBottom - 72) <= 0.01) return cabinet;
+      changed = true;
+      return { ...cabinet, mountBottom: 72 };
+    }
+
+    const haystack = `${cabinet.subCategory ?? ""} ${cabinet.description ?? ""} ${cabinet.masterCode ?? ""}`.toLowerCase();
+    if (/appliance garage|\bag-?\d/.test(haystack)) return cabinet;
+
+    // A verified sink/window clearance is an installation necessity, not an
+    // inherited run height. Preserve and repair that exact computed datum.
+    const requiredWindowBottom = overSinkWallMountBottom(cabinet, placed, openings, room);
+    const targetBottom = requiredWindowBottom ?? WALL_MOUNT_BOTTOM;
+    if (typeof cabinet.mountBottom === "number" && Math.abs(cabinet.mountBottom - targetBottom) <= 0.01) return cabinet;
+    changed = true;
+    return { ...cabinet, mountBottom: targetBottom };
+  });
+  return changed ? normalized : placed;
+}
+
 /** Whether a wall cabinet crosses a window only after clearing it vertically. */
 export function wallCabinetClearsWindow(
   cabinet: PlacedCabinet,
@@ -6241,17 +6286,17 @@ export function reconcileRefrigeratorAssemblies(
 }
 
 /**
- * The cabinet above a refrigerator starts two inches above the appliance, while
- * both it and the finished side panels terminate on one enclosure cap. Returning
- * the shared top lets the designer size every refrigerator surround piece from
- * the exact same physical elevation.
+ * The cabinet above a refrigerator begins at the fixed 72-inch installation
+ * datum, while it and the finished side panels terminate on one enclosure cap.
+ * Returning the shared top lets the designer size every refrigerator surround
+ * piece from the exact same physical elevation.
  */
 export function refrigeratorSurroundElevation(_room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
-  // The refrigerator establishes this assembly's vertical datum. The bridge
-  // begins two inches above the appliance (72 inches above the floor for the
-  // confirmed 70-inch refrigerator) irrespective of adjacent uppers or room
-  // ceiling height, then the finished side panels use the same cap.
-  const mountBottom = fridgeTop + 2;
+  // The Designer elevation rule is explicit: room-wall uppers start at 54",
+  // and refrigerator uppers start at 72". It must not vary with a neighboring
+  // upper, a ceiling height, or a legacy resized refrigerator record.
+  void fridgeTop;
+  const mountBottom = 72;
   return { mountBottom, top: mountBottom + upperHeight };
 }
 
@@ -6262,11 +6307,9 @@ function refrigeratorUpperMountBottom(
   fridgeTop: number,
   upperHeight: number,
 ): number {
-  // A refrigerator upper is datum-controlled by its own appliance, not by a
-  // neighboring tall or unusually high upper.  It begins two inches above the
-  // refrigerator (72 inches for the confirmed 70-inch refrigerator); otherwise
-  // a neighboring 48-inch wall cabinet could incorrectly pull this 24-inch WR
-  // box up to 78 or 84 inches.  The surrounding panels follow this same cap.
+  // A refrigerator upper is controlled by the fixed 72-inch refrigerator datum,
+  // never by a neighboring tall upper, a ceiling height, or a legacy appliance
+  // height. The surrounding panels follow this same cap.
   // `cabinet` and `_placed` remain part of this private contract so legacy
   // normalizers continue to call one resolver for every saved assembly.
   void cabinet;
@@ -6277,10 +6320,10 @@ function refrigeratorUpperMountBottom(
  * Re-seat a dedicated refrigerator wall cabinet on top of its matching
  * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
  * at the standard 54-inch wall mount, where it visibly ran into a 70-inch
- * refrigerator. A dedicated refrigerator cabinet starts two inches above the
- * appliance (72 inches for the confirmed 70-inch refrigerator) and then tops
- * out at the surrounding tall-cabinet cap. Ordinary wall cabinets deliberately
- * remain unchanged and are still rejected by the refrigerator collision rule.
+ * refrigerator. A dedicated refrigerator cabinet starts at the fixed 72-inch
+ * refrigerator datum and then tops out at the surrounding tall-cabinet cap.
+ * Ordinary wall cabinets deliberately remain unchanged and are still rejected
+ * by the refrigerator collision rule.
  */
 export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: RoomData | null): PlacedCabinet[] {
   const refrigerators = placed.filter(isRefrigerator);

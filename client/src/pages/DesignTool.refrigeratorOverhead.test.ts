@@ -10,4 +10,11 @@ describe("refrigerator-overhead recommendation route", () => {
     expect(source).toContain("item.uid !== refrigeratorCabinetToReplace?.uid");
     expect(source).toContain("replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}");
   });
+
+  it("starts each normal room-wall cabinet at 54 inches and leaves refrigerator surround elevation to its dedicated normalizer", () => {
+    expect(source).toContain('...(accPlacement === "wall" ? { mountBottom: STD.WALL_MOUNT_BOTTOM } : {}),');
+    expect(source).toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");
+    expect(source).toContain("normalizeStandardWallMounts(");
+    expect(source).not.toContain("const runMountBottom = adjoiningWallRunMountBottom");
+  });
 });

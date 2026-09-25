@@ -22,7 +22,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
-	  isStacker, glassStackerParentPlacement, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts,
+	  isStacker, glassStackerParentPlacement, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
@@ -2589,8 +2589,28 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
   });
 });
 
-describe("wall cabinet elevation rules", () => {
-  it("mounts the no-dash WD18 countertop cabinet family at 36 inches and leaves ordinary dashed wall cabinets at 54 inches", () => {
+	describe("wall cabinet elevation rules", () => {
+	  it("restores legacy auto-top-aligned uppers to the fixed 54-inch datum without touching manual, stacker, or refrigerator exceptions", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+	    const legacyShortUpper = cab({ uid: "legacy-short", placement: "wall", masterCode: "W-30-12", height: 12, mountBottom: 90 });
+	    const manualUpper = cab({ uid: "manual-upper", placement: "wall", masterCode: "W-30-24", height: 24, mountBottom: 60, mountBottomAdjusted: true });
+	    const stacker = cab({ uid: "stacker", placement: "wall", masterCode: "W-3012GD", height: 12, mountBottom: 84 });
+	    const refrigeratorUpper = cab({ uid: "refrigerator-upper", placement: "wall", masterCode: "WR3624", height: 24, mountBottom: 84 });
+
+	    const normalized = normalizeStandardWallMounts(
+	      [legacyShortUpper, manualUpper, stacker, refrigeratorUpper],
+	      [],
+	      room,
+	    );
+
+	    expect(normalized.find((cabinet) => cabinet.uid === "legacy-short")?.mountBottom).toBe(54);
+	    expect(normalized.find((cabinet) => cabinet.uid === "manual-upper")?.mountBottom).toBe(60);
+	    expect(normalized.find((cabinet) => cabinet.uid === "stacker")?.mountBottom).toBe(84);
+	    expect(normalized.find((cabinet) => cabinet.uid === "refrigerator-upper")?.mountBottom).toBe(72);
+	    expect(elevationBox(normalized.find((cabinet) => cabinet.uid === "refrigerator-upper")!, room).bottom).toBe(72);
+	  });
+
+	  it("mounts the no-dash WD18 countertop cabinet family at 36 inches and leaves ordinary dashed wall cabinets at 54 inches", () => {
     for (const [masterCode, height] of [["WD1848", 48], ["WD1854", 54], ["WD1860", 60]] as const) {
       const countertopCabinet = cab({ placement: "wall", width: 18, height, masterCode, numberOfDoors: 1, numberOfDrawers: 2 });
       expect(isWd18CountertopDrawerCabinet(countertopCabinet)).toBe(true);
@@ -3484,7 +3504,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
 
-  it("keeps a short WR3624 two inches above a resized refrigerator beside an adjoining wall-cabinet run", () => {
+	  it("keeps a short WR3624 at the fixed 72-inch refrigerator datum beside an adjoining wall-cabinet run", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const adjoining = cab({ uid: "left-wall", masterCode: "W-1242", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 68 });
@@ -3494,8 +3514,8 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
     const upperBox = elevationBox(normalizedUpper, room);
 
-    expect(normalizedUpper.mountBottom).toBe(70);
-    expect(upperBox).toEqual({ bottom: 70, height: 24 });
+	    expect(normalizedUpper.mountBottom).toBe(72);
+	    expect(upperBox).toEqual({ bottom: 72, height: 24 });
   });
 
   it("does not pull a refrigerator upper above its 72-inch datum for a taller adjoining wall cabinet", () => {

@@ -105,7 +105,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
-  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
   // (closet helpers imported separately below)
@@ -810,7 +810,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // sink base changes. This removes a stale elevated mount after a window is
   // deleted while preserving the minimum valid clearance when a window remains.
   useEffect(() => {
-    const normalized = normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room));
+    const normalized = normalizeStandardWallMounts(
+      normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room)),
+      openings,
+      room,
+    );
     if (normalized !== placed) setPlaced(normalized);
   }, [placed, openings, room]);
   // Trim toggles rendered in elevation + added to the BOM. These AUTO-APPLY
@@ -2852,7 +2856,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }) => {
       setRoom(d.room ?? DEFAULT_ROOM);
       const persisted = d.room?.persistedEntities;
-      setOpenings(Array.isArray(persisted?.openings) ? persisted.openings : []);
+	      const restoredOpenings = Array.isArray(persisted?.openings) ? persisted.openings : [];
+	      setOpenings(restoredOpenings);
       setSinks(Array.isArray(persisted?.sinks) ? persisted.sinks : []);
       setPotFillers(Array.isArray(persisted?.potFillers) ? persisted.potFillers : []);
       setIsland(persisted?.island ?? null);
@@ -2883,7 +2888,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom), restoredRoom),
 	        restoredRoom,
 	      );
-	      const repairedPlaced = removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom), restoredRoom).placed;
+	      const repairedPlaced = removeOverlappingPlacements(
+	        normalizeStandardWallMounts(
+	          normalizeWd18CountertopMounts(
+	            normalizeRefrigeratorBayUppers(peninsulaNormalizedPlaced, restoredRoom),
+	          ),
+	          restoredOpenings,
+	          restoredRoom,
+	        ),
+	        restoredRoom,
+	      ).placed;
       const pricedPlaced = clearForeignSavedStyleOverrides(repairedPlaced, restoredStyle.distributorId, styleDistributorIdById);
       setPlaced(restoredIsland ? normalizeIslandRangeRearPlanes(restoredIsland, pricedPlaced, restoredRoom) : pricedPlaced);
       setStyleId(restoredStyle.styleId);
@@ -4691,7 +4705,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        glassIncluded: c.glassIncluded ?? null,
 	        glassDoorAddonCode: (c as any).glassDoorAddonCode ?? null,
 	        styleId: styleIdRef.current ?? null,
-        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
+	        // Every ordinary room-wall cabinet begins at the fixed 54-inch datum.
+	        // Specialized cases below replace this intentionally: countertop WD18s,
+	        // glass stackers, over-range appliances, and refrigerator surrounds.
+	        ...(accPlacement === "wall" ? { mountBottom: STD.WALL_MOUNT_BOTTOM } : {}),
+	        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
 	        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
 		        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
 		        ...(stackerParentUid ? { stackedOnCabinetUid: stackerParentUid } : {}),
@@ -4887,19 +4905,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (bridgeMountBottom != null) {
         finalCab = { ...finalCab, mountBottom: bridgeMountBottom };
       }
-      if (
-        !requestedIslandFace &&
-        finalCab.placement === "wall" &&
-        bridgeMountBottom == null &&
-        stackerMountBottom == null &&
-        otrMountBottom == null &&
-        !explicitSelectedSinkTarget &&
-        !isStacker(finalCab) &&
-        !isOverRangeMicrowave(finalCab)
-      ) {
-        const runMountBottom = adjoiningWallRunMountBottom(finalCab, room, prev);
-        if (runMountBottom != null) finalCab = { ...finalCab, mountBottom: runMountBottom };
-      }
+	      // Do not top-align a short wall cabinet to an adjacent upper. The room
+	      // wall standard is a 54-inch cabinet bottom. `bridgeMountBottom` above
+	      // remains a narrow opening-clearance exception; stackers, OTR appliances,
+	      // and refrigerator surrounds retain their dedicated mounting rules.
 
       // A free segment or drop coordinate can become stale if the customer adds
       // several items quickly. Reject a true footprint collision rather than
@@ -6488,10 +6497,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           const fridgeCenterAlong = fridgeStart + fw / 2;
           const along = fridgeCenterAlong - aWidth / 2;
           const spot = wallPlacementAt(along, aWidth, aDepth, side, room);
-          // The selected refrigerator establishes the upper's datum.  It hangs
-          // two inches above that appliance (72" for the standard 70" fridge),
-          // rather than being pulled up by the room ceiling or a neighboring wall
-          // cabinet. The side panels share the resulting cap.
+          // Refrigerator uppers begin at the fixed 72" datum rather than being
+          // pulled up by the room ceiling or a neighboring wall cabinet. The
+          // side panels share the resulting cap.
           const surroundElevation = refrigeratorSurroundElevation(room, actualFridgeHeight, aHeight);
           const mountBottom = surroundElevation.mountBottom;
           refrigeratorSurroundTop = surroundElevation.top;
@@ -6793,8 +6801,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           placement: "wall", x: upSpot.x, y: upSpot.y, width: aWidth, depth: aDepth, height: aHeight,
           rotation: upSpot.rotation, numberOfDoors: deep.numberOfDoors ?? undefined,
           catalogImageUrl: deep.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-          // The deep refrigerator upper begins two inches above the 70" fridge:
-          // a 72" mounting datum, independent of the room ceiling or pantry cap.
+          // The deep refrigerator upper begins at the fixed 72" datum,
+          // independent of the room ceiling or pantry cap.
           mountBottom: refrigeratorSurroundElevation(room, fridgeDef.elevHeight, aHeight).mountBottom,
         });
       }
