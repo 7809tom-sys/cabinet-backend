@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadWallBuilderPdf, downloadWallBuilderPng } from "@/lib/wallBuilderExport";
-import { WallBuilder } from "./WallBuilder";
+import { WallBuilder, type WallBuilderDraft } from "./WallBuilder";
 
 vi.mock("@/lib/wallBuilderExport", () => ({
   downloadWallBuilderPng: vi.fn(() => Promise.resolve()),
@@ -102,6 +103,37 @@ describe("Continuous Wall Builder", () => {
     addWall();
     expect(screen.getByTestId("redo-wall-builder").hasAttribute("disabled")).toBe(true);
     expect(screen.getAllByText(/60/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps an unfinished measured wall sequence when the surrounding room dialog closes and reopens", async () => {
+    function PersistentBuilderHarness() {
+      const [open, setOpen] = useState(true);
+      const [draft, setDraft] = useState<WallBuilderDraft | null>(null);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen((current) => !current)}>Toggle room dialog</button>
+          {open ? <WallBuilder wallHeightIn={96} draft={draft} onDraftChange={setDraft} onApply={() => undefined} /> : null}
+        </>
+      );
+    }
+
+    render(<PersistentBuilderHarness />);
+    openBuilder();
+    setLength("101");
+    addWall();
+    setLength("78");
+    fireEvent.click(screen.getByRole("button", { name: /45° right/i }));
+    addWall();
+
+    await waitFor(() => expect(screen.getByText("2 walls")).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: "Toggle room dialog" }));
+    expect(screen.queryByTestId("continuous-wall-builder")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Toggle room dialog" }));
+
+    expect(screen.getByText("2 walls")).toBeTruthy();
+    expect(screen.getAllByText(/101/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/78/).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Live clockwise continuous wall preview")).toBeTruthy();
   });
 
   it("downloads the exact rotated wall layout as PNG or PDF", async () => {

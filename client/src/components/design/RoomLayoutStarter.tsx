@@ -7,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { trpc } from "@/lib/trpc";
 import type { RoomData } from "@/lib/design";
 import type { WallBuilderRoomGeometry } from "@/lib/polygonRoom";
-import { WallBuilder } from "./WallBuilder";
+import { WallBuilder, type WallBuilderDraft } from "./WallBuilder";
 
 export type SeededRoomShape = {
   id: string;
@@ -55,6 +55,9 @@ interface RoomLayoutStarterProps {
   onApplyContinuousRoom?: (room: WallBuilderRoomGeometry) => void;
   continuousWallBlockedReason?: string | null;
   wallHeightIn?: number;
+  /** Preserves unfinished advanced wall measurements across dialog/sheet closes. */
+  continuousWallDraft?: WallBuilderDraft | null;
+  onContinuousWallDraftChange?: (draft: WallBuilderDraft) => void;
 }
 
 function record(value: unknown): Record<string, unknown> {
@@ -107,6 +110,8 @@ export function RoomLayoutStarter({
   onApplyContinuousRoom,
   continuousWallBlockedReason,
   wallHeightIn = 96,
+  continuousWallDraft,
+  onContinuousWallDraftChange,
 }: RoomLayoutStarterProps) {
   const { data, isLoading, error } = trpc.roomLayouts.presets.useQuery({ roomType: "kitchen" });
   const [shapeId, setShapeId] = useState<string | null>(null);
@@ -199,7 +204,13 @@ export function RoomLayoutStarter({
           <section className="space-y-2 rounded-xl border border-[#b98d3e]/40 bg-amber-50/40 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold"><Ruler className="h-4 w-4 text-[#b98d3e]" /> Build walls continuously</div>
             <p className="text-xs leading-relaxed text-muted-foreground">Advanced measured-wall mode. Use the wall attributes and exact turns here; beginner room shapes remain unchanged.</p>
-            <WallBuilder wallHeightIn={wallHeightIn} blockedReason={continuousWallBlockedReason} onApply={onApplyContinuousRoom} />
+            <WallBuilder
+              wallHeightIn={wallHeightIn}
+              blockedReason={continuousWallBlockedReason}
+              draft={continuousWallDraft}
+              onDraftChange={onContinuousWallDraftChange}
+              onApply={onApplyContinuousRoom}
+            />
           </section>
         ) : (
           <>

@@ -170,6 +170,7 @@ import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsLi
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
+import type { WallBuilderDraft } from "@/components/design/WallBuilder";
 import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 import { hasDesignedRoomGeometry, initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
@@ -536,6 +537,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     createPhoneMeasureSession.mutate();
   }, [createPhoneMeasureSession, user]);
   const [layoutStarterOpen, setLayoutStarterOpen] = useState(false);
+  // The advanced wall sequence is a deliberate in-progress design artifact.
+  // Keep it in the Designer so closing the modal/sheet, clicking elsewhere, or
+  // switching responsive layouts never silently discards entered measurements.
+  const [continuousWallDraft, setContinuousWallDraft] = useState<WallBuilderDraft | null>(null);
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
   const [beginnerFirstCabinetGuideOpen, setBeginnerFirstCabinetGuideOpen] = useState(false);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
@@ -15442,6 +15447,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
                     selectedDistributorId={selectedStyleDistributorId}
                     wallHeightIn={room.ceilingHeight ?? 96}
                     continuousWallBlockedReason={continuousWallBlockedReason}
+                    continuousWallDraft={continuousWallDraft}
+                    onContinuousWallDraftChange={setContinuousWallDraft}
                     onApplyContinuousRoom={applyContinuousWallRoom}
                     onApplyRoom={(next) => {
                       applyRoom(next);
@@ -15791,10 +15798,14 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       </Dialog>
 
       <Dialog open={layoutStarterOpen} onOpenChange={setLayoutStarterOpen}>
-        <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
+        <DialogContent
+          className="max-h-[90vh] max-w-5xl overflow-y-auto p-0"
+          onPointerDownOutside={(event) => event.preventDefault()}
+          onInteractOutside={(event) => event.preventDefault()}
+        >
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
-            <DialogDescription>Choose an existing room shape or build every connected wall continuously from exact measurements.</DialogDescription>
+            <DialogDescription>Choose an existing room shape or build every connected wall continuously from exact measurements. Your advanced wall draft stays here until you explicitly clear it or apply it.</DialogDescription>
           </DialogHeader>
           <div className="p-5">
             <RoomLayoutStarter
@@ -15802,6 +15813,8 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
               selectedDistributorId={selectedStyleDistributorId}
               wallHeightIn={room.ceilingHeight ?? 96}
               continuousWallBlockedReason={continuousWallBlockedReason}
+              continuousWallDraft={continuousWallDraft}
+              onContinuousWallDraftChange={setContinuousWallDraft}
               onApplyContinuousRoom={applyContinuousWallRoom}
               onApplyRoom={(next) => {
                 if (layoutLocked) return;

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowDownRight,
   ArrowRight,
@@ -33,20 +33,36 @@ import {
   type WallBuilderTurn,
 } from "@/lib/polygonRoom";
 
-type TurnChoice = Exclude<WallBuilderTurn, "start">;
+export type TurnChoice = Exclude<WallBuilderTurn, "start">;
+
+const WALL_BUILDER_SAVE_FEEDBACK_MS = 450;
+
+export interface SegmentHistory {
+  past: WallBuilderSegment[][];
+  present: WallBuilderSegment[];
+  future: WallBuilderSegment[][];
+}
+
+/**
+ * The in-progress measured-wall sequence belongs to the Designer, not to a
+ * transient dialog. Keeping this small draft outside the modal lets a user
+ * safely close/reopen the room-layout dialog or switch between device layouts
+ * without silently losing wall measurements.
+ */
+export interface WallBuilderDraft {
+  expanded: boolean;
+  segmentHistory: SegmentHistory;
+  lengthText: string;
+  turn: TurnChoice;
+  viewRotationDeg: number;
+}
 
 interface Props {
   wallHeightIn: number;
   blockedReason?: string | null;
+  draft?: WallBuilderDraft | null;
+  onDraftChange?: (draft: WallBuilderDraft) => void;
   onApply: (room: WallBuilderRoomGeometry) => void | Promise<void>;
-}
-
-const WALL_BUILDER_SAVE_FEEDBACK_MS = 450;
-
-interface SegmentHistory {
-  past: WallBuilderSegment[][];
-  present: WallBuilderSegment[];
-  future: WallBuilderSegment[][];
 }
 
 const TURN_CHOICES: Array<{
@@ -197,13 +213,13 @@ function WallBuilderPreview({ segments, viewRotationDeg }: { segments: WallBuild
   );
 }
 
-export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
-  const [expanded, setExpanded] = useState(false);
-  const [segmentHistory, setSegmentHistory] = useState<SegmentHistory>({ past: [], present: [], future: [] });
-  const [lengthText, setLengthText] = useState("120");
-  const [turn, setTurn] = useState<TurnChoice>("right90");
+export function WallBuilder({ wallHeightIn, blockedReason, draft, onDraftChange, onApply }: Props) {
+  const [expanded, setExpanded] = useState(draft?.expanded ?? false);
+  const [segmentHistory, setSegmentHistory] = useState<SegmentHistory>(draft?.segmentHistory ?? { past: [], present: [], future: [] });
+  const [lengthText, setLengthText] = useState(draft?.lengthText ?? "120");
+  const [turn, setTurn] = useState<TurnChoice>(draft?.turn ?? "right90");
   const [message, setMessage] = useState<string | null>(null);
-  const [viewRotationDeg, setViewRotationDeg] = useState(0);
+  const [viewRotationDeg, setViewRotationDeg] = useState(draft?.viewRotationDeg ?? 0);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "success">("idle");
   const [exportState, setExportState] = useState<"idle" | "png" | "pdf">("idle");
   const segments = segmentHistory.present;
@@ -211,6 +227,10 @@ export function WallBuilder({ wallHeightIn, blockedReason, onApply }: Props) {
   const metrics = useMemo(() => wallBuilderMetrics(segments), [segments]);
   const parsedLength = parseLengthToInches(lengthText);
   const validLength = parsedLength != null && parsedLength >= WALL_BUILDER_MIN_WALL_IN;
+
+  useEffect(() => {
+    onDraftChange?.({ expanded, segmentHistory, lengthText, turn, viewRotationDeg });
+  }, [expanded, lengthText, onDraftChange, segmentHistory, turn, viewRotationDeg]);
 
   const commitSegments = (next: WallBuilderSegment[]) => {
     setSegmentHistory((current) => ({
