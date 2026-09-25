@@ -9332,77 +9332,25 @@ function unionCountertopSurfacesAtSharedMiterVertex(
 }
 
 /**
- * A 45° peninsula return is one fabricated countertop path, not a second
- * floating countertop. Miter first, then fold every touching segment of each
- * 45° assembly into one concave Plan polygon. A 90° return stays as its two
- * cleanly mitered fabricated pieces, matching the existing trade convention.
+ * Preserves each physical countertop piece at a 45° peninsula return.  The
+ * prior implementation folded touching pieces into a single concave polygon,
+ * which erased the fabricator seam and could grow a false, continuous top
+ * across the corner.  `miteredPeninsulaCountertopSurfaces` has already cut the
+ * two actual run slabs to their shared 45° line; keep those two pieces intact
+ * so Plan, 3D, takeoff, and price agree with the install drawing.
+ *
+ * The established export name remains for saved-design/API compatibility.  It
+ * now performs the required no-union boundary instead of inventing a seamless
+ * corner slab.  A 90° return likewise remains its individual trimmed pieces.
  */
 export function unifiedFortyFivePeninsulaCountertopSurfaces(
   surfaces: CountertopSurface[],
-  room: RoomData,
+  _room: RoomData,
 ): CountertopSurface[] {
-  const resolved: CountertopSurface[] = surfaces.map((surface) => ({
+  return surfaces.map((surface) => ({
     ...surface,
     polygon: surface.polygon?.map((point) => ({ ...point })),
   }));
-  const rootsWithFortyFiveReturns = new Set<string>();
-  for (const run of room.peninsulaRuns ?? []) {
-    if (!run.parentRunId || run.turn !== 45) continue;
-    rootsWithFortyFiveReturns.add(peninsulaRootRunId(run, room));
-  }
-
-  for (const rootRunId of Array.from(rootsWithFortyFiveReturns)) {
-    let merged = true;
-    while (merged) {
-      merged = false;
-      for (let leftIndex = 0; leftIndex < resolved.length && !merged; leftIndex += 1) {
-        const left = resolved[leftIndex]!;
-        const leftRuns = left.peninsulaRunIds ?? (left.peninsulaRunId ? [left.peninsulaRunId] : []);
-        if (!leftRuns.some((id) => {
-          const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
-          return run && peninsulaRootRunId(run, room) === rootRunId;
-        })) continue;
-        for (let rightIndex = leftIndex + 1; rightIndex < resolved.length; rightIndex += 1) {
-          const right = resolved[rightIndex]!;
-          const rightRuns = right.peninsulaRunIds ?? (right.peninsulaRunId ? [right.peninsulaRunId] : []);
-          if (!rightRuns.some((id) => {
-            const run = room.peninsulaRuns?.find((candidate) => candidate.id === id);
-            return run && peninsulaRootRunId(run, room) === rootRunId;
-          })) continue;
-          const directUnion = unionCountertopSurfacesAtSharedBoundary(left, right, rootRunId)
-            ?? unionCountertopSurfacesAtSharedMiterVertex(left, right, rootRunId, room);
-          // Inside 45° returns with a deep seating/bar extension can overlap on
-          // more than the front miter vertex. The historic apex walk crosses
-          // those physical edges and Three.js then triangulates a pointed spike
-          // or omits a countertop triangle. Prefer its concise outline when it
-          // is sound, otherwise walk the measured visible boundary instead.
-          const union = directUnion && !countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(directUnion))
-            ? directUnion
-            : unionCountertopSurfacesAtVisibleBoundary(left, right, rootRunId)
-              ?? unionCountertopSurfacesAtVertexBridge(left, right, rootRunId);
-          if (!union) continue;
-          resolved.splice(rightIndex, 1);
-          resolved[leftIndex] = union;
-          merged = true;
-          break;
-        }
-      }
-    }
-  }
-  return resolved.map((surface) => {
-    const runIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
-    if (runIds.length < 2) return surface;
-    const firstRun = runIds
-      .map((id) => room.peninsulaRuns?.find((candidate) => candidate.id === id))
-      .find((run): run is PeninsulaRun => Boolean(run));
-    const rootRunId = firstRun ? peninsulaRootRunId(firstRun, room) : undefined;
-    if (!rootRunId || !rootsWithFortyFiveReturns.has(rootRunId)) return surface;
-    const terminal = (room.peninsulaRuns ?? []).find((run) => (
-      peninsulaRootRunId(run, room) === rootRunId
-      && !(room.peninsulaRuns ?? []).some((candidate) => candidate.parentRunId === run.id)
-    ));
-    return terminal ? { ...surface, peninsulaTerminalRunId: terminal.id } : surface;
-  });
 }
 
 /**

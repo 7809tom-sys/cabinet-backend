@@ -1919,7 +1919,7 @@ describe("countertopSurfaces", () => {
     expect(s.width).toBe(42); // 36 + 6" trade maximum
   });
 
-  it("uses an ERB36 at a 45-degree peninsula bend to support the unified countertop on both connected runs", () => {
+  it("uses an ERB36 at a 45-degree peninsula bend to support two mitered run slabs plus its real exterior leg", () => {
     const parent = { id: "erb-counter-parent", parentWall: "top" as const, startOffset: 72, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "right" as const };
     const child = { id: "erb-counter-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
     const room: RoomData = { ...ROOM_12x10, peninsulaRuns: [parent, child] };
@@ -1939,17 +1939,29 @@ describe("countertopSurfaces", () => {
     expect(peninsulaCornerCabinetSupportsCountertop(erb, parent, room)).toBe(true);
     expect(peninsulaCornerCabinetSupportsCountertop(erb, child, room)).toBe(true);
     const surfaces = countertopSurfaces([erb, returnBase], room);
-    expect(surfaces).toHaveLength(1);
-    expect(surfaces).toMatchObject([{
-      kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id],
-    }]);
-    const polygon = countertopSurfacePlanPolygon(surfaces[0]!);
-    // The usual 25½-inch peninsula run reaches only x=97.5 here. The ERB's
-    // real exterior L leg ends at x=108 and carries the standard 1½-inch edge;
-    // its full cabinet-supported footprint must survive the shared 45° union.
-    expect(polygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
-    expect(countertopPolygonSelfIntersects(polygon)).toBe(false);
-    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
+    expect(surfaces).toHaveLength(3);
+    const parentSlab = surfaces.find((surface) => surface.peninsulaRunId === parent.id && !surface.peninsulaCornerSupportExtension)!;
+    const childSlab = surfaces.find((surface) => surface.peninsulaRunId === child.id)!;
+    const exteriorLeg = surfaces.find((surface) => surface.peninsulaCornerSupportExtension)!;
+    expect(parentSlab).toMatchObject({ kind: "base", miteredEnd: true });
+    expect(childSlab).toMatchObject({ kind: "base", miteredStart: true });
+    expect(exteriorLeg).toMatchObject({ kind: "base", peninsulaRunId: parent.id, peninsulaCornerSupportExtension: true });
+    // The two base-run slabs share the same physical 45° edge. The ERB's real
+    // exterior L leg is retained as its own supported piece instead of being
+    // swallowed into an invented seamless polygon.
+    const parentPolygon = countertopSurfacePlanPolygon(parentSlab);
+    const childPolygon = countertopSurfacePlanPolygon(childSlab);
+    const exteriorPolygon = countertopSurfacePlanPolygon(exteriorLeg);
+    const sharedMiterPoints = parentPolygon.filter((point) => childPolygon.some((other) => (
+      Math.hypot(point.x - other.x, point.y - other.y) < 1e-6
+    )));
+    // A real miter seam is a shared edge (two endpoints), not a one-point
+    // contact and not an invented seamless polygon through the L corner.
+    expect(sharedMiterPoints).toHaveLength(2);
+    expect(exteriorPolygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
+    expect(countertopPolygonSelfIntersects(parentPolygon)).toBe(false);
+    expect(countertopPolygonSelfIntersects(childPolygon)).toBe(false);
+    expect(countertopPolygonSelfIntersects(exteriorPolygon)).toBe(false);
   });
 });
 
