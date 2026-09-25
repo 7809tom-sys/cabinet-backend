@@ -1,4 +1,4 @@
-export type PelicanFixtureRole = "sink" | "faucet";
+export type PelicanFixtureRole = "sink" | "faucet" | "pot-filler";
 
 type PelicanFixtureSource = {
   pelicanCode?: string | null;
@@ -28,6 +28,9 @@ export function pelicanFixtureRole(source: PelicanFixtureSource): PelicanFixture
   const text = `${source.name ?? ""} ${source.description ?? ""}`;
   if (ACCESSORY.test(text) || NON_FIXTURE.test(text)) return null;
   if (SINK.test(text)) return "sink";
+  // A pot filler has a dedicated wall/range association and must never flow
+  // into the sink-mounted faucet placement route just because both are faucets.
+  if (/\bpot filler\b/i.test(text)) return "pot-filler";
   if (FAUCET.test(text)) return "faucet";
 
   const subCategory = (source.subCategory ?? "").trim().toLowerCase();

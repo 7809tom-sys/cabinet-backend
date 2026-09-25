@@ -1,5 +1,6 @@
 import {
   verifiedPelicanFaucetProfile,
+  verifiedPelicanPotFillerProfile,
   verifiedPelicanSinkProfile,
 } from "../../client/src/lib/pelicanFixtureProfiles";
 import { pelicanFixtureRole } from "./pelicanFixtureRole";
@@ -88,6 +89,7 @@ export function pelicanDesignerRole(product: PelicanDesignerReadinessProduct):
   | "countertop"
   | "sink"
   | "faucet"
+  | "pot-filler"
   | null {
   if (product.category === "Flooring" && product.subCategory === "Planks & Flooring") return "flooring";
   if (product.category === "Tile & Mosaic") return "backsplash";
@@ -99,7 +101,7 @@ export function pelicanDesignerRole(product: PelicanDesignerReadinessProduct):
       name: product.name ?? null,
       description: product.description ?? null,
     });
-    return role === "sink" || role === "faucet" ? role : null;
+    return role === "sink" || role === "faucet" || role === "pot-filler" ? role : null;
   }
   return null;
 }
@@ -114,6 +116,7 @@ export function hasVerifiedPelicanFixtureProfile(product: PelicanDesignerReadine
   const role = pelicanDesignerRole(product);
   if (role === "sink") return Boolean(verifiedPelicanSinkProfile(product.pelicanCode));
   if (role === "faucet") return Boolean(verifiedPelicanFaucetProfile(product.pelicanCode));
+  if (role === "pot-filler") return Boolean(verifiedPelicanPotFillerProfile(product.pelicanCode));
   return false;
 }
 
@@ -129,6 +132,9 @@ export function isPelicanDesignerReady(product: PelicanDesignerReadinessProduct)
   if (role === "sink" || role === "faucet") {
     return hasVerifiedPelicanFixtureProfile(product);
   }
+  // The product geometry is verified, but the current Designer has no mounted
+  // range-wall association or project-specific mount-datum workflow yet.
+  if (role === "pot-filler") return false;
   return false;
 }
 
@@ -138,6 +144,7 @@ export function pelicanDesignerReadinessReason(product: PelicanDesignerReadiness
   if (role === "flooring" || role === "backsplash" || role === "countertop") {
     return hasApprovedPelicanMaterialSwatch(product) ? null : "Approved repeatable material swatch required";
   }
+  if (role === "pot-filler") return "Range-associated wall-mount workflow and project mounting datum required";
   return hasVerifiedPelicanFixtureProfile(product) ? null : "Measured technical fixture profile required";
 }
 
@@ -153,10 +160,10 @@ export function auditPelicanDesignerReadiness(products: readonly PelicanDesigner
       const role = pelicanDesignerRole(product);
       const sourcePriced = positiveSourceNumber(product.yourCost) || positiveSourceNumber(product.listPrice);
       const catalogImage = presentSourceText(product.imageUrl);
-      const verifiedFixtureProfile = role === "sink" || role === "faucet"
+      const verifiedFixtureProfile = role === "sink" || role === "faucet" || role === "pot-filler"
         ? hasVerifiedPelicanFixtureProfile(product)
         : false;
-      const sourceDimensions = role === "sink" || role === "faucet"
+      const sourceDimensions = role === "sink" || role === "faucet" || role === "pot-filler"
         ? verifiedFixtureProfile
         : presentSourceText(product.size);
       const sourceCoverage = role === "flooring" || role === "backsplash"

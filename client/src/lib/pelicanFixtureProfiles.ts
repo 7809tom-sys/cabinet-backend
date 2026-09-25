@@ -51,6 +51,37 @@ export type VerifiedPelicanFaucetProfile = {
   specificationUrl: string;
 };
 
+/**
+ * A wall-mounted pot filler is deliberately separate from a sink-mounted
+ * faucet. Its manufacturer dimensions describe the fixture itself, but not a
+ * universal finished-countertop-to-wall-mount installation height. Any future
+ * Designer placement must therefore require a project-specific, documented
+ * mounting datum and attach only to the wall behind a range or cooktop.
+ */
+export type VerifiedPelicanPotFillerProfile = {
+  id: string;
+  pelicanCode: string;
+  name: string;
+  installation: "wall-mounted-in-wall-cold-water";
+  profile: "dual-jointed-folding-swing-arm";
+  finish: "brushed-nickel" | "matte-black" | "brushed-gold" | "chrome";
+  /** Maximum source-published spout reach from the wall-mounted fixture. */
+  spoutReachIn: number;
+  /** Full source-published folded/open overall horizontal span. */
+  overallSpanIn: number;
+  /** Source-dimensioned articulated arm datum. */
+  armDatumIn: number;
+  /** Source-published fixture height; not an installation height above a counter. */
+  fixtureHeightIn: number;
+  /** Source-published outlet datum. */
+  outletDatumIn: number;
+  maximumFlowGpmAt60Psi: number;
+  /** A project drawing or site measurement must supply this missing mount datum. */
+  requiresProjectSpecificMountHeight: true;
+  specificationUrl: string;
+  installationUrl: string;
+};
+
 const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
   "PL-HA109": {
     id: "pelican-pl-ha109-stainless-undermount", pelicanCode: "PL-HA109", name: "PL-HA109 Stainless Steel Undermount Sink",
@@ -486,6 +517,41 @@ const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
   },
 };
 
+const VERIFIED_PELICAN_POT_FILLERS: Record<string, VerifiedPelicanPotFillerProfile> = {
+  "PL-8369 BG": {
+    id: "pelican-pl-8369-fountain-pot-filler-brushed-gold", pelicanCode: "PL-8369 BG", name: "PL-8369 Fountain Series Kitchen Pot Filler — Brushed Gold",
+    installation: "wall-mounted-in-wall-cold-water", profile: "dual-jointed-folding-swing-arm", finish: "brushed-gold",
+    spoutReachIn: 24, overallSpanIn: 26.1875, armDatumIn: 13, fixtureHeightIn: 3.15625, outletDatumIn: 1.875, maximumFlowGpmAt60Psi: 2.2,
+    requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://cdn.accentuate.io/9507678257292/1784297892633/PL-8369-Spec.pdf?v=1784297892633",
+    installationUrl: "https://cdn.accentuate.io/9507678257292/1784297936129/PL-8369-Installation-Instructions-(2).pdf?v=1784297936130",
+  },
+  "PL-8369 BN": {
+    id: "pelican-pl-8369-fountain-pot-filler-brushed-nickel", pelicanCode: "PL-8369 BN", name: "PL-8369 Fountain Series Kitchen Pot Filler — Brushed Nickel",
+    installation: "wall-mounted-in-wall-cold-water", profile: "dual-jointed-folding-swing-arm", finish: "brushed-nickel",
+    spoutReachIn: 24, overallSpanIn: 26.1875, armDatumIn: 13, fixtureHeightIn: 3.15625, outletDatumIn: 1.875, maximumFlowGpmAt60Psi: 2.2,
+    requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://cdn.accentuate.io/9507678257292/1784297892633/PL-8369-Spec.pdf?v=1784297892633",
+    installationUrl: "https://cdn.accentuate.io/9507678257292/1784297936129/PL-8369-Installation-Instructions-(2).pdf?v=1784297936130",
+  },
+  "PL-8369 CHR": {
+    id: "pelican-pl-8369-fountain-pot-filler-chrome", pelicanCode: "PL-8369 CHR", name: "PL-8369 Fountain Series Kitchen Pot Filler — Chrome",
+    installation: "wall-mounted-in-wall-cold-water", profile: "dual-jointed-folding-swing-arm", finish: "chrome",
+    spoutReachIn: 24, overallSpanIn: 26.1875, armDatumIn: 13, fixtureHeightIn: 3.15625, outletDatumIn: 1.875, maximumFlowGpmAt60Psi: 2.2,
+    requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://cdn.accentuate.io/9507678257292/1784297892633/PL-8369-Spec.pdf?v=1784297892633",
+    installationUrl: "https://cdn.accentuate.io/9507678257292/1784297936129/PL-8369-Installation-Instructions-(2).pdf?v=1784297936130",
+  },
+  "PL-8369 MB": {
+    id: "pelican-pl-8369-fountain-pot-filler-matte-black", pelicanCode: "PL-8369 MB", name: "PL-8369 Fountain Series Kitchen Pot Filler — Matte Black",
+    installation: "wall-mounted-in-wall-cold-water", profile: "dual-jointed-folding-swing-arm", finish: "matte-black",
+    spoutReachIn: 24, overallSpanIn: 26.1875, armDatumIn: 13, fixtureHeightIn: 3.15625, outletDatumIn: 1.875, maximumFlowGpmAt60Psi: 2.2,
+    requiresProjectSpecificMountHeight: true,
+    specificationUrl: "https://cdn.accentuate.io/9507678257292/1784297892633/PL-8369-Spec.pdf?v=1784297892633",
+    installationUrl: "https://cdn.accentuate.io/9507678257292/1784297936129/PL-8369-Installation-Instructions-(2).pdf?v=1784297936130",
+  },
+};
+
 function normalizedPelicanCode(value: string | null | undefined): string {
   const normalized = (value ?? "").trim().toUpperCase().replace(/\s+\(OLD\)$/, "").replace(/\s+(?:BLACK|GREY|WHITE)$/, "");
   if (/^PL-HA109\s+ADA\s+R(?:0|15)\s+18G$/.test(normalized)) return "PL-HA109 ADA";
@@ -544,8 +610,13 @@ export function verifiedPelicanFaucetProfile(code: string | null | undefined): V
   return VERIFIED_PELICAN_FAUCETS[normalized] ?? null;
 }
 
+export function verifiedPelicanPotFillerProfile(code: string | null | undefined): VerifiedPelicanPotFillerProfile | null {
+  const normalized = (code ?? "").trim().toUpperCase();
+  return VERIFIED_PELICAN_POT_FILLERS[normalized] ?? null;
+}
+
 export function hasVerifiedPelicanFixtureProfile(code: string | null | undefined): boolean {
-  return Boolean(verifiedPelicanSinkProfile(code) || verifiedPelicanFaucetProfile(code));
+  return Boolean(verifiedPelicanSinkProfile(code) || verifiedPelicanFaucetProfile(code) || verifiedPelicanPotFillerProfile(code));
 }
 
 export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfile, cabinetWidthIn: number): boolean {

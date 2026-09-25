@@ -44,6 +44,20 @@ describe("Pelican Designer readiness policy", () => {
     expect(pelicanDesignerReadinessReason(unmeasuredSink)).toBe("Measured technical fixture profile required");
   });
 
+  it("keeps a verified PL-8369 wall pot filler out of the Designer until a range-wall mounting workflow records its project-specific datum", () => {
+    const potFiller = {
+      category: "Sinks & Faucets",
+      subCategory: "Faucets",
+      pelicanCode: "PL-8369 MB",
+      name: "PL-8369 Fountain Series Kitchen Pot Filler — Matte Black",
+    };
+
+    expect(pelicanDesignerRole(potFiller)).toBe("pot-filler");
+    expect(hasVerifiedPelicanFixtureProfile(potFiller)).toBe(true);
+    expect(isPelicanDesignerReady(potFiller)).toBe(false);
+    expect(pelicanDesignerReadinessReason(potFiller)).toBe("Range-associated wall-mount workflow and project mounting datum required");
+  });
+
   it("audits every configured row without inventing material, coverage, price, or fixture evidence", () => {
     const audit = auditPelicanDesignerReadiness([
       {

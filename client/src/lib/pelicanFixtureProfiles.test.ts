@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
+import { hasVerifiedPelicanFixtureProfile, isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "./pelicanFixtureProfiles";
 
 describe("verifiedPelicanSinkProfile", () => {
   it("recognizes imported Farmhouse Series color variants without treating their abbreviated size fields as authoritative", () => {
@@ -830,6 +830,26 @@ describe("verifiedPelicanSinkProfile", () => {
         finish,
       });
     }
+  });
+
+  it("maps PL-8369 only as a source-measured wall pot filler, retaining exact reach, finish, and its required project mounting datum", () => {
+    for (const [code, finish] of [["PL-8369 BG", "brushed-gold"], ["PL-8369 BN", "brushed-nickel"], ["PL-8369 CHR", "chrome"], ["PL-8369 MB", "matte-black"]] as const) {
+      expect(verifiedPelicanPotFillerProfile(code)).toMatchObject({
+        installation: "wall-mounted-in-wall-cold-water",
+        profile: "dual-jointed-folding-swing-arm",
+        finish,
+        spoutReachIn: 24,
+        overallSpanIn: 26.1875,
+        armDatumIn: 13,
+        fixtureHeightIn: 3.15625,
+        outletDatumIn: 1.875,
+        maximumFlowGpmAt60Psi: 2.2,
+        requiresProjectSpecificMountHeight: true,
+      });
+    }
+    // The source's base code is a historical bad import; no finish means no
+    // purchasable or renderable variant identity.
+    expect(verifiedPelicanPotFillerProfile("PL-8369")).toBeNull();
   });
 
   it("treats only registered source-verified sink and faucet codes as exact fixture profiles", () => {
