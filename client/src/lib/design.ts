@@ -2,6 +2,7 @@
 // All real-world units are INCHES. The canvas converts inches → pixels via PPI.
 import {
   closestWall as closestPolygonWall,
+  isLocked45Wall,
   positionAlongWall,
   wallAngle as polygonWallAngle,
   wallSegmentLength as polygonWallSegmentLength,
@@ -497,9 +498,13 @@ export interface PlacedCabinet {
   fillerTotalWidth?: number | null;
   /** Installation choice retained in saved designs for build-sheet clarity. */
   fillerPlacementMode?: "left" | "right" | "split" | null;
-  /** Cabinet whose measured opening owns this editable filler group. */
-  fillerForCabinetUid?: string | null;
-  /**
+	/** Cabinet whose measured opening owns this editable filler group. */
+	fillerForCabinetUid?: string | null;
+	/** A fitted filler that is trimmed at a continuous 45-degree wall vertex. */
+	fillerMiterAngle?: 45 | null;
+	/** Which end of the filler is cut at the 45-degree wall vertex. */
+	fillerMiteredEnd?: "start" | "end" | null;
+	/**
    * A WBC's required F342 is integrated into the cabinet face rather than being
    * a second cabinet footprint. The priced line remains persisted for the cart,
    * materials list, and grouped removal, while the owning WBC renders the strip.
@@ -2433,6 +2438,39 @@ function rotatedCabinetBodyPolygon(cabinet: PlacedCabinet): PlanFootprintPoint[]
   ];
 }
 
+/** True only for the thin face board at a saved 45° fitted-filler seam. */
+function isMiteredWallFiller(cabinet: PlacedCabinet): boolean {
+  return cabinet.placement === "wall"
+    && cabinet.fillerMiterAngle === 45
+    && (cabinet.fillerMiteredEnd === "start" || cabinet.fillerMiteredEnd === "end");
+}
+
+/**
+ * The collision body for a 45° fitted filler is a thin, diagonal-cut face
+ * board, not the reserved 12-inch wall-depth envelope. Rendering uses the same
+ * 3/4-inch board depth while the original fields retain room-span authority.
+ */
+function miteredWallFillerBodyPolygon(cabinet: PlacedCabinet): PlanFootprintPoint[] {
+  const bounds = placedFootprint(cabinet);
+  const center = { x: cabinet.x + bounds.w / 2, y: cabinet.y + bounds.d / 2 };
+  const radians = (((cabinet.rotation % 360) + 360) % 360) * Math.PI / 180;
+  const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+  const normal = { x: -Math.sin(radians), y: Math.cos(radians) };
+  const halfWidth = Math.max(0, Number(cabinet.width) || 0) / 2;
+  const fullDepth = Math.max(0, Number(cabinet.depth) || 0);
+  const faceDepth = Math.min(fullDepth, 0.75);
+  const front = fullDepth / 2;
+  const back = front - faceDepth;
+  const cut = Math.min(Math.max(0, faceDepth), halfWidth * 2);
+  const local = cabinet.fillerMiteredEnd === "start"
+    ? [[-halfWidth + cut, front], [halfWidth, front], [halfWidth, back], [-halfWidth, back]]
+    : [[-halfWidth, front], [halfWidth - cut, front], [halfWidth, back], [-halfWidth, back]];
+  return local.map(([along, outward]) => ({
+    x: center.x + tangent.x * along + normal.x * outward,
+    y: center.y + tangent.y * along + normal.y * outward,
+  }));
+}
+
 /** The two solid legs of an L-corner; its interior notch is intentionally empty. */
 function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
   const bounds = placedFootprint(cabinet);
@@ -2452,7 +2490,9 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 }
 
 function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
-  return placedCornerGeometryKind(cabinet) === "l-shape"
+  return isMiteredWallFiller(cabinet)
+    ? [miteredWallFillerBodyPolygon(cabinet)]
+    : placedCornerGeometryKind(cabinet) === "l-shape"
     ? lCornerBodyPolygons(cabinet)
     : [rotatedCabinetBodyPolygon(cabinet)];
 }
@@ -2593,6 +2633,35 @@ function hasSeatedCustomWallCornerPair(
 }
 
 /**
+ * A saved mitered filler is a thin finish board for one named 45° continuous
+ * wall vertex. It may touch the cabinet on the adjoining wall at that vertex,
+ * but it must not disable collision checks for any other cabinet body.
+ */
+function isMiteredWallFillerJoinPeer(
+  filler: PlacedCabinet,
+  peer: PlacedCabinet,
+  room: RoomData,
+): boolean {
+  if (!isMiteredWallFiller(filler) || !filler.wallId || !peer.wallId || filler.wallId === peer.wallId) return false;
+  const fillerWall = room.customWalls?.find((wall) => wall.id === filler.wallId);
+  const peerWall = room.customWalls?.find((wall) => wall.id === peer.wallId);
+  if (!fillerWall || !peerWall || (!isLocked45Wall(fillerWall) && !isLocked45Wall(peerWall))) return false;
+  const miterVertex = filler.fillerMiteredEnd === "start" ? fillerWall.startVertexId : fillerWall.endVertexId;
+  if (peerWall.startVertexId !== miterVertex && peerWall.endVertexId !== miterVertex) return false;
+  const peerLength = wallLength(peer.wallId as WallSide, room);
+  const peerStart = wallRunOffset(peer, peer.wallId, room);
+  const peerEnd = peerStart + wallRunSpan(peer, peer.wallId, room);
+  const peerSeatedAtVertex = peerWall.startVertexId === miterVertex
+    ? peerStart <= COLLISION_EPSILON_IN
+    : peerEnd >= peerLength - COLLISION_EPSILON_IN;
+  if (!peerSeatedAtVertex) return false;
+  const fillerElevation = elevationBox(filler, room);
+  const peerElevation = elevationBox(peer, room);
+  return Math.abs(fillerElevation.bottom - peerElevation.bottom) <= COLLISION_EPSILON_IN
+    && Math.abs(fillerElevation.height - peerElevation.height) <= COLLISION_EPSILON_IN;
+}
+
+/**
  * Placement-time collision calculation uses physical plan bodies when a
  * peninsula joins an L-corner on its parent wall. This prevents either a 45°
  * diagonal envelope or a square 90° envelope from creating a false setback;
@@ -2611,6 +2680,7 @@ export function cabinetPlacementCollisionDetail(
     if (movingCornerReservation) return movingCornerReservation;
     const otherCornerReservation = customWallCornerReservationCollision(other, moving, other, room);
     if (otherCornerReservation) return otherCornerReservation;
+    if (isMiteredWallFillerJoinPeer(moving, other, room) || isMiteredWallFillerJoinPeer(other, moving, room)) continue;
     const detail = cabinetCollisionDetail(moving, [other]);
     if (!detail) continue;
     // For a real diagonal continuous-wall vertex the two cabinets live in
@@ -4874,7 +4944,7 @@ export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
 /**
  * Returns the wall-flush spot for a microwave centered on a compatible range.
  * The microwave's shallow plan depth is preserved while only its run-axis
- * center follows the range, which supports top/bottom and left/right walls.
+ * center follows the range, including a measured continuous-wall run.
  */
 export function mountedMicrowaveOverRangeSpot(
   microwave: Pick<PlacedCabinet, "width" | "depth">,
@@ -4882,10 +4952,8 @@ export function mountedMicrowaveOverRangeSpot(
   room: RoomData,
 ): { x: number; y: number; rotation: number } {
   const side = cabinetWall(range, room);
-  const rangeSize = rotatedSize(range);
-  const horizontal = side === "top" || side === "bottom";
-  const rangeStart = horizontal ? range.x : range.y;
-  const rangeSpan = horizontal ? rangeSize.w : rangeSize.d;
+  const rangeStart = wallRunOffset(range, side, room);
+  const rangeSpan = wallRunSpan(range, side, room);
   // The microwave's catalog width follows the cabinet run on every wall. Its
   // shallow depth only projects into the room, including after a 90° turn on a
   // left/right wall. Using depth here offset a right-wall MW-30 by 7½ inches,

@@ -155,10 +155,12 @@ type SceneSku = {
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
   decorativeEnd?: "none" | "left" | "right" | "both";
-  fillerPieceGroupId?: string | null;
-  fillerTotalWidth?: number | null;
-	  fillerPlacementMode?: "left" | "right" | "split" | null;
-	  countertopRearExtensionIn?: number | null;
+	  fillerPieceGroupId?: string | null;
+	  fillerTotalWidth?: number | null;
+		  fillerPlacementMode?: "left" | "right" | "split" | null;
+	  fillerMiterAngle?: 45 | null;
+	  fillerMiteredEnd?: "start" | "end" | null;
+		  countertopRearExtensionIn?: number | null;
 	  islandFace?: PlacedCabinet["islandFace"];
 	  islandCounterHeightWallCabinet?: boolean | null;
 	  islandWallCabinetBaseTreatment?: "toe-kick" | "base-molding" | null;
@@ -2852,6 +2854,45 @@ function isAngledWallProfile(sku: Pick<SceneSku, "graphicType" | "customProfile"
     || /\bangled wall\b/i.test(sku.description ?? "");
 }
 
+/**
+ * A 45-degree mitered filler is not a rectangular filler merely rotated on the
+ * plan. Its visible width terminates on a diagonal cut at the continuous-wall
+ * vertex, while the rear remains full depth for a practical install piece.
+ */
+export function miteredFillerPrismGeometry(
+  width: number,
+  height: number,
+  depth: number,
+  miteredEnd: "start" | "end",
+): THREE.BufferGeometry {
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const halfDepth = depth / 2;
+  const cut = Math.min(width, depth);
+  const startCut = miteredEnd === "start";
+  const footprint: Array<[number, number]> = startCut
+    ? [[-halfWidth + cut, halfDepth], [halfWidth, halfDepth], [halfWidth, -halfDepth], [-halfWidth, -halfDepth]]
+    : [[-halfWidth, halfDepth], [halfWidth - cut, halfDepth], [halfWidth, -halfDepth], [-halfWidth, -halfDepth]];
+  const vertices = [
+    ...footprint.flatMap(([x, z]) => [x, -halfHeight, z]),
+    ...footprint.flatMap(([x, z]) => [x, halfHeight, z]),
+  ];
+  const indices = [
+    0, 2, 1, 0, 3, 2,
+    4, 5, 6, 4, 6, 7,
+    0, 1, 5, 0, 5, 4,
+    1, 2, 6, 1, 6, 5,
+    2, 3, 7, 2, 7, 6,
+    3, 0, 4, 3, 4, 7,
+  ];
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  geometry.computeBoundingBox();
+  return geometry;
+}
+
 export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -2947,13 +2988,16 @@ export function addCabinet(
     Number.isFinite(Number(sku.fillerTotalWidth)) &&
     Number(sku.fillerTotalWidth) > 0,
   );
-  const isBaseFillerPiece = isBaseCabinet && (
-    isInstalledFillerPiece
-    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
-  );
-  const isFrontFlushFillerBoard = isBaseFillerPiece;
-  const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
-  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
+	  const isBaseFillerPiece = isBaseCabinet && (
+	    isInstalledFillerPiece
+	    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
+	  );
+	  const isMiteredWallFiller = isWall
+	    && sku.fillerMiterAngle === 45
+	    && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
+	  const isFrontFlushFillerBoard = isBaseFillerPiece || isMiteredWallFiller;
+	  const suppressInstalledFillerToeKick = isBaseFillerPiece && Boolean(surfaceTextures?.suppressFittedFillerToeKick);
+	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
   const bottom = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
   const countertopCenterY = (bottom + heightIn + 0.75) * INCH;
@@ -3304,16 +3348,23 @@ export function addCabinet(
     };
     cabinet.add(dishwasherChassis);
     bodyMeshes.push(dishwasherChassis);
-  } else if (!isPlacedHood) {
-		    const body = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth), bodyMaterial);
-		    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
-	    body.userData = {
+	  } else if (!isPlacedHood) {
+			    const fillerBodyDepth = isFrontFlushFillerBoard ? installedFillerBoardDepth : bodyDepth;
+			    const body = new THREE.Mesh(
+			      isMiteredWallFiller
+			        ? miteredFillerPrismGeometry(bodyWidth, bodyHeight, fillerBodyDepth, sku.fillerMiteredEnd!)
+			        : new THREE.BoxGeometry(bodyWidth, bodyHeight, fillerBodyDepth),
+			      bodyMaterial,
+			    );
+			    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
+		    body.userData = {
       ...(isRefrigeratorAppliance
         ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
         : { selectedStyleSideSkin: true }),
 	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
 		      ...(isFrontFlushFillerBoard ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
-	    };
+		      ...(isMiteredWallFiller ? { angledWallMiteredFiller: true, miterAngle: 45, miteredEnd: sku.fillerMiteredEnd } : {}),
+		    };
     cabinet.add(body);
     bodyMeshes.push(body);
   }
@@ -6796,10 +6847,12 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     cornerGeometryKind: sharedCornerKind,
     catalogImageUrl: cabinet.catalogImageUrl ?? appliance?.catalogImageUrl ?? null,
     decorativeEnd: cabinet.decorativeEnd ?? "none",
-    fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
-    fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
-	    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
-	    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
+	    fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
+	    fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
+		    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
+	    fillerMiterAngle: cabinet.fillerMiterAngle ?? null,
+	    fillerMiteredEnd: cabinet.fillerMiteredEnd ?? null,
+		    countertopRearExtensionIn: room ? blindCornerRearCountertopExtensionIn(cabinet, room) : 0,
 	    islandFace: cabinet.islandFace ?? null,
 	    islandCounterHeightWallCabinet: cabinet.islandCounterHeightWallCabinet ?? null,
 	    islandWallCabinetBaseTreatment: cabinet.islandWallCabinetBaseTreatment ?? null,

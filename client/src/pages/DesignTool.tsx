@@ -117,10 +117,10 @@ import {
 		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
-  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
+	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
 	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
-  isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet,
-  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
+	  isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
+	  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsIslandCountertop,
 	  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
@@ -135,8 +135,10 @@ import { buildTrimCartLines,
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
+import { automaticAngledWallFiller } from "@/lib/angledWallFiller";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
+import { rangeCompanionProposal, type RangeCompanionProposal } from "@/lib/rangeCompanion";
 import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
@@ -608,6 +610,10 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	  const [rangeHoodReplacementRecommendation, setRangeHoodReplacementRecommendation] = useState<{
 	    hood: PlacedCabinet;
 	    conflictingUpper: PlacedCabinet;
+	  } | null>(null);
+	  const [rangeCompanionPrompt, setRangeCompanionPrompt] = useState<{
+	    rangeUid: string;
+	    proposal: RangeCompanionProposal;
 	  } | null>(null);
 	  const [glassStackerBulkPrompt, setGlassStackerBulkPrompt] = useState<{
 	    sourceCode: string;
@@ -4954,6 +4960,24 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        }
 	        committedRun = withRequiredFiller;
 	      }
+	      if (!requestedIslandFace && finalCab.placement === "wall") {
+	        const angledFiller = automaticAngledWallFiller(
+	          finalCab,
+	          room,
+	          committedRun,
+	          catalogFillers,
+	          makeUid,
+	          styleIdRef.current ?? null,
+	        );
+	        if (angledFiller) {
+	          const resolution = appendCollisionFreePlacements(committedRun, [angledFiller.filler], room);
+	          if (resolution.placed.some((item) => item.uid === angledFiller.filler.uid)) {
+	            committedRun = resolution.placed;
+	            setFillerInsertionTransition({ uids: [angledFiller.filler.uid], key: Date.now() });
+	            toast.success(`${angledFiller.filler.masterCode} was fitted to the ${formatInches(angledFiller.gapIn)} 45° wall seam with a mitered ${angledFiller.miterAt} cut.`);
+	          }
+	        }
+	      }
 
 	      // ── Now do all state updates and side effects exactly once ──────────
 	      setPlacementWarning(null);
@@ -4993,6 +5017,29 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      }
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
+	      // A range does not imply a hood or microwave. When the user has not
+	      // assigned a centered hood/OTR microwave to this exact range, offer the
+	      // selected-line bridge plus the layout-only microwave as one optional,
+	      // reversible addition. The proposal is source-backed and revalidated on
+	      // confirmation; it never invents a bridge SKU or replaces another upper.
+	      if (!requestedIslandFace && isRangeOrOven(finalCab.masterCode, finalCab.description)) {
+	        const rangeWall = cabinetWall(finalCab, room);
+	        const rangeCenter = wallRunOffset(finalCab, rangeWall, room) + wallRunSpan(finalCab, rangeWall, room) / 2;
+	        const hasAssignedVentilation = committedRun.some((item) => {
+	          if (item.uid === finalCab.uid || cabinetWall(item, room) !== rangeWall) return false;
+	          const itemCenter = wallRunOffset(item, rangeWall, room) + wallRunSpan(item, rangeWall, room) / 2;
+	          const centeredOnRange = Math.abs(itemCenter - rangeCenter) <= 0.5;
+	          return centeredOnRange && (isHoodOverRangePair(item, finalCab) || isMicrowaveOverRangePair(item, finalCab));
+	        });
+	        const proposal = hasAssignedVentilation
+	          ? null
+	          : rangeCompanionProposal(finalCab, room, wallCabPoolRef.current, appliancePalette);
+	        if (proposal) {
+	          setRangeCompanionPrompt({ rangeUid: finalCab.uid, proposal });
+	          setMobilePanel(null);
+	          toast.info("No range hood is assigned to this range. Choose whether to add the matching bridge cabinet and over-range microwave.");
+	        }
+	      }
 	      if (!requestedIslandFace && isBlindCorner(finalCab.masterCode, finalCab.description) && blindCornerSnapInfo(finalCab, room)?.placement === "flush") {
 	        const requiredFiller = committedRun.find((item) => item.fillerPieceGroupId === requiredBlindCornerFillerGroupId(finalCab));
 	        if (requiredFiller) {
@@ -5116,7 +5163,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, appliancePalette, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
 	  );
 	  const placeOnRecommendedWall = useCallback(() => {
 	    const recommendation = alternateWallRecommendation;
@@ -5170,6 +5217,106 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    justPlacedRef.current = true;
 	    toast.success(`${recommendation.hood.masterCode} replaced ${recommendation.conflictingUpper.masterCode} above the range.`);
 	  }, [rangeHoodReplacementRecommendation, room]);
+	  const addApprovedRangeCompanions = useCallback(() => {
+	    const prompt = rangeCompanionPrompt;
+	    if (!prompt) return;
+	    const range = placedRef.current.find((cabinet) => cabinet.uid === prompt.rangeUid);
+	    if (!range || !isRangeOrOven(range.masterCode, range.description)) {
+	      setRangeCompanionPrompt(null);
+	      toast.error("The selected range changed before the companion cabinets were added. Review the current range and try again.");
+	      return;
+	    }
+
+	    // Do not carry a stale catalog choice across a style, supplier, or
+	    // availability refresh. The bridge must still be a selected-line source;
+	    // the microwave must still be an available layout appliance at confirm.
+	    const bridgeStillAvailable = wallCabPoolRef.current.some((cabinet) => (
+	      cabinet.id === prompt.proposal.bridge.id && cabinet.masterCode === prompt.proposal.bridge.masterCode
+	    ));
+	    const microwaveStillAvailable = appliancePalette.some((cabinet) => (
+	      cabinet.masterCode === prompt.proposal.microwave.masterCode
+	      && Math.abs(Number(cabinet.width) - Number(prompt.proposal.microwave.width)) <= 0.01
+	    ));
+	    if (!bridgeStillAvailable || !microwaveStillAvailable) {
+	      setRangeCompanionPrompt(null);
+	      toast.error("The matching selected-line bridge or layout microwave is no longer available. Nothing was added.");
+	      return;
+	    }
+
+	    const rangeWall = cabinetWall(range, room);
+	    const rangeCenter = wallRunOffset(range, rangeWall, room) + wallRunSpan(range, rangeWall, room) / 2;
+	    const alreadyAssigned = placedRef.current.some((item) => {
+	      if (item.uid === range.uid || cabinetWall(item, room) !== rangeWall) return false;
+	      const itemCenter = wallRunOffset(item, rangeWall, room) + wallRunSpan(item, rangeWall, room) / 2;
+	      return Math.abs(itemCenter - rangeCenter) <= 0.5 && (isHoodOverRangePair(item, range) || isMicrowaveOverRangePair(item, range));
+	    });
+	    if (alreadyAssigned) {
+	      setRangeCompanionPrompt(null);
+	      toast.info("This range already has an assigned hood or over-range microwave. No duplicate was added.");
+	      return;
+	    }
+
+	    const proposal = rangeCompanionProposal(range, room, wallCabPoolRef.current, appliancePalette);
+	    if (!proposal) {
+	      setRangeCompanionPrompt(null);
+	      toast.error("A matching selected-line bridge and layout microwave are no longer available for this range. Nothing was added.");
+	      return;
+	    }
+
+	    const makePlacedCompanion = (
+	      source: DesignCabinet,
+	      spot: RangeCompanionProposal["bridgeSpot"],
+	      mountBottom: number,
+	      styleId: number | null,
+	    ): PlacedCabinet => ({
+	      uid: makeUid(),
+	      cabinetId: source.id,
+	      masterCode: source.masterCode,
+	      description: source.description,
+	      category: source.category,
+	      subCategory: source.subCategory,
+	      placement: source.placement,
+	      x: spot.x,
+	      y: spot.y,
+	      width: Number(source.width),
+	      depth: Number(source.depth),
+	      height: Number(source.height),
+	      rotation: spot.rotation,
+	      numberOfDoors: source.numberOfDoors,
+	      numberOfDrawers: source.numberOfDrawers,
+	      catalogImageUrl: source.catalogImageUrl ?? null,
+	      mountBottom,
+	      styleId,
+	      ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+	    });
+	    const microwave = makePlacedCompanion(
+	      proposal.microwave,
+	      proposal.microwaveSpot,
+	      Number(proposal.microwave.mountBottom) || 0,
+	      null,
+	    );
+	    const bridge = makePlacedCompanion(
+	      proposal.bridge,
+	      proposal.bridgeSpot,
+	      proposal.bridgeMountBottom,
+	      styleIdRef.current ?? null,
+	    );
+	    const resolution = appendCollisionFreePlacements(placedRef.current, [microwave, bridge], room);
+	    if (resolution.rejected.length > 0 || !resolution.placed.some((item) => item.uid === microwave.uid) || !resolution.placed.some((item) => item.uid === bridge.uid)) {
+	      setRangeCompanionPrompt(null);
+	      toast.error("The bridge and microwave need a clear upper-wall span above this range. Existing cabinets were left unchanged.");
+	      return;
+	    }
+	    const committed = normalizeRefrigeratorBayUppers(resolution.placed, room);
+	    placedRef.current = committed;
+	    setPlaced(() => committed);
+	    setSelectedUid(bridge.uid);
+	    setPlacementWarning(null);
+	    setFailedWallFit(null);
+	    setRangeCompanionPrompt(null);
+	    justPlacedRef.current = true;
+	    toast.success(`${bridge.masterCode} and ${microwave.masterCode} were centered above ${range.masterCode}.`);
+	  }, [appliancePalette, rangeCompanionPrompt, room]);
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
   // makeFiller spec as the auto-fill engine so it carries a code + width and
@@ -15681,6 +15828,33 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	          <AlertDialogFooter>
 	            <AlertDialogCancel>Keep upper cabinet</AlertDialogCancel>
 	            <AlertDialogAction onClick={replaceUpperWithRangeHood}>Replace with range hood</AlertDialogAction>
+	          </AlertDialogFooter>
+	        </AlertDialogContent>
+	      </AlertDialog>
+
+	      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
+	        <AlertDialogContent className="max-w-md">
+	          <AlertDialogHeader>
+	            <AlertDialogTitle>No range hood assigned</AlertDialogTitle>
+	            <AlertDialogDescription>
+	              {rangeCompanionPrompt
+	                ? `No range hood or over-range microwave is centered above this range. Add the selected-line ${rangeCompanionPrompt.proposal.bridge.masterCode} bridge cabinet and the layout-only ${rangeCompanionPrompt.proposal.microwave.masterCode} over-range microwave?`
+	                : ""}
+	            </AlertDialogDescription>
+	          </AlertDialogHeader>
+	          {rangeCompanionPrompt && (
+	            <div data-testid="range-companion-source-preview" className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
+	              <p className="font-semibold">Two items will be added only if the upper span is still clear.</p>
+	              <ul className="mt-2 space-y-1 text-xs leading-relaxed">
+	                <li><span className="font-medium">{rangeCompanionPrompt.proposal.bridge.masterCode}</span> — {rangeCompanionPrompt.proposal.bridge.description}</li>
+	                <li><span className="font-medium">{rangeCompanionPrompt.proposal.microwave.masterCode}</span> — {rangeCompanionPrompt.proposal.microwave.description} <span className="text-emerald-800">(layout appliance; quote separately)</span></li>
+	              </ul>
+	              <p className="mt-2 text-xs leading-relaxed">No existing cabinet will be moved or replaced. Selecting No keeps the range as placed.</p>
+	            </div>
+	          )}
+	          <AlertDialogFooter>
+	            <AlertDialogCancel>No — keep the range as placed</AlertDialogCancel>
+	            <AlertDialogAction onClick={addApprovedRangeCompanions}>Yes — add bridge and microwave</AlertDialogAction>
 	          </AlertDialogFooter>
 	        </AlertDialogContent>
 	      </AlertDialog>

@@ -2138,6 +2138,15 @@ export function PlanCanvas({
 	              && p.wallId
 	              && peninsulaRunById(room, p.wallId as WallSide),
 	            );
+	            const isMiteredAngledWallFiller = p.placement === "wall"
+	              && p.fillerMiterAngle === 45
+	              && (p.fillerMiteredEnd === "start" || p.fillerMiteredEnd === "end");
+	            const miterCutPercent = Math.min(100, Math.max(0, (0.75 / Math.max(0.01, Number(p.width) || 0.01)) * 100));
+	            const miterClipPath = isMiteredAngledWallFiller
+	              ? p.fillerMiteredEnd === "start"
+	                ? `polygon(${miterCutPercent}% 0, 100% 0, 100% 100%, 0 100%)`
+	                : `polygon(0 0, ${100 - miterCutPercent}% 0, 100% 100%, 0 100%)`
+	              : planCabinetClipPath(p, room);
 	            const isSeatedProtectedCorner = isSeatedErb36 || isSeatedBlindCorner;
 	            const showSeatedPeninsulaCornerFeedback = isSeatedPeninsulaCorner && showPeninsulaCornerSnapFeedback;
 	            const showProtectedCornerFeedback = isSeatedProtectedCorner && (!isSeatedPeninsulaCorner || showPeninsulaCornerSnapFeedback);
@@ -2212,9 +2221,9 @@ export function PlanCanvas({
                     : isSelected
                     ? "0 0 0 3px rgba(212,167,90,0.5)"
                     : undefined,
-                  borderRadius: (isCorner && !isBlind) ? 0 : 2,
-                  clipPath: planCabinetClipPath(p, room),
-                  transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
+	                  borderRadius: (isCorner && !isBlind) ? 0 : 2,
+	                  clipPath: miterClipPath,
+	                  transform: lockedAngledRun ? `rotate(${p.rotation}deg)` : undefined,
                   transformOrigin: lockedAngledRun ? "center" : undefined,
                 }}
 	                title={splitFillerTooltip ?? applianceSnapTooltip ?? cornerPlacementTooltip ?? placementHoverTooltip ?? `${p.masterCode} — ${p.description}`}
@@ -2226,19 +2235,29 @@ export function PlanCanvas({
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
 	                data-continuous-wall-appliance-snap-confirmed={applianceSnap ? "true" : undefined}
 	                data-wall-snap-confirmed={showWallSnapSuccess ? "true" : undefined}
+	                data-angled-wall-mitered-filler={isMiteredAngledWallFiller ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
-	                {showWallSnapSuccess && (
-	                  <span
-	                    data-testid="wall-snap-success-indicator"
+		                {showWallSnapSuccess && (
+		                  <span
+		                    data-testid="wall-snap-success-indicator"
 	                    role="status"
 	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
 	                  >
 	                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-	                    WALL SNAP
-	                  </span>
-	                )}
-	                {showSeatedPeninsulaCornerFeedback && (
+		                    WALL SNAP
+		                  </span>
+		                )}
+		                {isMiteredAngledWallFiller && (
+		                  <span
+		                    data-testid="angled-wall-mitered-filler-indicator"
+		                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-amber-200 bg-[#9a6717] px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow"
+		                    title="Selected-line filler cut with a 45° miter at the continuous-wall vertex"
+		                  >
+		                    45° MITER FILLER
+		                  </span>
+		                )}
+		                {showSeatedPeninsulaCornerFeedback && (
 	                  <span
 	                    data-testid="peninsula-corner-snap-indicator"
 	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
