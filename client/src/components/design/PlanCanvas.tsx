@@ -574,6 +574,9 @@ export function PlanCanvas({
   const [dragUid, setDragUid] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [hoverSnap, setHoverSnap] = useState(false);
+  const [hoverSnapWall, setHoverSnapWall] = useState(false);
+  const [wallSnapSuccessUid, setWallSnapSuccessUid] = useState<string | null>(null);
+  const wallSnapSuccessTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Tape-measure: two arbitrary points on the saved 2D plan, stored in inches.
   // This deliberately does not depend on cabinet centers: users can measure a
   // wall span, opening, aisle, appliance clearance, or any other plan detail.
@@ -661,6 +664,10 @@ export function PlanCanvas({
   useEffect(() => {
     if (!measureMode) setMeasurePoints([]);
   }, [measureMode]);
+
+  useEffect(() => () => {
+    if (wallSnapSuccessTimeout.current != null) clearTimeout(wallSnapSuccessTimeout.current);
+  }, []);
 
   const addMeasurePoint = useCallback((clientX: number, clientY: number, roomRect: DOMRect) => {
     const point = snapPlanMeasurePoint({
@@ -904,6 +911,11 @@ export function PlanCanvas({
       return;
     }
     onSelect(p.uid);
+    setWallSnapSuccessUid(null);
+    if (wallSnapSuccessTimeout.current != null) {
+      clearTimeout(wallSnapSuccessTimeout.current);
+      wallSnapSuccessTimeout.current = null;
+    }
     // Double-tap / double-click → open the attributes editor.
     const now = Date.now();
     const last = lastTapRef.current;
@@ -953,6 +965,7 @@ export function PlanCanvas({
         );
         if (cornerSpot) {
           setHoverSnap(true);
+          setHoverSnapWall(true);
           onMove(
             dragUid,
             cornerSpot.x,
@@ -978,19 +991,30 @@ export function PlanCanvas({
       }
       const snapped = snapPosition(candidate, room, others, island);
       setHoverSnap(snapped.snappedWall || snapped.snappedIsland || snapped.snappedCabinet);
+      setHoverSnapWall(Boolean(snapped.snappedWall));
       onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },
     [dragUid, cabinets, ppi, room, island, onMove]
   );
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (dragUid) {
+    const snappedUid = dragUid;
+    if (snappedUid) {
       try {
         (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
       } catch { /* ignore */ }
     }
+    if (snappedUid && hoverSnapWall) {
+      setWallSnapSuccessUid(snappedUid);
+      if (wallSnapSuccessTimeout.current != null) clearTimeout(wallSnapSuccessTimeout.current);
+      wallSnapSuccessTimeout.current = setTimeout(() => {
+        setWallSnapSuccessUid(null);
+        wallSnapSuccessTimeout.current = null;
+      }, 1600);
+    }
     setDragUid(null);
     setHoverSnap(false);
+    setHoverSnapWall(false);
   };
 
   const xTicks: number[] = [];
@@ -2069,6 +2093,7 @@ export function PlanCanvas({
             const isWall = p.placement === "wall";
             const isSelected = p.uid === selectedUid;
             const isAttributesTarget = p.uid === attributesTargetUid;
+	            const showWallSnapSuccess = p.uid === wallSnapSuccessUid;
 	            const isWindowCenteredSink = sinkWindowSnap?.cabinetUid === p.uid;
             const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL, isEndAngle, isEndReturn } = planCornerGeometry(p);
             const isAppliance = p.placement === "appliance";
@@ -2148,7 +2173,7 @@ export function PlanCanvas({
                 }
                 className={`group absolute transition-[box-shadow,border-color] duration-200 ${
                   measureMode ? "cursor-crosshair" : "cursor-move"
-	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback || applianceSnap ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
+	                } ${isWindowCenteredSink || showSeatedPeninsulaCornerFeedback || applianceSnap || showWallSnapSuccess ? "motion-safe:animate-pulse" : ""} ${isAttributesTarget ? "z-30" : isSelected ? "z-20" : isWall ? "z-10" : isAppliance ? "z-[3]" : "z-[2]"}`}
                 style={{
                   left: bodyLeft * ppi,
                   top: bodyTop * ppi,
@@ -2163,6 +2188,8 @@ export function PlanCanvas({
                     ? "3px solid #a87f33"
 	                  : isWindowCenteredSink || applianceSnap
 	                  ? "3px solid #059669"
+	                  : showWallSnapSuccess
+	                  ? "3px solid #16a34a"
 	                  : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "2.5px solid #16a34a"
                     : isSelected
@@ -2178,6 +2205,8 @@ export function PlanCanvas({
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
 	                  : isWindowCenteredSink || applianceSnap
 	                  ? "0 0 0 5px rgba(16,185,129,0.42), 0 0 22px rgba(16,185,129,0.7), inset 0 0 0 1px rgba(255,255,255,0.92)"
+	                  : showWallSnapSuccess
+	                  ? "0 0 0 5px rgba(34,197,94,0.42), 0 0 22px rgba(34,197,94,0.72), inset 0 0 0 1px rgba(255,255,255,0.92)"
 	                    : showSeatedPeninsulaCornerFeedback || showProtectedCornerFeedback
 	                    ? "0 0 0 4px rgba(34,197,94,0.42), 0 0 20px rgba(34,197,94,0.58), inset 0 0 0 1px rgba(255,255,255,0.88)"
                     : isSelected
@@ -2196,8 +2225,19 @@ export function PlanCanvas({
 	                data-peninsula-corner-snap-confirmed={isSeatedPeninsulaCorner ? "true" : undefined}
 	                data-sink-window-snap-confirmed={isWindowCenteredSink ? "true" : undefined}
 	                data-continuous-wall-appliance-snap-confirmed={applianceSnap ? "true" : undefined}
+	                data-wall-snap-confirmed={showWallSnapSuccess ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
               >
+	                {showWallSnapSuccess && (
+	                  <span
+	                    data-testid="wall-snap-success-indicator"
+	                    role="status"
+	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-emerald-200 bg-emerald-700 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(16,185,129,0.72)]"
+	                  >
+	                    <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+	                    WALL SNAP
+	                  </span>
+	                )}
 	                {showSeatedPeninsulaCornerFeedback && (
 	                  <span
 	                    data-testid="peninsula-corner-snap-indicator"
