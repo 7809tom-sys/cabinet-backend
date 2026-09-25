@@ -9359,6 +9359,10 @@ export function bearsCountertop(p: {
   if (/^FILL[-_ ]?\d/.test(code)) return false;
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
   if (/\bfiller\b|\bscribe\b/.test(hay)) return false;
+  // Decorative legs such as FLDL / CLDL are ornamental vertical parts, not
+  // cabinet boxes. A legacy base-layer import cannot make them countertop
+  // supports or turn the countertop on when they are placed.
+  if (/(?:^|[-_ ])(?:F|C)?LDL(?:[-_ ]|$)/.test(code) || /\bdecorative\s+leg\b/.test(hay)) return false;
   return true;
 }
 

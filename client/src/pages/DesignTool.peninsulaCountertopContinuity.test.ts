@@ -5,6 +5,12 @@ import path from "node:path";
 const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/pages/DesignTool.tsx"), "utf8");
 
 describe("connected peninsula countertop continuity", () => {
+	it("activates the perimeter countertop when any real base or corner support is placed", () => {
+	  expect(source).toContain('isApplianceCode, bearsCountertop, bearsIslandCountertop');
+	  expect(source).toContain('if (!requestedIslandFace && bearsCountertop(finalCab)) setCountertop(true);');
+	  expect(source).toContain('() => !!island || placed.some((p) => bearsCountertop(p))');
+	});
+
 	it("inherits the parent overhang for a new return and applies later overhang edits to the entire connected chain", () => {
 	  expect(source).toContain("countertopSeatingOverhang: peninsulaCountertopSeatingOverhang(parent, room)");
 	  expect(source).toContain("countertopPonyWallBarOverhang: peninsulaCountertopPonyWallBarOverhang(parent, room)");

@@ -145,6 +145,8 @@ export function findSmallGapFillerOpportunity(
 	const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
 	const leadingStart = measurement.availableStart;
 	const peninsula = peninsulaRunById(room, wall);
+	let protectedLeadingClearance = false;
+	let protectedTrailingClearance = false;
 	if (peninsula && layer === "base") {
 		const floorLayerPeer = (item: PlacedCabinet) => item.placement === "base" || item.placement === "appliance" || item.placement === "tall";
 		const boundedNeighbor = placed
@@ -178,53 +180,32 @@ export function findSmallGapFillerOpportunity(
 			};
 		}
 
-		const leadingCornerRemainder = installableSmallGapRemainder(measurement.before);
+		// The 11-inch 45° inside-corner envelope is installation clearance,
+		// not an uncovered cabinet-to-cabinet seam. A cabinet beginning at
+		// 12 inches leaves a one-inch protected pocket behind it; selling a
+		// filler there would put a strip at the turn instead of at a real,
+		// visible cabinet-front seam. Only a measured transition between two
+		// independently supported cabinet faces may receive the dedicated
+		// full-depth 45° transition filler.
 		const startsAtProtectedCorner = near(measurement.availableStart, Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, measurement.wallLen));
-		if (
-			leadingCornerRemainder != null
-			&& startsAtProtectedCorner
-			&& !gapCrossesWallOpening(openings, wall, measurement.availableStart, measurement.before)
-		) {
-			return {
-				cabinetUid,
-				wall,
-				layer,
-				cabinetStart,
-				cabinetSpan,
-				openingStart: measurement.availableStart,
-				openingLength: cabinetSpan + leadingCornerRemainder,
-				remaining: leadingCornerRemainder,
-				preferredMode: "left",
-			};
-		}
-
 		const hasConnectedFarCorner = Boolean(room.peninsulaRuns?.some((run) => run.parentRunId === peninsula.id));
-		const trailingCornerRemainder = installableSmallGapRemainder(measurement.after);
 		const endsAtProtectedCorner = hasConnectedFarCorner
 			&& near(measurement.availableEnd, Math.max(0, measurement.wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN));
-		if (
-			trailingCornerRemainder != null
-			&& endsAtProtectedCorner
-			&& !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after)
-		) {
-			return {
-				cabinetUid,
-				wall,
-				layer,
-				cabinetStart,
-				cabinetSpan,
-				openingStart: cabinetStart,
-				openingLength: cabinetSpan + trailingCornerRemainder,
-				remaining: trailingCornerRemainder,
-				preferredMode: "right",
-			};
-		}
+		protectedLeadingClearance = startsAtProtectedCorner && measurement.before > EDGE_EPSILON_IN;
+		protectedTrailingClearance = endsAtProtectedCorner && measurement.after > EDGE_EPSILON_IN;
 	}
-		const before = installableSmallGapRemainder(measurement.before);
-		const after = installableSmallGapRemainder(measurement.after);
-		const beforeIsClear = before != null && !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before);
-		const afterIsClear = after != null && !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after);
-		const combined = installableSmallGapRemainder(measurement.before + measurement.after);
+	const before = installableSmallGapRemainder(measurement.before);
+	const after = installableSmallGapRemainder(measurement.after);
+	const beforeIsClear = before != null
+		&& !protectedLeadingClearance
+		&& !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before);
+	const afterIsClear = after != null
+		&& !protectedTrailingClearance
+		&& !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after);
+	const combined = installableSmallGapRemainder(
+		(protectedLeadingClearance ? 0 : measurement.before)
+		+ (protectedTrailingClearance ? 0 : measurement.after),
+	);
 
 	  // When both adjoining seams are small, preserve the established single
 	  // dialog with left/right/split choices. It is one bounded opening and one

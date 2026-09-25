@@ -126,10 +126,10 @@ import {
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
 	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
-	  isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
-	  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
-  isApplianceCode, bearsIslandCountertop,
-	  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
+  isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
+  staggeredMountBottom, fridgeCornerUpperDepth, isDiagonalCorner,
+  isApplianceCode, bearsCountertop, bearsIslandCountertop,
+  type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
 	} from "@/lib/design";
@@ -3581,10 +3581,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
-  const hasBaseRun = useMemo(
-    () => !!island || placed.some((p) => p.placement === "base"),
-    [placed, island]
-  );
+	  const hasBaseRun = useMemo(
+	    () => !!island || placed.some((p) => bearsCountertop(p)),
+	    [placed, island]
+	  );
   // If the layout loses all base/island surface while the countertop is on,
   // turn it off automatically so we never quote a top over nothing.
   useEffect(() => {
@@ -5088,6 +5088,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
 	      placedRef.current = committedRun;
 	      setPlaced(() => committedRun);
+	      // A real base cabinet carries the selected perimeter countertop as soon
+	      // as it is placed. This covers ordinary, blind, diagonal, L, and
+	      // peninsula-bend corner bases alike; appliances, panels, loose filler
+	      // stock, and decorative parts remain excluded by `bearsCountertop`.
+	      if (!requestedIslandFace && bearsCountertop(finalCab)) setCountertop(true);
 	      // A range does not imply a hood or microwave. When the user has not
 	      // assigned a centered hood/OTR microwave to this exact range, offer the
 	      // selected-line bridge plus the layout-only microwave as one optional,

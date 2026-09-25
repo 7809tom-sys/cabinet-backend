@@ -1921,11 +1921,13 @@ describe("bearsCountertop", () => {
     expect(bearsCountertop({ placement: "appliance", masterCode: "FRIDGE-36" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "STOVE-30", description: "30 inch gas stove" })).toBe(false);
   });
-  it("is false for base-zone panels, skins, and fillers", () => {
+  it("is false for base-zone panels, skins, fillers, and decorative legs", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "BDEP", description: "Base Decorative End Panel" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "DWR-3", description: "Refrigerator End Panel" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "WS-12-42", description: "Wall Skin", subCategory: "Skin" })).toBe(false);
     expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler / Scribe Strip', subCategory: "Filler" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "FLDL", description: "Fluted Decorative Leg" })).toBe(false);
+    expect(bearsCountertop({ placement: "base", masterCode: "CLDL", description: "Corner Decorative Leg" })).toBe(false);
   });
   it("is true only for a base filler carrying confirmed small-gap installation metadata", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);

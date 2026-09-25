@@ -177,7 +177,7 @@ const cabinet: PlacedCabinet = {
 	    expect(findSmallGapFillerOpportunity(room, [db21], [], db21.uid)).toBeNull();
 	  });
 
-		  it("prompts after a 45-degree peninsula B-18 starts 12 inches from the turn, filling only the one inch beyond the protected 11-inch corner", () => {
+		  it("does not sell a filler for the protected one-inch pocket behind a 45-degree peninsula base", () => {
 		    const parent = { id: "peninsula-filler-parent", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "left" as const };
 		    const run = { id: "peninsula-filler-popup", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "right" as const, length: 60, height: 34.5, cabinetSide: "left" as const };
 		    const room: RoomData = { ...DEFAULT_ROOM, peninsulaRuns: [parent, run] };
@@ -190,24 +190,8 @@ const cabinet: PlacedCabinet = {
 	      ...placement,
 	    };
 
-	    const opportunity = findSmallGapFillerOpportunity(room, [b18], [], b18.uid)!;
-	    expect(opportunity).toMatchObject({
-	      cabinetUid: b18.uid,
-	      wall: run.id,
-	      cabinetStart: 12,
-	      cabinetSpan: 18,
-	      openingStart: 11,
-	      openingLength: 19,
-	      remaining: 1,
-	    });
-	    expect(automaticSmallGapFillerMode(opportunity)).toBe("left");
-	    expect(smallGapFillerLayout(opportunity, "left")).toEqual({
-	      cabinetStart: 12,
-	      leftWidth: 1,
-	      rightWidth: 0,
-	      pieces: [{ side: "left", start: 11, width: 1 }],
-	    });
-	  });
+		    expect(findSmallGapFillerOpportunity(room, [b18], [], b18.uid)).toBeNull();
+		  });
 
 	  it("splits a bounded peninsula gap evenly between the two adjoining cabinet edges without moving either cabinet", () => {
 	    const run = { id: "peninsula-two-cabinet-gap", parentWall: "top", startOffset: 48, turn: 90 as const, direction: "right" as const, length: 72, height: 34.5, cabinetSide: "left" as const };
