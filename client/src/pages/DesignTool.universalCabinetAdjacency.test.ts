@@ -103,9 +103,13 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     const threeDAddPath = sourceBetween("const addFromInteractive3d = useCallback", "const addRangeHoodFromInteractive3d");
     const planDropPath = sourceBetween("const handleDropNew = useCallback", "const placePeninsulaFitRecommendation");
     const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
+    const snapToWallPath = sourceBetween("const snapSelectedToWall = useCallback", "const deleteCabinet");
     expect(threeDAddPath).toContain("firstCollisionFreeCustomWallPlacement(");
     expect(planDropPath).toContain("firstCollisionFreeCustomWallPlacement(");
     expect(dragPath).toContain("firstCollisionFreeCustomWallPlacement(");
+    expect(snapToWallPath).toContain("firstCollisionFreeCustomWallPlacement(");
+    expect(snapToWallPath).toContain("containingSegment.start + containingSegment.length - selected.width");
+    expect(snapToWallPath).toContain("wallOffset: spot.wallOffset ?? along");
     expect(threeDAddPath).toContain("{ wallId: dropWall, wallOffset: spot.wallOffset ?? along");
     expect(planDropPath).toContain("wallOffset: spot.wallOffset ?? measured.snapStart");
   });

@@ -43,7 +43,7 @@ function baseCabinet(uid: string, wallId: string, offset: number, width = 24): P
 }
 
 describe("addThreeDMeasuredWallMiterCountertops", () => {
-  it("adds one physical 45-degree countertop bridge between seated base runs", () => {
+  it("renders both seated base slabs with one physical 45-degree seam", () => {
     const diagonalLength = Math.hypot(60, 60);
     const root = new THREE.Group();
     addThreeDMeasuredWallMiterCountertops(root, room, [
@@ -51,15 +51,19 @@ describe("addThreeDMeasuredWallMiterCountertops", () => {
       baseCabinet("straight-base", "straight", 0),
     ], "#ffffff");
 
-    expect(root.children).toHaveLength(1);
-    const bridge = root.children[0] as THREE.Mesh;
-    expect(bridge.userData).toMatchObject({
+    expect(root.children).toHaveLength(2);
+    const miteredSlabs = root.children.filter((child) => (
+      (child as THREE.Mesh).userData.measuredWallMiterCountertop === true
+    )) as THREE.Mesh[];
+    expect(miteredSlabs).toHaveLength(2);
+    expect(miteredSlabs[0]?.userData).toMatchObject({
+      measuredWallContinuousCountertop: true,
       measuredWallMiterCountertop: true,
       customWallMiterWallIds: ["diagonal", "straight"],
       customWallMiterVertexId: "v2",
       miterAngleDegrees: 45,
-      physicalMiterBridge: true,
+      physicalMiterSeam: true,
     });
-    expect(bridge.geometry.type).toBe("ExtrudeGeometry");
+    expect(miteredSlabs.every((slab) => slab.geometry.type === "ExtrudeGeometry")).toBe(true);
   });
 });

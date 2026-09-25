@@ -8890,19 +8890,45 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
           toast.error(message);
           return prev;
         }
-        const spot = wallPlacementAt(
-          along,
-	          selected.width,
-	          selected.depth,
-	          side as WallSide,
-	          room,
-	          peninsula ? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
-	        );
+	        const containingSegment = segments.find((segment) => (
+	          along >= segment.start - COLLISION_EPSILON_IN
+	          && along + selected.width <= segment.start + segment.length + COLLISION_EPSILON_IN
+	        ));
+	        // A continuous-wall run is an angled physical frame, not an axis-aligned
+	        // screen rectangle. Reuse the same exact-body search as catalog drops so
+	        // Snap to wall can seat a cabinet beside a 45° join rather than rejecting
+	        // the draw-envelope overlap at the vertex.
+	        const spot = customWall && containingSegment
+	          ? firstCollisionFreeCustomWallPlacement(
+	              side as WallSide,
+	              room,
+	              peers,
+	              selected.width,
+	              selected.depth,
+	              selected.placement,
+	              along,
+	              containingSegment.start,
+	              containingSegment.start + containingSegment.length - selected.width,
+	            )
+	          : wallPlacementAt(
+	              along,
+	              selected.width,
+	              selected.depth,
+	              side as WallSide,
+	              room,
+	              peninsula ? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
+	            );
+	        if (!spot) {
+	          const message = `${selected.masterCode} cannot snap to this ${customWall?.label ?? "measured wall"}: the selected opening has no collision-free ${formatEighthInches(selected.width)} position.`;
+	          setPlacementWarning(message);
+	          toast.error(message);
+	          return prev;
+	        }
 	        const candidate: PlacedCabinet = {
 	          ...selected,
 	          ...spot,
 		          wallId: side as WallSide,
-		          wallOffset: along,
+		          wallOffset: spot.wallOffset ?? along,
 		          peninsulaSide: peninsula ? spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
 	        };
 	        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {

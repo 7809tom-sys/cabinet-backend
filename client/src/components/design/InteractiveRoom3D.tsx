@@ -5281,10 +5281,11 @@ export function addThreeDPeninsulaCountertops(
 }
 
 /**
- * Draws only the physical stone bridge at a continuous-wall join containing a
- * locked 45-degree segment. Base cabinets retain their catalog rectangular tops;
- * this measured polygon closes their real outer-edge miter without filling a
- * range opening or inventing a slab at an unsupported square corner.
+ * Draws the authoritative continuous-wall countertop surfaces. At a verified
+ * 45-degree return, `countertopSurfaces` has already cut the two base-supported
+ * slabs to one shared fabricated seam—the same strategy used for a peninsula.
+ * Rendering the surfaces here keeps 3D, Plan, materials, and pricing on the
+ * identical geometry while avoiding a third bridge slab at the corner.
  */
 export function addThreeDMeasuredWallMiterCountertops(
   root: THREE.Group,
@@ -5293,16 +5294,20 @@ export function addThreeDMeasuredWallMiterCountertops(
   counterColor: string,
   countertopTexture?: THREE.Texture | null,
 ) {
-  const surfaces = countertopSurfaces(placed, room).filter((surface) => Boolean(surface.customWallMiterWallIds?.length));
+  const surfaces = countertopSurfaces(placed, room).filter((surface) => Boolean(surface.customWallId));
   for (const surface of surfaces) {
+    const length = Math.max(0.1, surface.linearInches ?? surface.width);
+    const depth = Math.max(0.1, surface.depth);
+    const planRotation = (surface.rotation ?? 0) * Math.PI / 180;
+    const rotation = threeDPlanRotation(planRotation);
     const centerX = surface.x + surface.width / 2;
     const centerZ = surface.y + surface.depth / 2;
     const mappedTexture = countertopTexture ? threeDTextureForCountertopMesh(countertopTexture, {
       centerXIn: centerX,
       centerZIn: centerZ,
-      localWidthIn: surface.width,
-      localDepthIn: surface.depth,
-      rotation: 0,
+      localWidthIn: length,
+      localDepthIn: depth,
+      rotation,
       slabWidthIn: Number(countertopTexture.userData?.physicalWidthIn) || 138,
       slabDepthIn: Number(countertopTexture.userData?.physicalDepthIn) || 79,
     }) : null;
@@ -5318,16 +5323,21 @@ export function addThreeDMeasuredWallMiterCountertops(
       materialOnlyNoGeometryChange: true,
     };
     const bridge = new THREE.Mesh(
-      threeDPeninsulaCountertopGeometry(surface, surface.width, surface.depth),
+      threeDPeninsulaCountertopGeometry(surface, length, depth),
       material,
     );
     bridge.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    bridge.rotation.y = rotation;
     bridge.userData = {
-      measuredWallMiterCountertop: true,
+      measuredWallContinuousCountertop: true,
+      measuredWallMiterCountertop: Boolean(surface.customWallMiterWallIds?.length),
+      customWallId: surface.customWallId,
       customWallMiterWallIds: surface.customWallMiterWallIds,
       customWallMiterVertexId: surface.customWallMiterVertexId,
-      miterAngleDegrees: 45,
-      physicalMiterBridge: true,
+      miterAngleDegrees: surface.customWallMiterWallIds?.length ? 45 : undefined,
+      physicalMiterSeam: Boolean(surface.customWallMiterWallIds?.length),
+      miteredStart: surface.miteredStart ?? false,
+      miteredEnd: surface.miteredEnd ?? false,
     };
     root.add(bridge);
   }
@@ -7959,9 +7969,13 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          && Boolean(sink.pelicanProfileId)
 	        ));
 	        const sharedPeninsulaCounter = Boolean(roomOverride?.peninsulaRuns?.some((run) => cabinetWall(cabinet, roomOverride) === run.id && bearsCountertop(cabinet)));
+	        // Continuous walls render their countertop from the shared surface
+	        // definition below. That preserves a real 45° miter seam instead of
+	        // stacking an ordinary rectangular cabinet top over the cut slab.
+	        const sharedMeasuredWallCounter = Boolean(roomOverride?.customWalls?.some((wall) => cabinetWall(cabinet, roomOverride) === wall.id && bearsCountertop(cabinet)));
 	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
 	          countertop: countertopTexture,
-	          suppressCountertop: sharedPeninsulaCounter,
+	          suppressCountertop: sharedPeninsulaCounter || sharedMeasuredWallCounter,
 	          selectedToeKick: toeKick,
 	          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
 	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,

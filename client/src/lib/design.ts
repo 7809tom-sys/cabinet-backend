@@ -8386,6 +8386,10 @@ export interface CountertopSurface {
   ponyWallBarOverhangIn?: number;
   /** Drywall thickness plus bar projection carried behind the cabinet backs. */
   ponyWallBackExtensionIn?: number;
+  /** Measured continuous wall that owns this cabinet-supported countertop piece. */
+  customWallId?: string;
+  /** Along-wall start for a measured continuous-wall countertop piece. */
+  customWallRunStartIn?: number;
   /** Exact continuous-wall IDs joined by a physical countertop miter bridge. */
   customWallMiterWallIds?: [string, string];
   /** The shared measured wall vertex that owns this 45-degree miter bridge. */
@@ -9546,6 +9550,134 @@ export function measuredWallCountertopMiterSurfaces(
   return result;
 }
 
+/**
+ * Replaces the rectangular outer corner of one measured-wall slab with the
+ * shared fabricated 45-degree miter point. This is deliberately the continuous
+ * wall equivalent of `countertopSurfaceWithMiterPoint`: both return slabs keep
+ * their cabinet-supported areas, meet at one real seam, and never need an
+ * overlapping decorative bridge triangle.
+ */
+function measuredWallSurfaceWithMiterPoint(
+  surface: CountertopSurface,
+  wall: NonNullable<RoomData["customWalls"]>[number],
+  room: RoomData,
+  atStart: boolean,
+  miterPoint: CountertopPlanPoint,
+  miterWallIds: [string, string],
+  miterVertexId: string,
+): CountertopSurface {
+  if (!room.vertices?.length) return surface;
+  const start = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
+  if (!start) return surface;
+  const local = countertopSurfaceLocalPolygon(surface);
+  const world = countertopSurfacePlanPolygon(surface);
+  const radians = polygonWallAngle(wall, room.vertices);
+  const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+  const inward = countertopRunFaceNormal(radians, "left");
+  const runStart = surface.customWallRunStartIn ?? 0;
+  const targetAlong = atStart
+    ? runStart
+    : runStart + (surface.linearInches ?? surface.width);
+  let outerIndex = 0;
+  let bestScore = Number.POSITIVE_INFINITY;
+  world.forEach((point, index) => {
+    const along = (point.x - start.x) * tangent.x + (point.y - start.y) * tangent.y;
+    const inwardDistance = (point.x - start.x) * inward.x + (point.y - start.y) * inward.y;
+    const score = Math.abs(along - targetAlong) + Math.abs(inwardDistance - surface.depth);
+    if (score < bestScore) {
+      bestScore = score;
+      outerIndex = index;
+    }
+  });
+  local[outerIndex] = countertopSurfaceLocalPointFromWorld(surface, miterPoint);
+  return {
+    ...surface,
+    polygon: local,
+    miteredStart: atStart || surface.miteredStart,
+    miteredEnd: !atStart || surface.miteredEnd,
+    areaInches: countertopPolygonArea(local),
+    customWallMiterWallIds: miterWallIds,
+    customWallMiterVertexId: miterVertexId,
+  };
+}
+
+/**
+ * Turns the two cabinet-supported slabs at a true continuous-wall 45-degree
+ * join into the same single-fabrication geometry used by a peninsula: one
+ * precise diagonal seam and no rectangular overlap or separate filler wedge.
+ * `measuredWallCountertopMiterSurfaces` remains the evidence gate—it verifies
+ * both endpoint bases, their shared elevation, and the explicit 45-degree wall
+ * before any slab is cut.
+ */
+export function miteredMeasuredWallCountertopSurfaces(
+  surfaces: CountertopSurface[],
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): CountertopSurface[] {
+  const resolved: CountertopSurface[] = surfaces.map((surface) => ({
+    ...surface,
+    polygon: surface.polygon?.map((point) => ({ ...point })),
+  }));
+  if (!room.vertices?.length || !room.customWalls?.length) return resolved;
+  const verifiedMiters = measuredWallCountertopMiterSurfaces(placed, room);
+  for (const miter of verifiedMiters) {
+    const wallIds = miter.customWallMiterWallIds;
+    const vertexId = miter.customWallMiterVertexId;
+    if (!wallIds || !vertexId) continue;
+    const [firstId, secondId] = wallIds;
+    const firstWall = room.customWalls.find((wall) => wall.id === firstId);
+    const secondWall = room.customWalls.find((wall) => wall.id === secondId);
+    const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
+    if (!firstWall || !secondWall || !vertex) continue;
+    const shared = sharedCustomWallVertex(firstWall, secondWall);
+    if (!shared) continue;
+    const firstLength = polygonWallSegmentLength(firstWall, room.vertices);
+    const secondLength = polygonWallSegmentLength(secondWall, room.vertices);
+    const endpointSurfaceIndex = (wallId: string, at: "start" | "end", length: number) => resolved.findIndex((surface) => {
+      if (surface.customWallId !== wallId) return false;
+      const start = surface.customWallRunStartIn ?? 0;
+      const end = start + (surface.linearInches ?? surface.width);
+      const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
+      return distance <= COLLISION_EPSILON_IN;
+    });
+    const firstIndex = endpointSurfaceIndex(firstId, shared.firstAt, firstLength);
+    const secondIndex = endpointSurfaceIndex(secondId, shared.secondAt, secondLength);
+    if (firstIndex < 0 || secondIndex < 0) continue;
+    const firstSurface = resolved[firstIndex]!;
+    const secondSurface = resolved[secondIndex]!;
+    const firstRadians = polygonWallAngle(firstWall, room.vertices);
+    const secondRadians = polygonWallAngle(secondWall, room.vertices);
+    const miterPoint = countertopOffsetEdgeMiterPoint(
+      { x: vertex.x, y: vertex.y },
+      firstRadians,
+      countertopRunFaceNormal(firstRadians, "left"),
+      firstSurface.depth,
+      secondRadians,
+      countertopRunFaceNormal(secondRadians, "left"),
+      secondSurface.depth,
+    );
+    resolved[firstIndex] = measuredWallSurfaceWithMiterPoint(
+      firstSurface,
+      firstWall,
+      room,
+      shared.firstAt === "start",
+      miterPoint,
+      wallIds,
+      vertexId,
+    );
+    resolved[secondIndex] = measuredWallSurfaceWithMiterPoint(
+      secondSurface,
+      secondWall,
+      room,
+      shared.secondAt === "start",
+      miterPoint,
+      wallIds,
+      vertexId,
+    );
+  }
+  return resolved;
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -9584,6 +9716,8 @@ export function countertopSurfaces(
           depth: D + rearExtension,
           kind: "base",
           rotation: spot.rotation,
+          customWallId: customWall.id,
+          customWallRunStartIn: wallRunOffset(p, side, room),
           linearInches: runSpan,
           areaInches: runSpan * (D + rearExtension),
         });
@@ -9628,7 +9762,10 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
-  out.push(...measuredWallCountertopMiterSurfaces(placed, room));
+  // Continuous-wall 45-degree returns use the same two miter-cut slab rule as
+  // peninsula returns. Both cabinet-supported pieces meet at one physical seam;
+  // do not add a third, decorative bridge triangle over the cabinet geometry.
+  out.splice(0, out.length, ...miteredMeasuredWallCountertopSurfaces(out, placed, room));
   // Every cabinet-supported peninsula receives continuous countertop across
   // ordinary cabinet voids, but a freestanding range/stove/cooktop remains a
   // true opening. Split only at those appliance footprints so Plan, 3D, price,

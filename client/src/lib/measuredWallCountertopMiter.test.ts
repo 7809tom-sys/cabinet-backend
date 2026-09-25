@@ -47,7 +47,7 @@ function baseCabinet(uid: string, wallId: string, offset: number, width = 24): P
 }
 
 describe("measuredWallCountertopMiterSurfaces", () => {
-  it("fills only the physical outer gap where countertop-supported runs meet a 45-degree wall", () => {
+  it("cuts both countertop-supported runs to one real 45-degree seam", () => {
     const diagonalLength = Math.hypot(60, 60);
     const diagonalBase = baseCabinet("diagonal-base", "diagonal", diagonalLength - 24);
     const straightBase = baseCabinet("straight-base", "straight", 0);
@@ -64,7 +64,12 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     expect(bridges[0]?.areaInches).toBeGreaterThan(1);
 
     const surfaces = countertopSurfaces([diagonalBase, straightBase], room);
-    expect(surfaces.filter((surface) => surface.customWallMiterVertexId === "v2")).toHaveLength(1);
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ customWallId: "diagonal", customWallMiterVertexId: "v2", miteredEnd: true }),
+      expect.objectContaining({ customWallId: "straight", customWallMiterVertexId: "v2", miteredStart: true }),
+    ]));
+    expect(surfaces.every((surface) => surface.polygon && surface.polygon.length === 4)).toBe(true);
     expect(surfaces.filter((surface) => surface.rotation === 45 || surface.rotation === 90)).toHaveLength(2);
   });
 
