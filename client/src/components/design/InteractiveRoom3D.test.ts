@@ -15,6 +15,7 @@ import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistan
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
+import { lCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { COUNTERTOP_DEPTH_IN, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -2766,6 +2767,45 @@ describe("interactive 3D room scene helpers", () => {
     expect(Object.values(lCornerCarcassParts(3, 3)).filter((part) => typeof part === "object" && part !== null && "width" in part)).toHaveLength(2);
   });
 
+  it("gives both exposed L-corner cabinet legs the same 1.5-inch finished countertop overhang", () => {
+    const countertop = lCornerCountertopFootprintVertices(3, 3);
+    // The 24-inch base legs keep their wall-side edges seated. The back-leg
+    // front and side-leg front both project 1½ inches (0.125 ft), which is the
+    // same finished line carried by adjacent standard base cabinets.
+    expect(countertop).toEqual([
+      { x: -1.5, z: -1.5 },
+      { x: 1.5, z: -1.5 },
+      { x: 1.5, z: 0.625 },
+      { x: 0.625, z: 0.625 },
+      { x: 0.625, z: 1.5 },
+      { x: -1.5, z: 1.5 },
+    ]);
+
+    const root = new THREE.Group();
+    addCabinet(root, {
+      masterCode: "LS3612",
+      description: "36 inch Lazy Susan Base Cabinet",
+      placementType: "base",
+      width: 36,
+      depth: 36,
+      height: 34.5,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerGeometryKind: "l-shape",
+    } as never, null, {}, 144, 120, "#7e8d72", "#f8f8f6", undefined, { x: 18, z: 18, rotation: 0 });
+    const tops: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.lCornerCountertop) tops.push(node);
+    });
+    expect(tops).toHaveLength(1);
+    expect(tops[0]!.userData).toMatchObject({
+      exactLCornerCountertopGeometry: true,
+      frontOverhangIn: 1.5,
+      bothRoomFacingLegsAligned: true,
+      interiorNotchPreserved: true,
+    });
+  });
+
   it("normalizes an older CDB36 accessible-leg save to the shared 36-inch square 2D corner footprint", () => {
     const legacyCdb = {
       uid: "legacy-cdb36", cabinetId: 9390027, masterCode: "CDB36", description: "Corner Drawer Base Cabinet",
@@ -2858,7 +2898,9 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.nonCornerEndReturnDoor)).toHaveLength(0);
     expect(nodes.filter((node) => node.userData.nonCornerEndReturnBody)).toHaveLength(0);
     expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(0);
-    expect(nodes.filter((node) => node.userData.lCornerCountertop)).toHaveLength(4);
+    const lCornerCountertops = nodes.filter((node) => node.userData.lCornerCountertop);
+    expect(lCornerCountertops).toHaveLength(2);
+    expect(lCornerCountertops.every((node) => node.userData.exactLCornerCountertopGeometry)).toBe(true);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });

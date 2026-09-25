@@ -2417,6 +2417,42 @@ export function diagonalCornerCountertopFootprintVertices(
 }
 
 /**
+ * A Lazy Susan / Easy Reach / corner-drawer base has two actual room-facing
+ * cabinet fronts: the short front of its back leg and the long front of its
+ * side leg. The countertop carries the same finished 1½-inch projection over
+ * each of those faces. Moving the side-leg rectangle in only one direction
+ * would put the projection along its end instead, leaving an uneven point and
+ * making the top miss the adjacent base-run front line.
+ */
+export function lCornerCountertopFootprintVertices(
+  bodyWidth: number,
+  bodyDepth: number,
+  legRatio = 2 / 3,
+  frontOverhang = COUNTERTOP_FRONT_OVERHANG,
+) {
+  const lShape = lCornerCarcassParts(bodyWidth, bodyDepth, legRatio);
+  const left = -bodyWidth / 2;
+  const right = bodyWidth / 2;
+  const back = -bodyDepth / 2;
+  const front = bodyDepth / 2;
+  const insideX = left + lShape.sideLeg.width;
+  const insideZ = back + lShape.backLeg.depth;
+  const projection = Math.max(0, Math.min(
+    Number.isFinite(frontOverhang) ? frontOverhang : 0,
+    Math.max(0, right - insideX),
+    Math.max(0, front - insideZ),
+  ));
+  return [
+    { x: left, z: back },
+    { x: right, z: back },
+    { x: right, z: insideZ + projection },
+    { x: insideX + projection, z: insideZ + projection },
+    { x: insideX + projection, z: front },
+    { x: left, z: front },
+  ];
+}
+
+/**
  * A WDC's diagonal is the hypotenuse of its two 12-inch returns within the
  * 24-by-24 footprint: √(12² + 12²) ≈ 17 inches. This is the total two-door
  * front, not the diagonal across the full enclosing square.
@@ -2464,6 +2500,29 @@ function diagonalCornerWedgeGeometry(
   const vertices = frontOverhang > 0
     ? diagonalCornerCountertopFootprintVertices(bodyWidth, bodyDepth, frontOverhang)
     : diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+  const shape = new THREE.Shape();
+  shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
+  for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, -height / 2, 0);
+  return geometry;
+}
+
+/** Builds the one non-self-intersecting L top from both finished front edges. */
+function lCornerCountertopWedgeGeometry(
+  bodyWidth: number,
+  bodyDepth: number,
+  height: number,
+  legRatio: number,
+) {
+  const vertices = lCornerCountertopFootprintVertices(
+    bodyWidth,
+    bodyDepth,
+    legRatio,
+    COUNTERTOP_FRONT_OVERHANG,
+  );
   const shape = new THREE.Shape();
   shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
   for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
@@ -4865,20 +4924,23 @@ export function addCabinet(
 		      materialOnlyNoGeometryChange: true,
 		    };
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
-      const counterGroup = new THREE.Group();
-      counterGroup.position.set(cabinet.position.x, countertopCenterY, cabinet.position.z);
-      counterGroup.rotation.y = rotation;
-      for (const part of Object.values(lCornerCarcassParts(bodyWidth, bodyDepth, lCornerLegRatio)).filter((value): value is { width: number; depth: number; x: number; z: number } => typeof value === "object" && value !== null && "width" in value)) {
-        const slab = new THREE.Mesh(
-          new THREE.BoxGeometry(part.width, 1.5 * INCH, threeDCountertopDepthIn(part.depth / INCH) * INCH),
-          counterMaterial,
-        );
-        slab.position.set(part.x, 0, part.z + COUNTERTOP_FRONT_OVERHANG / 2);
-        slab.userData = { specialtyProfile: specialty.kind, lCornerCountertop: true };
-        counterGroup.add(slab);
-      }
-      applyThreeDPlacementIdentity(counterGroup, placementIdentity);
-      root.add(counterGroup);
+      const counter = new THREE.Mesh(
+        lCornerCountertopWedgeGeometry(bodyWidth, bodyDepth, 1.5 * INCH, lCornerLegRatio),
+        counterMaterial,
+      );
+      counter.position.copy(cabinet.position);
+      counter.rotation.y = rotation;
+      counter.position.y = countertopCenterY;
+      counter.userData = {
+        specialtyProfile: specialty.kind,
+        lCornerCountertop: true,
+        exactLCornerCountertopGeometry: true,
+        frontOverhangIn: COUNTERTOP_FRONT_OVERHANG / INCH,
+        bothRoomFacingLegsAligned: true,
+        interiorNotchPreserved: true,
+      };
+      applyThreeDPlacementIdentity(counter, placementIdentity);
+      root.add(counter);
     } else if (specialty.kind === "end-return") {
       const diagram = baseEndAttachedFrontLayout(bodyWidth, bodyDepth);
       const countertopSideLength = threeDCountertopDepthIn(diagram.sideLength / INCH) * INCH;

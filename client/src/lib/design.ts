@@ -2513,6 +2513,59 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
   }
 }
 
+/**
+ * Countertop polygon for a real L-corner base. Both room-facing cabinet legs
+ * project the same 1½-inch finished edge; the wall-side returns remain flush
+ * and the interior cabinet notch remains open. This is the Plan-space twin of
+ * the exact L-shaped 3D countertop extrusion.
+ */
+export function lCornerCountertopWorldPolygon(
+  cabinet: PlacedCabinet,
+  frontOverhang = COUNTERTOP_DEPTH_IN - STD.BASE_DEPTH,
+): PlanFootprintPoint[] {
+  const bounds = placedFootprint(cabinet);
+  const leg = Math.min(bounds.w, bounds.d) * cornerLegRatioForPlaced(cabinet);
+  const x = cabinet.x;
+  const y = cabinet.y;
+  const right = x + bounds.w;
+  const bottom = y + bounds.d;
+  const projected = Math.max(0, Math.min(
+    Number.isFinite(frontOverhang) ? frontOverhang : 0,
+    Math.max(0, bounds.w - leg),
+    Math.max(0, bounds.d - leg),
+  ));
+  switch ((((cabinet.rotation % 360) + 360) % 360)) {
+    case 90:
+      return [
+        { x: right, y }, { x: right, y: bottom },
+        { x: right - leg - projected, y: bottom },
+        { x: right - leg - projected, y: y + leg + projected },
+        { x, y: y + leg + projected }, { x, y },
+      ];
+    case 180:
+      return [
+        { x: right, y: bottom }, { x, y: bottom },
+        { x, y: bottom - leg - projected },
+        { x: right - leg - projected, y: bottom - leg - projected },
+        { x: right - leg - projected, y }, { x: right, y },
+      ];
+    case 270:
+      return [
+        { x, y: bottom }, { x, y },
+        { x: x + leg + projected, y },
+        { x: x + leg + projected, y: bottom - leg - projected },
+        { x: right, y: bottom - leg - projected }, { x: right, y: bottom },
+      ];
+    default:
+      return [
+        { x, y }, { x: right, y },
+        { x: right, y: y + leg + projected },
+        { x: x + leg + projected, y: y + leg + projected },
+        { x: x + leg + projected, y: bottom }, { x, y: bottom },
+      ];
+  }
+}
+
 function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
   return (cabinet.fillerTransitionKind === "angled-wedge" || cabinet.fillerTransitionKind === "front-miter-pair") && (cabinet.fillerTransitionPlanFootprint?.length ?? 0) >= 3
     ? [cabinet.fillerTransitionPlanFootprint!.map((point) => ({ x: point.x, y: point.y }))]
@@ -9559,7 +9612,7 @@ function countertopConvexHull(points: CountertopPlanPoint[]): CountertopPlanPoin
 
 function countertopSurfaceFromWorldPolygon(
   world: CountertopPlanPoint[],
-  runId: string,
+  runId?: string,
 ): CountertopSurface | null {
   if (world.length < 3) return null;
   const minX = Math.min(...world.map((point) => point.x));
@@ -9575,8 +9628,10 @@ function countertopSurfaceFromWorldPolygon(
     depth: maxY - minY,
     kind: "base",
     polygon: world.map((point) => ({ x: point.x - minX, y: point.y - minY })),
-    peninsulaRunId: runId,
-    peninsulaCornerSupportExtension: true,
+    ...(runId ? {
+      peninsulaRunId: runId,
+      peninsulaCornerSupportExtension: true,
+    } : {}),
     areaInches: area,
   };
 }
@@ -9965,6 +10020,15 @@ export function countertopSurfaces(
           areaInches: runSpan * (D + rearExtension),
         });
       }
+      continue;
+    }
+    // A standard room's L-corner base needs a single L-shaped countertop with
+    // the finished edge extended at both exposed legs. A rectangular top here
+    // fills its intentional notch and shifts the side-leg overhang away from
+    // the adjoining base run.
+    if (placedCornerGeometryKind(p) === "l-shape" || placedCornerGeometryKind(p) === "corner-drawer") {
+      const surface = countertopSurfaceFromWorldPolygon(lCornerCountertopWorldPolygon(p));
+      if (surface) out.push(surface);
       continue;
     }
     const horizontalWall = side === "top" || side === "bottom";

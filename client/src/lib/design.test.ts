@@ -14,7 +14,7 @@ import {
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
-  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects,
+  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects, lCornerCountertopWorldPolygon,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
@@ -1870,6 +1870,37 @@ describe("countertopSurfaces", () => {
     const cabinet = cab({ uid: `counter-${masterCode}`, masterCode, description, placement: "base", width, depth, x: 0, y: 0 });
     expect(bearsCountertop(cabinet)).toBe(true);
     expect(countertopSurfaces([cabinet], ROOM_12x10)).toMatchObject([{ kind: "base" }]);
+  });
+
+  it("keeps both exposed L-corner fronts aligned with the 1.5-inch standard base overhang", () => {
+    const corner = cab({
+      uid: "counter-lsb36", masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+      placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation: 0, cornerType: "lazy-susan",
+    });
+    const expected = [
+      { x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 },
+      { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 },
+    ];
+    expect(lCornerCountertopWorldPolygon(corner)).toEqual(expected);
+    const [surface] = countertopSurfaces([corner], ROOM_12x10);
+    expect(countertopSurfacePlanPolygon(surface!)).toEqual(expected);
+    expect(surface!.areaInches).toBeCloseTo(1185.75, 6);
+    expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
+  });
+
+  it.each([
+    [0, [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 }, { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 }]],
+    [90, [{ x: 36, y: 0 }, { x: 36, y: 36 }, { x: 10.5, y: 36 }, { x: 10.5, y: 25.5 }, { x: 0, y: 25.5 }, { x: 0, y: 0 }]],
+    [180, [{ x: 36, y: 36 }, { x: 0, y: 36 }, { x: 0, y: 10.5 }, { x: 10.5, y: 10.5 }, { x: 10.5, y: 0 }, { x: 36, y: 0 }]],
+    [270, [{ x: 0, y: 36 }, { x: 0, y: 0 }, { x: 25.5, y: 0 }, { x: 25.5, y: 10.5 }, { x: 36, y: 10.5 }, { x: 36, y: 36 }]],
+  ] as const)("mirrors the aligned L-corner countertop correctly at %s degrees", (rotation, expected) => {
+    const corner = cab({
+      uid: `counter-lsb36-${rotation}`, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+      placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation, cornerType: "lazy-susan",
+    });
+    const [surface] = countertopSurfaces([corner], ROOM_12x10);
+    expect(countertopSurfacePlanPolygon(surface!)).toEqual(expected);
+    expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
   });
 
   it("does NOT cover a base-zone decorative end panel or refrigerator panel", () => {
