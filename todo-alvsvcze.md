@@ -1503,7 +1503,7 @@
 - [x] Add the source-verified PL-VS2118 compact standard undermount sink with a measured bowl, drain, and 21-inch standard-base fit support
 - [x] Add the source-verified PL-VS2318 normal-depth standard undermount sink with a measured bowl, drain, and 24-inch standard-base fit support
 - [x] Add the source-verified PL-HA108 R0 normal-depth standard undermount sink with a measured bowl, drain, and 24-inch standard-base fit support
-- [ ] Add PL-8369 only if a source-measured range-associated wall-fixture contract can preserve its mounting, articulated arm, reach, and finish without approximation
+- [x] Add PL-8369 only if a source-measured range-associated wall-fixture contract can preserve its mounting, articulated arm, reach, and finish without approximation
 - [x] Add the source-verified PL-8257 pull-down kitchen faucet with exact height, spout reach, outlet height, finish persistence, and compatible sink-base placement
 - [x] Correct the admitted PL-HA109 R0 profile and renderer so its source-verified rear-center drain datum is persisted and rendered on every wall orientation
 - [x] Remove PL-FC2418SB and PL-FC3018SB from physical eligibility because their current official sheets omit required drain and reversible-apron geometry
