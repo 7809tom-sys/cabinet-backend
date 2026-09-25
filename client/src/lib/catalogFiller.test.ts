@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, fittedCatalogFillerDescription, isCatalogFiller, isCatalogPanel } from "./catalogFiller";
+import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, fittedCatalogFillerDescription, isCatalogDecorativeLeg, isCatalogFiller, isCatalogPanel } from "./catalogFiller";
 import { CUSTOM_SIZE_FEE, customSizeFee } from "./design";
 
 const fillers = [
@@ -33,6 +33,24 @@ describe("catalogFillerForGap", () => {
 	  expect(isCatalogFiller(panelNamedAsFiller)).toBe(false);
 	  expect(catalogFillerForGap([refrigeratorEndPanel, panelNamedAsFiller, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
 	  expect(catalogFillerPricingId({ id: 2796, masterCode: "REPV2796", description: refrigeratorEndPanel.description, category: "Filler", subCategory: "Accessory", width: 1, placement: "base" }, [refrigeratorEndPanel, ...fillers])).toBe(2796);
+	});
+
+	it("never treats FLDL or any decorative leg as filler stock, even if a legacy import marks it Filler", () => {
+	  const flutedDecorativeLeg = {
+	    id: 9360233,
+	    masterCode: "FLDL",
+	    description: 'Fluted Decorative Leg - 3"W X 3"D X 34 1/2"H',
+	    category: "Filler",
+	    subCategory: null,
+	    width: 3,
+	    depth: 3,
+	    height: 34.5,
+	    catalogImageUrl: null,
+	  } as const;
+
+	  expect(isCatalogDecorativeLeg(flutedDecorativeLeg)).toBe(true);
+	  expect(isCatalogFiller(flutedDecorativeLeg)).toBe(false);
+	  expect(catalogFillerForGap([flutedDecorativeLeg, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
 	});
 
 	it("automatically calculates the exact installed cut and retained catalog filler identity", () => {

@@ -191,6 +191,52 @@ describe("design.placeableCabinets availability filter", () => {
     }
   });
 
+  it("keeps FLDL as a decorative accessory and never turns it into a filler candidate", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const [fldl] = await db
+      .select({
+        id: cabinets.id,
+        category: cabinets.category,
+        subCategory: cabinets.subCategory,
+        placementType: cabinets.placementType,
+      })
+      .from(cabinets)
+      .where(eq(cabinets.masterCode, "FLDL"))
+      .limit(1);
+    if (!fldl) return;
+
+    expect(fldl).toMatchObject({
+      category: "Accessory",
+      subCategory: "Decorative Leg",
+      placementType: "accessory",
+    });
+
+    const caller = appRouter.createCaller(publicCtx());
+    const [accessories, ...placementBuckets] = await Promise.all([
+      caller.design.placeableCabinets({ placement: "accessory" }),
+      caller.design.placeableCabinets({ placement: "base" }),
+      caller.design.placeableCabinets({ placement: "wall" }),
+      caller.design.placeableCabinets({ placement: "tall" }),
+    ]);
+    const hasLiveFldlSku = (await db
+      .select({ id: distributorSkus.id })
+      .from(distributorSkus)
+      .where(and(
+        eq(distributorSkus.cabinetId, fldl.id),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+      ))
+      .limit(1)).length > 0;
+
+    if (hasLiveFldlSku) {
+      expect(accessories.some((item) => item.masterCode === "FLDL")).toBe(true);
+    }
+    expect(placementBuckets.flat().some((item) => item.masterCode === "FLDL")).toBe(false);
+  });
+
   it("surfaces the Lazy-Susan corner bases (LSB33/LSB36/LSB36ADA) in the base tab even though they are ADA placement", async () => {
     const db = await getDb();
     if (!db) return;
