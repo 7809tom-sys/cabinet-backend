@@ -387,12 +387,27 @@ describe("side-aware peninsula countertop meshes", () => {
       wallOffset: 12,
       peninsulaSide: "right",
     } as PlacedCabinet;
-    const surface = countertopSurfaces([erb], room).find((candidate) => candidate.peninsulaRunId === parentRun.id)!;
+    const returnBaseSpot = wallPlacementAt(0, 24, 24, childRun.id as any, room, "right");
+    const returnBase = {
+      uid: "erb36-45-return-base",
+      cabinetId: 2,
+      masterCode: "B24",
+      description: "24 inch Base Cabinet",
+      placement: "base",
+      ...returnBaseSpot,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      wallId: childRun.id,
+      wallOffset: 0,
+      peninsulaSide: "right",
+    } as PlacedCabinet;
+    const surface = countertopSurfaces([erb, returnBase], room).find((candidate) => candidate.peninsulaRunId === parentRun.id)!;
     const expectedPlanPoints = countertopSurfacePlanPolygon(surface);
     expect(surface).toMatchObject({ peninsulaRunIds: [parentRun.id, childRun.id] });
     expect(expectedPlanPoints.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
 
-    addThreeDPeninsulaCountertops(root, room, [erb], "#e9e7e2");
+    addThreeDPeninsulaCountertops(root, room, [erb, returnBase], "#e9e7e2");
     const slabs = root.children.filter((item) => item.userData.peninsulaCountertop) as THREE.Mesh[];
     expect(slabs).toHaveLength(1);
     const slab = slabs[0]!;
