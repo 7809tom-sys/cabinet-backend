@@ -1726,6 +1726,8 @@ export type ThreeDCameraPreset = "presentation" | "front" | "wide" | "detail";
 export type ThreeDCameraViewSnapshot = {
   preset: ThreeDCameraPreset;
   resetKey: number;
+  /** The measured room outline used when this local orbit view was captured. */
+  roomFrameKey?: string;
   position: THREE.Vector3;
   target: THREE.Vector3;
   zoom: number;
@@ -1770,13 +1772,30 @@ export function constrainedThreeDCameraShareView(
   };
 }
 
+/**
+ * A local orbit is useful while cabinet/material data refreshes, but it becomes
+ * unsafe when a customer applies a different measured room outline. The camera
+ * needs to reframe that new room rather than retaining a viewpoint sized for
+ * the previous outline and leaving the kitchen tiny in a blank canvas.
+ */
+export function threeDCameraRoomFrameKey(room: Pick<RoomData, "width" | "depth" | "vertices" | "openWallPath">): string {
+  const vertices = (room.vertices ?? []).map((vertex) => `${Number(vertex.x).toFixed(3)},${Number(vertex.y).toFixed(3)}`).join(";");
+  return `${Number(room.width).toFixed(3)}x${Number(room.depth).toFixed(3)}|${room.openWallPath ? "open" : "closed"}|${vertices}`;
+}
+
 /** Scene rebuilds preserve the user's view; explicit camera resets and preset changes do not. */
 export function threeDShouldRestoreCameraView(
-  snapshot: Pick<ThreeDCameraViewSnapshot, "preset" | "resetKey"> | null | undefined,
+  snapshot: Pick<ThreeDCameraViewSnapshot, "preset" | "resetKey" | "roomFrameKey"> | null | undefined,
   preset: ThreeDCameraPreset,
   resetKey: number,
+  roomFrameKey?: string,
 ): boolean {
-  return Boolean(snapshot && snapshot.preset === preset && snapshot.resetKey === resetKey);
+  return Boolean(
+    snapshot
+    && snapshot.preset === preset
+    && snapshot.resetKey === resetKey
+    && (roomFrameKey == null || snapshot.roomFrameKey === roomFrameKey),
+  );
 }
 
 /** Stable framing presets keep 3D reviews clear without changing the active 2D design. */
@@ -7426,6 +7445,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     const room = roomOverride
       ? { ...roomOverride, ceilingHeight: wallHeightIn }
       : { ...dimensions(scene.roomShape?.defaultDimensions), ceilingHeight: wallHeightIn };
+
+    const roomFrameKey = threeDCameraRoomFrameKey(room);
 	    const canvasWidth = Math.max(280, mount.clientWidth);
 	    const canvasHeight = Math.max(280, mount.clientHeight || 420);
 	    const navigatorCapabilities = typeof navigator === "undefined"
@@ -7467,7 +7488,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     const cameraDistances = threeDCameraDistanceLimits(maxSpan);
     const sharedCameraView = sharedCameraViewRef.current ? constrainedThreeDCameraShareView(sharedCameraViewRef.current, cameraDistances) : null;
     const savedCameraView = cameraViewRef.current;
-    const restoreCameraView = Boolean(sharedCameraView) || threeDShouldRestoreCameraView(savedCameraView, cameraPreset, resetKey);
+    const restoreCameraView = Boolean(sharedCameraView) || threeDShouldRestoreCameraView(savedCameraView, cameraPreset, resetKey, roomFrameKey);
     const restoredView = sharedCameraView ?? savedCameraView;
     camera.position.copy(restoreCameraView && restoredView ? restoredView.position : threeDCameraPresetPosition(cameraPreset, maxSpan));
     if (restoreCameraView && restoredView) camera.zoom = restoredView.zoom;
@@ -7850,6 +7871,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       cameraViewRef.current = {
         preset: cameraPreset,
         resetKey,
+        roomFrameKey,
         position: camera.position.clone(),
         target: controls.target.clone(),
         zoom: camera.zoom,
@@ -8224,9 +8246,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     const camera = cameraRef.current;
     const controls = controlsRef.current;
     if (!camera || !controls) return;
+    const currentRoom = roomOverride ?? dimensions(scene.roomShape?.defaultDimensions);
     cameraViewRef.current = {
       preset: cameraPreset,
       resetKey,
+      roomFrameKey: threeDCameraRoomFrameKey(currentRoom),
       position: camera.position.clone(),
       target: controls.target.clone(),
       zoom: camera.zoom,

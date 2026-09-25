@@ -9,7 +9,7 @@ import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPre
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
 import { pathTraceCompatibleMaterial } from "./InteractiveRoom3D";
 import { threeDFittedFillerToeKickSuppressionUids } from "./InteractiveRoom3D";
-import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
+import { constrainedThreeDCameraShareView, parseThreeDCameraShareView, serializeThreeDCameraShareView, THREE_D_CAMERA_VIEW_QUERY_PARAM, threeDCameraPresetPosition, threeDCameraRoomFrameKey, threeDScreenHorizontalPlanDelta, threeDShouldRestoreCameraView } from "./InteractiveRoom3D";
 import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeDCabinetSelectionPriority, threeDCabinetWallDragText, threeDCatalogDragFitText, threeDCatalogDropPlane, threeDCatalogDropTargetFromIntersections, threeDOpeningHitFromIntersections, threeDOpeningHitFromObject, threeDRightPointerGesture, threeDRoomWallSideFromObject, threeDWallDragGhostBox } from "./InteractiveRoom3D";
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
@@ -1561,6 +1561,18 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4)).toBe(true);
     expect(threeDShouldRestoreCameraView(snapshot, "presentation", 5)).toBe(false);
     expect(threeDShouldRestoreCameraView(snapshot, "front", 4)).toBe(false);
+  });
+
+  it("reframes a newly applied measured room instead of restoring the previous room's distant orbit", () => {
+    const previousRoom = { width: 120, depth: 120, openWallPath: false, vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 120, y: 0 }, { id: "c", x: 120, y: 120 }] } as RoomData;
+    const appliedRoom = { width: 160, depth: 96, openWallPath: true, vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 160, y: 0 }, { id: "c", x: 160, y: 96 }] } as RoomData;
+    const previousFrameKey = threeDCameraRoomFrameKey(previousRoom);
+    const appliedFrameKey = threeDCameraRoomFrameKey(appliedRoom);
+    const snapshot = { preset: "presentation" as const, resetKey: 4, roomFrameKey: previousFrameKey };
+
+    expect(previousFrameKey).not.toBe(appliedFrameKey);
+    expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4, previousFrameKey)).toBe(true);
+    expect(threeDShouldRestoreCameraView(snapshot, "presentation", 4, appliedFrameKey)).toBe(false);
   });
 
   it("captures the live viewpoint before every D-pad move and isolates the in-panel controls from orbit events", () => {
