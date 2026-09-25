@@ -9,6 +9,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/useMobile";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -333,6 +335,7 @@ function Dim({
   onSet: (v: number) => void;
 }) {
   const { t } = useLanguage();
+  const isMobile = useIsMobile();
   const full =
     label === "W" ? t("dt_ca_width") : label === "H" ? t("dt_ca_height") : t("dt_ca_depth");
   return (
@@ -484,7 +487,8 @@ export function CabinetAttributesDialog({
   onSetIslandWallBaseTreatment,
 }: CabinetAttributesDialogProps) {
 	  const { t } = useLanguage();
-	  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
+  const isMobile = useIsMobile();
+  const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
   const masterCode = cabinet?.masterCode ?? "";
   const cabinetId = cabinet?.cabinetId ?? 0;
@@ -530,6 +534,43 @@ export function CabinetAttributesDialog({
 	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="rounded-t-2xl p-0 flex flex-col gap-0" style={{ maxHeight: "min(90vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          <SheetHeader className="border-b px-4 py-3 text-left">
+            <SheetTitle className="font-mono text-base leading-none">{cabinet.masterCode}</SheetTitle>
+            <SheetDescription className="truncate text-xs">{cabinet.description}</SheetDescription>
+            <div data-testid="cabinet-attributes-active-target" className="mt-1 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm ring-2 ring-amber-200/70 motion-safe:animate-pulse">
+              <span className="shrink-0 rounded bg-[#1a2744] px-1.5 py-0.5 font-mono font-bold text-white">{cabinet.masterCode}</span>
+              <span><strong>Editing this cabinet</strong></span>
+            </div>
+            {editConfigLink && (
+              <a
+                href={editConfigLink.href}
+                target={editConfigLink.target}
+                rel={editConfigLink.rel}
+                className="w-fit text-xs font-medium text-amber-700 underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:text-amber-400"
+              >
+                Edit Config ↗
+              </a>
+            )}
+          </SheetHeader>
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-4">
+            <div className="rounded-lg border border-border p-4 bg-muted/20 text-sm text-center text-muted-foreground">
+              Please use a tablet or desktop computer to access full cabinet attributes.
+            </div>
+          </div>
+          <div className="border-t p-4">
+            <Button type="button" className="w-full" onClick={() => onOpenChange(false)}>
+              {t("dt_ca_done")}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={CABINET_ATTRIBUTES_DIALOG_CLASS}>
