@@ -107,8 +107,14 @@ describe("pelican storefront helpers", () => {
 });
 
 describe("surfaceRole (real Pelican storefront categories)", () => {
-  it("maps Flooring to flooring", () => {
+  it("maps source flooring and legacy flooring picks to flooring", () => {
     expect(surfaceRole({ category: "Flooring", name: "Waterproof LVP Oak" })).toBe("flooring");
+    expect(surfaceRole({ category: "Flooring", subCategory: "Planks & Flooring", name: "Aveline 20mil Vinyl Flooring" })).toBe("flooring");
+  });
+
+  it("does not treat flooring trim as an installed floor", () => {
+    expect(surfaceRole({ category: "Flooring", subCategory: "Moldings & Trim", name: "Aveline T-Molding" })).toBe("other");
+    expect(surfaceRole({ category: "Flooring", subCategory: "Moldings & Trim", name: "Astoria Stair Nose" })).toBe("other");
   });
 
   it("maps the parenthesized quartz category to countertop", () => {

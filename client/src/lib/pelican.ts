@@ -372,7 +372,12 @@ export function surfaceRole(input: {
 
   switch (cat) {
     case "Flooring":
-      return "flooring";
+      // The Flooring catalog also carries end caps, stair noses, reducers,
+      // baseboard, and other trims. Only the source's actual plank/flooring
+      // line can be an installed room floor. Keep an absent legacy
+      // sub-category compatible with older saved picks; new source rows with
+      // an explicit non-floor sub-category are never promoted to a floor.
+      return !sub || sub === "planks & flooring" ? "flooring" : "other";
     case "Quartz Slabs (Countertops)":
       return "countertop";
     case "Tile & Mosaic":
