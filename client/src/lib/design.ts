@@ -1180,8 +1180,10 @@ export function ceilingFitViolations(
       ? wallCeilingMin(room as RoomData, cabinetWall(p, room as RoomData))
       : globalCeil;
     if (p.placement === "wall") {
-      // Wall boxes are bottom-anchored at the mount line; their top is mount + height.
-      const top = WALL_MOUNT_BOTTOM + placedHeight(p);
+      // Use the exact elevation contract, including the dedicated 72-inch
+      // 12-inch upper mount and any persisted manual/stacker exceptions.
+      const box = elevationBox(p, room);
+      const top = box.bottom + box.height;
       if (top > ceil + 0.5) bad.add(p.uid);
     } else if (p.placement === "tall") {
       // Tall boxes stand on the floor; their height is the top line.
@@ -1196,6 +1198,22 @@ export function ceilingFitViolations(
 // (18" above a 36" counter). Standard wall cabinets are bottom-anchored here,
 // so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
 export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
+
+/** A non-stacker 12-inch wall box starts at the customer-confirmed 72-inch datum. */
+export const TWELVE_INCH_WALL_MOUNT_BOTTOM = 72;
+
+/** The default mount for a room-wall cabinet before a user applies an override. */
+export function ordinaryWallMountBottom(p: {
+  placement?: Placement | null;
+  height?: number | null;
+  masterCode?: string | null;
+  description?: string | null;
+  subCategory?: string | null;
+}): number {
+  return p.placement === "wall" && !isStacker(p) && Math.abs(Number(p.height) - 12) <= 0.01
+    ? TWELVE_INCH_WALL_MOUNT_BOTTOM
+    : WALL_MOUNT_BOTTOM;
+}
 
 /** A single wall's ceiling. Either a flat height, or a slope between a high end
  *  and a low end (for vaulted / knee-wall / angled ceilings). Heights are in
@@ -3879,11 +3897,12 @@ export function normalizeWd18CountertopMounts(placed: PlacedCabinet[]): PlacedCa
  * Restores the fixed room-wall elevation rule on saved layouts created while
  * ordinary upper cabinets could inherit a neighboring cabinet's top line.
  *
- * Standard room-wall cabinets start at 54 inches. The only automatic exceptions
- * remain source/installation-specific: WD18 countertop cabinets, stackers,
- * refrigerator uppers at 72 inches, appliance garages on the countertop, and
- * a short cabinet that must clear a real sink/window opening. A customer-set
- * vertical move is explicitly marked and is never rewritten here.
+ * Standard room-wall cabinets start at 54 inches. The automatic exceptions
+ * remain source/installation-specific: 12-inch wall boxes at 72 inches, WD18
+ * countertop cabinets, stackers, refrigerator uppers at 72 inches, appliance
+ * garages on the countertop, and a short cabinet that must clear a real
+ * sink/window opening. A customer-set vertical move is explicitly marked and
+ * is never rewritten here.
  */
 export function normalizeStandardWallMounts(
   placed: PlacedCabinet[],
@@ -3912,7 +3931,7 @@ export function normalizeStandardWallMounts(
     // A verified sink/window clearance is an installation necessity, not an
     // inherited run height. Preserve and repair that exact computed datum.
     const requiredWindowBottom = overSinkWallMountBottom(cabinet, placed, openings, room);
-    const targetBottom = requiredWindowBottom ?? WALL_MOUNT_BOTTOM;
+    const targetBottom = requiredWindowBottom ?? ordinaryWallMountBottom(cabinet);
     if (typeof cabinet.mountBottom === "number" && Math.abs(cabinet.mountBottom - targetBottom) <= 0.01) return cabinet;
     changed = true;
     return { ...cabinet, mountBottom: targetBottom };
@@ -4434,11 +4453,11 @@ export function elevationBox(
     if (isRefrigeratorWallCabinet(p)) {
       return { bottom: 72, height: h };
     }
-    // 4) All ordinary wall cabinets — including short bridge boxes — are
-    //    BOTTOM-anchored at the standard 54" mount line (18" above a 36"
-    //    counter). Users who want a different position set an explicit
-    //    mountBottom (branch #1), which wins.
-    return { bottom: WALL_MOUNT_BOTTOM, height: h };
+    // 4) Ordinary wall cabinets start at 54 inches, with the customer's
+    //    explicit 72-inch datum for a non-stacker 12-inch upper. Users who
+    //    want a different position set an explicit mountBottom (branch #1),
+    //    which wins.
+    return { bottom: ordinaryWallMountBottom(p), height: h };
   }
   // baseTop: specialty items (knee drawers, spice racks) that sit in the
   // counter-height zone. A knee drawer may be installed from 24–30 inches off

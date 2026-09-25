@@ -2590,7 +2590,7 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 });
 
 	describe("wall cabinet elevation rules", () => {
-	  it("restores legacy auto-top-aligned uppers to the fixed 54-inch datum without touching manual, stacker, or refrigerator exceptions", () => {
+	  it("restores a legacy 12-inch upper to the fixed 72-inch datum without touching manual, stacker, or refrigerator exceptions", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
 	    const legacyShortUpper = cab({ uid: "legacy-short", placement: "wall", masterCode: "W-30-12", height: 12, mountBottom: 90 });
 	    const manualUpper = cab({ uid: "manual-upper", placement: "wall", masterCode: "W-30-24", height: 24, mountBottom: 60, mountBottomAdjusted: true });
@@ -2603,7 +2603,7 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	      room,
 	    );
 
-	    expect(normalized.find((cabinet) => cabinet.uid === "legacy-short")?.mountBottom).toBe(54);
+	    expect(normalized.find((cabinet) => cabinet.uid === "legacy-short")?.mountBottom).toBe(72);
 	    expect(normalized.find((cabinet) => cabinet.uid === "manual-upper")?.mountBottom).toBe(60);
 	    expect(normalized.find((cabinet) => cabinet.uid === "stacker")?.mountBottom).toBe(84);
 	    expect(normalized.find((cabinet) => cabinet.uid === "refrigerator-upper")?.mountBottom).toBe(72);
@@ -2645,10 +2645,10 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
     expect(box.bottom + box.height).toBe(84);
   });
 
-  it("a short 12in ordinary wall cabinet starts at the standard 54in datum", () => {
-    const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
-    expect(box.bottom).toBe(54);
-    expect(box.bottom + box.height).toBe(66);
+	  it("a 12in ordinary wall cabinet starts at the owner-confirmed 72in datum", () => {
+	    const box = elevationBox(cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "30x12 Bridge Wall Cabinet" }));
+	    expect(box.bottom).toBe(72);
+	    expect(box.bottom + box.height).toBe(84);
   });
 
   it("a tall 36in wall cabinet is bottom-anchored at 54in (tops at 90)", () => {
@@ -2744,20 +2744,20 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	  });
 
   // ── Taller-ceiling behavior ───────────────────────────────────────────────
-  it("keeps a short ordinary wall cabinet at 54in on a standard 8ft ceiling", () => {
-    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
-    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
-    const box = elevationBox(bridge, room);
-    expect(box.bottom).toBe(54);
-    expect(box.bottom + box.height).toBe(66);
+	  it("keeps a 12in ordinary wall cabinet at 72in on a standard 8ft ceiling", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
+	    const box = elevationBox(bridge, room);
+	    expect(box.bottom).toBe(72);
+	    expect(box.bottom + box.height).toBe(84);
   });
 
-  it("keeps a short ordinary wall cabinet at 54in on a 10ft ceiling", () => {
-    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
-    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
-    const box = elevationBox(bridge, room);
-    expect(box.bottom).toBe(54);
-    expect(box.bottom + box.height).toBe(66);
+	  it("keeps a 12in ordinary wall cabinet at its fixed 72in datum on a 10ft ceiling", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 120 };
+	    const bridge = cab({ placement: "wall", width: 30, height: 12, masterCode: "W-30-12", description: "Bridge Wall" });
+	    const box = elevationBox(bridge, room);
+	    expect(box.bottom).toBe(72);
+	    expect(box.bottom + box.height).toBe(84);
   });
 
   it("hangs a glass stacker from the higher top line on a 9ft ceiling", () => {
