@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM, appendCollisionFreePlacements, cabinetPlacementCollisionDetail, type PlacedCabinet, wallLength, wallPlacementAt } from "@/lib/design";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { automaticAngledWallFiller, angledWallTransitionFootprint, measuredAngledWallTransition } from "./angledWallFiller";
+import { automaticAngledWallFiller, angledWallTransitionFootprint, measuredAngledWallTransition, repairMissingAngledWallFillers } from "./angledWallFiller";
 
 const room = {
   ...DEFAULT_ROOM,
@@ -69,6 +69,18 @@ const baseFiller = {
   catalogImageUrl: null,
 };
 
+const tallCuttableFiller = {
+  id: 299,
+  masterCode: "F396",
+  description: '3" x 96" Tall Filler',
+  category: "Filler",
+  subCategory: "Filler",
+  width: "3",
+  height: "96",
+  depth: null,
+  catalogImageUrl: null,
+};
+
 function polygonArea(points: Array<{ x: number; y: number }>) {
   return Math.abs(points.reduce((sum, point, index) => {
     const next = points[(index + 1) % points.length]!;
@@ -128,7 +140,7 @@ describe("automaticAngledWallFiller", () => {
     expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
   });
 
-  it("uses the same two-piece, front-only miter rule for base cabinets", () => {
+	  it("uses the same two-piece, front-only miter rule for base cabinets", () => {
     const { neighbor, newlyPlaced } = pair("base");
     let number = 0;
     const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [baseFiller], () => `front-base-${++number}`, 7)!;
@@ -152,8 +164,57 @@ describe("automaticAngledWallFiller", () => {
       expect(polygonArea(footprint!)).toBeLessThan(filler.width * 0.75);
       expect(cabinetPlacementCollisionDetail(filler, [neighbor, newlyPlaced], room)).toBeNull();
     }
-    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
-  });
+	    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
+	  });
+
+	  it("closes a 45-degree peninsula return with two source-stock front fillers and no visible face void", () => {
+	    const parent = { id: "peninsula-parent", parentWall: "right" as const, startOffset: 84, turn: 90 as const, direction: "right" as const, length: 120, height: 34.5, cabinetSide: "left" as const, locked: true };
+	    const child = { id: "peninsula-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "right" as const, length: 36, height: 34.5, cabinetSide: "left" as const, locked: true };
+	    const peninsulaRoom = { ...DEFAULT_ROOM, width: 180, depth: 180, peninsulaRuns: [parent, child] };
+	    const parentSpot = wallPlacementAt(100, 9, 24, parent.id as any, peninsulaRoom, "left");
+	    const childSpot = wallPlacementAt(11, 24, 24, child.id as any, peninsulaRoom, "left");
+	    const parentBase: PlacedCabinet = {
+	      ...cabinet("peninsula-parent-base", "straight", 0, "base", 9),
+	      ...parentSpot,
+	      masterCode: "SPB9",
+	      wallId: parent.id,
+	      wallOffset: 100,
+	      peninsulaSide: "left",
+	    };
+	    const childBase: PlacedCabinet = {
+	      ...cabinet("peninsula-child-base", "straight", 0, "base", 24),
+	      ...childSpot,
+	      masterCode: "3DB24",
+	      wallId: child.id,
+	      wallOffset: 11,
+	      peninsulaSide: "left",
+	    };
+	    const measurement = measuredAngledWallTransition(childBase, peninsulaRoom, [parentBase, childBase]);
+	    expect(measurement).toMatchObject({
+	      wallId: child.id,
+	      neighborWallId: parent.id,
+	      rearGapIn: 11,
+	      neighborRearGapIn: 11,
+	    });
+	    expect(measurement!.ownerFrontCutIn).toBeGreaterThanOrEqual(0.5);
+	    expect(measurement!.neighborFrontCutIn).toBeGreaterThanOrEqual(0.5);
+
+	    let number = 0;
+	    const repaired = repairMissingAngledWallFillers(
+	      [parentBase, childBase],
+	      peninsulaRoom,
+	      [tallCuttableFiller],
+	      () => `peninsula-filler-${++number}`,
+	      7,
+	      () => 78.53,
+	    );
+	    expect(repaired.added).toHaveLength(2);
+	    expect(repaired.added.every((filler) => filler.masterCode === "F396" && filler.height === 34.5)).toBe(true);
+	    const [leftFootprint, rightFootprint] = repaired.added.map((filler) => angledWallTransitionFootprint(filler, peninsulaRoom, repaired.placed)!);
+	    const sharedMiterVertices = leftFootprint.filter((left) => rightFootprint.some((right) => Math.hypot(left.x - right.x, left.y - right.y) < 1e-6));
+	    expect(sharedMiterVertices).toHaveLength(2);
+	    expect(appendCollisionFreePlacements([parentBase, childBase], repaired.added, peninsulaRoom).rejected).toEqual([]);
+	  });
 
   it("price-locks both real front filler pieces at the authoritative selected-line unit price", () => {
     const { neighbor, newlyPlaced } = pair("wall");

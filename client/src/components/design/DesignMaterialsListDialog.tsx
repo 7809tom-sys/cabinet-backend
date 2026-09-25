@@ -1,4 +1,4 @@
-import { Download, FileSpreadsheet, Printer, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, ShoppingCart, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -21,6 +21,8 @@ export function DesignMaterialsListDialog({
   styleName,
   brandName,
   onRemovePlacedItems,
+  onAddPricedItemsToCart,
+  pricedCartItemCount = 0,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +32,10 @@ export function DesignMaterialsListDialog({
   brandName?: string | null;
   /** Removes the exact placed cabinet/filler entries represented by a row. */
   onRemovePlacedItems?: (uids: string[]) => void;
+  /** Adds only current, catalog-priced design lines through the authoritative cart workflow. */
+  onAddPricedItemsToCart?: () => void;
+  /** Purchase-unit count after quote-only and unavailable lines have been excluded. */
+  pricedCartItemCount?: number;
 }) {
   const title = `${brandName?.trim() || "Cabinet Dealz"} Materials & Parts List`;
   const cabinetRows = rows.filter((row) => row.section === "cabinet");
@@ -122,6 +128,16 @@ export function DesignMaterialsListDialog({
               <p className="mt-1 text-[11px] font-medium text-slate-600">{roomLabel} · {styleName?.trim() || "Cabinet style not selected"}</p>
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 pr-7 sm:pr-8">
+              <Button
+                type="button"
+                size="sm"
+                className="gap-1.5 bg-[#a87f33] text-white hover:bg-[#8e6929]"
+                onClick={onAddPricedItemsToCart}
+                disabled={!onAddPricedItemsToCart || pricedCartItemCount <= 0}
+                title="Add only catalog-priced materials and parts to the cart"
+              >
+                <ShoppingCart className="h-4 w-4" /> Add priced items to cart{pricedCartItemCount > 0 ? ` (${pricedCartItemCount})` : ""}
+              </Button>
               <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={printList} disabled={rows.length === 0}>
                 <Printer className="h-4 w-4" /> Print
               </Button>
@@ -161,6 +177,9 @@ export function DesignMaterialsListDialog({
             </span>
             <span className="text-sm font-bold text-[#1a2744]">Priced total: ${materialsListPricedTotal(rows).toFixed(2)}</span>
           </div>
+          {(unavailableCabinetCount > 0 || quoteRequiredCount > 0) && (
+            <p className="mt-1 text-[11px] text-slate-600">Quote-required and unavailable lines remain on this materials list and are not added to the cart.</p>
+          )}
         </div>
       </DialogContent>
     </Dialog>

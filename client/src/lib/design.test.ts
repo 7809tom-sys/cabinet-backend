@@ -2013,6 +2013,7 @@ describe("bearsCountertop", () => {
   });
   it("is true only for a base filler carrying confirmed small-gap installation metadata", () => {
     expect(bearsCountertop({ placement: "base", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(true);
+    expect(bearsCountertop({ placement: "base", masterCode: "F396", description: '3" Tall Filler', subCategory: "Filler", fillerPieceGroupId: "miter-group", fillerTotalWidth: 22, fillerPlacementMode: "left", fillerTransitionKind: "front-miter-pair" })).toBe(false);
     expect(bearsCountertop({ placement: "wall", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" })).toBe(false);
   });
 });

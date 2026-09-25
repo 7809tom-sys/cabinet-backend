@@ -1,11 +1,14 @@
 import {
-  type PlacedCabinet,
-  type RoomData,
-  type WallSide,
-  elevationBox,
-  wallLength,
-  wallPlacementAt,
-  wallRunOffset,
+	  type PlacedCabinet,
+	  type RoomData,
+	  type WallSide,
+	  appendCollisionFreePlacements,
+	  elevationBox,
+	  peninsulaRunById,
+	  peninsulaRunEndpoints,
+	  wallLength,
+	  wallPlacementAt,
+	  wallRunOffset,
   wallRunSpan,
 } from "@/lib/design";
 import { catalogFillerForGap, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -45,8 +48,10 @@ export type AngledWallTransitionMeasurement = {
   depthIn: number;
   ownerFace: EndpointFace;
   neighborFace: EndpointFace;
-  ownerFrontMiterOffsetIn: number;
-  neighborFrontMiterOffsetIn: number;
+	  ownerFrontMiterOffsetIn: number;
+	  neighborFrontMiterOffsetIn: number;
+	  ownerRearMiterOffsetIn: number;
+	  neighborRearMiterOffsetIn: number;
 };
 
 export type AngledWallFillerResolution = {
@@ -59,6 +64,11 @@ export type AngledWallFillerResolution = {
   neighborGapIn: number;
   miterAt: "start" | "end";
   neighborUid: string;
+};
+
+export type AngledWallFillerRepair = {
+  placed: PlacedCabinet[];
+  added: PlacedCabinet[];
 };
 
 function numberValue(value: unknown): number {
@@ -74,6 +84,13 @@ function roundedEighth(value: number): number {
   return Math.round(value * 8) / 8;
 }
 
+type TransitionJoin = {
+  neighborWallId: string;
+  at: "start" | "end";
+  neighborAt: "start" | "end";
+  vertexId: string;
+};
+
 function sharedVertexPosition(
   wall: NonNullable<RoomData["customWalls"]>[number],
   neighbor: NonNullable<RoomData["customWalls"]>[number],
@@ -85,12 +102,60 @@ function sharedVertexPosition(
   return null;
 }
 
+function transitionJoins(wallId: string, room: RoomData): TransitionJoin[] {
+  const wall = room.customWalls?.find((candidate) => candidate.id === wallId);
+  if (wall) {
+    return (room.customWalls ?? []).flatMap((neighbor) => {
+      if (neighbor.id === wall.id || (!isLocked45Wall(wall) && !isLocked45Wall(neighbor))) return [];
+      const shared = sharedVertexPosition(wall, neighbor);
+      return shared ? [{ neighborWallId: neighbor.id, ...shared }] : [];
+    });
+  }
+
+  const run = peninsulaRunById(room, wallId as WallSide);
+  if (!run) return [];
+  const joins: TransitionJoin[] = [];
+  if (run.parentRunId && run.turn === 45) {
+    joins.push({
+      neighborWallId: run.parentRunId,
+      at: "start",
+      neighborAt: "end",
+      vertexId: `peninsula:${run.parentRunId}:${run.id}`,
+    });
+  }
+  for (const child of room.peninsulaRuns ?? []) {
+    if (child.parentRunId !== run.id || child.turn !== 45) continue;
+    joins.push({
+      neighborWallId: child.id,
+      at: "end",
+      neighborAt: "start",
+      vertexId: `peninsula:${run.id}:${child.id}`,
+    });
+  }
+  return joins;
+}
+
 function wallFrame(
-  wall: NonNullable<RoomData["customWalls"]>[number],
-  room: RoomData,
+	  wallId: string,
+	  room: RoomData,
+	  peninsulaSide?: PlacedCabinet["peninsulaSide"],
 ): { start: AngledWallTransitionPoint; tangent: AngledWallTransitionPoint; inward: AngledWallTransitionPoint } | null {
-  const start = room.vertices?.find((vertex) => vertex.id === wall.startVertexId);
-  const end = room.vertices?.find((vertex) => vertex.id === wall.endVertexId);
+	  const peninsula = peninsulaRunById(room, wallId as WallSide);
+	  if (peninsula) {
+	    const geometry = peninsulaRunEndpoints(peninsula, room);
+	    const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
+	    const leftNormal = { x: -tangent.y, y: tangent.x };
+	    const side = peninsulaSide ?? peninsula.cabinetSide ?? "left";
+	    return {
+	      start: geometry.start,
+	      tangent,
+	      inward: side === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y },
+	    };
+	  }
+	  const wall = room.customWalls?.find((candidate) => candidate.id === wallId);
+	  if (!wall) return null;
+	  const start = room.vertices?.find((vertex) => vertex.id === wall.startVertexId);
+	  const end = room.vertices?.find((vertex) => vertex.id === wall.endVertexId);
   if (!start || !end) return null;
   const dx = end.x - start.x;
   const dy = end.y - start.y;
@@ -105,15 +170,15 @@ function wallFrame(
 }
 
 function cabinetSideFaceAtWallEndpoint(
-  cabinet: PlacedCabinet,
-  wall: NonNullable<RoomData["customWalls"]>[number],
-  at: "start" | "end",
-  room: RoomData,
+	  cabinet: PlacedCabinet,
+	  wallId: string,
+	  at: "start" | "end",
+	  room: RoomData,
 ): EndpointFace | null {
-  const frame = wallFrame(wall, room);
-  if (!frame) return null;
-  const offset = wallRunOffset(cabinet, wall.id, room);
-  const span = wallRunSpan(cabinet, wall.id, room);
+	  const frame = wallFrame(wallId, room, cabinet.peninsulaSide);
+	  if (!frame) return null;
+	  const offset = wallRunOffset(cabinet, wallId, room);
+	  const span = wallRunSpan(cabinet, wallId, room);
   const edgeOffset = at === "start" ? offset : offset + span;
   const rear = {
     x: frame.start.x + frame.tangent.x * edgeOffset,
@@ -130,28 +195,31 @@ function cabinetSideFaceAtWallEndpoint(
 }
 
 function frontFillerFootprint(
-  wall: NonNullable<RoomData["customWalls"]>[number],
-  room: RoomData,
-  cabinetFaceOffset: number,
-  miterOffset: number,
-  depth: number,
+	  wallId: string,
+	  room: RoomData,
+	  cabinetFaceOffset: number,
+	  miterOffset: number,
+	  rearMiterOffset: number,
+	  depth: number,
+	  peninsulaSide?: PlacedCabinet["peninsulaSide"],
 ): AngledWallTransitionPoint[] | null {
-  const frame = wallFrame(wall, room);
-  const width = Math.abs(miterOffset - cabinetFaceOffset);
-  if (!frame || width <= 0 || depth <= 0) return null;
-  const start = Math.min(cabinetFaceOffset, miterOffset);
-  const end = Math.max(cabinetFaceOffset, miterOffset);
-  const face = depth;
-  const back = Math.max(0, depth - Math.min(depth, FRONT_FILLER_DEPTH_IN));
-  const cut = Math.min(width, FRONT_FILLER_DEPTH_IN);
-  // The miter belongs at the shared wall vertex. The board remains only 3/4 inch
-  // deep at the cabinet face; the empty rear pocket is not filled or billed.
-  const miterAtEnd = miterOffset >= cabinetFaceOffset;
-  const local = miterAtEnd
-    ? [[start, face], [end - cut, face], [end, back], [start, back]]
-    : [[start + cut, face], [end, face], [end, back], [start, back]];
-  return local.map(([along, inward]) => ({
-    x: frame.start.x + frame.tangent.x * along + frame.inward.x * inward,
+	  const frame = wallFrame(wallId, room, peninsulaSide);
+	  const width = Math.abs(miterOffset - cabinetFaceOffset);
+	  if (!frame || width <= 0 || depth <= 0) return null;
+	  const face = depth;
+	  const back = Math.max(0, depth - Math.min(depth, FRONT_FILLER_DEPTH_IN));
+	  // Both pieces share the full diagonal edge between their front-line
+	  // intersection and the intersection of their 3/4-inch rear face lines.
+	  // Cutting only the last 3/4 inch off the run (the former implementation)
+	  // leaves a visible triangular hole between the two cabinet fronts.
+	  const local = [
+	    [cabinetFaceOffset, face],
+	    [miterOffset, face],
+	    [rearMiterOffset, back],
+	    [cabinetFaceOffset, back],
+	  ];
+	  return local.map(([along, inward]) => ({
+	    x: frame.start.x + frame.tangent.x * along + frame.inward.x * inward,
     y: frame.start.y + frame.tangent.y * along + frame.inward.y * inward,
   }));
 }
@@ -160,11 +228,12 @@ function frontFillerPlacement(
   wallId: string,
   cabinetFaceOffset: number,
   miterOffset: number,
-  depth: number,
-  room: RoomData,
+	  depth: number,
+	  room: RoomData,
+	  peninsulaSide?: PlacedCabinet["peninsulaSide"],
 ) {
-  const start = Math.min(cabinetFaceOffset, miterOffset);
-  return wallPlacementAt(start, Math.abs(miterOffset - cabinetFaceOffset), depth, wallId as WallSide, room);
+	  const start = Math.min(cabinetFaceOffset, miterOffset);
+	  return wallPlacementAt(start, Math.abs(miterOffset - cabinetFaceOffset), depth, wallId as WallSide, room, peninsulaSide);
 }
 
 function lineIntersection(
@@ -184,11 +253,12 @@ function lineIntersection(
 }
 
 function wallOffsetAtPoint(
-  wall: NonNullable<RoomData["customWalls"]>[number],
-  point: AngledWallTransitionPoint,
-  room: RoomData,
+	  wallId: string,
+	  point: AngledWallTransitionPoint,
+	  room: RoomData,
+	  peninsulaSide?: PlacedCabinet["peninsulaSide"],
 ): number | null {
-  const frame = wallFrame(wall, room);
+	  const frame = wallFrame(wallId, room, peninsulaSide);
   if (!frame) return null;
   return (point.x - frame.start.x) * frame.tangent.x + (point.y - frame.start.y) * frame.tangent.y;
 }
@@ -204,59 +274,77 @@ export function measuredAngledWallTransition(
   room: RoomData,
   placed: readonly PlacedCabinet[],
 ): AngledWallTransitionMeasurement | null {
-  if ((cabinet.placement !== "wall" && cabinet.placement !== "base") || !cabinet.wallId || !room.customWalls?.length) return null;
-  const wall = room.customWalls.find((item) => item.id === cabinet.wallId);
-  if (!wall) return null;
+	  if ((cabinet.placement !== "wall" && cabinet.placement !== "base") || !cabinet.wallId) return null;
+	  const joins = transitionJoins(cabinet.wallId, room);
+	  if (joins.length === 0) return null;
 
-  const wallLen = wallLength(cabinet.wallId as WallSide, room);
-  const start = wallRunOffset(cabinet, cabinet.wallId, room);
-  const end = start + wallRunSpan(cabinet, cabinet.wallId, room);
-  const currentElevation = elevationBox(cabinet, room);
+	  const wallLen = wallLength(cabinet.wallId as WallSide, room);
+	  const start = wallRunOffset(cabinet, cabinet.wallId, room);
+	  const end = start + wallRunSpan(cabinet, cabinet.wallId, room);
+	  const currentElevation = elevationBox(cabinet, room);
 
-  for (const neighborWall of room.customWalls) {
-    if (neighborWall.id === wall.id) continue;
-    if (!isLocked45Wall(wall) && !isLocked45Wall(neighborWall)) continue;
-    const shared = sharedVertexPosition(wall, neighborWall);
-    if (!shared) continue;
+	  for (const shared of joins) {
+	    const ownerGap = shared.at === "start" ? start : wallLen - end;
+	    if (ownerGap < -JOIN_EPSILON_IN) continue;
+	    const neighborLen = wallLength(shared.neighborWallId as WallSide, room);
+	    const neighborCandidate = placed
+	      .filter((item) => item.uid !== cabinet.uid
+	        && !item.fillerPieceGroupId
+	        && item.placement === cabinet.placement
+	        && item.wallId === shared.neighborWallId)
+	      .map((item) => {
+	      const itemStart = wallRunOffset(item, shared.neighborWallId, room);
+	      const itemEnd = itemStart + wallRunSpan(item, shared.neighborWallId, room);
+	      const neighborGap = shared.neighborAt === "start" ? itemStart : neighborLen - itemEnd;
+	      const itemElevation = elevationBox(item, room);
+	      const sameElevation = Math.abs(itemElevation.bottom - currentElevation.bottom) <= JOIN_EPSILON_IN
+	        && Math.abs(itemElevation.height - currentElevation.height) <= JOIN_EPSILON_IN;
+	      return { item, neighborGap, sameElevation };
+	    })
+	      .filter(({ neighborGap, sameElevation }) => neighborGap >= -JOIN_EPSILON_IN && sameElevation)
+	      .sort((left, right) => left.neighborGap - right.neighborGap)[0];
+	    if (!neighborCandidate) continue;
+	    const neighbor = neighborCandidate.item;
+	    if (placed.some((item) => item.fillerTransitionKind === "front-miter-pair" && (
+	      (item.fillerForCabinetUid === cabinet.uid && item.fillerTransitionNeighborUid === neighbor.uid)
+	      || (item.fillerForCabinetUid === neighbor.uid && item.fillerTransitionNeighborUid === cabinet.uid)
+	    ))) continue;
 
-    const ownerGap = shared.at === "start" ? start : wallLen - end;
-    if (ownerGap < -JOIN_EPSILON_IN) continue;
-    const neighborLen = wallLength(neighborWall.id as WallSide, room);
-    const neighbor = placed.find((item) => {
-      if (item.uid === cabinet.uid || item.fillerPieceGroupId || item.placement !== cabinet.placement || item.wallId !== neighborWall.id) return false;
-      const itemStart = wallRunOffset(item, neighborWall.id, room);
-      const itemEnd = itemStart + wallRunSpan(item, neighborWall.id, room);
-      const neighborGap = shared.neighborAt === "start" ? itemStart : neighborLen - itemEnd;
-      if (neighborGap < -JOIN_EPSILON_IN) return false;
-      const itemElevation = elevationBox(item, room);
-      return Math.abs(itemElevation.bottom - currentElevation.bottom) <= JOIN_EPSILON_IN
-        && Math.abs(itemElevation.height - currentElevation.height) <= JOIN_EPSILON_IN;
-    });
-    if (!neighbor) continue;
-
-    const neighborStart = wallRunOffset(neighbor, neighborWall.id, room);
-    const neighborEnd = neighborStart + wallRunSpan(neighbor, neighborWall.id, room);
-    const neighborGap = shared.neighborAt === "start" ? neighborStart : neighborLen - neighborEnd;
-    if (ownerGap < 0.125 && neighborGap < 0.125) continue;
-    const ownerFace = cabinetSideFaceAtWallEndpoint(cabinet, wall, shared.at, room);
-    const neighborFace = cabinetSideFaceAtWallEndpoint(neighbor, neighborWall, shared.neighborAt, room);
-    if (!ownerFace || !neighborFace) continue;
-    const ownerFrame = wallFrame(wall, room);
-    const neighborFrame = wallFrame(neighborWall, room);
-    if (!ownerFrame || !neighborFrame) continue;
-    const miterPoint = lineIntersection(ownerFace.front, ownerFrame.tangent, neighborFace.front, neighborFrame.tangent);
-    if (!miterPoint) continue;
-    const ownerFrontMiterOffsetIn = wallOffsetAtPoint(wall, miterPoint, room);
-    const neighborFrontMiterOffsetIn = wallOffsetAtPoint(neighborWall, miterPoint, room);
-    if (ownerFrontMiterOffsetIn == null || neighborFrontMiterOffsetIn == null) continue;
-    const ownerGapIn = roundedEighth(ownerGap);
-    const neighborGapIn = roundedEighth(neighborGap);
-    const ownerFrontCutIn = roundedEighth(distance(ownerFace.front, miterPoint));
-    const neighborFrontCutIn = roundedEighth(distance(neighborFace.front, miterPoint));
-    if (ownerFrontCutIn < 0.5 || neighborFrontCutIn < 0.5) continue;
-    return {
-      wallId: wall.id,
-      neighborWallId: neighborWall.id,
+	    const neighborGap = neighborCandidate.neighborGap;
+	    if (ownerGap < 0.125 && neighborGap < 0.125) continue;
+	    const ownerFace = cabinetSideFaceAtWallEndpoint(cabinet, cabinet.wallId, shared.at, room);
+	    const neighborFace = cabinetSideFaceAtWallEndpoint(neighbor, shared.neighborWallId, shared.neighborAt, room);
+	    if (!ownerFace || !neighborFace) continue;
+	    const ownerFrame = wallFrame(cabinet.wallId, room, cabinet.peninsulaSide);
+	    const neighborFrame = wallFrame(shared.neighborWallId, room, neighbor.peninsulaSide);
+	    if (!ownerFrame || !neighborFrame) continue;
+	    const miterPoint = lineIntersection(ownerFace.front, ownerFrame.tangent, neighborFace.front, neighborFrame.tangent);
+	    if (!miterPoint) continue;
+	    const ownerRearLine = {
+	      x: ownerFace.front.x - ownerFrame.inward.x * FRONT_FILLER_DEPTH_IN,
+	      y: ownerFace.front.y - ownerFrame.inward.y * FRONT_FILLER_DEPTH_IN,
+	    };
+	    const neighborRearLine = {
+	      x: neighborFace.front.x - neighborFrame.inward.x * FRONT_FILLER_DEPTH_IN,
+	      y: neighborFace.front.y - neighborFrame.inward.y * FRONT_FILLER_DEPTH_IN,
+	    };
+	    const rearMiterPoint = lineIntersection(ownerRearLine, ownerFrame.tangent, neighborRearLine, neighborFrame.tangent);
+	    if (!rearMiterPoint) continue;
+	    const ownerFrontMiterOffsetIn = wallOffsetAtPoint(cabinet.wallId, miterPoint, room, cabinet.peninsulaSide);
+	    const neighborFrontMiterOffsetIn = wallOffsetAtPoint(shared.neighborWallId, miterPoint, room, neighbor.peninsulaSide);
+	    const ownerRearMiterOffsetIn = wallOffsetAtPoint(cabinet.wallId, rearMiterPoint, room, cabinet.peninsulaSide);
+	    const neighborRearMiterOffsetIn = wallOffsetAtPoint(shared.neighborWallId, rearMiterPoint, room, neighbor.peninsulaSide);
+	    if (ownerFrontMiterOffsetIn == null || neighborFrontMiterOffsetIn == null || ownerRearMiterOffsetIn == null || neighborRearMiterOffsetIn == null) continue;
+	    const ownerGapIn = roundedEighth(ownerGap);
+	    const neighborGapIn = roundedEighth(neighborGap);
+	    const ownerFrontCutIn = roundedEighth(distance(ownerFace.front, miterPoint));
+	    const neighborFrontCutIn = roundedEighth(distance(neighborFace.front, miterPoint));
+	    const ownerRearCutIn = roundedEighth(distance(ownerRearLine, rearMiterPoint));
+	    const neighborRearCutIn = roundedEighth(distance(neighborRearLine, rearMiterPoint));
+	    if (ownerFrontCutIn < 0.5 || neighborFrontCutIn < 0.5) continue;
+	    return {
+	      wallId: cabinet.wallId,
+	      neighborWallId: shared.neighborWallId,
       sharedVertexId: shared.vertexId,
       at: shared.at,
       neighborAt: shared.neighborAt,
@@ -267,12 +355,14 @@ export function measuredAngledWallTransition(
       frontGapIn: roundedEighth(distance(ownerFace.front, neighborFace.front)),
       ownerFrontCutIn,
       neighborFrontCutIn,
-      requiredStockWidthIn: Math.max(ownerFrontCutIn, neighborFrontCutIn),
+	      requiredStockWidthIn: Math.max(ownerFrontCutIn, neighborFrontCutIn, ownerRearCutIn, neighborRearCutIn),
       depthIn: Math.max(Number(cabinet.depth) || 0, Number(neighbor.depth) || 0),
-      ownerFace,
-      neighborFace,
-      ownerFrontMiterOffsetIn,
-      neighborFrontMiterOffsetIn,
+	      ownerFace,
+	      neighborFace,
+	      ownerFrontMiterOffsetIn,
+	      neighborFrontMiterOffsetIn,
+	      ownerRearMiterOffsetIn,
+	      neighborRearMiterOffsetIn,
     };
   }
   return null;
@@ -320,38 +410,42 @@ export function automaticAngledWallFiller(
   styleId: number | null,
 ): AngledWallFillerResolution | null {
   if (cabinet.placement !== "wall" && cabinet.placement !== "base") return null;
-  const measurement = measuredAngledWallTransition(cabinet, room, placed);
-  if (!measurement) return null;
-  const currentElevation = elevationBox(cabinet, room);
-  const heightCompatibleCandidates = candidates.filter((candidate) => {
-    const height = numberValue(candidate.height);
-    const depth = numberValue(candidate.depth);
-    return Math.abs(height - currentElevation.height) <= JOIN_EPSILON_IN && depth > 0;
-  });
-  const source = catalogFillerForGap(heightCompatibleCandidates, measurement.requiredStockWidthIn, cabinet.placement);
-  if (!source) return null;
+	  const measurement = measuredAngledWallTransition(cabinet, room, placed);
+	  if (!measurement) return null;
+	  const currentElevation = elevationBox(cabinet, room);
+	  const heightCompatibleCandidates = candidates.filter((candidate) => {
+	    const height = numberValue(candidate.height);
+	    if (height + JOIN_EPSILON_IN < currentElevation.height) return false;
+	    const sourceText = `${candidate.masterCode} ${candidate.description ?? ""}`.toLowerCase();
+	    // A base transition may be cut from real base/tall filler stock, but never
+	    // from a source-described wall filler. The inverse protects wall runs.
+	    if (cabinet.placement === "base" && /\bwall\s+filler\b/.test(sourceText)) return false;
+	    if (cabinet.placement === "wall" && /\bbase\s+filler\b/.test(sourceText)) return false;
+	    return true;
+	  });
+	  const source = catalogFillerForGap(heightCompatibleCandidates, measurement.requiredStockWidthIn, cabinet.placement);
+	  if (!source) return null;
 
-  const depth = numberValue(source.depth);
-  const stockWidth = numberValue(source.width);
-  const vertical = installedFillerVerticalSpec(cabinet.placement, numberValue(source.height));
+	  const depth = Math.max(FRONT_FILLER_DEPTH_IN, measurement.depthIn);
+	  const stockWidth = numberValue(source.width);
+	  const vertical = installedFillerVerticalSpec(cabinet.placement, currentElevation.height);
   const groupId = `front-miter-pair-${cabinet.uid}-${measurement.neighborUid}-${measurement.at}`;
   const neighbor = placed.find((item) => item.uid === measurement.neighborUid);
   if (!neighbor) return null;
 
   const makePiece = (
     owner: PlacedCabinet,
-    wallId: string,
-    cabinetFaceOffset: number,
-    miterOffset: number,
-    cutWidth: number,
-    counterpartUid: string,
-    piece: "owner" | "neighbor",
-  ): PlacedCabinet | null => {
-    const wall = room.customWalls?.find((item) => item.id === wallId);
-    if (!wall) return null;
-    const footprint = frontFillerFootprint(wall, room, cabinetFaceOffset, miterOffset, depth);
-    if (!footprint) return null;
-    const spot = frontFillerPlacement(wallId, cabinetFaceOffset, miterOffset, depth, room);
+	    wallId: string,
+	    cabinetFaceOffset: number,
+	    miterOffset: number,
+	    rearMiterOffset: number,
+	    counterpartUid: string,
+	    piece: "owner" | "neighbor",
+	  ): PlacedCabinet | null => {
+	    if (!wallFrame(wallId, room, owner.peninsulaSide)) return null;
+	    const footprint = frontFillerFootprint(wallId, room, cabinetFaceOffset, miterOffset, rearMiterOffset, depth, owner.peninsulaSide);
+	    if (!footprint) return null;
+	    const spot = frontFillerPlacement(wallId, cabinetFaceOffset, miterOffset, depth, room, owner.peninsulaSide);
     // Preserve the real geometry rather than rounding the stored body shorter
     // than its shared miter line. The presented cut is rounded to 1/8 inch by
     // the plan/toast helpers, while stock selection rounds up separately.
@@ -392,7 +486,7 @@ export function automaticAngledWallFiller(
       fillerTransitionKind: "front-miter-pair",
       fillerTransitionPiece: piece,
       fillerTransitionNeighborUid: counterpartUid,
-      fillerTransitionRearWidthIn: exactCutWidth,
+	      fillerTransitionRearWidthIn: Math.abs(rearMiterOffset - cabinetFaceOffset),
       fillerTransitionFrontWidthIn: exactCutWidth,
       fillerTransitionStockWidthIn: stockWidth,
       fillerTransitionPlanFootprint: footprint.map((point) => ({ ...point })),
@@ -406,14 +500,45 @@ export function automaticAngledWallFiller(
   const neighborFaceOffset = measurement.neighborAt === "start"
     ? wallRunOffset(neighbor, measurement.neighborWallId, room)
     : wallRunOffset(neighbor, measurement.neighborWallId, room) + wallRunSpan(neighbor, measurement.neighborWallId, room);
-  const ownerPiece = makePiece(cabinet, measurement.wallId, ownerFaceOffset, measurement.ownerFrontMiterOffsetIn, measurement.ownerFrontCutIn, neighbor.uid, "owner");
-  const neighborPiece = makePiece(neighbor, measurement.neighborWallId, neighborFaceOffset, measurement.neighborFrontMiterOffsetIn, measurement.neighborFrontCutIn, cabinet.uid, "neighbor");
+	  const ownerPiece = makePiece(cabinet, measurement.wallId, ownerFaceOffset, measurement.ownerFrontMiterOffsetIn, measurement.ownerRearMiterOffsetIn, neighbor.uid, "owner");
+	  const neighborPiece = makePiece(neighbor, measurement.neighborWallId, neighborFaceOffset, measurement.neighborFrontMiterOffsetIn, measurement.neighborRearMiterOffsetIn, cabinet.uid, "neighbor");
   if (!ownerPiece || !neighborPiece) return null;
-  return {
-    fillers: [ownerPiece, neighborPiece],
-    ownerGapIn: measurement.ownerFrontCutIn,
-    neighborGapIn: measurement.neighborFrontCutIn,
-    miterAt: measurement.at,
-    neighborUid: measurement.neighborUid,
-  };
+	  return {
+	    fillers: [ownerPiece, neighborPiece],
+	    ownerGapIn: measurement.ownerFrontCutIn,
+	    neighborGapIn: measurement.neighborFrontCutIn,
+	    miterAt: measurement.at,
+	    neighborUid: measurement.neighborUid,
+	  };
+}
+
+/**
+ * Restores any missing source-priced front-miter pair after an older saved plan
+ * or local draft loads. This is intentionally additive: existing cabinet
+ * positions, manual fillers, countertops, and historical wedge records remain
+ * untouched. A pair is committed only when both real catalog pieces carry a
+ * positive authorized price and both exact footprints pass collision checks.
+ */
+export function repairMissingAngledWallFillers(
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+  candidates: readonly CatalogFillerCandidate[],
+  makeUid: () => string,
+  styleId: number | null,
+  unitPriceFor: (filler: PlacedCabinet) => number | null,
+): AngledWallFillerRepair {
+  let next = [...placed];
+  const added: PlacedCabinet[] = [];
+  for (const cabinet of placed) {
+    if (cabinet.fillerPieceGroupId || (cabinet.placement !== "base" && cabinet.placement !== "wall")) continue;
+    const resolution = automaticAngledWallFiller(cabinet, room, next, candidates, makeUid, styleId);
+    if (!resolution) continue;
+    const prices = resolution.fillers.map((filler) => unitPriceFor(filler));
+    if (prices.some((price) => price == null || !Number.isFinite(price) || price <= 0)) continue;
+    const appended = appendCollisionFreePlacements(next, resolution.fillers, room);
+    if (!resolution.fillers.every((filler) => appended.placed.some((item) => item.uid === filler.uid))) continue;
+    next = appended.placed;
+    added.push(...resolution.fillers);
+  }
+  return { placed: added.length > 0 ? next : [...placed], added };
 }

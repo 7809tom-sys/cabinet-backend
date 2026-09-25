@@ -12,6 +12,10 @@ describe("complete Design materials and parts dialog", () => {
     expect(dialogSource).toContain("Other materials & parts — alphabetical");
     expect(dialogSource).toContain("> Print");
     expect(dialogSource).toContain("Export CSV");
+    expect(dialogSource).toContain("Add priced items to cart");
+    expect(dialogSource).toContain("onAddPricedItemsToCart");
+    expect(dialogSource).toContain("pricedCartItemCount");
+    expect(dialogSource).toContain("Quote-required and unavailable lines remain on this materials list and are not added to the cart.");
     expect(dialogSource).toContain("onClick={printList}");
     expect(dialogSource).toContain("onClick={downloadCsv}");
     expect(dialogSource).toContain("flex shrink-0 flex-wrap gap-2");
@@ -27,5 +31,7 @@ describe("complete Design materials and parts dialog", () => {
     expect(designToolSource).toContain('title="View, print, or export complete materials & parts list"');
     expect(designToolSource).toContain("buildMaterialsListRows({");
     expect(designToolSource).toContain("<DesignMaterialsListDialog");
+    expect(designToolSource).toContain("onAddPricedItemsToCart={() => void addAllToCart()}");
+    expect(designToolSource).toContain("pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}");
   });
 });

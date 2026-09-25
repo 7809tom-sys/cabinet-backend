@@ -26,7 +26,7 @@ describe("Design Tool automatic angled front-miter workflow", () => {
     expect(workflow).toContain("both cabinets remain independently supported");
   });
 
-  it("blocks the cabinet transaction when either real front filler stock or either positive authorized price is missing", () => {
+	  it("blocks the cabinet transaction when either real front filler stock or either positive authorized price is missing", () => {
     const workflowStart = source.indexOf("const requiredTransition = measuredAngledWallTransition");
     const workflow = source.slice(workflowStart, workflowStart + 3000);
     expect(workflow).toContain("requiredTransition && !angledFiller");
@@ -36,6 +36,15 @@ describe("Design Tool automatic angled front-miter workflow", () => {
     expect(workflow).toContain("each selected-line 45° filler piece requires a positive authorized price");
     expect(workflow).toContain("return;");
     expect(workflow).not.toContain("makeFiller(");
-    expect(workflow).not.toContain('masterCode: "FILL');
-  });
+	    expect(workflow).not.toContain('masterCode: "FILL');
+	  });
+
+	  it("preloads selected-line filler prices and repairs an older saved peninsula after catalog hydration", () => {
+	    expect(source).toContain("catalogFillers.filter(isCatalogFiller).forEach");
+	    expect(source).toContain("repairMissingAngledWallFillers(");
+	    expect(source).toContain("if (!styleId || !priceRows || catalogFillers.length === 0) return;");
+	    expect(source).toContain("placedRef.current = repaired.placed;");
+	    expect(source).toContain("setFillerInsertionTransition({ uids: repaired.added.map");
+	    expect(source).toContain("The open 45° cabinet front was closed with two source-priced fillers joined on one continuous miter.");
+	  });
 });

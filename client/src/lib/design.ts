@@ -9521,20 +9521,25 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
 // the installed width even though the filler itself is not a cabinet box.
 // Tall cabinets and appliances are already excluded by the placement check.
 export function bearsCountertop(p: {
-  placement: Placement;
-  masterCode?: string | null;
-  description?: string | null;
-  subCategory?: string | null;
-  fillerPieceGroupId?: string | null;
-  fillerTotalWidth?: number | null;
-  fillerPlacementMode?: "left" | "right" | "split" | null;
+	  placement: Placement;
+	  masterCode?: string | null;
+	  description?: string | null;
+	  subCategory?: string | null;
+	  fillerPieceGroupId?: string | null;
+	  fillerTotalWidth?: number | null;
+	  fillerPlacementMode?: "left" | "right" | "split" | null;
+	  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
 }): boolean {
-  if (p.placement !== "base") return false;
+	  if (p.placement !== "base") return false;
   // Some legacy plans stored a freestanding stove in the base layer. A stove
   // remains an appliance opening regardless of that stale layer value, so it
-  // must never receive a countertop slab.
-  if (isRangeOrOven(p.masterCode, p.description)) return false;
-  const installedFillerWidth = Number(p.fillerTotalWidth);
+	  // must never receive a countertop slab.
+	  if (isRangeOrOven(p.masterCode, p.description)) return false;
+	  // A 45-degree front-miter pair is finish material between two independently
+	  // supported cabinets. It closes the visible face only; it is never allowed
+	  // to create or enlarge a countertop support footprint over the rear pocket.
+	  if (p.fillerTransitionKind === "front-miter-pair") return false;
+	  const installedFillerWidth = Number(p.fillerTotalWidth);
   const isInstalledBaseFiller = Boolean(
     p.fillerPieceGroupId &&
     p.fillerPlacementMode &&

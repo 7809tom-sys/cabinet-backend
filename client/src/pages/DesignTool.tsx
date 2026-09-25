@@ -142,7 +142,7 @@ import { buildTrimCartLines,
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
-import { automaticAngledWallFiller, measuredAngledWallTransition } from "@/lib/angledWallFiller";
+import { automaticAngledWallFiller, measuredAngledWallTransition, repairMissingAngledWallFillers } from "@/lib/angledWallFiller";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
 import { rangeCompanionProposal, type RangeCompanionProposal } from "@/lib/rangeCompanion";
@@ -2530,18 +2530,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       seen.add(key);
       pairs.push({ cabinetId, styleId: sid, masterCode });
     };
-    placed.forEach((p) => {
-      push(pricingIdForPlacedCabinet(p), pricingStyleIdFor(p) ?? styleId, p.masterCode);
+	    placed.forEach((p) => {
+	      push(pricingIdForPlacedCabinet(p), pricingStyleIdFor(p) ?? styleId, p.masterCode);
       // Fetch the exact same-style glass product. Some lines use a separately
       // priced replacement door; others use a complete GD cabinet variant.
       if (p.glassDoor) {
         const gdCode = glassDoorAddonCodeFor(p) ?? `${p.masterCode}GD`;
         const gdCab = glassDoorCatalogProduct(gdCode);
-        if (gdCab) push(gdCab.id, pricingStyleIdFor(p) ?? styleId, gdCab.masterCode);
-      }
-    });
-    return pairs;
-  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]);
+	        if (gdCab) push(gdCab.id, pricingStyleIdFor(p) ?? styleId, gdCab.masterCode);
+	      }
+	    });
+	    // Required 45-degree transition pieces must have their authorized selected-
+	    // line prices ready before placement or saved-plan repair. Without these
+	    // prospective rows, a physically required filler could never pass the
+	    // positive-price gate until it had somehow already been added.
+	    catalogFillers.filter(isCatalogFiller).forEach((filler) => push(filler.id, styleId, filler.masterCode));
+	    return pairs;
+	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -2597,7 +2602,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // carry id=0 (skipped by the cabinet pricing engine) so they price from the
   // placeholder catalog; everything else prices from the DB price map keyed by
   // (cabinetId, effective styleId).
-  const unitPriceFor = useCallback(
+	  const unitPriceFor = useCallback(
     (p: PlacedCabinet): number | null => {
       if (isClosetPart(p.masterCode)) return closetPartPrice(p.masterCode);
       if (!styleId) return null;
@@ -2616,8 +2621,31 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const v = priceMap.get(`${pricingIdForPlacedCabinet(p)}:${sid}`);
       return v ?? null;
     },
-    [priceMap, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
-  );
+	    [priceMap, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
+	  );
+
+	  // Older peninsula designs could preserve the 11-inch collision clearance at
+	  // a 45-degree return without creating the two finished face boards. Once the
+	  // selected-line filler catalog and its verified prices are available, add the
+	  // exact two-piece miter pair so Plan, 3D, BOM, cart, and saved drafts cannot
+	  // show an open front void. Cabinet positions and the rear service pocket stay
+	  // unchanged.
+	  useEffect(() => {
+	    if (!styleId || !priceRows || catalogFillers.length === 0) return;
+	    const repaired = repairMissingAngledWallFillers(
+	      placedRef.current,
+	      room,
+	      catalogFillers,
+	      makeUid,
+	      styleId,
+	      unitPriceFor,
+	    );
+	    if (repaired.added.length === 0) return;
+	    placedRef.current = repaired.placed;
+	    setPlaced(() => repaired.placed);
+	    setFillerInsertionTransition({ uids: repaired.added.map((filler) => filler.uid), key: Date.now() });
+	    toast.success("The open 45° cabinet front was closed with two source-priced fillers joined on one continuous miter.");
+	  }, [catalogFillers, priceRows, room, styleId, unitPriceFor]);
 
   const glassDoorAddonFor = useCallback((p: PlacedCabinet, resolvedStyleId: number) => {
     const linkedGlassDoorCode = glassDoorAddonCodeFor(p);
@@ -16626,6 +16654,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        roomLabel={`${room.width}" × ${room.depth}"`}
 	        styleName={activeStyleName}
 	        brandName={affiliateBrand?.storeName}
+	        onAddPricedItemsToCart={() => void addAllToCart()}
+	        pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}
 	        onRemovePlacedItems={(uids) => {
 	          const sources = new Set(uids);
 	          if (sources.size === 0) return;
