@@ -1855,6 +1855,18 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([sb], ROOM_12x10)).toHaveLength(1);
   });
 
+  it.each([
+    ["3DB24", "24 inch Three Drawer Base", 24, 24],
+    ["ERB36", "36 inch Easy Reach Corner Base", 36, 36],
+    ["LSB36", "36 inch Lazy Susan Corner Base", 36, 36],
+    ["BEC24", "24 inch Base End Angle", 24, 24],
+    ["BBC36", "36 inch Blind Corner Base", 36, 24],
+  ])("covers the %s base family without requiring a separate countertop action", (masterCode, description, width, depth) => {
+    const cabinet = cab({ uid: `counter-${masterCode}`, masterCode, description, placement: "base", width, depth, x: 0, y: 0 });
+    expect(bearsCountertop(cabinet)).toBe(true);
+    expect(countertopSurfaces([cabinet], ROOM_12x10)).toMatchObject([{ kind: "base" }]);
+  });
+
   it("does NOT cover a base-zone decorative end panel or refrigerator panel", () => {
     const endPanel = cab({ uid: "ep", masterCode: "BDEP", description: "Base Decorative End Panel", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
     const fridgePanel = cab({ uid: "rp", masterCode: "DWR-3", description: "Refrigerator End Panel", placement: "base", width: 3, depth: 24, x: 30, y: 0 });
