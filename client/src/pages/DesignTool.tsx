@@ -3585,7 +3585,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    () => !!island || placed.some((p) => bearsCountertop(p)),
 	    [placed, island]
 	  );
-  // If the layout loses all base/island surface while the countertop is on,
+	  const countertopSupportCount = useMemo(
+	    () => placed.filter((p) => bearsCountertop(p)).length,
+	    [placed],
+	  );
+	  // A saved draft can be restored with countertop=false from before the
+	  // automatic-base rule existed. Turn it on once when its first real support
+	  // arrives (including a restored corner base), but never re-enable it after
+	  // the user deliberately turns an already-supported layout off.
+	  const previousCountertopSupportCountRef = useRef(countertopSupportCount);
+	  useEffect(() => {
+	    if (previousCountertopSupportCountRef.current === 0 && countertopSupportCount > 0) {
+	      setCountertop(true);
+	    }
+	    previousCountertopSupportCountRef.current = countertopSupportCount;
+	  }, [countertopSupportCount]);
+	  // If the layout loses all base/island surface while the countertop is on,
   // turn it off automatically so we never quote a top over nothing.
   useEffect(() => {
     if (countertop && !hasBaseRun) setCountertop(false);

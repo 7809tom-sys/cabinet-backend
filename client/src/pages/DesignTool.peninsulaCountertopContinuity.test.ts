@@ -9,6 +9,8 @@ describe("connected peninsula countertop continuity", () => {
 	  expect(source).toContain('isApplianceCode, bearsCountertop, bearsIslandCountertop');
 	  expect(source).toContain('if (!requestedIslandFace && bearsCountertop(finalCab)) setCountertop(true);');
 	  expect(source).toContain('() => !!island || placed.some((p) => bearsCountertop(p))');
+	  expect(source).toContain('const countertopSupportCount = useMemo(');
+	  expect(source).toContain('if (previousCountertopSupportCountRef.current === 0 && countertopSupportCount > 0)');
 	});
 
 	it("inherits the parent overhang for a new return and applies later overhang edits to the entire connected chain", () => {
