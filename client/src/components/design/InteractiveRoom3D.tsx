@@ -5228,6 +5228,59 @@ export function addThreeDPeninsulaCountertops(
   }
 }
 
+/**
+ * Draws only the physical stone bridge at a continuous-wall join containing a
+ * locked 45-degree segment. Base cabinets retain their catalog rectangular tops;
+ * this measured polygon closes their real outer-edge miter without filling a
+ * range opening or inventing a slab at an unsupported square corner.
+ */
+export function addThreeDMeasuredWallMiterCountertops(
+  root: THREE.Group,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  counterColor: string,
+  countertopTexture?: THREE.Texture | null,
+) {
+  const surfaces = countertopSurfaces(placed, room).filter((surface) => Boolean(surface.customWallMiterWallIds?.length));
+  for (const surface of surfaces) {
+    const centerX = surface.x + surface.width / 2;
+    const centerZ = surface.y + surface.depth / 2;
+    const mappedTexture = countertopTexture ? threeDTextureForCountertopMesh(countertopTexture, {
+      centerXIn: centerX,
+      centerZIn: centerZ,
+      localWidthIn: surface.width,
+      localDepthIn: surface.depth,
+      rotation: 0,
+      slabWidthIn: Number(countertopTexture.userData?.physicalWidthIn) || 138,
+      slabDepthIn: Number(countertopTexture.userData?.physicalDepthIn) || 79,
+    }) : null;
+    const material = new THREE.MeshPhysicalMaterial({
+      color: mappedTexture ? "#ffffff" : counterColor,
+      map: mappedTexture,
+      ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)),
+    });
+    material.userData = {
+      selectedSurfaceRole: "countertop",
+      usesAuthoritativeProductImage: Boolean(mappedTexture),
+      worldSlabMapped: Boolean(mappedTexture?.userData?.worldSlabMapped),
+      materialOnlyNoGeometryChange: true,
+    };
+    const bridge = new THREE.Mesh(
+      threeDPeninsulaCountertopGeometry(surface, surface.width, surface.depth),
+      material,
+    );
+    bridge.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    bridge.userData = {
+      measuredWallMiterCountertop: true,
+      customWallMiterWallIds: surface.customWallMiterWallIds,
+      customWallMiterVertexId: surface.customWallMiterVertexId,
+      miterAngleDegrees: 45,
+      physicalMiterBridge: true,
+    };
+    root.add(bridge);
+  }
+}
+
 type CrownPoint = { x: number; z: number };
 type CrownEdgeKind = "front" | "left-return" | "right-return" | "diagonal-front";
 
@@ -7862,8 +7915,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 	        });
 	      }
-	      if (roomOverride) addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
+      if (roomOverride) {
+        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+      }
+      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;

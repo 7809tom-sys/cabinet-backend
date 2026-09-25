@@ -2179,6 +2179,46 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     });
   });
 
+  it("matches an upper cabinet to the true measured span of a 45-degree wall base", () => {
+    const diagonalRoom: RoomData = {
+      width: 180,
+      depth: 180,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "v1", x: 0, y: 0 },
+        { id: "v2", x: 84, y: 84 },
+        { id: "v3", x: 84, y: 180 },
+        { id: "v4", x: 0, y: 180 },
+      ],
+      customWalls: [
+        { id: "diagonal", startVertexId: "v1", endVertexId: "v2", lockedAngle: 45 },
+        { id: "straight", startVertexId: "v2", endVertexId: "v3" },
+        { id: "return", startVertexId: "v3", endVertexId: "v4" },
+        { id: "close", startVertexId: "v4", endVertexId: "v1" },
+      ],
+    };
+    const lowerSpot = wallPlacementAt(24, 36, 24, "diagonal", diagonalRoom);
+    const lower = cab({
+      uid: "diagonal-b36",
+      masterCode: "B-36",
+      placement: "base",
+      ...lowerSpot,
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      rotation: lowerSpot.rotation,
+      wallId: "diagonal",
+      wallOffset: lowerSpot.wallOffset,
+    });
+
+    const expected = wallPlacementAt(24, 36, 12, "diagonal", diagonalRoom);
+    expect(selectedLowerCabinetWallPlacement(lower, diagonalRoom, 36, 12, 42, [lower], [])).toEqual(expected);
+    expect(matchingLowerCabinetWallPlacement("diagonal", diagonalRoom, 36, 12, 42, [lower], [])).toEqual({
+      targetUid: lower.uid,
+      spot: expected,
+    });
+  });
+
   it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {
     const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
     const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });

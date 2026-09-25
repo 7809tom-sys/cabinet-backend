@@ -3513,13 +3513,22 @@ export function selectedLowerCabinetWallPlacement(
   if (selected.placement === "appliance" && (isRefrigerator(selected) || isRangeOrOven(selected.masterCode, selected.description) || elevationBox(selected, room).bottom > COLLISION_EPSILON_IN)) return null;
   if (placedCornerGeometryKind(selected) !== "standard") return null;
   const side = cabinetWall(selected, room);
+  const measuredRun = isCustomRoomWall(room, side) || peninsulaRunById(room, side);
   const horizontal = side === "top" || side === "bottom";
   const lowerFootprint = placedFootprint(selected);
-  const lowerStart = horizontal ? selected.x : selected.y;
-  const lowerSpan = horizontal ? lowerFootprint.w : lowerFootprint.d;
+  // A continuous-wall cabinet stores its true run offset and catalog width.
+  // Its rotated screen envelope is intentionally larger at 45°, so using the
+  // axis-aligned `x/y` footprint here shifts an upper away from the lower it is
+  // meant to match. Keep the wall's measured axis authoritative instead.
+  const lowerStart = measuredRun
+    ? wallRunOffset(selected, side, room)
+    : horizontal ? selected.x : selected.y;
+  const lowerSpan = measuredRun
+    ? wallRunSpan(selected, side, room)
+    : horizontal ? lowerFootprint.w : lowerFootprint.d;
   if (width > lowerSpan + COLLISION_EPSILON_IN) return null;
-  const wallLength = horizontal ? room.width : room.depth;
-  const centeredStart = Math.max(0, Math.min(lowerStart + lowerSpan / 2 - width / 2, Math.max(0, wallLength - width)));
+  const runLength = measuredRun ? wallLength(side, room) : horizontal ? room.width : room.depth;
+  const centeredStart = Math.max(0, Math.min(lowerStart + lowerSpan / 2 - width / 2, Math.max(0, runLength - width)));
   const centeredSpot = wallPlacementAt(centeredStart, width, depth, side, room);
   const candidate: PlacedCabinet = {
     ...selected,
@@ -3623,16 +3632,21 @@ export function matchingLowerCabinetWallPlacement(
   openings: WallOpening[] = [],
 ): { targetUid: string; spot: { x: number; y: number; rotation: number } } | null {
   const horizontal = side === "top" || side === "bottom";
+  const measuredRun = isCustomRoomWall(room, side) || peninsulaRunById(room, side);
   const candidates = placed
     .filter((cabinet) => (cabinet.placement === "base" || cabinet.placement === "appliance") && cabinetWall(cabinet, room) === side)
     .filter((cabinet) => {
       if (cabinet.placement === "appliance" && (isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode, cabinet.description) || elevationBox(cabinet, room).bottom > COLLISION_EPSILON_IN)) return false;
       if (placedCornerGeometryKind(cabinet) !== "standard") return false;
       const footprint = placedFootprint(cabinet);
-      const span = horizontal ? footprint.w : footprint.d;
+      const span = measuredRun
+        ? wallRunSpan(cabinet, side, room)
+        : horizontal ? footprint.w : footprint.d;
       return Math.abs(span - width) <= 0.5;
     })
-    .sort((left, right) => (horizontal ? left.x - right.x : left.y - right.y));
+    .sort((left, right) => measuredRun
+      ? wallRunOffset(left, side, room) - wallRunOffset(right, side, room)
+      : horizontal ? left.x - right.x : left.y - right.y);
   for (const candidate of candidates) {
     const spot = selectedLowerCabinetWallPlacement(candidate, room, width, depth, height, placed, openings);
     if (spot) return { targetUid: candidate.uid, spot };
@@ -8372,6 +8386,10 @@ export interface CountertopSurface {
   ponyWallBarOverhangIn?: number;
   /** Drywall thickness plus bar projection carried behind the cabinet backs. */
   ponyWallBackExtensionIn?: number;
+  /** Exact continuous-wall IDs joined by a physical countertop miter bridge. */
+  customWallMiterWallIds?: [string, string];
+  /** The shared measured wall vertex that owns this 45-degree miter bridge. */
+  customWallMiterVertexId?: string;
 }
 
 export interface CountertopPlanPoint {
@@ -9431,6 +9449,103 @@ export function blindCornerRearCountertopExtensionIn(
   return Math.round(Math.min(Math.max(0, rawGap), pullMax) * 8) / 8;
 }
 
+type SharedCustomWallVertex = {
+  vertexId: string;
+  firstAt: "start" | "end";
+  secondAt: "start" | "end";
+};
+
+function sharedCustomWallVertex(
+  first: NonNullable<RoomData["customWalls"]>[number],
+  second: NonNullable<RoomData["customWalls"]>[number],
+): SharedCustomWallVertex | null {
+  if (first.startVertexId === second.startVertexId) return { vertexId: first.startVertexId, firstAt: "start", secondAt: "start" };
+  if (first.startVertexId === second.endVertexId) return { vertexId: first.startVertexId, firstAt: "start", secondAt: "end" };
+  if (first.endVertexId === second.startVertexId) return { vertexId: first.endVertexId, firstAt: "end", secondAt: "start" };
+  if (first.endVertexId === second.endVertexId) return { vertexId: first.endVertexId, firstAt: "end", secondAt: "end" };
+  return null;
+}
+
+function measuredWallCountertopEndpointCabinet(
+  wallId: string,
+  at: "start" | "end",
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+): PlacedCabinet | null {
+  const length = wallLength(wallId as WallSide, room);
+  return placed
+    .filter((cabinet) => cabinet.placement === "base" && cabinet.wallId === wallId && bearsCountertop(cabinet))
+    .map((cabinet) => {
+      const start = wallRunOffset(cabinet, wallId, room);
+      const end = start + wallRunSpan(cabinet, wallId, room);
+      const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
+      return { cabinet, distance };
+    })
+    .filter(({ distance }) => distance <= COLLISION_EPSILON_IN)
+    .sort((left, right) => left.distance - right.distance)[0]?.cabinet ?? null;
+}
+
+/**
+ * Returns the small physical countertop triangle that closes a cabinet-supported
+ * continuous-wall turn containing an explicit 45-degree segment. The ordinary
+ * cabinet slabs retain their own catalog runs; this bridge fills only the real
+ * outer-edge opening between two bases that already meet the same measured
+ * vertex. It never turns a 90-degree join or a free gap into invented stone.
+ */
+export function measuredWallCountertopMiterSurfaces(
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): CountertopSurface[] {
+  if (!room.vertices?.length || !room.customWalls?.length) return [];
+  const result: CountertopSurface[] = [];
+  for (let firstIndex = 0; firstIndex < room.customWalls.length; firstIndex += 1) {
+    const first = room.customWalls[firstIndex]!;
+    for (let secondIndex = firstIndex + 1; secondIndex < room.customWalls.length; secondIndex += 1) {
+      const second = room.customWalls[secondIndex]!;
+      if (!isLocked45Wall(first) && !isLocked45Wall(second)) continue;
+      const shared = sharedCustomWallVertex(first, second);
+      if (!shared) continue;
+      const vertex = room.vertices.find((candidate) => candidate.id === shared.vertexId);
+      if (!vertex) continue;
+      const firstCabinet = measuredWallCountertopEndpointCabinet(first.id, shared.firstAt, room, placed);
+      const secondCabinet = measuredWallCountertopEndpointCabinet(second.id, shared.secondAt, room, placed);
+      if (!firstCabinet || !secondCabinet) continue;
+      const firstBox = elevationBox(firstCabinet, room);
+      const secondBox = elevationBox(secondCabinet, room);
+      if (Math.abs(firstBox.bottom - secondBox.bottom) > COLLISION_EPSILON_IN || Math.abs(firstBox.height - secondBox.height) > COLLISION_EPSILON_IN) continue;
+
+      const firstRadians = polygonWallAngle(first, room.vertices);
+      const secondRadians = polygonWallAngle(second, room.vertices);
+      const firstDepth = COUNTERTOP_DEPTH_IN + blindCornerRearCountertopExtensionIn(firstCabinet, room);
+      const secondDepth = COUNTERTOP_DEPTH_IN + blindCornerRearCountertopExtensionIn(secondCabinet, room);
+      const firstOuter = { x: vertex.x - Math.sin(firstRadians) * firstDepth, y: vertex.y + Math.cos(firstRadians) * firstDepth };
+      const secondOuter = { x: vertex.x - Math.sin(secondRadians) * secondDepth, y: vertex.y + Math.cos(secondRadians) * secondDepth };
+      const worldPolygon = [{ x: vertex.x, y: vertex.y }, firstOuter, secondOuter];
+      const area = countertopPolygonArea(worldPolygon);
+      if (area <= COLLISION_EPSILON_IN) continue;
+      const minX = Math.min(...worldPolygon.map((point) => point.x));
+      const maxX = Math.max(...worldPolygon.map((point) => point.x));
+      const minY = Math.min(...worldPolygon.map((point) => point.y));
+      const maxY = Math.max(...worldPolygon.map((point) => point.y));
+      result.push({
+        x: minX,
+        y: minY,
+        width: Math.max(0.1, maxX - minX),
+        depth: Math.max(0.1, maxY - minY),
+        kind: "base",
+        polygon: worldPolygon.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+        miteredStart: true,
+        miteredEnd: true,
+        linearInches: Math.hypot(firstOuter.x - secondOuter.x, firstOuter.y - secondOuter.y),
+        areaInches: area,
+        customWallMiterWallIds: [first.id, second.id],
+        customWallMiterVertexId: shared.vertexId,
+      });
+    }
+  }
+  return result;
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -9450,6 +9565,31 @@ export function countertopSurfaces(
     // cabinet-supported slab. That avoids seams and maintains coverage over an
     // intentional void between two cabinets.
     if (peninsula) continue;
+    const customWall = room.customWalls?.find((wall) => wall.id === side);
+    if (customWall) {
+      const runSpan = wallRunSpan(p, side, room);
+      if (runSpan > COLLISION_EPSILON_IN) {
+        const rearExtension = blindCornerRearCountertopExtensionIn(p, room);
+        const spot = wallPlacementAt(
+          wallRunOffset(p, side, room),
+          runSpan,
+          D + rearExtension,
+          side,
+          room,
+        );
+        out.push({
+          x: spot.x,
+          y: spot.y,
+          width: runSpan,
+          depth: D + rearExtension,
+          kind: "base",
+          rotation: spot.rotation,
+          linearInches: runSpan,
+          areaInches: runSpan * (D + rearExtension),
+        });
+      }
+      continue;
+    }
     const horizontalWall = side === "top" || side === "bottom";
     const runSpan = horizontalWall ? footprint.w : footprint.d;
     const rearExtension = blindCornerRearCountertopExtensionIn(p, room);
@@ -9488,6 +9628,7 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
+  out.push(...measuredWallCountertopMiterSurfaces(placed, room));
   // Every cabinet-supported peninsula receives continuous countertop across
   // ordinary cabinet voids, but a freestanding range/stove/cooktop remains a
   // true opening. Split only at those appliance footprints so Plan, 3D, price,
