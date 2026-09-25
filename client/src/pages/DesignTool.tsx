@@ -6969,8 +6969,9 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     setLayoutStarterOpen(false);
     setMobilePanel(null);
     setSelectedLayoutPresetId(null);
-    toast.success("Room layout saved successfully", {
-      description: `${outline.customWalls.length} connected walls are ready. Select any wall and begin placing cabinets.`,
+    toast.success("Walls applied to design", {
+      description: `${outline.customWalls.length} connected wall${outline.customWalls.length === 1 ? " is" : "s are"} now on your floor plan. Select any wall and begin placing cabinets.`,
+      duration: 6000,
     });
   }, [applyRoom, continuousWallBlockedReason, room, setPlacementTarget]);
 

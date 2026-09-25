@@ -22,4 +22,15 @@ describe("Continuous Wall Builder refresh restoration", () => {
     expect(persistence).toContain("localStorage.setItem(draftKey, JSON.stringify(snap))");
     expect(persistence).toContain("hasDesignedRoomGeometry(d.room as RoomData)");
   });
+
+  it("confirms the exact number of successfully applied continuous walls in a visible success toast", () => {
+    const applyStart = source.indexOf("const applyContinuousWallRoom = useCallback");
+    const applyEnd = source.indexOf("const physicalWallSpans = useMemo", applyStart);
+    expect(applyStart).toBeGreaterThan(-1);
+    expect(applyEnd).toBeGreaterThan(applyStart);
+    const applyCallback = source.slice(applyStart, applyEnd);
+    expect(applyCallback).toContain('toast.success("Walls applied to design"');
+    expect(applyCallback).toContain("connected wall${outline.customWalls.length === 1 ? \" is\" : \"s are\"}");
+    expect(applyCallback).toContain("duration: 6000");
+  });
 });
