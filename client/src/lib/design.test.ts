@@ -2511,16 +2511,18 @@ describe("wall cabinet elevation rules", () => {
     expect(box.bottom + box.height).toBe(34.5);
   });
 
-	  it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
-	    expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
-	    for (const height of [12, 15, 18, 21, 24]) {
-	      expect(isStacker({ masterCode: `W30${height}GD`, description: `30x${height} Glass Door Wall Cabinet`, height })).toBe(true);
-	    }
-	    expect(isStacker({ masterCode: "2412WDCGD", description: "24x12 WDC Glass Door Wall Cabinet", height: 12 })).toBe(true);
-	    expect(isDiagonalCorner("SW-DCW2412-GD", "24x12 Diagonal Corner Wall Glass Door Cabinet")).toBe(true);
-	    expect(isStacker({ masterCode: "WDC42PG", description: "24 inch Glass Door Wall Cabinet", height: 42 })).toBe(false);
-	    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
-	  });
+		  it("isStacker detects stacker cabinets and ignores plain wall cabinets", () => {
+		    expect(isStacker({ description: "30x12 Stacker Wall Cabinet with Glass Door" })).toBe(true);
+		    expect(isStacker({ masterCode: "GS-3012", height: 12 })).toBe(true);
+		    for (const height of [12, 15, 18, 21, 24]) {
+		      expect(isStacker({ masterCode: `W30${height}GD`, description: `30x${height} Glass Door Wall Cabinet`, height })).toBe(true);
+		    }
+		    expect(isStacker({ masterCode: "2412WDCGD", description: "24x12 WDC Glass Door Wall Cabinet", height: 12 })).toBe(true);
+		    expect(isDiagonalCorner("SW-DCW2412-GD", "24x12 Diagonal Corner Wall Glass Door Cabinet")).toBe(true);
+		    expect(isStacker({ masterCode: "WDC42PG", description: "24 inch Glass Door Wall Cabinet", height: 42 })).toBe(false);
+		    expect(isStacker({ masterCode: "W-3024", description: "30 by 24 Double Door Wall Cabinet", subCategory: "Bridge / Stacker", height: 24 })).toBe(false);
+		    expect(isStacker({ description: "30\" x 12\" Bridge Wall Cabinet" })).toBe(false);
+		  });
 
 	  it("stacks 2412WDCGD on its selected 2430WDC parent without changing the 24-inch width", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };

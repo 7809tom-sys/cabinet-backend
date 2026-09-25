@@ -3977,14 +3977,18 @@ export function isStacker(p: { description?: string | null; masterCode?: string 
   const hay = `${p.subCategory ?? ""} ${p.description ?? ""} ${p.masterCode ?? ""}`.toLowerCase();
   const height = glassStackerHeight(p);
   const supportedHeight = height == null || GLASS_STACKER_HEIGHTS.has(height);
-  // Text signals: "stacker", "glass stacker", "stacking"/"stacked".
-  if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return supportedHeight;
-  // Code signals: GS-* / GDS-* stacker families used across lines (e.g. GS-3012,
-  // GDS-3015). Require a following size digit so we never match unrelated codes.
   const code = (p.masterCode ?? "").toUpperCase();
-  if (/^GD?S[-_ ]?\d/.test(code)) return supportedHeight;
   const normalized = code.replace(/[^A-Z0-9]/g, "");
   const glassIdentity = normalized.endsWith("GD") || normalized.endsWith("PG") || /\bglass\b/.test(hay);
+  const explicitGlassStackerCode = /^GD?S[-_ ]?\d/.test(code);
+  // Text signals: "stacker", "glass stacker", "stacking"/"stacked".
+  // A generic non-glass wall cabinet must never become a stacker only because a
+  // stale catalog subcategory says "Bridge / Stacker". The physical stacking
+  // rule is reserved for actual glass stackers.
+  if (/\bstacker\b|\bstack(?:ing|ed)?\b|glass\s*stack/.test(hay)) return (glassIdentity || explicitGlassStackerCode) && supportedHeight;
+  // Code signals: GS-* / GDS-* stacker families used across lines (e.g. GS-3012,
+  // GDS-3015). Require a following size digit so we never match unrelated codes.
+  if (explicitGlassStackerCode) return supportedHeight;
   return glassIdentity && height != null && GLASS_STACKER_HEIGHTS.has(height);
 }
 
