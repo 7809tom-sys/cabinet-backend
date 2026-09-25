@@ -14,7 +14,7 @@ import {
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
-  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop,
+  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
@@ -1917,6 +1917,24 @@ describe("countertopSurfaces", () => {
     const [s] = countertopSurfaces([blind], ROOM_12x10);
     expect(s.x).toBe(0);
     expect(s.width).toBe(42); // 36 + 6" trade maximum
+  });
+
+  it("uses an ERB36 at a 45-degree peninsula bend to support the unified countertop on both connected runs", () => {
+    const parent = { id: "erb-counter-parent", parentWall: "top" as const, startOffset: 72, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "right" as const };
+    const child = { id: "erb-counter-child", parentRunId: parent.id, startOffset: 0, turn: 45 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
+    const room: RoomData = { ...ROOM_12x10, peninsulaRuns: [parent, child] };
+    const spot = wallPlacementAt(12, 36, 36, parent.id as never, room, "right");
+    const erb = cab({
+      uid: "erb36-45-bend", masterCode: "ERB36", description: "36 inch Easy Reach Corner Base",
+      placement: "base", ...spot, width: 36, depth: 36, height: 34.5,
+      wallId: parent.id, wallOffset: 12,
+    });
+
+    expect(peninsulaCornerCabinetSupportsCountertop(erb, parent, room)).toBe(true);
+    expect(peninsulaCornerCabinetSupportsCountertop(erb, child, room)).toBe(true);
+    expect(countertopSurfaces([erb], room)).toMatchObject([{
+      kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id],
+    }]);
   });
 });
 
