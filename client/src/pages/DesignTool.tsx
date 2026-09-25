@@ -9465,7 +9465,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom), draftRoom),
 	              draftRoom,
 	            );
-	            setPlaced(removeOverlappingPlacements(normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom), draftRoom).placed);
+	            setPlaced(removeOverlappingPlacements(
+	              normalizeStandardWallMounts(
+	                normalizeWd18CountertopMounts(
+	                  normalizeRefrigeratorBayUppers(peninsulaNormalizedDraft, draftRoom),
+	                ),
+	                Array.isArray(d.openings) ? d.openings : [],
+	                draftRoom,
+	              ),
+	              draftRoom,
+	            ).placed);
           }
           if (Array.isArray(d.openings)) setOpenings(d.openings);
           setIsland(d.island ?? null);
