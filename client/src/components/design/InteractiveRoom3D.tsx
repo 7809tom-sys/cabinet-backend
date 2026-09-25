@@ -2377,6 +2377,35 @@ export function diagonalCornerFootprintVertices(bodyWidth: number, bodyDepth: nu
 }
 
 /**
+ * The diagonal-corner countertop is the cabinet's exact pentagon, with its
+ * wall-side returns held flush and its single 45-degree door edge carried out
+ * by the finished front overhang. Expanding the whole square would push stone
+ * through the two walls; expanding only the diagonal face keeps the top seated
+ * on the same corner cabinet geometry used by the plan and 3D carcass.
+ */
+export function diagonalCornerCountertopFootprintVertices(
+  bodyWidth: number,
+  bodyDepth: number,
+  frontOverhang = COUNTERTOP_FRONT_OVERHANG,
+) {
+  const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+  const frontStart = vertices[2]!;
+  const frontEnd = vertices[3]!;
+  const edgeX = frontEnd.x - frontStart.x;
+  const edgeZ = frontEnd.z - frontStart.z;
+  const length = Math.hypot(edgeX, edgeZ);
+  if (!Number.isFinite(frontOverhang) || frontOverhang <= 0 || length <= 1e-8) return vertices;
+  // The local pentagon is counter-clockwise; the right-hand normal of its
+  // diagonal edge points into the room, away from the two wall-side returns.
+  const outward = { x: edgeZ / length, z: -edgeX / length };
+  return vertices.map((vertex, index) => (
+    index === 2 || index === 3
+      ? { x: vertex.x + outward.x * frontOverhang, z: vertex.z + outward.z * frontOverhang }
+      : vertex
+  ));
+}
+
+/**
  * A WDC's diagonal is the hypotenuse of its two 12-inch returns within the
  * 24-by-24 footprint: √(12² + 12²) ≈ 17 inches. This is the total two-door
  * front, not the diagonal across the full enclosing square.
@@ -2415,8 +2444,15 @@ export function triangleCornerFootprintVertices(bodyWidth: number, bodyDepth: nu
 }
 
 /** Builds the vertical pentagonal extrusion defined by the shared 2D diagonal footprint. */
-function diagonalCornerWedgeGeometry(bodyWidth: number, bodyDepth: number, height: number) {
-  const vertices = diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
+function diagonalCornerWedgeGeometry(
+  bodyWidth: number,
+  bodyDepth: number,
+  height: number,
+  frontOverhang = 0,
+) {
+  const vertices = frontOverhang > 0
+    ? diagonalCornerCountertopFootprintVertices(bodyWidth, bodyDepth, frontOverhang)
+    : diagonalCornerFootprintVertices(bodyWidth, bodyDepth);
   const shape = new THREE.Shape();
   shape.moveTo(vertices[0]!.x, -vertices[0]!.z);
   for (const vertex of vertices.slice(1)) shape.lineTo(vertex.x, -vertex.z);
@@ -4785,13 +4821,29 @@ export function addCabinet(
       root.add(counter);
     } else if (specialty.kind === "diagonal-corner") {
       const counter = new THREE.Mesh(
-        diagonalCornerWedgeGeometry(bodyWidth + 0.12, bodyDepth + 0.12, 1.5 * INCH),
+        diagonalCornerWedgeGeometry(
+          bodyWidth,
+          bodyDepth,
+          1.5 * INCH,
+          COUNTERTOP_FRONT_OVERHANG,
+        ),
         counterMaterial,
       );
       counter.position.copy(cabinet.position);
       counter.rotation.y = rotation;
       counter.position.y = countertopCenterY;
-      counter.userData = { diagonalCornerCountertop: true };
+      counter.userData = {
+        diagonalCornerCountertop: true,
+        exactDiagonalCornerGeometry: true,
+        cornerFaceAngleDegrees: 45,
+        frontOverhangIn: COUNTERTOP_FRONT_OVERHANG / INCH,
+        wallSideReturnsFlush: true,
+        // The two wall-side returns remain separate physical slab joins with
+        // adjoining runs. They are intentional 45° miter seams, suitable for
+        // an epoxy-filled field joint—not a fake overlapping or gap-filled top.
+        epoxyMiterSeamAngleDegrees: 45,
+        epoxyMiterSeamCompatible: true,
+      };
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
     } else if (specialty.kind === "triangle-corner") {

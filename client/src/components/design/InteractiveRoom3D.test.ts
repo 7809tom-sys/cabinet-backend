@@ -14,6 +14,7 @@ import { applyThreeDPlacementIdentity, threeDCabinetHitFromIntersections, threeD
 import { THREE_D_VIEWER_ZOOM_FACTOR, threeDViewerPanStep, threeDViewerZoomDistance } from "./InteractiveRoom3D";
 import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
+import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { COUNTERTOP_DEPTH_IN, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -2884,6 +2885,50 @@ describe("interactive 3D room scene helpers", () => {
       { x: 0, z: 1 },
       { x: -1, z: 1 },
     ]);
+  });
+
+  it("extends only the diagonal 45-degree corner face by the finished countertop overhang", () => {
+    const body = diagonalCornerFootprintVertices(24, 24);
+    const countertop = diagonalCornerCountertopFootprintVertices(24, 24, 1.5);
+    // Wall-side returns retain their exact cabinet contact; stone moves only
+    // forward along the diagonal front, which is the physical finished edge.
+    expect(countertop.slice(0, 2)).toEqual(body.slice(0, 2));
+    expect(countertop[2]!.x).toBeGreaterThan(body[2]!.x);
+    expect(countertop[2]!.z).toBeGreaterThan(body[2]!.z);
+    expect(countertop[3]!.x).toBeGreaterThan(body[3]!.x);
+    expect(countertop[3]!.z).toBeGreaterThan(body[3]!.z);
+    expect(Math.hypot(countertop[2]!.x - body[2]!.x, countertop[2]!.z - body[2]!.z)).toBeCloseTo(1.5, 8);
+    expect(Math.hypot(countertop[3]!.x - body[3]!.x, countertop[3]!.z - body[3]!.z)).toBeCloseTo(1.5, 8);
+  });
+
+  it("generates a base diagonal-corner countertop with explicit 45-degree epoxy-miter seam metadata", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -320,
+      cabinetId: 320,
+      masterCode: "DC36",
+      description: '36" Diagonal Corner Base Cabinet',
+      placementType: "base",
+      width: 36,
+      height: 34.5,
+      depth: 36,
+      numberOfDoors: 2,
+      numberOfDrawers: 0,
+      cornerGeometryKind: "diagonal",
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 0, z: 0, rotation: 0 });
+    const tops: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.diagonalCornerCountertop) tops.push(node);
+    });
+    expect(tops).toHaveLength(1);
+    expect(tops[0]!.userData).toMatchObject({
+      exactDiagonalCornerGeometry: true,
+      cornerFaceAngleDegrees: 45,
+      frontOverhangIn: 1.5,
+      wallSideReturnsFlush: true,
+      epoxyMiterSeamAngleDegrees: 45,
+      epoxyMiterSeamCompatible: true,
+    });
   });
 
   it("renders a glass-selected WDC2442 as one framed transparent diagonal door with its three configured shelves", () => {
