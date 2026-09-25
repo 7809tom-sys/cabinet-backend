@@ -5042,24 +5042,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		          styleIdRef.current ?? null,
 		        );
 		        if (requiredTransition && !angledFiller) {
-		          const message = `The ${formatInches(requiredTransition.rearGapIn)} rear / ${formatInches(requiredTransition.frontGapIn)} face 45° transition was not added because the selected cabinet line has no real filler stock wide enough for this cut.`;
+		          const message = `The ${formatInches(requiredTransition.rearGapIn)} and ${formatInches(requiredTransition.neighborRearGapIn)} front 45° filler cuts were not added because the selected cabinet line has no real filler stock wide enough for each cut.`;
 		          setPlacementWarning(message);
 		          toast.error(message);
 		          return;
 		        }
 		        if (angledFiller) {
-		          const sourcePrice = unitPriceFor(angledFiller.filler);
-		          if (sourcePrice == null || !Number.isFinite(sourcePrice) || sourcePrice <= 0) {
-		            const message = `${angledFiller.filler.masterCode} and ${finalCab.masterCode} were not added because this selected-line filler has no positive authorized price.`;
+		          const sourcePrices = angledFiller.fillers.map((filler) => unitPriceFor(filler));
+		          if (sourcePrices.some((sourcePrice) => sourcePrice == null || !Number.isFinite(sourcePrice) || sourcePrice <= 0)) {
+		            const message = `${angledFiller.fillers[0].masterCode} and ${finalCab.masterCode} were not added because each selected-line 45° filler piece requires a positive authorized price.`;
 		            setPlacementWarning(message);
 		            toast.error(message);
 		            return;
 		          } else {
-		            const resolution = appendCollisionFreePlacements(committedRun, [angledFiller.filler], room);
-		            if (resolution.placed.some((item) => item.uid === angledFiller.filler.uid)) {
+		            const resolution = appendCollisionFreePlacements(committedRun, angledFiller.fillers, room);
+		            if (angledFiller.fillers.every((filler) => resolution.placed.some((item) => item.uid === filler.uid))) {
 		              committedRun = resolution.placed;
-		              setFillerInsertionTransition({ uids: [angledFiller.filler.uid], key: Date.now() });
-		              toast.success(`${angledFiller.filler.masterCode} was fitted as a ${formatInches(angledFiller.rearGapIn)} rear / ${formatInches(angledFiller.frontGapIn)} face 45° transition. One real catalog filler is price-locked at $${sourcePrice.toFixed(2)}; both cabinets remain independently supported.`);
+		              setFillerInsertionTransition({ uids: angledFiller.fillers.map((filler) => filler.uid), key: Date.now() });
+		              toast.success(`${angledFiller.fillers[0].masterCode} front filler A (${formatInches(angledFiller.ownerGapIn)}) and B (${formatInches(angledFiller.neighborGapIn)}) are mitered together at 45°. Both real selected-line pieces are price-locked at $${sourcePrices.map((sourcePrice) => sourcePrice!.toFixed(2)).join(" + $")}; both cabinets remain independently supported.`);
 		            }
 		          }
 		        }

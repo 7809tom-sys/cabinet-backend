@@ -159,9 +159,10 @@ type SceneSku = {
 	  fillerPieceGroupId?: string | null;
 	  fillerTotalWidth?: number | null;
 		  fillerPlacementMode?: "left" | "right" | "split" | null;
-	  fillerMiterAngle?: 45 | null;
-	  fillerMiteredEnd?: "start" | "end" | null;
-	  fillerTransitionKind?: "angled-wedge" | null;
+		  fillerMiterAngle?: 45 | null;
+		  fillerMiteredEnd?: "start" | "end" | null;
+		  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
+		  fillerTransitionPiece?: "owner" | "neighbor" | null;
 	  fillerTransitionNeighborUid?: string | null;
 	  fillerTransitionRearWidthIn?: number | null;
 	  fillerTransitionFrontWidthIn?: number | null;
@@ -3084,14 +3085,16 @@ export function addCabinet(
 	    isInstalledFillerPiece
 	    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
 	  );
-	  const isAngledTransitionFiller = sku.fillerTransitionKind === "angled-wedge"
+	  const isAngledTransitionFiller = (sku.fillerTransitionKind === "angled-wedge" || sku.fillerTransitionKind === "front-miter-pair")
 	    && Array.isArray(sku.fillerTransitionFootprint)
 	    && sku.fillerTransitionFootprint.length >= 3;
-	  const isMiteredWallFiller = isWall
+	  const isMiteredWallFiller = (isWall || isBaseCabinet)
 	    && !isAngledTransitionFiller
 	    && sku.fillerMiterAngle === 45
 	    && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
 	  const isFrontFlushFillerBoard = !isAngledTransitionFiller && (isBaseFillerPiece || isMiteredWallFiller);
+	  // A front-only miter filler already carries its exact 3/4-inch front
+	  // footprint. Do not add the generic 24-inch-deep toe-kick behind it.
 	  const suppressInstalledFillerToeKick = isBaseFillerPiece && (isAngledTransitionFiller || Boolean(surfaceTextures?.suppressFittedFillerToeKick));
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
@@ -3467,7 +3470,9 @@ export function addCabinet(
 		      ...(isMiteredWallFiller ? { angledWallMiteredFiller: true, miterAngle: 45, miteredEnd: sku.fillerMiteredEnd } : {}),
 		      ...(isAngledTransitionFiller ? {
 		        angledWallTransitionFiller: true,
-		        fullDepthMeasuredFootprint: true,
+		        ...(sku.fillerTransitionKind === "front-miter-pair"
+		          ? { frontOnlyMiterPair: true, miterPairPiece: sku.fillerTransitionPiece ?? null, visibleDepthIn: 0.75 }
+		          : { fullDepthMeasuredFootprint: true }),
 		        rearWidthIn: sku.fillerTransitionRearWidthIn,
 		        frontWidthIn: sku.fillerTransitionFrontWidthIn,
 		        stockWidthIn: sku.fillerTransitionStockWidthIn,
@@ -7141,6 +7146,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
 	    fillerMiterAngle: cabinet.fillerMiterAngle ?? null,
 	    fillerMiteredEnd: cabinet.fillerMiteredEnd ?? null,
 	    fillerTransitionKind: cabinet.fillerTransitionKind ?? null,
+	    fillerTransitionPiece: cabinet.fillerTransitionPiece ?? null,
 	    fillerTransitionNeighborUid: cabinet.fillerTransitionNeighborUid ?? null,
 	    fillerTransitionRearWidthIn: cabinet.fillerTransitionRearWidthIn ?? null,
 	    fillerTransitionFrontWidthIn: cabinet.fillerTransitionFrontWidthIn ?? null,

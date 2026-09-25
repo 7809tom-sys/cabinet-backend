@@ -45,4 +45,20 @@ describe("angledTransitionFillerPrismGeometry", () => {
     expect(local[0]?.x).toBeCloseTo(-2 / 12);
     expect(local[0]?.y).toBeCloseTo(1 / 12);
   });
+
+  it("extrudes a front-only 45-degree miter member without reserving full cabinet depth", () => {
+    const geometry = angledTransitionFillerPrismGeometry([
+      { x: 0, y: 23.25 },
+      { x: 1.25, y: 24 },
+      { x: 2, y: 24 },
+      { x: 2, y: 23.25 },
+    ], 34.5);
+    geometry.computeBoundingBox();
+
+    expect(geometry.boundingBox?.max.x).toBeCloseTo(2);
+    expect(geometry.boundingBox?.max.z).toBeCloseTo(24);
+    expect(geometry.boundingBox?.min.z).toBeCloseTo(23.25);
+    expect((geometry.boundingBox?.max.z ?? 0) - (geometry.boundingBox?.min.z ?? 0)).toBeCloseTo(0.75);
+    geometry.dispose();
+  });
 });

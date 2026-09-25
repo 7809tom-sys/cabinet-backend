@@ -504,8 +504,14 @@ export interface PlacedCabinet {
 	fillerMiterAngle?: 45 | null;
 	/** Which end of the filler is cut at the 45-degree wall vertex. */
 	fillerMiteredEnd?: "start" | "end" | null;
-	/** Full-depth wedge/trapezoid between independently supported square cabinets. */
-	fillerTransitionKind?: "angled-wedge" | null;
+  /**
+   * Legacy full-depth wedge or the current two-piece front-only 45° miter pair.
+   * New work must use `front-miter-pair`; a wedge remains only to preserve old
+   * saved plan geometry until it is explicitly rebuilt.
+   */
+  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
+  /** Identifies which physical front filler piece owns this saved miter board. */
+  fillerTransitionPiece?: "owner" | "neighbor" | null;
 	/** Cabinet on the adjoining measured wall that owns the other transition edge. */
 	fillerTransitionNeighborUid?: string | null;
 	/** Exact measured gap at the wall/rear edge of the transition. */
@@ -2456,15 +2462,17 @@ function rotatedCabinetBodyPolygon(cabinet: PlacedCabinet): PlanFootprintPoint[]
 
 /** True only for the thin face board at a saved 45° fitted-filler seam. */
 function isMiteredWallFiller(cabinet: PlacedCabinet): boolean {
-  return cabinet.placement === "wall"
+  return (cabinet.placement === "wall" || cabinet.placement === "base")
+    && cabinet.fillerTransitionKind !== "angled-wedge"
     && cabinet.fillerMiterAngle === 45
     && (cabinet.fillerMiteredEnd === "start" || cabinet.fillerMiteredEnd === "end");
 }
 
 /**
- * The collision body for a 45° fitted filler is a thin, diagonal-cut face
- * board, not the reserved 12-inch wall-depth envelope. Rendering uses the same
- * 3/4-inch board depth while the original fields retain room-span authority.
+ * The collision body for a 45° fitted filler is a thin, diagonal-cut front
+ * board, never the full base or wall depth. Rendering uses the same 3/4-inch
+ * board depth while the original selected-line stock fields retain pricing and
+ * cut authority.
  */
 function miteredWallFillerBodyPolygon(cabinet: PlacedCabinet): PlanFootprintPoint[] {
   const bounds = placedFootprint(cabinet);
@@ -2506,7 +2514,7 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 }
 
 function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
-  return cabinet.fillerTransitionKind === "angled-wedge" && (cabinet.fillerTransitionPlanFootprint?.length ?? 0) >= 3
+  return (cabinet.fillerTransitionKind === "angled-wedge" || cabinet.fillerTransitionKind === "front-miter-pair") && (cabinet.fillerTransitionPlanFootprint?.length ?? 0) >= 3
     ? [cabinet.fillerTransitionPlanFootprint!.map((point) => ({ x: point.x, y: point.y }))]
     : isMiteredWallFiller(cabinet)
     ? [miteredWallFillerBodyPolygon(cabinet)]
@@ -2661,6 +2669,9 @@ function isMiteredWallFillerJoinPeer(
   room: RoomData,
 ): boolean {
   if (!isMiteredWallFiller(filler) || !filler.wallId || !peer.wallId || filler.wallId === peer.wallId) return false;
+  if (filler.fillerTransitionKind === "front-miter-pair"
+    && peer.uid !== filler.fillerForCabinetUid
+    && peer.uid !== filler.fillerTransitionNeighborUid) return false;
   const fillerWall = room.customWalls?.find((wall) => wall.id === filler.wallId);
   const peerWall = room.customWalls?.find((wall) => wall.id === peer.wallId);
   if (!fillerWall || !peerWall || (!isLocked45Wall(fillerWall) && !isLocked45Wall(peerWall))) return false;
@@ -2689,8 +2700,14 @@ function isAngledTransitionFillerJoinPeer(
   peer: PlacedCabinet,
   room: RoomData,
 ): boolean {
-  if (filler.fillerTransitionKind !== "angled-wedge") return false;
-  if (peer.uid !== filler.fillerForCabinetUid && peer.uid !== filler.fillerTransitionNeighborUid) return false;
+  const isLegacyWedge = filler.fillerTransitionKind === "angled-wedge";
+  const isFrontMiterPair = filler.fillerTransitionKind === "front-miter-pair";
+  if (!isLegacyWedge && !isFrontMiterPair) return false;
+  const isNamedSupportingCabinet = peer.uid === filler.fillerForCabinetUid || peer.uid === filler.fillerTransitionNeighborUid;
+  const isMatchedMiterPiece = isFrontMiterPair
+    && Boolean(filler.fillerPieceGroupId)
+    && filler.fillerPieceGroupId === peer.fillerPieceGroupId;
+  if (!isNamedSupportingCabinet && !isMatchedMiterPiece) return false;
   if (peer.placement !== filler.placement) return false;
   const fillerElevation = elevationBox(filler, room);
   const peerElevation = elevationBox(peer, room);
@@ -2725,7 +2742,7 @@ export function cabinetPlacementCollisionDetail(
 		// aligned saved envelope overlaps both cabinet envelopes by design, but the
 		// physical polygon only touches their side faces. Keep every unrelated body
 		// collision active and waive only false envelope overlap.
-		if ((moving.fillerTransitionKind === "angled-wedge" || other.fillerTransitionKind === "angled-wedge")
+    if ((moving.fillerTransitionKind === "angled-wedge" || moving.fillerTransitionKind === "front-miter-pair" || other.fillerTransitionKind === "angled-wedge" || other.fillerTransitionKind === "front-miter-pair")
 		  && !cabinetPlanBodiesIntersect(moving, other)) continue;
     // For a real diagonal continuous-wall vertex the two cabinets live in
     // different local wall frames. If the exact corner-run reservation says

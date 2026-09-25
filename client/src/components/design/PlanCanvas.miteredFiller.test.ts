@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 
-describe("PlanCanvas angled wall filler", () => {
+describe("PlanCanvas angled filler", () => {
   it("keeps legacy one-edge 45-degree filler rendering compatible", () => {
     expect(source).toContain("isMiteredAngledWallFiller");
     expect(source).toContain("miterClipPath");
@@ -11,13 +11,15 @@ describe("PlanCanvas angled wall filler", () => {
     expect(source).toContain("45° MITER FILLER");
   });
 
-  it("draws a new transition from its exact rear and visible face edges", () => {
+  it("draws each current transition member from its exact front-only miter footprint", () => {
+    expect(source).toContain('const isFrontMiterPair = p.fillerTransitionKind === "front-miter-pair"');
     expect(source).toContain("angledWallTransitionFootprint");
     expect(source).toContain("fillerTransitionPlanFootprint");
     expect(source).toContain("transitionClipPath");
     expect(source).toContain("data-angled-wall-transition-filler");
-    expect(source).toContain("45° TRANSITION");
-    expect(source).toContain("both cabinets remain independently supported");
+    expect(source).toContain("45° FRONT FILLER");
+    expect(source).toContain("The rear pocket remains open");
+    expect(source).toContain("source-priced");
   });
 
   it("keeps normal cabinet clipping for every non-transition placement", () => {

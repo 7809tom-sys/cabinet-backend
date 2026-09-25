@@ -2181,8 +2181,9 @@ export function PlanCanvas({
 	              && p.wallId
 	              && peninsulaRunById(room, p.wallId as WallSide),
 	            );
-	            const isMiteredAngledWallFiller = p.placement === "wall"
-	              && p.fillerTransitionKind !== "angled-wedge"
+	            const isFrontMiterPair = p.fillerTransitionKind === "front-miter-pair";
+	            const isMiteredAngledWallFiller = (p.placement === "wall" || p.placement === "base")
+	              && !p.fillerTransitionKind
 	              && p.fillerMiterAngle === 45
 	              && (p.fillerMiteredEnd === "start" || p.fillerMiteredEnd === "end");
 	            const transitionFootprint = angledWallTransitionFootprint(p, room, cabinets)
@@ -2323,9 +2324,11 @@ export function PlanCanvas({
 	                  <span
 	                    data-testid="angled-wall-transition-filler-indicator"
 	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-amber-200 bg-[#7c5313] px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow"
-	                    title={`Measured 45° transition: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} rear / ${formatEighthInches(Number(p.fillerTransitionFrontWidthIn) || 0)} face. One source-priced ${p.masterCode}; both cabinets remain independently supported.`}
+	                    title={isFrontMiterPair
+	                      ? `Front-only 45° miter filler ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} cut from source-priced ${p.masterCode}. The rear pocket remains open; both cabinets stay independently supported.`
+	                      : `Legacy measured 45° transition: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} rear / ${formatEighthInches(Number(p.fillerTransitionFrontWidthIn) || 0)} face. This saved plan retains its historical footprint.`}
 	                  >
-	                    45° TRANSITION
+	                    {isFrontMiterPair ? `45° FRONT FILLER ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}` : "45° TRANSITION"}
 	                  </span>
 	                )}
 		                {showSeatedPeninsulaCornerFeedback && (
