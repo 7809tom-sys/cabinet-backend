@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, blindCornerSnapInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
-  isCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
+	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
@@ -957,7 +957,7 @@ export function PlanCanvas({
       // dragging. This avoids the old experience where the user had to hunt for
       // an exact pixel on the wall and guarantees that the target retains its
       // measured wall identity instead of falling back to the graph boundary.
-      if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
+      if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
         const cornerSpot = nextAvailableRoomCornerPlacement(
           candidate,
           cabinetWall(cabinet, room),
@@ -2173,7 +2173,7 @@ export function PlanCanvas({
 	              && !p.cornerSnapUnlocked;
 	            const isSeatedBlindCorner = blindCornerPlacement?.placement === "flush" && !p.cornerSnapUnlocked;
 	            const isSeatedPeninsulaCorner = Boolean(
-	              isCornerCabinet(p.masterCode, p.description)
+	              isProtectedCornerCabinet(p.masterCode, p.description)
 	              && cornerPlacement?.angle === 90
 	              && cornerPlacement.placement === "flush"
 	              && !p.cornerSnapUnlocked

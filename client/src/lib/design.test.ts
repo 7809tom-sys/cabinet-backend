@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { findSmallGapFillerOpportunity } from "./smallGapFiller";
 import {
-  isCornerCabinet, isAngledWallCabinet, cornerClipPath, centerDistance, formatInches,
+	  isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, cornerClipPath, centerDistance, formatInches,
   isApplianceCode, applianceAsDesignCabinet, elevationBox, APPLIANCES,
   conflictingUids, isSinkBaseCabinet, isFarmSinkBasePaletteItem, isSinkAppliance, makeSinkForCabinet, STD,
   appliancesForRoom, ROOM_TYPES,
@@ -826,6 +826,16 @@ describe("angled wall cabinets are NOT corner cabinets (palette tab routing)", (
   it("an angled wall cabinet is still drawn diagonally (rendering unchanged)", () => {
     // Routing to the Wall tab must NOT change its canvas footprint.
     expect(isDiagonalCorner("AW-12-30", "12x30 Angled Wall Cabinet")).toBe(true);
+  });
+
+  it("does not force AW aliases into protected room-corner placement or movement locks", () => {
+    for (const masterCode of ["AW1230", "AW-12-30"]) {
+      expect(isProtectedCornerCabinet(masterCode, '12" Angled Wall Cabinet')).toBe(false);
+      expect(requiresRoomCornerPlacement({ masterCode, description: '12" Angled Wall Cabinet', placement: "wall" })).toBe(false);
+    }
+    expect(isProtectedCornerCabinet("WDC2430", "Wall Diagonal Corner Cabinet")).toBe(true);
+    expect(requiresRoomCornerPlacement({ masterCode: "WDC2430", description: "Wall Diagonal Corner Cabinet", placement: "wall" })).toBe(true);
+    expect(requiresRoomCornerPlacement({ masterCode: "BBC42", description: "Blind Corner Base Cabinet", placement: "base" })).toBe(false);
   });
 });
 

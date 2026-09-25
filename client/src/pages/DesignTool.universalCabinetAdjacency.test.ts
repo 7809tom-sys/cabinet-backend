@@ -113,4 +113,13 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(threeDAddPath).toContain("{ wallId: dropWall, wallOffset: spot.wallOffset ?? along");
     expect(planDropPath).toContain("wallOffset: spot.wallOffset ?? measured.snapStart");
   });
+
+  it("keeps AW angled-wall transitions on measured wall-run routing instead of the protected room-corner placer", () => {
+    const addPath = sourceBetween("const addCabinet = useCallback", "const addManualFiller");
+    const planDropPath = sourceBetween("const handleDropNew = useCallback", "const placePeninsulaFitRecommendation");
+    expect(addPath).toContain("requiresRoomCornerPlacement({");
+    expect(planDropPath).toContain("requiresRoomCornerPlacement({");
+    expect(source).toContain("isProtectedCornerCabinet(cabinet.masterCode, cabinet.description)");
+    expect(source).not.toContain("!isBlindCorner(c.masterCode, c.description)\n\t          && isCornerCabinet(c.masterCode, c.description)");
+  });
 });

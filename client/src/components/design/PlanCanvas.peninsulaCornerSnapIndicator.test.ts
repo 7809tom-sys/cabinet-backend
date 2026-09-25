@@ -14,7 +14,7 @@ describe("peninsula 90-degree corner snap feedback", () => {
     expect(source).toContain("data-peninsula-corner-snap-confirmed");
     expect(source).toContain("showPeninsulaCornerSnapFeedback?: boolean");
     expect(source).toContain("const showSeatedPeninsulaCornerFeedback = isSeatedPeninsulaCorner && showPeninsulaCornerSnapFeedback;");
-    expect(source).toContain("isWindowCenteredSink || showSeatedPeninsulaCornerFeedback ? \"motion-safe:animate-pulse\"");
+    expect(source).toContain("isWindowCenteredSink || showSeatedPeninsulaCornerFeedback || applianceSnap || showWallSnapSuccess ? \"motion-safe:animate-pulse\"");
     expect(source).toContain("{showSeatedPeninsulaCornerFeedback && (");
   });
 

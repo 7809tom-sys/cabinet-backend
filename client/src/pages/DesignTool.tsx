@@ -97,7 +97,7 @@ import {
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
-  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, missingCornerBaseViolations,
+	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
   isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, adjoiningWallRunMountBottom, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
 	  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts,
@@ -4422,10 +4422,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       } else if (x != null && y != null) {
         spot = { x, y, rotation, ...(resolvedWallTarget ?? {}) };
 	      } else {
-	        const requiresRoomCorner = !isAccessory
-	          && !isBlindCorner(c.masterCode, c.description)
-	          && isCornerCabinet(c.masterCode, c.description)
-	          && (accPlacement === "base" || accPlacement === "wall");
+	        const requiresRoomCorner = !isAccessory && requiresRoomCornerPlacement({
+	          masterCode: c.masterCode,
+	          description: c.description,
+	          placement: accPlacement,
+	        });
 	        const followsCabinetRun = !isAccessory && !isStacker(c) && !isOverRangeMicrowave({ masterCode: c.masterCode, placement: accPlacement }) && (
           accPlacement === "base" ||
           accPlacement === "wall" ||
@@ -5014,7 +5015,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      if (cornerPlacement) {
 	        const snappedToPeninsulaBend = cornerPlacement.angle === 90
 	          && cornerPlacement.placement === "flush"
-	          && isCornerCabinet(finalCab.masterCode, finalCab.description)
+	          && isProtectedCornerCabinet(finalCab.masterCode, finalCab.description)
 	          && Boolean(finalCab.wallId && peninsulaRunById(room, finalCab.wallId as WallSide));
 	        toast.success(
 	          snappedToPeninsulaBend
@@ -7306,10 +7307,11 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	      // catalog-click corner resolver and left an ERB36 floating near a
 	      // diagonal vertex. A true corner cabinet must instead use the nearest
 	      // available measured 90-degree vertex on the real wall path.
-	      const requiresRoomCorner = !forceAccessory
-	        && !isBlindCorner(data.masterCode, data.description)
-	        && isCornerCabinet(data.masterCode, data.description)
-	        && (placement === "base" || placement === "wall");
+	      const requiresRoomCorner = !forceAccessory && requiresRoomCornerPlacement({
+	        masterCode: data.masterCode,
+	        description: data.description,
+	        placement,
+	      });
 	      if (requiresRoomCorner) {
 	        const cornerPreview = {
 	          uid: `corner-drop-preview-${data.id}`,
@@ -7728,7 +7730,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
     }
     const cabinet = placedRef.current.find((item) => item.uid === uid);
     if (!cabinet || cabinet.islandFace) return;
-    if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
+	    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
       toast.error(`${cabinet.masterCode} is locked to its seated corner. Use Unlock first before moving it along a wall.`);
       return;
     }
@@ -7836,7 +7838,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
       return;
     }
     const target = placedRef.current.find((cabinet) => cabinet.uid === uid);
-    if (!target || !isCornerCabinet(target.masterCode, target.description)) return;
+	    if (!target || !isProtectedCornerCabinet(target.masterCode, target.description)) return;
     const requiredFillerGroup = isBlindCorner(target.masterCode, target.description)
       ? requiredBlindCornerFillerGroupId(target)
       : null;
@@ -8174,7 +8176,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	    if (!cabinet || cabinet.islandFace) return null;
 	    // A protected corner's precise position is its snapped vertex. It must be
 	    // explicitly unlocked before a measured run offset can detach it.
-	    if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) return null;
+	    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) return null;
 	    const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
 	    const length = wallLength(side, room);
 	    if (!Number.isFinite(length) || length <= 0) return null;

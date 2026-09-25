@@ -4379,6 +4379,23 @@ export function isAngledWallCabinet(masterCode: string, description?: string): b
   return /^AW[-\d]/.test(code) || /\bangled wall\b/.test(desc);
 }
 
+/**
+ * True only for cabinets whose installed location is owned by a room vertex.
+ * AW1230/AW-12-30 remains a diagonal-profile wall-run transition: it can be
+ * moved by measured wall offset and must never be forced into the protected
+ * ERB/WDC/LS-style corner-snap workflow merely because its face is angled.
+ */
+export function isProtectedCornerCabinet(masterCode: string, description?: string): boolean {
+  return isCornerCabinet(masterCode, description) && !isAngledWallCabinet(masterCode, description);
+}
+
+/** Catalog add/drop routes reserve a room vertex only for a true, non-blind corner cabinet. */
+export function requiresRoomCornerPlacement(cabinet: Pick<PlacedCabinet, "masterCode" | "description" | "placement">): boolean {
+  return (cabinet.placement === "base" || cabinet.placement === "wall")
+    && isProtectedCornerCabinet(cabinet.masterCode, cabinet.description)
+    && !isBlindCorner(cabinet.masterCode, cabinet.description);
+}
+
 // A diagonal corner cabinet has a single 45-degree angled front face spanning
 // the corner (NOT an L-shaped notch like a blind/lazy-susan corner). Codes like
 // DCW (Diagonal Corner Wall), WDC, KWD and descriptions containing "diagonal".

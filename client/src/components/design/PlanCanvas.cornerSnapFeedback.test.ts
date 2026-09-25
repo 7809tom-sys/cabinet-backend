@@ -28,6 +28,11 @@ describe("PlanCanvas protected-corner snap feedback", () => {
     expect(source).toContain("!p.cornerSnapUnlocked");
   });
 
+  it("forces only protected corner products through corner drag targeting, leaving AW transitions movable on their measured wall", () => {
+    expect(source).toContain("if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked)");
+    expect(source).not.toContain("if (isCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked)");
+  });
+
   it("uses room-aware collision geometry for the visible conflict state", () => {
     expect(source).toContain("cabinetPlacementCollisionDetail(p, cabinets, room) != null");
   });

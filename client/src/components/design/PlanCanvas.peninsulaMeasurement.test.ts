@@ -15,7 +15,7 @@ describe("PlanCanvas peninsula attachment measurement", () => {
 
   it("names the straight run and a 45-degree return directly on the plan", () => {
     expect(source).toContain('data-testid="peninsula-plan-label"');
-    expect(source).toContain('`PENINSULA · 45° ${run.direction} RETURN`');
+    expect(source).toContain('`PENINSULA · ${run.turn}° ${run.direction} RETURN`');
     expect(source).toContain('`PENINSULA · ${formatEighthInches(run.length)}`');
   });
 });
