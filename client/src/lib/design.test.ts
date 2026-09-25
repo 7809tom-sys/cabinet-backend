@@ -14,7 +14,7 @@ import {
   miteredTrimInches, cabinetWall, countertopArea,
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
-  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop,
+  countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
@@ -1932,9 +1932,18 @@ describe("countertopSurfaces", () => {
 
     expect(peninsulaCornerCabinetSupportsCountertop(erb, parent, room)).toBe(true);
     expect(peninsulaCornerCabinetSupportsCountertop(erb, child, room)).toBe(true);
-    expect(countertopSurfaces([erb], room)).toMatchObject([{
+    const surfaces = countertopSurfaces([erb], room);
+    expect(surfaces).toHaveLength(1);
+    expect(surfaces).toMatchObject([{
       kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id],
     }]);
+    const polygon = countertopSurfacePlanPolygon(surfaces[0]!);
+    // The usual 25½-inch peninsula run reaches only x=97.5 here. The ERB's
+    // real exterior L leg ends at x=108 and carries the standard 1½-inch edge;
+    // its full cabinet-supported footprint must survive the shared 45° union.
+    expect(polygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
+    expect(countertopPolygonSelfIntersects(polygon)).toBe(false);
+    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
   });
 });
 

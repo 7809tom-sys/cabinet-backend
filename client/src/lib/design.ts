@@ -8455,6 +8455,12 @@ export interface CountertopSurface {
   customWallMiterWallIds?: [string, string];
   /** The shared measured wall vertex that owns this 45-degree miter bridge. */
   customWallMiterVertexId?: string;
+  /**
+   * The exterior leg of a real L-corner cabinet that projects beyond the
+   * ordinary peninsula run depth. It is a cabinet-supported portion of the
+   * connected slab, never a filler or an inferred countertop span.
+   */
+  peninsulaCornerSupportExtension?: boolean;
 }
 
 export interface CountertopPlanPoint {
@@ -8707,10 +8713,10 @@ export function miteredPeninsulaCountertopSurfaces(
     if (!parent || (parent.cabinetSide ?? "left") !== (child.cabinetSide ?? "left")) continue;
     const parentIndices = resolved
       .map((surface, index) => ({ surface, index }))
-      .filter(({ surface }) => surface.peninsulaRunId === parent.id && (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= parent.length - COLLISION_EPSILON_IN);
+      .filter(({ surface }) => !surface.peninsulaCornerSupportExtension && surface.peninsulaRunId === parent.id && (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= parent.length - COLLISION_EPSILON_IN);
     const childIndices = resolved
       .map((surface, index) => ({ surface, index }))
-      .filter(({ surface }) => surface.peninsulaRunId === child.id && (surface.runStartIn ?? 0) <= COLLISION_EPSILON_IN);
+      .filter(({ surface }) => !surface.peninsulaCornerSupportExtension && surface.peninsulaRunId === child.id && (surface.runStartIn ?? 0) <= COLLISION_EPSILON_IN);
     if (parentIndices.length === 0 || childIndices.length === 0) continue;
     const parentGeometry = peninsulaRunEndpoints(parent, room);
     const childGeometry = peninsulaRunEndpoints(child, room);
@@ -8811,6 +8817,30 @@ function countertopPointIsStrictlyInsidePolygon(point: CountertopPlanPoint, poly
   return inside;
 }
 
+function countertopPointIsOnSegment(
+  point: CountertopPlanPoint,
+  start: CountertopPlanPoint,
+  end: CountertopPlanPoint,
+  tolerance = 1e-5,
+): boolean {
+  const edge = { x: end.x - start.x, y: end.y - start.y };
+  const offset = { x: point.x - start.x, y: point.y - start.y };
+  const lengthSquared = edge.x * edge.x + edge.y * edge.y;
+  if (lengthSquared <= tolerance * tolerance) return sameCountertopPlanPoint(point, start, tolerance);
+  const projected = (offset.x * edge.x + offset.y * edge.y) / lengthSquared;
+  return projected >= -tolerance
+    && projected <= 1 + tolerance
+    && Math.abs(countertopCrossProduct(edge, offset)) <= tolerance;
+}
+
+function countertopPointIsOnPolygonBoundary(point: CountertopPlanPoint, polygon: CountertopPlanPoint[]): boolean {
+  return polygon.some((start, index) => countertopPointIsOnSegment(
+    point,
+    start,
+    polygon[(index + 1) % polygon.length]!,
+  ));
+}
+
 /** True only when a countertop outline has crossing, non-adjacent physical edges. */
 export function countertopPolygonSelfIntersects(points: CountertopPlanPoint[]): boolean {
   if (points.length < 4) return false;
@@ -8853,8 +8883,20 @@ function unionCountertopSurfacesAtVisibleBoundary(
       const end = polygon[(index + 1) % polygon.length]!;
       const parameters = [0, 1];
       for (let otherIndex = 0; otherIndex < other.length; otherIndex += 1) {
-        const parameter = countertopSegmentParameterAtIntersection(start, end, other[otherIndex]!, other[(otherIndex + 1) % other.length]!);
+        const otherStart = other[otherIndex]!;
+        const otherEnd = other[(otherIndex + 1) % other.length]!;
+        const parameter = countertopSegmentParameterAtIntersection(start, end, otherStart, otherEnd);
         if (parameter != null) parameters.push(parameter);
+        // A corner-support leg can share part of its outer boundary with the
+        // existing run slab. Ordinary segment intersection intentionally treats
+        // collinear edges as parallel, so explicitly split at their endpoints.
+        // The midpoint test below removes that now-internal shared section.
+        for (const point of [otherStart, otherEnd]) {
+          if (!countertopPointIsOnSegment(point, start, end)) continue;
+          const direction = { x: end.x - start.x, y: end.y - start.y };
+          const lengthSquared = direction.x * direction.x + direction.y * direction.y;
+          if (lengthSquared > 1e-9) parameters.push(((point.x - start.x) * direction.x + (point.y - start.y) * direction.y) / lengthSquared);
+        }
       }
       const ordered = Array.from(new Set(parameters.map((value) => Math.round(value * 1e8) / 1e8))).sort((a, b) => a - b);
       for (let parameterIndex = 0; parameterIndex < ordered.length - 1; parameterIndex += 1) {
@@ -8862,7 +8904,7 @@ function unionCountertopSurfacesAtVisibleBoundary(
         const to = ordered[parameterIndex + 1]!;
         if (to - from <= 1e-7) continue;
         const midpoint = { x: start.x + (end.x - start.x) * (from + to) / 2, y: start.y + (end.y - start.y) * (from + to) / 2 };
-        if (countertopPointIsStrictlyInsidePolygon(midpoint, other)) continue;
+        if (countertopPointIsStrictlyInsidePolygon(midpoint, other) || countertopPointIsOnPolygonBoundary(midpoint, other)) continue;
         visibleSegments.push({
           start: { x: start.x + (end.x - start.x) * from, y: start.y + (end.y - start.y) * from },
           end: { x: start.x + (end.x - start.x) * to, y: start.y + (end.y - start.y) * to },
@@ -9458,6 +9500,107 @@ export function peninsulaCountertopSurface(
   };
 }
 
+/** A monotone-chain hull preserves the one-sided finished overhang on one cabinet leg. */
+function countertopConvexHull(points: CountertopPlanPoint[]): CountertopPlanPoint[] {
+  const unique = Array.from(new Map(
+    points.map((point) => [`${Math.round(point.x * 1e8)},${Math.round(point.y * 1e8)}`, point]),
+  ).values()).sort((left, right) => left.x - right.x || left.y - right.y);
+  if (unique.length <= 2) return unique;
+  const cross = (origin: CountertopPlanPoint, first: CountertopPlanPoint, second: CountertopPlanPoint) => (
+    (first.x - origin.x) * (second.y - origin.y) - (first.y - origin.y) * (second.x - origin.x)
+  );
+  const lower: CountertopPlanPoint[] = [];
+  for (const point of unique) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2]!, lower[lower.length - 1]!, point) <= 1e-8) lower.pop();
+    lower.push(point);
+  }
+  const upper: CountertopPlanPoint[] = [];
+  for (const point of [...unique].reverse()) {
+    while (upper.length >= 2 && cross(upper[upper.length - 2]!, upper[upper.length - 1]!, point) <= 1e-8) upper.pop();
+    upper.push(point);
+  }
+  return [...lower.slice(0, -1), ...upper.slice(0, -1)];
+}
+
+function countertopSurfaceFromWorldPolygon(
+  world: CountertopPlanPoint[],
+  runId: string,
+): CountertopSurface | null {
+  if (world.length < 3) return null;
+  const minX = Math.min(...world.map((point) => point.x));
+  const maxX = Math.max(...world.map((point) => point.x));
+  const minY = Math.min(...world.map((point) => point.y));
+  const maxY = Math.max(...world.map((point) => point.y));
+  const area = countertopPolygonArea(world);
+  if (maxX - minX <= COLLISION_EPSILON_IN || maxY - minY <= COLLISION_EPSILON_IN || area <= COLLISION_EPSILON_IN) return null;
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    depth: maxY - minY,
+    kind: "base",
+    polygon: world.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+    peninsulaRunId: runId,
+    peninsulaCornerSupportExtension: true,
+    areaInches: area,
+  };
+}
+
+function peninsulaRootHasFortyFiveReturn(run: PeninsulaRun, room: RoomData): boolean {
+  const rootId = peninsulaRootRunId(run, room);
+  return Boolean((room.peninsulaRuns ?? []).some((candidate) => (
+    candidate.turn === 45 && peninsulaRootRunId(candidate, room) === rootId
+  )));
+}
+
+/**
+ * A 36-inch ERB/LS/CDB keeps real 24-inch-deep L-shaped cabinet legs. At a
+ * 45-degree peninsula return, the continuous run is only 25½ inches deep, so
+ * the exterior leg can project beyond it. Preserve precisely that existing
+ * cabinet support plus its 1½-inch front overhang, then let the existing
+ * miter/union logic incorporate it into the one connected countertop surface.
+ * No filler, open gap, diagonal approximation, or extra 90-degree slab is
+ * created by this path.
+ */
+function peninsulaLCornerSupportSurfaces(
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): CountertopSurface[] {
+  const result: CountertopSurface[] = [];
+  for (const cabinet of placed) {
+    if (!bearsCountertop(cabinet)) continue;
+    const cornerKind = placedCornerGeometryKind(cabinet);
+    if (cornerKind !== "l-shape" && cornerKind !== "corner-drawer") continue;
+    const run = peninsulaRunById(room, cabinetWall(cabinet, room));
+    if (!run || !peninsulaRootHasFortyFiveReturn(run, room)) continue;
+    const geometry = peninsulaRunEndpoints(run, room);
+    const normal = countertopRunFaceNormal(
+      geometry.radians,
+      run.cabinetSide ?? "left",
+    );
+    const finishedFrontOverhang = Math.max(0, COUNTERTOP_DEPTH_IN - STD.BASE_DEPTH);
+    for (const body of lCornerBodyPolygons(cabinet)) {
+      const extended = countertopConvexHull([
+        ...body,
+        ...body.map((point) => ({
+          x: point.x + normal.x * finishedFrontOverhang,
+          y: point.y + normal.y * finishedFrontOverhang,
+        })),
+      ]);
+      // One L leg normally sits entirely inside the ordinary run top. Rendering
+      // it again would z-fight the shared slab; retain only the exterior leg
+      // that genuinely reaches past the 24" box + 1½" finished front edge.
+      const projectsBeyondNormalRunDepth = extended.some((point) => (
+        (point.x - geometry.start.x) * normal.x + (point.y - geometry.start.y) * normal.y
+      ) > COUNTERTOP_DEPTH_IN + COLLISION_EPSILON_IN);
+      if (!projectsBeyondNormalRunDepth) continue;
+      const surface = countertopSurfaceFromWorldPolygon(extended, run.id);
+      if (surface) result.push(surface);
+    }
+  }
+  return result;
+}
+
 /**
  * Island-only exception for a shallow wall cabinet such as W-24-30. The marker
  * is set exclusively by Island-mode placement, leaving ordinary wall cabinets
@@ -9880,6 +10023,10 @@ export function countertopSurfaces(
       out.push(peninsulaCountertopSurface(run, room, cursor, run.length - cursor));
     }
   }
+  // The run slabs above provide the standard 24" cabinet depth plus finished
+  // front edge. Add only any real L-corner leg that extends beyond them before
+  // the existing 45° miter/union stage assembles the shared countertop.
+  out.push(...peninsulaLCornerSupportSurfaces(placed, room));
   const mitered = miteredPeninsulaCountertopSurfaces(out, room);
   out.splice(0, out.length, ...unifiedFortyFivePeninsulaCountertopSurfaces(mitered, room));
   if (island) {

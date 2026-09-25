@@ -359,6 +359,58 @@ describe("side-aware peninsula countertop meshes", () => {
       )).toBe(true);
     }
   });
+
+  it("extrudes the real ERB36 exterior L leg into the shared 45-degree peninsula slab", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 144,
+      depth: 120,
+      ceilingHeight: 96,
+      peninsulaRuns: [
+        { id: "erb-parent-3d", parentWall: "top", startOffset: 72, turn: 90, direction: "right", length: 48, height: 34.5, cabinetSide: "right" },
+        { id: "erb-child-3d", parentRunId: "erb-parent-3d", startOffset: 0, turn: 45, direction: "left", length: 36, height: 34.5, cabinetSide: "right" },
+      ],
+    };
+    const [parentRun, childRun] = room.peninsulaRuns!;
+    const spot = wallPlacementAt(12, 36, 36, parentRun.id as any, room, "right");
+    const erb = {
+      uid: "erb36-45-peninsula",
+      cabinetId: 1,
+      masterCode: "ERB36",
+      description: "36 inch Easy Reach Corner Base",
+      placement: "base",
+      ...spot,
+      width: 36,
+      depth: 36,
+      height: 34.5,
+      wallId: parentRun.id,
+      wallOffset: 12,
+      peninsulaSide: "right",
+    } as PlacedCabinet;
+    const surface = countertopSurfaces([erb], room).find((candidate) => candidate.peninsulaRunId === parentRun.id)!;
+    const expectedPlanPoints = countertopSurfacePlanPolygon(surface);
+    expect(surface).toMatchObject({ peninsulaRunIds: [parentRun.id, childRun.id] });
+    expect(expectedPlanPoints.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
+
+    addThreeDPeninsulaCountertops(root, room, [erb], "#e9e7e2");
+    const slabs = root.children.filter((item) => item.userData.peninsulaCountertop) as THREE.Mesh[];
+    expect(slabs).toHaveLength(1);
+    const slab = slabs[0]!;
+    expect(slab.userData).toMatchObject({
+      unifiedPeninsulaAssembly: true,
+      peninsulaRunIds: [parentRun.id, childRun.id],
+    });
+    slab.updateMatrixWorld(true);
+    const positions = slab.geometry.getAttribute("position");
+    const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
+      .fromBufferAttribute(positions, index)
+      .applyMatrix4(slab.matrixWorld));
+    for (const expected of expectedPlanPoints) {
+      expect(worldVertices.some((vertex) =>
+        Math.hypot(vertex.x - expected.x / 12, vertex.z - expected.y / 12) < 1e-5,
+      )).toBe(true);
+    }
+  });
 });
 
 describe("angled sink fixture parity", () => {
