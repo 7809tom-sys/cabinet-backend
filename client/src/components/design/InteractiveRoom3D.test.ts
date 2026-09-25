@@ -528,8 +528,17 @@ describe("interactive 3D room scene helpers", () => {
 					curated: true, proceduralFallback: false, physicalWidthIn: 240, physicalDepthIn: 108,
 					flooringPatternKind: "plank", plankWidthIn: 9, plankLengthIn: 60,
 				});
-				expect(astoria?.url).not.toContain("pelican/54_65e4c5a2.png");
-				expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
+					expect(astoria?.url).not.toContain("pelican/54_65e4c5a2.png");
+					expect(threeDProductMaterialSource("flooring", "Legacy renamed flooring", null, { productId: 73 })).toMatchObject({
+						url: "/manus-storage/aveline_20mil_7x48_staggered_floor_2675d409.webp",
+						key: "aveline-20mil-7x48",
+						curated: true,
+						proceduralFallback: false,
+						flooringPatternKind: "plank",
+						plankWidthIn: 7,
+						plankLengthIn: 48,
+					});
+					expect(threeDProductMaterialSource("countertop", "Bedrock 3cm", null)).toMatchObject({
 				url: "/manus-storage/bedrock_3cm_126x63_clean_slab_a9743085.webp", key: "bedrock-3cm-126x63",
 				curated: true, proceduralFallback: false, physicalWidthIn: 126, physicalDepthIn: 63,
 			});

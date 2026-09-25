@@ -854,7 +854,7 @@ export function threeDProductMaterialSource(
 	    backsplashGroutJointIn: 1 / 16,
 	  };
 	}
-	if (role === "flooring" && normalizedName === "aveline 20mil vinyl flooring") {
+		if (role === "flooring" && (normalizedName === "aveline 20mil vinyl flooring" || productId === 73)) {
     return {
 	      url: THREE_D_AVELINE_20MIL_FLOOR_URL,
 	      key: "aveline-20mil-7x48",
