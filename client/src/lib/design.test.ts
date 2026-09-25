@@ -1929,10 +1929,16 @@ describe("countertopSurfaces", () => {
       placement: "base", ...spot, width: 36, depth: 36, height: 34.5,
       wallId: parent.id, wallOffset: 12,
     });
+    const returnBaseSpot = wallPlacementAt(0, 24, 24, child.id as never, room, "right");
+    const returnBase = cab({
+      uid: "erb36-45-return-base", masterCode: "B24", description: "24 inch Base Cabinet",
+      placement: "base", ...returnBaseSpot, width: 24, depth: 24, height: 34.5,
+      wallId: child.id, wallOffset: 0,
+    });
 
     expect(peninsulaCornerCabinetSupportsCountertop(erb, parent, room)).toBe(true);
     expect(peninsulaCornerCabinetSupportsCountertop(erb, child, room)).toBe(true);
-    const surfaces = countertopSurfaces([erb], room);
+    const surfaces = countertopSurfaces([erb, returnBase], room);
     expect(surfaces).toHaveLength(1);
     expect(surfaces).toMatchObject([{
       kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id],

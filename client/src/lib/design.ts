@@ -8894,6 +8894,32 @@ function unionCountertopSurfacesAtVisibleBoundary(
   if (leftPolygon.length < 3 || rightPolygon.length < 3) return null;
   type BoundarySegment = { start: CountertopPlanPoint; end: CountertopPlanPoint };
   const visibleSegments: BoundarySegment[] = [];
+  const interiorSideOfCountertopSegment = (
+    polygon: CountertopPlanPoint[],
+    midpoint: CountertopPlanPoint,
+    start: CountertopPlanPoint,
+    end: CountertopPlanPoint,
+  ): "left" | "right" | null => {
+    const dx = end.x - start.x;
+    const dy = end.y - start.y;
+    const length = Math.hypot(dx, dy);
+    if (length <= 1e-9) return null;
+    // A hundredth of an inch is enough to get off the shared boundary without
+    // skipping a narrow, source-measured countertop return.
+    const probe = 0.01;
+    const normal = { x: -dy / length, y: dx / length };
+    const leftProbe = { x: midpoint.x + normal.x * probe, y: midpoint.y + normal.y * probe };
+    const rightProbe = { x: midpoint.x - normal.x * probe, y: midpoint.y - normal.y * probe };
+    if (countertopPointIsStrictlyInsidePolygon(leftProbe, polygon)) return "left";
+    if (countertopPointIsStrictlyInsidePolygon(rightProbe, polygon)) return "right";
+    return null;
+  };
+  const hasEquivalentVisibleSegment = (start: CountertopPlanPoint, end: CountertopPlanPoint) => (
+    visibleSegments.some((segment) => (
+      (sameCountertopPlanPoint(segment.start, start) && sameCountertopPlanPoint(segment.end, end))
+      || (sameCountertopPlanPoint(segment.start, end) && sameCountertopPlanPoint(segment.end, start))
+    ))
+  );
   const appendVisibleSegments = (polygon: CountertopPlanPoint[], other: CountertopPlanPoint[]) => {
     for (let index = 0; index < polygon.length; index += 1) {
       const start = polygon[index]!;
@@ -8921,10 +8947,22 @@ function unionCountertopSurfacesAtVisibleBoundary(
         const to = ordered[parameterIndex + 1]!;
         if (to - from <= 1e-7) continue;
         const midpoint = { x: start.x + (end.x - start.x) * (from + to) / 2, y: start.y + (end.y - start.y) * (from + to) / 2 };
-        if (countertopPointIsStrictlyInsidePolygon(midpoint, other) || countertopPointIsOnPolygonBoundary(midpoint, other)) continue;
+        if (countertopPointIsStrictlyInsidePolygon(midpoint, other)) continue;
+        if (countertopPointIsOnPolygonBoundary(midpoint, other)) {
+          // A shared edge is internal only when the two tops occupy opposite
+          // sides of it. The outside leg of an L-corner can instead be
+          // coincident with a peninsula slab's exterior edge; dropping that
+          // edge creates a hole/second floating top in 3D.
+          const ownInterior = interiorSideOfCountertopSegment(polygon, midpoint, start, end);
+          const otherInterior = interiorSideOfCountertopSegment(other, midpoint, start, end);
+          if (ownInterior != null && otherInterior != null && ownInterior !== otherInterior) continue;
+        }
+        const segmentStart = { x: start.x + (end.x - start.x) * from, y: start.y + (end.y - start.y) * from };
+        const segmentEnd = { x: start.x + (end.x - start.x) * to, y: start.y + (end.y - start.y) * to };
+        if (hasEquivalentVisibleSegment(segmentStart, segmentEnd)) continue;
         visibleSegments.push({
-          start: { x: start.x + (end.x - start.x) * from, y: start.y + (end.y - start.y) * from },
-          end: { x: start.x + (end.x - start.x) * to, y: start.y + (end.y - start.y) * to },
+          start: segmentStart,
+          end: segmentEnd,
         });
       }
     }
