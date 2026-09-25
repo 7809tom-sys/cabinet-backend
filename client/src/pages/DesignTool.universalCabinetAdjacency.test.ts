@@ -98,4 +98,15 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(dragPath).toContain("magneticAvailableWallStart(segments, desiredStart, cabinet.width)");
     expect(snapToWallPath).toContain("magneticAvailableWallStart(segments, requestedAlong, selected.width)");
   });
+
+  it("uses the physical 45-degree measured-wall clearance resolver for catalog drops and cabinet moves", () => {
+    const threeDAddPath = sourceBetween("const addFromInteractive3d = useCallback", "const addRangeHoodFromInteractive3d");
+    const planDropPath = sourceBetween("const handleDropNew = useCallback", "const placePeninsulaFitRecommendation");
+    const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
+    expect(threeDAddPath).toContain("firstCollisionFreeCustomWallPlacement(");
+    expect(planDropPath).toContain("firstCollisionFreeCustomWallPlacement(");
+    expect(dragPath).toContain("firstCollisionFreeCustomWallPlacement(");
+    expect(threeDAddPath).toContain("{ wallId: dropWall, wallOffset: spot.wallOffset ?? along");
+    expect(planDropPath).toContain("wallOffset: spot.wallOffset ?? measured.snapStart");
+  });
 });

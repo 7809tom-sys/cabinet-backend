@@ -114,7 +114,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -5255,8 +5255,41 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
         toast.error(message);
         return;
       }
-      const spot = wallPlacementAt(along, width, depth, dropWall, room);
-	      addCabinet(cabinet, spot.x, spot.y, forceAccessory, spot.rotation, true, freehand ? undefined : dropTarget.placementUid);
+	      const containingSegment = segments.find((segment) => (
+	        along >= segment.start - COLLISION_EPSILON_IN
+	        && along + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+	      ));
+	      const spot = !strictPointerPlacement && containingSegment && isCustomRoomWall(room, dropWall)
+	        ? firstCollisionFreeCustomWallPlacement(
+	            dropWall,
+	            room,
+	            wallRunPlaced,
+	            width,
+	            depth,
+	            placement,
+	            along,
+	            containingSegment.start,
+	            containingSegment.start + containingSegment.length - width,
+	          )
+	        : wallPlacementAt(along, width, depth, dropWall, room);
+	      if (!spot) {
+	        const message = `Cannot place ${cabinet.masterCode} on this measured wall: the 45° corner clearance leaves no collision-free ${formatEighthInches(width)} position in the selected opening.`;
+	        setPlacementWarning(message);
+	        toast.error(message);
+	        return;
+	      }
+		      addCabinet(
+		        cabinet,
+		        spot.x,
+		        spot.y,
+		        forceAccessory,
+		        spot.rotation,
+		        true,
+		        freehand ? undefined : dropTarget.placementUid,
+		        undefined,
+		        false,
+		        { wallId: dropWall, wallOffset: spot.wallOffset ?? along, ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}) },
+		      );
     };
 	    if (item.category === "Cabinet") {
 	      const cabinet = ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []).find((candidate) => Number(candidate.id) === Number(item.sourceCabinetId ?? item.id));
@@ -7191,7 +7224,31 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        setPlacementWarning(message); toast.error(message); dragDataRef.current = null; setCatalogDragPreview(null); return;
 	      }
 	      setPeninsulaFitRecommendation(null);
-	      const spot = wallPlacementAt(measured.snapStart, width, depth, dropWall, room, activePeninsulaRun?.cabinetSide);
+	      const containingSegment = segments.find((segment) => (
+	        measured.snapStart >= segment.start - COLLISION_EPSILON_IN
+	        && measured.snapStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+	      ));
+	      const spot = useAutomaticSnapping && containingSegment && isCustomRoomWall(room, dropWall)
+	        ? firstCollisionFreeCustomWallPlacement(
+	            dropWall,
+	            room,
+	            wallRunPlaced,
+	            width,
+	            depth,
+	            placement,
+	            measured.snapStart,
+	            containingSegment.start,
+	            containingSegment.start + containingSegment.length - width,
+	          )
+	        : wallPlacementAt(measured.snapStart, width, depth, dropWall, room, activePeninsulaRun?.cabinetSide);
+	      if (!spot) {
+	        const message = `Cannot place ${data.masterCode} on this measured wall: the 45° corner clearance leaves no collision-free ${formatEighthInches(width)} position in the selected opening.`;
+	        setPlacementWarning(message);
+	        toast.error(message);
+	        dragDataRef.current = null;
+	        setCatalogDragPreview(null);
+	        return;
+	      }
 	      addCabinet(
 	        data,
 	        spot.x,
@@ -7202,7 +7259,7 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
 	        undefined,
 	        undefined,
 	        false,
-	        { wallId: dropWall, wallOffset: measured.snapStart, ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}) },
+	        { wallId: dropWall, wallOffset: spot.wallOffset ?? measured.snapStart, ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}) },
 	      );
       dragDataRef.current = null;
       setCatalogDragPreview(null);
@@ -7304,8 +7361,30 @@ export default function DesignTool({ affiliateSlug: affiliateSlugProp }: { affil
             toast.error(message);
             return prev;
           }
-	          const angledSpot = wallPlacementAt(nextStart, cabinet.width, cabinet.depth, requestedWallId as WallSide, room, cabinet.peninsulaSide);
-	          requestedCabinet = { ...cabinet, ...angledSpot, wallId: requestedWallId, wallOffset: nextStart };
+	          const containingSegment = segments.find((segment) => (
+	            nextStart >= segment.start - COLLISION_EPSILON_IN
+	            && nextStart + cabinet.width <= segment.start + segment.length + COLLISION_EPSILON_IN
+	          ));
+	          const angledSpot = shouldMagnetSnapToRun && !peninsula && containingSegment && isCustomRoomWall(room, requestedWallId)
+	            ? firstCollisionFreeCustomWallPlacement(
+	                requestedWallId as WallSide,
+	                room,
+	                peers,
+	                cabinet.width,
+	                cabinet.depth,
+	                cabinet.placement,
+	                nextStart,
+	                containingSegment.start,
+	                containingSegment.start + containingSegment.length - cabinet.width,
+	              )
+	            : wallPlacementAt(nextStart, cabinet.width, cabinet.depth, requestedWallId as WallSide, room, cabinet.peninsulaSide);
+	          if (!angledSpot) {
+	            const message = `${cabinet.masterCode} was not moved because the selected 45° wall opening has no collision-free ${formatEighthInches(cabinet.width)} position.`;
+	            setPlacementWarning(message);
+	            toast.error(message);
+	            return prev;
+	          }
+	          requestedCabinet = { ...cabinet, ...angledSpot, wallId: requestedWallId, wallOffset: angledSpot.wallOffset ?? nextStart };
 	        }
 	      }
 		      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag

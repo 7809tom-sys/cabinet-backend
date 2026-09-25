@@ -6760,49 +6760,66 @@ export function paletteActiveWallPlacement(
   // the first segment that can contain the requested cabinet is authoritative.
   const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
   if (segment) {
-    const initial = wallPlacementAt(segment.start, width, depth, side, room);
-    // A continuous builder represents a 45°/135° turn as two independently
-    // measured wall frames. At that vertex a cabinet's axis-aligned plan box can
-    // overlap a cabinet on the adjoining run even though the selected run itself
-    // is clear. Do not reject the catalog selection or silently place it through
-    // the other cabinet: advance along this exact run until its physical plan box
-    // clears. This leaves normal 90° corner-cabinet reservations untouched.
-    if (isCustomRoomWall(room, side) && cabinetPlacementCollisionDetail({
+    return isCustomRoomWall(room, side)
+      ? firstCollisionFreeCustomWallPlacement(side, room, placed, width, depth, placement, segment.start, segment.start, segment.start + segment.length - width)
+      : wallPlacementAt(segment.start, width, depth, side, room);
+  }
+  return null;
+}
+
+/**
+ * Resolves the nearest safe position on an explicit measured wall segment.
+ * The builder stores rotated cabinet bodies in an axis-aligned plan envelope,
+ * so a 45°/135° turn may appear occupied at its exact vertex even though the
+ * active wall has a valid span. This preserves the selected wall, searches only
+ * the given measured span in 1/8-inch increments, and never permits a physical
+ * cabinet-body overlap.
+ */
+export function firstCollisionFreeCustomWallPlacement(
+  side: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  width: number,
+  depth: number,
+  placement: Placement,
+  desiredStart: number,
+  minStart = 0,
+  maxStart = Math.max(0, wallLength(side, room) - width),
+): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } | null {
+  if (!isCustomRoomWall(room, side)) return wallPlacementAt(desiredStart, width, depth, side, room);
+  const lower = Math.max(0, Math.min(maxStart, minStart));
+  const upper = Math.max(lower, maxStart);
+  const preferred = Math.max(lower, Math.min(upper, Math.round(desiredStart * 8) / 8));
+  const candidateAt = (start: number) => {
+    const spot = wallPlacementAt(start, width, depth, side, room);
+    const candidate: PlacedCabinet = {
       uid: "custom-wall-placement-preview",
       cabinetId: 0,
       masterCode: "CUSTOM-WALL-PLACEMENT",
       description: "Custom wall placement preview",
       placement,
-      x: initial.x,
-      y: initial.y,
+      x: spot.x,
+      y: spot.y,
       width,
       depth,
-      rotation: initial.rotation,
-      wallId: initial.wallId,
-      wallOffset: initial.wallOffset,
-    }, placed, room)) {
-      const limit = segment.start + segment.length - width;
-      for (let start = segment.start + 0.125; start <= limit + COLLISION_EPSILON_IN; start += 0.125) {
-        const candidate = wallPlacementAt(Math.min(limit, start), width, depth, side, room);
-        const collision = cabinetPlacementCollisionDetail({
-          uid: "custom-wall-placement-preview",
-          cabinetId: 0,
-          masterCode: "CUSTOM-WALL-PLACEMENT",
-          description: "Custom wall placement preview",
-          placement,
-          x: candidate.x,
-          y: candidate.y,
-          width,
-          depth,
-          rotation: candidate.rotation,
-          wallId: candidate.wallId,
-          wallOffset: candidate.wallOffset,
-        }, placed, room);
-        if (!collision) return candidate;
-      }
-      return null;
+      rotation: spot.rotation,
+      wallId: spot.wallId,
+      wallOffset: spot.wallOffset,
+    };
+    return cabinetPlacementCollisionDetail(candidate, placed, room) ? null : spot;
+  };
+  const direct = candidateAt(preferred);
+  if (direct) return direct;
+  const increment = 0.125;
+  for (let distance = increment; preferred + distance <= upper + COLLISION_EPSILON_IN || preferred - distance >= lower - COLLISION_EPSILON_IN; distance += increment) {
+    if (preferred + distance <= upper + COLLISION_EPSILON_IN) {
+      const forward = candidateAt(Math.min(upper, preferred + distance));
+      if (forward) return forward;
     }
-    return initial;
+    if (preferred - distance >= lower - COLLISION_EPSILON_IN) {
+      const backward = candidateAt(Math.max(lower, preferred - distance));
+      if (backward) return backward;
+    }
   }
   return null;
 }
