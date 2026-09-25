@@ -26,7 +26,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
+  snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
   cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -3901,6 +3901,39 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(snapped.x).toBe(105);
     expect(snapped.x + snapped.width).toBe(wdc.x);
     expect(hasCollision(snapped, [wdc])).toBe(false);
+  });
+
+  it("moves a straight wall cabinet past the physical clearance at an adjoining measured 45-degree run", () => {
+    const room: RoomData = {
+      width: 180,
+      depth: 120,
+      openWallPath: true,
+      vertices: [
+        { id: "start", x: 0, y: 0 },
+        { id: "turn", x: 120, y: 0 },
+        { id: "angled-end", x: 180, y: 60 },
+      ],
+      customWalls: [
+        { id: "back-run", startVertexId: "start", endVertexId: "turn", label: "Wall 1" },
+        { id: "angle-run", startVertexId: "turn", endVertexId: "angled-end", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const firstSpot = wallPlacementAt(96, 24, 12, "back-run" as any, room);
+    const backWallCabinet = cab({
+      uid: "back-wall-cabinet", masterCode: "W-2442", description: "24 inch Wall Cabinet", placement: "wall", width: 24, depth: 12, height: 42, mountBottom: 54, ...firstSpot,
+    });
+    const secondSpot = paletteActiveWallPlacement("angle-run" as any, room, [backWallCabinet], [], 24, 12, "wall");
+    expect(secondSpot).not.toBeNull();
+    const angledWallCabinet = cab({
+      uid: "angled-wall-cabinet", masterCode: "W-2442", description: "24 inch Wall Cabinet", placement: "wall", width: 24, depth: 12, height: 42, mountBottom: 54, ...secondSpot!,
+    });
+
+    // The visible 45° wall join is preserved, while its straight upper starts at
+    // the first collision-free offset instead of being rejected at the vertex.
+    expect(angledWallCabinet.wallOffset).toBeGreaterThan(0);
+    expect(hasCollision(angledWallCabinet, [backWallCabinet])).toBe(false);
+    expect(cabinetPlacementCollisionDetail(angledWallCabinet, [backWallCabinet], room)).toBeNull();
+    expect(wallRunOffset(angledWallCabinet, "angle-run", room)).toBeGreaterThan(0);
   });
 
   it("enforces exact-zero adjacency for horizontal and rotated base-cabinet runs", () => {

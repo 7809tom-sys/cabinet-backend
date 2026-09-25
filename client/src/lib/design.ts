@@ -6759,7 +6759,51 @@ export function paletteActiveWallPlacement(
   // beyond a perfectly valid earlier opening. Narrow segments are skipped, but
   // the first segment that can contain the requested cabinet is authoritative.
   const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
-  if (segment) return wallPlacementAt(segment.start, width, depth, side, room);
+  if (segment) {
+    const initial = wallPlacementAt(segment.start, width, depth, side, room);
+    // A continuous builder represents a 45°/135° turn as two independently
+    // measured wall frames. At that vertex a cabinet's axis-aligned plan box can
+    // overlap a cabinet on the adjoining run even though the selected run itself
+    // is clear. Do not reject the catalog selection or silently place it through
+    // the other cabinet: advance along this exact run until its physical plan box
+    // clears. This leaves normal 90° corner-cabinet reservations untouched.
+    if (isCustomRoomWall(room, side) && cabinetPlacementCollisionDetail({
+      uid: "custom-wall-placement-preview",
+      cabinetId: 0,
+      masterCode: "CUSTOM-WALL-PLACEMENT",
+      description: "Custom wall placement preview",
+      placement,
+      x: initial.x,
+      y: initial.y,
+      width,
+      depth,
+      rotation: initial.rotation,
+      wallId: initial.wallId,
+      wallOffset: initial.wallOffset,
+    }, placed, room)) {
+      const limit = segment.start + segment.length - width;
+      for (let start = segment.start + 0.125; start <= limit + COLLISION_EPSILON_IN; start += 0.125) {
+        const candidate = wallPlacementAt(Math.min(limit, start), width, depth, side, room);
+        const collision = cabinetPlacementCollisionDetail({
+          uid: "custom-wall-placement-preview",
+          cabinetId: 0,
+          masterCode: "CUSTOM-WALL-PLACEMENT",
+          description: "Custom wall placement preview",
+          placement,
+          x: candidate.x,
+          y: candidate.y,
+          width,
+          depth,
+          rotation: candidate.rotation,
+          wallId: candidate.wallId,
+          wallOffset: candidate.wallOffset,
+        }, placed, room);
+        if (!collision) return candidate;
+      }
+      return null;
+    }
+    return initial;
+  }
   return null;
 }
 
