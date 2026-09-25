@@ -35,14 +35,14 @@ export function isCatalogPanel(candidate: Pick<CatalogFillerCandidate, "masterCo
 /**
  * Decorative legs are optional furniture accents, not cuttable run fillers.
  * Source descriptions are authoritative here because legacy imports have
- * occasionally put FLDL/CLDL into the generic Filler category. Reject the
+ * occasionally put FLDL/CLDL/SCDL/SQDL into the generic Filler category. Reject the
  * known leg nomenclature and a source description that explicitly says
  * "decorative leg" before considering the imported category.
  */
 export function isCatalogDecorativeLeg(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {
   const code = String(candidate.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
   const text = `${candidate.masterCode} ${candidate.description ?? ""} ${candidate.category ?? ""} ${candidate.subCategory ?? ""}`.toLowerCase();
-  return /^(?:FLDL|CLDL)$/.test(code) || /\bdecorative\s+leg\b/.test(text);
+  return /^(?:FLDL|CLDL|SCDL|SQDL)$/.test(code) || /\bdecorative\s+leg\b/.test(text);
 }
 
 export function isCatalogFiller(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {

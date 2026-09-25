@@ -35,8 +35,8 @@ describe("catalogFillerForGap", () => {
 	  expect(catalogFillerPricingId({ id: 2796, masterCode: "REPV2796", description: refrigeratorEndPanel.description, category: "Filler", subCategory: "Accessory", width: 1, placement: "base" }, [refrigeratorEndPanel, ...fillers])).toBe(2796);
 	});
 
-	it("never treats FLDL or any decorative leg as filler stock, even if a legacy import marks it Filler", () => {
-	  const flutedDecorativeLeg = {
+		it("never treats a verified decorative-leg code as filler stock, even if a legacy import marks it Filler", () => {
+		  const flutedDecorativeLeg = {
 	    id: 9360233,
 	    masterCode: "FLDL",
 	    description: 'Fluted Decorative Leg - 3"W X 3"D X 34 1/2"H',
@@ -48,10 +48,15 @@ describe("catalogFillerForGap", () => {
 	    catalogImageUrl: null,
 	  } as const;
 
-	  expect(isCatalogDecorativeLeg(flutedDecorativeLeg)).toBe(true);
-	  expect(isCatalogFiller(flutedDecorativeLeg)).toBe(false);
-	  expect(catalogFillerForGap([flutedDecorativeLeg, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
-	});
+		  expect(isCatalogDecorativeLeg(flutedDecorativeLeg)).toBe(true);
+		  expect(isCatalogFiller(flutedDecorativeLeg)).toBe(false);
+		  for (const masterCode of ["CLDL", "SCDL", "SQDL"]) {
+		    const sourceCodedLeg = { ...flutedDecorativeLeg, masterCode, description: "Legacy accessory import" };
+		    expect(isCatalogDecorativeLeg(sourceCodedLeg)).toBe(true);
+		    expect(isCatalogFiller(sourceCodedLeg)).toBe(false);
+		  }
+		  expect(catalogFillerForGap([flutedDecorativeLeg, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
+		});
 
 	it("automatically calculates the exact installed cut and retained catalog filler identity", () => {
     expect(catalogFillerSuggestion(fillers, 2.5, "base")).toMatchObject({
