@@ -1991,6 +1991,23 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(afterRoot.children[0]!.position.z).toBe(beforeRoot.children[0]!.position.z);
 	  });
 
+	  it("renders the W3024 microwave bridge from 72 to 96 inches above the fixed 56-to-72 MW-30", () => {
+	    const room = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const microwave = { uid: "mw-30", masterCode: "MW-30", description: "Over-Range Microwave 30", placement: "appliance", x: 42, y: 0, width: 30, depth: 15, height: 16, rotation: 0, mountBottom: 56 } as any;
+	    const bridge = { uid: "bridge-w3024", masterCode: "W3024", description: "30 x 24 Wall Cabinet", placement: "wall", x: 42, y: 0, width: 30, depth: 12, height: 24, rotation: 0, mountBottom: 72, mountBottomAdjusted: true } as any;
+
+	    const microwaveTransform = existingCabinetTransform(microwave, room);
+	    const bridgeTransform = existingCabinetTransform(bridge, room);
+	    expect(microwaveTransform.bottom).toBe(56);
+	    expect(microwaveTransform.bottom + microwave.height).toBe(72);
+	    expect(bridgeTransform.bottom).toBe(72);
+	    expect(bridgeTransform.bottom + bridge.height).toBe(96);
+
+	    const root = new THREE.Group();
+	    addCabinet(root, existingCabinetSku(bridge), null, {}, room.width, room.depth, "#7e8d72", "#f8f8f6", undefined, bridgeTransform);
+	    expect(root.children[0]!.position.y).toBeCloseTo(84 / 12, 12);
+	  });
+
   it("accepts an editable movement amount at one-eighth-inch precision and bounds unsafe values", () => {
     expect(THREE_D_MIN_MOVE_INCREMENT_IN).toBe(0.125);
     expect(THREE_D_MAX_MOVE_INCREMENT_IN).toBe(24);

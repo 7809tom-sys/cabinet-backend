@@ -4,8 +4,8 @@ import {
   type RoomData,
   bridgeHeightForWallHeight,
   cabinetWall,
-  elevationBox,
   mountedMicrowaveOverRangeSpot,
+	OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM,
   wallPlacementAt,
   wallRunOffset,
 } from "@/lib/design";
@@ -21,16 +21,12 @@ export type RangeCompanionProposal = {
   microwave: DesignCabinet;
   bridgeSpot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
   microwaveSpot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
-  /** Clearance from the finished stove top to the microwave bottom. */
-  microwaveClearanceIn: number;
   microwaveMountBottom: number;
   bridgeMountBottom: number;
 };
 
-/** The allowed finished-stove-top clearance for an over-range microwave. */
-export const OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN = 24;
-export const OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN = 30;
-export const DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN = OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN;
+/** Every short wall cabinet above an over-range microwave begins at this datum. */
+export const OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN = OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM;
 
 function numberDimension(value: string | number | null | undefined): number {
   const result = Number(value);
@@ -86,7 +82,6 @@ export function rangeCompanionProposal(
   wallCabinets: DesignCabinet[],
   appliancePalette: DesignCabinet[],
   wallCabinetHeight: number = 30,
-  microwaveClearanceIn = DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN,
 ): RangeCompanionProposal | null {
   const rangeWidth = Number(range.width);
   if (!Number.isFinite(rangeWidth) || rangeWidth <= 0) return null;
@@ -100,11 +95,7 @@ export function rangeCompanionProposal(
 
   const microwaveHeight = numberDimension(microwave.height);
   if (!microwaveHeight) return null;
-  const clearance = Math.max(
-    OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN,
-    Math.min(OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN, Number(microwaveClearanceIn) || DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN),
-  );
-  const microwaveBottom = elevationBox(range, room).bottom + elevationBox(range, room).height + clearance;
+  const microwaveBottom = OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN - microwaveHeight;
   const bridge = bridgeCandidateForRange(
     range,
     wallCabinets,
@@ -125,17 +116,16 @@ export function rangeCompanionProposal(
   const bridgeStart = rangeStart + rangeWidth / 2 - bridgeWidth / 2;
   const bridgeSpot = wallPlacementAt(bridgeStart, bridgeWidth, bridgeDepth, side, room);
 
-  // This short bridge completes the OTR appliance stack. It must rest directly
-  // on the microwave—not top-align to the normal wall-cabinet line—so no empty
-  // band appears between the two pieces in elevation or 3D.
+  // The bridge starts at the fixed 72-inch microwave datum. The 16-inch MW-30
+  // finishes exactly at that line, so the real W30 bridge rests on it without a
+  // gap. Its 12/15/18/21/24-inch height then ends at 84/87/90/93/96 inches.
   return {
     bridge,
     microwave,
     bridgeSpot,
     microwaveSpot,
-    microwaveClearanceIn: clearance,
     microwaveMountBottom: microwaveBottom,
-    bridgeMountBottom: microwaveBottom + microwaveHeight,
+    bridgeMountBottom: OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN,
   };
 }
 

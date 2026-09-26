@@ -22,12 +22,12 @@ function range(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 describe("DesignTool MW-30 palette and drag attachment", () => {
   const microwave = { width: 30, depth: 15 };
 
-  it("anchors palette and drag targets over the selected top-wall range rather than the canvas center", () => {
+	  it("anchors palette and drag targets over the selected top-wall range at the fixed 56-to-72-inch microwave datum", () => {
     const topRange = range({ uid: "top-range" });
     const palette = resolveOverRangeMicrowavePlacement([topRange], DEFAULT_ROOM, "top", "top-range", { x: 72, y: 72 }, microwave);
     const drag = resolveOverRangeMicrowavePlacement([topRange], DEFAULT_ROOM, "top", null, { x: 72, y: 72 }, microwave);
-    expect(palette).toMatchObject({ ok: true, rangeUid: "top-range", spot: { x: 42, y: 0, rotation: 0 }, mountBottom: 54 });
-    expect(drag).toMatchObject({ ok: true, rangeUid: "top-range", spot: { x: 42, y: 0, rotation: 0 }, mountBottom: 54 });
+	    expect(palette).toMatchObject({ ok: true, rangeUid: "top-range", spot: { x: 42, y: 0, rotation: 0 }, mountBottom: 56 });
+	    expect(drag).toMatchObject({ ok: true, rangeUid: "top-range", spot: { x: 42, y: 0, rotation: 0 }, mountBottom: 56 });
   });
 
   it("rejects palette and drag adds when no compatible range exists", () => {

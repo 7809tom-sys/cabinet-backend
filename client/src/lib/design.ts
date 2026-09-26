@@ -241,7 +241,7 @@ export const APPLIANCES: ApplianceDef[] = [
   { key: "hood-glass-stainless", masterCode: "HOOD-30", description: '30" Glass Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchGlassStainlessRangeHood-cropped_4a695aa8.webp", rooms: ["kitchen"] },
   { key: "hood-stainless-30", masterCode: "HOOD-30", description: '30" Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchWideStainlessRangeHood-cropped_b83ef9d3.webp", rooms: ["kitchen"] },
   { key: "hood-stainless-36", masterCode: "HOOD-36", description: '36" Stainless Range Hood', width: 36, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/36InchStainlessRangeHood-cropped_275ed94d.webp", rooms: ["kitchen"] },
-  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 60, elevHeight: 16, catalogImageUrl: "/manus-storage/zline_over_range_microwave_front_4976b7ab.webp", rooms: ["kitchen"] },
+  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 56, elevHeight: 16, catalogImageUrl: "/manus-storage/zline_over_range_microwave_front_4976b7ab.webp", rooms: ["kitchen"] },
   // ── Bathroom fixtures (layout-only props, quoted separately) ──────────────
   { key: "shower", masterCode: "FIX-SHOWER-36", description: 'Shower 36"', width: 36, depth: 36, elevBottom: 0, elevHeight: 78, rooms: ["bathroom"] },
   { key: "tub", masterCode: "FIX-TUB-60", description: 'Bathtub 60"', width: 60, depth: 30, elevBottom: 0, elevHeight: 20, rooms: ["bathroom"] },
@@ -454,6 +454,8 @@ export interface PlacedCabinet {
   mountBottom?: number | null;
   /** True after a user intentionally changes mountBottom; automatic over-sink cleanup must preserve it. */
   mountBottomAdjusted?: boolean;
+	/** True for the short W30 cabinet directly above an MW-30 over a range. */
+	overRangeMicrowaveBridge?: boolean;
   /** WSC30 spice-cabinet UID when this wall cabinet is deliberately stacked above it. */
   spiceStackParentUid?: string | null;
   /** Wall cabinet whose top physically supports this glass stacker. */
@@ -1151,6 +1153,8 @@ export function placedHeight(p: PlacedCabinet): number {
 // cabinets that hang from the ceiling/soffit line. A standard 30" wall cabinet
 // bottomed at 54" also tops out here (84").
 export const WALL_CABINET_TOP = STD.WALL_MOUNT_BOTTOM + STD.WALL_HEIGHT; // 84"
+/** The fixed bottom line for a real W30 cabinet directly above the MW-30. */
+export const OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM = 72;
 /** Standard finished-floor bottom for a short cabinet directly above a sink. */
 export const OVER_SINK_WALL_MOUNT_BOTTOM = 70;
 
@@ -3984,6 +3988,24 @@ export function normalizeStandardWallMounts(
 ): PlacedCabinet[] {
   let changed = false;
   const normalized = placed.map((cabinet) => {
+    // An MW-30 companion is an installation-specific wall cabinet, not an
+    // ordinary upper. Preserve the fixed 72-inch bridge datum for newly added
+    // bridges and recover older saved bridges that predate the ownership flag.
+    if (isOverRangeMicrowaveBridge(cabinet, placed, room)) {
+      if (
+        typeof cabinet.mountBottom === "number"
+        && Math.abs(cabinet.mountBottom - OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM) <= 0.01
+        && cabinet.mountBottomAdjusted
+        && cabinet.overRangeMicrowaveBridge
+      ) return cabinet;
+      changed = true;
+      return {
+        ...cabinet,
+        mountBottom: OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM,
+        mountBottomAdjusted: true,
+        overRangeMicrowaveBridge: true,
+      };
+    }
     if (
       cabinet.placement !== "wall"
       || cabinet.islandFace
@@ -6179,6 +6201,35 @@ export function isOverRangeMicrowave(p: {
 }): boolean {
   if (p.placement !== "appliance") return false;
   return /^MW-/.test((p.masterCode || "").toUpperCase());
+}
+
+/**
+ * Identifies a real W30 microwave bridge without confusing an ordinary W3024
+ * upper elsewhere in the plan. New placements persist the explicit ownership
+ * flag; older drafts are recognized only when a permitted W30 box is centered
+ * over an actual MW-30/range pair on the same physical wall.
+ */
+export function isOverRangeMicrowaveBridge(
+  cabinet: PlacedCabinet,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): boolean {
+  if (cabinet.placement !== "wall") return false;
+  if (cabinet.overRangeMicrowaveBridge === true) return true;
+  const code = (cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!/^W30(?:12|15|18|21|24)$/.test(code)) return false;
+  const dimensions = wallCabinetSkuDimensions(cabinet.masterCode);
+  if (!dimensions || dimensions.width !== 30) return false;
+  const side = cabinetWall(cabinet, room);
+  const bridgeCenter = wallRunOffset(cabinet, side, room) + wallRunSpan(cabinet, side, room) / 2;
+  const microwave = placed.find((candidate) => (
+    isOverRangeMicrowave(candidate)
+    && cabinetWall(candidate, room) === side
+    && Math.abs(
+      wallRunOffset(candidate, side, room) + wallRunSpan(candidate, side, room) / 2 - bridgeCenter,
+    ) <= 0.5
+  ));
+  return Boolean(microwave && placed.some((candidate) => isMicrowaveOverRangePair(microwave, candidate)));
 }
 
 // The standard short "bridge" wall cabinet SKU that mounts directly above an

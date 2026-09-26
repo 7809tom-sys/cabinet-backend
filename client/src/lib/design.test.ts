@@ -2611,6 +2611,29 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	    expect(elevationBox(normalized.find((cabinet) => cabinet.uid === "refrigerator-upper")!, room).bottom).toBe(72);
 	  });
 
+	  it("restores a legacy W3024 microwave bridge to 72 inches through ordinary-wall normalization", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const range = cab({
+	      uid: "range", placement: "appliance", masterCode: "RANGE-30", description: "30 inch range",
+	      x: 42, y: 0, width: 30, depth: 25, height: 36, mountBottom: 0,
+	    });
+	    const microwave = cab({
+	      uid: "mw-30", placement: "appliance", masterCode: "MW-30", description: "Over-Range Microwave 30",
+	      x: 42, y: 0, width: 30, depth: 15, height: 16, mountBottom: 56,
+	    });
+	    const bridge = cab({
+	      uid: "mw-bridge", placement: "wall", masterCode: "W3024", description: "30 x 24 Wall Cabinet",
+	      x: 42, y: 0, width: 30, depth: 12, height: 24, mountBottom: 76,
+	    });
+	    const normalized = normalizeStandardWallMounts([range, microwave, bridge], [], room).find((item) => item.uid === bridge.uid)!;
+
+	    expect(normalized.mountBottom).toBe(72);
+	    expect(normalized.mountBottomAdjusted).toBe(true);
+	    expect(normalized.overRangeMicrowaveBridge).toBe(true);
+	    expect(elevationBox(normalized, room)).toEqual({ bottom: 72, height: 24 });
+	    expect(elevationBox(normalized, room).bottom + elevationBox(normalized, room).height).toBe(96);
+	  });
+
 	  it("mounts the no-dash WD18 countertop cabinet family at 36 inches and leaves ordinary dashed wall cabinets at 54 inches", () => {
     for (const [masterCode, height] of [["WD1848", 48], ["WD1854", 54], ["WD1860", 60]] as const) {
       const countertopCabinet = cab({ placement: "wall", width: 18, height, masterCode, numberOfDoors: 1, numberOfDrawers: 2 });

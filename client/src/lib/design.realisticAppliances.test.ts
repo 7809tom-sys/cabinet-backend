@@ -63,8 +63,8 @@ describe("realistic designer appliance appearances", () => {
     expect(applianceAppearanceImage("MW-30")).toContain("zline_over_range_microwave_front");
   });
 
-  it("keeps the over-range microwave at the confirmed 16-inch installation height", () => {
-    expect(APPLIANCES.find((item) => item.masterCode === "MW-30"))
-      .toMatchObject({ width: 30, depth: 15, elevHeight: 16 });
-  });
+	  it("keeps the over-range microwave at the confirmed 56-to-72-inch installation height", () => {
+	    expect(APPLIANCES.find((item) => item.masterCode === "MW-30"))
+	      .toMatchObject({ width: 30, depth: 15, elevBottom: 56, elevHeight: 16 });
+	  });
 });

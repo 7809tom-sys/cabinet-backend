@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM, type DesignCabinet, type PlacedCabinet, wallPlacementAt } from "@/lib/design";
-import {
-  DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN,
-  rangeCompanionProposal,
-} from "./rangeCompanion";
+import { OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN, rangeCompanionProposal } from "./rangeCompanion";
 
 function cabinet(overrides: Partial<DesignCabinet>): DesignCabinet {
   return {
@@ -51,7 +48,7 @@ const microwave = cabinet({
   depth: "15",
   placement: "appliance",
   numberOfDoors: 0,
-  mountBottom: 60,
+  mountBottom: 56,
 });
 
 const wallBridge = (height: 12 | 15 | 18 | 21 | 24) => cabinet({
@@ -82,19 +79,30 @@ describe("rangeCompanionProposal", () => {
     expect(proposal?.microwave.masterCode).toBe("MW-30");
     expect(proposal?.microwaveSpot.x).toBe(30);
     expect(proposal?.bridgeSpot.x).toBe(30);
-    expect(proposal?.microwaveClearanceIn).toBe(DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN);
-    expect(proposal?.microwaveMountBottom).toBe(60);
-    expect(proposal?.bridgeMountBottom).toBe(76);
+	  expect(proposal?.microwaveMountBottom).toBe(56);
+	  expect(proposal?.bridgeMountBottom).toBe(OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN);
+	  expect(proposal!.microwaveMountBottom + Number(proposal!.microwave.height)).toBe(72);
+	  expect(proposal!.bridgeMountBottom + Number(proposal!.bridge.height)).toBe(84);
   });
 
   it("maps the upper cabinet heights to the only approved W30 microwave bridge codes", () => {
     const wallCabinets = [wallBridge(12), wallBridge(15), wallBridge(18), wallBridge(21), wallBridge(24)];
 
-    expect(rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], 30)?.bridge.masterCode).toBe("W3012");
-    expect(rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], 33)?.bridge.masterCode).toBe("W3015");
-    expect(rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], 36)?.bridge.masterCode).toBe("W3018");
-    expect(rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], 39)?.bridge.masterCode).toBe("W3021");
-    expect(rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], 42)?.bridge.masterCode).toBe("W3024");
+	  const expected = [
+	    [30, "W3012", 84],
+	    [33, "W3015", 87],
+	    [36, "W3018", 90],
+	    [39, "W3021", 93],
+	    [42, "W3024", 96],
+	  ] as const;
+
+	  for (const [wallHeight, code, expectedTop] of expected) {
+	    const proposal = rangeCompanionProposal(range(), DEFAULT_ROOM, wallCabinets, [microwave], wallHeight);
+	    expect(proposal?.bridge.masterCode).toBe(code);
+	    expect(proposal?.microwaveMountBottom).toBe(56);
+	    expect(proposal?.bridgeMountBottom).toBe(72);
+	    expect(proposal!.bridgeMountBottom + Number(proposal!.bridge.height)).toBe(expectedTop);
+	  }
   });
 
   it("keeps a refrigerator, glass, or open-box wall cabinet out of a solid microwave bridge selection", () => {
@@ -114,19 +122,19 @@ describe("rangeCompanionProposal", () => {
     expect(proposal?.bridge.masterCode).toBe("W3012");
   });
 
-  it("keeps the bridge seated on the microwave for every permitted 24-to-30-inch clearance", () => {
-    const proposal = rangeCompanionProposal(
-      range(),
-      DEFAULT_ROOM,
-      [wallBridge(18)],
-      [microwave],
-      36,
-      30,
-    );
+	it("keeps the 16-inch microwave and its W3018 bridge fixed at the 72-inch datum", () => {
+	  const proposal = rangeCompanionProposal(
+	    range(),
+	    DEFAULT_ROOM,
+	    [wallBridge(18)],
+	    [microwave],
+	    36,
+	  );
 
-    expect(proposal?.microwaveMountBottom).toBe(66);
-    expect(proposal?.bridgeMountBottom).toBe(82);
-    expect(proposal!.bridgeMountBottom).toBe(proposal!.microwaveMountBottom + 16);
+	  expect(proposal?.microwaveMountBottom).toBe(56);
+	  expect(proposal?.bridgeMountBottom).toBe(72);
+	  expect(proposal!.bridgeMountBottom).toBe(proposal!.microwaveMountBottom + 16);
+	  expect(proposal!.bridgeMountBottom + Number(proposal!.bridge.height)).toBe(90);
   });
 
   it("does not offer a mismatched microwave width", () => {

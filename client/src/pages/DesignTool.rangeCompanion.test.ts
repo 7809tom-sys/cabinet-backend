@@ -13,24 +13,25 @@ describe("Design Tool range companion workflow", () => {
     const promptSource = source.slice(promptStart, promptStart + 1100);
     expect(promptSource).toContain("rangeCompanionProposal(");
     expect(promptSource).toContain("wallCabHeightRef.current");
-    expect(promptSource).toContain("DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN");
+    expect(promptSource).not.toContain("CLEARANCE");
     expect(source).toContain("Add microwave and bridge over range");
     expect(source).toContain("Yes — add bridge and microwave");
     expect(source).toContain("No — keep the range as placed");
   });
 
-  it("allows the designer to choose a 24-to-30-inch microwave clearance and carries it into the actual placement", () => {
+  it("uses the owner-fixed 72-inch bridge datum without clearance controls", () => {
     const actionStart = source.indexOf("const addApprovedRangeCompanions = useCallback");
     const actionEnd = source.indexOf("// Manual filler", actionStart);
     const actionSource = source.slice(actionStart, actionEnd);
     const previewStart = source.indexOf("data-testid=\"range-companion-source-preview\"");
     const previewSource = source.slice(previewStart, previewStart + 2300);
 
-    expect(actionSource).toContain("rangeCompanionClearanceIn");
     expect(actionSource).toContain("proposal.microwaveMountBottom");
-    expect(previewSource).toContain("OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN");
-    expect(previewSource).toContain("OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN");
-    expect(previewSource).toContain("The selected bridge is placed directly on the microwave");
+	    expect(actionSource).toContain("overRangeMicrowaveBridge: true");
+    expect(previewSource).toContain("The 16″ MW-30 runs from 56″ to 72″");
+    expect(previewSource).toContain("bridge begins at 72″");
+    expect(source).not.toContain("rangeCompanionClearanceIn");
+    expect(source).not.toContain("Microwave clearance");
   });
 
   it("offers the same real bridge when MW-30 is placed directly over an existing range", () => {
@@ -41,6 +42,7 @@ describe("Design Tool range companion workflow", () => {
 
     expect(microwavePromptStart).toBeGreaterThan(rangePromptStart);
     expect(microwavePrompt).toContain("rangeCompanionProposal(");
+    expect(microwavePrompt).toContain("microwaveAlreadyPlaced: true");
     expect(microwavePrompt).toContain("Add the matching wall cabinet directly above it?");
   });
 
@@ -54,6 +56,7 @@ describe("Design Tool range companion workflow", () => {
     expect(actionSource).toContain("existingHood");
     expect(actionSource).toContain("existingMicrowave");
     expect(actionSource).toContain("const additions = existingMicrowave ? [bridge] : [microwave, bridge]");
+    expect(actionSource).toContain("${bridge.masterCode} was added above the existing ${microwave.masterCode}");
     expect(actionSource).toContain("appendCollisionFreePlacements(placedRef.current, additions, room)");
     expect(actionSource).toContain("Existing cabinets were left unchanged.");
     expect(actionSource).toContain("setRangeCompanionPrompt(null)");
