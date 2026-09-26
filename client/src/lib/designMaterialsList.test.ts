@@ -123,6 +123,46 @@ describe("complete Designer materials list", () => {
     })]);
   });
 
+  it("includes an arched valance only when the plan deliberately supplies it", () => {
+    const withoutValance = buildMaterialsListRows({
+      buildRows: [{
+        sourceUids: ["wall-30"],
+        code: "W-3030",
+        description: "30-inch Wall Cabinet",
+        widthIn: 30,
+        heightIn: 30,
+        depthIn: 12,
+        placement: "wall",
+        color: "Serene Sage (Madison)",
+        qty: 1,
+        unitPrice: 250,
+      }],
+      pricingLines: [{ masterCode: "W-3030", name: "30-inch Wall Cabinet", styleId: 7, styleLabel: "Serene Sage (Madison)", distributorId: 4, tier: "homeowner", unitPrice: 250, qty: 1 }],
+      supplements: [],
+    });
+    expect(withoutValance.some((row) => row.code === "VA-48")).toBe(false);
+
+    const withDeliberateValance = buildMaterialsListRows({
+      buildRows: [],
+      pricingLines: [],
+      supplements: [{
+        code: "VA-48",
+        description: "Arched valance",
+        category: "Trim & molding",
+        qty: 1,
+        supplier: "Madison",
+        styleColor: "Serene Sage (Madison)",
+        unitPrice: 42,
+      }],
+    });
+    expect(withDeliberateValance).toEqual([expect.objectContaining({
+      code: "VA-48",
+      description: "Arched valance",
+      qty: 1,
+      lineTotal: 42,
+    })]);
+  });
+
   it("lists only the final backsplash after a customer replaces an earlier tile", () => {
     const materials = buildMaterialsListRows({
       buildRows: [],

@@ -821,11 +821,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     );
     if (normalized !== placed) setPlaced(normalized);
   }, [placed, openings, room]);
-  // Trim toggles rendered in elevation + added to the BOM. These AUTO-APPLY
-  // based on the layout (toe kick on any base run, crown + light rail when there
-  // are wall cabinets, batten when cabinets share a seam). The user can still
-  // override any of them off; trimOverride remembers an explicit user choice so
-  // automation never fights the user.
+  // Trim toggles rendered in elevation + added to the BOM. Toe kick, crown,
+  // light rail, and batten AUTO-APPLY based on their physical layout rules.
+  // An arched valance is decorative and must be deliberately selected—having a
+  // window beside wall cabinets is not proof that one belongs in the plan or
+  // invoice. trimOverride remembers an explicit user choice so automation never
+  // fights the user.
   const [crown, setCrown] = useState(false);
   const [toeKick, setToeKick] = useState(false);
   const [batten, setBatten] = useState(false);
@@ -3609,11 +3610,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [cartableLines, replaceWithDesignItems, currentSavedDesignId]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
-  // Every trim that crown/toe kick do is now AUTOMATIC: when the layout warrants
-  // a trim we switch it on (and its quantity is computed above), unless the user
-  // has explicitly toggled that trim off. This mirrors how a real takeoff adds
-  // toe kick to every base run, crown + light rail to every wall run, and batten
-  // wherever cabinets meet — without the user hand-toggling each one.
+  // Physically required trims auto-apply when the layout warrants them unless
+  // the user explicitly overrides the switch: toe kick on base runs, crown and
+  // light rail on wall runs, and batten at cabinet seams. Decorative valances
+  // deliberately remain opt-in so they cannot appear in the plan or invoice
+  // without a user choice.
   const hasBaseCab = useMemo(() => placed.some((p) => p.placement === "base"), [placed]);
   const hasWallCab = useMemo(() => placed.some((p) => p.placement === "wall"), [placed]);
   const needsBatten = useMemo(() => battenLinearInches(placed, room) > 0, [placed, room]);
@@ -3627,10 +3628,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!o.lightRail && hasWallCab && !lightRail) setLightRail(true);
     // Batten: cover the seams wherever cabinets meet.
     if (!o.batten && needsBatten && !batten) setBatten(true);
-    // Valance: arched valance above windows when wall cabinets exist.
-    const hasWindows = openings.some((op) => op.kind === "window");
-    if (!o.valance && hasWallCab && hasWindows && !valance) setValance(true);
-  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten, valance, openings]);
+    // An arched valance is a deliberate decorative plan item. It is never
+    // inferred from a window + wall cabinet pairing, so the invoice cannot gain
+    // a VA-48 that the customer did not add to the plan.
+  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten]);
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
@@ -4150,7 +4151,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
     return out;
-  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
+  }, [crown, crownOrder, toeKick, toeKickOrder, batten, battenOrder, lightRail, lightRailOrder, valance, valanceOrder, countertop, counter, countertopMaterialId, edgeProfileId, sinks, hwSchedule, activeStyle, activeStyleName]);
 
   const materialsListSupplements = useMemo<MaterialsListSupplement[]>(() => {
     const out: MaterialsListSupplement[] = [];
@@ -9440,6 +9441,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     batten,
     lightRail,
     valance,
+    trimManualOverride: { ...trimOverride.current },
     trimQtyOverride,
     countertop,
     countertopMaterialId,
@@ -9538,8 +9540,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (typeof d.styleB === "number") setStyleB(d.styleB);
           if (d.activeSlot === "A" || d.activeSlot === "B") setActiveSlot(d.activeSlot);
           if (d.tier) setTier(d.tier);
-          // A saved design carries the user's explicit trim choices; mark them as
-          // overrides so auto-apply doesn't re-enable a trim they turned off.
+          // Current snapshots separately preserve which trim switches were a
+          // deliberate customer choice. Older snapshots did not carry that
+          // provenance, so only their physical auto-trims retain the former
+          // compatibility behavior; a legacy VA-48 is never inferred or billed
+          // merely because the room has a window and wall cabinet.
+          const persistedManualTrimOverride = d.trimManualOverride && typeof d.trimManualOverride === "object"
+            ? d.trimManualOverride as Partial<Record<TrimKind, unknown>>
+            : null;
+          const wasManuallyChosen = (kind: TrimKind) => persistedManualTrimOverride?.[kind] === true;
           if ("crown" in d) trimOverride.current.crown = true;
           // Only lock toeKick override when it was explicitly saved as true.
           // If saved as false, allow auto-enable to fire so old designs
@@ -9547,16 +9556,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (d.toeKick) trimOverride.current.toeKick = true;
           if ("batten" in d) trimOverride.current.batten = true;
           if ("lightRail" in d) trimOverride.current.lightRail = true;
-          if ("valance" in d) trimOverride.current.valance = true;
+          if (wasManuallyChosen("valance")) trimOverride.current.valance = true;
           setCrown(!!d.crown);
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
           setLightRail(!!d.lightRail);
-          setValance(!!d.valance);
+          // The only persisted arched valance that returns is one whose switch
+          // was explicitly chosen. This clears old automatic VA-48 invoice rows
+          // from a restored plan without touching intentional valance designs.
+          setValance(wasManuallyChosen("valance") && d.valance === true);
           if (d.trimQtyOverride && typeof d.trimQtyOverride === "object") {
             const src = d.trimQtyOverride as Record<string, unknown>;
             const clean: Partial<Record<TrimKind, number>> = {};
             for (const k of ["crown", "toeKick", "batten", "lightRail", "valance"] as TrimKind[]) {
+              if (k === "valance" && !wasManuallyChosen("valance")) continue;
               if (typeof src[k] === "number") clean[k] = Math.max(0, Math.min(99, src[k] as number));
             }
             setTrimQtyOverride(clean);
