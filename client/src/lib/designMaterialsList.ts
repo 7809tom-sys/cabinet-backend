@@ -225,7 +225,13 @@ export function buildMaterialsListRows(args: MaterialsListArgs): MaterialsListRo
   for (const surface of finalSelectedSurfaces) {
     const code = `PEL-${surface.id}`;
     if (pricedSurfaceCodes.has(code)) continue;
-    const unitPrice = safePrice(surface.sellPrice);
+    // The Materials & Parts total is the exact merchandise total that will be
+    // handed to cart and checkout. A selected surface without a current cart
+    // line may be a stale saved pick or a fixture with no installed quantity;
+    // preserve it on the plan for review, but never resurrect its historical
+    // sell price into the invoice total. It stays explicitly quote-required
+    // until an active, measured cart line exists.
+    const unitPrice = null;
     const priceStatus = priceStatusFor({ section: "other", unitPrice });
     rows.push({
       section: "other",

@@ -180,6 +180,41 @@ describe("complete Designer materials list", () => {
     expect(materials[0]).toMatchObject({ description: "Final Concord Square", unitPrice: 12, lineTotal: 36 });
   });
 
+  it("does not resurrect a stale selected-surface price that is absent from the orderable cart", () => {
+    const cartLines = [
+      { masterCode: "B-24", name: "24-inch Base Cabinet", styleId: 7, styleLabel: "Aura Cream", distributorId: 4, tier: "homeowner" as const, unitPrice: 300, qty: 1 },
+    ];
+    const materials = buildMaterialsListRows({
+      buildRows: [{
+        sourceUids: ["base-24"],
+        code: "B-24",
+        description: "24-inch Base Cabinet",
+        widthIn: 24,
+        heightIn: 34.5,
+        depthIn: 24,
+        placement: "base",
+        color: "Aura Cream",
+        qty: 1,
+        unitPrice: 300,
+      }],
+      pricingLines: cartLines,
+      selectedSurfaces: [{
+        id: 183,
+        slug: "stale-desert-clay",
+        name: "Desert Clay",
+        category: "Backsplash",
+        sellPrice: 89,
+      }],
+    });
+
+    expect(materials.find((row) => row.code === "PEL-183")).toMatchObject({
+      unitPrice: null,
+      lineTotal: null,
+      priceStatus: "quote_required",
+    });
+    expect(materialsListPricedTotal(materials)).toBe(300);
+  });
+
   it("keeps an island-placed 30-inch wall cabinet in the cabinet invoice and materials output", () => {
     const islandWallRows = buildMaterialsListRows({
       buildRows: [
