@@ -584,7 +584,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [selectedLayoutPresetId, setSelectedLayoutPresetId] = useState<string | null>(null);
   const [beginnerFirstCabinetGuideOpen, setBeginnerFirstCabinetGuideOpen] = useState(false);
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
-  const [requestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
+  const [requestedThreeDPreview, setRequestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
   const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
 
   // Room + placement state
@@ -10084,7 +10084,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // click, which would call addCabinet twice. Block re-entry for 500 ms after
   // the first call so the second synthetic event is a no-op.
   const isAddingRef = useRef(false);
-  const clearCurrentDesign = usePersistFn(() => {
+  const resetCurrentDesign = usePersistFn((options?: { skipConfirmation?: boolean; deletedDesignId?: number }) => {
     const hasCustomRoomGeometry = room.width !== DEFAULT_ROOM.width
       || room.depth !== DEFAULT_ROOM.depth
       || room.ceilingHeight !== DEFAULT_ROOM.ceilingHeight
@@ -10093,23 +10093,44 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       || (room.peninsulaRuns?.length ?? 0) > 0
       || Object.keys(room.wallCeilings ?? {}).length > 0;
     const hasDesignContent = hasCustomRoomGeometry || placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0 || smartGapPreview.length > 0;
-    if (hasDesignContent && !window.confirm(t("dt_sh_start_new_confirm"))) return false;
+    if (!options?.skipConfirmation && hasDesignContent && !window.confirm(t("dt_sh_start_new_confirm"))) return false;
 
     const emptyPlaced: PlacedCabinet[] = [];
     const emptyRoom: RoomData = { ...DEFAULT_ROOM };
     smartGapPreviewSessionRef.current = null;
     undoRedoRef.current.clear();
     lastPushedRef.current = emptyPlaced;
-    loadedDesignRef.current = loadDesignId;
-    loadedBundleRef.current = bundleIdParam;
+    placedRef.current = emptyPlaced;
+    styleIdRef.current = null;
+    styleBRef.current = null;
+    wallCabHeightRef.current = 30;
+    wallCabHeightPromptedRef.current = false;
+    refrigeratorPanelRepairAttemptedRef.current.clear();
+    loadedDesignRef.current = null;
+    loadedBundleRef.current = null;
     clearDraft();
 
     setRoom(emptyRoom);
     setPlaced(emptyPlaced);
     setSmartGapPreview([]);
     setSmartGapPreviewPosition(null);
+    setCatalogDragPreview(null);
+    setSmallGapFillerPrompt(null);
+    setSmallGapFillerCustomWidth(null);
+    setSmallGapFillerPreviewMode(null);
+    setFillerInsertionTransition(null);
+    setBlindCornerFillerPrompt(null);
+    setAlternateWallRecommendation(null);
+    setAlternateIslandFaceRecommendation(null);
+    setIslandDepthTransition(null);
+    setRangeHoodReplacementRecommendation(null);
+    setRangeCompanionPrompt(null);
+    setGlassStackerBulkPrompt(null);
+    setMaterialsListOpen(false);
     setPlacementWarning(null);
     setFailedWallFit(null);
+    setPeninsulaFitRecommendation(null);
+    setBomOrder({});
     setOpenings([]);
     setIsland(null);
     setSinks([]);
@@ -10123,11 +10144,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSelectedFurnUid(null);
     setSelectedPonyWallUid(null);
     setSelectedAnnotationUid(null);
+    setPolygonEditMode(false);
+    setPhoneMeasureToken(null);
+    setPhoneMeasureOpen(false);
+    setPhysicalMeasureReviewOpen(false);
+    setPhysicalMeasureWidthIndex(null);
+    setPhysicalMeasureDepthIndex(null);
+    setBeginnerFirstCabinetGuideOpen(false);
+    setInteractive3dOpen(false);
+    setRequestedThreeDPreview(false);
+    setIslandAttributesOpen(false);
+    setIslandSeatingOverhangPrompt(null);
+    setIslandCameraFocusRequest(null);
+    setIslandPlacementPanelExpanded(false);
+    setIslandFace("front");
+    islandFaceRef.current = "front";
     setAttrUid(null);
     setAttrOpen(false);
     setCabEditSheetOpen(false);
     setCompactMoveControlsOpen(false);
     setFridgeDialog(null);
+    setPendingRefrigeratorPanelToggle(null);
     setOvenDialog(null);
     setSinkBaseDialog(null);
     setRangeTopStep("choose");
@@ -10152,15 +10189,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setCabinetsLocked(false);
     setLayoutLocked(false);
     setLockedWalls(new Set());
+    setCollapsedGroups(new Set());
+    setCollapsedSheet(new Set());
+    setTouchedSheet(new Set());
     setCustomPlacementMode(false);
 	  setAutomaticSnapping(true);
+    setShowWallLayer(true);
     setMeasureMode(false);
+    setAutoDimensions(false);
     setDrawMode(false);
     setConsultMessages([]);
     setConsultOpen(false);
     setInteractive3dPresentation(null);
     setLoadedBundlePriceLock(null);
     setActiveSavedDesignId(null);
+    setSelectedLayoutPresetId(null);
+    setContinuousWallDraft(null);
     setLayoutStarterOpen(false);
     setMobilePanel(null);
     setMoreSheetOpen(false);
@@ -10168,20 +10212,46 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setCompassWallStartIn(null);
     setPeninsulaDraft(null);
     setCompassSplitUndo(null);
+    setPeninsulaWizardOpen(false);
+    setPeninsulaWizardDraft(null);
     setWallSettingsOpen(false);
     setWallSettingsDraft(null);
     setPeninsulaDeletePrompt(null);
+    setCustomWallDeletePrompt(null);
+    setAllWallsAppearanceUndo(null);
     setPlacementTarget("wall");
     setViewMode("plan");
+    setRoomType("kitchen");
+    setStyleId(null);
+    setStyleA(null);
+    setStyleB(null);
+    setActiveSlot("A");
+    setPendingPlanStyleSwitch(null);
+    setFinishApplyScopePrompt(null);
+    setPlanSwitchAlternativeChoices({});
+    setLockedDistributorId(null);
+    setMixedWarehouseOverride(false);
+    setWallCabHeight(30);
+    setBacksplashHeightMode("standard");
+    setCountertopBacksplashHeightIn(0);
 
     if (typeof window !== "undefined") {
       const url = new URL(window.location.href);
       url.searchParams.delete("load");
+      url.searchParams.delete("designId");
+      url.searchParams.delete("crmDeal");
       url.searchParams.delete("bundleId");
-      window.history.replaceState({}, "", url.toString());
+      url.searchParams.delete("style");
+      url.searchParams.delete("preview");
+      navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true });
     }
-    toast.success(t("dt_sh_started_new"));
+    if (!options?.skipConfirmation) toast.success(t("dt_sh_started_new"));
+    if (options?.deletedDesignId != null && cartSourceDesignId === options.deletedDesignId) clearCart();
     return true;
+  });
+  const clearCurrentDesign = usePersistFn(() => resetCurrentDesign());
+  const startBlankAfterDeletedDesign = usePersistFn((designId: number) => {
+    resetCurrentDesign({ skipConfirmation: true, deletedDesignId: designId });
   });
   // Sync sheet open state with selection on mobile
   useEffect(() => {
@@ -11730,10 +11800,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       setRenameDialogOpen(true);
                     },
                   },
-                });
-              }
-            }}
-            onLoad={(d) =>
+	                });
+	              }
+	            }}
+	            onDeleteSuccess={(designId) => startBlankAfterDeletedDesign(designId)}
+	            onLoad={(d) =>
               {
 	                setActiveSavedDesignId(d.id ?? null);
 	                loadSavedDesign({

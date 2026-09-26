@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler, ClipboardCheck, Lightbulb, TriangleAlert } from "lucide-react";
+import { Save, FolderOpen, Download, Loader2, Clock, Send, Calculator, Printer, Ruler, ClipboardCheck, Lightbulb, TriangleAlert, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -112,6 +112,8 @@ interface Props {
   onReviewPlanFinding?: (finding: PreSavePlanReviewFinding) => void;
   /** Called after a design is successfully saved (after the user confirms in the dialog). */
   onSaveSuccess?: (designName: string, designId: number) => void;
+  /** Called after the server permanently deletes a saved design. */
+  onDeleteSuccess?: (designId: number, designName: string) => void;
   onLoad: (d: {
     id?: number;
     room: RoomData;
@@ -362,7 +364,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
@@ -377,6 +379,7 @@ export function DesignActions({
   const [planCheckOpen, setPlanCheckOpen] = useState(false);
   const [dismissedPlanFindingIds, setDismissedPlanFindingIds] = useState<string[]>([]);
   const [loadOpen, setLoadOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [name, setName] = useState("");
   // Customer/House this plan is for (the CRM contact + grouping key). A homeowner
   // can leave it blank (their own project); a contractor names the customer/house.
@@ -442,6 +445,25 @@ export function DesignActions({
   const myDesigns = trpc.design.myDesigns.useQuery({ affiliateSlug: storeScope }, {
     enabled: isAuthenticated && loadOpen,
     retry: false,
+  });
+
+  const removeMutation = trpc.design.remove.useMutation({
+    onSuccess: (result) => {
+      setDeleteTarget(null);
+      setLoadOpen(false);
+      onDeleteSuccess?.(result.id, result.name);
+      toast.success("Design permanently deleted", {
+        description: `Started a new blank design after deleting “${result.name}”.`,
+      });
+      void Promise.all([
+        utils.design.myDesigns.invalidate({ affiliateSlug: storeScope }),
+        utils.design.byId.invalidate(),
+        utils.design.documentAccess.invalidate(),
+      ]);
+    },
+    onError: (error) => {
+      toast.error("Could not delete this design", { description: error.message });
+    },
   });
 
   const handleSave = () => {
@@ -717,14 +739,14 @@ export function DesignActions({
                       const rType = (d as { roomType?: string | null }).roomType;
                       const rLabel = (d as { roomLabel?: string | null }).roomLabel;
                       return (
-                        <button
-                          key={d.id}
-                          className="w-full text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-	                          onClick={() => {
-	                            onLoad({
-	                              id: d.id,
-	                              room: (d.roomData as RoomData) ?? room,
-                              placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
+                        <div key={d.id} className="flex items-stretch gap-1.5">
+                          <button
+                            className="min-w-0 flex-1 text-left p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                            onClick={() => {
+                              onLoad({
+                                id: d.id,
+                                room: (d.roomData as RoomData) ?? room,
+	                              placed: (d.placedCabinets as PlacedCabinet[]) ?? [],
                               styleId: d.selectedStyleId ?? null,
                               distributorId: (d as { selectedDistributorId?: number | null }).selectedDistributorId ?? null,
                               roomType: rType ?? null,
@@ -735,27 +757,40 @@ export function DesignActions({
                                 backsplashHeightMode?: "standard" | "full-height";
                                 countertopBacksplashHeightIn?: 0 | 2.5 | 3;
                               } | null }).threeDPresentation ?? null,
-                            });
-                            setLoadOpen(false);
-                            toast.success(t("dt_act_loaded", { name: d.name }));
-                          }}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">{rLabel || d.name}</span>
-                            {rType && (
-                              <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
-                                {rType}
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
+                              });
+                              setLoadOpen(false);
+                              toast.success(t("dt_act_loaded", { name: d.name }));
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium text-sm">{rLabel || d.name}</span>
+                              {rType && (
+                                <span className="rounded-full bg-muted px-1.5 py-0.5 text-[9px] font-semibold uppercase text-muted-foreground">
+                                  {rType}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5">
                               <span>{items} {items === 1 ? t("dt_act_item_one") : t("dt_act_item_many")}</span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(d.updatedAt).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </button>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {new Date(d.updatedAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-auto min-h-[3.75rem] w-10 shrink-0 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`Delete saved design ${d.name}`}
+                            title="Delete saved design"
+                            data-testid={`delete-saved-design-${d.id}`}
+                            onClick={() => setDeleteTarget({ id: d.id, name: d.name })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       );
                     })}
                   </div>
@@ -763,6 +798,37 @@ export function DesignActions({
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteTarget != null} onOpenChange={(open) => { if (!open && !removeMutation.isPending) setDeleteTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this saved design?</DialogTitle>
+            <DialogDescription>
+              {deleteTarget
+                ? `“${deleteTarget.name}” will be permanently deleted. Its local draft and active Designer state will also be cleared, and a new blank design will start.`
+                : "This saved design will be permanently deleted."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" disabled={removeMutation.isPending} onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={!deleteTarget || removeMutation.isPending}
+              data-testid="confirm-delete-saved-design"
+              onClick={() => {
+                if (!deleteTarget) return;
+                removeMutation.mutate({ id: deleteTarget.id, affiliateSlug: storeScope });
+              }}
+            >
+              {removeMutation.isPending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+              Delete and start new design
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

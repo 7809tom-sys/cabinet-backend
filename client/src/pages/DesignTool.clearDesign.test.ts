@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 function clearDesignBlock() {
-  const start = source.indexOf("const clearCurrentDesign = usePersistFn(() => {");
+  const start = source.indexOf("const resetCurrentDesign = usePersistFn(");
   const end = source.indexOf("// Sync sheet open state with selection on mobile", start);
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
@@ -22,8 +22,13 @@ describe("DesignTool authoritative Clear Design transaction", () => {
 	    "room.peninsulaRuns?.length",
 	    "smartGapPreviewSessionRef.current = null",
       "undoRedoRef.current.clear()",
-      "lastPushedRef.current = emptyPlaced",
-      "clearDraft()",
+	    "lastPushedRef.current = emptyPlaced",
+	    "placedRef.current = emptyPlaced",
+	    "styleIdRef.current = null",
+	    "styleBRef.current = null",
+	    "loadedDesignRef.current = null",
+	    "loadedBundleRef.current = null",
+	    "clearDraft()",
       "setPlaced(emptyPlaced)",
       "setSmartGapPreview([])",
       "setSmartGapPreviewPosition(null)",
@@ -40,9 +45,18 @@ describe("DesignTool authoritative Clear Design transaction", () => {
       "setSelectedFurnUid(null)",
       "setSelectedPonyWallUid(null)",
       "setSelectedAnnotationUid(null)",
-      "setInteractive3dPresentation(null)",
-      "setLoadedBundlePriceLock(null)",
+	    "setInteractive3dPresentation(null)",
+	    "setLoadedBundlePriceLock(null)",
 	    "setActiveSavedDesignId(null)",
+	    "setSelectedLayoutPresetId(null)",
+	    "setContinuousWallDraft(null)",
+	    "setStyleId(null)",
+	    "setStyleA(null)",
+	    "setStyleB(null)",
+	    "setLockedDistributorId(null)",
+	    "setMixedWarehouseOverride(false)",
+	    "setBacksplashHeightMode(\"standard\")",
+	    "setCountertopBacksplashHeightIn(0)",
 	    'setActiveWall("top")',
 	    "setCompassWallStartIn(null)",
 	    "setPeninsulaDraft(null)",
@@ -59,9 +73,20 @@ describe("DesignTool authoritative Clear Design transaction", () => {
   it("removes saved-design and bundle route ownership so refresh cannot repopulate the cleared canvas", () => {
     const block = clearDesignBlock();
     expect(block).toContain('url.searchParams.delete("load")');
+	    expect(block).toContain('url.searchParams.delete("designId")');
+	    expect(block).toContain('url.searchParams.delete("crmDeal")');
     expect(block).toContain('url.searchParams.delete("bundleId")');
-    expect(block).toContain('window.history.replaceState({}, "", url.toString())');
+	    expect(block).toContain('url.searchParams.delete("style")');
+	    expect(block).toContain('navigate(`${url.pathname}${url.search}${url.hash}`, { replace: true })');
   });
+
+	  it("starts a blank design without a second prompt after permanent deletion and removes a matching design cart", () => {
+	    const block = clearDesignBlock();
+	    expect(block).toContain("options?.skipConfirmation");
+	    expect(block).toContain("options?.deletedDesignId != null && cartSourceDesignId === options.deletedDesignId");
+	    expect(block).toContain("const startBlankAfterDeletedDesign = usePersistFn((designId: number)");
+	    expect(source).toContain("onDeleteSuccess={(designId) => startBlankAfterDeletedDesign(designId)}");
+	  });
 
   it("routes both desktop and phone/tablet clear controls through the same transaction", () => {
     expect(source.match(/onClick=\{clearCurrentDesign\}/g)?.length).toBe(2);

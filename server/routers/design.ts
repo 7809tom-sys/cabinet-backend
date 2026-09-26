@@ -4,7 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
-import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments } from "../../drizzle/schema";
+import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -1586,6 +1586,48 @@ export const designRouter = router({
         eq(kitchenDesigns.userId, ctx.user.id),
         affiliate ? eq(kitchenDesigns.affiliateId, affiliate.id) : isNull(kitchenDesigns.affiliateId),
       ));
+    }),
+
+  remove: protectedProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      affiliateSlug: designStoreScopeInput,
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available." });
+      const affiliate = await resolveAffiliateDesignOwner(db, input.affiliateSlug, true);
+      const affiliateId = affiliate?.id ?? null;
+      await requireAffiliateDesignerAccess(db, ctx, affiliateId);
+      const ownership = and(
+        eq(kitchenDesigns.id, input.id),
+        eq(kitchenDesigns.userId, ctx.user.id),
+        designAffiliateScopeCondition(affiliateId),
+      );
+      const [design] = await db
+        .select({ id: kitchenDesigns.id, name: kitchenDesigns.name })
+        .from(kitchenDesigns)
+        .where(ownership)
+        .limit(1);
+      if (!design) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Saved design not found in this store." });
+      }
+
+      await db.transaction(async (tx) => {
+        // Preserve immutable order and appointment records, but sever their
+        // editable-plan pointer. Everything used only to reproduce/share this
+        // design is deleted with it so no saved copy can reopen later.
+        await tx.update(orderRequests).set({ kitchenDesignId: null }).where(eq(orderRequests.kitchenDesignId, design.id));
+        await tx.update(designConsultations).set({ designId: null }).where(eq(designConsultations.designId, design.id));
+        await tx.delete(crmDealDesigns).where(eq(crmDealDesigns.designId, design.id));
+        await tx.delete(threeDRoomShares).where(eq(threeDRoomShares.kitchenDesignId, design.id));
+        await tx.delete(designImageRequests).where(eq(designImageRequests.kitchenDesignId, design.id));
+        await tx.delete(designGeminiImageTestJobs).where(eq(designGeminiImageTestJobs.kitchenDesignId, design.id));
+        await tx.delete(designPhotoRenders).where(eq(designPhotoRenders.kitchenDesignId, design.id));
+        await tx.delete(kitchenDesigns).where(ownership);
+      });
+
+      return { deleted: true as const, id: design.id, name: design.name };
     }),
 
   byId: protectedProcedure

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { affiliates, kitchenDesigns } from "../drizzle/schema";
+import { affiliates, designPhotoRenders, kitchenDesigns, orderRequests, threeDRoomShares } from "../drizzle/schema";
 import { and, eq } from "drizzle-orm";
 
 function userContext(id: number, role: "user" | "contractor" = "user"): TrpcContext {
@@ -22,6 +22,61 @@ function adminContext(): TrpcContext {
 }
 
 describe("saved design owner scope", () => {
+	  it("permanently deletes only the authenticated creator's design in the active store", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const owner = appRouter.createCaller(userContext(998811));
+	    const otherUser = appRouter.createCaller(userContext(998812));
+	    const saved = await owner.design.save({
+	      name: "Delete owner-scoped kitchen",
+	      affiliateSlug: "owner",
+	      originScope: "owner",
+	      roomData: { width: 120, depth: 120 },
+	      placedCabinets: [],
+	    });
+	    const unique = `${Date.now()}-${saved.id}`;
+	    const [orderInsert] = await db.insert(orderRequests).values({
+	      userId: 998811,
+	      kitchenDesignId: saved.id,
+	      requestNumber: `DELETE-${unique}`.slice(0, 64),
+	      lineItems: [],
+	      itemCount: 0,
+	    });
+	    const orderId = Number((orderInsert as { insertId: number }).insertId);
+	    const [shareInsert] = await db.insert(threeDRoomShares).values({
+	      token: `delete-${unique}`.slice(0, 48),
+	      kitchenDesignId: saved.id,
+	      configuration: { deletedDesignTest: true },
+	    });
+	    const shareId = Number((shareInsert as { insertId: number }).insertId);
+	    const [renderInsert] = await db.insert(designPhotoRenders).values({
+	      userId: 998811,
+	      kitchenDesignId: saved.id,
+	      sceneSignature: `delete-${unique}`.slice(0, 191),
+	      imageUrl: "https://example.test/deleted-design.jpg",
+	    });
+	    const renderId = Number((renderInsert as { insertId: number }).insertId);
+
+	    try {
+	      await expect(otherUser.design.remove({ id: saved.id, affiliateSlug: "owner" })).rejects.toThrow("Saved design not found");
+	      await expect(owner.design.remove({ id: saved.id, affiliateSlug: "owner" })).resolves.toMatchObject({
+	        deleted: true,
+	        id: saved.id,
+	        name: "Delete owner-scoped kitchen",
+	      });
+	      await expect(owner.design.byId({ id: saved.id, affiliateSlug: "owner" })).resolves.toBeNull();
+	      expect((await owner.design.myDesigns({ affiliateSlug: "owner" })).some((design) => design.id === saved.id)).toBe(false);
+	      expect((await db.select({ id: threeDRoomShares.id }).from(threeDRoomShares).where(eq(threeDRoomShares.id, shareId))).length).toBe(0);
+	      expect((await db.select({ id: designPhotoRenders.id }).from(designPhotoRenders).where(eq(designPhotoRenders.id, renderId))).length).toBe(0);
+	      expect((await db.select({ kitchenDesignId: orderRequests.kitchenDesignId }).from(orderRequests).where(eq(orderRequests.id, orderId)))[0]?.kitchenDesignId).toBeNull();
+	    } finally {
+	      await db.delete(designPhotoRenders).where(eq(designPhotoRenders.id, renderId));
+	      await db.delete(threeDRoomShares).where(eq(threeDRoomShares.id, shareId));
+	      await db.delete(orderRequests).where(eq(orderRequests.id, orderId));
+	      await db.delete(kitchenDesigns).where(eq(kitchenDesigns.id, saved.id));
+	    }
+	  });
+
   it("keeps a saved plan private to its authenticated creator across user and contractor roles", async () => {
     const db = await getDb();
     if (!db) return;
