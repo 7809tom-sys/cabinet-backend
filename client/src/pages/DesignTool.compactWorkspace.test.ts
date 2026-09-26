@@ -19,8 +19,8 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
-  it("fits the compact toolbar without horizontal scrolling and keeps both materials list and surfaces access direct", () => {
-    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto');
+  it("keeps the compact desktop toolbar to one scrollable row and preserves direct materials and surfaces access", () => {
+    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto');
     expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
     expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
     expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');

@@ -10535,7 +10535,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
+      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none lg:[&>*]:shrink-0" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
         <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (
@@ -11911,7 +11911,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       {/* Contextual row: keep desktop cabinet editing inline, but free up mobile
           canvas space by moving cabinet editing into a bottom sheet. */}
       {((!isMobile && selectedCab) || selectedOpening || drawMode) && !measureMode && (
-        <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0 max-h-[120px] overflow-y-auto">
+        <div className="border-b border-border bg-[#f7f5f0] px-4 py-1.5 flex items-center gap-3 flex-wrap shrink-0 max-h-[120px] overflow-y-auto lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-hidden lg:scrollbar-none lg:[&>*]:shrink-0">
           {selectedCab && !drawMode && !isMobile && (
             <>
               {/* Cabinet image — click to open the Door & Drawer Layout popover */}
@@ -13501,14 +13501,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
 	            />
 	          )}
-	          {viewMode === "plan" && peninsulaDraft && (
-	            <section
-	              data-testid="peninsula-inline-builder"
-	              className="absolute right-3 top-3 z-40 w-[min(19rem,calc(100%-1.5rem))] border border-[#d4a75a] bg-white/95 p-3 shadow-lg backdrop-blur"
-	              aria-label="New peninsula run"
-	            >
-	              <div className="flex items-start justify-between gap-2">
-	                <div>
+          {viewMode === "plan" && peninsulaDraft && (
+            <section
+              data-testid="peninsula-inline-builder"
+              className="absolute right-3 top-3 z-40 flex max-h-[calc(100%-1.5rem)] w-[min(19rem,calc(100%-1.5rem))] flex-col overflow-hidden border border-[#d4a75a] bg-white/95 shadow-lg backdrop-blur"
+              aria-label="New peninsula run"
+            >
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
                   <p className="text-sm font-bold text-[#1a2744]">New straight peninsula</p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">Compass keeps the longer wall section, opens the shorter section, and starts a straight cabinet-ready peninsula at {formatEighthInches(peninsulaDraft.startOffset)}. Add a 45° continuation only from its free end after creation.</p>
 	                </div>
@@ -13550,7 +13551,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                />
 	              </label>
 	              <p className="mt-1 text-[10px] text-muted-foreground">Or drag the gold pull handle at the end of the draft line.</p>
-              <button type="button" onClick={commitPeninsulaDraft} className="mt-3 w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create straight peninsula</button>
+	            </div>
+              <div className="shrink-0 border-t border-[#d4a75a]/45 bg-white/95 p-3">
+                <button type="button" onClick={commitPeninsulaDraft} className="w-full bg-[#1a2744] px-3 py-2 text-xs font-bold text-white hover:bg-[#263b62]">Create straight peninsula</button>
+	            </div>
 	            </section>
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
