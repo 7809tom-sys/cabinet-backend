@@ -103,7 +103,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
-	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
+	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, missingRefrigeratorPanelRoles, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -6274,6 +6274,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // dropped fridge's footprint and is fully movable/deletable afterward.
 	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
 	  const [pendingRefrigeratorPanelToggle, setPendingRefrigeratorPanelToggle] = useState<{ fridgeUid: string; enabled: boolean } | null>(null);
+	  const refrigeratorPanelRepairAttemptedRef = useRef(new Set<string>());
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
   const [ovenDialog, setOvenDialog] = useState<{ cabinetUid: string } | null>(null);
   // Sink base top dialog: opens when a sink base cabinet is placed.
@@ -6379,6 +6380,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     () => (fridgeDialog?.replaceCabinetUid ? placed.find((p) => p.uid === fridgeDialog.replaceCabinetUid) ?? null : null),
     [fridgeDialog?.replaceCabinetUid, placed],
   );
+	  const restoredRefrigeratorNeedingPanels = useMemo(() => placed.find((candidate) => (
+	    isRefrigerator(candidate)
+	    && missingRefrigeratorPanelRoles(placed, candidate, room).length > 0
+	    && !refrigeratorPanelRepairAttemptedRef.current.has(candidate.uid)
+	  )) ?? null, [placed, room]);
+	  useEffect(() => {
+	    if (!styleId || fridgeDialog || pendingRefrigeratorPanelToggle || !restoredRefrigeratorNeedingPanels) return;
+	    // Restore is allowed to repair a previously requested/legacy built-in
+	    // enclosure, but it must use the same selected-line, availability-gated
+	    // catalog transaction as the visible panel toggle. Never synthesize a
+	    // priced part or move an unrelated accepted cabinet in this effect.
+	    refrigeratorPanelRepairAttemptedRef.current.add(restoredRefrigeratorNeedingPanels.uid);
+	    setPendingRefrigeratorPanelToggle({ fridgeUid: restoredRefrigeratorNeedingPanels.uid, enabled: true });
+	    setFridgeDialog({ fridgeUid: restoredRefrigeratorNeedingPanels.uid });
+	  }, [fridgeDialog, pendingRefrigeratorPanelToggle, restoredRefrigeratorNeedingPanels, styleId]);
   const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
     {
       styleId: styleId ?? 0,

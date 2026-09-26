@@ -1301,6 +1301,42 @@ describe("cabinet-supported peninsula runs", () => {
     });
   });
 
+  it("butts standard 24-inch cabinet faces at a 90-degree return using physical depth instead of the 11-inch rule", () => {
+    const primary = { ...peninsulaRoom.peninsulaRuns![0], id: "face-butt-primary", length: 96 };
+    const rightAngleChild: PeninsulaRun = {
+      id: "face-butt-child",
+      parentRunId: primary.id,
+      startOffset: 0,
+      turn: 90,
+      direction: "right",
+      length: 48,
+      height: 34.5,
+      cabinetSide: "left",
+    };
+    const room: RoomData = { ...peninsulaRoom, peninsulaRuns: [primary, rightAngleChild] };
+    const parentSpot = wallPlacementAt(primary.length - 24, 24, 24, primary.id as any, room, "left");
+    const parentBase: PlacedCabinet = {
+      uid: "face-butt-parent-base",
+      cabinetId: 24,
+      masterCode: "B24",
+      description: "24 inch Base Cabinet",
+      placement: "base",
+      ...parentSpot,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      wallId: primary.id,
+      wallOffset: primary.length - 24,
+      peninsulaSide: "left",
+    };
+    const childSpot = firstCollisionFreePeninsulaPlacement(rightAngleChild.id as any, room, [parentBase], 24, 24, "base");
+
+    expect(childSpot).toMatchObject({ wallId: rightAngleChild.id, wallOffset: 24 });
+    expect(childSpot!.wallOffset).not.toBe(PENINSULA_INSIDE_CORNER_CLEARANCE_IN);
+    const childBase: PlacedCabinet = { ...parentBase, uid: "face-butt-child-base", ...childSpot!, wallId: rightAngleChild.id, wallOffset: childSpot!.wallOffset };
+    expect(cabinetPlacementCollisionDetail(childBase, [parentBase], room)).toBeNull();
+  });
+
   it("uses the SB36's true physical edge at a 90-degree ERB peninsula join rather than a 45-degree clearance rule", () => {
     const room: RoomData = {
       ...peninsulaRoom,

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-	appendRefrigeratorEnclosurePlacements,
+  appendRefrigeratorEnclosurePlacements,
   commitRefrigeratorAssemblyCandidate,
-	fitRefrigeratorEnclosurePlacements,
+  fitRefrigeratorEnclosurePlacements,
   hasCollision,
+  missingRefrigeratorPanelRoles,
   normalizeRefrigeratorBayUppers,
   type PlacedCabinet,
   type RoomData,
@@ -72,6 +73,21 @@ function backWallLegacyAssembly(withNeighbor = false) {
 }
 
 describe("refrigerator assembly reconciliation", () => {
+  it("identifies both missing source panels for a legacy built-in refrigerator while preserving an explicit no-panel choice", () => {
+    const legacyWithoutPanels = backWallLegacyAssembly().filter((entry) => entry.uid !== "right-panel");
+    const legacyFridge = legacyWithoutPanels.find((entry) => entry.uid === "fridge")!;
+    const normalized = normalizeRefrigeratorBayUppers(legacyWithoutPanels, room);
+    const normalizedFridge = normalized.find((entry) => entry.uid === legacyFridge.uid)!;
+
+    expect(normalizedFridge.refrigeratorPanelMode).toBe("both");
+    expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual(["left-panel", "right-panel"]);
+
+    const explicitNone = normalized.map((entry) => entry.uid === normalizedFridge.uid
+      ? { ...entry, refrigeratorPanelMode: "none" as const }
+      : entry);
+    expect(missingRefrigeratorPanelRoles(explicitNone, explicitNone.find((entry) => entry.uid === normalizedFridge.uid)!, room)).toEqual([]);
+  });
+
   it("repairs a legacy missing left panel and centers the bridge over the exact refrigerator span", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
     const fridge = normalized.find((entry) => entry.uid === "fridge")!;

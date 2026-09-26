@@ -74,6 +74,13 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}");
 	  });
 
+	  it("repairs restored built-in refrigerators through the same source-priced panel transaction", () => {
+	    expect(source).toContain("missingRefrigeratorPanelRoles(placed, candidate, room).length > 0");
+	    expect(source).toContain("refrigeratorPanelRepairAttemptedRef.current.add(restoredRefrigeratorNeedingPanels.uid)");
+	    expect(source).toContain("setPendingRefrigeratorPanelToggle({ fridgeUid: restoredRefrigeratorNeedingPanels.uid, enabled: true })");
+	    expect(source).toContain("setFridgeDialog({ fridgeUid: restoredRefrigeratorNeedingPanels.uid })");
+	  });
+
 	  it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {
     expect(source.match(/commitRefrigeratorAssemblyCandidate\(/g)?.length).toBeGreaterThanOrEqual(3);
     const moveStart = source.indexOf("const moveCabinet = useCallback");

@@ -3131,8 +3131,14 @@ export function addCabinet(
   if (key === "right") { x = roomWidth - depthIn / 2; z = along + widthIn / 2; rotation = -Math.PI / 2; }
   if (transform) ({ x, z, rotation } = transform);
 
-  const bodyWidth = (key === "left" || key === "right" ? depthIn : widthIn) * INCH;
-  const bodyDepth = (key === "left" || key === "right" ? widthIn : depthIn) * INCH;
+	  // Cabinet dimensions always remain in the cabinet's own local frame:
+	  // X is the face/run width and Z is the wall-to-front depth. The group rotation
+	  // maps that frame onto left/right walls. Swapping width and depth here *and*
+	  // then rotating the group double-swapped every non-square side-wall cabinet,
+	  // so its 25½-inch countertop could appear beside the 24-inch-deep box instead
+	  // of sitting on it.
+	  const bodyWidth = widthIn * INCH;
+	  const bodyDepth = depthIn * INCH;
   const bodyHeight = heightIn * INCH;
   const isInstalledFillerPiece = Boolean(
     sku.fillerPieceGroupId &&

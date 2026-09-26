@@ -189,9 +189,64 @@ describe("3D fallback appliance run seams", () => {
     expect((rangeLeft - leftCounterRight) * 12).toBeLessThanOrEqual(1 / 16);
     expect((rightCounterLeft - rangeRight) * 12).toBeLessThanOrEqual(1 / 16);
   });
+
+	  it("keeps a non-square right-wall base and its countertop in the same local width/depth frame", () => {
+	    const root = new THREE.Group();
+	    addCabinet(root, {
+	      distributorSkuId: 36,
+	      cabinetId: 36,
+	      placementUid: "right-wall-b36",
+	      masterCode: "B36",
+	      description: "36 inch Base Cabinet",
+	      placementType: "base",
+	      width: 36,
+	      height: 34.5,
+	      depth: 24,
+	    }, "right", {}, 144, 120, "#b99a6b", "#f8f8f6");
+
+	    const cabinet = root.children.find((node) => node.userData.placedUid === "right-wall-b36" && node instanceof THREE.Group)!;
+	    const counter = root.children.find((node) => node.userData.placedUid === "right-wall-b36" && Number(node.userData.countertopDepthIn) > 0) as THREE.Mesh;
+	    expect(cabinet).toBeTruthy();
+	    expect(counter).toBeTruthy();
+	    let body: THREE.Mesh | null = null;
+	    cabinet.traverse((node) => {
+	      const parameters = node instanceof THREE.Mesh ? (node.geometry as THREE.BoxGeometry).parameters : null;
+	      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin
+	        && Math.abs(Number(parameters?.width) * 12 - 36) < 0.001
+	        && Math.abs(Number(parameters?.depth) * 12 - 24) < 0.001) body = node;
+	    });
+	    expect(body).not.toBeNull();
+	    cabinet.updateMatrixWorld(true);
+	    counter.updateMatrixWorld(true);
+	    const cabinetBounds = new THREE.Box3().setFromObject(body!);
+	    const counterBounds = new THREE.Box3().setFromObject(counter);
+	    // On a right wall, the 36-inch face runs along world Z while the 24-inch
+	    // cabinet depth and its 25½-inch top run along world X.
+	    expect((cabinetBounds.max.z - cabinetBounds.min.z) * 12).toBeCloseTo(36, 5);
+	    expect((counterBounds.max.z - counterBounds.min.z) * 12).toBeCloseTo(36, 5);
+	    expect((counterBounds.max.x - counterBounds.min.x) * 12).toBeCloseTo(25.5, 5);
+	    expect(counterBounds.min.y * 12).toBeCloseTo(cabinetBounds.max.y * 12, 5);
+	  });
 });
 
 describe("side-aware peninsula countertop meshes", () => {
+	  it("seats the shared peninsula slab directly on the 34½-inch cabinet top", () => {
+	    const root = new THREE.Group();
+	    const room: RoomData = {
+	      width: 144,
+	      depth: 120,
+	      ceilingHeight: 96,
+	      peninsulaRuns: [{ id: "counter-contact", parentWall: "top", startOffset: 48, turn: 90, direction: "right", length: 48, height: 34.5, cabinetSide: "left" }],
+	    };
+	    const spot = wallPlacementAt(0, 24, 24, "counter-contact" as any, room, "left");
+	    const base = { uid: "counter-contact-base", cabinetId: 24, masterCode: "B24", description: "24 inch Base", placement: "base", ...spot, width: 24, depth: 24, height: 34.5, wallId: "counter-contact", wallOffset: 0, peninsulaSide: "left" } as PlacedCabinet;
+
+	    addThreeDPeninsulaCountertops(root, room, [base], "#e9e7e2");
+	    const slab = root.children.find((item) => item.userData.peninsulaCountertop) as THREE.Mesh;
+	    const slabHeight = STD.COUNTERTOP_THICKNESS / 12;
+	    expect(slab.position.y - slabHeight / 2).toBeCloseTo(34.5 / 12, 10);
+	  });
+
   it("adds one continuous 12-inch seating slab across cabinet voids plus a waterfall only at the exposed end", () => {
     const root = new THREE.Group();
     const room: RoomData = {
