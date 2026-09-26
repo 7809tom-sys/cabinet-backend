@@ -40,8 +40,11 @@ function bridgeCandidateForRange(
   const eligible = wallCabinets.filter((cabinet) => {
     const width = numberDimension(cabinet.width);
     const height = numberDimension(cabinet.height);
-    const text = `${cabinet.masterCode} ${cabinet.subCategory ?? ""} ${cabinet.description}`.toLowerCase();
-    const sourceIdentifiesBridge = /\bbridge\b|\bstacker\b|^wsc[-_]?\d/.test(text);
+    // A marketing/category label is not sufficient evidence of an over-range
+    // bridge. In particular, WSC30 is a spice cabinet and must never be
+    // selected for a range. Only an explicit catalog profile can authorize an
+    // automatic microwave companion.
+    const sourceIdentifiesBridge = cabinet.customProfile === "range-companion-bridge";
     return cabinet.placement === "wall"
       && Math.abs(width - rangeWidth) <= 0.01
       && sourceIdentifiesBridge
@@ -52,14 +55,11 @@ function bridgeCandidateForRange(
       && topLine - height >= microwaveTop + 0.5;
   });
 
-  // Prefer an explicit WSC bridge/stacker source. If a distributor exposes
-  // multiple verified bridge alternatives, the shortest one gives the largest
-  // microwave clearance, with code order making the outcome deterministic.
+  // If a distributor exposes multiple explicitly verified bridge alternatives,
+  // the shortest one gives the largest microwave clearance, with code order
+  // making the outcome deterministic.
   return eligible.sort((left, right) => {
-    const leftExplicit = /^WSC[-_]?\d/i.test(left.masterCode) ? 0 : 1;
-    const rightExplicit = /^WSC[-_]?\d/i.test(right.masterCode) ? 0 : 1;
-    return leftExplicit - rightExplicit
-      || numberDimension(left.height) - numberDimension(right.height)
+    return numberDimension(left.height) - numberDimension(right.height)
       || left.masterCode.localeCompare(right.masterCode);
   })[0] ?? null;
 }
@@ -109,12 +109,15 @@ export function rangeCompanionProposal(
   const bridgeStart = rangeStart + rangeWidth / 2 - bridgeWidth / 2;
   const bridgeSpot = wallPlacementAt(bridgeStart, bridgeWidth, bridgeDepth, side, room);
 
+  // This short bridge completes the OTR appliance stack. It must rest directly
+  // on the microwave—not top-align to the normal wall-cabinet line—so no empty
+  // band appears between the two pieces in elevation or 3D.
   return {
     bridge,
     microwave,
     bridgeSpot,
     microwaveSpot,
-    bridgeMountBottom: wallCabinetTopLine(room) - bridgeHeight,
+    bridgeMountBottom: microwaveBottom + microwaveHeight,
   };
 }
 

@@ -146,6 +146,7 @@ import { automaticAngledWallFiller, measuredAngledWallTransition, repairMissingA
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
 import { rangeCompanionProposal, type RangeCompanionProposal } from "@/lib/rangeCompanion";
+import { isWscSpiceCabinet, wsc30UpperChoices, wsc30UpperPlacement } from "@/lib/spiceStack";
 import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
@@ -652,6 +653,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const [rangeCompanionPrompt, setRangeCompanionPrompt] = useState<{
 	    rangeUid: string;
 	    proposal: RangeCompanionProposal;
+	  } | null>(null);
+	  const [spiceStackPrompt, setSpiceStackPrompt] = useState<{
+	    spiceUid: string;
+	    choices: DesignCabinet[];
 	  } | null>(null);
 	  const [glassStackerBulkPrompt, setGlassStackerBulkPrompt] = useState<{
 	    sourceCode: string;
@@ -5155,6 +5160,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // peninsula-bend corner bases alike; appliances, panels, loose filler
 	      // stock, and decorative parts remain excluded by `bearsCountertop`.
 	      if (!requestedIslandFace && bearsCountertop(finalCab)) setCountertop(true);
+	      // WSC30 is a six-inch spice cabinet, not an over-range bridge. Offer a
+	      // selected-line W3030 or W3036 directly above it so the user can choose
+	      // the intended 36- or 42-inch visual stack without manually hunting the
+	      // wall catalog. The upper remains a real, separately priced cabinet.
+	      if (!requestedIslandFace && isWscSpiceCabinet(finalCab)) {
+	        const choices = wsc30UpperChoices(finalCab, wallCabPoolRef.current);
+	        if (choices.length > 0) {
+	          setSpiceStackPrompt({ spiceUid: finalCab.uid, choices });
+	          setMobilePanel(null);
+	        } else {
+	          toast.info("WSC30 is a spice cabinet. No selected-line 30\" × 30\" or 30\" × 36\" wall cabinet is currently available to stack above it.");
+	        }
+	      }
 	      // A range does not imply a hood or microwave. When the user has not
 	      // assigned a centered hood/OTR microwave to this exact range, offer the
 	      // selected-line bridge plus the layout-only microwave as one optional,
@@ -5455,6 +5473,65 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    justPlacedRef.current = true;
 	    toast.success(`${bridge.masterCode} and ${microwave.masterCode} were centered above ${range.masterCode}.`);
 	  }, [appliancePalette, rangeCompanionPrompt, room]);
+	  const addWscSpiceStackUpper = useCallback((cabinetId: number) => {
+	    const prompt = spiceStackPrompt;
+	    if (!prompt) return;
+	    const spice = placedRef.current.find((cabinet) => cabinet.uid === prompt.spiceUid);
+	    const source = prompt.choices.find((cabinet) => cabinet.id === cabinetId);
+	    if (!spice || !source || !isWscSpiceCabinet(spice)) {
+	      setSpiceStackPrompt(null);
+	      toast.error("The WSC30 spice cabinet or selected wall cabinet changed before the stack was added.");
+	      return;
+	    }
+
+	    const verifiedChoice = wsc30UpperChoices(spice, wallCabPoolRef.current)
+	      .find((cabinet) => cabinet.id === source.id && cabinet.masterCode === source.masterCode);
+	    if (!verifiedChoice) {
+	      setSpiceStackPrompt(null);
+	      toast.error("That matching WSC30 wall cabinet is no longer available in the selected line. Nothing was added.");
+	      return;
+	    }
+
+	    const dimensions = resolvedDesignCabinetDimensions(verifiedChoice);
+	    const spot = wsc30UpperPlacement(spice, verifiedChoice, room);
+	    const upper: PlacedCabinet = {
+	      uid: makeUid(),
+	      cabinetId: verifiedChoice.id,
+	      masterCode: verifiedChoice.masterCode,
+	      description: verifiedChoice.description,
+	      category: verifiedChoice.category,
+	      subCategory: verifiedChoice.subCategory,
+	      placement: "wall",
+	      x: spot.x,
+	      y: spot.y,
+	      width: dimensions.width,
+	      depth: dimensions.depth,
+	      height: dimensions.height,
+	      rotation: spot.rotation,
+	      numberOfDoors: verifiedChoice.numberOfDoors,
+	      numberOfDrawers: verifiedChoice.numberOfDrawers,
+	      catalogImageUrl: verifiedChoice.catalogImageUrl ?? null,
+	      mountBottom: spot.mountBottom,
+	      mountBottomAdjusted: true,
+	      spiceStackParentUid: spice.uid,
+	      styleId: styleIdRef.current ?? null,
+	      ...(spot.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset ?? 0 } : {}),
+	    };
+	    const resolution = appendCollisionFreePlacements(placedRef.current, [upper], room);
+	    if (resolution.rejected.length > 0 || !resolution.placed.some((cabinet) => cabinet.uid === upper.uid)) {
+	      setSpiceStackPrompt(null);
+	      toast.error(`${verifiedChoice.masterCode} needs a clear wall-cabinet span above WSC30. Existing cabinets were left unchanged.`);
+	      return;
+	    }
+
+	    const committed = normalizeStandardWallMounts(resolution.placed, openings, room);
+	    placedRef.current = committed;
+	    setPlaced(committed);
+	    setSelectedUid(upper.uid);
+	    setSpiceStackPrompt(null);
+	    justPlacedRef.current = true;
+	    toast.success(`${verifiedChoice.masterCode} is centered above WSC30 for the ${formatInches(placedHeight(spice) + dimensions.height)} spice stack.`);
+	  }, [openings, room, spiceStackPrompt]);
   // Manual filler from the palette/toolbar: drop a real orderable filler/scribe
   // of a chosen width as a normal movable item (NOT auto-placed). Uses the same
   // makeFiller spec as the auto-fill engine so it carries a code + width and
@@ -10140,6 +10217,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setIslandDepthTransition(null);
     setRangeHoodReplacementRecommendation(null);
     setRangeCompanionPrompt(null);
+    setSpiceStackPrompt(null);
     setGlassStackerBulkPrompt(null);
     setMaterialsListOpen(false);
     setPlacementWarning(null);
@@ -16277,6 +16355,43 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          </AlertDialogFooter>
 	        </AlertDialogContent>
 	      </AlertDialog>
+
+	      <Dialog open={spiceStackPrompt != null} onOpenChange={(open) => { if (!open) setSpiceStackPrompt(null); }}>
+	        <DialogContent className="max-w-md">
+	          <DialogHeader>
+	            <DialogTitle>Complete the WSC30 spice stack</DialogTitle>
+	            <DialogDescription>
+	              WSC30 is a 30″ × 6″ spice cabinet. Choose a real selected-line wall cabinet to center directly above it.
+	            </DialogDescription>
+	          </DialogHeader>
+	          {spiceStackPrompt && (
+	            <div className="space-y-2">
+	              {spiceStackPrompt.choices.map((cabinet) => {
+	                const height = resolvedDesignCabinetDimensions(cabinet).height;
+	                const total = 6 + height;
+	                return (
+	                  <Button
+	                    key={cabinet.id}
+	                    type="button"
+	                    variant="outline"
+	                    className="h-auto w-full justify-between px-4 py-3 text-left"
+	                    onClick={() => addWscSpiceStackUpper(cabinet.id)}
+	                  >
+	                    <span>
+	                      <span className="block font-semibold">{cabinet.masterCode}</span>
+	                      <span className="block text-xs font-normal text-muted-foreground">{cabinet.description}</span>
+	                    </span>
+	                    <span className="text-xs font-semibold text-primary">{formatInches(total)} total</span>
+	                  </Button>
+	                );
+	              })}
+	            </div>
+	          )}
+	          <DialogFooter>
+	            <Button type="button" variant="outline" onClick={() => setSpiceStackPrompt(null)}>Keep WSC30 only</Button>
+	          </DialogFooter>
+	        </DialogContent>
+	      </Dialog>
 
 	      <AlertDialog open={rangeCompanionPrompt != null} onOpenChange={(open) => { if (!open) setRangeCompanionPrompt(null); }}>
 	        <AlertDialogContent className="max-w-md">

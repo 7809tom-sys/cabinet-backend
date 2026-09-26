@@ -454,6 +454,8 @@ export interface PlacedCabinet {
   mountBottom?: number | null;
   /** True after a user intentionally changes mountBottom; automatic over-sink cleanup must preserve it. */
   mountBottomAdjusted?: boolean;
+  /** WSC30 spice-cabinet UID when this wall cabinet is deliberately stacked above it. */
+  spiceStackParentUid?: string | null;
   /** Wall cabinet whose top physically supports this glass stacker. */
   stackedOnCabinetUid?: string | null;
   /** Refrigerator UID that owns this over-fridge cabinet or enclosure panel. */
@@ -3986,6 +3988,7 @@ export function normalizeStandardWallMounts(
       cabinet.placement !== "wall"
       || cabinet.islandFace
       || cabinet.mountBottomAdjusted
+      || cabinet.spiceStackParentUid
       || isWd18CountertopDrawerCabinet(cabinet)
       || isStacker(cabinet)
     ) return cabinet;

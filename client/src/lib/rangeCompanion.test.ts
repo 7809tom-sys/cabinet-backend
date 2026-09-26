@@ -6,9 +6,9 @@ function cabinet(overrides: Partial<DesignCabinet>): DesignCabinet {
   return {
     id: 1,
     masterCode: "WSC30",
-    description: '30" x 6" Double Door Stacker / Bridge Wall Cabinet',
+    description: '30" x 6" Spice Cabinet',
     category: "Wall",
-    subCategory: "Bridge / Stacker",
+    subCategory: "Spice Cabinet",
     width: "30",
     height: "6",
     depth: "12",
@@ -52,34 +52,42 @@ const microwave = cabinet({
 });
 
 describe("rangeCompanionProposal", () => {
-  it("uses a matching selected-line bridge and centers both companions above the range", () => {
-    const proposal = rangeCompanionProposal(
-      range(),
-      DEFAULT_ROOM,
-      [cabinet(), cabinet({ id: 2, masterCode: "W-3012", subCategory: "Standard Wall", description: '30" x 12" Wall Cabinet', height: "12" })],
-      [microwave],
-    );
-
-    expect(proposal?.bridge.masterCode).toBe("WSC30");
-    expect(proposal?.microwave.masterCode).toBe("MW-30");
-    expect(proposal?.microwaveSpot.x).toBe(30);
-    expect(proposal?.bridgeSpot.x).toBe(30);
-    expect(proposal?.bridgeMountBottom).toBe(78);
-  });
-
-  it("does not invent a generic upper when the selected line has no verified bridge source", () => {
-    const proposal = rangeCompanionProposal(
-      range(),
-      DEFAULT_ROOM,
-      [cabinet({ id: 2, masterCode: "W-3012", subCategory: "Standard Wall", description: '30" x 12" Wall Cabinet', height: "12" })],
-      [microwave],
-    );
+  it("never uses WSC30, a spice cabinet, as a range bridge", () => {
+    const proposal = rangeCompanionProposal(range(), DEFAULT_ROOM, [cabinet()], [microwave]);
 
     expect(proposal).toBeNull();
   });
 
+  it("requires an explicit catalog bridge profile rather than a broad category or description", () => {
+    const proposal = rangeCompanionProposal(
+      range(),
+      DEFAULT_ROOM,
+      [cabinet({
+        id: 2,
+        masterCode: "MWB-30",
+        description: '30" Verified Microwave Bridge',
+        subCategory: "Microwave",
+        height: "6",
+        customProfile: "range-companion-bridge",
+      })],
+      [microwave],
+    );
+
+    expect(proposal?.bridge.masterCode).toBe("MWB-30");
+    expect(proposal?.microwave.masterCode).toBe("MW-30");
+    expect(proposal?.microwaveSpot.x).toBe(30);
+    expect(proposal?.bridgeSpot.x).toBe(30);
+    expect(proposal?.bridgeMountBottom).toBe(71);
+  });
+
   it("does not offer a mismatched microwave width", () => {
-    const proposal = rangeCompanionProposal(range(), DEFAULT_ROOM, [cabinet()], [microwave, cabinet({ id: 3, masterCode: "MW-36", placement: "appliance", width: "36", height: "17", depth: "15", mountBottom: 54 })]);
+    const proposal = rangeCompanionProposal(
+      range(),
+      DEFAULT_ROOM,
+      [cabinet({ id: 2, masterCode: "MWB-30", customProfile: "range-companion-bridge" })],
+      [microwave, cabinet({ id: 3, masterCode: "MW-36", placement: "appliance", width: "36", height: "17", depth: "15", mountBottom: 54 })],
+    );
+
     expect(proposal?.microwave.masterCode).toBe("MW-30");
   });
 
@@ -104,7 +112,12 @@ describe("rangeCompanionProposal", () => {
     const spot = wallPlacementAt(15, 30, 25, "straight" as any, angledRoom);
     const angledRange: PlacedCabinet = { ...range(), ...spot, wallId: "straight", wallOffset: 15 };
 
-    const proposal = rangeCompanionProposal(angledRange, angledRoom, [cabinet()], [microwave]);
+    const proposal = rangeCompanionProposal(
+      angledRange,
+      angledRoom,
+      [cabinet({ id: 2, masterCode: "MWB-30", customProfile: "range-companion-bridge" })],
+      [microwave],
+    );
 
     expect(proposal?.bridgeSpot.wallId).toBe("straight");
     expect(proposal?.bridgeSpot.wallOffset).toBe(15);
