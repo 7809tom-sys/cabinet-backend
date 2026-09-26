@@ -3533,10 +3533,13 @@ export function addCabinet(
 		        ? miteredFillerPrismGeometry(bodyWidth, bodyHeight, fillerBodyDepth, sku.fillerMiteredEnd!)
 		        : new THREE.BoxGeometry(bodyWidth, bodyHeight, fillerBodyDepth),
 			      bodyMaterial,
-			    );
-			    if (isFrontFlushFillerBoard) body.position.z = installedFillerFrontOffset;
+		    );
+		    // The front-miter pair arrives as an exact world-plan footprint in this
+		    // group's local frame. Do not apply the generic filler front shift a
+		    // second time or the board becomes a detached leg in front of the run.
+		    if (isFrontFlushFillerBoard && !isAngledTransitionFiller) body.position.z = installedFillerFrontOffset;
 		    body.userData = {
-      ...(isRefrigeratorAppliance
+		...(isRefrigeratorAppliance
         ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
         : { selectedStyleSideSkin: true }),
 	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),

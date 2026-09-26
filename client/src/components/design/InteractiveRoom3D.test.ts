@@ -116,6 +116,11 @@ describe("3D fallback appliance run seams", () => {
     expect(bounds.min.y * 12).toBeCloseTo(0, 6);
     expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
     expect(fillerBody!.userData.visibleDepthIn).toBe(0.75);
+    // The persisted quadrilateral already sits at the cabinet front (23¼–24").
+    // A second generic front offset would place it 11⅝" into the room as the
+    // detached vertical leg reported in the 3D view.
+    expect(bounds.min.z * 12).toBeCloseTo(23.25, 6);
+    expect(bounds.max.z * 12).toBeCloseTo(24, 6);
   });
 
   it("keeps a rotated island waterfall on the physical side end rather than across the cabinet front", () => {
