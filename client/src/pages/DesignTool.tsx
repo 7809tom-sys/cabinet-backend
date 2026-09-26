@@ -6705,7 +6705,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         .filter((item) => !existingAssemblyUids.has(item.uid) && item.uid !== refrigeratorCabinetToReplace?.uid)
         .map((item) => item.uid === fridge.uid ? configuredFridge : item);
       const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
-      const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid);
+      const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid, room);
       const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room);
       placedRef.current = committedPreview;
       setPlaced(() => committedPreview);
@@ -9494,6 +9494,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       draftRestoredRef.current = true;
       return;
     }
+    let restoredDesignedKitchen = false;
     try {
       // A v1 draft had no store truth. Move it only to owner and delete the
       // ambiguous source, even when the current page is an affiliate store.
@@ -9592,15 +9593,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           }
           if (Array.isArray(d.annotations)) setAnnotations(d.annotations as PlanAnnotation[]);
           if (Array.isArray(d.ponyWalls)) setPonyWalls(d.ponyWalls as PonyWall[]);
-          if ((d.room && hasDesignedRoomGeometry(d.room as RoomData)) || (Array.isArray(d.placed) && d.placed.length > 0)) {
-            toast.success(t("dt_t_restored"));
-          }
+	          if ((d.room && hasDesignedRoomGeometry(d.room as RoomData)) || (Array.isArray(d.placed) && d.placed.length > 0)) {
+	            restoredDesignedKitchen = true;
+	            toast.success(t("dt_t_restored"));
+	          }
         }
       }
     } catch {
       /* corrupt draft — ignore */
     }
     draftRestoredRef.current = true;
+    if (!restoredDesignedKitchen && !roomLayoutHandoffAppliedRef.current) {
+      setLayoutStarterOpen(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verified, draftKey, activeDraftKey, storeScope, verifiedEmail, loadDesignId, bundleIdParam]);
 
@@ -10205,7 +10210,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setActiveSavedDesignId(null);
     setSelectedLayoutPresetId(null);
     setContinuousWallDraft(null);
-    setLayoutStarterOpen(false);
+    // A completely new kitchen must begin with an intentional room template.
+    // This shared reset serves desktop, tablet, mobile, and post-delete flows.
+    setLayoutStarterOpen(true);
     setMobilePanel(null);
     setMoreSheetOpen(false);
     setActiveWall("top");

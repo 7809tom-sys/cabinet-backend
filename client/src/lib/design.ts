@@ -3295,6 +3295,7 @@ export function refrigeratorEndPanelConflictDetail(
   panel: PlacedCabinet,
   existing: PlacedCabinet[],
   refrigeratorUid?: string | null,
+  room?: RoomData | null,
 ): RefrigeratorEndPanelConflictDetail | null {
   if (!isRefrigeratorEndPanel(panel)) return null;
   const panelSize = placedFootprint(panel);
@@ -3303,9 +3304,25 @@ export function refrigeratorEndPanelConflictDetail(
     const itemSize = placedFootprint(item);
     const overlapX = Math.min(panel.x + panelSize.w, item.x + itemSize.w) - Math.max(panel.x, item.x);
     const overlapY = Math.min(panel.y + panelSize.d, item.y + itemSize.d) - Math.max(panel.y, item.y);
-    if (overlapX > COLLISION_EPSILON_IN && overlapY > COLLISION_EPSILON_IN) {
-      return { panel, cabinet: item, overlapIn: Math.min(overlapX, overlapY) };
-    }
+    if (overlapX <= COLLISION_EPSILON_IN || overlapY <= COLLISION_EPSILON_IN) continue;
+    // AABB overlap is not physical overlap on a diagonal wall. Adjacent rotated
+    // rectangles share a large screen-space box, which previously rejected a
+    // valid refrigerator end panel and made it disappear at 45 degrees.
+    const physicallyIntersects = cabinetPlanBodiesIntersect(panel, item);
+    if (!physicallyIntersects) continue;
+    const sameMeasuredWall = Boolean(room && cabinetWall(panel, room) === cabinetWall(item, room));
+    const overlapIn = sameMeasuredWall
+      ? (() => {
+          const side = cabinetWall(panel, room!);
+          const panelStart = wallRunOffset(panel, side, room!);
+          const itemStart = wallRunOffset(item, side, room!);
+          return Math.max(0, Math.min(
+            panelStart + wallRunSpan(panel, side, room!),
+            itemStart + wallRunSpan(item, side, room!),
+          ) - Math.max(panelStart, itemStart));
+        })()
+      : Math.min(overlapX, overlapY);
+    return { panel, cabinet: item, overlapIn };
   }
   return null;
 }
@@ -3345,7 +3362,7 @@ export function fitRefrigeratorEnclosurePlacements(
   if (!refrigerator) return { existing, additions, shiftIn: 0 };
   const panels = additions.filter(isRefrigeratorEndPanel);
   const conflicts = panels.flatMap((panel) => {
-    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid);
+    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid, room);
     return detail ? [detail] : [];
   });
 
@@ -3407,12 +3424,62 @@ export function fitRefrigeratorEnclosurePlacements(
     const shiftedAdditions = additions.map((addition) => shifted(addition, shiftIn));
     if (!withinRoom(shiftedFridge) || shiftedAdditions.some((addition) => !withinRoom(addition))) continue;
     if (hasCollision(shiftedFridge, peers)) continue;
-    if (shiftedAdditions.filter(isRefrigeratorEndPanel).some((panel) => refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid))) continue;
+    if (shiftedAdditions.filter(isRefrigeratorEndPanel).some((panel) => refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid, room))) continue;
     return {
       existing: existing.map((item) => item.uid === refrigeratorUid ? shiftedFridge : item),
       additions: shiftedAdditions,
       shiftIn,
     };
+  }
+
+  // A previously saved run can have cabinets touching both refrigerator edges.
+  // Merely translating the enclosure can never create space for two real end
+  // panels in that case: moving away from one neighbor moves into the other.
+  // Keep the start-side cabinet fixed, move the refrigerator/upper just enough
+  // to insert its left panel, and shift the complete downstream cabinet column
+  // only by the remaining measured amount needed for the right panel. This is a
+  // physical 36" refrigerator plus two catalog panels—not a resized appliance,
+  // invented filler, or substituted base cabinet.
+  const fridgeSpan = wallRunSpan(refrigerator, side, room);
+  const fridgeEnd = fridgeAlong + fridgeSpan;
+  const leftExtension = Math.max(0, fridgeAlong - enclosureStart);
+  const rightExtension = Math.max(0, enclosureEnd - fridgeEnd);
+  const sameWallPeers = peers.filter((item) => cabinetWall(item, room) === side);
+  const leftNeighborEnd = Math.max(0, ...sameWallPeers
+    .filter((item) => alongStart(item) + alongLength(item) <= fridgeAlong + COLLISION_EPSILON_IN)
+    .map((item) => alongStart(item) + alongLength(item)));
+  const rightNeighborStart = Math.min(wallRunLength, ...sameWallPeers
+    .filter((item) => alongStart(item) >= fridgeEnd - COLLISION_EPSILON_IN)
+    .map(alongStart));
+  const leftGap = Math.max(0, fridgeAlong - leftNeighborEnd);
+  const rightGap = Math.max(0, rightNeighborStart - fridgeEnd);
+  const fridgeShift = Math.max(0, leftExtension - leftGap);
+  const downstreamShift = Math.max(0, rightExtension + fridgeShift - rightGap);
+  if (fridgeShift > COLLISION_EPSILON_IN || downstreamShift > COLLISION_EPSILON_IN) {
+    const downstreamUids = new Set(sameWallPeers
+      .filter((item) => alongStart(item) >= fridgeEnd - COLLISION_EPSILON_IN)
+      .map((item) => item.uid));
+    const fittedExisting = existing.map((item) => {
+      if (item.uid === refrigeratorUid) return shifted(item, fridgeShift);
+      return downstreamUids.has(item.uid) ? shifted(item, downstreamShift) : item;
+    });
+    const fittedAdditions = additions.map((addition) => shifted(addition, fridgeShift));
+    const allWithinRoom = fittedExisting.every(withinRoom) && fittedAdditions.every(withinRoom);
+    if (allWithinRoom) {
+      const preview = appendRefrigeratorEnclosurePlacements(
+        fittedExisting,
+        fittedAdditions,
+        refrigeratorUid,
+        room,
+      );
+      if (preview.rejected.length === 0 && preview.placed.length === fittedExisting.length + fittedAdditions.length) {
+        return {
+          existing: fittedExisting,
+          additions: fittedAdditions,
+          shiftIn: fridgeShift,
+        };
+      }
+    }
   }
 
   return { existing, additions, shiftIn: 0 };
@@ -3427,14 +3494,15 @@ export function appendRefrigeratorEnclosurePlacements(
   existing: PlacedCabinet[],
   additions: PlacedCabinet[],
   refrigeratorUid?: string | null,
+  room?: RoomData | null,
 ): RefrigeratorEnclosurePlacementResult {
   const panelConflicts = additions.flatMap((panel) => {
-    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid);
+    const detail = refrigeratorEndPanelConflictDetail(panel, existing, refrigeratorUid, room);
     return detail ? [detail] : [];
   });
   const blockedPanelUids = new Set(panelConflicts.map(({ panel }) => panel.uid));
   const allowedAdditions = additions.filter((addition) => !blockedPanelUids.has(addition.uid));
-  const appended = appendCollisionFreePlacements(existing, allowedAdditions);
+  const appended = appendCollisionFreePlacements(existing, allowedAdditions, room ?? undefined);
   const blockedPanels = additions.filter((addition) => blockedPanelUids.has(addition.uid));
   return {
     placed: appended.placed,
@@ -6206,7 +6274,17 @@ export function missingRefrigeratorPanelRoles(
   if (!isRefrigerator(refrigerator)) return [];
   const members = refrigeratorAssemblyMembers(placed, refrigerator, room);
   const hasBridge = members.some(({ role }) => role === "bridge");
-  const requestedMode = refrigerator.refrigeratorPanelMode ?? (hasBridge ? "both" : "none");
+  const installedPanelCount = members.filter(({ role }) => role === "left-panel" || role === "right-panel").length;
+  // Older reconciliation builds could persist `left` or `right` after a panel
+  // was dropped, leaving a dedicated refrigerator upper above a completely
+  // unpaneled appliance. Treat that no-panel state as stale built-in metadata;
+  // an explicit `none` choice remains authoritative and is never upgraded.
+  const repairUnpaneledBuiltIn = hasBridge
+    && installedPanelCount === 0
+    && refrigerator.refrigeratorPanelMode !== "none";
+  const requestedMode = repairUnpaneledBuiltIn
+    ? "both"
+    : refrigerator.refrigeratorPanelMode ?? (hasBridge ? "both" : "none");
   const requested = requestedMode === "both"
     ? (["left-panel", "right-panel"] as const)
     : requestedMode === "left"
@@ -6265,7 +6343,10 @@ export function reconcileRefrigeratorAssemblies(
 	    // can then restore the missing source-priced panel parts through its normal
 	    // availability-gated surround query. A bare refrigerator still defaults to
 	    // no panels and is never upgraded implicitly.
-	    const repairLegacyBoth = refrigerator.refrigeratorPanelMode == null && Boolean(bridge);
+    const repairLegacyBoth = Boolean(bridge) && (
+      refrigerator.refrigeratorPanelMode == null
+      || (panels.length === 0 && refrigerator.refrigeratorPanelMode !== "none")
+    );
     const requestedMode: RefrigeratorPanelMode = repairLegacyBoth
       ? "both"
       : refrigerator.refrigeratorPanelMode
@@ -6332,6 +6413,7 @@ export function reconcileRefrigeratorAssemblies(
       fitted.existing,
       fitted.additions,
       refrigerator.uid,
+      enclosure,
     ).placed;
   }
   return reconciled;
@@ -10100,24 +10182,38 @@ export function countertopSurfaces(
       const runSpan = wallRunSpan(p, side, room);
       if (runSpan > COLLISION_EPSILON_IN) {
         const rearExtension = blindCornerRearCountertopExtensionIn(p, room);
+        const slabDepth = D + rearExtension;
         const spot = wallPlacementAt(
           wallRunOffset(p, side, room),
           runSpan,
-          D + rearExtension,
+          slabDepth,
           side,
           room,
         );
+        // `wallPlacementAt` returns the top-left of the rotated rectangle's
+        // world-space AABB. `CountertopSurface` stores true local width/depth
+        // and its consumers rotate around `x + width / 2, y + depth / 2`.
+        // Using the AABB corner as that local origin shifts every non-cardinal
+        // measured-wall top sideways (most visibly on a 45° wall) even though
+        // the cabinet below uses the correct AABB centre. Preserve the exact
+        // world centre, then convert it back to CountertopSurface's local-frame
+        // origin so Plan, 3D, miter seams, and takeoff share one footprint.
+        const radians = spot.rotation * Math.PI / 180;
+        const aabbWidth = Math.abs(runSpan * Math.cos(radians)) + Math.abs(slabDepth * Math.sin(radians));
+        const aabbDepth = Math.abs(runSpan * Math.sin(radians)) + Math.abs(slabDepth * Math.cos(radians));
+        const centerX = spot.x + aabbWidth / 2;
+        const centerY = spot.y + aabbDepth / 2;
         out.push({
-          x: spot.x,
-          y: spot.y,
+          x: centerX - runSpan / 2,
+          y: centerY - slabDepth / 2,
           width: runSpan,
-          depth: D + rearExtension,
+          depth: slabDepth,
           kind: "base",
           rotation: spot.rotation,
           customWallId: customWall.id,
           customWallRunStartIn: wallRunOffset(p, side, room),
           linearInches: runSpan,
-          areaInches: runSpan * (D + rearExtension),
+          areaInches: runSpan * slabDepth,
         });
       }
       continue;

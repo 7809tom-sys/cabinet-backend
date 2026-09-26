@@ -453,7 +453,7 @@ export function DesignActions({
       setLoadOpen(false);
       onDeleteSuccess?.(result.id, result.name);
       toast.success("Design permanently deleted", {
-        description: `Started a new blank design after deleting “${result.name}”.`,
+        description: `Started a new kitchen after deleting “${result.name}”. Choose a room layout to continue.`,
       });
       void Promise.all([
         utils.design.myDesigns.invalidate({ affiliateSlug: storeScope }),

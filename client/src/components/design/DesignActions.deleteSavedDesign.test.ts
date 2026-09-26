@@ -11,6 +11,7 @@ describe("saved-design permanent deletion contract", () => {
     expect(actions).toContain("will be permanently deleted");
     expect(actions).toContain("Delete and start new design");
     expect(actions).toContain("onDeleteSuccess?.(result.id, result.name)");
+    expect(actions).toContain("Choose a room layout to continue.");
     expect(actions.indexOf("onDeleteSuccess?.(result.id, result.name)")).toBeGreaterThan(actions.indexOf("onSuccess: (result)"));
   });
 

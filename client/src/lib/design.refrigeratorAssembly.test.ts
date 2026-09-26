@@ -82,6 +82,14 @@ describe("refrigerator assembly reconciliation", () => {
     expect(normalizedFridge.refrigeratorPanelMode).toBe("both");
     expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual(["left-panel", "right-panel"]);
 
+    const staleRightOnly = legacyWithoutPanels.map((entry) => entry.uid === legacyFridge.uid
+      ? { ...entry, refrigeratorPanelMode: "right" as const }
+      : entry);
+    const repairedRightOnly = normalizeRefrigeratorBayUppers(staleRightOnly, room);
+    const repairedFridge = repairedRightOnly.find((entry) => entry.uid === legacyFridge.uid)!;
+    expect(repairedFridge.refrigeratorPanelMode).toBe("both");
+    expect(missingRefrigeratorPanelRoles(repairedRightOnly, repairedFridge, room)).toEqual(["left-panel", "right-panel"]);
+
     const explicitNone = normalized.map((entry) => entry.uid === normalizedFridge.uid
       ? { ...entry, refrigeratorPanelMode: "none" as const }
       : entry);
@@ -124,6 +132,77 @@ describe("refrigerator assembly reconciliation", () => {
     expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 24.75 });
     expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 24 });
     expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 60.75 });
+  });
+
+  it("creates panel space when a refrigerator is between touching cabinet columns", () => {
+    const fridge = item({
+      uid: "tight-fridge",
+      masterCode: "FRIDGE-36",
+      description: "Refrigerator 36\"",
+      placement: "appliance",
+      x: 30,
+      y: 0,
+      width: 36,
+      depth: 30,
+      height: 70,
+      rotation: 0,
+      refrigeratorPanelMode: "both",
+    });
+    const leftUpper = item({ uid: "left-upper", masterCode: "U308424", placement: "tall", x: 0, y: 0, width: 30, depth: 24, height: 84, rotation: 0 });
+    const rightBase = item({ uid: "right-base", masterCode: "B30", placement: "base", x: 66, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0 });
+    const rightUpper = item({ uid: "right-upper", masterCode: "W3030", placement: "wall", x: 66, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54 });
+    const bridge = item({
+      uid: "tight-bridge",
+      masterCode: "WR3612",
+      description: "Refrigerator Wall Cabinet 36\"",
+      placement: "wall",
+      x: 30,
+      y: 0,
+      width: 36,
+      depth: 24,
+      height: 24,
+      rotation: 0,
+      mountBottom: 72,
+      refrigeratorAssemblyId: fridge.uid,
+      refrigeratorAssemblyRole: "bridge",
+    });
+    const panel = (uid: string, role: "left-panel" | "right-panel", x: number) => item({
+      uid,
+      masterCode: "REPV-2496",
+      description: "Refrigerator End Panel",
+      placement: "tall",
+      x,
+      y: 0,
+      width: 0.75,
+      depth: 30,
+      height: 96,
+      rotation: 0,
+      customProfile: "refrigerator-end-panel",
+      refrigeratorAssemblyId: fridge.uid,
+      refrigeratorAssemblyRole: role,
+    });
+    const additions = [bridge, panel("tight-left", "left-panel", 29.25), panel("tight-right", "right-panel", 66)];
+    const fitted = fitRefrigeratorEnclosurePlacements(
+      [leftUpper, rightBase, rightUpper, fridge],
+      additions,
+      fridge.uid,
+      room,
+    );
+    const enclosure = appendRefrigeratorEnclosurePlacements(
+      fitted.existing,
+      fitted.additions,
+      fridge.uid,
+      room,
+    ).placed;
+
+    expect(enclosure.find((entry) => entry.uid === leftUpper.uid)).toMatchObject({ x: 0 });
+    expect(enclosure.find((entry) => entry.uid === fridge.uid)).toMatchObject({ x: 30.75, width: 36 });
+    expect(enclosure.find((entry) => entry.uid === bridge.uid)).toMatchObject({ x: 30.75, width: 36, mountBottom: 72 });
+    expect(enclosure.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 30, width: 0.75 });
+    expect(enclosure.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 66.75, width: 0.75 });
+    expect(enclosure.find((entry) => entry.uid === rightBase.uid)).toMatchObject({ x: 67.5 });
+    expect(enclosure.find((entry) => entry.uid === rightUpper.uid)).toMatchObject({ x: 67.5 });
+    expect(enclosure).toHaveLength(7);
   });
 
   it("preserves an explicit right-only enclosure instead of inventing a left panel", () => {
@@ -222,6 +301,7 @@ describe("refrigerator assembly reconciliation", () => {
     const bridgeSpot = wallPlacementAt(0, 36, 12, "diagonal", diagonalRoom);
     const leftSpot = wallPlacementAtUnbounded(-0.75, 0.75, 30, "diagonal", diagonalRoom);
     const rightSpot = wallPlacementAt(36, 0.75, 30, "diagonal", diagonalRoom);
+    const neighborSpot = wallPlacementAt(37.5, 24, 24, "diagonal", diagonalRoom);
     const fridge = item({
       uid: "diagonal-fridge",
       masterCode: "FRIDGE-36",
@@ -246,6 +326,16 @@ describe("refrigerator assembly reconciliation", () => {
       refrigeratorAssemblyRole: "bridge",
       ...bridgeSpot,
     });
+    const neighbor = item({
+      uid: "diagonal-neighbor",
+      masterCode: "B24",
+      description: "Base Cabinet 24\"",
+      placement: "base",
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      ...neighborSpot,
+    });
     const panel = (uid: string, role: "left-panel" | "right-panel", spot: ReturnType<typeof wallPlacementAt>) => item({
       uid,
       masterCode: "REPV-2496",
@@ -262,12 +352,12 @@ describe("refrigerator assembly reconciliation", () => {
 
     expect(leftSpot.wallOffset).toBeCloseTo(-0.75);
     const fitted = fitRefrigeratorEnclosurePlacements(
-      [fridge],
+      [fridge, neighbor],
       [bridge, panel("diagonal-left", "left-panel", leftSpot), panel("diagonal-right", "right-panel", rightSpot)],
       fridge.uid,
       diagonalRoom,
     );
-    const enclosure = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid).placed;
+    const enclosure = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid, diagonalRoom).placed;
     const fittedFridge = enclosure.find((entry) => entry.uid === fridge.uid)!;
     const fittedBridge = enclosure.find((entry) => entry.refrigeratorAssemblyRole === "bridge")!;
     const leftPanel = enclosure.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")!;
@@ -277,6 +367,7 @@ describe("refrigerator assembly reconciliation", () => {
     expect(fittedBridge).toMatchObject({ width: 36, wallOffset: 0.75 });
     expect(leftPanel.wallOffset).toBeCloseTo(0);
     expect(rightPanel.wallOffset).toBeCloseTo(36.75);
-    expect(enclosure).toHaveLength(4);
+    expect(enclosure.find((entry) => entry.uid === neighbor.uid)?.wallOffset).toBeCloseTo(37.5);
+    expect(enclosure).toHaveLength(5);
   });
 });

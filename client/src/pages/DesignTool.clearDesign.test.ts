@@ -88,6 +88,23 @@ describe("DesignTool authoritative Clear Design transaction", () => {
 	    expect(source).toContain("onDeleteSuccess={(designId) => startBlankAfterDeletedDesign(designId)}");
 	  });
 
+  it("prompts for a room layout after every complete new-kitchen reset", () => {
+    const block = clearDesignBlock();
+    expect(block).toContain("setSelectedLayoutPresetId(null)");
+    expect(block).toContain("setContinuousWallDraft(null)");
+    expect(block).toContain("setLayoutStarterOpen(true)");
+    expect(source).toContain("<Dialog open={layoutStarterOpen} onOpenChange={setLayoutStarterOpen}>");
+    expect(source).toContain("Start with a room layout");
+    expect(source).toContain("<RoomLayoutStarter");
+  });
+
+  it("also prompts when verified draft restoration finds no designed kitchen", () => {
+    expect(source).toContain("let restoredDesignedKitchen = false");
+    expect(source).toContain("restoredDesignedKitchen = true");
+    expect(source).toContain("if (!restoredDesignedKitchen && !roomLayoutHandoffAppliedRef.current)");
+    expect(source).toContain("setLayoutStarterOpen(true)");
+  });
+
   it("routes both desktop and phone/tablet clear controls through the same transaction", () => {
     expect(source.match(/onClick=\{clearCurrentDesign\}/g)?.length).toBe(2);
   });

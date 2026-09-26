@@ -47,6 +47,29 @@ function baseCabinet(uid: string, wallId: string, offset: number, width = 24): P
 }
 
 describe("measuredWallCountertopMiterSurfaces", () => {
+  it("keeps a 45-degree measured-wall slab centered on the exact rotated cabinet run", () => {
+    const diagonalBase = baseCabinet("diagonal-base", "diagonal", 12, 30);
+    const surface = countertopSurfaces([diagonalBase], room)[0]!;
+    const slabDepth = 25.5;
+    const spot = wallPlacementAt(12, 30, slabDepth, "diagonal" as any, room);
+    const radians = spot.rotation * Math.PI / 180;
+    const expectedCenterX = spot.x + (
+      Math.abs(30 * Math.cos(radians)) + Math.abs(slabDepth * Math.sin(radians))
+    ) / 2;
+    const expectedCenterY = spot.y + (
+      Math.abs(30 * Math.sin(radians)) + Math.abs(slabDepth * Math.cos(radians))
+    ) / 2;
+
+    expect(surface).toMatchObject({
+      customWallId: "diagonal",
+      width: 30,
+      depth: slabDepth,
+      rotation: 45,
+    });
+    expect(surface.x + surface.width / 2).toBeCloseTo(expectedCenterX, 8);
+    expect(surface.y + surface.depth / 2).toBeCloseTo(expectedCenterY, 8);
+  });
+
   it("cuts both countertop-supported runs to one real 45-degree seam", () => {
     const diagonalLength = Math.hypot(60, 60);
     const diagonalBase = baseCabinet("diagonal-base", "diagonal", diagonalLength - 24);

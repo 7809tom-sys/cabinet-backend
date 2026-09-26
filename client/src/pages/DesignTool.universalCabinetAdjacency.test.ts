@@ -43,7 +43,7 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
     expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
     expect(refrigeratorPath).toContain("fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room)");
-    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid)");
+    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid, room)");
     expect(refrigeratorPath).toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");
     expect(refrigeratorPath).toContain("placedRef.current = committedPreview");
     expect(refrigeratorPath).toContain("retain both end panels and preserve the neighboring cabinet");
@@ -81,7 +81,7 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(addPath).toContain('accPlacement === "tall"');
     expect(addPath).toContain('accPlacement === "appliance"');
     expect(addPath).toContain("preserveResolvedPlacement = true");
-    expect(addPath).toContain("adjoiningWallRunMountBottom(finalCab, room, prev)");
+    expect(addPath).toContain("ordinaryWallMountBottom({ ...c, placement: accPlacement, height })");
     expect(addPath).toContain("finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious)");
     expect(addPath).not.toContain("resolveWallCabinetTargetPlacement");
     expect(addPath).not.toContain("overSinkWindowStart");
