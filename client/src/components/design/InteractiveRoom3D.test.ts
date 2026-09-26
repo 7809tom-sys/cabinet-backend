@@ -80,6 +80,44 @@ describe("3D fallback appliance run seams", () => {
     expect(((rangeChassis!.geometry as THREE.BoxGeometry).parameters.width as number) * 12).toBeCloseTo(30, 6);
   });
 
+  it("renders a 45-degree base filler as a narrow front board from the floor to the cabinet top", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 3,
+      cabinetId: 3,
+      masterCode: "BF3",
+      description: '3" Base Filler — A front filler cut to 1" with 45° miter',
+      placementType: "base",
+      width: 1,
+      height: 34.5,
+      depth: 24,
+      fillerPieceGroupId: "front-miter-pair-test",
+      fillerPlacementMode: "left",
+      fillerTotalWidth: 22,
+      fillerTransitionKind: "front-miter-pair",
+      fillerTransitionPiece: "owner",
+      fillerTransitionFootprint: [
+        { x: 0, y: 24 }, { x: 1, y: 24 }, { x: 0.25, y: 23.25 }, { x: 0, y: 23.25 },
+      ],
+    }, null, {}, 120, 96, "#b99a6b", "#f8f8f6", undefined, { x: 0, z: 0, rotation: 0 });
+
+    root.updateMatrixWorld(true);
+    const filler = root.children[0]!;
+    let fillerBody: THREE.Mesh | null = null;
+    let toeKickCount = 0;
+    filler.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.frontOnlyMiterPair) fillerBody = node;
+      if (node.userData.baseToeKick) toeKickCount += 1;
+    });
+    expect(filler.userData.floorStandingCabinet).toBeUndefined();
+    expect(toeKickCount).toBe(0);
+    expect(fillerBody).not.toBeNull();
+    const bounds = new THREE.Box3().setFromObject(fillerBody!);
+    expect(bounds.min.y * 12).toBeCloseTo(0, 6);
+    expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
+    expect(fillerBody!.userData.visibleDepthIn).toBe(0.75);
+  });
+
   it("keeps an explicit 45-degree continuous-wall range opening and rendered chassis flush to a 3DB18", () => {
     const room = {
       width: 180,

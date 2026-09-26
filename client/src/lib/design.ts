@@ -6958,6 +6958,27 @@ export function freeSegmentsOnWall(
     }
   }
 
+  // A continuous-wall 45° join needs the same 11-inch installation hold as a
+  // 45° peninsula return. It protects the two 24-inch cabinet faces from
+  // crossing at the inside vertex, leaving the measured front edge for the
+  // line's real cuttable filler boards. A normal 90° join remains flush.
+  if (customRoomWall && ["base", "wall", "tall"].includes(layer)) {
+    const customWall = room.customWalls?.find((wall) => wall.id === side);
+    if (customWall) {
+      const hasLocked45NeighborAt = (vertexId: string) => (room.customWalls ?? []).some((neighbor) => (
+        neighbor.id !== customWall.id
+        && (neighbor.startVertexId === vertexId || neighbor.endVertexId === vertexId)
+        && (isLocked45Wall(customWall) || isLocked45Wall(neighbor))
+      ));
+      if (hasLocked45NeighborAt(customWall.startVertexId)) {
+        blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
+      }
+      if (hasLocked45NeighborAt(customWall.endVertexId)) {
+        blocked.push({ s: Math.max(0, wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN), e: wallLen });
+      }
+    }
+  }
+
   // Only items on the SAME layer (wall vs floor) block this run. Tall cabinets
   // span floor-to-ceiling, so they block BOTH the base and wall layers.
   const blocksThisLayer = (item: PlacedCabinet): boolean => {

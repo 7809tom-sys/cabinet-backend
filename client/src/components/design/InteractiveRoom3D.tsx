@@ -3102,13 +3102,36 @@ export function addCabinet(
   const hasFurnitureBaseMolding = isCounterHeightIslandWallCabinet && sku.islandWallCabinetBaseTreatment === "base-molding";
   const hasSelectedToeKickFinish = Boolean(surfaceTextures?.selectedToeKick)
     || (isCounterHeightIslandWallCabinet && !hasFurnitureBaseMolding);
+  const isInstalledFillerPiece = Boolean(
+    sku.fillerPieceGroupId &&
+    sku.fillerPlacementMode &&
+    Number.isFinite(Number(sku.fillerTotalWidth)) &&
+    Number(sku.fillerTotalWidth) > 0,
+  );
+  const isBaseFillerPiece = isBaseCabinet && (
+    isInstalledFillerPiece
+    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
+  );
+  const isAngledTransitionFiller = (sku.fillerTransitionKind === "angled-wedge" || sku.fillerTransitionKind === "front-miter-pair")
+    && Array.isArray(sku.fillerTransitionFootprint)
+    && sku.fillerTransitionFootprint.length >= 3;
+  const isFrontMiterPair = isAngledTransitionFiller && sku.fillerTransitionKind === "front-miter-pair";
+  const isMiteredWallFiller = (isWall || isBaseCabinet)
+    && !isAngledTransitionFiller
+    && sku.fillerMiterAngle === 45
+    && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
+  const isFrontFlushFillerBoard = isFrontMiterPair || (!isAngledTransitionFiller && (isBaseFillerPiece || isMiteredWallFiller));
+  const isFullHeightBaseFrontFiller = isBaseFillerPiece && isFrontMiterPair;
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
+    && !isFullHeightBaseFrontFiller
     && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
   // toe kick. Build only the upper carcass over that kick so every floor run
   // keeps its measured top while exposing the proper floor recess in 3D.
-  const heightIn = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
+  const heightIn = isFullHeightBaseFrontFiller
+    ? resolvedHeightIn
+    : isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
     ? Math.max(0.1, resolvedHeightIn - THREE_D_TOE_KICK)
     : isFloorDishwasher
       ? 34.5
@@ -3140,30 +3163,16 @@ export function addCabinet(
 	  const bodyWidth = widthIn * INCH;
 	  const bodyDepth = depthIn * INCH;
   const bodyHeight = heightIn * INCH;
-  const isInstalledFillerPiece = Boolean(
-    sku.fillerPieceGroupId &&
-    sku.fillerPlacementMode &&
-    Number.isFinite(Number(sku.fillerTotalWidth)) &&
-    Number(sku.fillerTotalWidth) > 0,
-  );
-	  const isBaseFillerPiece = isBaseCabinet && (
-	    isInstalledFillerPiece
-	    || /^(?:FILL|F\d{1,4})(?:[-_]|$)|\bfiller\b/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`)
-	  );
-	  const isAngledTransitionFiller = (sku.fillerTransitionKind === "angled-wedge" || sku.fillerTransitionKind === "front-miter-pair")
-	    && Array.isArray(sku.fillerTransitionFootprint)
-	    && sku.fillerTransitionFootprint.length >= 3;
-	  const isMiteredWallFiller = (isWall || isBaseCabinet)
-	    && !isAngledTransitionFiller
-	    && sku.fillerMiterAngle === 45
-	    && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
-	  const isFrontFlushFillerBoard = !isAngledTransitionFiller && (isBaseFillerPiece || isMiteredWallFiller);
-	  // A front-only miter filler already carries its exact 3/4-inch front
-	  // footprint. Do not add the generic 24-inch-deep toe-kick behind it.
+  // A front-only miter filler already carries its exact 3/4-inch front
+  // footprint. Do not add the generic 24-inch-deep toe-kick behind it.
 	  const suppressInstalledFillerToeKick = isBaseFillerPiece && (isAngledTransitionFiller || Boolean(surfaceTextures?.suppressFittedFillerToeKick));
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
-  const bottom = isFloorStandingCabinet && !isCounterHeightIslandWallCabinet ? THREE_D_TOE_KICK : requestedMountBottom;
+  const bottom = isFullHeightBaseFrontFiller
+    ? 0
+    : isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
+      ? THREE_D_TOE_KICK
+      : requestedMountBottom;
   const countertopCenterY = (bottom + heightIn + 0.75) * INCH;
   const cabinet = new THREE.Group();
   cabinet.position.set(x * INCH, (bottom + heightIn / 2) * INCH, z * INCH);

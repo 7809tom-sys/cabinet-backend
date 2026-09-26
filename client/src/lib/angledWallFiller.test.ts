@@ -69,6 +69,14 @@ const baseFiller = {
   catalogImageUrl: null,
 };
 
+const baseFiller3 = {
+  ...baseFiller,
+  id: 200,
+  masterCode: "BF3",
+  description: '3" x 34.5" Base Filler',
+  width: "3",
+};
+
 const tallCuttableFiller = {
   id: 299,
   masterCode: "F396",
@@ -166,6 +174,38 @@ describe("automaticAngledWallFiller", () => {
     }
 	    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
 	  });
+
+  it("automatically closes an 11-inch measured-wall 45-degree hold with two cabinet-height 3-inch source fillers", () => {
+    const diagonalLength = wallLength("diagonal" as any, room);
+    const neighbor = cabinet("base-45-neighbor", "diagonal", diagonalLength - 24 - 11, "base");
+    const owner = cabinet("base-45-owner", "straight", 11, "base");
+    const measurement = measuredAngledWallTransition(owner, room, [neighbor, owner]);
+    expect(measurement).toMatchObject({
+      rearGapIn: 11,
+      neighborRearGapIn: 11,
+      ownerFrontCutIn: 1,
+      neighborFrontCutIn: 1,
+    });
+    let number = 0;
+    const resolution = automaticAngledWallFiller(owner, room, [neighbor, owner], [baseFiller3], () => `base-45-${++number}`, 7)!;
+    expect(resolution.fillers).toHaveLength(2);
+    for (const filler of resolution.fillers) {
+      expect(filler).toMatchObject({
+        cabinetId: 200,
+        masterCode: "BF3",
+        placement: "base",
+        height: 34.5,
+        fillerTransitionKind: "front-miter-pair",
+        fillerTransitionStockWidthIn: 3,
+      });
+      const footprint = angledWallTransitionFootprint(filler, room, [neighbor, owner, ...resolution.fillers])!;
+      // The diagonal miter makes projected area slightly larger than a plain
+      // width × 3/4-inch rectangle, but it remains a narrow front board—not a
+      // 24-inch-deep panel or a fabricated corner wedge.
+      expect(polygonArea(footprint)).toBeLessThan(filler.width * 2);
+    }
+    expect(appendCollisionFreePlacements([neighbor, owner], resolution.fillers, room).rejected).toEqual([]);
+  });
 
 	  it("closes a 45-degree peninsula return with two source-stock front fillers and no visible face void", () => {
 	    const parent = { id: "peninsula-parent", parentWall: "right" as const, startOffset: 84, turn: 90 as const, direction: "right" as const, length: 120, height: 34.5, cabinetSide: "left" as const, locked: true };

@@ -26,11 +26,11 @@ describe("Design Tool automatic angled front-miter workflow", () => {
     expect(workflow).toContain("both cabinets remain independently supported");
   });
 
-	  it("blocks the cabinet transaction when either real front filler stock or either positive authorized price is missing", () => {
+	  it("keeps the cabinet transaction active and only blocks a filler piece that lacks an authorized price", () => {
     const workflowStart = source.indexOf("const requiredTransition = measuredAngledWallTransition");
     const workflow = source.slice(workflowStart, workflowStart + 3000);
-    expect(workflow).toContain("requiredTransition && !angledFiller");
-    expect(workflow).toContain("front 45° filler cuts were not added");
+    expect(workflow).not.toContain("requiredTransition && !angledFiller");
+    expect(workflow).not.toContain("front 45° filler cuts were not added");
     expect(workflow).toContain("const sourcePrices = angledFiller.fillers.map");
     expect(workflow).toContain("sourcePrices.some");
     expect(workflow).toContain("each selected-line 45° filler piece requires a positive authorized price");

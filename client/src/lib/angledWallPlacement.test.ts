@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopPolygonSelfIntersects, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopPolygonSelfIntersects, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, DEFAULT_ROOM, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
@@ -109,6 +109,49 @@ describe("locked 45-degree cabinet wall placement", () => {
     const overlap = angledCabinet("three", 35);
     expect(cabinetCollisionDetail(butted, [first])).toBeNull();
     expect(cabinetCollisionDetail(overlap, [first])?.penetration).toBeCloseTo(1);
+  });
+
+  it("reserves the 11-inch face-clearance only where a measured run meets a locked 45-degree wall", () => {
+    const joinedRoom: RoomData = {
+      ...DEFAULT_ROOM,
+      width: 180,
+      depth: 180,
+      vertices: [
+        { id: "j1", x: 0, y: 0 },
+        { id: "j2", x: 60, y: 60 },
+        { id: "j3", x: 60, y: 180 },
+      ],
+      customWalls: [
+        { id: "join-45", startVertexId: "j1", endVertexId: "j2", lockedAngle: 45 },
+        { id: "join-straight", startVertexId: "j2", endVertexId: "j3" },
+      ],
+    };
+    expect(freeSegmentsOnWall("join-straight" as any, joinedRoom, [], [], 0.5, 0, "base")).toEqual([
+      { start: PENINSULA_INSIDE_CORNER_CLEARANCE_IN, length: 109 },
+    ]);
+    expect(freeSegmentsOnWall("builder-right" as any, builderRoom, [], [], 0.5, 0, "base")).toEqual([
+      { start: 0, length: 96 },
+    ]);
+
+    const diagonalLength = wallLength("join-45" as any, joinedRoom);
+    const diagonalSpot = wallPlacementAt(diagonalLength - 35, 24, 24, "join-45" as any, joinedRoom);
+    const seatedDiagonalBase: PlacedCabinet = {
+      uid: "join-diagonal-base",
+      cabinetId: 24,
+      masterCode: "B24",
+      description: "24 inch Base Cabinet",
+      placement: "base",
+      ...diagonalSpot,
+      width: 24,
+      depth: 24,
+      height: 34.5,
+      wallId: "join-45",
+      wallOffset: diagonalLength - 35,
+    };
+    expect(paletteActiveWallPlacement("join-straight" as any, joinedRoom, [seatedDiagonalBase], [], 24, 24, "base")).toMatchObject({
+      wallId: "join-straight",
+      wallOffset: PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+    });
   });
 
   it("releases an exact void after removal so the same cabinet can be returned", () => {

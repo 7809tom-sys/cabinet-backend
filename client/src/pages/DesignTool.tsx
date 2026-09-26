@@ -5091,12 +5091,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          makeUid,
 		          styleIdRef.current ?? null,
 		        );
-		        if (requiredTransition && !angledFiller) {
-		          const message = `The ${formatInches(requiredTransition.rearGapIn)} and ${formatInches(requiredTransition.neighborRearGapIn)} front 45° filler cuts were not added because the selected cabinet line has no real filler stock wide enough for each cut.`;
-		          setPlacementWarning(message);
-		          toast.error(message);
-		          return;
-		        }
 		        if (angledFiller) {
 		          const sourcePrices = angledFiller.fillers.map((filler) => unitPriceFor(filler));
 		          if (sourcePrices.some((sourcePrice) => sourcePrice == null || !Number.isFinite(sourcePrice) || sourcePrice <= 0)) {
