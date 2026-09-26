@@ -123,6 +123,50 @@ describe("3D fallback appliance run seams", () => {
     expect(bounds.max.z * 12).toBeCloseTo(24, 6);
   });
 
+  it("keeps each front-miter filler at its assigned cabinet face on every wall rotation", () => {
+    const localFootprint = [
+      { x: -1, z: 0 }, { x: 0, z: 0 }, { x: -0.75, z: -0.75 }, { x: -1, z: -0.75 },
+    ];
+
+    for (const rotation of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+      const transform = { x: 50, z: 50, rotation };
+      const cosine = Math.cos(rotation);
+      const sine = Math.sin(rotation);
+      const footprint = localFootprint.map(({ x, z }) => ({
+        x: transform.x + cosine * x - sine * z,
+        y: transform.z + sine * x + cosine * z,
+      }));
+      const root = new THREE.Group();
+      addCabinet(root, {
+        distributorSkuId: 3,
+        cabinetId: 3,
+        masterCode: "BF3",
+        description: '3" Base Filler — front 45° miter',
+        placementType: "base",
+        width: 1,
+        height: 34.5,
+        depth: 24,
+        fillerPieceGroupId: `all-rotation-miter-${rotation}`,
+        fillerPlacementMode: "left",
+        fillerTransitionKind: "front-miter-pair",
+        fillerTransitionPiece: "owner",
+        fillerTransitionFootprint: footprint,
+      }, null, {}, 120, 96, "#b99a6b", "#f8f8f6", undefined, transform);
+
+      root.updateMatrixWorld(true);
+      let fillerBody: THREE.Mesh | null = null;
+      root.traverse((node) => {
+        if (node instanceof THREE.Mesh && node.userData.frontOnlyMiterPair) fillerBody = node;
+      });
+      expect(fillerBody).not.toBeNull();
+      const bounds = new THREE.Box3().setFromObject(fillerBody!);
+      expect(bounds.min.x * 12).toBeCloseTo(Math.min(...footprint.map((point) => point.x)), 6);
+      expect(bounds.max.x * 12).toBeCloseTo(Math.max(...footprint.map((point) => point.x)), 6);
+      expect(bounds.min.z * 12).toBeCloseTo(Math.min(...footprint.map((point) => point.y)), 6);
+      expect(bounds.max.z * 12).toBeCloseTo(Math.max(...footprint.map((point) => point.y)), 6);
+    }
+  });
+
   it("keeps a rotated island waterfall on the physical side end rather than across the cabinet front", () => {
     const root = new THREE.Group();
     const island = {
