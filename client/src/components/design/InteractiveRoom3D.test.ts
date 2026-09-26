@@ -36,6 +36,17 @@ describe("customer manual AI render handoff", () => {
   });
 });
 
+describe("embedded 3D workspace viewport", () => {
+  it("keeps the selected-cabinet dock compact until the user requests details", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain("selectedCabinetInspectorExpanded");
+    expect(source).toContain('data-testid="three-d-cabinet-attributes-compact"');
+    expect(source).toContain('data-testid="three-d-expand-cabinet-attributes"');
+    expect(source).toContain('data-testid="three-d-collapse-cabinet-attributes"');
+    expect(source).toContain("embedded && !selectedCabinetInspectorExpanded ? \"flex min-w-0 items-center gap-2 pr-7\" : \"hidden\"");
+  });
+});
+
 const baseScene: InteractiveRoomScene = {
   roomShape: { id: "l_shape", name: "L-Shape", defaultDimensions: { width: 156, depth: 144, ceilingHeight: 96 }, geometryTemplate: { vertices: [] } },
   layout: { id: "kitchen_l_standard", name: "Standard L Kitchen" },

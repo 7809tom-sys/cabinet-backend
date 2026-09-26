@@ -7696,6 +7696,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide; freehand?: boolean } | null>(null);
   const [cabinetDragMeasurement, setCabinetDragMeasurement] = useState<{ cabinet: PlacedCabinet; preview: CabinetWallDragPreview } | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
+  // The embedded Designer reserves the lower viewport for the room. Keep the
+  // selection summary available, but do not let its full editor steal the scene.
+  const [selectedCabinetInspectorExpanded, setSelectedCabinetInspectorExpanded] = useState(false);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
   useEffect(() => {
     const hostSelection = threeDSelectionFromPlaced(selectedCabinetUid, placed);
@@ -7706,6 +7709,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     }
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
+  useEffect(() => {
+    setSelectedCabinetInspectorExpanded(false);
+  }, [selectedCabinet?.uid]);
   const [moveIncrementText, setMoveIncrementText] = useState("1");
   const moveIncrementIn = normalizedThreeDCabinetMoveIncrement(moveIncrementText);
   const [cabinetMoveResult, setCabinetMoveResult] = useState<ThreeDCabinetMoveResult | null>(null);
@@ -9602,7 +9608,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        const fittedFillerWidthText = selectedPlacedCabinet ? threeDFittedFillerWidthText(selectedPlacedCabinet) : null;
 		        return <div data-testid="three-d-cabinet-attributes" className={threeDSelectedCabinetDockClass()}>
 		          <button type="button" aria-label="Close cabinet attributes" onClick={() => { setSelectedCabinet(null); setMovePanelOpen(false); }} className="absolute right-1.5 top-1 z-10 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground">×</button>
-	          <div className="grid min-w-0 gap-1 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto] md:items-center">
+		          <div data-testid="three-d-cabinet-attributes-compact" className={embedded && !selectedCabinetInspectorExpanded ? "flex min-w-0 items-center gap-2 pr-7" : "hidden"}>
+		            <Info className="h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
+		            <p className="shrink-0 text-xs font-bold">{selectedCabinet.masterCode}</p>
+		            <p data-testid="three-d-cabinet-description" className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={description}>{description}</p>
+		            <span className={`shrink-0 text-xs font-semibold ${line?.lineTotal == null ? "text-rose-700" : "text-foreground"}`}>{line?.lineTotal == null ? "Unavailable" : `$${line.lineTotal.toFixed(2)}`}</span>
+		            <button type="button" data-testid="three-d-expand-cabinet-attributes" aria-expanded="false" onClick={() => setSelectedCabinetInspectorExpanded(true)} className="inline-flex h-7 shrink-0 items-center gap-1 rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95">Details <ChevronDown className="h-3.5 w-3.5" /></button>
+		          </div>
+		  <div className={`grid min-w-0 gap-1 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto] md:items-center ${embedded && !selectedCabinetInspectorExpanded ? "hidden" : ""}`}>
 		            <div data-testid="three-d-cabinet-summary" className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-1.5">
 		              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
 		              <div className="min-w-0">
@@ -9648,7 +9661,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		              </label>
 		              {cabinetMoveResult && <p data-testid="three-d-cabinet-move-result" role="status" aria-live="polite" className={`max-w-36 text-[9px] font-semibold leading-tight ${cabinetMoveResult.status === "moved" ? "text-emerald-700" : "text-rose-700"}`}>{cabinetMoveResult.message}</p>}
 		            </div>}
-	            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
+		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
+		              {embedded && <button type="button" data-testid="three-d-collapse-cabinet-attributes" aria-expanded="true" onClick={() => setSelectedCabinetInspectorExpanded(false)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><ChevronDown className="h-3.5 w-3.5 rotate-180" />Collapse</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
 			              {onRequestFiller && selectedPlacedCabinet && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
