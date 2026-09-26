@@ -2986,7 +2986,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
       const discKey = p.discountPct ?? 0;
       const gdFlag = p.glassDoor ? "GD" : "";
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
+	      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
+	        ? `Mitered ${p.fillerMiterAngle ?? 22.5}° (forms 45° turn)`
+	        : "";
+	      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -3000,7 +3003,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          // The base cabinet keeps its canonical SKU. A separately priced glass
 	          // door appears as its own cart/material line instead of replacing it.
 	          code: p.masterCode,
-          description: [p.description, sizeNote, attrNote]
+	          description: [p.description, sizeNote, miterCutNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
           color: cabColor,
@@ -5081,7 +5084,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        }
 	        committedRun = withRequiredFiller;
 		      }
-		      if (!requestedIslandFace && (finalCab.placement === "wall" || finalCab.placement === "base")) {
+		      if (!requestedIslandFace && (finalCab.placement === "wall" || finalCab.placement === "base" || finalCab.placement === "tall")) {
 		        const requiredTransition = measuredAngledWallTransition(finalCab, room, committedRun);
 		        const angledFiller = automaticAngledWallFiller(
 	          finalCab,
@@ -5103,7 +5106,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		            if (angledFiller.fillers.every((filler) => resolution.placed.some((item) => item.uid === filler.uid))) {
 		              committedRun = resolution.placed;
 		              setFillerInsertionTransition({ uids: angledFiller.fillers.map((filler) => filler.uid), key: Date.now() });
-		              toast.success(`${angledFiller.fillers[0].masterCode} front filler A (${formatInches(angledFiller.ownerGapIn)}) and B (${formatInches(angledFiller.neighborGapIn)}) are mitered together at 45°. Both real selected-line pieces are price-locked at $${sourcePrices.map((sourcePrice) => sourcePrice!.toFixed(2)).join(" + $")}; both cabinets remain independently supported.`);
+		              toast.success(`${angledFiller.fillers[0].masterCode} front filler A (${formatInches(angledFiller.ownerGapIn)}) and B (${formatInches(angledFiller.neighborGapIn)}) are each cut at 22.5° to form one tight 45° turn. Both real selected-line pieces are price-locked at $${sourcePrices.map((sourcePrice) => sourcePrice!.toFixed(2)).join(" + $")}; both cabinets remain independently supported.`);
 		            }
 		          }
 		        }

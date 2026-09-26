@@ -63,14 +63,14 @@ export type InstalledFillerVerticalSpec = {
 };
 
 /**
- * Base filler catalog records may describe taller stock. Once installed beside a
- * standard base cabinet, only the 30-inch cabinet-box panel is visible above the
- * 4½-inch toe kick. The saved height remains the standard inclusive 34½-inch base
- * envelope so the existing 2D/3D toe-kick renderers do not subtract the kick twice.
+ * Source filler records may describe longer stock. Once installed, the board is
+ * field-cut to the adjoining cabinet's exact elevation. A base board exposes the
+ * cabinet-height face above its 4½-inch toe kick; wall and tall boards remain
+ * full-height from their shared mounting datum.
  */
 export function installedFillerVerticalSpec(
-  layer: "base" | "wall",
-  catalogHeight: number,
+  layer: "base" | "wall" | "tall",
+  cabinetHeight: number,
 ): InstalledFillerVerticalSpec {
   if (layer === "base") {
     return {
@@ -80,9 +80,12 @@ export function installedFillerVerticalSpec(
       visibleTop: STD.BASE_HEIGHT,
     };
   }
-  const storedHeight = Number.isFinite(catalogHeight) && catalogHeight > 0
-    ? catalogHeight
-    : STD.WALL_HEIGHT;
+  // The source catalog record supplies the purchasable stock and price; the
+  // installed board is always field-cut to the adjoining cabinet's exact
+  // elevation. This applies to upper, tall, and nonstandard-height runs.
+  const storedHeight = Number.isFinite(cabinetHeight) && cabinetHeight > 0
+    ? cabinetHeight
+    : layer === "tall" ? STD.TALL_HEIGHT : STD.WALL_HEIGHT;
   return {
     storedHeight,
     visibleBottom: 0,

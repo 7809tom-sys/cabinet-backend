@@ -2325,10 +2325,10 @@ export function PlanCanvas({
 	                    data-testid="angled-wall-transition-filler-indicator"
 	                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-amber-200 bg-[#7c5313] px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow"
 	                    title={isFrontMiterPair
-	                      ? `Front-only 45° miter filler ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} cut from source-priced ${p.masterCode}. The rear pocket remains open; both cabinets stay independently supported.`
+	                      ? `Front-only 22.5° miter-cut filler ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} cut from source-priced ${p.masterCode}. Together the pair forms one tight 45° turn; the rear pocket remains open and both cabinets stay independently supported.`
 	                      : `Legacy measured 45° transition: ${formatEighthInches(Number(p.fillerTransitionRearWidthIn) || 0)} rear / ${formatEighthInches(Number(p.fillerTransitionFrontWidthIn) || 0)} face. This saved plan retains its historical footprint.`}
 	                  >
-	                    {isFrontMiterPair ? `45° FRONT FILLER ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}` : "45° TRANSITION"}
+	                    {isFrontMiterPair ? `22.5° FRONT FILLER ${p.fillerTransitionPiece === "neighbor" ? "B" : "A"}` : "45° TRANSITION"}
 	                  </span>
 	                )}
 		                {showSeatedPeninsulaCornerFeedback && (

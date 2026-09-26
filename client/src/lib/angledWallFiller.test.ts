@@ -21,15 +21,15 @@ const room = {
   ],
 };
 
-function cabinet(uid: string, wallId: string, offset: number, placement: "wall" | "base" = "wall", width = 24): PlacedCabinet {
+function cabinet(uid: string, wallId: string, offset: number, placement: "wall" | "base" | "tall" = "wall", width = 24): PlacedCabinet {
   const depth = placement === "wall" ? 12 : 24;
-  const height = placement === "wall" ? 42 : 34.5;
+  const height = placement === "wall" ? 42 : placement === "tall" ? 96 : 34.5;
   const spot = wallPlacementAt(offset, width, depth, wallId as any, room);
   return {
     uid,
     cabinetId: 10,
-    masterCode: placement === "wall" ? "W-2442" : "B-24",
-    description: placement === "wall" ? '24" x 42" Wall Cabinet' : '24" Base Cabinet',
+    masterCode: placement === "wall" ? "W-2442" : placement === "tall" ? "T-2496" : "B-24",
+    description: placement === "wall" ? '24" x 42" Wall Cabinet' : placement === "tall" ? '24" x 96" Tall Cabinet' : '24" Base Cabinet',
     placement,
     x: spot.x,
     y: spot.y,
@@ -89,6 +89,14 @@ const tallCuttableFiller = {
   catalogImageUrl: null,
 };
 
+const tallWideCuttableFiller = {
+  ...tallCuttableFiller,
+  id: 300,
+  masterCode: "F1296",
+  description: '12" x 96" Tall Filler',
+  width: "12",
+};
+
 function polygonArea(points: Array<{ x: number; y: number }>) {
   return Math.abs(points.reduce((sum, point, index) => {
     const next = points[(index + 1) % points.length]!;
@@ -96,7 +104,7 @@ function polygonArea(points: Array<{ x: number; y: number }>) {
   }, 0)) / 2;
 }
 
-function pair(placement: "wall" | "base") {
+function pair(placement: "wall" | "base" | "tall") {
   const diagonalLength = wallLength("diagonal" as any, room);
   const neighbor = cabinet(`${placement}-neighbor`, "diagonal", diagonalLength - 24, placement);
   const newlyPlaced = cabinet(`${placement}-new`, "straight", 3, placement);
@@ -131,8 +139,8 @@ describe("automaticAngledWallFiller", () => {
       fillerMiterAngle: filler.fillerMiterAngle,
       fillerTransitionPiece: filler.fillerTransitionPiece,
     }))).toEqual([
-      { cabinetId: 99, masterCode: "WF1242", placement: "wall", nominalWidth: 12, fillerTransitionKind: "front-miter-pair", fillerBillingRole: "primary", fillerMiterAngle: 45, fillerTransitionPiece: "owner" },
-      { cabinetId: 99, masterCode: "WF1242", placement: "wall", nominalWidth: 12, fillerTransitionKind: "front-miter-pair", fillerBillingRole: "primary", fillerMiterAngle: 45, fillerTransitionPiece: "neighbor" },
+      { cabinetId: 99, masterCode: "WF1242", placement: "wall", nominalWidth: 12, fillerTransitionKind: "front-miter-pair", fillerBillingRole: "primary", fillerMiterAngle: 22.5, fillerTransitionPiece: "owner" },
+      { cabinetId: 99, masterCode: "WF1242", placement: "wall", nominalWidth: 12, fillerTransitionKind: "front-miter-pair", fillerBillingRole: "primary", fillerMiterAngle: 22.5, fillerTransitionPiece: "neighbor" },
     ]);
     expect(resolution.fillers[0].width).toBeCloseTo(1.9705627485, 8);
     expect(resolution.fillers[1].width).toBeCloseTo(4.9705627485, 8);
@@ -174,6 +182,26 @@ describe("automaticAngledWallFiller", () => {
     }
 	    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
 	  });
+
+  it("uses two real cabinet-height tall filler pieces for any tall-cabinet 45-degree transition", () => {
+    const { neighbor, newlyPlaced } = pair("tall");
+    let number = 0;
+    const resolution = automaticAngledWallFiller(
+      newlyPlaced,
+      room,
+      [neighbor, newlyPlaced],
+      [tallWideCuttableFiller],
+      () => `front-tall-${++number}`,
+      7,
+    )!;
+    expect(resolution.fillers).toHaveLength(2);
+    expect(resolution.fillers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ placement: "tall", masterCode: "F1296", height: 96, nominalHeight: 96, fillerMiterAngle: 22.5 }),
+    ]));
+    expect(resolution.fillers.every((filler) => filler.fillerBillingRole === "primary")).toBe(true);
+    expect(resolution.fillers.every((filler) => filler.description.includes("22.5° miter (forms 45° turn)"))).toBe(true);
+    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], resolution.fillers, room).rejected).toEqual([]);
+  });
 
   it("automatically closes an 11-inch measured-wall 45-degree hold with two cabinet-height 3-inch source fillers", () => {
     const diagonalLength = wallLength("diagonal" as any, room);

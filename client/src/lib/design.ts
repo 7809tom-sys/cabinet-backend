@@ -492,7 +492,7 @@ export interface PlacedCabinet {
   styleId?: number | null;
   /** Shared identifier for physical pieces cut from one purchased catalog filler. */
   fillerPieceGroupId?: string | null;
-  /** Only the primary piece contributes a catalog/cart/invoice quantity. */
+	/** `secondary` is bundled with its primary; every front-miter board is primary and billable. */
   fillerBillingRole?: "primary" | "secondary" | null;
   /** Total installed filler width represented by every piece in the group. */
   fillerTotalWidth?: number | null;
@@ -500,9 +500,12 @@ export interface PlacedCabinet {
   fillerPlacementMode?: "left" | "right" | "split" | null;
 	/** Cabinet whose measured opening owns this editable filler group. */
 	fillerForCabinetUid?: string | null;
-	/** A fitted filler that is trimmed at a continuous 45-degree wall vertex. */
-	fillerMiterAngle?: 45 | null;
-	/** Which end of the filler is cut at the 45-degree wall vertex. */
+	/**
+	 * Cut angle on this individual fitted filler board. Legacy records retain a
+	 * 45° single cut; a pair that changes the run by 45° uses two 22.5° cuts.
+	 */
+	fillerMiterAngle?: 22.5 | 45 | null;
+	/** Which end of the filler is cut at the continuous-wall miter vertex. */
 	fillerMiteredEnd?: "start" | "end" | null;
   /**
    * Legacy full-depth wedge or the current two-piece front-only 45° miter pair.

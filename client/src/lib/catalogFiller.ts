@@ -5,7 +5,8 @@ export type CatalogFillerCandidate = Pick<
   "id" | "masterCode" | "description" | "category" | "subCategory" | "width" | "height" | "depth" | "catalogImageUrl"
 >;
 
-export type CatalogFillerPlacement = "base" | "wall";
+/** Cabinet layer whose adjacent run determines the filler stock ranking. */
+export type CatalogFillerPlacement = "base" | "wall" | "tall";
 
 export type CatalogFillerSuggestion = {
   candidate: CatalogFillerCandidate;
@@ -54,8 +55,8 @@ export function isCatalogFiller(candidate: Pick<CatalogFillerCandidate, "masterC
 /**
  * Picks the narrowest sellable filler that covers the exact measured gap. The
  * installer trims this catalog item to `gapWidth`; no generic filler SKU or
- * inferred price is created. Placement ranking favors a 24-in deep base filler
- * or a 12-in deep wall filler, then the closest cuttable height.
+ * inferred price is created. Placement ranking favors a 24-in deep base/tall
+ * filler or a 12-in deep wall filler, then the closest cuttable height.
  */
 export function catalogFillerForGap(
   candidates: readonly CatalogFillerCandidate[],
@@ -64,7 +65,7 @@ export function catalogFillerForGap(
 ): CatalogFillerCandidate | null {
   if (!Number.isFinite(gapWidth) || gapWidth <= 0) return null;
   const desiredDepth = placement === "wall" ? 12 : 24;
-  const desiredHeight = placement === "wall" ? 30 : 34.5;
+  const desiredHeight = placement === "wall" ? 30 : placement === "tall" ? 96 : 34.5;
 
   return candidates
     .filter(isCatalogFiller)
@@ -129,7 +130,9 @@ export function catalogFillerPricingId(
     subCategory: cabinet.subCategory ?? null,
   });
   if (!isFiller) return persistedId > 0 ? persistedId : null;
-  const placement: CatalogFillerPlacement = cabinet.placement === "wall" ? "wall" : "base";
+  const placement: CatalogFillerPlacement = cabinet.placement === "wall"
+    ? "wall"
+    : cabinet.placement === "tall" ? "tall" : "base";
   const installedWidth = numberValue(cabinet.width);
   const activePersisted = candidates.find((candidate) => candidate.id === persistedId);
   if (activePersisted && isCatalogFiller(activePersisted) && numberValue(activePersisted.width) + 0.001 >= installedWidth) {

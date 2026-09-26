@@ -18,6 +18,12 @@ import { installedFillerVerticalSpec } from "@/lib/smallGapFiller";
 const JOIN_EPSILON_IN = 0.25;
 const FRONT_FILLER_DEPTH_IN = 0.75;
 
+function isTransitionCabinetPlacement(
+  placement: PlacedCabinet["placement"],
+): placement is "base" | "wall" | "tall" {
+  return placement === "base" || placement === "wall" || placement === "tall";
+}
+
 export type AngledWallTransitionPoint = { x: number; y: number };
 
 type EndpointFace = {
@@ -274,7 +280,10 @@ export function measuredAngledWallTransition(
   room: RoomData,
   placed: readonly PlacedCabinet[],
 ): AngledWallTransitionMeasurement | null {
-	  if ((cabinet.placement !== "wall" && cabinet.placement !== "base") || !cabinet.wallId) return null;
+	  // This is a cabinet-run rule, not a base-cabinet rule. Any independently
+	  // supported cabinet family may meet a true 45° turn; the two selected-line
+	  // filler boards follow the shared elevation band of those two cabinets.
+	  if (!isTransitionCabinetPlacement(cabinet.placement) || !cabinet.wallId) return null;
 	  const joins = transitionJoins(cabinet.wallId, room);
 	  if (joins.length === 0) return null;
 
@@ -409,7 +418,12 @@ export function automaticAngledWallFiller(
   makeUid: () => string,
   styleId: number | null,
 ): AngledWallFillerResolution | null {
-  if (cabinet.placement !== "wall" && cabinet.placement !== "base") return null;
+	const transitionPlacement = cabinet.placement === "wall"
+	  ? "wall"
+	  : cabinet.placement === "base"
+	    ? "base"
+	    : cabinet.placement === "tall" ? "tall" : null;
+	if (!transitionPlacement) return null;
 	  const measurement = measuredAngledWallTransition(cabinet, room, placed);
 	  if (!measurement) return null;
 	  const currentElevation = elevationBox(cabinet, room);
@@ -418,17 +432,19 @@ export function automaticAngledWallFiller(
 	    if (height + JOIN_EPSILON_IN < currentElevation.height) return false;
 	    const sourceText = `${candidate.masterCode} ${candidate.description ?? ""}`.toLowerCase();
 	    // A base transition may be cut from real base/tall filler stock, but never
-	    // from a source-described wall filler. The inverse protects wall runs.
-	    if (cabinet.placement === "base" && /\bwall\s+filler\b/.test(sourceText)) return false;
-	    if (cabinet.placement === "wall" && /\bbase\s+filler\b/.test(sourceText)) return false;
+	    // from a source-described wall filler. Tall cabinets require tall stock;
+	    // no source filler is stretched or invented to match an elevation.
+	    if (transitionPlacement === "base" && /\bwall\s+filler\b/.test(sourceText)) return false;
+	    if (transitionPlacement === "wall" && /\bbase\s+filler\b/.test(sourceText)) return false;
+	    if (transitionPlacement === "tall" && !/\btall\s+filler\b/.test(sourceText)) return false;
 	    return true;
 	  });
-	  const source = catalogFillerForGap(heightCompatibleCandidates, measurement.requiredStockWidthIn, cabinet.placement);
+	  const source = catalogFillerForGap(heightCompatibleCandidates, measurement.requiredStockWidthIn, transitionPlacement);
 	  if (!source) return null;
 
 	  const depth = Math.max(FRONT_FILLER_DEPTH_IN, measurement.depthIn);
 	  const stockWidth = numberValue(source.width);
-	  const vertical = installedFillerVerticalSpec(cabinet.placement, currentElevation.height);
+	  const vertical = installedFillerVerticalSpec(transitionPlacement, currentElevation.height);
   const groupId = `front-miter-pair-${cabinet.uid}-${measurement.neighborUid}-${measurement.at}`;
   const neighbor = placed.find((item) => item.uid === measurement.neighborUid);
   if (!neighbor) return null;
@@ -455,10 +471,10 @@ export function automaticAngledWallFiller(
       uid: makeUid(),
       cabinetId: source.id,
       masterCode: source.masterCode,
-      description: `${source.description ?? source.masterCode} — ${piece === "owner" ? "A" : "B"} front filler cut to ${roundedEighth(exactCutWidth)}\" with 45° miter`,
+	      description: `${source.description ?? source.masterCode} — ${piece === "owner" ? "A" : "B"} front filler cut to ${roundedEighth(exactCutWidth)}\" with 22.5° miter (forms 45° turn)`,
       category: source.category,
       subCategory: source.subCategory,
-      placement: cabinet.placement,
+	      placement: transitionPlacement,
       x: spot.x,
       y: spot.y,
       width: exactCutWidth,
@@ -481,7 +497,7 @@ export function automaticAngledWallFiller(
       fillerTotalWidth: measurement.rearGapIn + measurement.neighborRearGapIn,
       fillerPlacementMode: piece === "owner" ? "left" : "right",
       fillerForCabinetUid: owner.uid,
-      fillerMiterAngle: 45,
+	      fillerMiterAngle: 22.5,
       fillerMiteredEnd: miteredEnd,
       fillerTransitionKind: "front-miter-pair",
       fillerTransitionPiece: piece,
@@ -530,7 +546,7 @@ export function repairMissingAngledWallFillers(
   let next = [...placed];
   const added: PlacedCabinet[] = [];
   for (const cabinet of placed) {
-    if (cabinet.fillerPieceGroupId || (cabinet.placement !== "base" && cabinet.placement !== "wall")) continue;
+	if (cabinet.fillerPieceGroupId || !isTransitionCabinetPlacement(cabinet.placement)) continue;
     const resolution = automaticAngledWallFiller(cabinet, room, next, candidates, makeUid, styleId);
     if (!resolution) continue;
     const prices = resolution.fillers.map((filler) => unitPriceFor(filler));

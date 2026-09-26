@@ -17,8 +17,8 @@ describe("PlanCanvas angled filler", () => {
     expect(source).toContain("fillerTransitionPlanFootprint");
     expect(source).toContain("transitionClipPath");
     expect(source).toContain("data-angled-wall-transition-filler");
-    expect(source).toContain("45° FRONT FILLER");
-    expect(source).toContain("The rear pocket remains open");
+    expect(source).toContain("22.5° FRONT FILLER");
+    expect(source).toContain("Together the pair forms one tight 45° turn");
     expect(source).toContain("source-priced");
   });
 
