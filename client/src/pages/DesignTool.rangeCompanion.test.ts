@@ -4,16 +4,44 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("Design Tool range companion workflow", () => {
-  it("asks before adding the matching bridge and over-range microwave when a new range has no assigned hood", () => {
+  it("asks before adding the real short wall cabinet and centered over-range microwave when a new range has no assigned hood", () => {
     const addStart = source.indexOf("const addCabinet = useCallback");
     const commitStart = source.indexOf("placedRef.current = committedRun;", addStart);
     const promptStart = source.indexOf("const proposal = hasAssignedVentilation", commitStart);
 
     expect(promptStart).toBeGreaterThan(commitStart);
-    expect(source.slice(promptStart, promptStart + 700)).toContain("rangeCompanionProposal(finalCab, room, wallCabPoolRef.current, appliancePalette)");
-    expect(source).toContain("No range hood assigned");
+    const promptSource = source.slice(promptStart, promptStart + 1100);
+    expect(promptSource).toContain("rangeCompanionProposal(");
+    expect(promptSource).toContain("wallCabHeightRef.current");
+    expect(promptSource).toContain("DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN");
+    expect(source).toContain("Add microwave and bridge over range");
     expect(source).toContain("Yes — add bridge and microwave");
     expect(source).toContain("No — keep the range as placed");
+  });
+
+  it("allows the designer to choose a 24-to-30-inch microwave clearance and carries it into the actual placement", () => {
+    const actionStart = source.indexOf("const addApprovedRangeCompanions = useCallback");
+    const actionEnd = source.indexOf("// Manual filler", actionStart);
+    const actionSource = source.slice(actionStart, actionEnd);
+    const previewStart = source.indexOf("data-testid=\"range-companion-source-preview\"");
+    const previewSource = source.slice(previewStart, previewStart + 2300);
+
+    expect(actionSource).toContain("rangeCompanionClearanceIn");
+    expect(actionSource).toContain("proposal.microwaveMountBottom");
+    expect(previewSource).toContain("OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN");
+    expect(previewSource).toContain("OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN");
+    expect(previewSource).toContain("The selected bridge is placed directly on the microwave");
+  });
+
+  it("offers the same real bridge when MW-30 is placed directly over an existing range", () => {
+    const addStart = source.indexOf("const addCabinet = useCallback");
+    const rangePromptStart = source.indexOf("if (!requestedIslandFace && isRangeOrOven", addStart);
+    const microwavePromptStart = source.indexOf("if (!requestedIslandFace && otrRangeUid && isOverRangeMicrowave", rangePromptStart);
+    const microwavePrompt = source.slice(microwavePromptStart, microwavePromptStart + 1500);
+
+    expect(microwavePromptStart).toBeGreaterThan(rangePromptStart);
+    expect(microwavePrompt).toContain("rangeCompanionProposal(");
+    expect(microwavePrompt).toContain("Add the matching wall cabinet directly above it?");
   });
 
   it("revalidates active source availability and collision-clears both additions before changing the plan", () => {
@@ -23,17 +51,19 @@ describe("Design Tool range companion workflow", () => {
 
     expect(actionSource).toContain("bridgeStillAvailable");
     expect(actionSource).toContain("microwaveStillAvailable");
-    expect(actionSource).toContain("alreadyAssigned");
-    expect(actionSource).toContain("appendCollisionFreePlacements(placedRef.current, [microwave, bridge], room)");
+    expect(actionSource).toContain("existingHood");
+    expect(actionSource).toContain("existingMicrowave");
+    expect(actionSource).toContain("const additions = existingMicrowave ? [bridge] : [microwave, bridge]");
+    expect(actionSource).toContain("appendCollisionFreePlacements(placedRef.current, additions, room)");
     expect(actionSource).toContain("Existing cabinets were left unchanged.");
     expect(actionSource).toContain("setRangeCompanionPrompt(null)");
   });
 
-  it("does not describe a synthetic appliance as a priced cabinet source", () => {
+  it("does not describe the layout-only microwave as a priced cabinet source", () => {
     const previewStart = source.indexOf("data-testid=\"range-companion-source-preview\"");
-    const previewSource = source.slice(previewStart, previewStart + 1400);
+    const previewSource = source.slice(previewStart, previewStart + 2300);
 
-    expect(previewSource).toContain("No existing cabinet will be moved or replaced");
+    expect(previewSource).toContain("layout appliance; quote separately");
     expect(previewSource).not.toContain("price will be added");
   });
 });

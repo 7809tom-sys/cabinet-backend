@@ -241,7 +241,7 @@ export const APPLIANCES: ApplianceDef[] = [
   { key: "hood-glass-stainless", masterCode: "HOOD-30", description: '30" Glass Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchGlassStainlessRangeHood-cropped_4a695aa8.webp", rooms: ["kitchen"] },
   { key: "hood-stainless-30", masterCode: "HOOD-30", description: '30" Stainless Range Hood', width: 30, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/30InchWideStainlessRangeHood-cropped_b83ef9d3.webp", rooms: ["kitchen"] },
   { key: "hood-stainless-36", masterCode: "HOOD-36", description: '36" Stainless Range Hood', width: 36, depth: 18, elevBottom: 66, elevHeight: 18, catalogImageUrl: "/manus-storage/36InchStainlessRangeHood-cropped_275ed94d.webp", rooms: ["kitchen"] },
-  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 54, elevHeight: 17, catalogImageUrl: "/manus-storage/zline_over_range_microwave_front_4976b7ab.webp", rooms: ["kitchen"] },
+  { key: "microwave", masterCode: "MW-30", description: 'Over-Range Microwave 30"', width: 30, depth: 15, elevBottom: 60, elevHeight: 16, catalogImageUrl: "/manus-storage/zline_over_range_microwave_front_4976b7ab.webp", rooms: ["kitchen"] },
   // ── Bathroom fixtures (layout-only props, quoted separately) ──────────────
   { key: "shower", masterCode: "FIX-SHOWER-36", description: 'Shower 36"', width: 36, depth: 36, elevBottom: 0, elevHeight: 78, rooms: ["bathroom"] },
   { key: "tub", masterCode: "FIX-TUB-60", description: 'Bathtub 60"', width: 60, depth: 30, elevBottom: 0, elevHeight: 20, rooms: ["bathroom"] },
@@ -6185,18 +6185,22 @@ export function isOverRangeMicrowave(p: {
 // over-range microwave of a given width. Bridge cabinets fill the gap between
 // the OTR microwave top and the wall cabinet top line. The bridge height depends
 // on the chosen wall cabinet height:
-//   30" walls → 12" bridge (classic)
+//   30" walls → 12" bridge
+//   33" walls → 15" bridge
 //   36" walls → 18" bridge
+//   39" walls → 21" bridge
 //   42" walls → 24" bridge
 // Widths that are not a stock bridge width snap to the nearest available stock
 // width (30, 33, or 36) so we always suggest a real, orderable SKU.
 export const BRIDGE_STOCK_WIDTHS = [30, 33, 36] as const;
-export const BRIDGE_STOCK_HEIGHTS = [12, 15, 18, 24] as const;
+export const BRIDGE_STOCK_HEIGHTS = [12, 15, 18, 21, 24] as const;
 
 /** Map wall cabinet height to the appropriate bridge height. */
 export function bridgeHeightForWallHeight(wallCabH: number): number {
   if (wallCabH >= 42) return 24;
+  if (wallCabH >= 39) return 21;
   if (wallCabH >= 36) return 18;
+  if (wallCabH >= 33) return 15;
   return 12;
 }
 

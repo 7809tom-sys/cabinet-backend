@@ -2,9 +2,10 @@ import {
   type DesignCabinet,
   type PlacedCabinet,
   type RoomData,
+  bridgeHeightForWallHeight,
   cabinetWall,
+  elevationBox,
   mountedMicrowaveOverRangeSpot,
-  wallCabinetTopLine,
   wallPlacementAt,
   wallRunOffset,
 } from "@/lib/design";
@@ -20,8 +21,16 @@ export type RangeCompanionProposal = {
   microwave: DesignCabinet;
   bridgeSpot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
   microwaveSpot: { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number };
+  /** Clearance from the finished stove top to the microwave bottom. */
+  microwaveClearanceIn: number;
+  microwaveMountBottom: number;
   bridgeMountBottom: number;
 };
+
+/** The allowed finished-stove-top clearance for an over-range microwave. */
+export const OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN = 24;
+export const OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN = 30;
+export const DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN = OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN;
 
 function numberDimension(value: string | number | null | undefined): number {
   const result = Number(value);
@@ -31,50 +40,53 @@ function numberDimension(value: string | number | null | undefined): number {
 function bridgeCandidateForRange(
   range: Pick<PlacedCabinet, "width">,
   wallCabinets: DesignCabinet[],
-  topLine: number,
-  microwaveTop: number,
+  wallCabinetHeight: number,
 ): DesignCabinet | null {
   const rangeWidth = Number(range.width);
   if (!Number.isFinite(rangeWidth) || rangeWidth <= 0) return null;
+  const requiredBridgeHeight = bridgeHeightForWallHeight(wallCabinetHeight);
 
   const eligible = wallCabinets.filter((cabinet) => {
     const width = numberDimension(cabinet.width);
     const height = numberDimension(cabinet.height);
-    // A marketing/category label is not sufficient evidence of an over-range
-    // bridge. In particular, WSC30 is a spice cabinet and must never be
-    // selected for a range. Only an explicit catalog profile can authorize an
-    // automatic microwave companion.
-    const sourceIdentifiesBridge = cabinet.customProfile === "range-companion-bridge";
+    const identity = `${cabinet.masterCode} ${cabinet.description} ${cabinet.subCategory ?? ""}`.toLowerCase();
+    // The bridge is an actual, selected-line, solid W30 wall cabinet: exactly
+    // W3012, W3015, W3018, W3021, or W3024. WSC30 is a six-inch spice cabinet
+    // and can never be used here; neither can glass, refrigerator, or open-box
+    // specialty wall products.
+    const isSpiceCabinet = /^wsc[-_]?30$/i.test(cabinet.masterCode) || /\bspice\b/.test(identity);
+    const isNonBridgeSpecialty = /\brefrigerator\b|\bglass\b|\bopen\s+box\b/.test(identity);
+    const normalizedCode = cabinet.masterCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    const isApprovedMicrowaveBridge = /^W30(?:12|15|18|21|24)$/.test(normalizedCode);
     return cabinet.placement === "wall"
-      && Math.abs(width - rangeWidth) <= 0.01
-      && sourceIdentifiesBridge
-      // The bridge must sit above the microwave without pushing through the
-      // standard wall-cabinet top line. This is a physical clearance rule, not
-      // a product-name heuristic.
-      && height > 0
-      && topLine - height >= microwaveTop + 0.5;
+      && Math.abs(rangeWidth - 30) <= 0.01
+      && Math.abs(width - 30) <= 0.01
+      && Math.abs(height - requiredBridgeHeight) <= 0.01
+      && !isSpiceCabinet
+      && !isNonBridgeSpecialty
+      && isApprovedMicrowaveBridge;
   });
 
-  // If a distributor exposes multiple explicitly verified bridge alternatives,
-  // the shortest one gives the largest microwave clearance, with code order
-  // making the outcome deterministic.
+  // Keep the catalog identity and authorized price intact. A deterministic code
+  // order only resolves duplicate selected-line products with the same real size.
   return eligible.sort((left, right) => {
-    return numberDimension(left.height) - numberDimension(right.height)
-      || left.masterCode.localeCompare(right.masterCode);
+    return left.masterCode.localeCompare(right.masterCode) || left.id - right.id;
   })[0] ?? null;
 }
 
 /**
- * Finds the exact verified bridge source and the synthetic layout-only MW-* item
- * that can be mounted over a just-placed range. It never guesses a cabinet SKU:
- * without a matching selected-line bridge and a matching appliance palette
- * record, it returns null and no prompt should be shown.
+ * Finds the selected-line short wall cabinet that sits directly on a centered
+ * over-range microwave. The wall-height preference drives one of the real
+ * W3012/W3015/W3018/W3021/W3024 solid-wall selections; WSC30 is intentionally
+ * excluded as a spice box.
  */
 export function rangeCompanionProposal(
   range: PlacedCabinet,
   room: RoomData,
   wallCabinets: DesignCabinet[],
   appliancePalette: DesignCabinet[],
+  wallCabinetHeight: number = 30,
+  microwaveClearanceIn = DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN,
 ): RangeCompanionProposal | null {
   const rangeWidth = Number(range.width);
   if (!Number.isFinite(rangeWidth) || rangeWidth <= 0) return null;
@@ -87,12 +99,16 @@ export function rangeCompanionProposal(
   if (!microwave) return null;
 
   const microwaveHeight = numberDimension(microwave.height);
-  const microwaveBottom = Math.max(0, Number(microwave.mountBottom) || 0);
+  if (!microwaveHeight) return null;
+  const clearance = Math.max(
+    OVER_RANGE_MICROWAVE_CLEARANCE_MIN_IN,
+    Math.min(OVER_RANGE_MICROWAVE_CLEARANCE_MAX_IN, Number(microwaveClearanceIn) || DEFAULT_OVER_RANGE_MICROWAVE_CLEARANCE_IN),
+  );
+  const microwaveBottom = elevationBox(range, room).bottom + elevationBox(range, room).height + clearance;
   const bridge = bridgeCandidateForRange(
     range,
     wallCabinets,
-    wallCabinetTopLine(room),
-    microwaveBottom + microwaveHeight,
+    wallCabinetHeight,
   );
   if (!bridge) return null;
 
@@ -117,6 +133,8 @@ export function rangeCompanionProposal(
     microwave,
     bridgeSpot,
     microwaveSpot,
+    microwaveClearanceIn: clearance,
+    microwaveMountBottom: microwaveBottom,
     bridgeMountBottom: microwaveBottom + microwaveHeight,
   };
 }

@@ -49,17 +49,22 @@ describe("realistic designer appliance appearances", () => {
       .toMatchObject({ fuel: "electric", cooktopStyle: "electric-glass", backPanel: "none", controlCount: 4, ovenConfiguration: "single" });
   });
 
-  it("uses a calibrated front-only range elevation while preserving realistic appliance imagery in 3D", () => {
+  it("uses calibrated appliance elevations while preserving the approved microwave front image", () => {
     expect(applianceElevationPresentation("RANGE-30")).toBe("vector");
     expect(applianceElevationPresentation("RANGE30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD-30")).toBe("vector");
     expect(applianceElevationPresentation("HOOD30")).toBe("vector");
     expect(applianceElevationPresentation("FRIDGE-36")).toBe("vector");
     expect(applianceElevationPresentation("DW-24")).toBe("vector");
-    expect(applianceElevationPresentation("MW-30")).toBe("vector");
+    expect(applianceElevationPresentation("MW-30")).toBe("photo");
     expect(applianceAppearanceImage("RANGE-30")).toContain("-silhouette_");
     expect(applianceAppearanceImage("FRIDGE-36")).toContain("lg_french_door_refrigerator_front");
     expect(applianceAppearanceImage("DW-24")).toContain("whirlpool_dishwasher_front");
     expect(applianceAppearanceImage("MW-30")).toContain("zline_over_range_microwave_front");
+  });
+
+  it("keeps the over-range microwave at the confirmed 16-inch installation height", () => {
+    expect(APPLIANCES.find((item) => item.masterCode === "MW-30"))
+      .toMatchObject({ width: 30, depth: 15, elevHeight: 16 });
   });
 });
