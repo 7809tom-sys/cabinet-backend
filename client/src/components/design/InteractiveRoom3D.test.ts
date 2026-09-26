@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
-import { furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
+import { addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
@@ -116,6 +116,51 @@ describe("3D fallback appliance run seams", () => {
     expect(bounds.min.y * 12).toBeCloseTo(0, 6);
     expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
     expect(fillerBody!.userData.visibleDepthIn).toBe(0.75);
+  });
+
+  it("keeps a rotated island waterfall on the physical side end rather than across the cabinet front", () => {
+    const root = new THREE.Group();
+    const island = {
+      x: 48,
+      y: 48,
+      width: 60,
+      depth: 30,
+      rotation: 90,
+      waterfallEnd: "right" as const,
+    };
+    const member = {
+      uid: "rotated-island-base",
+      cabinetId: 24,
+      masterCode: "B24",
+      description: "24 inch Base Cabinet",
+      placement: "base" as const,
+      x: 48,
+      y: 54,
+      width: 60,
+      depth: 24,
+      height: 34.5,
+      rotation: 90,
+      islandFace: "front" as const,
+      islandOffset: 0,
+    } as PlacedCabinet;
+    addIslandZone(root, island as never, [member], "#ffffff");
+    root.updateMatrixWorld(true);
+
+    let countertop: THREE.Object3D | null = null;
+    let waterfall: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.islandCountertop) countertop = node;
+      if (node.userData.islandWaterfall) waterfall = node;
+    });
+    expect(countertop).not.toBeNull();
+    expect(waterfall).not.toBeNull();
+    const slabCenter = countertop!.getWorldPosition(new THREE.Vector3());
+    const sidePanel = waterfall!.getWorldPosition(new THREE.Vector3());
+    // A 90° clockwise plan rotation maps the local island right end to +Z in
+    // Three.js. A front-mounted panel would instead displace along X.
+    expect(sidePanel.z - slabCenter.z).toBeGreaterThan(2);
+    expect(Math.abs(sidePanel.x - slabCenter.x)).toBeLessThan(0.01);
+    expect(waterfall!.userData.waterfallEnd).toBe("right");
   });
 
   it("keeps an explicit 45-degree continuous-wall range opening and rendered chassis flush to a 3DB18", () => {

@@ -133,6 +133,26 @@ describe("locked 45-degree cabinet wall placement", () => {
       { start: 0, length: 96 },
     ]);
 
+    const diagonalNinetyRoom: RoomData = {
+      ...DEFAULT_ROOM,
+      width: 180,
+      depth: 180,
+      vertices: [
+        { id: "d1", x: 0, y: 0 },
+        { id: "d2", x: 60, y: 60 },
+        { id: "d3", x: 120, y: 0 },
+      ],
+      customWalls: [
+        { id: "d45-a", startVertexId: "d1", endVertexId: "d2", lockedAngle: 45 },
+        // Two diagonal walls can form a physical 90° turn. Despite one being
+        // locked at 45° to the canvas, cabinet faces sit flush at this join.
+        { id: "d45-b", startVertexId: "d2", endVertexId: "d3" },
+      ],
+    };
+    expect(freeSegmentsOnWall("d45-b" as any, diagonalNinetyRoom, [], [], 0.5, 0, "base")).toEqual([
+      { start: 0, length: 84.85 },
+    ]);
+
     const diagonalLength = wallLength("join-45" as any, joinedRoom);
     const diagonalSpot = wallPlacementAt(diagonalLength - 35, 24, 24, "join-45" as any, joinedRoom);
     const seatedDiagonalBase: PlacedCabinet = {

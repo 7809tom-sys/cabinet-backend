@@ -9,7 +9,10 @@ describe("island-level waterfall rendering", () => {
     expect(source).toContain('const waterfallEnd = island.waterfallEnd');
 	    expect(source).toContain('waterfallEnd === "both"');
 	    expect(source).toContain('waterfallEnds.forEach((end) =>');
-    expect(source).toContain("new THREE.BoxGeometry(panelThickness, panelHeight, slabDepth * INCH)");
+    expect(source).toContain("waterfallSlabs.forEach((slab, slabIndex) =>");
+    expect(source).toContain("new THREE.BoxGeometry(panelThickness, panelHeight, slab.depth * INCH)");
+    expect(source).toContain("panel.rotation.y = slabRotation");
+    expect(source).toContain("panel.translateX((end === \"left\" ? -1 : 1) * slab.width * INCH / 2)");
     expect(source).toContain("usesActiveCountertopMaterial: true");
   });
 });

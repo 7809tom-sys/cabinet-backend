@@ -6630,7 +6630,7 @@ export function furnitureTransform(furniture: Pick<PlacedFurniture, "x" | "y" | 
   };
 }
 
-function addIslandZone(
+export function addIslandZone(
   root: THREE.Group,
   island: NonNullable<Props["island"]>,
   placed: PlacedCabinet[],
@@ -6694,11 +6694,6 @@ function addIslandZone(
 	  const waterfallEnd = island.waterfallEnd;
 	  const waterfallEnds = waterfallEnd === "both" ? (["left", "right"] as const) : waterfallEnd === "left" || waterfallEnd === "right" ? [waterfallEnd] : [];
 	  if (waterfallEnds.length > 0 && waterfallSlabs.length > 0) {
-	    const slabLeft = Math.min(...waterfallSlabs.map((slab) => slab.x));
-	    const slabRight = Math.max(...waterfallSlabs.map((slab) => slab.x + slab.width));
-	    const slabBack = Math.min(...waterfallSlabs.map((slab) => slab.y));
-	    const slabFront = Math.max(...waterfallSlabs.map((slab) => slab.y + slab.depth));
-	    const slabDepth = slabFront - slabBack;
 	    const panelThickness = 1.5 * INCH;
 	    const panelHeight = transform.counterTop + 0.75 * INCH;
 	    const panelMaterial = new THREE.MeshPhysicalMaterial({
@@ -6706,15 +6701,31 @@ function addIslandZone(
 	      map: countertopTexture ?? null,
 	      ...threeDPhysicalSurfaceProfile("countertop", Boolean(countertopTexture)),
 	    });
-	    waterfallEnds.forEach((end) => {
-	      const panel = new THREE.Mesh(
-	        new THREE.BoxGeometry(panelThickness, panelHeight, slabDepth * INCH),
-	        panelMaterial.clone(),
-	      );
-	      const endX = end === "left" ? slabLeft : slabRight;
-	      panel.position.set(endX * INCH - transform.x, panelHeight / 2, (slabBack + slabDepth / 2) * INCH - transform.z);
-	      panel.userData = { islandWaterfall: true, waterfallEnd: end, fullHeightToFloor: true, usesActiveCountertopMaterial: true };
-	      group.add(panel);
+	    // A waterfall is an end panel of its own physical slab—not the axis-aligned
+	    // bounding box of every island slab. Resolve each end in the slab's rotated
+	    // local X axis so a 45°/90° island keeps the cascade on its actual side,
+	    // never across the cabinet fronts.
+	    waterfallSlabs.forEach((slab, slabIndex) => {
+	      const slabRotation = threeDPlanRotation((Number(slab.rotation ?? 0) * Math.PI) / 180);
+	      const slabCenterX = (slab.x + slab.width / 2) * INCH - transform.x;
+	      const slabCenterZ = (slab.y + slab.depth / 2) * INCH - transform.z;
+	      waterfallEnds.forEach((end) => {
+	        const panel = new THREE.Mesh(
+	          new THREE.BoxGeometry(panelThickness, panelHeight, slab.depth * INCH),
+	          panelMaterial.clone(),
+	        );
+	        panel.position.set(slabCenterX, panelHeight / 2, slabCenterZ);
+	        panel.rotation.y = slabRotation;
+	        panel.translateX((end === "left" ? -1 : 1) * slab.width * INCH / 2);
+	        panel.userData = {
+	          islandWaterfall: true,
+	          waterfallEnd: end,
+	          islandCountertopSegment: slabIndex + 1,
+	          fullHeightToFloor: true,
+	          usesActiveCountertopMaterial: true,
+	        };
+	        group.add(panel);
+	      });
 	    });
 	  }
 	  root.add(group);

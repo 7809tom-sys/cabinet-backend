@@ -96,6 +96,27 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     expect(surfaces.filter((surface) => surface.rotation === 45 || surface.rotation === 90)).toHaveLength(2);
   });
 
+  it("keeps the real countertop miter when both cabinets hold 11 inches from a locked 45-degree join", () => {
+    const diagonalLength = Math.hypot(60, 60);
+    const diagonalBase = baseCabinet("diagonal-held-base", "diagonal", diagonalLength - 24 - 11);
+    const straightBase = baseCabinet("straight-held-base", "straight", 11);
+
+    const bridges = measuredWallCountertopMiterSurfaces([diagonalBase, straightBase], room);
+    expect(bridges).toEqual([
+      expect.objectContaining({
+        customWallMiterWallIds: ["diagonal", "straight"],
+        customWallMiterVertexId: "v2",
+        miteredStart: true,
+        miteredEnd: true,
+      }),
+    ]);
+    const surfaces = countertopSurfaces([diagonalBase, straightBase], room);
+    expect(surfaces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ customWallId: "diagonal", miteredEnd: true, customWallMiterVertexId: "v2" }),
+      expect.objectContaining({ customWallId: "straight", miteredStart: true, customWallMiterVertexId: "v2" }),
+    ]));
+  });
+
   it("does not invent a countertop miter at the same join when the explicit 45-degree wall is removed", () => {
     const rightAngleRoom = {
       ...room,

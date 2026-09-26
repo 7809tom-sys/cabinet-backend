@@ -3,6 +3,7 @@ import {
 	  type RoomData,
 	  type WallSide,
 	  appendCollisionFreePlacements,
+	  customWallJoinTurnsFortyFive,
 	  elevationBox,
 	  peninsulaRunById,
 	  peninsulaRunEndpoints,
@@ -13,7 +14,6 @@ import {
 } from "@/lib/design";
 import { catalogFillerForGap, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { installedFillerVerticalSpec } from "@/lib/smallGapFiller";
-import { isLocked45Wall } from "@/lib/polygonRoom";
 
 const JOIN_EPSILON_IN = 0.25;
 const FRONT_FILLER_DEPTH_IN = 0.75;
@@ -106,7 +106,7 @@ function transitionJoins(wallId: string, room: RoomData): TransitionJoin[] {
   const wall = room.customWalls?.find((candidate) => candidate.id === wallId);
   if (wall) {
     return (room.customWalls ?? []).flatMap((neighbor) => {
-      if (neighbor.id === wall.id || (!isLocked45Wall(wall) && !isLocked45Wall(neighbor))) return [];
+      if (neighbor.id === wall.id || !customWallJoinTurnsFortyFive(wall, neighbor, room)) return [];
       const shared = sharedVertexPosition(wall, neighbor);
       return shared ? [{ neighborWallId: neighbor.id, ...shared }] : [];
     });

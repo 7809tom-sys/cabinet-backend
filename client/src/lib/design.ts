@@ -6968,7 +6968,7 @@ export function freeSegmentsOnWall(
       const hasLocked45NeighborAt = (vertexId: string) => (room.customWalls ?? []).some((neighbor) => (
         neighbor.id !== customWall.id
         && (neighbor.startVertexId === vertexId || neighbor.endVertexId === vertexId)
-        && (isLocked45Wall(customWall) || isLocked45Wall(neighbor))
+        && customWallJoinTurnsFortyFive(customWall, neighbor, room)
       ));
       if (hasLocked45NeighborAt(customWall.startVertexId)) {
         blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
@@ -9971,11 +9971,32 @@ function sharedCustomWallVertex(
   return null;
 }
 
+/**
+ * A diagonal segment is not itself a 45-degree corner. The installation hold
+ * belongs only to the *turn* between two measured walls: 45 degrees between
+ * their physical tangents, with an explicit locked-45 source wall involved.
+ * Two diagonal walls meeting at 90 degrees therefore remain a normal flush
+ * corner with no 11-inch reservation.
+ */
+export function customWallJoinTurnsFortyFive(
+  first: NonNullable<RoomData["customWalls"]>[number],
+  second: NonNullable<RoomData["customWalls"]>[number],
+  room: Pick<RoomData, "vertices">,
+): boolean {
+  if (!room.vertices?.length || (!isLocked45Wall(first) && !isLocked45Wall(second))) return false;
+  const firstAngle = polygonWallAngle(first, room.vertices);
+  const secondAngle = polygonWallAngle(second, room.vertices);
+  const raw = Math.abs(((firstAngle - secondAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
+  const interiorTurn = Math.min(raw, Math.abs(Math.PI - raw));
+  return Math.abs(interiorTurn - Math.PI / 4) <= 1e-6;
+}
+
 function measuredWallCountertopEndpointCabinet(
   wallId: string,
   at: "start" | "end",
   room: RoomData,
   placed: readonly PlacedCabinet[],
+  allowRequiredFortyFiveHold = false,
 ): PlacedCabinet | null {
   const length = wallLength(wallId as WallSide, room);
   return placed
@@ -9986,7 +10007,13 @@ function measuredWallCountertopEndpointCabinet(
       const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
       return { cabinet, distance };
     })
-    .filter(({ distance }) => distance <= COLLISION_EPSILON_IN)
+    .filter(({ distance }) => (
+      distance <= COLLISION_EPSILON_IN
+      // A true 45° join keeps both cabinet faces at this exact measured hold.
+      // Its miter-cut counter slabs remain cabinet-supported; this is not a
+      // general allowance for a free gap or a normal 90° room corner.
+      || (allowRequiredFortyFiveHold && Math.abs(distance - PENINSULA_INSIDE_CORNER_CLEARANCE_IN) <= COLLISION_EPSILON_IN)
+    ))
     .sort((left, right) => left.distance - right.distance)[0]?.cabinet ?? null;
 }
 
@@ -10007,13 +10034,13 @@ export function measuredWallCountertopMiterSurfaces(
     const first = room.customWalls[firstIndex]!;
     for (let secondIndex = firstIndex + 1; secondIndex < room.customWalls.length; secondIndex += 1) {
       const second = room.customWalls[secondIndex]!;
-      if (!isLocked45Wall(first) && !isLocked45Wall(second)) continue;
+      if (!customWallJoinTurnsFortyFive(first, second, room)) continue;
       const shared = sharedCustomWallVertex(first, second);
       if (!shared) continue;
       const vertex = room.vertices.find((candidate) => candidate.id === shared.vertexId);
       if (!vertex) continue;
-      const firstCabinet = measuredWallCountertopEndpointCabinet(first.id, shared.firstAt, room, placed);
-      const secondCabinet = measuredWallCountertopEndpointCabinet(second.id, shared.secondAt, room, placed);
+      const firstCabinet = measuredWallCountertopEndpointCabinet(first.id, shared.firstAt, room, placed, true);
+      const secondCabinet = measuredWallCountertopEndpointCabinet(second.id, shared.secondAt, room, placed, true);
       if (!firstCabinet || !secondCabinet) continue;
       const firstBox = elevationBox(firstCabinet, room);
       const secondBox = elevationBox(secondCabinet, room);
@@ -10134,13 +10161,14 @@ export function miteredMeasuredWallCountertopSurfaces(
     if (!shared) continue;
     const firstLength = polygonWallSegmentLength(firstWall, room.vertices);
     const secondLength = polygonWallSegmentLength(secondWall, room.vertices);
-    const endpointSurfaceIndex = (wallId: string, at: "start" | "end", length: number) => resolved.findIndex((surface) => {
-      if (surface.customWallId !== wallId) return false;
-      const start = surface.customWallRunStartIn ?? 0;
-      const end = start + (surface.linearInches ?? surface.width);
-      const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
-      return distance <= COLLISION_EPSILON_IN;
-    });
+      const endpointSurfaceIndex = (wallId: string, at: "start" | "end", length: number) => resolved.findIndex((surface) => {
+        if (surface.customWallId !== wallId) return false;
+        const start = surface.customWallRunStartIn ?? 0;
+        const end = start + (surface.linearInches ?? surface.width);
+        const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
+        return distance <= COLLISION_EPSILON_IN
+          || Math.abs(distance - PENINSULA_INSIDE_CORNER_CLEARANCE_IN) <= COLLISION_EPSILON_IN;
+      });
     const firstIndex = endpointSurfaceIndex(firstId, shared.firstAt, firstLength);
     const secondIndex = endpointSurfaceIndex(secondId, shared.secondAt, secondLength);
     if (firstIndex < 0 || secondIndex < 0) continue;
