@@ -148,6 +148,10 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("approvedVendorList.filter((vendor) => vendor.isApproved)");
   });
 
+  it("refreshes the displayed supplier profile after profile or PDF edits", () => {
+    expect(source).toContain("utils.distributorPortal.supplierProfile.invalidate()");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');

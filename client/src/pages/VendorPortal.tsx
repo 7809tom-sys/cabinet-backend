@@ -520,6 +520,7 @@ function SupplierProfileEditor({
   const save = trpc.distributorPortal.updateSupplierProfile.useMutation({
     onSuccess: () => {
       void utils.distributorPortal.myLine.invalidate();
+      void utils.distributorPortal.supplierProfile.invalidate();
       toast.success("Supplier profile updated");
       setOpen(false);
     },
@@ -531,6 +532,7 @@ function SupplierProfileEditor({
         ? { ...current, catalogPdfUrl: result.url }
         : { ...current, specBookPdfUrl: result.url });
       void utils.distributorPortal.myLine.invalidate();
+      void utils.distributorPortal.supplierProfile.invalidate();
       toast.success(result.resource === "catalog" ? "PDF catalog uploaded" : "PDF spec book uploaded");
     },
     onError: (error) => toast.error(error.message || "Could not upload the PDF."),
