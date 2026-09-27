@@ -260,7 +260,7 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
     for (const r of rows) expect(r.status).toBe("submitted");
   });
 
-  it("a distributor cannot toggle a SKU outside their line", async () => {
+	  it("a distributor cannot toggle a SKU outside their line", async () => {
     const db = await getDb();
     if (!db) return;
     const lines = await db.select({ id: distributors.id }).from(distributors).limit(2);
@@ -280,8 +280,45 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
       email: "dp-a@example.com", role: "distributor", distributorId: lineA.id,
     });
     const caller = appRouter.createCaller(distCtx);
-    await expect(
-      caller.distributorPortal.setVisibility({ skuId: otherSku[0].id, isPublished: false })
-    ).rejects.toThrow();
-  });
+	    await expect(
+	      caller.distributorPortal.setVisibility({ skuId: otherSku[0].id, isPublished: false })
+	    ).rejects.toThrow();
+	  });
+
+	  it("limits featured styles and warehouse coverage to the distributor's own cabinet line", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const lines = await db.select({ id: distributors.id }).from(distributors).limit(2);
+	    if (lines.length < 2) return;
+	    const [lineA, lineB] = lines;
+	    const otherStyle = await db
+	      .select({ id: doorStyles.id })
+	      .from(doorStyles)
+	      .where(eq(doorStyles.distributorId, lineB.id))
+	      .limit(1);
+	    if (!otherStyle[0]) return;
+
+	    const ownStyleRows = await db
+	      .select({ id: doorStyles.id })
+	      .from(doorStyles)
+	      .where(eq(doorStyles.distributorId, lineA.id));
+	    const ownStyleIds = new Set(ownStyleRows.map((style) => style.id));
+	    const caller = appRouter.createCaller(ctxFor({
+	      id: 990108, openId: "dp-featured", name: "Featured Dist",
+	      email: "dp-featured@example.com", role: "distributor", distributorId: lineA.id,
+	    }));
+
+	    const [featured, shipping] = await Promise.all([
+	      caller.distributorPortal.featuredStyles(),
+	      caller.distributorPortal.shippingOverview(),
+	    ]);
+	    for (const style of featured) {
+	      expect(ownStyleIds.has(style.id)).toBe(true);
+	      expect(style.skuCount).toBeGreaterThan(0);
+	    }
+	    expect(shipping.line.id).toBe(lineA.id);
+	    for (const style of shipping.styles) expect(ownStyleIds.has(style.id)).toBe(true);
+
+	    await expect(caller.distributorPortal.setFeaturedStyle({ styleId: otherStyle[0].id, featured: false })).rejects.toThrow("does not belong");
+	  });
 });

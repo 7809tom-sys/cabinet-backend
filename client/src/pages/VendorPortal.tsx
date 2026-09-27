@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, FormEvent, createCon
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
-  PlusCircle, ArrowLeft, FileSpreadsheet, Download, BarChart3,
+  PlusCircle, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3,
   Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -52,12 +52,14 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "catalog" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "catalog", label: "My Catalog", icon: Package },
   { id: "styles", label: "Door Styles", icon: Palette },
+  { id: "featured-styles", label: "Featured Styles", icon: Star },
+  { id: "shipping", label: "Shipping", icon: Truck },
   { id: "picks", label: "3D Designer Picks", icon: Star },
   { id: "promotions", label: "Promotions", icon: DollarSign },
   { id: "gallery", label: "Gallery", icon: ImageIcon },
@@ -1301,6 +1303,309 @@ function DoorStylesPage() {
           e.target.value = "";
         }}
       />
+    </div>
+  );
+}
+
+// ─── Featured Styles Page ─────────────────────────────────────────────────────
+// This deliberately mirrors the Featured Door Styles workflow used by the
+// administrator, but its procedure only returns styles that have actual cabinet
+// SKU rows in the current vendor's supply line. The client never receives a
+// different vendor's styles as a fallback.
+type VendorFeaturedStyle = {
+  id: number;
+  styleCode: string;
+  ourName: string;
+  distributorName: string;
+  doorStyle: string | null;
+  color: string | null;
+  finish: string | null;
+  woodSpecies: string | null;
+  doorSampleImageUrl: string | null;
+  roomSceneImageUrl: string | null;
+  thumbnailImageUrl: string | null;
+  doorSampleVerified: boolean;
+  isFeatured: boolean;
+  featuredRank: number;
+  isActive: boolean;
+  skuCount: number;
+  roomScenes: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; isActive: boolean }>;
+};
+
+function vendorStyleThumb(style: VendorFeaturedStyle): string | null {
+  return style.roomSceneImageUrl
+    || style.roomScenes.find((scene) => scene.isActive)?.imageUrl
+    || style.doorSampleImageUrl
+    || style.thumbnailImageUrl
+    || null;
+}
+
+function VendorFeaturedStylesPage() {
+  const utils = trpc.useUtils();
+  const adminDistId = useAdminDistributorId();
+  const [search, setSearch] = useState("");
+  const stylesQuery = trpc.distributorPortal.featuredStyles.useQuery(
+    adminDistId ? { distributorId: adminDistId } : undefined,
+  );
+  const setFeatured = trpc.distributorPortal.setFeaturedStyle.useMutation({
+    onSuccess: () => {
+      utils.distributorPortal.featuredStyles.invalidate();
+      utils.distributorPortal.myLine.invalidate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const reorder = trpc.distributorPortal.reorderFeaturedStyles.useMutation({
+    onSuccess: () => utils.distributorPortal.featuredStyles.invalidate(),
+    onError: (error) => toast.error(error.message),
+  });
+
+  const styles = useMemo(
+    () => (stylesQuery.data ?? []) as VendorFeaturedStyle[],
+    [stylesQuery.data],
+  );
+  const includesSearch = useCallback((style: VendorFeaturedStyle) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return true;
+    return `${style.ourName} ${style.distributorName} ${style.styleCode} ${style.doorStyle ?? ""} ${style.color ?? ""} ${style.finish ?? ""}`
+      .toLowerCase()
+      .includes(term);
+  }, [search]);
+  const featured = useMemo(
+    () => styles
+      .filter((style) => style.isFeatured)
+      .filter(includesSearch)
+      .sort((left, right) => left.featuredRank - right.featuredRank || left.ourName.localeCompare(right.ourName)),
+    [styles, includesSearch],
+  );
+  const available = useMemo(
+    () => styles
+      .filter((style) => style.isActive && !style.isFeatured)
+      .filter(includesSearch)
+      .sort((left, right) => left.ourName.localeCompare(right.ourName)),
+    [styles, includesSearch],
+  );
+
+  const hasVerifiedScene = (style: VendorFeaturedStyle) =>
+    style.roomScenes.some((scene) => scene.isActive && scene.isVerified);
+  const mutateInput = (input: { styleId: number; featured: boolean }) => ({
+    ...input,
+    ...(adminDistId ? { distributorId: adminDistId } : {}),
+  });
+  const move = (index: number, direction: -1 | 1) => {
+    const next = [...featured];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target], next[index]];
+    reorder.mutate({
+      orderedIds: next.map((style) => style.id),
+      ...(adminDistId ? { distributorId: adminDistId } : {}),
+    });
+  };
+
+  if (stylesQuery.isLoading) {
+    return <div className="space-y-3"><Skeleton className="h-8 w-64" /><Skeleton className="h-28 w-full" /><Skeleton className="h-28 w-full" /></div>;
+  }
+  if (stylesQuery.error) {
+    return <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Could not load Featured Styles: {stylesQuery.error.message}</div>;
+  }
+
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold"><Star className="h-5 w-5 text-primary" /> Featured Door Styles</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Curate the cabinet lines featured from your vendor portal. This copy of Featured Styles only includes door styles that have cabinets in your catalog.
+          </p>
+        </div>
+        <Badge variant="secondary" className="self-start text-sm sm:self-auto">{featured.length} featured cabinet line{featured.length === 1 ? "" : "s"}</Badge>
+      </div>
+
+      <div>
+        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Door Styles ({featured.length})</h3>
+        {featured.length === 0 ? (
+          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            No featured cabinet lines yet. Add a room-scene-ready style from your cabinet catalog below.
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {featured.map((style, index) => {
+              const image = vendorStyleThumb(style);
+              return (
+                <li key={style.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
+                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+                  {image ? <img src={image} alt={style.ourName} className="h-12 w-12 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="h-12 w-12 shrink-0 rounded bg-muted" />}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{style.ourName}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <Badge variant="outline" className="border-blue-300 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700"><Package className="mr-0.5 h-2.5 w-2.5" /> {style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"}</Badge>
+                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"><ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready</Badge>
+                      <span className="text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</span>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === 0 || reorder.isPending} onClick={() => move(index, -1)} aria-label={`Move ${style.ourName} up`}><ArrowUp className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === featured.length - 1 || reorder.isPending} onClick={() => move(index, 1)} aria-label={`Move ${style.ourName} down`}><ArrowDown className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" disabled={setFeatured.isPending} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: false }))} aria-label={`Remove ${style.ourName} from featured`}><X className="h-4 w-4" /></Button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My cabinet lines <span className="font-normal normal-case text-muted-foreground/60">({available.length})</span></h3>
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input placeholder="Search my cabinet lines…" className="h-9 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </div>
+        </div>
+        {available.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{styles.length === 0 ? "No cabinet-backed door styles are available in this vendor catalog." : "No matching cabinet lines."}</p>
+        ) : (
+          <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+            {available.map((style) => {
+              const image = vendorStyleThumb(style);
+              const sceneReady = hasVerifiedScene(style);
+              return (
+                <div key={style.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
+                  {image ? <img src={image} alt={style.ourName} className="h-11 w-11 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-muted"><ImageIcon className="h-4 w-4 text-muted-foreground/40" /></div>}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{style.ourName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"} {[style.doorStyle, style.color].filter(Boolean).length > 0 ? `· ${[style.doorStyle, style.color].filter(Boolean).join(" · ")}` : ""}</p>
+                    <p className={`mt-1 text-[10px] ${sceneReady ? "text-emerald-700" : "text-amber-700"}`}>{sceneReady ? "Verified room scene ready" : "Add a verified room scene in Door Styles first"}</p>
+                  </div>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={setFeatured.isPending || !sceneReady} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: true }))} aria-label={`Feature ${style.ourName}`} title={sceneReady ? "Feature this cabinet line" : "Add a verified matching room scene in Door Styles first"}><Star className="h-4 w-4 text-muted-foreground/60" /></Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Shipping Page ────────────────────────────────────────────────────────────
+function centsToDollars(value: number | null | undefined): string | null {
+  return value == null ? null : `$${(value / 100).toFixed(2)}`;
+}
+
+function VendorShippingPage() {
+  const adminDistId = useAdminDistributorId();
+  const shipping = trpc.distributorPortal.shippingOverview.useQuery(
+    adminDistId ? { distributorId: adminDistId } : undefined,
+  );
+
+  if (shipping.isLoading) {
+    return <div className="space-y-4"><Skeleton className="h-10 w-72" /><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
+  }
+  if (shipping.error || !shipping.data) {
+    return <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">Could not load shipping readiness: {shipping.error?.message ?? "No supply-line data returned."}</div>;
+  }
+
+  const { line, styles, allCabinetsCovered } = shipping.data;
+  const warehouses = line.warehouseZips ?? [];
+  const flatFee = centsToDollars(line.shippingFlatFreightFeeCents);
+  const freeThreshold = centsToDollars(line.shippingFreeFreightThresholdCents);
+  const policyLabel = line.shippingRuleMode === "fixed"
+    ? `Fixed freight${flatFee ? ` · ${flatFee}` : ""}`
+    : line.shippingRuleMode === "threshold"
+      ? `Free freight threshold${freeThreshold ? ` · ${freeThreshold}` : ""}`
+      : "Live freight quote";
+
+  return (
+    <div className="space-y-7">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-2xl font-bold"><Truck className="h-6 w-6 text-primary" /> Shipping & Warehouses</h2>
+          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Shipping origins and cabinet-line readiness for {line.name}. The freight engine uses these same origin assignments when it quotes a shipment.</p>
+        </div>
+        <Badge variant="secondary" className="w-fit">{styles.length} cabinet line{styles.length === 1 ? "" : "s"}</Badge>
+      </div>
+
+      <Card className={allCabinetsCovered ? "border-emerald-300 bg-emerald-50/50" : "border-amber-300 bg-amber-50/50"}>
+        <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            {allCabinetsCovered ? <CheckCircle2 className="mt-0.5 h-6 w-6 shrink-0 text-emerald-600" /> : <MapPin className="mt-0.5 h-6 w-6 shrink-0 text-amber-600" />}
+            <div>
+              <h3 className="font-semibold">{allCabinetsCovered ? "All cabinet lines cover every configured warehouse" : "Warehouse-origin coverage needs attention"}</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {allCabinetsCovered
+                  ? `Every cabinet line inherits or explicitly lists all ${warehouses.length} configured warehouse origin${warehouses.length === 1 ? "" : "s"}.`
+                  : warehouses.length === 0
+                    ? "Add a verified warehouse origin before freight can use the line automatically."
+                    : "At least one cabinet line has a limited origin assignment. Review the checkmarks below before quoting freight."}
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline" className={allCabinetsCovered ? "border-emerald-400 bg-white text-emerald-700" : "border-amber-400 bg-white text-amber-700"}>{warehouses.length} configured warehouse origin{warehouses.length === 1 ? "" : "s"}</Badge>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Configured warehouses</CardTitle></CardHeader>
+          <CardContent>
+            {warehouses.length === 0 ? <p className="text-sm text-muted-foreground">No verified warehouse origin ZIPs are configured yet.</p> : (
+              <div className="flex flex-wrap gap-2">
+                {warehouses.map((zip) => <Badge key={zip} variant="outline" className="gap-1.5 border-sky-300 bg-sky-50 px-2.5 py-1 text-sky-800"><MapPin className="h-3.5 w-3.5" /> {zip}</Badge>)}
+              </div>
+            )}
+            {(line.warehouseName || line.warehouseAddress) && <p className="mt-3 text-xs text-muted-foreground">{[line.warehouseName, line.warehouseAddress].filter(Boolean).join(" · ")}</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3"><CardTitle className="text-base">Shipping rule</CardTitle></CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <p className="font-medium">{policyLabel}</p>
+            <p className="text-muted-foreground">Lead time: {line.leadTimeDays ?? "—"} days</p>
+            {line.pickupEnabled && <p className="text-muted-foreground">Local pickup: {line.pickupZip ?? warehouses[0] ?? "origin pending"} · {line.pickupRadiusMiles ?? 100} mile radius</p>}
+            {line.shippingExceptions && <p className="text-xs text-amber-700">Shipping note: {line.shippingExceptions}</p>}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Cabinet-line warehouse coverage</CardTitle>
+          <p className="text-xs text-muted-foreground">A check means this style's cabinet catalog uses every configured warehouse origin, either through its own origin ZIPs or its distributor warehouse fallback. It does not represent a live on-hand inventory count.</p>
+        </CardHeader>
+        <CardContent className="p-0">
+          {styles.length === 0 ? <p className="p-5 text-sm text-muted-foreground">No cabinet-backed styles are available to assess.</p> : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead>Cabinet line</TableHead><TableHead>Catalog status</TableHead><TableHead>Shipping origins</TableHead><TableHead className="text-right">All warehouses</TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {styles.map((style) => {
+                    const image = style.roomSceneImageUrl || style.doorSampleImageUrl || style.thumbnailImageUrl;
+                    const publishable = style.availableCount === style.catalogCount && style.publishedCount === style.catalogCount;
+                    return (
+                      <TableRow key={style.id}>
+                        <TableCell>
+                          <div className="flex min-w-48 items-center gap-2.5">
+                            {image ? <img src={image} alt={style.ourName} className="h-9 w-9 rounded object-cover ring-1 ring-border" /> : <div className="flex h-9 w-9 items-center justify-center rounded bg-muted"><Palette className="h-4 w-4 text-muted-foreground" /></div>}
+                            <div className="min-w-0"><p className="truncate font-medium">{style.ourName}</p><p className="truncate text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</p></div>
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline" className={publishable ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-amber-300 bg-amber-50 text-amber-700"}>{style.availableCount}/{style.catalogCount} available · {style.publishedCount}/{style.catalogCount} published</Badge></TableCell>
+                        <TableCell><div className="flex min-w-48 flex-wrap gap-1">{style.originZips.map((zip) => <Badge key={zip} variant="secondary" className="text-[10px]">{zip}</Badge>)}{style.originZips.length === 0 && <span className="text-xs text-amber-700">Origin needed</span>}</div></TableCell>
+                        <TableCell className="text-right">{style.allWarehousesCovered ? <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Covered</span> : <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-700"><MapPin className="h-4 w-4" /> Review</span>}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -2924,10 +3229,12 @@ function VendorPortalDashboard({
 
       {/* Main content */}
       <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
-        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage />)}
-        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
-        {page === "styles" && <DoorStylesPage />}
-        {page === "picks" && <DesignToolPicksPage />}
+	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage />)}
+	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
+	        {page === "styles" && <DoorStylesPage />}
+	        {page === "featured-styles" && <VendorFeaturedStylesPage />}
+	        {page === "shipping" && <VendorShippingPage />}
+	        {page === "picks" && <DesignToolPicksPage />}
         {page === "promotions" && <PromotionsPage />}
         {page === "gallery" && <GalleryPage />}
         {page === "analytics" && <VendorAnalyticsPage />}

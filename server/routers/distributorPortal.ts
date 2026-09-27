@@ -8,6 +8,7 @@ import {
   cabinets,
   distributorSkus,
   doorStyles,
+	  doorStyleRoomScenes,
   orderRequests,
   kitchenDesigns,
   aiServiceRequests,
@@ -142,6 +143,247 @@ export const distributorPortalRouter = router({
         styles,
       };
     }),
+
+	/**
+	 * The Featured Door Styles manager is intentionally scoped to the vendor's
+	 * actual cabinet line. A style must have at least one catalog row for this
+	 * distributor before it appears here; a vendor can never browse another
+	 * supplier's styles or cabinets through this surface.
+	 */
+	featuredStyles: distributorProcedure
+	  .input(z.object({ distributorId: z.number().optional() }).optional())
+	  .query(async ({ ctx, input }) => {
+	    const db = await getDb();
+	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+
+	    const linkedRows = await db
+	      .selectDistinct({ styleId: distributorSkus.styleId })
+	      .from(distributorSkus)
+	      .where(and(eq(distributorSkus.distributorId, lineId), isNotNull(distributorSkus.styleId)));
+	    const styleIds = linkedRows.map((row) => row.styleId).filter((id): id is number => id != null);
+	    if (styleIds.length === 0) return [];
+
+	    const [styles, skuCounts, scenes] = await Promise.all([
+	      db
+	        .select({
+	          id: doorStyles.id,
+	          distributorId: doorStyles.distributorId,
+	          styleCode: doorStyles.styleCode,
+	          ourName: doorStyles.ourName,
+	          distributorName: doorStyles.distributorName,
+	          doorStyle: doorStyles.doorStyle,
+	          color: doorStyles.color,
+	          finish: doorStyles.finish,
+	          woodSpecies: doorStyles.woodSpecies,
+	          doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+	          roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+	          thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+	          doorSampleVerified: doorStyles.doorSampleVerified,
+	          isFeatured: doorStyles.isFeatured,
+	          featuredRank: doorStyles.featuredRank,
+	          isActive: doorStyles.isActive,
+	        })
+	        .from(doorStyles)
+	        .where(and(eq(doorStyles.distributorId, lineId), inArray(doorStyles.id, styleIds)))
+	        .orderBy(doorStyles.featuredRank, doorStyles.ourName),
+	      db
+	        .select({ styleId: distributorSkus.styleId, skuCount: sql<number>`count(*)` })
+	        .from(distributorSkus)
+	        .where(and(eq(distributorSkus.distributorId, lineId), inArray(distributorSkus.styleId, styleIds)))
+	        .groupBy(distributorSkus.styleId),
+	      db
+	        .select({
+	          id: doorStyleRoomScenes.id,
+	          styleId: doorStyleRoomScenes.styleId,
+	          imageUrl: doorStyleRoomScenes.imageUrl,
+	          sortOrder: doorStyleRoomScenes.sortOrder,
+	          isVerified: doorStyleRoomScenes.isVerified,
+	          isActive: doorStyleRoomScenes.isActive,
+	        })
+	        .from(doorStyleRoomScenes)
+	        .where(inArray(doorStyleRoomScenes.styleId, styleIds))
+	        .orderBy(doorStyleRoomScenes.sortOrder, doorStyleRoomScenes.id),
+	    ]);
+
+	    const counts = new Map(skuCounts.map((row) => [row.styleId, Number(row.skuCount)]));
+	    return styles.map((style) => ({
+	      ...style,
+	      skuCount: counts.get(style.id) ?? 0,
+	      roomScenes: scenes.filter((scene) => scene.styleId === style.id),
+	    }));
+	  }),
+
+	/** Toggle a featured style, with both line ownership and cabinet evidence enforced on the server. */
+	setFeaturedStyle: distributorProcedure
+	  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive(), featured: z.boolean() }))
+	  .mutation(async ({ ctx, input }) => {
+	    const db = await getDb();
+	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const [style] = await db
+	      .select({ id: doorStyles.id, isActive: doorStyles.isActive, isFeatured: doorStyles.isFeatured })
+	      .from(doorStyles)
+	      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+	      .limit(1);
+	    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your cabinet line." });
+
+	    if (!input.featured) {
+	      await db.update(doorStyles).set({ isFeatured: false }).where(eq(doorStyles.id, input.styleId));
+	      return { ok: true };
+	    }
+	    if (!style.isActive) throw new TRPCError({ code: "BAD_REQUEST", message: "Restore this door style before featuring it." });
+
+	    const [catalogItem] = await db
+	      .select({ id: distributorSkus.id })
+	      .from(distributorSkus)
+	      .where(and(eq(distributorSkus.distributorId, lineId), eq(distributorSkus.styleId, input.styleId)))
+	      .limit(1);
+	    if (!catalogItem) throw new TRPCError({ code: "BAD_REQUEST", message: "Only styles with cabinets in your catalog can be featured." });
+
+	    const [{ sceneCount }] = await db
+	      .select({ sceneCount: sql<number>`count(*)` })
+	      .from(doorStyleRoomScenes)
+	      .where(and(
+	        eq(doorStyleRoomScenes.styleId, input.styleId),
+	        eq(doorStyleRoomScenes.isActive, true),
+	        eq(doorStyleRoomScenes.isVerified, true),
+	      ));
+	    if (Number(sceneCount) === 0) {
+	      throw new TRPCError({ code: "BAD_REQUEST", message: "Add a verified matching room scene in Door Styles before featuring this cabinet line." });
+	    }
+
+	    if (!style.isFeatured) {
+	      const [{ maxRank }] = await db
+	        .select({ maxRank: sql<number>`coalesce(max(${doorStyles.featuredRank}), 0)` })
+	        .from(doorStyles)
+	        .where(eq(doorStyles.isFeatured, true));
+	      await db.update(doorStyles).set({ isFeatured: true, featuredRank: Number(maxRank) + 10 }).where(eq(doorStyles.id, input.styleId));
+	    }
+	    return { ok: true };
+	  }),
+
+	/** Reorder only this vendor's featured styles while preserving other vendors' rank slots. */
+	reorderFeaturedStyles: distributorProcedure
+	  .input(z.object({ distributorId: z.number().optional(), orderedIds: z.array(z.number().int().positive()).min(1) }))
+	  .mutation(async ({ ctx, input }) => {
+	    const db = await getDb();
+	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+	    const current = await db
+	      .select({ id: doorStyles.id, featuredRank: doorStyles.featuredRank })
+	      .from(doorStyles)
+	      .where(and(eq(doorStyles.distributorId, lineId), eq(doorStyles.isFeatured, true)))
+	      .orderBy(doorStyles.featuredRank, doorStyles.id);
+	    const currentIds = current.map((style) => style.id);
+	    const sameMembers = input.orderedIds.length === currentIds.length
+	      && new Set(input.orderedIds).size === input.orderedIds.length
+	      && input.orderedIds.every((id) => currentIds.includes(id));
+	    if (!sameMembers) throw new TRPCError({ code: "BAD_REQUEST", message: "Featured style order must contain every style in your cabinet line exactly once." });
+
+	    await Promise.all(input.orderedIds.map((id, index) =>
+	      db.update(doorStyles).set({ featuredRank: current[index]!.featuredRank }).where(eq(doorStyles.id, id)),
+	    ));
+	    return { ok: true };
+	  }),
+
+	/**
+	 * Shipping readiness for one vendor line. The green coverage check is based
+	 * only on durable shipping-origin assignments: it confirms that a style's
+	 * cabinets use every configured warehouse origin (or inherit all of them).
+	 * It deliberately does not claim live warehouse inventory, which is not a
+	 * field in the current supplier feed.
+	 */
+	shippingOverview: distributorProcedure
+	  .input(z.object({ distributorId: z.number().optional() }).optional())
+	  .query(async ({ ctx, input }) => {
+	    const db = await getDb();
+	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
+	    const [line] = await db
+	      .select({
+	        id: distributors.id,
+	        name: distributors.name,
+	        warehouseName: distributors.warehouseName,
+	        warehouseAddress: distributors.warehouseAddress,
+	        warehouseZips: distributors.warehouseZips,
+	        leadTimeDays: distributors.leadTimeDays,
+	        shippingRuleMode: distributors.shippingRuleMode,
+	        shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+	        shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+	        shippingZipRates: distributors.shippingZipRates,
+	        shippingExceptions: distributors.shippingExceptions,
+	        pickupEnabled: distributors.pickupEnabled,
+	        pickupZip: distributors.pickupZip,
+	        pickupAddress: distributors.pickupAddress,
+	        pickupRadiusMiles: distributors.pickupRadiusMiles,
+	      })
+	      .from(distributors)
+	      .where(eq(distributors.id, lineId))
+	      .limit(1);
+	    if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
+
+	    const warehouses = Array.from(new Set((line.warehouseZips ?? [])
+	      .filter((zip): zip is string => typeof zip === "string")
+	      .map((zip) => zip.trim())
+	      .filter((zip) => /^\d{5}$/.test(zip))));
+	    const styleRows = await db
+	      .select({
+	        id: doorStyles.id,
+	        ourName: doorStyles.ourName,
+	        distributorName: doorStyles.distributorName,
+	        doorStyle: doorStyles.doorStyle,
+	        color: doorStyles.color,
+	        finish: doorStyles.finish,
+	        roomSceneImageUrl: doorStyles.roomSceneImageUrl,
+	        doorSampleImageUrl: doorStyles.doorSampleImageUrl,
+	        thumbnailImageUrl: doorStyles.thumbnailImageUrl,
+	        warehouseZip: doorStyles.warehouseZip,
+	        warehouseZips: doorStyles.warehouseZips,
+	        flatFreightFeeCents: doorStyles.flatFreightFeeCents,
+	        isFeatured: doorStyles.isFeatured,
+	        featuredRank: doorStyles.featuredRank,
+	        isActive: doorStyles.isActive,
+	      })
+	      .from(doorStyles)
+	      .where(eq(doorStyles.distributorId, lineId))
+	      .orderBy(doorStyles.featuredRank, doorStyles.ourName);
+	    const styleIds = styleRows.map((style) => style.id);
+	    const skuRows = styleIds.length === 0 ? [] : await db
+	      .select({
+	        styleId: distributorSkus.styleId,
+	        catalogCount: sql<number>`count(*)`,
+	        availableCount: sql<number>`sum(case when ${distributorSkus.isAvailable} = true then 1 else 0 end)`,
+	        publishedCount: sql<number>`sum(case when ${distributorSkus.isPublished} = true then 1 else 0 end)`,
+	      })
+	      .from(distributorSkus)
+	      .where(and(eq(distributorSkus.distributorId, lineId), inArray(distributorSkus.styleId, styleIds)))
+	      .groupBy(distributorSkus.styleId);
+	    const counts = new Map(skuRows.map((row) => [row.styleId, {
+	      catalogCount: Number(row.catalogCount),
+	      availableCount: Number(row.availableCount),
+	      publishedCount: Number(row.publishedCount),
+	    }]));
+
+	    const styles = styleRows.map((style) => {
+	      const explicitOrigins = Array.from(new Set([...(style.warehouseZips ?? []), style.warehouseZip ?? ""]
+	        .filter((zip): zip is string => typeof zip === "string")
+	        .map((zip) => zip.trim())
+	        .filter((zip) => /^\d{5}$/.test(zip))));
+	      const originZips = explicitOrigins.length > 0 ? explicitOrigins : warehouses;
+	      const allWarehousesCovered = warehouses.length > 0 && warehouses.every((zip) => originZips.includes(zip));
+	      return {
+	        ...style,
+	        originZips,
+	        originMode: explicitOrigins.length > 0 ? "style" as const : "line" as const,
+	        allWarehousesCovered,
+	        ...(counts.get(style.id) ?? { catalogCount: 0, availableCount: 0, publishedCount: 0 }),
+	      };
+	    }).filter((style) => style.catalogCount > 0);
+	    const allCabinetsCovered = styles.length > 0 && styles.every((style) => style.allWarehousesCovered);
+
+	    return { line: { ...line, warehouseZips: warehouses }, styles, allCabinetsCovered };
+	  }),
 
   /**
    * Active saved-design pipeline for a vendor line. Only 30/90/180-day views
@@ -1099,12 +1341,56 @@ export const distributorPortalRouter = router({
         thumbnail: "thumbnailImageUrl",
       } as const;
 
-      await db
-        .update(doorStyles)
-        .set({ [fieldMap[input.imageType]]: url } as any)
-        .where(eq(doorStyles.id, input.styleId));
+	      await db
+	        .update(doorStyles)
+	        .set({ [fieldMap[input.imageType]]: url } as any)
+	        .where(eq(doorStyles.id, input.styleId));
 
-      return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
+	      // A room scene uploaded by the owner of a supply line is first-party
+	      // merchandising evidence. Keep the legacy style image in sync and also
+	      // create/update the scene-library record used by Featured Styles.
+	      if (input.imageType === "roomScene") {
+	        const existingScenes = await db
+	          .select({ id: doorStyleRoomScenes.id })
+	          .from(doorStyleRoomScenes)
+	          .where(and(
+	            eq(doorStyleRoomScenes.styleId, input.styleId),
+	            eq(doorStyleRoomScenes.sourceDistributorId, lineId),
+	          ))
+	          .orderBy(doorStyleRoomScenes.sortOrder, doorStyleRoomScenes.id)
+	          .limit(1);
+	        if (existingScenes[0]) {
+	          await db.update(doorStyleRoomScenes).set({
+	            imageUrl: url,
+	            fileKey: key,
+	            isActive: true,
+	            isVerified: true,
+	          }).where(eq(doorStyleRoomScenes.id, existingScenes[0].id));
+	        } else {
+	          const [{ maxRank }] = await db
+	            .select({ maxRank: sql<number>`coalesce(max(${doorStyleRoomScenes.sortOrder}), 0)` })
+	            .from(doorStyleRoomScenes)
+	            .where(eq(doorStyleRoomScenes.styleId, input.styleId));
+	          const [{ sceneCount }] = await db
+	            .select({ sceneCount: sql<number>`count(*)` })
+	            .from(doorStyleRoomScenes)
+	            .where(eq(doorStyleRoomScenes.styleId, input.styleId));
+	          if (Number(sceneCount) < 6) {
+	            await db.insert(doorStyleRoomScenes).values({
+	              styleId: input.styleId,
+	              imageUrl: url,
+	              fileKey: key,
+	              sortOrder: Number(maxRank) + 10,
+	              isVerified: true,
+	              isActive: true,
+	              sourceDistributorId: lineId,
+	              sourceNote: "Vendor-provided featured room scene",
+	            });
+	          }
+	        }
+	      }
+
+	      return { styleId: input.styleId, imageType: input.imageType, imageUrl: url };
     }),
 
   // ─── AI Service Requests ─────────────────────────────────────────────────────
