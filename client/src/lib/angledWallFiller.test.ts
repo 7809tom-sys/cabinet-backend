@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_ROOM, appendCollisionFreePlacements, cabinetPlacementCollisionDetail, type PlacedCabinet, wallLength, wallPlacementAt } from "@/lib/design";
+import { DEFAULT_ROOM, appendCollisionFreePlacements, cabinetPlacementCollisionDetail, STD, type PlacedCabinet, wallLength, wallPlacementAt } from "@/lib/design";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
 import { automaticAngledWallFiller, angledWallTransitionFootprint, measuredAngledWallTransition, repairMissingAngledWallFillers } from "./angledWallFiller";
 
@@ -112,6 +112,26 @@ function pair(placement: "wall" | "base" | "tall") {
 }
 
 describe("automaticAngledWallFiller", () => {
+  it.each([
+    ["base", STD.BASE_DEPTH],
+    ["wall", STD.WALL_DEPTH],
+  ] as const)("anchors a %s 45° miter at its %d-inch cabinet-front datum even when source depth is stale", (placement, expectedFrontDatum) => {
+    const { neighbor, newlyPlaced } = pair(placement);
+    // The stored plan coordinates intentionally retain their initial standard
+    // placement, while a stale import reports the wrong nominal depth. The
+    // physical 45° front must still be 24″ from a base back and 12″ from a wall
+    // back—the installer-facing datum supplied by the owner.
+    const ownerWithStaleDepth = { ...newlyPlaced, depth: 6 };
+    const neighborWithStaleDepth = { ...neighbor, depth: 6 };
+    const measurement = measuredAngledWallTransition(ownerWithStaleDepth, room, [neighborWithStaleDepth, ownerWithStaleDepth]);
+
+    expect(measurement).toMatchObject({ depthIn: expectedFrontDatum });
+    expect(Math.hypot(
+      measurement!.ownerFace.front.x - measurement!.ownerFace.rear.x,
+      measurement!.ownerFace.front.y - measurement!.ownerFace.rear.y,
+    )).toBeCloseTo(expectedFrontDatum, 8);
+  });
+
   it("builds two front-only, 45°-mitered wall-filler pieces instead of a deep wedge at the rear of the run", () => {
     const { neighbor, newlyPlaced } = pair("wall");
     const measurement = measuredAngledWallTransition(newlyPlaced, room, [neighbor, newlyPlaced]);

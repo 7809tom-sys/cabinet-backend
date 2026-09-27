@@ -2,14 +2,15 @@ import {
 	  type PlacedCabinet,
 	  type RoomData,
 	  type WallSide,
-	  appendCollisionFreePlacements,
-	  customWallJoinTurnsFortyFive,
-	  elevationBox,
-	  peninsulaRunById,
-	  peninsulaRunEndpoints,
-	  wallLength,
-	  wallPlacementAt,
-	  wallRunOffset,
+  appendCollisionFreePlacements,
+  customWallJoinTurnsFortyFive,
+  elevationBox,
+  peninsulaRunById,
+  peninsulaRunEndpoints,
+  STD,
+  wallLength,
+  wallPlacementAt,
+  wallRunOffset,
   wallRunSpan,
 } from "@/lib/design";
 import { catalogFillerForGap, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -17,6 +18,17 @@ import { installedFillerVerticalSpec } from "@/lib/smallGapFiller";
 
 const JOIN_EPSILON_IN = 0.25;
 const FRONT_FILLER_DEPTH_IN = 0.75;
+
+/**
+ * The front datum of a 45° transition is the ordinary cabinet face, never a
+ * supplier's incidental box-depth field or the rear wall vertex. Base/tall
+ * cabinets present at 24 inches from their back; wall cabinets present at
+ * 12 inches. The two miter boards therefore meet immediately at the visible
+ * cabinet fronts while their rear service pocket remains open.
+ */
+function transitionFrontDatumDepth(cabinet: Pick<PlacedCabinet, "placement">): number {
+  return cabinet.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+}
 
 function isTransitionCabinetPlacement(
   placement: PlacedCabinet["placement"],
@@ -190,7 +202,10 @@ function cabinetSideFaceAtWallEndpoint(
     x: frame.start.x + frame.tangent.x * edgeOffset,
     y: frame.start.y + frame.tangent.y * edgeOffset,
   };
-  const depth = Math.max(0, Number(cabinet.depth) || 0);
+  // A locked 45° transition must be referenced to the cabinet front—not an
+  // arbitrary catalog depth. This keeps base fillers 24″ from the cabinet back
+  // and wall fillers 12″ from their cabinet back on every rotated wall frame.
+  const depth = transitionFrontDatumDepth(cabinet);
   return {
     rear,
     front: {
@@ -365,7 +380,7 @@ export function measuredAngledWallTransition(
       ownerFrontCutIn,
       neighborFrontCutIn,
 	      requiredStockWidthIn: Math.max(ownerFrontCutIn, neighborFrontCutIn, ownerRearCutIn, neighborRearCutIn),
-      depthIn: Math.max(Number(cabinet.depth) || 0, Number(neighbor.depth) || 0),
+      depthIn: Math.max(transitionFrontDatumDepth(cabinet), transitionFrontDatumDepth(neighbor)),
 	      ownerFace,
 	      neighborFace,
 	      ownerFrontMiterOffsetIn,
