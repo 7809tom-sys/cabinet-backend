@@ -296,7 +296,7 @@ export default function App() {
         <Route path="/store/:slug/catalog">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
-              <Storefront slug={params.slug} />
+              <Storefront slug={params.slug} focusShop />
             </Suspense>
           )}
         </Route>

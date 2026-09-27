@@ -61,7 +61,7 @@ function color(val: string | null | undefined, fallback: string): string {
   return /^#?[0-9a-fA-F]{3,8}$/.test(v) ? (v.startsWith("#") ? v : `#${v}`) : fallback;
 }
 
-export default function Storefront({ slug, previewData }: { slug: string; previewData?: StorefrontData }) {
+export default function Storefront({ slug, previewData, focusShop = false }: { slug: string; previewData?: StorefrontData; focusShop?: boolean }) {
   const { data: fetchedData, isLoading, isError, isFetching, refetch } = trpc.affiliates.bySlug.useQuery(
     { slug },
     {
@@ -73,6 +73,17 @@ export default function Storefront({ slug, previewData }: { slug: string; previe
   );
   const data = previewData ?? fetchedData;
   const { lang, toggle, t } = useStorefrontLang();
+
+  // The long-standing /catalog affiliate link is an entry point to the same
+  // source-locked shop rendered on the branded storefront, not a separate
+  // platform catalog. Once its own data exists, land at that shop section.
+  useEffect(() => {
+    if (!focusShop || !data) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.getElementById("shop")?.scrollIntoView({ behavior: "auto", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [data, focusShop]);
 
   // Capture this affiliate's referral code + slug for the visitor's session.
   // The slug is stored so the order builder can apply the affiliate's markup.

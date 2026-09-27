@@ -33,7 +33,7 @@ describe("public navigation and update notification", () => {
 
   it("keeps the affiliate catalog-root URL inside the branded storefront", () => {
     expect(appSource).toContain('<Route path="/store/:slug/catalog">');
-    expect(appSource).toContain('<Storefront slug={params.slug} />');
+    expect(appSource).toContain('<Storefront slug={params.slug} focusShop />');
   });
 
   it("uses the compact navigation before the header can overflow at standard desktop widths", () => {
