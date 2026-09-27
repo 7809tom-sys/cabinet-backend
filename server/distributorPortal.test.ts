@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributors, distributorSkus, doorStyles, vendorProducts } from "../drizzle/schema";
+import { cabinets, distributors, distributorSkus, doorStyles, vendorLines, vendorProducts } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 function ctxFor(user: Record<string, unknown> | null): TrpcContext {
@@ -33,6 +33,16 @@ describe("distributorPortal — access control", () => {
     if (!db) return;
     const caller = appRouter.createCaller(adminUser);
     await expect(caller.distributorPortal.myLine()).rejects.toThrow();
+  });
+
+  it("allows an administrator to preview any selected approved supplier line", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (!line) return;
+    const caller = appRouter.createCaller(adminUser);
+    const preview = await caller.distributorPortal.myLine({ distributorId: line.id });
+    expect(preview.line.id).toBe(line.id);
   });
 });
 
@@ -211,6 +221,45 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
       expect(reread[0].isPublished).toBe(false);
     } finally {
       await db.update(distributorSkus).set({ isPublished: original }).where(eq(distributorSkus.id, sku.id));
+    }
+  });
+
+  it("exposes only the matching approved vendor record and its resources to a linked supplier portal", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db.select({ id: distributors.id, code: distributors.code }).from(distributors).limit(1);
+    if (!line) return;
+
+    const name = `__supplier_portal_profile_${Date.now()}`;
+    const [inserted] = await db.insert(vendorLines).values({
+      name,
+      sourceKey: `dist:${line.id}`,
+      category: "Cabinet",
+      contactName: "Supplier Contact",
+      contactEmail: "supplier@example.test",
+      contactPhone: "555-0100",
+      websiteUrl: "https://supplier.example.test",
+      catalogPdfUrl: "https://supplier.example.test/catalog.pdf",
+      specBookPdfUrl: "https://supplier.example.test/spec-book.pdf",
+      isApproved: true,
+    });
+    const vendorId = Number((inserted as unknown as { insertId?: number }).insertId ?? 0);
+
+    try {
+      const caller = appRouter.createCaller(ctxFor({
+        id: 990112, openId: "dp-supplier-profile", name: "Supplier",
+        email: "supplier-portal@example.test", role: "distributor", distributorId: line.id,
+      }));
+      const mine = await caller.distributorPortal.myLine();
+      expect(mine.approvedVendor).toMatchObject({
+        name,
+        contactEmail: "supplier@example.test",
+        catalogPdfUrl: "https://supplier.example.test/catalog.pdf",
+        specBookPdfUrl: "https://supplier.example.test/spec-book.pdf",
+      });
+    } finally {
+      if (vendorId) await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
+      else await db.delete(vendorLines).where(eq(vendorLines.name, name));
     }
   });
 

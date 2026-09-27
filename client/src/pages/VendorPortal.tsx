@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
 	  PlusCircle, Plus, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3, Pencil, Trash2, RotateCcw,
-  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard,
+	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,10 +53,11 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "supplier-profile" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
+  { id: "supplier-profile", label: "Supplier Profile", icon: FileText },
   { id: "catalog", label: "My Catalog", icon: Package },
   { id: "other-products", label: "Other Products", icon: Package },
   { id: "styles", label: "Door Styles", icon: Palette },
@@ -328,7 +329,7 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
     return <div className="p-4 text-muted-foreground">Your vendor line is not available yet. You can still use the portal navigation while the line information is prepared.</div>;
   }
 
-  const { line, counts, styles } = myLine.data;
+  const { line, counts, styles, approvedVendor } = myLine.data;
 
   return (
     <div className="space-y-6">
@@ -376,7 +377,7 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
         </Card>
 	      </div>
 
-	      <div data-testid="vendor-editing-shortcuts" className="grid gap-4 md:grid-cols-2">
+	      <div data-testid="vendor-editing-shortcuts" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 	        <Card className="border-amber-200 bg-amber-50/40">
 	          <CardHeader className="pb-2">
 	            <CardTitle className="flex items-center gap-2 text-base"><Star className="h-4 w-4 text-amber-600" />Feature your cabinet styles</CardTitle>
@@ -393,6 +394,19 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
 	          <CardContent className="space-y-3">
 	            <p className="text-sm text-muted-foreground">Set the warehouse origins, freight rule, lead time, ZIP rates, notes, and pickup details used for your cabinet line.</p>
 	            <Button onClick={() => onNavigate("shipping")}><Pencil className="mr-2 h-4 w-4" />Edit Shipping &amp; Warehouses</Button>
+	          </CardContent>
+	        </Card>
+	        <Card className="border-violet-200 bg-violet-50/40">
+	          <CardHeader className="pb-2">
+	            <CardTitle className="flex items-center gap-2 text-base"><FileText className="h-4 w-4 text-violet-600" />Supplier account &amp; resources</CardTitle>
+	          </CardHeader>
+	          <CardContent className="space-y-3">
+	            <p className="text-sm text-muted-foreground">
+	              {approvedVendor
+	                ? "View the approved supplier contact record, catalog, specification book, and portal account details for this supply line."
+	                : "The approved supplier record has not been linked to this supply line yet. An administrator can link it from Approved Vendors."}
+	            </p>
+	            <Button variant="outline" onClick={() => onNavigate("supplier-profile")}><FileText className="mr-2 h-4 w-4" />View Supplier Profile</Button>
 	          </CardContent>
 	        </Card>
 	      </div>
@@ -429,6 +443,86 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// ─── Supplier Profile & Resources ─────────────────────────────────────────────
+function SupplierProfilePage() {
+  const { user } = useAuth();
+  const adminDistId = useAdminDistributorId();
+  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+
+  if (myLine.isLoading) {
+    return <Card><CardContent className="p-6"><Skeleton className="h-40 w-full" /></CardContent></Card>;
+  }
+  if (myLine.error || !myLine.data) {
+    return <div className="p-4 text-destructive">The supplier profile could not be loaded.</div>;
+  }
+
+  const { line, approvedVendor } = myLine.data;
+  return (
+    <div data-testid="supplier-profile-page" className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight">Supplier Profile &amp; Resources</h2>
+        <p className="text-muted-foreground">This portal is the authenticated view of the approved supplier record for your supply line.</p>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Portal account</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+          <div><p className="text-muted-foreground">Signed-in account</p><p className="font-medium break-all">{user?.email || "—"}</p></div>
+          <div><p className="text-muted-foreground">Linked supply line</p><p className="font-medium">{line.name}</p></div>
+          <p className="text-xs text-muted-foreground md:col-span-2">For security, passwords are never displayed or stored in readable form.</p>
+        </CardContent>
+      </Card>
+
+      {approvedVendor ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>{approvedVendor.name}</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 text-sm md:grid-cols-2 lg:grid-cols-3">
+              <div><p className="text-muted-foreground">Category</p><p className="font-medium">{approvedVendor.category || "—"}</p></div>
+              <div><p className="text-muted-foreground">Contact</p><p className="font-medium">{approvedVendor.contactName || "—"}</p></div>
+              <div><p className="text-muted-foreground">Contact email</p><p className="font-medium break-all">{approvedVendor.contactEmail || "—"}</p></div>
+              <div><p className="text-muted-foreground">Contact phone</p><p className="font-medium">{approvedVendor.contactPhone || "—"}</p></div>
+              <div className="lg:col-span-2"><p className="text-muted-foreground">Website</p>{approvedVendor.websiteUrl ? <a className="inline-flex items-center gap-1 font-medium text-primary hover:underline break-all" href={approvedVendor.websiteUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3.5 w-3.5" />{approvedVendor.websiteUrl}</a> : <p className="font-medium">—</p>}</div>
+              {approvedVendor.notes && <div className="rounded-md bg-muted/50 p-3 md:col-span-2 lg:col-span-3"><p className="text-muted-foreground">Notes</p><p className="mt-1 whitespace-pre-wrap">{approvedVendor.notes}</p></div>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Catalog &amp; specification resources</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 md:grid-cols-2">
+              <SupplierPdfResource label="PDF Catalog" url={approvedVendor.catalogPdfUrl} />
+              <SupplierPdfResource label="PDF Spec Book" url={approvedVendor.specBookPdfUrl} />
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <Card>
+          <CardHeader><CardTitle>Approved supplier record pending</CardTitle></CardHeader>
+          <CardContent className="text-sm text-muted-foreground">This signed-in portal is linked to <strong>{line.name}</strong>, but its Approved Vendor record has not been associated yet. An administrator must set that Approved Vendor’s source key to <strong>dist:{line.id}</strong> (or to the exact supply-line code) to make the account contact information and resource PDFs available here.</CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function SupplierPdfResource({ label, url }: { label: string; url: string | null }) {
+  return (
+    <div className="flex min-h-24 items-center justify-between gap-3 rounded-lg border p-4">
+      <div className="min-w-0">
+        <p className="flex items-center gap-2 font-medium"><FileText className="h-4 w-4 text-primary" aria-hidden="true" />{label}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{url ? "Verified resource supplied by the approved vendor record." : "No resource has been added yet."}</p>
+      </div>
+      {url && <a href={url} target="_blank" rel="noopener noreferrer" title={`Open or download ${label}`}><Button variant="outline" size="sm"><FileText className="mr-1.5 h-4 w-4" aria-hidden="true" />PDF<Download className="ml-1.5 h-4 w-4" aria-hidden="true" /></Button></a>}
     </div>
   );
 }
@@ -3543,8 +3637,9 @@ function VendorPortalDashboard({
 	      </div>
 
       {/* Main content */}
-      <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
+	      <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
 	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage onNavigate={setPage} />)}
+	        {page === "supplier-profile" && <SupplierProfilePage />}
 	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
 	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}

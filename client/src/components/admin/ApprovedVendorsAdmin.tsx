@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search, BookOpen, FileText, Upload } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search, FileText, Upload, Download } from "lucide-react";
 import { Link } from "wouter";
 import {
   Select,
@@ -128,8 +128,8 @@ function VendorPdfResourceField({
         </div>
         {value && (
           <a href={value} target="_blank" rel="noopener noreferrer" className="shrink-0">
-            <Button type="button" size="sm" variant="outline" className="gap-1">
-              <ExternalLink className="h-3.5 w-3.5" /> Open
+            <Button type="button" size="sm" variant="outline" className="gap-1" title={`Open or download ${label}`}>
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" /> PDF <Download className="h-3.5 w-3.5" aria-hidden="true" />
             </Button>
           </a>
         )}
@@ -679,16 +679,16 @@ export default function ApprovedVendorsAdmin() {
                       {(v.catalogPdfUrl || v.specBookPdfUrl) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {v.catalogPdfUrl && (
-                            <a href={v.catalogPdfUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={v.catalogPdfUrl} target="_blank" rel="noopener noreferrer" title="Open or download PDF catalog">
                               <Badge variant="outline" className="gap-1 text-xs hover:bg-muted">
-                                <BookOpen className="h-3 w-3" /> Catalog PDF
+                                <FileText className="h-3 w-3" aria-hidden="true" /> Catalog PDF <Download className="h-3 w-3" aria-hidden="true" />
                               </Badge>
                             </a>
                           )}
                           {v.specBookPdfUrl && (
-                            <a href={v.specBookPdfUrl} target="_blank" rel="noopener noreferrer">
+                            <a href={v.specBookPdfUrl} target="_blank" rel="noopener noreferrer" title="Open or download PDF spec book">
                               <Badge variant="outline" className="gap-1 text-xs hover:bg-muted">
-                                <FileText className="h-3 w-3" /> Spec book
+                                <FileText className="h-3 w-3" aria-hidden="true" /> Spec book <Download className="h-3 w-3" aria-hidden="true" />
                               </Badge>
                             </a>
                           )}

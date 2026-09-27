@@ -86,6 +86,20 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(source).toContain('aria-label="Vendor portal sections"');
 	  });
 
+  it("makes the approved vendor record, portal account, and PDF resources reachable in the supplier portal", () => {
+    expect(source).toContain('id: "supplier-profile", label: "Supplier Profile"');
+    expect(source).toContain('{page === "supplier-profile" && <SupplierProfilePage />}');
+    const overview = source.slice(source.indexOf("function OverviewPage"), source.indexOf("// ─── Catalog Page"));
+    expect(overview).toContain("Supplier account &amp; resources");
+    expect(overview).toContain('onNavigate("supplier-profile")');
+    expect(source).toContain('data-testid="supplier-profile-page"');
+    expect(source).toContain("Portal account");
+    expect(source).toContain("passwords are never displayed or stored in readable form");
+    expect(source).toContain('label="PDF Catalog"');
+    expect(source).toContain('label="PDF Spec Book"');
+    expect(source).toContain("Open or download ${label}");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');

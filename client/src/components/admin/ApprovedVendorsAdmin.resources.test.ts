@@ -17,5 +17,8 @@ describe("Approved vendor PDF resources", () => {
     expect(source).toContain("specBookPdfUrl: form.specBookPdfUrl.trim() || null");
     expect(source).toContain("Catalog PDF");
     expect(source).toContain("Spec book");
+    expect(source).toContain("Open or download PDF catalog");
+    expect(source).toContain("Open or download PDF spec book");
+    expect(source).toContain("<Download className=");
   });
 });

@@ -9,7 +9,8 @@ import {
 	  distributorSkus,
 	  vendorProducts,
 	  doorStyles,
-	  doorStyleRoomScenes,
+  doorStyleRoomScenes,
+  vendorLines,
   orderRequests,
   kitchenDesigns,
   aiServiceRequests,
@@ -54,6 +55,26 @@ function resolveLineId(
 }
 
 const MAX_DESIGN_TOOL_PICKS = 8;
+const PEL_DIST_CODE = "PEL";
+
+/**
+ * Approved Vendor rows are the administrative record for a supplier portal.
+ * sourceKey already identifies a supply line (`dist:<id>` or its line code),
+ * with `pelican` retained as the legacy Pelican source key. Keep this matcher
+ * narrow so a supplier can only ever receive its own account/resources.
+ */
+export function approvedVendorMatchesDistributor(
+  vendor: { sourceKey: string | null },
+  distributor: { id: number; code: string }
+): boolean {
+  const sourceKey = vendor.sourceKey?.trim().toLowerCase();
+  if (!sourceKey) return false;
+  return (
+    sourceKey === `dist:${distributor.id}` ||
+    sourceKey === distributor.code.trim().toLowerCase() ||
+    (sourceKey === "pelican" && distributor.code.trim().toUpperCase() === PEL_DIST_CODE)
+  );
+}
 
 const monthOffset = (months: number) => {
   const date = new Date();
@@ -92,6 +113,7 @@ export const distributorPortalRouter = router({
       const rows = await db
         .select({
           id: distributors.id,
+          code: distributors.code,
           name: distributors.name,
           initials: distributors.initials,
           leadTimeDays: distributors.leadTimeDays,
@@ -104,6 +126,27 @@ export const distributorPortalRouter = router({
         .limit(1);
       const line = rows[0];
       if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
+
+      const approvedVendorRows = await db
+        .select({
+          id: vendorLines.id,
+          name: vendorLines.name,
+          sourceKey: vendorLines.sourceKey,
+          category: vendorLines.category,
+          contactName: vendorLines.contactName,
+          contactEmail: vendorLines.contactEmail,
+          contactPhone: vendorLines.contactPhone,
+          websiteUrl: vendorLines.websiteUrl,
+          notes: vendorLines.notes,
+          catalogPdfUrl: vendorLines.catalogPdfUrl,
+          specBookPdfUrl: vendorLines.specBookPdfUrl,
+        })
+        .from(vendorLines)
+        .where(eq(vendorLines.isApproved, true))
+        .orderBy(desc(vendorLines.updatedAt));
+      const approvedVendor = approvedVendorRows.find((vendor) =>
+        approvedVendorMatchesDistributor(vendor, line)
+      ) ?? null;
 
       // SKU counts for this line.
       const [counts] = await db
@@ -140,6 +183,7 @@ export const distributorPortalRouter = router({
 
       return {
         line,
+        approvedVendor,
         counts: {
           total: Number(counts?.total ?? 0),
           published: Number(counts?.published ?? 0),
