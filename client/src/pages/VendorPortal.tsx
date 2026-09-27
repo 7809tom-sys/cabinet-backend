@@ -1329,8 +1329,13 @@ type VendorFeaturedStyle = {
   featuredRank: number;
   isActive: boolean;
   skuCount: number;
+  catalogCategories: string[];
+  matchingCabinetCount: number;
+  matchingCabinets: Array<{ masterCode: string; description: string; category: string }>;
   roomScenes: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; isActive: boolean }>;
 };
+
+type VendorFeaturedCategory = { category: string; cabinetCount: number };
 
 function vendorStyleThumb(style: VendorFeaturedStyle): string | null {
   return style.roomSceneImageUrl
@@ -1344,8 +1349,14 @@ function VendorFeaturedStylesPage() {
   const utils = trpc.useUtils();
   const adminDistId = useAdminDistributorId();
   const [search, setSearch] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const featuredQueryInput = useMemo(() => ({
+    ...(adminDistId ? { distributorId: adminDistId } : {}),
+    ...(search.trim() ? { search: search.trim() } : {}),
+    ...(selectedCategories.length > 0 ? { categories: selectedCategories } : {}),
+  }), [adminDistId, search, selectedCategories]);
   const stylesQuery = trpc.distributorPortal.featuredStyles.useQuery(
-    adminDistId ? { distributorId: adminDistId } : undefined,
+    featuredQueryInput,
   );
   const setFeatured = trpc.distributorPortal.setFeaturedStyle.useMutation({
     onSuccess: () => {
@@ -1360,29 +1371,25 @@ function VendorFeaturedStylesPage() {
   });
 
   const styles = useMemo(
-    () => (stylesQuery.data ?? []) as VendorFeaturedStyle[],
+    () => (stylesQuery.data?.styles ?? []) as VendorFeaturedStyle[],
     [stylesQuery.data],
   );
-  const includesSearch = useCallback((style: VendorFeaturedStyle) => {
-    const term = search.trim().toLowerCase();
-    if (!term) return true;
-    return `${style.ourName} ${style.distributorName} ${style.styleCode} ${style.doorStyle ?? ""} ${style.color ?? ""} ${style.finish ?? ""}`
-      .toLowerCase()
-      .includes(term);
-  }, [search]);
+  const categories = useMemo(
+    () => (stylesQuery.data?.categories ?? []) as VendorFeaturedCategory[],
+    [stylesQuery.data],
+  );
+  const hasActiveFilters = search.trim().length > 0 || selectedCategories.length > 0;
   const featured = useMemo(
     () => styles
       .filter((style) => style.isFeatured)
-      .filter(includesSearch)
       .sort((left, right) => left.featuredRank - right.featuredRank || left.ourName.localeCompare(right.ourName)),
-    [styles, includesSearch],
+    [styles],
   );
   const available = useMemo(
     () => styles
       .filter((style) => style.isActive && !style.isFeatured)
-      .filter(includesSearch)
       .sort((left, right) => left.ourName.localeCompare(right.ourName)),
-    [styles, includesSearch],
+    [styles],
   );
 
   const hasVerifiedScene = (style: VendorFeaturedStyle) =>
@@ -1392,6 +1399,7 @@ function VendorFeaturedStylesPage() {
     ...(adminDistId ? { distributorId: adminDistId } : {}),
   });
   const move = (index: number, direction: -1 | 1) => {
+    if (hasActiveFilters) return;
     const next = [...featured];
     const target = index + direction;
     if (target < 0 || target >= next.length) return;
@@ -1417,15 +1425,41 @@ function VendorFeaturedStylesPage() {
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Curate the cabinet lines featured from your vendor portal. This copy of Featured Styles only includes door styles that have cabinets in your catalog.
           </p>
+	        </div>
+	        <Badge variant="secondary" className="self-start text-sm sm:self-auto">{featured.length} matching featured line{featured.length === 1 ? "" : "s"}</Badge>
+	      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="relative w-full lg:max-w-md">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              aria-label="Search cabinet SKUs and descriptions"
+              placeholder="Search cabinet SKU or description…"
+              className="h-10 pl-9 pr-9"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+            {search && <Button size="icon" variant="ghost" className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2" onClick={() => setSearch("")} aria-label="Clear cabinet search"><X className="h-4 w-4" /></Button>}
+          </div>
+          {hasActiveFilters && <Button variant="outline" size="sm" className="w-full lg:w-auto" onClick={() => { setSearch(""); setSelectedCategories([]); }}>Clear filters</Button>}
+          <span className="text-xs text-muted-foreground">{styles.length} matching cabinet line{styles.length === 1 ? "" : "s"}</span>
         </div>
-        <Badge variant="secondary" className="self-start text-sm sm:self-auto">{featured.length} featured cabinet line{featured.length === 1 ? "" : "s"}</Badge>
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Cabinet categories">
+          <Button size="sm" variant={selectedCategories.length === 0 ? "default" : "outline"} className="h-8" onClick={() => setSelectedCategories([])} aria-pressed={selectedCategories.length === 0}>All categories</Button>
+          {categories.map(({ category, cabinetCount }) => {
+            const selected = selectedCategories.includes(category);
+            return <Button key={category} size="sm" variant={selected ? "default" : "outline"} className="h-8 gap-1.5" onClick={() => setSelectedCategories((current) => selected ? current.filter((item) => item !== category) : [...current, category])} aria-pressed={selected}>{category} <span className="text-[10px] opacity-75">{cabinetCount}</span></Button>;
+          })}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">Search matches cabinet master codes, vendor/platform SKUs, and descriptions. Category filters apply to the actual cabinets carried by this vendor.</p>
       </div>
 
-      <div>
-        <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Door Styles ({featured.length})</h3>
-        {featured.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No featured cabinet lines yet. Add a room-scene-ready style from your cabinet catalog below.
+	      <div>
+	        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Door Styles ({featured.length})</h3>{hasActiveFilters && <span className="text-xs text-muted-foreground">Clear filters to reorder the complete list.</span>}</div>
+	        {featured.length === 0 ? (
+	          <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+	            {hasActiveFilters ? "No featured cabinet lines match these cabinet filters." : "No featured cabinet lines yet. Add a room-scene-ready style from your cabinet catalog below."}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -1438,15 +1472,17 @@ function VendorFeaturedStylesPage() {
                   {image ? <img src={image} alt={style.ourName} className="h-12 w-12 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="h-12 w-12 shrink-0 rounded bg-muted" />}
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{style.ourName}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
-                      <Badge variant="outline" className="border-blue-300 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700"><Package className="mr-0.5 h-2.5 w-2.5" /> {style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"}</Badge>
-                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"><ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready</Badge>
-                      <span className="text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</span>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1">
-                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === 0 || reorder.isPending} onClick={() => move(index, -1)} aria-label={`Move ${style.ourName} up`}><ArrowUp className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === featured.length - 1 || reorder.isPending} onClick={() => move(index, 1)} aria-label={`Move ${style.ourName} down`}><ArrowDown className="h-4 w-4" /></Button>
+	                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+	                      <Badge variant="outline" className="border-blue-300 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700"><Package className="mr-0.5 h-2.5 w-2.5" /> {style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"}</Badge>
+	                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"><ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready</Badge>
+	                      {style.catalogCategories.slice(0, 2).map((category) => <Badge key={category} variant="secondary" className="px-1.5 py-0 text-[10px]">{category}</Badge>)}
+	                      <span className="text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</span>
+	                    </div>
+	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="mt-1 truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")} {style.matchingCabinetCount > style.matchingCabinets.length ? `+${style.matchingCabinetCount - style.matchingCabinets.length} more` : ""}</p>}
+	                  </div>
+	                  <div className="flex shrink-0 items-center gap-1">
+	                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === 0 || reorder.isPending || hasActiveFilters} onClick={() => move(index, -1)} aria-label={`Move ${style.ourName} up`} title={hasActiveFilters ? "Clear filters to reorder" : "Move up"}><ArrowUp className="h-4 w-4" /></Button>
+	                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === featured.length - 1 || reorder.isPending || hasActiveFilters} onClick={() => move(index, 1)} aria-label={`Move ${style.ourName} down`} title={hasActiveFilters ? "Clear filters to reorder" : "Move down"}><ArrowDown className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" disabled={setFeatured.isPending} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: false }))} aria-label={`Remove ${style.ourName} from featured`}><X className="h-4 w-4" /></Button>
                   </div>
                 </li>
@@ -1456,16 +1492,12 @@ function VendorFeaturedStylesPage() {
         )}
       </div>
 
-      <div>
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My cabinet lines <span className="font-normal normal-case text-muted-foreground/60">({available.length})</span></h3>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input placeholder="Search my cabinet lines…" className="h-9 pl-9" value={search} onChange={(event) => setSearch(event.target.value)} />
-          </div>
-        </div>
-        {available.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{styles.length === 0 ? "No cabinet-backed door styles are available in this vendor catalog." : "No matching cabinet lines."}</p>
+	      <div>
+	        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+	          <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">My cabinet lines <span className="font-normal normal-case text-muted-foreground/60">({available.length})</span></h3>
+	        </div>
+	        {available.length === 0 ? (
+	          <p className="text-sm text-muted-foreground">{styles.length === 0 ? hasActiveFilters ? "No cabinet-backed door styles match these cabinet filters." : "No cabinet-backed door styles are available in this vendor catalog." : "No matching cabinet lines."}</p>
         ) : (
           <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {available.map((style) => {
@@ -1475,9 +1507,10 @@ function VendorFeaturedStylesPage() {
                 <div key={style.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
                   {image ? <img src={image} alt={style.ourName} className="h-11 w-11 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded bg-muted"><ImageIcon className="h-4 w-4 text-muted-foreground/40" /></div>}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{style.ourName}</p>
-                    <p className="truncate text-xs text-muted-foreground">{style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"} {[style.doorStyle, style.color].filter(Boolean).length > 0 ? `· ${[style.doorStyle, style.color].filter(Boolean).join(" · ")}` : ""}</p>
-                    <p className={`mt-1 text-[10px] ${sceneReady ? "text-emerald-700" : "text-amber-700"}`}>{sceneReady ? "Verified room scene ready" : "Add a verified room scene in Door Styles first"}</p>
+	                    <p className="truncate text-sm font-medium">{style.ourName}</p>
+	                    <p className="truncate text-xs text-muted-foreground">{style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"} {[style.doorStyle, style.color].filter(Boolean).length > 0 ? `· ${[style.doorStyle, style.color].filter(Boolean).join(" · ")}` : ""}</p>
+	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")}{style.matchingCabinetCount > style.matchingCabinets.length ? ` +${style.matchingCabinetCount - style.matchingCabinets.length}` : ""}</p>}
+	                    <p className={`mt-1 text-[10px] ${sceneReady ? "text-emerald-700" : "text-amber-700"}`}>{sceneReady ? "Verified room scene ready" : "Add a verified room scene in Door Styles first"}</p>
                   </div>
                   <Button size="icon" variant="ghost" className="h-8 w-8" disabled={setFeatured.isPending || !sceneReady} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: true }))} aria-label={`Feature ${style.ourName}`} title={sceneReady ? "Feature this cabinet line" : "Add a verified matching room scene in Door Styles first"}><Star className="h-4 w-4 text-muted-foreground/60" /></Button>
                 </div>

@@ -308,11 +308,11 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
 	      email: "dp-featured@example.com", role: "distributor", distributorId: lineA.id,
 	    }));
 
-	    const [featured, shipping] = await Promise.all([
+	    const [featuredResult, shipping] = await Promise.all([
 	      caller.distributorPortal.featuredStyles(),
 	      caller.distributorPortal.shippingOverview(),
 	    ]);
-	    for (const style of featured) {
+	    for (const style of featuredResult.styles) {
 	      expect(ownStyleIds.has(style.id)).toBe(true);
 	      expect(style.skuCount).toBeGreaterThan(0);
 	    }
@@ -320,5 +320,30 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
 	    for (const style of shipping.styles) expect(ownStyleIds.has(style.id)).toBe(true);
 
 	    await expect(caller.distributorPortal.setFeaturedStyle({ styleId: otherStyle[0].id, featured: false })).rejects.toThrow("does not belong");
+	  });
+
+	  it("finds featured styles through the vendor's cabinet SKUs and categories", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
+	    if (!line) return;
+	    const caller = appRouter.createCaller(ctxFor({
+	      id: 990109, openId: "dp-featured-filter", name: "Filtered Dist",
+	      email: "dp-featured-filter@example.com", role: "distributor", distributorId: line.id,
+	    }));
+	    const initial = await caller.distributorPortal.featuredStyles();
+	    const category = initial.categories[0];
+	    if (!category) return;
+
+	    const categoryFiltered = await caller.distributorPortal.featuredStyles({ categories: [category.category] });
+	    for (const style of categoryFiltered.styles) {
+	      expect(style.catalogCategories).toContain(category.category);
+	      expect(style.matchingCabinetCount).toBeGreaterThan(0);
+	    }
+    const cabinet = categoryFiltered.styles.flatMap((style) => style.matchingCabinets)[0];
+    if (!cabinet) return;
+	    const searchFiltered = await caller.distributorPortal.featuredStyles({ search: cabinet.masterCode });
+	    expect(searchFiltered.styles.length).toBeGreaterThan(0);
+	    expect(searchFiltered.styles.some((style) => style.matchingCabinets.some((match) => match.masterCode === cabinet.masterCode))).toBe(true);
 	  });
 });

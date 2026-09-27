@@ -11,17 +11,28 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain('{page === "shipping" && <VendorShippingPage />}');
   });
 
-  it("uses vendor-scoped Featured Styles procedures instead of the global admin list", () => {
-    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
-    expect(featuredPage).toContain("trpc.distributorPortal.featuredStyles.useQuery");
+	  it("uses vendor-scoped Featured Styles procedures instead of the global admin list", () => {
+	    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
+	    expect(featuredPage).toContain("trpc.distributorPortal.featuredStyles.useQuery");
     expect(featuredPage).toContain("trpc.distributorPortal.setFeaturedStyle.useMutation");
     expect(featuredPage).toContain("trpc.distributorPortal.reorderFeaturedStyles.useMutation");
     expect(featuredPage).toContain("only includes door styles that have cabinets in your catalog");
     expect(featuredPage).toContain("cabinet SKU");
-    expect(featuredPage).not.toContain("trpc.doorStyles.listForAdmin");
-  });
+	    expect(featuredPage).not.toContain("trpc.doorStyles.listForAdmin");
+	  });
 
-  it("states the automatic warehouse check accurately and keeps it tied to shipping origins", () => {
+	  it("searches the vendor's actual cabinet SKUs and offers multi-category filters", () => {
+	    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
+	    expect(featuredPage).toContain('placeholder="Search cabinet SKU or description…"');
+	    expect(featuredPage).toContain('aria-label="Cabinet categories"');
+	    expect(featuredPage).toContain("selectedCategories");
+	    expect(featuredPage).toContain("categories: selectedCategories");
+	    expect(featuredPage).toContain("Search matches cabinet master codes, vendor/platform SKUs, and descriptions");
+	    expect(featuredPage).toContain("Matches:");
+	    expect(featuredPage).toContain("Clear filters to reorder the complete list.");
+	  });
+
+	  it("states the automatic warehouse check accurately and keeps it tied to shipping origins", () => {
     const shippingPage = source.slice(source.indexOf("function VendorShippingPage"), source.indexOf("// ─── Promotions Page"));
     expect(shippingPage).toContain("All cabinet lines cover every configured warehouse");
     expect(shippingPage).toContain("does not represent a live on-hand inventory count");

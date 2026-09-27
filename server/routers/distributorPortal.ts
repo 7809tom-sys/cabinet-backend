@@ -148,23 +148,72 @@ export const distributorPortalRouter = router({
 	 * The Featured Door Styles manager is intentionally scoped to the vendor's
 	 * actual cabinet line. A style must have at least one catalog row for this
 	 * distributor before it appears here; a vendor can never browse another
-	 * supplier's styles or cabinets through this surface.
+	 * supplier's styles or cabinets through this surface. Search and category
+	 * filters are applied against the vendor's cabinet records, not merely a
+	 * door-style label, so a vendor can find a specific cabinet SKU.
 	 */
 	featuredStyles: distributorProcedure
-	  .input(z.object({ distributorId: z.number().optional() }).optional())
+	  .input(z.object({
+	    distributorId: z.number().optional(),
+	    search: z.string().trim().max(120).optional(),
+	    categories: z.array(z.string().trim().min(1).max(64)).max(20).optional(),
+	  }).optional())
 	  .query(async ({ ctx, input }) => {
 	    const db = await getDb();
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
-
-	    const linkedRows = await db
-	      .selectDistinct({ styleId: distributorSkus.styleId })
+	    const catalogRows = await db
+	      .select({
+	        styleId: distributorSkus.styleId,
+	        cabinetId: cabinets.id,
+	        masterCode: cabinets.masterCode,
+	        description: cabinets.description,
+	        category: cabinets.category,
+	        platformSku: distributorSkus.platformSku,
+	        distributorSku: distributorSkus.distributorSku,
+	      })
 	      .from(distributorSkus)
+	      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
 	      .where(and(eq(distributorSkus.distributorId, lineId), isNotNull(distributorSkus.styleId)));
-	    const styleIds = linkedRows.map((row) => row.styleId).filter((id): id is number => id != null);
-	    if (styleIds.length === 0) return [];
 
-	    const [styles, skuCounts, scenes] = await Promise.all([
+	    const categoryCounts = new Map<string, Set<number>>();
+	    const categoriesByStyle = new Map<number, Set<string>>();
+	    for (const row of catalogRows) {
+	      if (row.styleId == null) continue;
+	      const category = row.category.trim();
+	      if (!category) continue;
+	      const cabinetIds = categoryCounts.get(category) ?? new Set<number>();
+	      cabinetIds.add(row.cabinetId);
+	      categoryCounts.set(category, cabinetIds);
+	      const categories = categoriesByStyle.get(row.styleId) ?? new Set<string>();
+	      categories.add(category);
+	      categoriesByStyle.set(row.styleId, categories);
+	    }
+	    const categories = Array.from(categoryCounts.entries())
+	      .map(([category, cabinetIds]) => ({ category, cabinetCount: cabinetIds.size }))
+	      .sort((left, right) => left.category.localeCompare(right.category));
+
+	    const requestedCategories = new Set((input?.categories ?? []).map((category) => category.trim()).filter(Boolean));
+	    const term = input?.search?.trim().toLowerCase() ?? "";
+	    const normalizedTerm = term.replace(/[\s_-]/g, "");
+	    const matchesSearch = (row: typeof catalogRows[number]) => {
+	      if (!term) return true;
+	      const fields = [row.masterCode, row.description, row.platformSku ?? "", row.distributorSku ?? ""];
+	      return fields.some((value) => {
+	        const normalized = value.toLowerCase();
+	        return normalized.includes(term) || (normalizedTerm.length > 0 && normalized.replace(/[\s_-]/g, "").includes(normalizedTerm));
+	      });
+	    };
+	    const matchingCatalogRows = catalogRows.filter((row) =>
+	      (requestedCategories.size === 0 || requestedCategories.has(row.category))
+	      && matchesSearch(row),
+	    );
+	    const styleIds = Array.from(new Set(matchingCatalogRows
+	      .map((row) => row.styleId)
+	      .filter((id): id is number => id != null)));
+	    if (styleIds.length === 0) return { styles: [], categories };
+
+	    const [styles, scenes] = await Promise.all([
 	      db
 	        .select({
 	          id: doorStyles.id,
@@ -188,11 +237,6 @@ export const distributorPortalRouter = router({
 	        .where(and(eq(doorStyles.distributorId, lineId), inArray(doorStyles.id, styleIds)))
 	        .orderBy(doorStyles.featuredRank, doorStyles.ourName),
 	      db
-	        .select({ styleId: distributorSkus.styleId, skuCount: sql<number>`count(*)` })
-	        .from(distributorSkus)
-	        .where(and(eq(distributorSkus.distributorId, lineId), inArray(distributorSkus.styleId, styleIds)))
-	        .groupBy(distributorSkus.styleId),
-	      db
 	        .select({
 	          id: doorStyleRoomScenes.id,
 	          styleId: doorStyleRoomScenes.styleId,
@@ -206,12 +250,38 @@ export const distributorPortalRouter = router({
 	        .orderBy(doorStyleRoomScenes.sortOrder, doorStyleRoomScenes.id),
 	    ]);
 
-	    const counts = new Map(skuCounts.map((row) => [row.styleId, Number(row.skuCount)]));
-	    return styles.map((style) => ({
-	      ...style,
-	      skuCount: counts.get(style.id) ?? 0,
-	      roomScenes: scenes.filter((scene) => scene.styleId === style.id),
-	    }));
+	    const catalogByStyle = new Map<number, typeof catalogRows>();
+	    const matchingByStyle = new Map<number, typeof matchingCatalogRows>();
+	    for (const row of catalogRows) {
+	      if (row.styleId == null) continue;
+	      const current = catalogByStyle.get(row.styleId) ?? [];
+	      current.push(row);
+	      catalogByStyle.set(row.styleId, current);
+	    }
+	    for (const row of matchingCatalogRows) {
+	      if (row.styleId == null) continue;
+	      const current = matchingByStyle.get(row.styleId) ?? [];
+	      current.push(row);
+	      matchingByStyle.set(row.styleId, current);
+	    }
+    return {
+	      categories,
+	      styles: styles.map((style) => {
+	        const allCatalog = catalogByStyle.get(style.id) ?? [];
+	        const matchingCatalog = matchingByStyle.get(style.id) ?? [];
+	        const matchingCabinets = Array.from(new Map(matchingCatalog.map((row) => [row.cabinetId, row])).values())
+	          .slice(0, 3)
+	          .map((row) => ({ masterCode: row.masterCode, description: row.description, category: row.category }));
+	        return {
+	          ...style,
+	          skuCount: allCatalog.length,
+	          catalogCategories: Array.from(categoriesByStyle.get(style.id) ?? []).sort((left, right) => left.localeCompare(right)),
+	          matchingCabinetCount: new Set(matchingCatalog.map((row) => row.cabinetId)).size,
+	          matchingCabinets,
+	          roomScenes: scenes.filter((scene) => scene.styleId === style.id),
+	        };
+	      }),
+	    };
 	  }),
 
 	/** Toggle a featured style, with both line ownership and cabinet evidence enforced on the server. */
