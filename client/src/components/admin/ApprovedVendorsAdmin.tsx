@@ -293,11 +293,16 @@ function VendorDialog({
             </div>
           </div>
           <div>
-            <Label className="text-xs">Contact email</Label>
+            <Label className="text-xs">Contact email / supplier portal login</Label>
             <Input
+              type="email"
               value={form.contactEmail}
               onChange={(e) => setForm({ ...form, contactEmail: e.target.value })}
+              placeholder="supplier-contact@company.com"
             />
+            <p className="mt-1 text-xs text-muted-foreground" data-testid="approved-vendor-login-help">
+              An approved vendor can create a supplier portal password with this exact email. No separate invite is required.
+            </p>
           </div>
           <div>
             <Label className="text-xs">Website URL</Label>
@@ -598,7 +603,9 @@ export default function ApprovedVendorsAdmin() {
               sales per vendor. Sales recompute from real, non-cancelled orders —
               a Pelican line stays at $0 until Pelican products are actually
               ordered. Set a source key (<code>pelican</code> or{" "}
-              <code>dist:&lt;id&gt;</code>) to enable automatic totals.
+              <code>dist:&lt;id&gt;</code>) to enable automatic totals. The exact
+              contact email on an approved, linked line is also the supplier
+              portal login email.
             </CardDescription>
           </div>
           <VendorDialog
@@ -674,7 +681,14 @@ export default function ApprovedVendorsAdmin() {
                         <div className="text-xs text-muted-foreground">{v.contactName}</div>
                       )}
                       {v.contactEmail && (
-                        <div className="text-xs text-muted-foreground">{v.contactEmail}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {v.contactEmail} <span className="font-medium text-emerald-700">· portal login</span>
+                        </div>
+                      )}
+                      {v.isApproved && !v.contactEmail && (
+                        <div className="text-xs font-medium text-amber-700">
+                          Add a contact email to enable this supplier’s portal login.
+                        </div>
                       )}
                       {(v.catalogPdfUrl || v.specBookPdfUrl) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">

@@ -429,6 +429,41 @@ export const doorStyles = mysqlTable("door_styles", {
 
 export type DoorStyle = typeof doorStyles.$inferSelect;
 
+// ─── Vendor Sample Door Measurements ─────────────────────────────────────────
+// A supplier can enter the exact measurements from a physical sample door, but
+// those measurements do not become Designer geometry until CabinetDealz has
+// measured the delivered sample and approved the single submission below.
+// `measurementData` mirrors the owner-supplied sample-door sheet so the whole
+// source record is preserved without pretending that incomplete fields are true.
+export const doorStyleMeasurementSubmissions = mysqlTable("door_style_measurement_submissions", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  vendorLineName: varchar("vendorLineName", { length: 255 }).notNull(),
+  vendorStyleCode: varchar("vendorStyleCode", { length: 64 }).notNull(),
+  vendorStyleName: varchar("vendorStyleName", { length: 255 }).notNull(),
+  // The submitting vendor can explicitly declare that the same physical profile
+  // applies to selected companion door styles in its own cabinet line.
+  appliesToStyleIds: json("appliesToStyleIds").$type<number[]>().notNull(),
+  measuredBy: varchar("measuredBy", { length: 255 }).notNull(),
+  measuredOn: varchar("measuredOn", { length: 10 }).notNull(), // ISO YYYY-MM-DD supplied by vendor
+  measurementData: json("measurementData").$type<Record<string, unknown>>().notNull(),
+  citation: varchar("citation", { length: 512 }).notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  submittedBy: int("submittedBy").notNull(),
+  submittedByName: varchar("submittedByName", { length: 255 }),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+  reviewedBy: int("reviewedBy"),
+  reviewedByName: varchar("reviewedByName", { length: 255 }),
+  reviewedAt: timestamp("reviewedAt"),
+  reviewNote: varchar("reviewNote", { length: 512 }),
+}, (table) => [
+  index("door_style_measurements_style_status_idx").on(table.styleId, table.status),
+  index("door_style_measurements_distributor_status_idx").on(table.distributorId, table.status),
+]);
+
+export type DoorStyleMeasurementSubmission = typeof doorStyleMeasurementSubmissions.$inferSelect;
+
 // ─── Door Style Room Scenes ─────────────────────────────────────────────────
 // Images remain in S3. This table retains only a scene's durable storage
 // reference, ordering, and private verification/source details.

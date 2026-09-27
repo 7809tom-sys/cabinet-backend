@@ -100,8 +100,12 @@ export const emailAuthRouter = router({
         throw invalid();
       }
 
-      await db.recordLoginResult(user.id, true);
-      await setSessionCookie(ctx, user.openId, user.name ?? user.email ?? "");
+      // A vendor might have been approved after creating a normal account.
+      // Reconcile only their exact approved contact email on successful login;
+      // admin/affiliate roles are intentionally never changed by this path.
+      const synchronizedUser = await db.synchronizeApprovedVendorLogin(user, emailLower);
+      await db.recordLoginResult(synchronizedUser.id, true);
+      await setSessionCookie(ctx, synchronizedUser.openId, synchronizedUser.name ?? synchronizedUser.email ?? "");
       return { success: true } as const;
     }),
 

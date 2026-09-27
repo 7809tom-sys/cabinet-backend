@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, inArray, desc, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { distributorProcedure, router } from "../_core/trpc";
+import { adminProcedure, distributorProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import {
 	  distributors,
@@ -9,7 +9,8 @@ import {
 	  distributorSkus,
 	  vendorProducts,
 	  doorStyles,
-  doorStyleRoomScenes,
+	  doorStyleMeasurementSubmissions,
+	  doorStyleRoomScenes,
   vendorLines,
   orderRequests,
   kitchenDesigns,
@@ -28,6 +29,7 @@ import {
   shippingRuleCanQuote,
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
+import { approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
 
 /**
  * Resolve the supply line this request operates on.
@@ -55,26 +57,36 @@ function resolveLineId(
 }
 
 const MAX_DESIGN_TOOL_PICKS = 8;
-const PEL_DIST_CODE = "PEL";
 
-/**
- * Approved Vendor rows are the administrative record for a supplier portal.
- * sourceKey already identifies a supply line (`dist:<id>` or its line code),
- * with `pelican` retained as the legacy Pelican source key. Keep this matcher
- * narrow so a supplier can only ever receive its own account/resources.
- */
-export function approvedVendorMatchesDistributor(
-  vendor: { sourceKey: string | null },
-  distributor: { id: number; code: string }
-): boolean {
-  const sourceKey = vendor.sourceKey?.trim().toLowerCase();
-  if (!sourceKey) return false;
-  return (
-    sourceKey === `dist:${distributor.id}` ||
-    sourceKey === distributor.code.trim().toLowerCase() ||
-    (sourceKey === "pelican" && distributor.code.trim().toUpperCase() === PEL_DIST_CODE)
-  );
-}
+const sampleDoorMeasurementSchema = z.object({
+  doorStyle: z.enum(["Shaker", "Slim Shaker", "Double Shaker", "Raised Panel", "Beaded", "Slab", "Other"]).optional(),
+  doorStyleOther: z.string().trim().max(128).optional(),
+  colorFinish: z.string().trim().max(128).optional(),
+  sampleWidth: z.number().positive().max(120).nullable().optional(),
+  sampleHeight: z.number().positive().max(120).nullable().optional(),
+  doorThickness: z.number().positive().max(12).nullable().optional(),
+  topRailWidth: z.number().positive().max(24).nullable().optional(),
+  bottomRailWidth: z.number().positive().max(24).nullable().optional(),
+  leftStileWidth: z.number().positive().max(24).nullable().optional(),
+  rightStileWidth: z.number().positive().max(24).nullable().optional(),
+  centerRailWidth: z.number().positive().max(24).nullable().optional(),
+  panel: z.enum(["Flat", "Raised", "Beadboard"]).optional(),
+  outsideEdgeProfile: z.string().trim().max(256).optional(),
+  insideFrameProfile: z.string().trim().max(256).optional(),
+  drawerConstruction: z.enum(["5-piece (frame and panel)", "Slab"]).optional(),
+  drawerRailWidth: z.number().positive().max(24).nullable().optional(),
+  drawerStileWidth: z.number().positive().max(24).nullable().optional(),
+  slabBelowHeight: z.number().positive().max(120).nullable().optional(),
+  drawerFrontThickness: z.number().positive().max(12).nullable().optional(),
+  cabinetConstruction: z.enum(["Face frame", "Frameless"]).optional(),
+  overlay: z.enum(["Full overlay", "Partial overlay", "Inset"]).optional(),
+  doorGap: z.number().min(0).max(12).nullable().optional(),
+  faceFrameWidth: z.number().positive().max(24).nullable().optional(),
+  doorPhotoProvided: z.boolean().optional(),
+  drawerPhotoProvided: z.boolean().optional(),
+  edgeProfilePhotoProvided: z.boolean().optional(),
+  backPhotoProvided: z.boolean().optional(),
+});
 
 const monthOffset = (months: number) => {
   const date = new Date();
@@ -162,10 +174,12 @@ export const distributorPortalRouter = router({
       // Door styles carried by this line — deduplicated by ourName so that
       // rows with the same display name (e.g. from a re-import) only appear once.
       const rawStyles = await db
-        .select({
-          id: doorStyles.id,
-          ourName: doorStyles.ourName,
-          doorStyle: doorStyles.doorStyle,
+	        .select({
+	          id: doorStyles.id,
+	          styleCode: doorStyles.styleCode,
+	          ourName: doorStyles.ourName,
+	          distributorName: doorStyles.distributorName,
+	          doorStyle: doorStyles.doorStyle,
           doorSampleImageUrl: doorStyles.doorSampleImageUrl,
           roomSceneImageUrl: doorStyles.roomSceneImageUrl,
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
@@ -466,10 +480,20 @@ export const distributorPortalRouter = router({
 	      .from(distributorSkus)
 	      .where(and(eq(distributorSkus.distributorId, lineId), eq(distributorSkus.styleId, input.styleId)))
 	      .limit(1);
-	    if (!catalogEvidence) throw new TRPCError({ code: "BAD_REQUEST", message: "Only Door Styles linked to your cabinets can be edited here." });
+		    if (!catalogEvidence) throw new TRPCError({ code: "BAD_REQUEST", message: "Only Door Styles linked to your cabinets can be edited here." });
 
-	    const { distributorId: _distributorId, styleId: _styleId, ...fields } = input;
-	    const patch: Record<string, unknown> = {};
+		    const { distributorId: _distributorId, styleId: _styleId, ...fields } = input;
+		    const measurementFieldsSubmitted = fields.railWidth !== undefined
+		      || fields.stileWidth !== undefined
+		      || fields.centerRailWidth !== undefined
+		      || fields.sourceSpecification !== undefined;
+		    if (measurementFieldsSubmitted && !ctx.isAdmin) {
+		      throw new TRPCError({
+		        code: "BAD_REQUEST",
+		        message: "Submit sample-door measurements for CabinetDealz verification instead of editing Designer frame data directly.",
+		      });
+		    }
+		    const patch: Record<string, unknown> = {};
 	    if (fields.featuredLabel !== undefined) patch.featuredLabel = fields.featuredLabel?.trim() || null;
 	    if (fields.aliasName !== undefined) patch.aliasName = fields.aliasName?.trim() || null;
 	    if (fields.doorStyle !== undefined) patch.doorStyle = fields.doorStyle?.trim() || null;
@@ -513,11 +537,130 @@ export const distributorPortalRouter = router({
 	        await db.insert(doorStyleRoomScenes).values({ styleId: input.styleId, imageUrl: submittedRoomScene, sortOrder: Number(maxRank) + 10, isVerified: true, isActive: true, sourceDistributorId: lineId, sourceNote: "Vendor-provided Featured Styles room scene" });
 	      }
 	    }
-	    if (Object.keys(patch).length > 0) await db.update(doorStyles).set(patch).where(eq(doorStyles.id, input.styleId));
-	    return { ok: true };
-	  }),
+		    if (Object.keys(patch).length > 0) await db.update(doorStyles).set(patch).where(eq(doorStyles.id, input.styleId));
+		    return { ok: true };
+		  }),
 
-	/** Add a vendor-owned, verified merchandising scene without granting access to other vendors' libraries. */
+		/**
+		 * Record the exact measurements a vendor took from a supplied sample door.
+		 * This is an official first-party source record, but it is intentionally
+		 * pending until CabinetDealz confirms the physical sample before Designer
+		 * frame geometry is changed.
+		 */
+		submitDoorMeasurement: distributorProcedure
+		  .input(z.object({
+		    distributorId: z.number().optional(),
+		    styleId: z.number().int().positive(),
+		    appliesToStyleIds: z.array(z.number().int().positive()).min(1).max(100),
+		    measuredBy: z.string().trim().min(1).max(255),
+		    measuredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for the measurement date"),
+		    measurements: sampleDoorMeasurementSchema,
+		  }))
+		  .mutation(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const [style] = await db
+		      .select({ id: doorStyles.id, styleCode: doorStyles.styleCode, ourName: doorStyles.ourName })
+		      .from(doorStyles)
+		      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
+		      .limit(1);
+		    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
+		    const appliesToStyleIds = Array.from(new Set([style.id, ...input.appliesToStyleIds]));
+		    const linkedStyles = await db.select({ id: doorStyles.id }).from(doorStyles)
+		      .where(and(eq(doorStyles.distributorId, lineId), inArray(doorStyles.id, appliesToStyleIds)));
+		    if (linkedStyles.length !== appliesToStyleIds.length) {
+		      throw new TRPCError({ code: "FORBIDDEN", message: "Every checked Door Style must belong to your own cabinet line." });
+		    }
+		    const styleEvidence = await db.selectDistinct({ styleId: distributorSkus.styleId }).from(distributorSkus)
+		      .where(and(eq(distributorSkus.distributorId, lineId), inArray(distributorSkus.styleId, appliesToStyleIds)));
+		    if (styleEvidence.length !== appliesToStyleIds.length) {
+		      throw new TRPCError({ code: "BAD_REQUEST", message: "Every checked Door Style must be linked to at least one cabinet in your catalog." });
+		    }
+		    const [line] = await db
+		      .select({ name: distributors.name })
+		      .from(distributors)
+		      .where(eq(distributors.id, lineId))
+		      .limit(1);
+		    if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found." });
+		    const citation = `Measured from sample door: ${line.name} ${style.styleCode}, measured by ${input.measuredBy} on ${input.measuredOn}.${appliesToStyleIds.length > 1 ? ` Same profile submitted for ${appliesToStyleIds.length} checked styles.` : ""}`;
+		    const [result] = await db.insert(doorStyleMeasurementSubmissions).values({
+		      styleId: style.id,
+		      distributorId: lineId,
+		      vendorLineName: line.name,
+		      vendorStyleCode: style.styleCode,
+		      vendorStyleName: style.ourName,
+		      appliesToStyleIds,
+		      measuredBy: input.measuredBy,
+		      measuredOn: input.measuredOn,
+		      measurementData: input.measurements,
+		      citation,
+		      submittedBy: ctx.user.id,
+		      submittedByName: ctx.user.name ?? null,
+		    });
+		    return { id: Number((result as { insertId?: number }).insertId), status: "pending" as const, citation };
+		  }),
+
+		/** CabinetDealz-only queue for confirming physical sample measurements. */
+		listDoorMeasurementSubmissions: adminProcedure
+		  .input(z.object({ status: z.enum(["pending", "approved", "rejected", "all"]).default("pending"), limit: z.number().int().min(1).max(200).default(100) }).optional())
+		  .query(async ({ input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const args = input ?? { status: "pending" as const, limit: 100 };
+		    const base = db.select().from(doorStyleMeasurementSubmissions).orderBy(desc(doorStyleMeasurementSubmissions.submittedAt)).limit(args.limit);
+		    return args.status === "all"
+		      ? await base
+		      : await db.select().from(doorStyleMeasurementSubmissions)
+		        .where(eq(doorStyleMeasurementSubmissions.status, args.status))
+		        .orderBy(desc(doorStyleMeasurementSubmissions.submittedAt)).limit(args.limit);
+		  }),
+
+		/** Apply the team-measured values only after the physical sample was checked. */
+		reviewDoorMeasurementSubmission: adminProcedure
+		  .input(z.object({
+		    id: z.number().int().positive(),
+		    approve: z.boolean(),
+		    physicalSampleMeasured: z.boolean(),
+		    railWidth: z.number().positive().max(24).nullable().optional(),
+		    stileWidth: z.number().positive().max(24).nullable().optional(),
+		    centerRailWidth: z.number().positive().max(24).nullable().optional(),
+		    reviewNote: z.string().trim().max(512).optional(),
+		  }))
+		  .mutation(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const [submission] = await db.select().from(doorStyleMeasurementSubmissions)
+		      .where(eq(doorStyleMeasurementSubmissions.id, input.id)).limit(1);
+		    if (!submission) throw new TRPCError({ code: "NOT_FOUND", message: "Measurement submission not found." });
+		    if (submission.status !== "pending") throw new TRPCError({ code: "BAD_REQUEST", message: "This measurement submission was already reviewed." });
+		    if (input.approve && !input.physicalSampleMeasured) {
+		      throw new TRPCError({ code: "BAD_REQUEST", message: "Confirm that CabinetDealz measured the physical sample before approving it for Designer." });
+		    }
+		    if (input.approve && (input.railWidth == null || input.stileWidth == null)) {
+		      throw new TRPCError({ code: "BAD_REQUEST", message: "Enter both team-measured rail and stile widths before approving Designer geometry." });
+		    }
+		    const now = new Date();
+		    await db.update(doorStyleMeasurementSubmissions).set({
+		      status: input.approve ? "approved" : "rejected",
+		      reviewedBy: ctx.user.id,
+		      reviewedByName: ctx.user.name ?? null,
+		      reviewedAt: now,
+		      reviewNote: input.reviewNote?.trim() || null,
+		    }).where(eq(doorStyleMeasurementSubmissions.id, submission.id));
+		    if (input.approve) {
+		      await db.update(doorStyles).set({
+		        railWidth: String(input.railWidth),
+		        stileWidth: String(input.stileWidth),
+		        centerRailWidth: input.centerRailWidth == null ? null : String(input.centerRailWidth),
+		        sourceSpecification: submission.citation,
+		        doorSampleVerified: true,
+		      }).where(inArray(doorStyles.id, submission.appliesToStyleIds));
+		    }
+		    return { ok: true, approved: input.approve };
+		  }),
+
+		/** Add a vendor-owned, verified merchandising scene without granting access to other vendors' libraries. */
 	addFeaturedStyleScene: distributorProcedure
 	  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive(), imageUrl: z.string().trim().min(1).max(512), sourceNote: z.string().max(512).nullable().optional() }))
 	  .mutation(async ({ ctx, input }) => {

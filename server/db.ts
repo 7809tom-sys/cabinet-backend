@@ -3,6 +3,10 @@ import { and, eq, sql, ne } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import {
+  approvedVendorContactDistributorId,
+  approvedVendorMatchesDistributor,
+} from "./lib/approvedVendorAccess";
 
 /**
  * A retired duplicate keeps its historical database record, supplier price rows,
@@ -171,6 +175,32 @@ export async function getUserByEmailLower(emailLower: string) {
 }
 
 /**
+ * Resolves a supplier portal line only for the exact contact email saved on an
+ * approved vendor record. It deliberately returns null for blank, inactive, or
+ * ambiguous configuration instead of guessing from a vendor name.
+ */
+async function approvedVendorLineIdForEmail(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  emailLower: string
+): Promise<number | null> {
+  const [vendorRows, distributorRows] = await Promise.all([
+    db
+      .select({
+        sourceKey: vendorLines.sourceKey,
+        contactEmail: vendorLines.contactEmail,
+        isApproved: vendorLines.isApproved,
+      })
+      .from(vendorLines)
+      .where(eq(vendorLines.isApproved, true)),
+    db
+      .select({ id: distributors.id, code: distributors.code, isActive: distributors.isActive })
+      .from(distributors),
+  ]);
+
+  return approvedVendorContactDistributorId(emailLower, vendorRows, distributorRows);
+}
+
+/**
  * Create a new email/password account. Generates a synthetic openId so the row
  * coexists with Manus OAuth users (which key on the OAuth openId). The configured
  * owner email is auto-promoted to admin.
@@ -189,25 +219,45 @@ export async function createEmailUser(params: {
   const openId = `email_${crypto.randomUUID()}`;
   const isOwner = params.emailLower === (ENV.ownerEmail ?? "").toLowerCase();
 
-  // Check if this signup is via a vendor invite token
+  // An approved vendor's saved contact email is the vendor's self-service
+  // credential. This enables every properly configured approved supplier to
+  // create a password without revealing a line ID or requiring a separate
+  // invitation. Owner credentials always remain administrator credentials.
   let role: "admin" | "user" | "distributor" = isOwner ? "admin" : "user";
   let distributorId: number | null = null;
 
+  if (!isOwner) {
+    const approvedLineId = await approvedVendorLineIdForEmail(db, params.emailLower);
+    if (approvedLineId != null) {
+      role = "distributor";
+      distributorId = approvedLineId;
+    }
+  }
+
+  // Invitation links remain supported for an approved supplier contact. Prefer
+  // the source-key line mapping; legacy name matching only remains as a fallback
+  // for already-issued links that predate source keys.
   if (params.inviteToken) {
     const [vendorLine] = await db
       .select()
       .from(vendorLines)
-      .where(eq(vendorLines.inviteToken, params.inviteToken))
+      .where(and(eq(vendorLines.inviteToken, params.inviteToken), eq(vendorLines.isApproved, true)))
       .limit(1);
-    if (vendorLine) {
+    if (vendorLine && !isOwner) {
+      const distributorRows = await db
+        .select({ id: distributors.id, code: distributors.code, name: distributors.name, isActive: distributors.isActive })
+        .from(distributors);
+      const sourceMatched = distributorRows.filter((dist) =>
+        dist.isActive && approvedVendorMatchesDistributor(vendorLine, dist)
+      );
+      const legacyNameMatched = sourceMatched.length === 0
+        ? distributorRows.filter((dist) => dist.isActive && dist.name === vendorLine.name)
+        : [];
+      const matched = sourceMatched.length === 1 ? sourceMatched[0] : legacyNameMatched.length === 1 ? legacyNameMatched[0] : null;
+      if (matched) {
       role = "distributor";
-      // Try to find the matching distributor by name
-      const [dist] = await db
-        .select()
-        .from(distributors)
-        .where(eq(distributors.name, vendorLine.name))
-        .limit(1);
-      if (dist) distributorId = dist.id;
+        distributorId = matched.id;
+      }
     }
   }
 
@@ -226,6 +276,28 @@ export async function createEmailUser(params: {
 
   const created = await getUserByEmailLower(params.emailLower);
   return created ? { id: created.id, openId: created.openId } : null;
+}
+
+/**
+ * Applies newly configured approved-vendor access to an existing ordinary
+ * password account at successful sign-in. Administrative and affiliate roles
+ * are never altered here, and an unresolved/ambiguous vendor contact changes
+ * nothing.
+ */
+export async function synchronizeApprovedVendorLogin<T extends { id: number; role: string; distributorId: number | null }>(
+  user: T,
+  emailLower: string
+): Promise<T> {
+  if (user.role !== "user" && user.role !== "distributor") return user;
+  const db = await getDb();
+  if (!db) return user;
+  const distributorId = await approvedVendorLineIdForEmail(db, emailLower);
+  if (distributorId == null) return user;
+
+  if (user.role !== "distributor" || user.distributorId !== distributorId) {
+    await db.update(users).set({ role: "distributor", distributorId }).where(eq(users.id, user.id));
+  }
+  return { ...user, role: "distributor", distributorId };
 }
 
 export async function recordLoginResult(

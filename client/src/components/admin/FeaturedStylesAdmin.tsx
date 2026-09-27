@@ -2,7 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import {
   Star, Search, GripVertical, ArrowUp, ArrowDown, X,
   AlertTriangle, CheckCircle2, Pencil, RotateCcw, Upload, Loader2, ImageIcon, EyeOff, Eye,
-  Trash2, Plus, Package, Building2, DollarSign, MapPin,
+	  Trash2, Plus, Package, Building2, DollarSign, MapPin, Ruler, ClipboardCheck,
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -980,6 +980,81 @@ function CreateDialog({ open, onClose, onCreated, distributorOptions }: CreateDi
   );
 }
 
+type PendingMeasurement = {
+  id: number;
+  vendorLineName: string;
+  vendorStyleCode: string;
+  vendorStyleName: string;
+  appliesToStyleIds: number[];
+  measuredBy: string;
+  measuredOn: string;
+  citation: string;
+  measurementData: Record<string, unknown>;
+  submittedAt: Date;
+};
+
+function DoorMeasurementReviewQueue() {
+  const utils = trpc.useUtils();
+  const { data, isLoading } = trpc.distributorPortal.listDoorMeasurementSubmissions.useQuery({ status: "pending", limit: 100 });
+  const [target, setTarget] = useState<PendingMeasurement | null>(null);
+  const [rail, setRail] = useState("");
+  const [stile, setStile] = useState("");
+  const [centerRail, setCenterRail] = useState("");
+  const [physicalSampleMeasured, setPhysicalSampleMeasured] = useState(false);
+  const [reviewNote, setReviewNote] = useState("");
+  const review = trpc.distributorPortal.reviewDoorMeasurementSubmission.useMutation({
+    onSuccess: (result) => {
+      utils.distributorPortal.listDoorMeasurementSubmissions.invalidate();
+      utils.doorStyles.listForAdmin.invalidate();
+      toast.success(result.approved ? "Designer profile approved from the physical sample." : "Vendor measurement submission rejected.");
+      setTarget(null);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const openReview = (submission: PendingMeasurement) => {
+    setTarget(submission);
+    setRail(""); setStile(""); setCenterRail(""); setPhysicalSampleMeasured(false); setReviewNote("");
+  };
+  const measured = target?.measurementData ?? {};
+  const applicantValue = (key: string) => {
+    const value = measured[key];
+    return value == null || value === "" ? "—" : String(value);
+  };
+  const approve = (approved: boolean) => {
+    if (!target) return;
+    const asNumber = (value: string) => value.trim() ? Number(value) : null;
+    review.mutate({
+      id: target.id,
+      approve: approved,
+      physicalSampleMeasured,
+      railWidth: approved ? asNumber(rail) : undefined,
+      stileWidth: approved ? asNumber(stile) : undefined,
+      centerRailWidth: approved ? asNumber(centerRail) : undefined,
+      reviewNote: reviewNote.trim() || undefined,
+    });
+  };
+  if (isLoading || !data?.length) return null;
+  const pending = data as PendingMeasurement[];
+  return <>
+    <section data-testid="door-measurement-review-queue" className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div><h2 className="flex items-center gap-2 font-semibold text-amber-950"><Ruler className="h-4 w-4" />Physical sample-door measurement review</h2><p className="mt-1 max-w-3xl text-sm text-amber-900/80">Vendor submissions are official first-party source records. They remain pending until CabinetDealz measures the delivered sample once. Approval writes the team-measured frame profile and citation into every style the vendor checked as the same profile.</p></div>
+        <Badge className="w-fit border-amber-300 bg-background text-amber-900" variant="outline">{pending.length} pending</Badge>
+      </div>
+      <div className="mt-3 space-y-2">
+        {pending.map((submission) => <div key={submission.id} className="flex flex-col gap-2 rounded-lg border border-amber-100 bg-background p-3 sm:flex-row sm:items-center sm:justify-between"><div className="min-w-0"><p className="font-medium">{submission.vendorLineName} · {submission.vendorStyleName} <span className="font-mono text-sm">{submission.vendorStyleCode}</span></p><p className="text-xs text-muted-foreground">Measured by {submission.measuredBy} on {submission.measuredOn} · applies to {submission.appliesToStyleIds.length} checked style{submission.appliesToStyleIds.length === 1 ? "" : "s"}</p><p className="mt-1 truncate text-xs text-muted-foreground" title={submission.citation}>{submission.citation}</p></div><Button size="sm" variant="outline" onClick={() => openReview(submission)}><ClipboardCheck className="mr-1.5 h-3.5 w-3.5" />Review physical sample</Button></div>)}
+      </div>
+    </section>
+    <Dialog open={Boolean(target)} onOpenChange={(open) => { if (!open) setTarget(null); }}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><ClipboardCheck className="h-5 w-5 text-amber-600" />Confirm physical sample measurements</DialogTitle></DialogHeader>
+        {target && <div className="space-y-4"><div className="rounded-lg border border-muted bg-muted/30 p-3 text-sm"><p className="font-semibold">Vendor source: {target.vendorLineName} · {target.vendorStyleName} · {target.vendorStyleCode}</p><p className="mt-1 text-muted-foreground">Vendor-entered values: top rail {applicantValue("topRailWidth")}″ · bottom rail {applicantValue("bottomRailWidth")}″ · left stile {applicantValue("leftStileWidth")}″ · right stile {applicantValue("rightStileWidth")}″.</p><p className="mt-1 text-muted-foreground">Approval will update {target.appliesToStyleIds.length} checked Designer profile{target.appliesToStyleIds.length === 1 ? "" : "s"}.</p></div><label className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm"><input type="checkbox" checked={physicalSampleMeasured} onChange={(event) => setPhysicalSampleMeasured(event.target.checked)} /><span><strong>CabinetDealz measured the physical sample door.</strong><br /><span className="text-muted-foreground">Required before these values may render in Designer.</span></span></label><div className="grid gap-3 sm:grid-cols-3"><div className="space-y-1"><Label>Team-measured rail (in)</Label><Input type="number" step="0.0625" min="0.01" value={rail} onChange={(event) => setRail(event.target.value)} /></div><div className="space-y-1"><Label>Team-measured stile (in)</Label><Input type="number" step="0.0625" min="0.01" value={stile} onChange={(event) => setStile(event.target.value)} /></div><div className="space-y-1"><Label>Center rail (in)</Label><Input type="number" step="0.0625" min="0.01" value={centerRail} onChange={(event) => setCenterRail(event.target.value)} /></div></div><div className="space-y-1"><Label>Review note (optional)</Label><Input value={reviewNote} onChange={(event) => setReviewNote(event.target.value)} placeholder="e.g. matches the delivered sample" /></div></div>}
+        <DialogFooter><Button variant="outline" onClick={() => setTarget(null)} disabled={review.isPending}>Cancel</Button><Button variant="destructive" onClick={() => approve(false)} disabled={review.isPending}>Reject</Button><Button className="bg-emerald-700 text-white hover:bg-emerald-800" onClick={() => approve(true)} disabled={review.isPending || !physicalSampleMeasured || !rail || !stile}>{review.isPending ? "Saving…" : "Approve for Designer"}</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function FeaturedStylesAdmin() {
@@ -1203,9 +1278,11 @@ export default function FeaturedStylesAdmin() {
             {featured.length} featured Door Styles
           </Badge>
         </div>
-      </div>
+	      </div>
 
-      {/* Featured list */}
+	      <DoorMeasurementReviewQueue />
+
+	      {/* Featured list */}
       <div>
         <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">
           Featured Door Styles ({featured.length})

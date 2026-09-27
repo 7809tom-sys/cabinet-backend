@@ -13,6 +13,14 @@ describe("completeDoorFrameMetrics", () => {
     });
   });
 
+  it("accepts an approved measured-from-sample-door citation as a source-bound Designer profile", () => {
+    expect(completeDoorFrameMetrics({
+      railWidth: 2.25,
+      stileWidth: 2.5,
+      sourceSpecification: "Measured from sample door: Kitchen Crest KC-101, measured by A. Vendor on 2026-09-27.",
+    })).toEqual({ railWidth: 2.25, stileWidth: 2.5 });
+  });
+
   it("uses neutral fallback for a partial, unbound, or missing frame record", () => {
     expect(completeDoorFrameMetrics({ railWidth: "2.00", stileWidth: null, sourceSpecification: "Official catalog" })).toBeNull();
     expect(completeDoorFrameMetrics({ railWidth: 0, stileWidth: 2, sourceSpecification: "Official catalog" })).toBeNull();

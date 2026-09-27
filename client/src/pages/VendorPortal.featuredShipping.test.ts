@@ -113,6 +113,14 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("mobile");
   });
 
+  it("lets an approved vendor create a supplier portal password without a separate invite", () => {
+    const login = source.slice(source.indexOf("function VendorLoginForm"), source.indexOf("// ─── Main Vendor Portal Component"));
+    expect(login).toContain("New approved vendor? Create your password");
+    expect(login).toContain("same contact email saved on your approved vendor record");
+    expect(login).toContain("Registration works only with the contact email on an approved vendor record");
+    expect(login).toContain("linked automatically to that supplier’s own portal");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');
