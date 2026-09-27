@@ -62,6 +62,7 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(otherProducts).toContain("Import spreadsheet");
 	    expect(otherProducts).toContain("Nothing was deleted.");
 	    expect(otherProducts).toContain("GENERIC_SUPPLIER_PRODUCT_IMAGE");
+	    expect(otherProducts).toContain("Generic placeholder");
 	    expect(otherProducts).toContain("trpc.distributorPortal.importVendorProducts.useMutation");
 	    expect(otherProducts).toContain("source description, source price, and package dimensions/weight");
 	  });
