@@ -17,6 +17,16 @@ describe("Email Settings administration UX", () => {
     expect(source).toContain("Save your email-setting changes before sending a test message.");
   });
 
+  it("preserves in-progress SMTP entries through a background refetch and offers a Hostinger preset", () => {
+    expect(source).toContain("const savedSettingsKeyRef = useRef<string | null>(null)");
+    expect(source).toContain("const previousSavedKey = savedSettingsKeyRef.current");
+    expect(source).toContain("previousSavedKey !== savedKey");
+    expect(source).toContain('const HOSTINGER_SMTP_HOST = "smtp.hostinger.com"');
+    expect(source).toContain('const HOSTINGER_SMTP_PORT = "465"');
+    expect(source).toContain("Use Hostinger preset");
+    expect(source).toContain("Test unavailable until the saved settings include");
+  });
+
   it("does not claim that database persistence itself is the security feature", () => {
     expect(source).toContain("Saved passwords are never returned to this page.");
     expect(source).not.toContain("Credentials are stored securely in the database; you never need to touch environment variables.");

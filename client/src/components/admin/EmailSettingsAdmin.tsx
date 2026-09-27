@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Spinner } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Mail, ShieldCheck, Send, KeyRound, CheckCircle2, XCircle } from "lucide-react";
+import { Mail, ShieldCheck, Send, KeyRound, CheckCircle2, XCircle, Wand2 } from "lucide-react";
 
 interface Form {
   smtpHost: string;
@@ -19,23 +19,54 @@ interface Form {
   enabled: boolean;
 }
 
+const HOSTINGER_SMTP_HOST = "smtp.hostinger.com";
+const HOSTINGER_SMTP_PORT = "465";
+
 export default function EmailSettingsAdmin() {
   const utils = trpc.useUtils();
   const { data, isLoading } = trpc.emailSettings.getEmailSettings.useQuery();
   const [form, setForm] = useState<Form | null>(null);
   const [testEmail, setTestEmail] = useState("");
   const [testing, setTesting] = useState(false);
+  const savedSettingsKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (data) {
-      setForm({
+      const next: Form = {
         smtpHost: data.smtpHost ?? "",
         smtpPort: String(data.smtpPort ?? 465),
         smtpUser: data.smtpUser ?? "",
         smtpPass: "", // never prefill password
         smtpFrom: data.smtpFrom ?? "",
         enabled: data.enabled ?? false,
+      };
+      const savedKey = [
+        next.smtpHost,
+        next.smtpPort,
+        next.smtpUser,
+        next.smtpFrom,
+        String(next.enabled),
+        String(data.hasPassword ?? false),
+      ].join("\u0001");
+      const previousSavedKey = savedSettingsKeyRef.current;
+
+      setForm((current) => {
+        // React Query may refetch while someone is completing the form. Keep
+        // their local values unless they still match the last saved record or
+        // this is the first load / a successful save returned new settings.
+        const matchesSaved = current &&
+          current.smtpHost.trim() === next.smtpHost.trim() &&
+          current.smtpPort === next.smtpPort &&
+          current.smtpUser.trim() === next.smtpUser.trim() &&
+          current.smtpFrom.trim() === next.smtpFrom.trim() &&
+          current.enabled === next.enabled &&
+          !current.smtpPass.trim();
+        if (!current || matchesSaved || previousSavedKey !== savedKey) {
+          return next;
+        }
+        return current;
       });
+      savedSettingsKeyRef.current = savedKey;
       if (!testEmail && data.smtpUser) setTestEmail(data.smtpUser);
     }
   }, [data]);
@@ -66,6 +97,11 @@ export default function EmailSettingsAdmin() {
 
   const hasPassword = data?.hasPassword ?? false;
   const isConfigured = !!(data?.smtpHost && data?.smtpUser && hasPassword);
+  const missingSavedSettings = [
+    !data?.smtpHost ? "SMTP host" : null,
+    !data?.smtpUser ? "SMTP username" : null,
+    !hasPassword ? "SMTP password" : null,
+  ].filter((value): value is string => Boolean(value));
   const hasUnsavedChanges = Boolean(
     data && (
       form.smtpHost.trim() !== (data.smtpHost ?? "").trim()
@@ -90,6 +126,15 @@ export default function EmailSettingsAdmin() {
     });
   }
 
+  function applyHostingerPreset() {
+    if (!form) return;
+    set({
+      smtpHost: HOSTINGER_SMTP_HOST,
+      smtpPort: HOSTINGER_SMTP_PORT,
+      smtpFrom: form.smtpFrom.trim() || form.smtpUser.trim(),
+    });
+  }
+
   return (
     <div className="space-y-6">
       {/* Status banner */}
@@ -111,7 +156,7 @@ export default function EmailSettingsAdmin() {
             </Badge>
           </div>
           <CardDescription>
-            Configure your Titan (or other SMTP) sending account for outbound order confirmations,
+            Configure your Hostinger (or other SMTP) sending account for outbound order confirmations,
             quote replies, and manual-render notifications. Saved passwords are never returned to this page.
           </CardDescription>
         </CardHeader>
@@ -133,6 +178,15 @@ export default function EmailSettingsAdmin() {
           </div>
 
           {/* SMTP fields */}
+          <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/60 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-amber-950">Using an existing Hostinger mailbox?</p>
+              <p className="text-xs text-amber-900/80">Use the preset to fill `smtp.hostinger.com` and port 465. Then enter the mailbox’s full email address and password, save, and test.</p>
+            </div>
+            <Button type="button" variant="outline" className="shrink-0 gap-1 border-amber-300 bg-white" onClick={applyHostingerPreset}>
+              <Wand2 className="h-4 w-4" /> Use Hostinger preset
+            </Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>SMTP Host</Label>
@@ -229,7 +283,7 @@ export default function EmailSettingsAdmin() {
           {!isConfigured && (
             <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
               <XCircle className="h-3.5 w-3.5" />
-              Configure and save SMTP credentials above before testing.
+              Test unavailable until the saved settings include {missingSavedSettings.join(", ") || "SMTP credentials"}. Use the Hostinger preset above, then Save Settings before testing.
             </p>
           )}
           {isConfigured && hasUnsavedChanges && (
