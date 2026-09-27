@@ -44,7 +44,6 @@ const StorefrontPreview = lazy(() => import("@/pages/StorefrontPreview"));
 const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const ContractorDashboard = lazy(() => import("@/pages/ContractorDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
-const DistributorPortal = lazy(() => import("@/pages/DistributorPortal"));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const FixturePhotoToCart = lazy(() => import("@/pages/FixturePhotoToCart"));
@@ -181,6 +180,19 @@ function DesignerRoute() {
       <div className="flex-1 min-h-0 overflow-hidden">{designer}</div>
     </div>
   );
+}
+
+/**
+ * Preserve the historic supplier URL while using the unified Vendor Portal.
+ * The existing Vendor Portal continues to enforce administrator-only `?as=`
+ * previews; supplier accounts remain scoped to their own linked supply line.
+ */
+function DistributorPortalRedirect() {
+  useEffect(() => {
+    window.location.replace("/vendor?as=210001");
+  }, []);
+
+  return <PageLoader />;
 }
 
 export default function App() {
@@ -516,11 +528,7 @@ export default function App() {
         </Route>
 
         <Route path="/distributor">
-          <AppLayout>
-            <Suspense fallback={<PageLoader />}>
-              <DistributorPortal />
-            </Suspense>
-          </AppLayout>
+          <DistributorPortalRedirect />
         </Route>
 
         <Route path="/vendor">

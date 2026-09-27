@@ -23,6 +23,14 @@ describe("public navigation and update notification", () => {
     expect(appSource).toContain('<Route path="/become-a-vendor">');
   });
 
+  it("redirects the legacy distributor address to the selected unified supplier portal", () => {
+    expect(appSource).toContain("function DistributorPortalRedirect()");
+    expect(appSource).toContain('window.location.replace("/vendor?as=210001")');
+    expect(appSource).toContain('<Route path="/distributor">');
+    expect(appSource).toContain("<DistributorPortalRedirect />");
+    expect(appSource).toContain("Vendor Portal continues to enforce administrator-only `?as=`");
+  });
+
   it("uses the compact navigation before the header can overflow at standard desktop widths", () => {
     expect(topNavSource).toContain('className="hidden xl:flex items-center gap-0"');
     expect(topNavSource).toContain('className="xl:hidden"');
