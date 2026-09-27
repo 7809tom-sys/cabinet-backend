@@ -37,13 +37,14 @@ describe("customer manual AI render handoff", () => {
 });
 
 describe("embedded 3D workspace viewport", () => {
-  it("keeps the selected-cabinet dock compact until the user requests details", () => {
+  it("opens the selected-cabinet dock with full details until the user collapses it", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain("selectedCabinetInspectorExpanded");
     expect(source).toContain('data-testid="three-d-cabinet-attributes-compact"');
     expect(source).toContain('data-testid="three-d-expand-cabinet-attributes"');
     expect(source).toContain('data-testid="three-d-collapse-cabinet-attributes"');
-    expect(source).toContain("embedded && !selectedCabinetInspectorExpanded ? \"flex min-w-0 items-center gap-2 pr-7\" : \"hidden\"");
+    expect(source).toContain("const [selectedCabinetInspectorExpanded, setSelectedCabinetInspectorExpanded] = useState(true);");
+    expect(source).toContain("setSelectedCabinetInspectorExpanded(true);");
   });
 });
 

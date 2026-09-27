@@ -1888,6 +1888,33 @@ describe("countertopSurfaces", () => {
     expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
   });
 
+  it("keeps a Lazy Susan top inside both cabinet-supported legs on a continuous-wall room", () => {
+    const drawnRoom: RoomData = {
+      ...ROOM_12x10,
+      vertices: [
+        { id: "nw", x: 0, y: 0 }, { id: "ne", x: 144, y: 0 },
+        { id: "se", x: 144, y: 120 }, { id: "sw", x: 0, y: 120 },
+      ],
+      customWalls: [
+        { id: "drawn-top", startVertexId: "nw", endVertexId: "ne" },
+        { id: "drawn-right", startVertexId: "ne", endVertexId: "se" },
+        { id: "drawn-bottom", startVertexId: "se", endVertexId: "sw" },
+        { id: "drawn-left", startVertexId: "sw", endVertexId: "nw" },
+      ],
+    };
+    const corner = cab({
+      uid: "drawn-lsb36", masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+      placement: "base", width: 36, depth: 36, x: 0, y: 0, rotation: 0,
+      cornerType: "lazy-susan", wallId: "drawn-top", wallOffset: 0,
+    });
+    const [surface] = countertopSurfaces([corner], drawnRoom);
+    const outline = countertopSurfacePlanPolygon(surface!);
+    expect(outline).toEqual(lCornerCountertopWorldPolygon(corner));
+    expect(outline).toHaveLength(6);
+    expect(outline.every((point) => point.x >= 0 && point.y >= 0 && point.x <= 36 && point.y <= 36)).toBe(true);
+    expect(countertopPolygonSelfIntersects(outline)).toBe(false);
+  });
+
   it.each([
     [0, [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 }, { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 }]],
     [90, [{ x: 36, y: 0 }, { x: 36, y: 36 }, { x: 10.5, y: 36 }, { x: 10.5, y: 25.5 }, { x: 0, y: 25.5 }, { x: 0, y: 0 }]],

@@ -7745,9 +7745,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  const [catalogDragMeasurement, setCatalogDragMeasurement] = useState<{ item: InteractiveRoomCatalogItem; fit: WallGapFitPreview; wall: WallSide; freehand?: boolean } | null>(null);
   const [cabinetDragMeasurement, setCabinetDragMeasurement] = useState<{ cabinet: PlacedCabinet; preview: CabinetWallDragPreview } | null>(null);
   const [selectedCabinet, setSelectedCabinet] = useState<{ uid: string | null; masterCode: string; description: string | null; distributorSkuId: number | null } | null>(null);
-  // The embedded Designer reserves the lower viewport for the room. Keep the
-  // selection summary available, but do not let its full editor steal the scene.
-  const [selectedCabinetInspectorExpanded, setSelectedCabinetInspectorExpanded] = useState(false);
+  // Show the selected cabinet's dimensions, placement and actions by default.
+  // The owner can still collapse this dock when more 3D canvas is needed.
+  const [selectedCabinetInspectorExpanded, setSelectedCabinetInspectorExpanded] = useState(true);
   const [movePanelOpen, setMovePanelOpen] = useState(false);
   useEffect(() => {
     const hostSelection = threeDSelectionFromPlaced(selectedCabinetUid, placed);
@@ -7759,7 +7759,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
   useEffect(() => {
-    setSelectedCabinetInspectorExpanded(false);
+    setSelectedCabinetInspectorExpanded(true);
   }, [selectedCabinet?.uid]);
   const [moveIncrementText, setMoveIncrementText] = useState("1");
   const moveIncrementIn = normalizedThreeDCabinetMoveIncrement(moveIncrementText);

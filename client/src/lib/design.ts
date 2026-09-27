@@ -10287,6 +10287,22 @@ export function countertopSurfaces(
     // cabinet-supported slab. That avoids seams and maintains coverage over an
     // intentional void between two cabinets.
     if (peninsula) continue;
+    // A Lazy Susan/easy-reach base owns two physical cabinet legs.  A drawn
+    // room's custom-wall branch below is appropriate for a straight run, but
+    // reducing a cardinal corner to that one 25½-inch rectangle fills its
+    // intentional L-notch and can visibly project the top through the adjacent
+    // wall. Preserve the cabinet-supported L contour before selecting a custom
+    // wall run. Diagonal corner catalog families retain their own path below.
+    const cornerGeometry = placedCornerGeometryKind(p);
+    const normalizedRotation = ((Math.round(p.rotation) % 360) + 360) % 360;
+    if (
+      (cornerGeometry === "l-shape" || cornerGeometry === "corner-drawer")
+      && normalizedRotation % 90 === 0
+    ) {
+      const surface = countertopSurfaceFromWorldPolygon(lCornerCountertopWorldPolygon(p));
+      if (surface) out.push(surface);
+      continue;
+    }
     const customWall = room.customWalls?.find((wall) => wall.id === side);
     if (customWall) {
       const runSpan = wallRunSpan(p, side, room);
@@ -10332,7 +10348,7 @@ export function countertopSurfaces(
     // the finished edge extended at both exposed legs. A rectangular top here
     // fills its intentional notch and shifts the side-leg overhang away from
     // the adjoining base run.
-    if (placedCornerGeometryKind(p) === "l-shape" || placedCornerGeometryKind(p) === "corner-drawer") {
+    if (cornerGeometry === "l-shape" || cornerGeometry === "corner-drawer") {
       const surface = countertopSurfaceFromWorldPolygon(lCornerCountertopWorldPolygon(p));
       if (surface) out.push(surface);
       continue;
