@@ -107,6 +107,9 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(profile).toContain("trpc.distributorPortal.uploadSupplierResourcePdf.useMutation");
     expect(profile).toContain("Edit supplier profile");
     expect(profile).toContain("Supply-line identity, approval, and pricing stay protected.");
+    expect(profile).toContain("disabled={save.isPending || upload.isPending}");
+    expect(source).toContain("Edit Supplier Profile");
+    expect(source).toContain("Keep your supplier profile current for Cabinet Dealz.");
     expect(profile).toContain('accept="application/pdf"');
     expect(profile).toContain("PDF files must be between 1 byte and 12 MB.");
   });

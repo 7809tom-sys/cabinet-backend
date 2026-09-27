@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -422,7 +422,7 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
 	                ? "View the approved supplier contact record, catalog, specification book, and portal account details for this supply line."
 	                : "The approved supplier record has not been linked to this supply line yet. An administrator can link it from Approved Vendors."}
 	            </p>
-	            <Button variant="outline" onClick={() => onNavigate("supplier-profile")}><FileText className="mr-2 h-4 w-4" />View Supplier Profile</Button>
+	            <Button variant="outline" onClick={() => onNavigate("supplier-profile")}><Pencil className="mr-2 h-4 w-4" />Edit Supplier Profile</Button>
 	          </CardContent>
 	        </Card>
 	      </div>
@@ -615,7 +615,7 @@ function SupplierProfileEditor({
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button
-            disabled={save.isPending || upload.isPending || !form.contactEmail.trim()}
+            disabled={save.isPending || upload.isPending}
             onClick={() => save.mutate(withScope(form))}
           >
             {save.isPending ? "Saving…" : "Save supplier profile"}
@@ -693,9 +693,8 @@ function SupplierProfilePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">Supplier Profile &amp; Resources</h2>
-          <p className="text-muted-foreground">This portal is the authenticated view of the approved supplier record for your supply line.</p>
+          <p className="text-muted-foreground">View and update your approved supplier contact, resource, and profile details.</p>
         </div>
-        {approvedVendor && <SupplierProfileEditor vendor={approvedVendor} adminDistributorId={adminDistId} adminApprovedVendorLineId={adminApprovedVendorLineId} />}
       </div>
 
       <Card>
@@ -710,10 +709,14 @@ function SupplierProfilePage() {
       </Card>
 
       <>
-          <Card>
-            <CardHeader>
-              <CardTitle>{approvedVendor.name}</CardTitle>
-            </CardHeader>
+	          <Card>
+	            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
+	              <div>
+	                <CardTitle>{approvedVendor.name}</CardTitle>
+	                <CardDescription className="mt-1">Keep your supplier profile current for Cabinet Dealz.</CardDescription>
+	              </div>
+	              <SupplierProfileEditor vendor={approvedVendor} adminDistributorId={adminDistId} adminApprovedVendorLineId={adminApprovedVendorLineId} />
+	            </CardHeader>
             <CardContent className="grid gap-4 text-sm md:grid-cols-2 lg:grid-cols-3">
               <div><p className="text-muted-foreground">Category</p><p className="font-medium">{approvedVendor.category || "—"}</p></div>
               <div><p className="text-muted-foreground">Contact</p><p className="font-medium">{approvedVendor.contactName || "—"}</p></div>
