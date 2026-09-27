@@ -1881,7 +1881,7 @@
 - [x] Render selected light-rail molding visibly beneath wall cabinets while preserving existing molding quantities and cart behavior
 - [x] Add a Vendor-page demand forecast based only on saved plans, showing projected styles, SKUs, quantities, and recent pipeline timing without using submitted orders
 - [x] Keep the Vendor Portal overview usable when vendor line data is still loading or unavailable so the forecast page remains reachable
-- [ ] Investigate affiliate storefront DNS and public routing availability, then repair any verified issue without publishing the pending Vendor forecast
+- [x] Investigate affiliate storefront DNS and public routing availability, then repair any verified issue without publishing the pending Vendor forecast. Cache-busted public checks on 2026-09-27 confirmed `reaves-way-cabinet-shop.cabinetdealz.com` resolves, returns the branded `/store/reaves-way-cabinet-shop/` route, and preserves the server/client white-label context. No route-code repair was needed; stale source-string regressions were updated to test the current URL-owned route logic. Arbitrary future subdomains remain unresolved until the separately tracked wildcard DNS record is configured.
 - [ ] Configure a wildcard affiliate hostname for *.cabinetdealz.com so current and future storefront subdomains resolve automatically
 - [x] Test the pending Vendor saved-plan demand forecast against a real saved plan and report matched SKU, style, quantity, and timing results
 - [x] Investigate and repair the newly reported pricing issue once the affected product, cart, package, or forecast value is identified

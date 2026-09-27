@@ -151,4 +151,21 @@ describe("freight admin", () => {
     expect(after?.quoteMode).toBe(base?.quoteMode ?? "estimator");
   });
 
+  it("keeps the dedicated WWEX credential pair intact when the broad shipping form is saved", async () => {
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const base = await readSettings();
+    expect(base).not.toBeNull();
+    const originalClientId = base?.wwexClientId ?? null;
+    const originalSecretPresence = base?.hasWwexClientSecret ?? false;
+
+    await adminCaller.freight.adminUpdateSettings(
+      settingsPayload(base!, { handlingFeeCents: base!.handlingFeeCents + 1 }),
+    );
+    const reloaded = await readSettings();
+    expect(reloaded?.wwexClientId ?? null).toBe(originalClientId);
+    expect(reloaded?.hasWwexClientSecret ?? false).toBe(originalSecretPresence);
+
+    await adminCaller.freight.adminUpdateSettings(settingsPayload(base!));
+  });
+
 });

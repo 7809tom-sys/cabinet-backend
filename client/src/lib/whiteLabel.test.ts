@@ -59,12 +59,13 @@ describe("no platform branding leaks on the affiliate storefront", () => {
 
   it("the affiliate shell (cart/order/design) white-labels the head too", () => {
     const src = read("client/src/App.tsx");
-    expect(src).toMatch(/useWhiteLabelHead\(\{ storeName: data\?\.storeName/);
+    expect(src).toMatch(/useWhiteLabelHead\(\{\s*storeName: data\?\.storeName/);
   });
 
   it("direct affiliate-host cart visits select the affiliate shell before the central layout", () => {
     const src = read("client/src/App.tsx");
-    expect(src).toMatch(/affiliateSlugFromHostname\(window\.location\.hostname\)/);
+    expect(src).toMatch(/affiliateSlugForStoreScope\(resolveStoreScope\(\{/);
+    expect(src).toMatch(/hostname: window\.location\.hostname/);
     expect(src).toMatch(/<AffiliateShell slug=\{slug\}/);
   });
 
