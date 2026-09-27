@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -12,22 +12,71 @@ import { affiliateCabinetDetailHref } from "../client/src/lib/affiliateCabinetDe
 import { PriceCard } from "../client/src/pages/CabinetDetail";
 
 describe("affiliate owner private pricing", () => {
+  let createdOwnerId: number | null = null;
+  let restoredAffiliateId: number | null = null;
+  let previousAffiliateUserId: number | null = null;
+
+  afterEach(async () => {
+    if (!createdOwnerId || !restoredAffiliateId) return;
+    const db = await getDb();
+    if (!db) return;
+    await db
+      .update(affiliates)
+      .set({ userId: previousAffiliateUserId })
+      .where(eq(affiliates.id, restoredAffiliateId));
+    await db.delete(users).where(eq(users.id, createdOwnerId));
+    createdOwnerId = null;
+    restoredAffiliateId = null;
+    previousAffiliateUserId = null;
+  });
+
   it("uses the exact affiliate catalog-card record and authorizes its private cost only for the matching owner", async () => {
     const db = await getDb();
     expect(db).toBeTruthy();
 
     const [affiliate] = await db!
-      .select({ id: affiliates.id, email: affiliates.email, slug: affiliates.slug })
+      .select({ id: affiliates.id, email: affiliates.email, slug: affiliates.slug, userId: affiliates.userId })
       .from(affiliates)
       .where(eq(affiliates.slug, "reaves-way-cabinet-shop"))
       .limit(1);
     expect(affiliate).toBeTruthy();
 
-    const [owner] = await db!
+    let [owner] = await db!
       .select({ id: users.id, email: users.email, role: users.role })
       .from(users)
-      .where(eq(users.email, affiliate!.email))
+      .where(affiliate!.userId ? eq(users.id, affiliate!.userId) : eq(users.email, affiliate!.email))
       .limit(1);
+
+    // The public affiliate record may legitimately exist before its real owner
+    // has completed password or OAuth onboarding. Create a temporary linked
+    // owner only for this verification, then restore the production record in
+    // afterEach. This exercises the exact runtime owner rule without inventing
+    // a real customer credential or making the test depend on seed users.
+    if (!owner) {
+      const suffix = `${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+      const fixtureEmail = `affiliate-owner-${affiliate!.id}-${suffix}@example.test`;
+      const inserted = await db!.insert(users).values({
+        openId: `affiliate_owner_${suffix}`,
+        name: "Affiliate owner verification fixture",
+        email: fixtureEmail,
+        emailLower: fixtureEmail,
+        role: "partner",
+        loginMethod: "test",
+      });
+      createdOwnerId = Number((inserted as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
+      expect(createdOwnerId).toBeGreaterThan(0);
+      restoredAffiliateId = affiliate!.id;
+      previousAffiliateUserId = affiliate!.userId ?? null;
+      await db!
+        .update(affiliates)
+        .set({ userId: createdOwnerId })
+        .where(eq(affiliates.id, affiliate!.id));
+      [owner] = await db!
+        .select({ id: users.id, email: users.email, role: users.role })
+        .from(users)
+        .where(eq(users.id, createdOwnerId))
+        .limit(1);
+    }
     expect(owner).toBeTruthy();
 
     const access = await resolveAffiliateAccess(db!, owner!);

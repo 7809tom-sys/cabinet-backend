@@ -130,11 +130,11 @@
 - [x] Add private-pricing role and storefront-isolation regression coverage
 - [x] Make the image and product-information area of every affiliate catalog cabinet card open its cabinet detail page
 - [x] Preserve separate quantity and Add to Cart controls on affiliate mobile catalog cards
-- [ ] Verify affiliate card-to-detail navigation reaches the private cost panel for an authorized owner
+- [x] Verify affiliate card-to-detail navigation reaches the private cost panel for an authorized owner
 - [x] Keep affiliate cabinet-detail breadcrumbs, related cabinet links, and designer launch links inside the affiliate storefront
 - [x] Add affiliate detail-page navigation isolation regression coverage
 - [x] Normalize dashed affiliate catalog SKUs so every cabinet card opens its matching master detail record
-- [ ] Verify dashed SKU affiliate detail links reach the authorized private cost view without a not-found result
+- [x] Verify dashed SKU affiliate detail links reach the authorized private cost view without a not-found result
 - [x] Make every placed cabinet elevation use the active selected door-style sample color consistently
 - [x] Prevent per-cabinet fallback colors from overriding the selected style sample finish
 - [x] Add mixed-cabinet elevation regression coverage for selected-style color consistency
@@ -151,7 +151,7 @@
 - [x] Remove Cabinet Dealz browser title, social metadata, and document branding from affiliate subdomains
 - [x] Add regression coverage for affiliate-specific document metadata and white-label sharing tags
 - [x] Add a routed duplicate-SKU CabinetDetail regression that renders the role-specific cost, Sells At, and Margin panel
-- [ ] Verify an authenticated affiliate owner reaches the branded-storefront Affiliate Cost panel rather than the Administration My Cost panel
+- [x] Verify an authenticated affiliate owner reaches the branded-storefront Affiliate Cost panel rather than the Administration My Cost panel
 - [x] Restore affiliate subdomain routing behind the deployment proxy and verify the branded store loads from the original host
 - [x] Add forwarded-host regression coverage for affiliate subdomain routing
 - [x] Inspect FSB-36 farm sink base Cabinet Config and elevation classification against its intended farmhouse-sink design
@@ -2815,3 +2815,4 @@
 - [x] Process the owner-provided **KitchenCrest 2020 20/20 design-file archive** (`KITCR_21`, October 2020, Imperial) into a source-traceable historical standards package: source inventory, standards master, base/wall/tall/configuration evidence analyses, and concise processing summary. Extracted only direct historical evidence: named wall-height classes (15/18/24/30/36/42/48/54/60), documented tall utility 84/90/96 × 24- and 12-inch-deep series, historical pantry/oven/vanity height tiers, source-labelled family vocabulary, exact code/label configuration facts, and exact documented mirror pairs. The analysis explicitly prohibits dimension/geometry derivation from code digits, universal 34.5 base-height adoption, generated SKUs, global suffix/hand rules, current commercial/image/availability changes, and Designer behavioral changes from the historical archive. A read-only distributor audit found no current KitchenCrest source line, so no live catalog or Designer data was altered. Fresh TypeScript and diff-integrity checks passed. (2026-09-27)
 - [x] Restore the legacy affiliate catalog-root route (`/store/<affiliate>/catalog`) to the selected affiliate’s branded storefront rather than allowing it to fall through to the platform shell/404. The root catalog route now preserves affiliate branding, cart scope, source-locked cabinet lines, referral state, and cabinet-detail navigation; cabinet detail remains on its dedicated `/store/<affiliate>/catalog/<masterCode>` route. Validation: 10 focused affiliate route/navigation regressions, fresh TypeScript, production build, diff integrity, local catalog-root/detail HTTP 200, and an observed branded Reaves Way catalog-root browser render. (2026-09-27)
 - [x] Refine the repaired affiliate catalog-root entry so `/store/<affiliate>/catalog` lands at the branded **Choose Your Cabinet Line** shop section after the scoped storefront data is ready, instead of showing the storefront hero above it. Browser verification confirmed the Reaves Way catalog URL opens at the cabinet-line grid with the correct branded navigation and no platform leakage. Validation: 10 focused affiliate route/navigation tests, fresh TypeScript, production build, local route HTTP 200, and diff integrity passed. (2026-09-27)
+- [x] Repair the integration verification for the authenticated Reaves Way affiliate-owner price panel without changing production pricing or authorization. The test now creates a temporary linked owner only when the public affiliate record has not completed real owner onboarding, then restores `affiliates.userId` and deletes the fixture user in `afterEach`. It verifies the exact W-1230 branded-card URL, private **Affiliate Cost / Sells At / Margin** render, hidden raw cost for customers, and the distinct **My Cost** administration render. Validation: 5 focused affiliate pricing/route tests passed; fresh TypeScript and production build passed; fixture cleanup verified (`affiliateUserId: null`, zero test users); local health and branded catalog HTTP 200; diff integrity passed. (2026-09-27)
