@@ -2529,6 +2529,39 @@ describe("wallPlacementAt", () => {
     const p = wallPlacementAt(40, 36, 24, "left", ROOM_12x10);
     expect(p).toMatchObject({ x: 0, y: 40, rotation: 90 });
   });
+
+  it("restores an ERB36 at its complete measured 90-degree corner instead of seating only one leg after refresh", () => {
+    const room: RoomData = {
+      width: 144,
+      depth: 120,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 144, y: 0 },
+        { id: "c", x: 144, y: 120 },
+        { id: "d", x: 0, y: 120 },
+      ],
+      customWalls: [
+        { id: "top", startVertexId: "a", endVertexId: "b" },
+        { id: "right", startVertexId: "b", endVertexId: "c" },
+        { id: "bottom", startVertexId: "c", endVertexId: "d" },
+        { id: "left", startVertexId: "d", endVertexId: "a" },
+      ],
+    };
+    // Pre-fix records owned the top run at its right endpoint. Reseating only
+    // that one run retained a 0° L shape, leaving its right-wall leg outside.
+    const staleErb = cab({
+      uid: "saved-erb36", masterCode: "ERB36", description: "36 inch Easy Reach Corner Base",
+      cornerType: "lazy-susan", placement: "base", width: 36, depth: 36, height: 34.5,
+      x: 108, y: 0, rotation: 0, wallId: "top", wallOffset: 108,
+    });
+
+    const restored = clampCabinetToRoom(staleErb, room);
+
+    // Both legs now use the top/right shared vertex. The saved owner may become
+    // the right run, but the cabinet envelope stays completely inside the walls.
+    expect(restored).toMatchObject({ x: 108, y: 0, rotation: 90, wallId: "right", wallOffset: 0 });
+    expect(placedFootprint(restored)).toEqual({ w: 36, d: 36 });
+  });
 });
 
 describe("rangeOvenClearanceViolations (corner filler rule)", () => {

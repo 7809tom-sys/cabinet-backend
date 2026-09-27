@@ -8140,8 +8140,55 @@ export function continuousWallApplianceSnapInfo(
  * Re-seat stale graph-bound or far-dragged cabinets on the closest real wall,
  * and let wallPlacementAt clamp the cabinet's full width inside that wall run.
  */
+function restoredDrawnWallCornerPlacement(p: PlacedCabinet, room: RoomData) {
+  if (!requiresRoomCornerPlacement(p) || !room.vertices?.length || !room.customWalls?.length || !p.wallId) return null;
+  const ownedWall = room.customWalls.find((wall) => wall.id === p.wallId);
+  if (!ownedWall) return null;
+
+  // A true corner body has two wall-side legs. A normal saved-wall restore used
+  // to re-seat it from its one stored wallId alone, which could leave its second
+  // leg outside the connected room after refresh. Its persisted wall offset
+  // identifies the original endpoint, so recover the *measured vertex* and use
+  // both incident walls for the exact same placement routine used on a new drop.
+  const length = polygonWallSegmentLength(ownedWall, room.vertices);
+  const offset = Math.max(0, Number(p.wallOffset) || 0);
+  const runSpan = Math.max(0, Number(p.width) || 0);
+  const endpointIds = [ownedWall.startVertexId, ownedWall.endVertexId].sort((left, right) => {
+    const leftOffset = left === ownedWall.startVertexId ? 0 : Math.max(0, length - runSpan);
+    const rightOffset = right === ownedWall.startVertexId ? 0 : Math.max(0, length - runSpan);
+    return Math.abs(offset - leftOffset) - Math.abs(offset - rightOffset);
+  });
+
+  for (const vertexId of endpointIds) {
+    const incident = room.customWalls.filter((wall) => (
+      wall.startVertexId === vertexId || wall.endVertexId === vertexId
+    ));
+    for (const adjoining of incident) {
+      if (adjoining.id === ownedWall.id) continue;
+      const primaryAngle = polygonWallAngle(ownedWall, room.vertices);
+      const adjoiningAngle = polygonWallAngle(adjoining, room.vertices);
+      // Only a physical 90-degree join can accept a square room-corner body.
+      if (Math.abs(Math.cos(primaryAngle - adjoiningAngle)) > 1e-6) continue;
+      const spot = customWallTrueCornerPlacement(p, ownedWall, adjoining, vertexId, room);
+      if (spot) return spot;
+    }
+  }
+  return null;
+}
+
 export function containCabinetOnDrawnWalls(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.islandFace || !room.vertices?.length || !room.customWalls?.length) return p;
+  const cornerSpot = restoredDrawnWallCornerPlacement(p, room);
+  if (cornerSpot) {
+    if (
+      p.x === cornerSpot.x
+      && p.y === cornerSpot.y
+      && p.rotation === cornerSpot.rotation
+      && p.wallId === cornerSpot.wallId
+      && p.wallOffset === cornerSpot.wallOffset
+    ) return p;
+    return { ...p, ...cornerSpot, wallId: cornerSpot.wallId, wallOffset: cornerSpot.wallOffset };
+  }
   const footprint = placedFootprint(p);
   const center = { x: p.x + footprint.w / 2, y: p.y + footprint.d / 2 };
   const ownedWall = room.customWalls.find((wall) => wall.id === p.wallId);
