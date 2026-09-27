@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
@@ -55,6 +55,38 @@ const baseScene: InteractiveRoomScene = {
 };
 
 describe("3D fallback appliance run seams", () => {
+  it("shows a 24-inch base/tall or 12-inch wall datum only for a complete supported 45-degree front-miter pair", () => {
+    const supported = (placement: "base" | "wall" | "tall", prefix: string): PlacedCabinet[] => {
+      const owner = {
+        uid: `${prefix}-owner`, cabinetId: 1, masterCode: `${prefix}-owner`, description: "Supporting cabinet", placement,
+        x: 0, y: 0, width: 24, depth: placement === "wall" ? 12 : 24, height: placement === "wall" ? 30 : 34.5, rotation: 0,
+      } as PlacedCabinet;
+      const neighbor = { ...owner, uid: `${prefix}-neighbor`, masterCode: `${prefix}-neighbor`, x: 30 };
+      const filler = (piece: "owner" | "neighbor", ownerUid: string, neighborUid: string): PlacedCabinet => ({
+        ...owner,
+        uid: `${prefix}-filler-${piece}`,
+        masterCode: "BF3",
+        fillerPieceGroupId: `${prefix}-miter`,
+        fillerTransitionKind: "front-miter-pair",
+        fillerTransitionPiece: piece,
+        fillerForCabinetUid: ownerUid,
+        fillerTransitionNeighborUid: neighborUid,
+        fillerIndependentCabinetSupport: true,
+        fillerTransitionPlanFootprint: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0.25, y: 0.75 }],
+      });
+      return [owner, neighbor, filler("owner", owner.uid, neighbor.uid), filler("neighbor", neighbor.uid, owner.uid)];
+    };
+
+    expect(threeDFrontDatumSnapIndicators(supported("base", "base"))).toMatchObject([{ datumIn: 24, placement: "base" }]);
+    expect(threeDFrontDatumSnapIndicators(supported("tall", "tall"))).toMatchObject([{ datumIn: 24, placement: "tall" }]);
+    expect(threeDFrontDatumSnapIndicators(supported("wall", "wall"))).toMatchObject([{ datumIn: 12, placement: "wall" }]);
+    expect(threeDFrontDatumSnapIndicators(supported("base", "partial").slice(0, 3))).toEqual([]);
+
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-45-degree-front-datum-snap"');
+    expect(source).toContain("45° front datum snapped");
+  });
+
   it("keeps a DB18 flush to a 30-inch range instead of using the countertop overhang as run spacing", () => {
     const root = new THREE.Group();
     const cursor: Record<string, number> = {};

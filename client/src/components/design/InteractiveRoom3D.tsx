@@ -7,7 +7,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 import { DenoiseMaterial, WebGLPathTracer } from "three-gpu-pathtracer";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -329,6 +329,55 @@ export function threeDFittedFillerWidthText(cabinet: Pick<PlacedCabinet, "master
   const isAutomaticFit = /\bcut to\b/.test(cabinet.description ?? "");
   if (!isFiller || !isAutomaticFit || !Number.isFinite(cabinet.width) || cabinet.width <= 0) return null;
   return `Filler cut: ${exactFittedFillerInches(cabinet.width)}`;
+}
+
+/** A complete two-piece 45° front miter confirms a physical cabinet-front datum in the 3D planner. */
+export type ThreeDFrontDatumSnap = {
+  groupId: string;
+  datumIn: 12 | 24;
+  placement: "base" | "wall" | "tall";
+  cabinetCodes: [string, string];
+};
+
+/**
+ * Only show a green 3D datum confirmation when the saved design carries both
+ * source-priced front-miter boards and both supporting cabinets. A loose,
+ * legacy wedge or a one-sided filler must never claim an aligned 24″/12″ face.
+ */
+export function threeDFrontDatumSnapIndicators(placed: readonly PlacedCabinet[]): ThreeDFrontDatumSnap[] {
+  const byUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
+  const groups = new Map<string, PlacedCabinet[]>();
+  for (const cabinet of placed) {
+    if (cabinet.fillerTransitionKind !== "front-miter-pair" || !cabinet.fillerPieceGroupId) continue;
+    const members = groups.get(cabinet.fillerPieceGroupId) ?? [];
+    members.push(cabinet);
+    groups.set(cabinet.fillerPieceGroupId, members);
+  }
+
+  return Array.from(groups.entries()).flatMap(([groupId, fillers]): ThreeDFrontDatumSnap[] => {
+    if (fillers.length !== 2) return [];
+    const [first, second] = fillers;
+    if (!first || !second || first.placement !== second.placement) return [];
+    if (first.placement !== "base" && first.placement !== "wall" && first.placement !== "tall") return [];
+    const placement: ThreeDFrontDatumSnap["placement"] = first.placement;
+    const pieces = new Set(fillers.map((filler) => filler.fillerTransitionPiece));
+    if (!pieces.has("owner") || !pieces.has("neighbor")) return [];
+    if (!fillers.every((filler) => filler.fillerIndependentCabinetSupport === true && (filler.fillerTransitionPlanFootprint?.length ?? 0) >= 3)) return [];
+
+    const ownerUid = first.fillerForCabinetUid ?? second.fillerTransitionNeighborUid;
+    const neighborUid = first.fillerTransitionNeighborUid ?? second.fillerForCabinetUid;
+    const owner = ownerUid ? byUid.get(ownerUid) : null;
+    const neighbor = neighborUid ? byUid.get(neighborUid) : null;
+    if (!owner || !neighbor || owner.placement !== placement || neighbor.placement !== placement) return [];
+    const datumIn: ThreeDFrontDatumSnap["datumIn"] = placement === "wall" ? 12 : 24;
+
+    return [{
+      groupId,
+      datumIn,
+      placement,
+      cabinetCodes: [owner.masterCode, neighbor.masterCode] as [string, string],
+    }];
+  }).sort((left, right) => left.groupId.localeCompare(right.groupId));
 }
 
 export type InteractiveRoomPresentation = {
@@ -9539,6 +9588,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const fittedFillerLabels = placed
     .map((cabinet) => ({ uid: cabinet.uid, masterCode: cabinet.masterCode, text: threeDFittedFillerWidthText(cabinet) }))
     .filter((label): label is { uid: string; masterCode: string; text: string } => label.text != null);
+  const frontDatumSnaps = threeDFrontDatumSnapIndicators(placed);
 
   const temporaryPreviewCounterText = threeDTemporaryPreviewCounterText(temporaryPreviewCounter);
 
@@ -9588,6 +9638,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
 		        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} hidden sm:flex`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className="absolute right-3 top-3 z-20 flex items-start gap-1 sm:hidden" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button><div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-52 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur"><button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fittedFillerLabels.length > 0 && <div data-testid="three-d-mobile-fitted-filler-labels" className="mt-1 border-t border-[#ead9b6] px-2.5 pt-2 text-[#634b20]"><p className="font-semibold">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-1 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}</div>}</div></div></>}
 	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
+	        {frontDatumSnaps.length > 0 && <div data-testid="three-d-45-degree-front-datum-snap" role="status" aria-live="polite" className="pointer-events-none absolute bottom-3 left-3 z-20 max-w-[calc(100%-11rem)] rounded-lg border border-emerald-500 bg-emerald-50/95 px-2.5 py-2 text-xs text-emerald-950 shadow-lg backdrop-blur">
+	          <div className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" /><div><p className="font-bold uppercase tracking-wide">45° front datum snapped</p>{frontDatumSnaps.map((snap) => <p key={snap.groupId} className="mt-0.5 font-medium"><span className="font-bold">{snap.datumIn}&quot;</span> {snap.placement === "wall" ? "wall-cabinet" : "base/tall cabinet"} front · {snap.cabinetCodes[0]} ↔ {snap.cabinetCodes[1]}</p>)}</div></div>
+	        </div>}
 	        {materialTransitioning && <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/25 backdrop-blur-[1px]"><span className="inline-flex items-center gap-2 rounded-full bg-background/95 px-3 py-1.5 text-xs font-medium shadow-sm"><LoaderCircle className="h-3.5 w-3.5 animate-spin text-[#a87f33]" />Updating preview</span></div>}
         {renderExistingDesign && rangeHoodStatus.needs2DPlacement && <div data-testid="three-d-range-hood-status" className="absolute left-3 top-3 max-w-[calc(100%-1.5rem)] rounded-lg border border-amber-200 bg-amber-50/95 px-3 py-2 text-xs text-amber-900 shadow-sm backdrop-blur"><span>Add a range hood in the catalog to show it above this saved range.</span>{onAddRangeHood && <button type="button" onClick={onAddRangeHood} className="ml-1 font-semibold underline underline-offset-2">Add now</button>}</div>}
 	        <ThreeDViewerNavigationControls onZoom={zoomViewer} onReset={resetViewerNavigation} onShare={shareCurrentView} onPhotoRender={openPhotoRenderDialog} onPan={panViewer} className="absolute bottom-3 right-3 z-20 hidden sm:flex" />
