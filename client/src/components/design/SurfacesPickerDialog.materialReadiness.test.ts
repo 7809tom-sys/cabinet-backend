@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { matchesCountertopSwatchFilter } from "./SurfacesPickerDialog";
 
 const source = readFileSync(new URL("./SurfacesPickerDialog.tsx", import.meta.url), "utf8");
 
@@ -15,10 +16,25 @@ describe("Surfaces picker 3D material readiness", () => {
   });
 
   it("keeps every active, priced countertop available for selection while reserving exact 3D rendering for approved swatches", () => {
-    expect(source).toContain('if (item.category === "Quartz Slabs (Countertops)") return true;');
+    expect(source).toContain("return matchesCountertopSwatchFilter(item, countertopSwatchFilter);");
     expect(source).toContain('data-testid="countertop-selection-availability"');
     expect(source).toContain("All active, source-priced countertop products are available to select and quote.");
     expect(source).toContain("becomes a texture. Flooring and tile keep the stricter swatch rule.");
+  });
+
+  it("filters countertop selections by exact swatch readiness without hiding either set from the full palette", () => {
+    const swatchReady = { category: "Quartz Slabs (Countertops)", materialImageUrl: "/manus-storage/approved-slab.webp" };
+    const swatchPending = { category: "Quartz Slabs (Countertops)", materialImageUrl: null };
+
+    expect(matchesCountertopSwatchFilter(swatchReady, "all")).toBe(true);
+    expect(matchesCountertopSwatchFilter(swatchPending, "all")).toBe(true);
+    expect(matchesCountertopSwatchFilter(swatchReady, "swatch-ready")).toBe(true);
+    expect(matchesCountertopSwatchFilter(swatchPending, "swatch-ready")).toBe(false);
+    expect(matchesCountertopSwatchFilter(swatchReady, "swatch-pending")).toBe(false);
+    expect(matchesCountertopSwatchFilter(swatchPending, "swatch-pending")).toBe(true);
+    expect(source).toContain('data-testid="countertop-swatch-filter"');
+    expect(source).toContain("3D material swatch ready ({countertopSwatchCounts.ready})");
+    expect(source).toContain("Neutral preview — swatch pending ({countertopSwatchCounts.pending})");
   });
 
   it("resolves saved favorites through the same verified Designer source rather than stale browser data", () => {

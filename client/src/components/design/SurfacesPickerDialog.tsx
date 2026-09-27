@@ -11,6 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { trpc } from "@/lib/trpc";
 import {
   PELICAN_STOREFRONT_CATEGORIES,
@@ -51,6 +58,18 @@ export type SelectedSurface = {
 // are not silently hidden below a legacy first-page cap.
 const PAGE_LIMIT = 200;
 
+export type CountertopSwatchFilter = "all" | "swatch-ready" | "swatch-pending";
+
+/** Keeps the countertop menu source-complete while allowing a quick preview-readiness view. */
+export function matchesCountertopSwatchFilter(
+  item: Pick<SelectedSurface, "category" | "materialImageUrl">,
+  filter: CountertopSwatchFilter,
+): boolean {
+  if (item.category !== "Quartz Slabs (Countertops)" || filter === "all") return true;
+  const swatchReady = Boolean(item.materialImageUrl?.trim());
+  return filter === "swatch-ready" ? swatchReady : !swatchReady;
+}
+
 export function SurfacesPickerDialog({
   open,
   onOpenChange,
@@ -89,6 +108,7 @@ export function SurfacesPickerDialog({
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
+  const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
   const { products: preferredProducts } = usePreferredProducts();
 
   useEffect(() => {
@@ -163,10 +183,17 @@ export function SurfacesPickerDialog({
       // supplier has not yet supplied a repeatable material-only swatch. Their
       // card names the neutral 3D preview explicitly; catalog photography never
       // becomes a texture. Flooring and tile keep the stricter swatch rule.
-      if (item.category === "Quartz Slabs (Countertops)") return true;
+      if (item.category === "Quartz Slabs (Countertops)") {
+        return matchesCountertopSwatchFilter(item, countertopSwatchFilter);
+      }
       return isMaterialRole && Boolean(item.materialImageUrl?.trim());
     });
-  }, [category, debounced, items]);
+  }, [category, countertopSwatchFilter, debounced, items]);
+  const countertopSwatchCounts = useMemo(() => {
+    const countertops = items.filter((item) => item.category === "Quartz Slabs (Countertops)");
+    const ready = countertops.filter((item) => matchesCountertopSwatchFilter(item, "swatch-ready")).length;
+    return { all: countertops.length, ready, pending: countertops.length - ready };
+  }, [items]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -205,14 +232,28 @@ export function SurfacesPickerDialog({
               </Button>
             ))}
           </div>
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={category === "Preferred" ? "Search preferred products…" : `Search ${category.toLowerCase()}…`}
-              className="pl-9"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={category === "Preferred" ? "Search preferred products…" : `Search ${category.toLowerCase()}…`}
+                className="pl-9"
+              />
+            </div>
+            {category === "Quartz Slabs (Countertops)" && (
+              <Select value={countertopSwatchFilter} onValueChange={(value) => setCountertopSwatchFilter(value as CountertopSwatchFilter)}>
+                <SelectTrigger data-testid="countertop-swatch-filter" aria-label="Filter countertop 3D material readiness" className="w-full sm:w-[244px]">
+                  <SelectValue placeholder="Filter 3D material readiness" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All countertop options ({countertopSwatchCounts.all})</SelectItem>
+                  <SelectItem value="swatch-ready">3D material swatch ready ({countertopSwatchCounts.ready})</SelectItem>
+                  <SelectItem value="swatch-pending">Neutral preview — swatch pending ({countertopSwatchCounts.pending})</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
           {category === "Preferred" && (
             <p className="text-[10px] leading-relaxed text-muted-foreground">Saved favorites remain in your catalog list. This Designer view shows only favorites that are active, priced, Designer-enabled, and verified for an exact material or fixture role.</p>
