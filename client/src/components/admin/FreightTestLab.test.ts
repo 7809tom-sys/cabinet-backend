@@ -41,6 +41,14 @@ describe("Operations Freight Test Lab UI", () => {
     expect(source).not.toContain("payments.");
   });
 
+  it("labels a WWEX sandbox result as a non-production Operations test", () => {
+    expect(source).toContain("function carrierEnvironmentLabel");
+    expect(source).toContain("Worldwide Express sandbox — non-production test rate");
+    expect(source).toContain("Sandbox result only.");
+    expect(source).toContain("not a customer-facing production quote");
+    expect(source).toContain('result?.provider === "worldwideexpress" && result.providerEnvironment === "sandbox"');
+  });
+
   it("lets an administrator enter the delivery ZIP alongside the selected saved design", () => {
     expect(source).toContain("Destination ZIP");
     expect(source).toContain("request a quote from the carrier configured in Operations");

@@ -33,6 +33,14 @@ function formatCooldown(milliseconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function carrierEnvironmentLabel(provider: string, environment: "sandbox" | "production" | null): string {
+  if (provider === "worldwideexpress" && environment === "sandbox") {
+    return "Worldwide Express sandbox — non-production test rate";
+  }
+  if (environment === "production") return "Production carrier connection";
+  return environment ? `${provider} · ${environment}` : provider;
+}
+
 export default function FreightTestLab() {
   const [selectedDesignId, setSelectedDesignId] = useState("none");
   const [destinationZip, setDestinationZip] = useState("30303");
@@ -115,6 +123,7 @@ export default function FreightTestLab() {
   const activeCarrierRetryAt = result?.carrierRetryAt ?? carrierRetryAt;
   const carrierCooldownRemainingMs = activeCarrierRetryAt == null ? 0 : Math.max(0, activeCarrierRetryAt - now);
   const carrierCooldownActive = mode === "saved_configuration" && carrierCooldownRemainingMs > 0;
+  const usesWwexSandbox = result?.provider === "worldwideexpress" && result.providerEnvironment === "sandbox";
 
   useEffect(() => {
     if (!carrierCooldownActive) return;
@@ -248,9 +257,16 @@ export default function FreightTestLab() {
               </div>
               <div className="text-right text-xs text-muted-foreground">
                 <div>{modeLabel[result.mode]}</div>
-                <div>{result.provider} {result.providerEnvironment ? `· ${result.providerEnvironment}` : ""}</div>
+                <div>{carrierEnvironmentLabel(result.provider, result.providerEnvironment)}</div>
               </div>
             </div>
+
+            {usesWwexSandbox && (
+              <div className="flex items-start gap-2 border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100" role="status">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span><strong>Sandbox result only.</strong> This is a non-production WWEX test rate for Operations validation. It is not a customer-facing production quote, order, payment, or shipment.</span>
+              </div>
+            )}
 
             <div className={`border p-4 ${result.quote?.available ? "border-emerald-300 bg-emerald-50/40 dark:bg-emerald-950/10" : "border-amber-300 bg-amber-50/40 dark:bg-amber-950/10"}`} aria-label="Carrier shipping quote summary">
               <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Carrier shipping quote</div>
