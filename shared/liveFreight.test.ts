@@ -3,8 +3,6 @@ import {
   totalPackagedLoad,
   buildPallets,
   packagedCubicFt,
-  applyKitchenFloor,
-  isKitchenOrder,
   type PalletCaps,
 } from "./liveFreight";
 
@@ -95,58 +93,6 @@ describe("packagedCubicFt", () => {
   it("falls back when any dimension is missing", () => {
     expect(packagedCubicFt(null, 24, 12, 8)).toBe(8);
     expect(packagedCubicFt(24, 0, 12, 8)).toBe(8);
-  });
-});
-
-describe("isKitchenOrder", () => {
-  it("treats orders at/above the threshold as kitchens", () => {
-    expect(isKitchenOrder(6, 6)).toBe(true);
-    expect(isKitchenOrder(10, 6)).toBe(true);
-  });
-  it("treats small parts orders as non-kitchen", () => {
-    expect(isKitchenOrder(2, 6)).toBe(false);
-  });
-});
-
-describe("applyKitchenFloor", () => {
-  it("raises a kitchen order below the floor up to $800", () => {
-    const r = applyKitchenFloor({
-      ratedFreightCents: 52000,
-      isKitchen: true,
-      kitchenFreightFloorCents: 80000,
-    });
-    expect(r.finalCents).toBe(80000);
-    expect(r.floorApplied).toBe(true);
-  });
-
-  it("keeps a kitchen rate already above the floor", () => {
-    const r = applyKitchenFloor({
-      ratedFreightCents: 95000,
-      isKitchen: true,
-      kitchenFreightFloorCents: 80000,
-    });
-    expect(r.finalCents).toBe(95000);
-    expect(r.floorApplied).toBe(false);
-  });
-
-  it("never forces a non-kitchen order to the floor", () => {
-    const r = applyKitchenFloor({
-      ratedFreightCents: 12000,
-      isKitchen: false,
-      kitchenFreightFloorCents: 80000,
-    });
-    expect(r.finalCents).toBe(12000);
-    expect(r.floorApplied).toBe(false);
-  });
-
-  it("repairs a stale floor below the owner-required $800 minimum", () => {
-    const r = applyKitchenFloor({
-      ratedFreightCents: 12000,
-      isKitchen: true,
-      kitchenFreightFloorCents: 9900,
-    });
-    expect(r.finalCents).toBe(80000);
-    expect(r.floorApplied).toBe(true);
   });
 });
 

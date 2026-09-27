@@ -19,7 +19,7 @@ function userCtx(role: "user" | "admin"): TrpcContext {
 }
 
 // Build a complete adminUpdateSettings payload from the current settings row so
-// tests stay in sync with the (extended) live-quote/pallet/floor schema. Pass an
+// tests stay in sync with the extended live-quote/pallet schema. Pass an
 // override object to tweak only the fields a given test cares about.
 function settingsPayload(s: NonNullable<Awaited<ReturnType<typeof readSettings>>>, override: Record<string, unknown> = {}) {
   return {
@@ -43,8 +43,6 @@ function settingsPayload(s: NonNullable<Awaited<ReturnType<typeof readSettings>>
       | "freightquote"
       | "globaltranz"
       | "worldwideexpress",
-    kitchenFreightFloorCents: Math.max(s.kitchenFreightFloorCents ?? 80000, 80000),
-    kitchenMinCabinets: s.kitchenMinCabinets ?? 8,
     standardPalletLengthIn: Number(s.standardPalletLengthIn ?? 48),
     palletLengthIn: Number(s.palletLengthIn ?? 96),
     palletWidthIn: Number(s.palletWidthIn ?? 48),
@@ -128,14 +126,13 @@ describe("freight admin", () => {
     expect(after?.markupBps).toBe(1500);
   });
 
-  it("persists the live-quote / pallet / $800 floor fields", async () => {
+  it("persists the live-quote and pallet fields", async () => {
     const adminCaller = appRouter.createCaller(userCtx("admin"));
     const base = await readSettings();
     await adminCaller.freight.adminUpdateSettings(
       settingsPayload(base!, {
         quoteMode: "live",
         liveProvider: "easypost",
-        kitchenFreightFloorCents: 80000,
         freightClass: "200",
         standardPalletLengthIn: 48,
         palletMaxWeightLbs: 1800,
@@ -144,7 +141,6 @@ describe("freight admin", () => {
     const mid = await readSettings();
     expect(mid?.quoteMode).toBe("live");
     expect(mid?.liveProvider).toBe("easypost");
-    expect(mid?.kitchenFreightFloorCents).toBe(80000);
     expect(mid?.freightClass).toBe("200");
     expect(Number(mid?.standardPalletLengthIn)).toBe(48);
     expect(Number(mid?.palletMaxWeightLbs)).toBe(1800);
@@ -155,11 +151,4 @@ describe("freight admin", () => {
     expect(after?.quoteMode).toBe(base?.quoteMode ?? "estimator");
   });
 
-  it("rejects a kitchen freight floor below the owner-required $800 minimum", async () => {
-    const adminCaller = appRouter.createCaller(userCtx("admin"));
-    const base = await readSettings();
-    await expect(
-      adminCaller.freight.adminUpdateSettings(settingsPayload(base!, { kitchenFreightFloorCents: 79999 }))
-    ).rejects.toThrow();
-  });
 });

@@ -15,10 +15,9 @@ describe("Operations freight markup ownership", () => {
     expect(source).toContain("Delivery accessorials remain itemized");
   });
 
-  it("does not allow Operations to lower the owner-required $800 kitchen freight floor", () => {
-    expect(source).toContain("KITCHEN_FREIGHT_FLOOR_MIN_CENTS");
-    expect(source).toContain("Kitchen freight minimum cannot be less than $800.00.");
-    expect(source).toContain('min="800"');
-    expect(source).toContain("A kitchen-scale order is never quoted below $800.00.");
+  it("does not show or enforce a deprecated kitchen freight floor", () => {
+    expect(source).not.toContain("KITCHEN_FREIGHT_FLOOR_MIN_CENTS");
+    expect(source).not.toContain("Kitchen freight minimum cannot be less than $800.00.");
+    expect(source).not.toContain("A kitchen-scale order is never quoted below $800.00.");
   });
 });

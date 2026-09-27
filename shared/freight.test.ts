@@ -196,8 +196,6 @@ describe("combineStyleFreightGroups", () => {
       settings: SETTINGS,
       merchandiseSubtotalCents: 300000,
       billableWeightLbs: 1200,
-      isKitchen: false,
-      kitchenFreightFloorCents: 80000,
     });
 
     expect(q.available).toBe(true);
@@ -221,8 +219,6 @@ describe("combineStyleFreightGroups", () => {
       accessorials: { residential: true, liftgate: true },
       merchandiseSubtotalCents: 300000,
       billableWeightLbs: 1200,
-      isKitchen: false,
-      kitchenFreightFloorCents: 80000,
     });
 
     expect(q.rateGroups?.map((group) => group.source)).toEqual(["live", "plan_b"]);
@@ -231,18 +227,16 @@ describe("combineStyleFreightGroups", () => {
     expect(q.lines.some((line) => line.label.startsWith("Plan B fallback — Florida Style"))).toBe(true);
   });
 
-  it("keeps a kitchen quote at the $800 floor even when a stale configuration supplies $99", () => {
+  it("uses the live carrier total without a kitchen freight floor", () => {
     const q = combineStyleFreightGroups({
       groups: [{ key: "1:10", label: "Style A · 30303", originZip: "30303", source: "live", baseAmountCents: 10000 }],
       settings: SETTINGS,
       merchandiseSubtotalCents: 300000,
       billableWeightLbs: 1200,
-      isKitchen: true,
-      kitchenFreightFloorCents: 9900,
     });
 
-    expect(q.totalCents).toBe(80000);
-    expect(q.lines).toContainEqual({ label: "Kitchen freight minimum adjustment", amountCents: 68500 });
+    expect(q.totalCents).toBe(11500);
+    expect(q.lines).not.toContainEqual(expect.objectContaining({ label: expect.stringMatching(/kitchen freight minimum/i) }));
   });
 
   it("reports unavailable instead of inventing a rate when no group has Plan A or Plan B", () => {
@@ -251,8 +245,6 @@ describe("combineStyleFreightGroups", () => {
       settings: SETTINGS,
       merchandiseSubtotalCents: 100000,
       billableWeightLbs: 400,
-      isKitchen: false,
-      kitchenFreightFloorCents: 80000,
     });
 
     expect(q.available).toBe(false);

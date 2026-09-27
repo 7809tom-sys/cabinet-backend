@@ -41,6 +41,17 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(shippingPage).toContain('data-testid="vendor-edit-shipping"');
 	    expect(shippingPage).toContain("Edit shipping &amp; warehouses");
 	    expect(shippingPage).toContain('data-testid="vendor-shipping-edit-help"');
+	    expect(shippingPage).toContain("VendorStyleOriginsEditor");
+	    expect(shippingPage).toContain("Review &amp; edit");
+	    expect(shippingPage).toContain("vendor-edit-style-origins-");
+	  });
+
+	  it("lets vendors edit a single cabinet line's origin assignment directly from coverage", () => {
+	    const editor = source.slice(source.indexOf("function VendorStyleOriginsEditor"), source.indexOf("function VendorShippingPage"));
+	    expect(editor).toContain("Edit shipping origins");
+	    expect(editor).toContain("updateFeaturedStyleMaterials.useMutation");
+	    expect(editor).toContain("Use all");
+	    expect(editor).toContain("Save origins");
 	  });
 
 	  it("gives vendors a visible Featured Style materials edit action instead of an icon-only control", () => {

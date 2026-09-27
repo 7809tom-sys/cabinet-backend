@@ -32,10 +32,6 @@ import {
 import {
   buildPallets,
   packagedCubicFt,
-  applyKitchenFloor,
-  isKitchenOrder,
-  KITCHEN_FREIGHT_FLOOR_MIN_CENTS,
-  normalizeKitchenFreightFloorCents,
   totalPackagedLoad,
   type PalletCaps,
   type FreightItemPackage,
@@ -792,8 +788,6 @@ function liveQuoteToFreightQuote(
   carrierCents: number,
   settings: FreightSettings,
   merchandiseSubtotalCents: number,
-  isKitchen: boolean,
-  kitchenFloorCents: number,
   billableWeightLbs: number,
   palletCount: number,
   carrierLabel: string | null
@@ -813,20 +807,6 @@ function liveQuoteToFreightQuote(
   const damageFeeCents = Math.round((freightBeforeMarkupCents * settings.damageFeeBps) / 10000);
 
   let totalCents = freightBeforeMarkupCents + markupCents + damageFeeCents;
-
-  // Kitchen floor (raise up to $800 for kitchen-scale orders).
-  const floor = applyKitchenFloor({
-    ratedFreightCents: totalCents,
-    isKitchen,
-    kitchenFreightFloorCents: kitchenFloorCents,
-  });
-  if (floor.floorApplied) {
-    lines.push({
-      label: "Kitchen freight minimum",
-      amountCents: floor.finalCents - totalCents,
-    });
-    totalCents = floor.finalCents;
-  }
 
   // Free-freight threshold on merchandise subtotal.
   const freeFreightApplied =
@@ -977,7 +957,6 @@ async function simulateFreight(input: {
   const caps = rowToPalletCaps(settingsRow);
   const overall = await resolvePackages(input.items, settingsRow, settings.defaultCabinetWeightLbs);
   const overallLoad = totalPackagedLoad(overall.packages);
-  const isKitchen = isKitchenOrder(overallLoad.units, settingsRow.kitchenMinCabinets);
   const styleGroups = await resolveStyleFreightGroups({
     destinationZip,
     items: input.items,
@@ -1115,8 +1094,6 @@ async function simulateFreight(input: {
       accessorials: input.accessorials,
       merchandiseSubtotalCents: input.merchandiseSubtotalCents,
       billableWeightLbs: totalBillableWeightLbs,
-      isKitchen,
-      kitchenFreightFloorCents: normalizeKitchenFreightFloorCents(settingsRow.kitchenFreightFloorCents),
     });
   }
 
@@ -1152,7 +1129,6 @@ async function simulateFreight(input: {
     freightClass,
     merchandiseSubtotalCents: input.merchandiseSubtotalCents,
     totalUnits: overallLoad.units,
-    isKitchen,
     totalBillableWeightLbs,
     groups,
     quote,
@@ -1355,7 +1331,6 @@ export const freightRouter = router({
       if (settingsRow && (liveProvider !== "estimator" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
-        const isKitchen = isKitchenOrder(load.units, settingsRow.kitchenMinCabinets);
         if (load.units === 0) {
           return {
             available: false,
@@ -1566,8 +1541,6 @@ export const freightRouter = router({
           accessorials: input.accessorials,
           merchandiseSubtotalCents: input.merchandiseSubtotalCents,
           billableWeightLbs: totalBillableWeightLbs,
-          isKitchen,
-          kitchenFreightFloorCents: normalizeKitchenFreightFloorCents(settingsRow.kitchenFreightFloorCents),
         });
         const allDistributorRulesFree = styleGroups.length > 0 && styleGroups.every((group) => group.distributorRuleFeeCents === 0);
         const quote = allDistributorRulesFree
@@ -1805,8 +1778,8 @@ export const freightRouter = router({
         wwexProductionRateUrl: z.string().max(512).nullable().optional(),
         // Optional: only set the key when provided (keeps existing if omitted).
         liveApiKey: z.string().max(255).nullable().optional(),
-        kitchenFreightFloorCents: z.number().int().min(KITCHEN_FREIGHT_FLOOR_MIN_CENTS).max(100000000),
-        kitchenMinCabinets: z.number().int().min(1).max(100),
+        kitchenFreightFloorCents: z.number().int().min(0).max(100000000).optional(),
+        kitchenMinCabinets: z.number().int().min(1).max(100).optional(),
         standardPalletLengthIn: z.number().min(12).max(96),
         palletLengthIn: z.number().min(12).max(240),
         palletWidthIn: z.number().min(12).max(120),

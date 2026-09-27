@@ -1738,9 +1738,62 @@ function VendorShippingSettingsEditor({ line, open, onClose, onSaved }: { line: 
   return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}><DialogContent className="!flex h-[min(90dvh,850px)] max-h-[calc(100dvh-1rem)] w-[min(44rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-none"><DialogHeader className="shrink-0"><DialogTitle className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" />Edit Shipping & Warehouses <span className="font-normal text-muted-foreground">— {line.name}</span></DialogTitle></DialogHeader><div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2 pr-2"><div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-3"><div><Label>Warehouse origins</Label><p className="text-xs text-muted-foreground">These ZIPs are the automatic freight origins and power the all-warehouses check.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Warehouse name</Label><Input value={warehouseName} onChange={(event) => setWarehouseName(event.target.value)} placeholder="Warehouse or branch name" /></div><div className="space-y-1"><Label className="text-xs">Lead time (days)</Label><Input value={leadTime} onChange={(event) => setLeadTime(event.target.value)} type="number" min="0" max="365" placeholder="e.g. 7" /></div></div><div className="space-y-1"><Label className="text-xs">Warehouse address</Label><Input value={warehouseAddress} onChange={(event) => setWarehouseAddress(event.target.value)} placeholder="Street address for reference" /></div><div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" maxLength={5} placeholder="5-digit warehouse ZIP" /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add ZIP</Button></div><div className="flex flex-wrap gap-2">{zips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div></div><div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-3"><div><Label>Freight rule</Label><p className="text-xs text-muted-foreground">Live quotes remain the preferred method. Fixed and threshold rules need a configured fee or ZIP rate.</p></div><Select value={ruleMode} onValueChange={(value) => setRuleMode(value as typeof ruleMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="live">Live carrier quote</SelectItem><SelectItem value="fixed">Fixed freight</SelectItem><SelectItem value="threshold">Free-freight threshold / ZIP rate</SelectItem></SelectContent></Select><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Fixed freight ($)</Label><Input value={flatFee} onChange={(event) => setFlatFee(event.target.value)} inputMode="decimal" placeholder="Optional fallback or fixed charge" /></div><div className="space-y-1"><Label className="text-xs">Free-freight threshold ($)</Label><Input value={freeThreshold} onChange={(event) => setFreeThreshold(event.target.value)} inputMode="decimal" placeholder="Optional order threshold" /></div></div><div className="space-y-1"><Label className="text-xs">ZIP rates</Label><textarea value={zipRates} onChange={(event) => setZipRates(event.target.value)} rows={4} placeholder={"Example:\n900:125.00\n10001:200.00"} className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /><p className="text-[11px] text-muted-foreground">One line per rate: 3–5 digit ZIP prefix: dollar amount.</p></div><div className="space-y-1"><Label className="text-xs">Shipping note / exception</Label><textarea value={exceptions} onChange={(event) => setExceptions(event.target.value)} rows={3} placeholder="Delivery restrictions or freight policy note" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div><div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div className="flex items-center justify-between gap-3"><div><Label>Local pickup</Label><p className="text-xs text-muted-foreground">Offer pickup from this vendor’s own location.</p></div><Switch checked={pickupEnabled} onCheckedChange={setPickupEnabled} aria-label="Enable local pickup" /></div>{pickupEnabled && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Pickup ZIP</Label><Input value={pickupZip} onChange={(event) => setPickupZip(event.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder={zips[0] ?? "5-digit ZIP"} /></div><div className="space-y-1"><Label className="text-xs">Pickup radius (miles)</Label><Input value={pickupRadius} onChange={(event) => setPickupRadius(event.target.value)} type="number" min="1" max="1000" /></div><div className="space-y-1 sm:col-span-2"><Label className="text-xs">Pickup address</Label><Input value={pickupAddress} onChange={(event) => setPickupAddress(event.target.value)} placeholder="Customer-facing pickup address" /></div></div>}</div></div><DialogFooter className="shrink-0 border-t border-border pt-3"><Button variant="outline" onClick={onClose} disabled={save.isPending}>Cancel</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save Shipping Settings"}</Button></DialogFooter></DialogContent></Dialog>;
 }
 
+type VendorShippingStyle = {
+  id: number;
+  ourName: string;
+  originZips: string[];
+  originMode: "style" | "line";
+  allWarehousesCovered: boolean;
+};
+
+function VendorStyleOriginsEditor({ style, warehouseZips, open, onClose, onSaved }: { style: VendorShippingStyle; warehouseZips: string[]; open: boolean; onClose: () => void; onSaved: () => void }) {
+  const adminDistId = useAdminDistributorId();
+  const [origins, setOrigins] = useState<string[]>(style.originMode === "style" ? style.originZips : []);
+  const [newZip, setNewZip] = useState("");
+  const update = trpc.distributorPortal.updateFeaturedStyleMaterials.useMutation({
+    onSuccess: () => { toast.success(`Shipping origins saved for ${style.ourName}`); onSaved(); onClose(); },
+    onError: (error) => toast.error(error.message),
+  });
+  useEffect(() => {
+    if (!open) return;
+    setOrigins(style.originMode === "style" ? style.originZips : []);
+    setNewZip("");
+  }, [open, style]);
+  const addZip = () => {
+    const zip = newZip.replace(/\D/g, "").slice(0, 5);
+    if (!/^\d{5}$/.test(zip)) { toast.error("Shipping origin ZIP must be exactly 5 digits"); return; }
+    if (!origins.includes(zip)) setOrigins((current) => [...current, zip]);
+    setNewZip("");
+  };
+  const save = () => {
+    if (origins.length === 0 && warehouseZips.length === 0) {
+      toast.error("Add a shipping origin or configure a vendor warehouse origin first");
+      return;
+    }
+    update.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), styleId: style.id, warehouseZips: origins });
+  };
+  return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}>
+    <DialogContent className="w-[min(32rem,calc(100vw-1rem))] p-5">
+      <DialogHeader><DialogTitle className="flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />Edit shipping origins <span className="font-normal text-muted-foreground">— {style.ourName}</span></DialogTitle></DialogHeader>
+      <div className="space-y-4 py-2">
+        <div className="rounded-lg border border-sky-200 bg-sky-50/60 p-3 text-sm text-sky-950">
+          {style.originMode === "line"
+            ? "This cabinet line currently inherits every vendor warehouse origin. Add ZIPs below only when this style ships from a different subset of warehouses."
+            : "This cabinet line has its own shipping-origin assignment. Remove all ZIPs to inherit every vendor warehouse origin again."}
+        </div>
+        <div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" maxLength={5} placeholder="5-digit shipping origin ZIP" /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add</Button></div>
+        {origins.length > 0 && <div className="flex flex-wrap gap-2">{origins.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setOrigins((current) => current.filter((item) => item !== zip))} aria-label={`Remove ${zip} from ${style.ourName} shipping origins`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div>}
+        <Button type="button" variant="outline" className="w-full" onClick={() => setOrigins([])} disabled={origins.length === 0 || warehouseZips.length === 0}>Use all {warehouseZips.length || "vendor"} warehouse origin{warehouseZips.length === 1 ? "" : "s"}</Button>
+      </div>
+      <DialogFooter><Button variant="outline" onClick={onClose} disabled={update.isPending}>Cancel</Button><Button onClick={save} disabled={update.isPending}>{update.isPending ? "Saving…" : "Save origins"}</Button></DialogFooter>
+    </DialogContent>
+  </Dialog>;
+}
+
 function VendorShippingPage() {
   const adminDistId = useAdminDistributorId();
 	  const [editingShipping, setEditingShipping] = useState(false);
+  const [editingStyleOrigins, setEditingStyleOrigins] = useState<VendorShippingStyle | null>(null);
   const shipping = trpc.distributorPortal.shippingOverview.useQuery(
     adminDistId ? { distributorId: adminDistId } : undefined,
   );
@@ -1843,8 +1896,8 @@ function VendorShippingPage() {
                           </div>
                         </TableCell>
                         <TableCell><Badge variant="outline" className={publishable ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-amber-300 bg-amber-50 text-amber-700"}>{style.availableCount}/{style.catalogCount} available · {style.publishedCount}/{style.catalogCount} published</Badge></TableCell>
-                        <TableCell><div className="flex min-w-48 flex-wrap gap-1">{style.originZips.map((zip) => <Badge key={zip} variant="secondary" className="text-[10px]">{zip}</Badge>)}{style.originZips.length === 0 && <span className="text-xs text-amber-700">Origin needed</span>}</div></TableCell>
-                        <TableCell className="text-right">{style.allWarehousesCovered ? <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Covered</span> : <span className="inline-flex items-center gap-1 text-sm font-medium text-amber-700"><MapPin className="h-4 w-4" /> Review</span>}</TableCell>
+                        <TableCell><div className="flex min-w-48 flex-wrap items-center gap-1">{style.originZips.map((zip) => <Badge key={zip} variant="secondary" className="text-[10px]">{zip}</Badge>)}{style.originZips.length === 0 && <span className="text-xs text-amber-700">Origin needed</span>}<Button data-testid={`vendor-edit-style-origins-${style.id}`} size="sm" variant="outline" className="ml-1 h-7 gap-1 px-2 text-xs" onClick={() => setEditingStyleOrigins(style as VendorShippingStyle)}><Pencil className="h-3 w-3" />Edit</Button></div></TableCell>
+                        <TableCell className="text-right">{style.allWarehousesCovered ? <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Covered</span> : <Button size="sm" variant="outline" className="h-7 gap-1 border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => setEditingStyleOrigins(style as VendorShippingStyle)}><MapPin className="h-3.5 w-3.5" />Review &amp; edit</Button>}</TableCell>
                       </TableRow>
                     );
                   })}
@@ -1855,6 +1908,7 @@ function VendorShippingPage() {
 	        </CardContent>
 	      </Card>
 	      <VendorShippingSettingsEditor line={line as VendorShippingLine} open={editingShipping} onClose={() => setEditingShipping(false)} onSaved={() => shipping.refetch()} />
+	      {editingStyleOrigins && <VendorStyleOriginsEditor style={editingStyleOrigins} warehouseZips={warehouses} open={Boolean(editingStyleOrigins)} onClose={() => setEditingStyleOrigins(null)} onSaved={() => shipping.refetch()} />}
 	    </div>
 	  );
 }

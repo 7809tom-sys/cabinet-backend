@@ -284,11 +284,10 @@ export default function FreightTestLab() {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               <div className="border p-3"><div className="text-xs text-muted-foreground">Units</div><div className="text-xl font-semibold">{result.totalUnits}</div></div>
               <div className="border p-3"><div className="text-xs text-muted-foreground">Origin groups</div><div className="text-xl font-semibold">{result.groups.length}</div></div>
               <div className="border p-3"><div className="text-xs text-muted-foreground">Loaded weight</div><div className="text-xl font-semibold">{result.totalBillableWeightLbs.toFixed(0)} lbs</div></div>
-              <div className="border p-3"><div className="text-xs text-muted-foreground">Kitchen floor</div><div className="text-xl font-semibold">{result.isKitchen ? "Eligible" : "No"}</div></div>
             </div>
 
             <div className="space-y-3">

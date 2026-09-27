@@ -7,8 +7,6 @@
 // Money: all amounts are whole cents to avoid float drift. Rates expressed as
 // "$ per 100 lbs" are stored in cents per 100 lbs (per_cwt model).
 
-import { normalizeKitchenFreightFloorCents } from "./liveFreight";
-
 export type RateModel = "per_cwt" | "flat";
 
 export interface FreightSettings {
@@ -133,8 +131,6 @@ export function combineStyleFreightGroups(input: {
   accessorials?: FreightAccessorials;
   merchandiseSubtotalCents: number;
   billableWeightLbs: number;
-  isKitchen: boolean;
-  kitchenFreightFloorCents: number;
 }): FreightQuote {
   const groups = input.groups.filter((group) => group.baseAmountCents >= 0);
   if (groups.length === 0) {
@@ -189,14 +185,6 @@ export function combineStyleFreightGroups(input: {
   const markupCents = round((freightBeforeMarkupCents * input.settings.markupBps) / 10000);
   const damageFeeCents = round((freightBeforeMarkupCents * input.settings.damageFeeBps) / 10000);
   let totalCents = freightBeforeMarkupCents + markupCents + damageFeeCents;
-
-  const kitchenFloorCents = normalizeKitchenFreightFloorCents(input.kitchenFreightFloorCents);
-  if (input.isKitchen && totalCents < kitchenFloorCents) {
-    const floorAdjustment = kitchenFloorCents - totalCents;
-    lines.push({ label: "Kitchen freight minimum adjustment", amountCents: floorAdjustment });
-    freightBeforeMarkupCents += floorAdjustment;
-    totalCents = kitchenFloorCents;
-  }
 
   const freeFreightApplied =
     input.settings.freeFreightThresholdCents > 0 &&

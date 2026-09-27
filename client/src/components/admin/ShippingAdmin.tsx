@@ -14,7 +14,6 @@ import { toast } from "sonner";
 import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity, X } from "lucide-react";
 import FreightTestLab from "./FreightTestLab";
 import { isValidZipPrefix, normalizeZipPrefix, parseZipPrefixes, serializeZipPrefixes } from "@/lib/shippingZipPrefixes";
-import { KITCHEN_FREIGHT_FLOOR_MIN_CENTS } from "@shared/liveFreight";
 
 // Dollars <-> cents helpers (we edit dollars, store cents).
 const toDollars = (cents: number) => (cents / 100).toFixed(2);
@@ -64,8 +63,6 @@ interface SettingsForm {
   wwexSandboxRateUrl: string;
   wwexProductionTokenUrl: string;
   wwexProductionRateUrl: string;
-  kitchenFreightFloor: string; // dollars
-  kitchenMinCabinets: string;
   standardPalletLengthIn: string;
   palletLengthIn: string;
   palletWidthIn: string;
@@ -132,8 +129,6 @@ export default function ShippingAdmin() {
       wwexSandboxRateUrl: (s as Record<string, unknown>)?.wwexSandboxRateUrl as string ?? "",
       wwexProductionTokenUrl: (s as Record<string, unknown>)?.wwexProductionTokenUrl as string ?? "",
       wwexProductionRateUrl: (s as Record<string, unknown>)?.wwexProductionRateUrl as string ?? "",
-      kitchenFreightFloor: toDollars(Math.max(s?.kitchenFreightFloorCents ?? KITCHEN_FREIGHT_FLOOR_MIN_CENTS, KITCHEN_FREIGHT_FLOOR_MIN_CENTS)),
-      kitchenMinCabinets: String(s?.kitchenMinCabinets ?? 6),
       standardPalletLengthIn: String(s?.standardPalletLengthIn ?? "48"),
       palletLengthIn: String(s?.palletLengthIn ?? "96"),
       palletWidthIn: String(s?.palletWidthIn ?? "40"),
@@ -199,11 +194,6 @@ export default function ShippingAdmin() {
 
   function handleSaveSettings() {
     if (!form) return;
-    const kitchenFreightFloorCents = toCents(form.kitchenFreightFloor);
-    if (kitchenFreightFloorCents < KITCHEN_FREIGHT_FLOOR_MIN_CENTS) {
-      toast.error("Kitchen freight minimum cannot be less than $800.00.");
-      return;
-    }
     saveSettings.mutate({
       enabled: form.enabled,
       originZip: form.originZip.trim(),
@@ -238,8 +228,6 @@ export default function ShippingAdmin() {
       wwexProductionTokenUrl: form.wwexProductionTokenUrl.trim() || null,
       wwexProductionRateUrl: form.wwexProductionRateUrl.trim() || null,
       liveApiKey: apiKeyInput.trim().length > 0 ? apiKeyInput.trim() : undefined,
-      kitchenFreightFloorCents,
-      kitchenMinCabinets: Math.round(numOr(form.kitchenMinCabinets, 6)),
       standardPalletLengthIn: numOr(form.standardPalletLengthIn, 48),
       palletLengthIn: numOr(form.palletLengthIn, 96),
       palletWidthIn: numOr(form.palletWidthIn, 40),
@@ -576,19 +564,6 @@ export default function ShippingAdmin() {
               <p className="text-xs text-muted-foreground">
                 Applied after the live Plan A carrier rate or an approved style Plan B fee. Delivery accessorials remain itemized.
               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Kitchen freight minimum ($ floor)</Label>
-              <Input type="number" min="800" step="0.01" value={form.kitchenFreightFloor} onChange={(e) => set({ kitchenFreightFloor: e.target.value })} placeholder="800.00" />
-              <p className="text-xs text-muted-foreground">A kitchen-scale order is never quoted below $800.00. You may set a higher floor.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Kitchen = at least N cabinets</Label>
-              <Input value={form.kitchenMinCabinets} onChange={(e) => set({ kitchenMinCabinets: e.target.value })} placeholder="6" />
-              <p className="text-xs text-muted-foreground">Small parts orders below this are not forced to the floor.</p>
             </div>
           </div>
 
