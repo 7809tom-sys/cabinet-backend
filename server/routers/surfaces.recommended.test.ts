@@ -63,7 +63,7 @@ describe("surfaces.recommended", () => {
     }
   });
 
-  it("returns Quartz slabs for countertop", async () => {
+  it("returns source-priced Quartz slabs for countertop even when an exact 3D swatch is pending", async () => {
     const db = await getDb();
     if (!db) return;
     const caller = appRouter.createCaller(publicCtx());
@@ -71,10 +71,10 @@ describe("surfaces.recommended", () => {
     for (const r of rows) {
       expect(r.category).toBe("Quartz Slabs (Countertops)");
       expect(r.sellPrice ?? 0).toBeGreaterThan(0);
-      expect(r.materialImageUrl && r.materialImageUrl.length > 0).toBe(true);
       expect(Object.prototype.hasOwnProperty.call(r, "unsupportedOverhangLimitIn")).toBe(true);
       expect(r.unsupportedOverhangLimitIn == null || Number.isFinite(r.unsupportedOverhangLimitIn)).toBe(true);
     }
+    expect(rows.some((r) => !r.materialImageUrl?.trim())).toBe(true);
   });
 
   it("returns only source-measured Designer fixtures and excludes accessories", async () => {

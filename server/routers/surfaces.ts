@@ -7,7 +7,7 @@ import { pelicanCategoryMarkups, surfacePreviews } from "../../drizzle/schema";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
-import { isPelicanDesignerReady, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
+import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -91,15 +91,15 @@ function roleFilter(role: RecommendedRole) {
 }
 
 export const surfacesRouter = router({
-  // A short, curated set of recommended real Pelican products PER ROLE for the
-  // Design Tool's surface sections (flooring / backsplash / countertop / sink /
-  // faucet). Popular-first, then items that have a real photo, then by name.
-  // Only priced items with a photo are returned so every tile renders cleanly.
+  // A source-priced, designer-enabled set of real Pelican products per role.
+  // Callers may request the full palette (up to 200) when an attribute editor
+  // needs every countertop option; compact suggestion areas keep a smaller
+  // limit. Popular-first, then items with a real photo, then by name.
   recommended: publicProcedure
     .input(
       z.object({
         role: RECOMMENDED_ROLE,
-        limit: z.number().int().min(1).max(24).default(8),
+        limit: z.number().int().min(1).max(200).default(8),
       })
     )
     .query(async ({ input }) => {
@@ -147,7 +147,7 @@ export const surfacesRouter = router({
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
         .filter((r) => pelicanDesignerRole(r) === input.role)
-        .filter((r) => input.role === "pot-filler" ? true : isPelicanDesignerReady(r));
+        .filter((r) => input.role === "pot-filler" ? true : isPelicanDesignerSelectable(r));
       return recommendations.slice(0, input.limit);
     }),
 
@@ -168,9 +168,10 @@ export const surfacesRouter = router({
     }),
 
   /**
-   * Resolves saved favorites through the same live, verified-only gate as the
-   * Designer palette. Preferences remain catalog favorites; only this response
-   * may place a product into an exact design or design quote.
+   * Resolves saved favorites through the same source-priced, Designer-enabled
+   * selection gate as the Designer palette. Exact material rendering still
+   * requires an approved repeatable swatch; a selectable countertop without
+   * one is explicitly rendered with the neutral preview rather than its photo.
    */
   designerByIds: publicProcedure
     .input(z.object({ ids: z.array(z.number().int().positive()).max(40) }))
@@ -189,7 +190,7 @@ export const surfacesRouter = router({
       return rows
         .map((row) => ({ ...row, sellPrice: sellPriceOf(row, map) }))
         .filter((row) => row.sellPrice != null && row.sellPrice > 0)
-        .filter(isPelicanDesignerReady);
+        .filter(isPelicanDesignerSelectable);
     }),
 
   // Save the customer's Surfaces & Fixtures profile so they can explicitly load it

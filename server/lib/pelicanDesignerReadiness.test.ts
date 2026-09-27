@@ -4,6 +4,7 @@ import {
   hasApprovedPelicanMaterialSwatch,
   hasVerifiedPelicanFixtureProfile,
   isPelicanDesignerReady,
+  isPelicanDesignerSelectable,
   pelicanDesignerReadinessReason,
   pelicanDesignerRole,
 } from "./pelicanDesignerReadiness";
@@ -22,7 +23,21 @@ describe("Pelican Designer readiness policy", () => {
     expect(hasApprovedPelicanMaterialSwatch(readyFloor)).toBe(true);
     expect(isPelicanDesignerReady(readyFloor)).toBe(true);
     expect(isPelicanDesignerReady(catalogPhotoOnly)).toBe(false);
+    expect(isPelicanDesignerSelectable(catalogPhotoOnly)).toBe(false);
     expect(pelicanDesignerReadinessReason(catalogPhotoOnly)).toBe("Approved repeatable material swatch required");
+  });
+
+  it("allows a source-priced countertop to be selected and quoted without promoting its catalog photo to a 3D swatch", () => {
+    const countertopWithoutSwatch = {
+      category: "Quartz Slabs (Countertops)",
+      subCategory: "Quartz Slab",
+      name: "Apollo 3cm",
+      materialImageUrl: null,
+    };
+
+    expect(isPelicanDesignerReady(countertopWithoutSwatch)).toBe(false);
+    expect(isPelicanDesignerSelectable(countertopWithoutSwatch)).toBe(true);
+    expect(pelicanDesignerReadinessReason(countertopWithoutSwatch)).toBe("Approved repeatable material swatch required");
   });
 
   it("does not convert moldings, range tops, or other catalog categories into unsupported Designer roles", () => {

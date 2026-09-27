@@ -46,6 +46,15 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(shippingPage).toContain("vendor-edit-style-origins-");
 	  });
 
+	  it("explains the green and yellow catalog-status badges without implying live inventory", () => {
+	    const shippingPage = source.slice(source.indexOf("function VendorShippingPage"), source.indexOf("// ─── Promotions Page"));
+	    expect(shippingPage).toContain('data-testid="vendor-catalog-status-legend"');
+	    expect(shippingPage).toContain("Green</span> means every cabinet SKU is available and published.");
+	    expect(shippingPage).toContain("Yellow</span> means one or more SKUs need availability or publishing review.");
+	    expect(shippingPage).toContain("All catalog SKUs are available and customer-published");
+	    expect(shippingPage).toContain("One or more catalog SKUs are unavailable or not customer-published");
+	  });
+
 	  it("lets vendors edit a single cabinet line's origin assignment directly from coverage", () => {
 	    const editor = source.slice(source.indexOf("function VendorStyleOriginsEditor"), source.indexOf("function VendorShippingPage"));
 	    expect(editor).toContain("Edit shipping origins");

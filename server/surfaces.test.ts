@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
-import { isPelicanDesignerReady } from "./lib/pelicanDesignerReadiness";
+import { isPelicanDesignerReady, isPelicanDesignerSelectable } from "./lib/pelicanDesignerReadiness";
 
 // A minimal unauthenticated context is enough for the public surfaces.byIds
 // query, which reads from the shared Pelican catalog.
@@ -70,5 +70,25 @@ describe("Pelican full Designer palette", () => {
       expect(row.sellPrice).toBeGreaterThan(0);
       expect(isPelicanDesignerReady(row)).toBe(true);
     }
+  });
+
+  it("keeps source-priced countertop products selectable when a repeatable 3D swatch is still pending", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    const page = await caller.pelican.byCategory({
+      category: "Quartz Slabs (Countertops)",
+      scope: "designer",
+      limit: 200,
+      offset: 0,
+    });
+    if (page.total === 0) return; // tolerate a database without a loaded Pelican catalog
+
+    expect(page.items.length).toBe(page.total);
+    for (const row of page.items) {
+      expect(row.sellPrice).toBeGreaterThan(0);
+      expect(isPelicanDesignerSelectable(row)).toBe(true);
+    }
+    // The catalog contains source-priced slabs that do not yet have an approved
+    // repeatable texture; they are quoteable with the neutral 3D preview.
+    expect(page.items.some((row) => !row.materialImageUrl?.trim())).toBe(true);
   });
 });

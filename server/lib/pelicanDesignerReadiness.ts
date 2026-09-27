@@ -138,6 +138,19 @@ export function isPelicanDesignerReady(product: PelicanDesignerReadinessProduct)
   return false;
 }
 
+/**
+ * Whether a source-priced, Designer-enabled product may be selected and quoted
+ * in the Designer's material palette. Countertops do not need an image swatch
+ * to be commercially selectable: the Planner uses an explicitly labeled
+ * neutral material preview until an approved repeatable slab swatch is saved.
+ * The stricter `isPelicanDesignerReady` remains the requirement for an exact
+ * material rendering, so a catalog photo is never promoted into a 3D texture.
+ */
+export function isPelicanDesignerSelectable(product: PelicanDesignerReadinessProduct): boolean {
+  if (pelicanDesignerRole(product) === "countertop") return true;
+  return isPelicanDesignerReady(product);
+}
+
 export function pelicanDesignerReadinessReason(product: PelicanDesignerReadinessProduct): string | null {
   const role = pelicanDesignerRole(product);
   if (!role) return "No exact supported Designer role";

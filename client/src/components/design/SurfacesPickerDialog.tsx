@@ -159,6 +159,11 @@ export function SurfacesPickerDialog({
       const isMaterialRole = item.category === "Flooring"
         || item.category === "Tile & Mosaic"
         || item.category === "Quartz Slabs (Countertops)";
+      // Active, priced Designer countertops remain selectable even when the
+      // supplier has not yet supplied a repeatable material-only swatch. Their
+      // card names the neutral 3D preview explicitly; catalog photography never
+      // becomes a texture. Flooring and tile keep the stricter swatch rule.
+      if (item.category === "Quartz Slabs (Countertops)") return true;
       return isMaterialRole && Boolean(item.materialImageUrl?.trim());
     });
   }, [category, debounced, items]);
@@ -251,6 +256,9 @@ export function SurfacesPickerDialog({
               </div>
               <p className="mt-1.5 text-[10px] leading-relaxed text-muted-foreground">The bar extension across a drywall pony wall is included in this measured coverage. Supplier pricing is per whole slab, so the total changes when that added coverage requires another slab.</p>
             </div>
+          )}
+          {category === "Quartz Slabs (Countertops)" && (
+            <p data-testid="countertop-selection-availability" className="text-[10px] leading-relaxed text-muted-foreground">All active, source-priced countertop products are available to select and quote. A product without an approved repeatable slab swatch remains accurately priced and is shown in 3D with the labeled neutral preview until its material swatch is supplied.</p>
           )}
         </div>
 

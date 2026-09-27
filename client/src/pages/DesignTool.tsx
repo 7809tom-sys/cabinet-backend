@@ -906,7 +906,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       return refreshed.some((surface, index) => surface !== current[index]) ? refreshed : current;
     });
   }, [verifiedSelectedSurfaceRecords, verifiedSelectedSurfacesLoaded]);
-  const { data: recommendedCountertopProducts } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 24 });
+  const { data: recommendedCountertopProducts } = trpc.surfaces.recommended.useQuery({ role: "countertop", limit: 200 });
   const countertopProductChoices = useMemo<SelectedSurface[]>(() => {
     const byId = new Map<number, SelectedSurface>();
     ((recommendedCountertopProducts ?? []) as RecItem[]).forEach((item) => byId.set(item.id, {

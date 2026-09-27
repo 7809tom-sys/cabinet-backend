@@ -7,7 +7,7 @@ import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
-import { auditPelicanDesignerReadiness, isPelicanDesignerReady } from "../lib/pelicanDesignerReadiness";
+import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -102,7 +102,7 @@ export const pelicanRouter = router({
           .where(and(...conds));
         const counts = new Map<string, number>();
         for (const row of readyRows) {
-          if (!isPelicanDesignerReady(row)) continue;
+          if (!isPelicanDesignerSelectable(row)) continue;
           counts.set(row.category, (counts.get(row.category) ?? 0) + 1);
         }
         return Array.from(counts, ([category, count]) => ({ category, count })).sort((a, b) => b.count - a.count);
@@ -155,7 +155,7 @@ export const pelicanRouter = router({
           .from(pelicanProducts)
           .where(where)
           .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank), asc(pelicanProducts.name));
-        const readyRows = designerRows.filter(isPelicanDesignerReady);
+        const readyRows = designerRows.filter(isPelicanDesignerSelectable);
         const suggested = input.search || input.subCategory || input.offset > 0
           ? []
           : readyRows.filter((row) => row.isPopular).slice(0, 12);

@@ -14,6 +14,13 @@ describe("Surfaces picker 3D material readiness", () => {
     expect(source).toContain("materialImageUrl: p.materialImageUrl");
   });
 
+  it("keeps every active, priced countertop available for selection while reserving exact 3D rendering for approved swatches", () => {
+    expect(source).toContain('if (item.category === "Quartz Slabs (Countertops)") return true;');
+    expect(source).toContain('data-testid="countertop-selection-availability"');
+    expect(source).toContain("All active, source-priced countertop products are available to select and quote.");
+    expect(source).toContain("becomes a texture. Flooring and tile keep the stricter swatch rule.");
+  });
+
   it("resolves saved favorites through the same verified Designer source rather than stale browser data", () => {
     expect(source).toContain("trpc.surfaces.designerByIds.useQuery");
     expect(source).toContain("const preferredIds = useMemo");

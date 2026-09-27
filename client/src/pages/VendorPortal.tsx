@@ -1875,6 +1875,7 @@ function VendorShippingPage() {
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Cabinet-line warehouse coverage</CardTitle>
           <p className="text-xs text-muted-foreground">A check means this style's cabinet catalog uses every configured warehouse origin, either through its own origin ZIPs or its distributor warehouse fallback. It does not represent a live on-hand inventory count.</p>
+          <p data-testid="vendor-catalog-status-legend" className="mt-2 text-xs text-muted-foreground"><span className="font-semibold text-emerald-700">Green</span> means every cabinet SKU is available and published. <span className="font-semibold text-amber-700">Yellow</span> means one or more SKUs need availability or publishing review.</p>
         </CardHeader>
         <CardContent className="p-0">
           {styles.length === 0 ? <p className="p-5 text-sm text-muted-foreground">No cabinet-backed styles are available to assess.</p> : (
@@ -1895,7 +1896,7 @@ function VendorShippingPage() {
                             <div className="min-w-0"><p className="truncate font-medium">{style.ourName}</p><p className="truncate text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</p></div>
                           </div>
                         </TableCell>
-                        <TableCell><Badge variant="outline" className={publishable ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-amber-300 bg-amber-50 text-amber-700"}>{style.availableCount}/{style.catalogCount} available · {style.publishedCount}/{style.catalogCount} published</Badge></TableCell>
+                        <TableCell><Badge variant="outline" aria-label={publishable ? `${style.ourName}: every cabinet SKU is available and published` : `${style.ourName}: availability or publishing review is needed`} title={publishable ? "All catalog SKUs are available and customer-published" : "One or more catalog SKUs are unavailable or not customer-published"} className={publishable ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-amber-300 bg-amber-50 text-amber-700"}>{style.availableCount}/{style.catalogCount} available · {style.publishedCount}/{style.catalogCount} published</Badge></TableCell>
                         <TableCell><div className="flex min-w-48 flex-wrap items-center gap-1">{style.originZips.map((zip) => <Badge key={zip} variant="secondary" className="text-[10px]">{zip}</Badge>)}{style.originZips.length === 0 && <span className="text-xs text-amber-700">Origin needed</span>}<Button data-testid={`vendor-edit-style-origins-${style.id}`} size="sm" variant="outline" className="ml-1 h-7 gap-1 px-2 text-xs" onClick={() => setEditingStyleOrigins(style as VendorShippingStyle)}><Pencil className="h-3 w-3" />Edit</Button></div></TableCell>
                         <TableCell className="text-right">{style.allWarehousesCovered ? <span className="inline-flex items-center gap-1 text-sm font-medium text-emerald-700"><CheckCircle2 className="h-4 w-4" /> Covered</span> : <Button size="sm" variant="outline" className="h-7 gap-1 border-amber-300 text-amber-800 hover:bg-amber-50" onClick={() => setEditingStyleOrigins(style as VendorShippingStyle)}><MapPin className="h-3.5 w-3.5" />Review &amp; edit</Button>}</TableCell>
                       </TableRow>
