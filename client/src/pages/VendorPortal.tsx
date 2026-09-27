@@ -3450,6 +3450,15 @@ export default function VendorPortal() {
     else url.searchParams.set("section", nextPage);
     window.history.replaceState({}, "", url.toString());
   }, []);
+  const switchAdminVendor = useCallback((distributorId: number) => {
+    if (!Number.isSafeInteger(distributorId) || distributorId <= 0) return;
+    setAdminDistributorId(distributorId);
+    const url = new URL(window.location.href);
+    url.searchParams.set("as", String(distributorId));
+    // Keep the section in place so an administrator can compare the same
+    // page—Shipping, Featured Styles, etc.—across vendor accounts quickly.
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   if (loading) {
     return (
@@ -3496,12 +3505,7 @@ export default function VendorPortal() {
                 key={d.id}
                 variant="outline"
                 className="w-full justify-start gap-2"
-                onClick={() => {
-                  setAdminDistributorId(d.id);
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("as", String(d.id));
-                  window.history.replaceState({}, "", url.toString());
-                }}
+                onClick={() => switchAdminVendor(d.id)}
               >
                 <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{d.code}</span>
                 {d.name}
@@ -3524,9 +3528,63 @@ export default function VendorPortal() {
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
-      setAdminDistributorId={setAdminDistributorId}
+      onSwitchVendor={switchAdminVendor}
       distList={distList.data ?? []}
     />
+  );
+}
+
+type PortalDistributorOption = { id: number; code: string; name: string };
+
+function AdminVendorQuickSwitch({
+  adminDistributorId,
+  distList,
+  onSwitchVendor,
+  className = "",
+  mobile = false,
+}: {
+  adminDistributorId: number;
+  distList: PortalDistributorOption[];
+  onSwitchVendor: (id: number) => void;
+  className?: string;
+  mobile?: boolean;
+}) {
+  const activeVendor = distList.find((vendor) => vendor.id === adminDistributorId);
+  return (
+    <section
+      data-testid="admin-vendor-quick-switcher"
+      aria-label="Administrator vendor account switcher"
+      className={`rounded-lg border border-violet-200 bg-violet-50/70 p-2.5 ${className}`}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-800">Admin quick switch</p>
+          <p className="truncate text-xs font-medium text-violet-950" title={activeVendor ? `${activeVendor.code} — ${activeVendor.name}` : undefined}>
+            {activeVendor ? `${activeVendor.code} — ${activeVendor.name}` : "Selected vendor"}
+          </p>
+        </div>
+        <Badge variant="secondary" className="shrink-0 border border-violet-200 bg-white text-[10px] text-violet-800">Admin preview</Badge>
+      </div>
+      <Select
+        value={String(adminDistributorId)}
+        onValueChange={(value) => onSwitchVendor(Number(value))}
+      >
+        <SelectTrigger
+          aria-label="Quick switch vendor account"
+          className={`${mobile ? "h-10" : "h-9"} w-full bg-background text-xs`}
+        >
+          <SelectValue placeholder="Select vendor account" />
+        </SelectTrigger>
+        <SelectContent>
+          {distList.map((vendor) => (
+            <SelectItem key={vendor.id} value={String(vendor.id)}>
+              {vendor.code} — {vendor.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <p className="mt-1.5 text-[10px] leading-snug text-violet-800">Keeps this portal section open while switching accounts.</p>
+    </section>
   );
 }
 
@@ -3536,7 +3594,7 @@ function VendorPortalDashboard({
   setPage,
   isAdmin,
   adminDistributorId,
-  setAdminDistributorId,
+  onSwitchVendor,
   distList,
 }: {
   user: any;
@@ -3544,8 +3602,8 @@ function VendorPortalDashboard({
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
-  setAdminDistributorId: (id: number | null) => void;
-  distList: any[];
+  onSwitchVendor: (id: number) => void;
+  distList: PortalDistributorOption[];
 }) {
   const activeDistCode = isAdmin && adminDistributorId
     ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
@@ -3568,30 +3626,12 @@ function VendorPortalDashboard({
           <h1 className="font-bold text-lg">Vendor Portal</h1>
           <p className="text-xs text-muted-foreground mt-1">{user.name}</p>
           {isAdmin && adminDistributorId && (
-            <div className="mt-2">
-              <Select
-                value={String(adminDistributorId)}
-                onValueChange={(v) => {
-                  const id = Number(v);
-                  setAdminDistributorId(id);
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("as", String(id));
-                  window.history.replaceState({}, "", url.toString());
-                }}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select vendor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {distList.map((d: any) => (
-                    <SelectItem key={d.id} value={String(d.id)}>
-                      {d.code} — {d.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Badge variant="secondary" className="mt-1 text-[10px]">Admin preview</Badge>
-            </div>
+            <AdminVendorQuickSwitch
+              adminDistributorId={adminDistributorId}
+              distList={distList}
+              onSwitchVendor={onSwitchVendor}
+              className="mt-3"
+            />
           )}
         </div>
         <nav className="p-2 space-y-1">
@@ -3638,6 +3678,15 @@ function VendorPortalDashboard({
 
       {/* Main content */}
 	      <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
+	        {isAdmin && adminDistributorId && (
+	          <AdminVendorQuickSwitch
+	            adminDistributorId={adminDistributorId}
+	            distList={distList}
+	            onSwitchVendor={onSwitchVendor}
+	            className="mb-4 md:hidden"
+	            mobile
+	          />
+	        )}
 	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage onNavigate={setPage} />)}
 	        {page === "supplier-profile" && <SupplierProfilePage />}
 	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}

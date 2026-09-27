@@ -100,6 +100,19 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("Open or download ${label}");
   });
 
+  it("gives administrators a labeled quick vendor-account switcher that preserves the current portal section", () => {
+    expect(source).toContain("function AdminVendorQuickSwitch");
+    expect(source).toContain('data-testid="admin-vendor-quick-switcher"');
+    expect(source).toContain('aria-label="Administrator vendor account switcher"');
+    expect(source).toContain('aria-label="Quick switch vendor account"');
+    expect(source).toContain("Admin quick switch");
+    expect(source).toContain("Keeps this portal section open while switching accounts.");
+    expect(source).toContain("const switchAdminVendor = useCallback");
+    expect(source).toContain('url.searchParams.set("as", String(distributorId))');
+    expect(source).toContain("className=\"mb-4 md:hidden\"");
+    expect(source).toContain("mobile");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');
