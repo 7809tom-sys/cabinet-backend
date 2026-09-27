@@ -171,15 +171,28 @@ export interface KitchenFloorResult {
   floorApplied: boolean;
 }
 
-// Raise a kitchen-scale order's freight up to the configured floor ($800 default).
+/** Owner policy: a kitchen-scale shipment is never quoted below $800. */
+export const KITCHEN_FREIGHT_FLOOR_MIN_CENTS = 80_000;
+
+/**
+ * Protect the kitchen floor from stale imports or an invalid administration
+ * payload. Operations may set a higher floor, but never a lower one.
+ */
+export function normalizeKitchenFreightFloorCents(value: number | null | undefined): number {
+  const candidate = Number(value);
+  const wholeCents = Number.isFinite(candidate) ? Math.round(candidate) : KITCHEN_FREIGHT_FLOOR_MIN_CENTS;
+  return Math.max(KITCHEN_FREIGHT_FLOOR_MIN_CENTS, wholeCents);
+}
+
+// Raise a kitchen-scale order's freight up to the configured floor (minimum $800).
 // Non-kitchen (small parts) orders are never forced to the floor.
 export function applyKitchenFloor(input: KitchenFloorInput): KitchenFloorResult {
+  const floorCents = normalizeKitchenFreightFloorCents(input.kitchenFreightFloorCents);
   if (
     input.isKitchen &&
-    input.kitchenFreightFloorCents > 0 &&
-    input.ratedFreightCents < input.kitchenFreightFloorCents
+    input.ratedFreightCents < floorCents
   ) {
-    return { finalCents: input.kitchenFreightFloorCents, floorApplied: true };
+    return { finalCents: floorCents, floorApplied: true };
   }
   return { finalCents: input.ratedFreightCents, floorApplied: false };
 }

@@ -34,6 +34,8 @@ import {
   packagedCubicFt,
   applyKitchenFloor,
   isKitchenOrder,
+  KITCHEN_FREIGHT_FLOOR_MIN_CENTS,
+  normalizeKitchenFreightFloorCents,
   totalPackagedLoad,
   type PalletCaps,
   type FreightItemPackage,
@@ -1114,7 +1116,7 @@ async function simulateFreight(input: {
       merchandiseSubtotalCents: input.merchandiseSubtotalCents,
       billableWeightLbs: totalBillableWeightLbs,
       isKitchen,
-      kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
+      kitchenFreightFloorCents: normalizeKitchenFreightFloorCents(settingsRow.kitchenFreightFloorCents),
     });
   }
 
@@ -1307,6 +1309,24 @@ export const freightRouter = router({
     .query(async ({ input }): Promise<FreightQuote> => {
       const settingsRow = await loadSettingsRow();
       const settings = settingsRow ? rowToSettings(settingsRow) : DEFAULT_SETTINGS;
+
+      // A disabled Operations configuration is a hard stop. Do this before
+      // package resolution or carrier selection so a public cart can never
+      // trigger a live provider request while shipping is intentionally off.
+      if (!settings.enabled) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          reason: "Shipping is currently unavailable because Operations has disabled freight quoting.",
+        };
+      }
 
       const { packages } = await resolvePackages(
         input.items,
@@ -1547,7 +1567,7 @@ export const freightRouter = router({
           merchandiseSubtotalCents: input.merchandiseSubtotalCents,
           billableWeightLbs: totalBillableWeightLbs,
           isKitchen,
-          kitchenFreightFloorCents: settingsRow.kitchenFreightFloorCents,
+          kitchenFreightFloorCents: normalizeKitchenFreightFloorCents(settingsRow.kitchenFreightFloorCents),
         });
         const allDistributorRulesFree = styleGroups.length > 0 && styleGroups.every((group) => group.distributorRuleFeeCents === 0);
         const quote = allDistributorRulesFree
@@ -1785,7 +1805,7 @@ export const freightRouter = router({
         wwexProductionRateUrl: z.string().max(512).nullable().optional(),
         // Optional: only set the key when provided (keeps existing if omitted).
         liveApiKey: z.string().max(255).nullable().optional(),
-        kitchenFreightFloorCents: z.number().int().min(0).max(100000000),
+        kitchenFreightFloorCents: z.number().int().min(KITCHEN_FREIGHT_FLOOR_MIN_CENTS).max(100000000),
         kitchenMinCabinets: z.number().int().min(1).max(100),
         standardPalletLengthIn: z.number().min(12).max(96),
         palletLengthIn: z.number().min(12).max(240),

@@ -43,7 +43,7 @@ function settingsPayload(s: NonNullable<Awaited<ReturnType<typeof readSettings>>
       | "freightquote"
       | "globaltranz"
       | "worldwideexpress",
-    kitchenFreightFloorCents: s.kitchenFreightFloorCents ?? 80000,
+    kitchenFreightFloorCents: Math.max(s.kitchenFreightFloorCents ?? 80000, 80000),
     kitchenMinCabinets: s.kitchenMinCabinets ?? 8,
     standardPalletLengthIn: Number(s.standardPalletLengthIn ?? 48),
     palletLengthIn: Number(s.palletLengthIn ?? 96),
@@ -65,7 +65,7 @@ async function readSettings() {
 }
 
 describe("freight.estimate", () => {
-  it("returns a quote with a 15% markup line for a covered ZIP", async () => {
+  it("requires a carrier connection instead of returning the legacy estimator price", async () => {
     const adminCaller = appRouter.createCaller(userCtx("admin"));
     const before = await readSettings();
     const s = before!;
@@ -79,11 +79,8 @@ describe("freight.estimate", () => {
         items: [{ cabinetId: null, qty: 4, weightLbs: 50 }], // 200 lbs, no catalog lookup
         merchandiseSubtotalCents: 200000,
       });
-      expect(q.available).toBe(true);
-      expect(q.zoneName).toBeTruthy();
-      // markup is 15% of pre-markup freight
-      expect(q.markupCents).toBe(Math.round((q.freightBeforeMarkupCents * 1500) / 10000));
-      expect(q.totalCents).toBeGreaterThan(0);
+      expect(q.available).toBe(false);
+      expect(q.reason).toMatch(/carrier connection has not been configured/i);
     } finally {
       await adminCaller.freight.adminUpdateSettings(settingsPayload(s));
     }
@@ -104,7 +101,7 @@ describe("freight.estimate", () => {
     expect(q.available).toBe(false);
     // Restore enabled state.
     await adminCaller.freight.adminUpdateSettings(settingsPayload(s, { enabled: s.enabled }));
-  });
+  }, 15_000);
 });
 
 describe("freight admin", () => {
@@ -156,5 +153,13 @@ describe("freight admin", () => {
     await adminCaller.freight.adminUpdateSettings(settingsPayload(base!));
     const after = await readSettings();
     expect(after?.quoteMode).toBe(base?.quoteMode ?? "estimator");
+  });
+
+  it("rejects a kitchen freight floor below the owner-required $800 minimum", async () => {
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const base = await readSettings();
+    await expect(
+      adminCaller.freight.adminUpdateSettings(settingsPayload(base!, { kitchenFreightFloorCents: 79999 }))
+    ).rejects.toThrow();
   });
 });

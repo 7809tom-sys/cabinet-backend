@@ -231,6 +231,20 @@ describe("combineStyleFreightGroups", () => {
     expect(q.lines.some((line) => line.label.startsWith("Plan B fallback — Florida Style"))).toBe(true);
   });
 
+  it("keeps a kitchen quote at the $800 floor even when a stale configuration supplies $99", () => {
+    const q = combineStyleFreightGroups({
+      groups: [{ key: "1:10", label: "Style A · 30303", originZip: "30303", source: "live", baseAmountCents: 10000 }],
+      settings: SETTINGS,
+      merchandiseSubtotalCents: 300000,
+      billableWeightLbs: 1200,
+      isKitchen: true,
+      kitchenFreightFloorCents: 9900,
+    });
+
+    expect(q.totalCents).toBe(80000);
+    expect(q.lines).toContainEqual({ label: "Kitchen freight minimum adjustment", amountCents: 68500 });
+  });
+
   it("reports unavailable instead of inventing a rate when no group has Plan A or Plan B", () => {
     const q = combineStyleFreightGroups({
       groups: [],

@@ -138,6 +138,16 @@ describe("applyKitchenFloor", () => {
     expect(r.finalCents).toBe(12000);
     expect(r.floorApplied).toBe(false);
   });
+
+  it("repairs a stale floor below the owner-required $800 minimum", () => {
+    const r = applyKitchenFloor({
+      ratedFreightCents: 12000,
+      isKitchen: true,
+      kitchenFreightFloorCents: 9900,
+    });
+    expect(r.finalCents).toBe(80000);
+    expect(r.floorApplied).toBe(true);
+  });
 });
 
 describe("buildPallets — complete-kitchen trim consolidation", () => {
