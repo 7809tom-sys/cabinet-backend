@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search, FileText, Upload, Download } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search, FileText, Upload, Download, Send } from "lucide-react";
 import { Link } from "wouter";
 import {
   Select,
@@ -208,6 +208,78 @@ function InviteLinkButton({ vendorId, vendorName }: { vendorId: number; vendorNa
     >
       <UserPlus className="h-3.5 w-3.5" /> Setup login
     </Button>
+  );
+}
+
+function EmailPortalInviteButton({
+  vendorId,
+  vendorName,
+  defaultEmail,
+}: {
+  vendorId: number;
+  vendorName: string;
+  defaultEmail?: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState(defaultEmail ?? "");
+  const sendInvite = trpc.vendors.emailPortalInvite.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Supplier Portal invitation emailed to ${result.sentTo}`, {
+        description: `${vendorName} can use the private one-time link to create their own password.`,
+        duration: 8000,
+      });
+      setOpen(false);
+    },
+    onError: (error) => toast.error(error.message || "Could not email the Supplier Portal invitation."),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1"
+          title={`Email a private Supplier Portal setup link to ${vendorName}`}
+        >
+          <Send className="h-3.5 w-3.5" /> Email invite
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Email Supplier Portal invitation</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <p className="text-sm text-muted-foreground">
+            Send <strong>{vendorName}</strong> a private, one-time setup link. They choose their own password; no password is sent or displayed.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor={`supplier-invite-${vendorId}`}>Recipient email</Label>
+            <Input
+              id={`supplier-invite-${vendorId}`}
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="supplier-contact@company.com"
+              autoComplete="email"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Delivery uses the SMTP connection in <strong>Admin → Email Settings</strong>. If it is not configured, nothing is sent and no setup link is activated.
+          </p>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            className="gap-1"
+            disabled={sendInvite.isPending || !/^\S+@\S+\.\S+$/.test(email.trim())}
+            onClick={() => sendInvite.mutate({ id: vendorId, toEmail: email.trim() })}
+          >
+            <Send className="h-4 w-4" /> {sendInvite.isPending ? "Sending…" : "Send invitation"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -797,15 +869,19 @@ export default function ApprovedVendorsAdmin() {
                           onSaved={() => utils.vendors.list.invalidate()}
                         />
                         <InviteLinkButton vendorId={v.id} vendorName={v.name} />
+                        {v.isApproved && (
+                          <EmailPortalInviteButton vendorId={v.id} vendorName={v.name} defaultEmail={v.contactEmail} />
+                        )}
                         {(() => {
                           const distId = getDistributorIdForVendor(v.sourceKey);
-                          return distId ? (
-                            <Link href={`/vendor?as=${distId}`}>
-                              <Button size="sm" variant="outline" className="gap-1" title="View Vendor Portal">
-                                <ExternalLink className="h-3.5 w-3.5" />
+                          const portalHref = distId ? `/vendor?as=${distId}&vendor=${v.id}` : `/vendor?vendor=${v.id}`;
+                          return (
+                            <Link href={portalHref}>
+                              <Button size="sm" variant="outline" className="gap-1" title={`Preview ${v.name} Supplier Portal`}>
+                                <ExternalLink className="h-3.5 w-3.5" /> Preview
                               </Button>
                             </Link>
-                          ) : null;
+                          );
                         })()}
                         <Button
                           size="sm"

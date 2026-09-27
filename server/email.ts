@@ -5,6 +5,7 @@
 // the rest of the app keeps running without crashing.
 
 import nodemailer from "nodemailer";
+import { decryptEmailSettingsPassword } from "./lib/emailSettingsCrypto";
 
 const SMTP_HOST = process.env.SMTP_HOST ?? "";
 const SMTP_PORT = parseInt(process.env.SMTP_PORT ?? "465", 10);
@@ -126,11 +127,12 @@ export async function sendEmailViaSettings(
     return { success: false, notConfigured: true, error: "Email is not configured or is disabled" };
   }
   try {
+    const smtpPass = decryptEmailSettingsPassword(s.smtpPass);
     const transporter = nodemailer.createTransport({
       host: s.smtpHost,
       port: s.smtpPort,
       secure: s.smtpPort === 465,
-      auth: { user: s.smtpUser, pass: s.smtpPass },
+      auth: { user: s.smtpUser, pass: smtpPass },
     });
     const info = await transporter.sendMail({
       from: (s.smtpFrom || s.smtpUser).trim(),

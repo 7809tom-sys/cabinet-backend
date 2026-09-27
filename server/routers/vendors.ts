@@ -1,11 +1,14 @@
 import { z } from "zod";
 import { and, asc, eq, sql } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
 import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { distributors, vendorLines, orders, orderItems } from "../../drizzle/schema";
+import { distributors, emailSettings, vendorLines, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
 import { approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
+import { emailSettingsReady, sendEmailViaSettings } from "../email";
+import { buildSupplierPortalInvite } from "../supplierPortalInvite";
 
 // Approved Vendors scorecard.
 //
@@ -159,6 +162,78 @@ export const vendorsRouter = router({
         .set({ inviteToken: token, inviteCreatedAt: new Date() })
         .where(and(eq(vendorLines.id, input.id), eq(vendorLines.isApproved, true)));
       return { success: true, token } as const;
+    }),
+
+  /**
+   * Delivers a private, one-time Supplier Portal setup link. The token is only
+   * persisted after the saved SMTP service accepts the message, so a failed
+   * email attempt never creates an active credential.
+   */
+  emailPortalInvite: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      toEmail: z.string().trim().email().max(320),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [vendor] = await db
+        .select({
+          id: vendorLines.id,
+          name: vendorLines.name,
+          contactName: vendorLines.contactName,
+          contactEmail: vendorLines.contactEmail,
+          isApproved: vendorLines.isApproved,
+        })
+        .from(vendorLines)
+        .where(eq(vendorLines.id, input.id))
+        .limit(1);
+      if (!vendor) throw new TRPCError({ code: "NOT_FOUND", message: "Approved vendor record not found." });
+      if (!vendor.isApproved) {
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Approve this vendor before sending a Supplier Portal invitation." });
+      }
+
+      const [settings] = await db.select().from(emailSettings).limit(1);
+      if (!emailSettingsReady(settings)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Email sending is not configured. Enable SMTP in Admin → Email Settings before sending a Supplier Portal invitation.",
+        });
+      }
+
+      const token = (await import("crypto")).randomBytes(24).toString("hex");
+      const origin = ctx.req.headers.origin ?? `${ctx.req.protocol}://${ctx.req.get("host")}`;
+      const invite = buildSupplierPortalInvite({
+        vendorName: vendor.name,
+        recipientName: vendor.contactName,
+        recipientEmail: input.toEmail,
+        inviteToken: token,
+        origin,
+      });
+      const delivery = await sendEmailViaSettings(settings, {
+        to: input.toEmail,
+        subject: invite.subject,
+        text: invite.text,
+        html: invite.html,
+      });
+      if (!delivery.success) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "The Supplier Portal invitation could not be sent. Verify SMTP in Admin → Email Settings and try again.",
+        });
+      }
+
+      await db
+        .update(vendorLines)
+        .set({
+          inviteToken: token,
+          inviteCreatedAt: new Date(),
+          ...(vendor.contactEmail?.trim() ? {} : { contactEmail: input.toEmail }),
+        })
+        .where(and(eq(vendorLines.id, vendor.id), eq(vendorLines.isApproved, true)));
+
+      return { success: true, sentTo: input.toEmail, setupUrl: invite.setupUrl } as const;
     }),
 
   // Look up a vendor line by invite token (public — used by the registration page)
