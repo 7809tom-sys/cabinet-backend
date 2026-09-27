@@ -124,12 +124,13 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("mobile");
   });
 
-  it("lets an approved vendor create a supplier portal password without a separate invite", () => {
+  it("lets an approved vendor use either direct email registration or a private supplier setup link", () => {
     const login = source.slice(source.indexOf("function VendorLoginForm"), source.indexOf("// ─── Main Vendor Portal Component"));
     expect(login).toContain("New approved vendor? Create your password");
-    expect(login).toContain("same contact email saved on your approved vendor record");
-    expect(login).toContain("Registration works only with the contact email on an approved vendor record");
-    expect(login).toContain("linked automatically to that supplier’s own portal");
+    expect(login).toContain("private setup link for");
+    expect(login).toContain("works even if no email has been preloaded by Cabinet Dealz");
+    expect(login).toContain("private one-time setup link");
+    expect(login).toContain("Either route opens only your supplier portal.");
   });
 
   it("keeps every approved vendor logged into its own editable profile before a catalog line is linked", () => {

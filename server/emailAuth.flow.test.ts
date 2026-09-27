@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { users } from "../drizzle/schema";
+import { users, vendorLines } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 import { MAX_FAILED_ATTEMPTS } from "./routers/emailAuth.logic";
 
@@ -65,6 +65,54 @@ describe("emailAuth signup/login flow", () => {
       await expect(caller.emailAuth.signup({ email, password: "Sup3rSecret!" })).rejects.toThrow();
     } finally {
       await cleanup(lower);
+    }
+  });
+
+  it("lets an approved vendor use a one-time setup link, then saves its chosen login email", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const email = uniqueEmail("supplier-setup");
+    const secondEmail = uniqueEmail("supplier-setup-reuse");
+    const lower = email.toLowerCase();
+    const secondLower = secondEmail.toLowerCase();
+    const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    const token = `setup-${suffix}`;
+    const name = `Supplier setup ${suffix}`;
+    let vendorId: number | null = null;
+    try {
+      const inserted = await db.insert(vendorLines).values({
+        name,
+        isApproved: true,
+        inviteToken: token,
+      });
+      vendorId = Number((inserted as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
+      expect(vendorId).toBeGreaterThan(0);
+
+      await appRouter.createCaller(makeCtx().ctx).emailAuth.signup({
+        email,
+        password: "Sup3rSecret!",
+        inviteToken: token,
+      });
+
+      const account = (await db.select().from(users).where(eq(users.emailLower, lower)).limit(1))[0];
+      expect(account?.role).toBe("distributor");
+      expect(account?.approvedVendorLineId).toBe(vendorId);
+
+      const vendor = (await db.select().from(vendorLines).where(eq(vendorLines.id, vendorId!)).limit(1))[0];
+      expect(vendor?.contactEmail).toBe(email);
+      expect(vendor?.inviteToken).toBeNull();
+
+      await expect(
+        appRouter.createCaller(makeCtx().ctx).emailAuth.signup({
+          email: secondEmail,
+          password: "Sup3rSecret!",
+          inviteToken: token,
+        })
+      ).rejects.toThrow(/invalid|already been used/i);
+    } finally {
+      await db.delete(users).where(eq(users.emailLower, lower));
+      await db.delete(users).where(eq(users.emailLower, secondLower));
+      if (vendorId) await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
     }
   });
 

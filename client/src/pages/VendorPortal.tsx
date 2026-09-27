@@ -3760,11 +3760,11 @@ function VendorLoginForm() {
           <CardTitle className="text-2xl font-bold">Vendor Portal</CardTitle>
           {inviteVendor && mode === "register" ? (
             <p className="text-muted-foreground text-sm mt-1">
-              You've been invited to join as a vendor for <strong>{inviteVendor}</strong>. Create your account below.
+              You have a private setup link for <strong>{inviteVendor}</strong>. Choose the supplier login email and password below; the link works even if no email has been preloaded by Cabinet Dealz.
             </p>
           ) : mode === "register" ? (
             <p className="text-muted-foreground text-sm mt-1">
-              Use the same contact email saved on your approved vendor record to create your supplier portal password.
+              Use the contact email saved on your approved vendor record, or ask Cabinet Dealz for a private supplier setup link.
             </p>
           ) : (
             <p className="text-muted-foreground text-sm mt-1">
@@ -3845,7 +3845,7 @@ function VendorLoginForm() {
                   New approved vendor? Create your password
                 </button>
                 <p className="text-xs text-muted-foreground">
-                  Registration works only with the contact email on an approved vendor record. If that email is missing or needs to change, ask Cabinet Dealz to update the Approved Vendor record.
+                  If your contact email is not on the Approved Vendor record, ask Cabinet Dealz for the private one-time setup link for your company.
                 </p>
               </div>
             ) : (
@@ -3862,7 +3862,7 @@ function VendorLoginForm() {
                 </button>
                 {!inviteVendor && (
                   <p className="text-xs text-muted-foreground">
-                    Use the exact Approved Vendor contact email. It is linked automatically to that supplier’s own portal.
+                    Use the approved contact email, or use the private one-time setup link provided by Cabinet Dealz. Either route opens only your supplier portal.
                   </p>
                 )}
               </div>

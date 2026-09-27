@@ -22,18 +22,19 @@ describe("Approved vendor PDF resources", () => {
     expect(source).toContain("<Download className=");
   });
 
-  it("identifies the approved contact email as the supplier portal login", () => {
-    expect(source).toContain("Contact email / supplier portal login");
+  it("offers either direct email sign-up or a private setup link for every approved vendor", () => {
+    expect(source).toContain("Contact email (optional direct supplier login)");
     expect(source).toContain('data-testid="approved-vendor-login-help"');
-    expect(source).toContain("No separate invite is required.");
-    expect(source).toContain("Add a contact email to enable this supplier’s portal login.");
+    expect(source).toContain("Setup login");
+    expect(source).toContain("private one-time link");
+    expect(source).toContain("to give this approved vendor portal access now");
   });
 
-  it("shows every approved vendor whether its contact can log in now", () => {
+  it("shows every approved vendor as login-ready without requiring a catalog source line", () => {
     expect(source).toContain("Portal login");
-    expect(source).toContain("Portal ready");
-    expect(source).toContain("Profile portal ready");
-    expect(source).toContain("The contact email is the portal login.");
+    expect(source).toContain("Supplier login ready");
+    expect(source).toContain("Copy Setup login to onboard this vendor");
+    expect(source).toContain("It is not required for an approved vendor to have its own editable supplier profile.");
     expect(source).toContain("Select active supplier line");
   });
 });

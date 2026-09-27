@@ -237,18 +237,24 @@ export async function createEmailUser(params: {
     }
   }
 
-  // Invitation links remain supported for an approved supplier contact. Prefer
-  // the source-key line mapping; legacy name matching only remains as a fallback
-  // for already-issued links that predate source keys.
+  // A private, administrator-generated setup link lets any approved vendor
+  // choose its own supplier-login email and password. It is intentionally a
+  // one-time credential: sharing it gives only that approved supplier scope,
+  // and it is cleared after the first successful account creation.
+  let consumedInviteVendorLineId: number | null = null;
   if (params.inviteToken) {
     const [vendorLine] = await db
       .select()
       .from(vendorLines)
       .where(and(eq(vendorLines.inviteToken, params.inviteToken), eq(vendorLines.isApproved, true)))
       .limit(1);
-    if (vendorLine && !isOwner) {
+    if (!vendorLine) {
+      throw new Error("This supplier setup link is invalid or has already been used. Ask Cabinet Dealz for a new link.");
+    }
+    if (!isOwner) {
       role = "distributor";
       approvedVendorLineId = vendorLine.id;
+      consumedInviteVendorLineId = vendorLine.id;
       const distributorRows = await db
         .select({ id: distributors.id, code: distributors.code, name: distributors.name, isActive: distributors.isActive })
         .from(distributors);
@@ -278,6 +284,24 @@ export async function createEmailUser(params: {
     approvedVendorLineId,
     lastSignedIn: new Date(),
   });
+
+  if (consumedInviteVendorLineId !== null && params.inviteToken) {
+    const [consumedVendor] = await db
+      .select({ contactEmail: vendorLines.contactEmail })
+      .from(vendorLines)
+      .where(eq(vendorLines.id, consumedInviteVendorLineId))
+      .limit(1);
+    await db
+      .update(vendorLines)
+      .set({
+        inviteToken: null,
+        // Do not replace a contact email that an administrator or the supplier
+        // has already recorded. A first-time setup fills the otherwise blank
+        // login identity so future sign-ins no longer require the setup link.
+        ...(consumedVendor?.contactEmail?.trim() ? {} : { contactEmail: params.email.trim() }),
+      })
+      .where(and(eq(vendorLines.id, consumedInviteVendorLineId), eq(vendorLines.inviteToken, params.inviteToken)));
+  }
 
   const created = await getUserByEmailLower(params.emailLower);
   return created ? { id: created.id, openId: created.openId } : null;

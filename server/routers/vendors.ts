@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { distributors, vendorLines, orders, orderItems } from "../../drizzle/schema";
@@ -145,12 +145,19 @@ export const vendorsRouter = router({
     .mutation(async ({ input }) => {
       const db = await getDb();
       if (!db) return { success: false, url: "" } as const;
+      const [vendor] = await db
+        .select({ id: vendorLines.id, name: vendorLines.name, isApproved: vendorLines.isApproved })
+        .from(vendorLines)
+        .where(eq(vendorLines.id, input.id))
+        .limit(1);
+      if (!vendor) throw new Error("Approved vendor record not found.");
+      if (!vendor.isApproved) throw new Error("Approve this vendor before generating a supplier portal setup link.");
       const crypto = await import("crypto");
       const token = crypto.randomBytes(24).toString("hex"); // 48-char hex token
       await db
         .update(vendorLines)
         .set({ inviteToken: token, inviteCreatedAt: new Date() })
-        .where(eq(vendorLines.id, input.id));
+        .where(and(eq(vendorLines.id, input.id), eq(vendorLines.isApproved, true)));
       return { success: true, token } as const;
     }),
 
@@ -161,9 +168,9 @@ export const vendorsRouter = router({
       const db = await getDb();
       if (!db) return null;
       const [line] = await db
-        .select()
+        .select({ id: vendorLines.id, name: vendorLines.name })
         .from(vendorLines)
-        .where(eq(vendorLines.inviteToken, input.token))
+        .where(and(eq(vendorLines.inviteToken, input.token), eq(vendorLines.isApproved, true)))
         .limit(1);
       return line ?? null;
     }),

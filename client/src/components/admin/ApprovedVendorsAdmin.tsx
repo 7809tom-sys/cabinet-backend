@@ -181,13 +181,13 @@ function InviteLinkButton({ vendorId, vendorName }: { vendorId: number; vendorNa
       if (res.success && res.token) {
         const url = `${window.location.origin}/vendor?invite=${res.token}`;
         navigator.clipboard.writeText(url).then(() => {
-          toast.success(`Invite link copied for ${vendorName}`, {
-            description: url,
+          toast.success(`Supplier setup link copied for ${vendorName}`, {
+            description: "Send this private, one-time link to the vendor. They choose their own login email and password.",
             duration: 8000,
           });
         }).catch(() => {
           // Fallback: show the URL in the toast so they can copy manually
-          toast.success(`Invite link for ${vendorName}`, {
+          toast.success(`Supplier setup link for ${vendorName}`, {
             description: url,
             duration: 12000,
           });
@@ -201,12 +201,12 @@ function InviteLinkButton({ vendorId, vendorName }: { vendorId: number; vendorNa
     <Button
       size="sm"
       variant="outline"
-      className="gap-1"
+      className="gap-1 whitespace-nowrap"
       disabled={generateInvite.isPending}
       onClick={() => generateInvite.mutate({ id: vendorId })}
-      title={`Generate invite link for ${vendorName}`}
+      title={`Copy a one-time supplier portal setup link for ${vendorName}`}
     >
-      <Link2 className="h-3.5 w-3.5" />
+      <UserPlus className="h-3.5 w-3.5" /> Setup login
     </Button>
   );
 }
@@ -271,11 +271,11 @@ function VendorDialog({
               />
             </div>
             <div>
-              <Label className="text-xs">Source key / supplier portal line</Label>
+              <Label className="text-xs">Source key (optional: sales and catalog line)</Label>
               <Input
                 value={form.sourceKey}
                 onChange={(e) => setForm({ ...form, sourceKey: e.target.value })}
-                placeholder="Choose an active line below"
+                placeholder="Optional: pelican or dist:3"
               />
               <Select
                 value={form.sourceKey.startsWith("dist:") ? form.sourceKey : undefined}
@@ -293,7 +293,7 @@ function VendorDialog({
                 </SelectContent>
               </Select>
               <p className="mt-1 text-[11px] text-muted-foreground">
-                An approved contact can log in only after a source line and contact email are both saved.
+                This controls sales attribution and catalog tools. It is not required for an approved vendor to have its own editable supplier profile.
               </p>
             </div>
           </div>
@@ -314,7 +314,7 @@ function VendorDialog({
             </div>
           </div>
           <div>
-            <Label className="text-xs">Contact email / supplier portal login</Label>
+            <Label className="text-xs">Contact email (optional direct supplier login)</Label>
             <Input
               type="email"
               value={form.contactEmail}
@@ -322,7 +322,7 @@ function VendorDialog({
               placeholder="supplier-contact@company.com"
             />
             <p className="mt-1 text-xs text-muted-foreground" data-testid="approved-vendor-login-help">
-              An approved vendor can create a supplier portal password with this exact email. No separate invite is required.
+              This email can create a password directly. Or use the visible <strong>Setup login</strong> action after saving to send a private one-time link; it works even before an email is saved here.
             </p>
           </div>
           <div>
@@ -709,7 +709,7 @@ export default function ApprovedVendorsAdmin() {
                       )}
                       {v.isApproved && !v.contactEmail && (
                         <div className="text-xs font-medium text-amber-700">
-                          Add a contact email to enable this supplier’s portal login.
+                          Use <strong>Setup login</strong> to give this approved vendor portal access now, or save a contact email for direct sign-up.
                         </div>
                       )}
                       {(v.catalogPdfUrl || v.specBookPdfUrl) && (
@@ -751,22 +751,12 @@ export default function ApprovedVendorsAdmin() {
 	                      )}
 	                    </TableCell>
 	                    <TableCell className="text-xs">
-	                      {v.portalReadiness === "ready" ? (
-	                        <div className="space-y-0.5">
-	                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">Portal ready</Badge>
-	                          <p className="text-muted-foreground">{v.linkedDistributor ? `${v.linkedDistributor.code} · ${v.linkedDistributor.name}` : "Profile-only supplier"}</p>
-	                        </div>
-                      ) : v.portalReadiness === "profile-only" ? (
-                        <div className="space-y-0.5 text-amber-800">
-                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Profile portal ready</Badge>
-                          <p>Link a supply line in Edit to add catalog tools.</p>
-	                        </div>
-	                      ) : v.portalReadiness === "email-required" ? (
-	                        <div className="space-y-0.5 text-amber-800">
-	                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Add contact email</Badge>
-	                          <p>The contact email is the portal login.</p>
-	                        </div>
-	                      ) : (
+                      {v.isApproved ? (
+                        <div className="space-y-0.5">
+                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">Supplier login ready</Badge>
+                          <p className="text-muted-foreground">{v.contactEmail ? "Direct email sign-up or setup link" : "Copy Setup login to onboard this vendor"}</p>
+                        </div>
+                      ) : (
 	                        <span className="text-muted-foreground">Approve this vendor to enable login.</span>
 	                      )}
 	                    </TableCell>
@@ -817,11 +807,6 @@ export default function ApprovedVendorsAdmin() {
                             </Link>
                           ) : null;
                         })()}
-                        <ProvisionAccountDialog
-                          vendorId={v.id}
-                          vendorName={v.name}
-                          onDone={() => utils.vendors.list.invalidate()}
-                        />
                         <Button
                           size="sm"
                           variant="outline"
