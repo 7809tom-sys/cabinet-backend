@@ -306,7 +306,7 @@ function PelicanVendorOverviewPage({ onNavigateToCatalog }: { onNavigateToCatalo
 }
 
 // ─── Overview Page ────────────────────────────────────────────────────────────
-function OverviewPage() {
+function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }) {
   const adminDistId = useAdminDistributorId();
   const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
 
@@ -374,11 +374,32 @@ function OverviewPage() {
             <div className="text-2xl font-bold">{counts.pending}</div>
           </CardContent>
         </Card>
-      </div>
+	      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Door Styles ({styles.length})</CardTitle>
+	      <div data-testid="vendor-editing-shortcuts" className="grid gap-4 md:grid-cols-2">
+	        <Card className="border-amber-200 bg-amber-50/40">
+	          <CardHeader className="pb-2">
+	            <CardTitle className="flex items-center gap-2 text-base"><Star className="h-4 w-4 text-amber-600" />Feature your cabinet styles</CardTitle>
+	          </CardHeader>
+	          <CardContent className="space-y-3">
+	            <p className="text-sm text-muted-foreground">Choose the cabinet-backed door styles to promote, then edit their customer-facing materials, photos, profile details, and style-specific freight origins.</p>
+	            <Button onClick={() => onNavigate("featured-styles")}><Pencil className="mr-2 h-4 w-4" />Manage Featured Styles</Button>
+	          </CardContent>
+	        </Card>
+	        <Card className="border-sky-200 bg-sky-50/40">
+	          <CardHeader className="pb-2">
+	            <CardTitle className="flex items-center gap-2 text-base"><Truck className="h-4 w-4 text-sky-600" />Manage shipping &amp; warehouses</CardTitle>
+	          </CardHeader>
+	          <CardContent className="space-y-3">
+	            <p className="text-sm text-muted-foreground">Set the warehouse origins, freight rule, lead time, ZIP rates, notes, and pickup details used for your cabinet line.</p>
+	            <Button onClick={() => onNavigate("shipping")}><Pencil className="mr-2 h-4 w-4" />Edit Shipping &amp; Warehouses</Button>
+	          </CardContent>
+	        </Card>
+	      </div>
+
+	      <Card>
+	        <CardHeader>
+	          <CardTitle>Door Styles ({styles.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2">
@@ -3257,10 +3278,14 @@ function VendorLoginForm() {
 // ─── Main Vendor Portal Component ─────────────────────────────────────────────
 export default function VendorPortal() {
   const { user, loading } = useAuth();
-  const [page, setPage] = useState<VendorPage>("overview");
+  const params = new URLSearchParams(window.location.search);
+  const requestedPage = params.get("section");
+  const initialPage: VendorPage = NAV_ITEMS.some((item) => item.id === requestedPage)
+    ? requestedPage as VendorPage
+    : "overview";
+  const [page, setPage] = useState<VendorPage>(initialPage);
 
   // Admin bypass: detect ?as=<distributorId> in URL
-  const params = new URLSearchParams(window.location.search);
   const asParam = params.get("as");
   const [adminDistributorId, setAdminDistributorId] = useState<number | null>(
     asParam ? Number(asParam) : null
@@ -3269,6 +3294,13 @@ export default function VendorPortal() {
   // Fetch distributors list for admin selector
   const isAdmin = user?.role === "admin";
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const navigateToPage = useCallback((nextPage: VendorPage) => {
+    setPage(nextPage);
+    const url = new URL(window.location.href);
+    if (nextPage === "overview") url.searchParams.delete("section");
+    else url.searchParams.set("section", nextPage);
+    window.history.replaceState({}, "", url.toString());
+  }, []);
 
   if (loading) {
     return (
@@ -3340,7 +3372,7 @@ export default function VendorPortal() {
     <VendorPortalDashboard
       user={user}
       page={page}
-      setPage={setPage}
+      setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
       setAdminDistributorId={setAdminDistributorId}
@@ -3435,15 +3467,15 @@ function VendorPortalDashboard({
       </aside>
 
       {/* Mobile nav */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card z-50">
-        <div className="flex justify-around py-2">
+	      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card z-50">
+	        <nav aria-label="Vendor portal sections" className="flex gap-1 overflow-x-auto px-2 py-2">
           {NAV_ITEMS.map((item) => {
             const isActive = page === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => setPage(item.id)}
-                className={`flex flex-col items-center gap-1 px-2 py-1 text-xs transition-colors ${
+	                className={`flex shrink-0 flex-col items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                   isActive ? "text-primary" : "text-muted-foreground"
                 }`}
               >
@@ -3452,12 +3484,12 @@ function VendorPortalDashboard({
               </button>
             );
           })}
-        </div>
-      </div>
+	        </nav>
+	      </div>
 
       {/* Main content */}
       <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
-	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage />)}
+	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage onNavigate={setPage} />)}
 	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
 	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}

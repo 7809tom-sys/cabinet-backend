@@ -54,6 +54,18 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(editor).toContain("Save Featured Style");
 	  });
 
+	  it("makes both editing areas reachable from the vendor dashboard and preserves the chosen section", () => {
+	    const overview = source.slice(source.indexOf("function OverviewPage"), source.indexOf("// ─── Catalog Page"));
+	    expect(overview).toContain('data-testid="vendor-editing-shortcuts"');
+	    expect(overview).toContain("Manage Featured Styles");
+	    expect(overview).toContain("Edit Shipping &amp; Warehouses");
+	    expect(overview).toContain('onNavigate("featured-styles")');
+	    expect(overview).toContain('onNavigate("shipping")');
+	    expect(source).toContain('const requestedPage = params.get("section")');
+	    expect(source).toContain('url.searchParams.set("section", nextPage)');
+	    expect(source).toContain('aria-label="Vendor portal sections"');
+	  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');
