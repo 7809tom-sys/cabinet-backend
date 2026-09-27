@@ -654,6 +654,13 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("approved").notNull(),
   // PO-only fields (internal; never shown to customers)
   supplierCabinetName: varchar("supplierCabinetName", { length: 255 }), // distributor's own cabinet name on the PO
+  // A source-owned unmatched item remains pending until its required description
+  // and physical package details are supplied; never fabricate a master cabinet.
+  supplierDescription: text("supplierDescription"),
+  pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
+  pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
+  pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
+  pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (t) => ({
   // Prevent duplicate SKU rows for the same cabinet+distributor+style combo.
@@ -662,6 +669,36 @@ export const distributorSkus = mysqlTable("distributor_skus", {
 }));
 
 export type DistributorSku = typeof distributorSkus.$inferSelect;
+
+// ─── Non-cabinet vendor products ─────────────────────────────────────────────
+// These never borrow cabinet geometry, a door style, or a Designer placement.
+// They support suppliers of appliances, hardware, fixtures, flooring, and other
+// merchandise alongside the cabinet-catalog import path.
+export const vendorProducts = mysqlTable("vendor_products", {
+  id: int("id").autoincrement().primaryKey(),
+  distributorId: int("distributorId").notNull(),
+  vendorSku: varchar("vendorSku", { length: 128 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 128 }),
+  listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
+  yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
+  imageUrl: varchar("imageUrl", { length: 512 }),
+  pkgLength: decimal("pkgLength", { precision: 6, scale: 2 }),
+  pkgWidth: decimal("pkgWidth", { precision: 6, scale: 2 }),
+  pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
+  pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }),
+  isAvailable: boolean("isAvailable").default(true).notNull(),
+  status: mysqlEnum("status", ["approved", "pending", "rejected"]).default("pending").notNull(),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  lineSkuUnique: uniqueIndex("vendor_products_line_sku_uq").on(t.distributorId, t.vendorSku),
+  lineStatusIndex: index("vendor_products_line_status_idx").on(t.distributorId, t.status),
+}));
+
+export type VendorProduct = typeof vendorProducts.$inferSelect;
 
 // ─── Cabinet Distributor Eligibility ────────────────────────────────────────
 // This internal administrator-maintained relationship records that a

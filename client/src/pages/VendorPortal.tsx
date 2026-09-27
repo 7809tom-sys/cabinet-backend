@@ -2,7 +2,7 @@ import { useState, useMemo, useCallback, useRef, useEffect, FormEvent, createCon
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
   Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
-  PlusCircle, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3,
+	  PlusCircle, Plus, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3, Pencil, Trash2, RotateCcw,
   Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { getLoginUrl } from "@/const";
 import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
+import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
 
 // ─── Admin Distributor Context ───────────────────────────────────────────────
 const AdminDistributorContext = createContext<number | undefined>(undefined);
@@ -52,11 +53,12 @@ function money(v: string | null | undefined): string {
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
-type VendorPage = "overview" | "catalog" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
+type VendorPage = "overview" | "catalog" | "other-products" | "styles" | "featured-styles" | "shipping" | "picks" | "orders" | "promotions" | "gallery" | "analytics" | "ai-services" | "integrations" | "payments";
 
 const NAV_ITEMS: { id: VendorPage; label: string; icon: typeof LayoutDashboard }[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "catalog", label: "My Catalog", icon: Package },
+  { id: "other-products", label: "Other Products", icon: Package },
   { id: "styles", label: "Door Styles", icon: Palette },
   { id: "featured-styles", label: "Featured Styles", icon: Star },
   { id: "shipping", label: "Shipping", icon: Truck },
@@ -1314,25 +1316,38 @@ function DoorStylesPage() {
 // different vendor's styles as a fallback.
 type VendorFeaturedStyle = {
   id: number;
+	  distributorId: number;
   styleCode: string;
   ourName: string;
   distributorName: string;
+	  aliasName: string | null;
+	  featuredLabel: string | null;
   doorStyle: string | null;
   color: string | null;
   finish: string | null;
   woodSpecies: string | null;
   doorSampleImageUrl: string | null;
+	  drawerSampleImageUrl: string | null;
   roomSceneImageUrl: string | null;
   thumbnailImageUrl: string | null;
+	  cornerSwatchImageUrl: string | null;
   doorSampleVerified: boolean;
   isFeatured: boolean;
   featuredRank: number;
+	  warehouseZips: string[] | null;
+	  flatFreightFeeCents: number | null;
+	  railWidth: string | null;
+	  stileWidth: string | null;
+	  centerRailWidth: string | null;
+	  profileNotes: string | null;
+	  profileDescription: string | null;
+	  sourceSpecification: string | null;
   isActive: boolean;
   skuCount: number;
   catalogCategories: string[];
   matchingCabinetCount: number;
   matchingCabinets: Array<{ masterCode: string; description: string; category: string }>;
-  roomScenes: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; isActive: boolean }>;
+	  roomScenes: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; isActive: boolean; sourceNote: string | null; sourceDistributorId: number | null }>;
 };
 
 type VendorFeaturedCategory = { category: string; cabinetCount: number };
@@ -1345,11 +1360,132 @@ function vendorStyleThumb(style: VendorFeaturedStyle): string | null {
     || null;
 }
 
+/** The vendor-facing merchandising editor mirrors the internal Featured Styles
+ * materials while intentionally omitting global-only identity and other-line controls. */
+function VendorFeaturedStyleEditor({
+  style,
+  open,
+  onClose,
+  onSaved,
+}: {
+  style: VendorFeaturedStyle;
+  open: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const adminDistId = useAdminDistributorId();
+  const [featuredLabel, setFeaturedLabel] = useState(style.featuredLabel ?? "");
+  const [aliasName, setAliasName] = useState(style.aliasName ?? "");
+  const [doorStyle, setDoorStyle] = useState(style.doorStyle ?? "");
+  const [color, setColor] = useState(style.color ?? "");
+  const [finish, setFinish] = useState(style.finish ?? "");
+  const [woodSpecies, setWoodSpecies] = useState(style.woodSpecies ?? "");
+  const [warehouseZips, setWarehouseZips] = useState<string[]>(style.warehouseZips ?? []);
+  const [newZip, setNewZip] = useState("");
+  const [flatFreight, setFlatFreight] = useState(style.flatFreightFeeCents == null ? "" : (style.flatFreightFeeCents / 100).toFixed(2));
+  const [railWidth, setRailWidth] = useState(style.railWidth ?? "");
+  const [stileWidth, setStileWidth] = useState(style.stileWidth ?? "");
+  const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth ?? "");
+  const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
+  const [profileDescription, setProfileDescription] = useState(style.profileDescription ?? "");
+  const [sourceSpecification, setSourceSpecification] = useState(style.sourceSpecification ?? "");
+  const [doorSampleImageUrl, setDoorSampleImageUrl] = useState(style.doorSampleImageUrl ?? "");
+  const [drawerSampleImageUrl, setDrawerSampleImageUrl] = useState(style.drawerSampleImageUrl ?? "");
+  const [roomSceneImageUrl, setRoomSceneImageUrl] = useState(style.roomSceneImageUrl ?? "");
+  const [thumbnailImageUrl, setThumbnailImageUrl] = useState(style.thumbnailImageUrl ?? "");
+  const [cornerSwatchImageUrl, setCornerSwatchImageUrl] = useState(style.cornerSwatchImageUrl ?? "");
+  const [newSceneUrl, setNewSceneUrl] = useState("");
+  const [newSceneNote, setNewSceneNote] = useState("");
+  const [uploadTarget, setUploadTarget] = useState<"doorSample" | "drawerSample" | "roomScene" | "thumbnail" | "cornerSwatch" | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setFeaturedLabel(style.featuredLabel ?? ""); setAliasName(style.aliasName ?? "");
+    setDoorStyle(style.doorStyle ?? ""); setColor(style.color ?? ""); setFinish(style.finish ?? ""); setWoodSpecies(style.woodSpecies ?? "");
+    setWarehouseZips(style.warehouseZips ?? []); setNewZip("");
+    setFlatFreight(style.flatFreightFeeCents == null ? "" : (style.flatFreightFeeCents / 100).toFixed(2));
+    setRailWidth(style.railWidth ?? ""); setStileWidth(style.stileWidth ?? ""); setCenterRailWidth(style.centerRailWidth ?? "");
+    setProfileNotes(style.profileNotes ?? ""); setProfileDescription(style.profileDescription ?? ""); setSourceSpecification(style.sourceSpecification ?? "");
+    setDoorSampleImageUrl(style.doorSampleImageUrl ?? ""); setDrawerSampleImageUrl(style.drawerSampleImageUrl ?? "");
+    setRoomSceneImageUrl(style.roomSceneImageUrl ?? ""); setThumbnailImageUrl(style.thumbnailImageUrl ?? ""); setCornerSwatchImageUrl(style.cornerSwatchImageUrl ?? "");
+    setNewSceneUrl(""); setNewSceneNote("");
+  }, [style, open]);
+
+  const withLine = <T extends Record<string, unknown>>(input: T) => ({ ...input, ...(adminDistId ? { distributorId: adminDistId } : {}) });
+  const saved = () => { toast.success("Featured Style materials saved"); onSaved(); };
+  const update = trpc.distributorPortal.updateFeaturedStyleMaterials.useMutation({ onSuccess: saved, onError: (error) => toast.error(error.message) });
+  const addScene = trpc.distributorPortal.addFeaturedStyleScene.useMutation({ onSuccess: () => { toast.success("Verified room scene added"); setNewSceneUrl(""); setNewSceneNote(""); onSaved(); }, onError: (error) => toast.error(error.message) });
+  const deleteScene = trpc.distributorPortal.deleteFeaturedStyleScene.useMutation({ onSuccess: () => { toast.success("Your room scene was removed"); onSaved(); }, onError: (error) => toast.error(error.message) });
+  const upload = trpc.distributorPortal.updateDoorStyleImage.useMutation({ onSuccess: () => { toast.success("Style image uploaded"); onSaved(); }, onError: (error) => toast.error(error.message) });
+
+  const addZip = () => {
+    const zip = newZip.replace(/\D/g, "").slice(0, 5);
+    if (!/^\d{5}$/.test(zip)) { toast.error("Shipping origin ZIP must be exactly 5 digits"); return; }
+    if (warehouseZips.includes(zip)) { toast.message("This warehouse ZIP is already listed"); return; }
+    setWarehouseZips((current) => [...current, zip]); setNewZip("");
+  };
+  const requestUpload = (target: typeof uploadTarget) => { setUploadTarget(target); requestAnimationFrame(() => fileInputRef.current?.click()); };
+  const handleUpload = async (file: File) => {
+    if (!uploadTarget) return;
+    const base64 = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve((reader.result as string).split(",")[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    await upload.mutateAsync(withLine({ styleId: style.id, imageType: uploadTarget, imageBase64: base64, contentType: file.type || "image/jpeg" }));
+    setUploadTarget(null);
+  };
+  const parseMeasure = (value: string) => value.trim() ? Number(value) : null;
+  const save = () => {
+    const rail = parseMeasure(railWidth); const stile = parseMeasure(stileWidth); const center = parseMeasure(centerRailWidth);
+    if ([rail, stile, center].some((value) => value != null && (!Number.isFinite(value) || value < 0 || value > 99))) { toast.error("Frame measurements must be from 0 to 99 inches"); return; }
+    if ((rail != null || stile != null) && !(rail != null && stile != null)) { toast.error("Enter both rail and stile measurements, or leave both blank"); return; }
+    if (rail != null && !sourceSpecification.trim()) { toast.error("An official frame source citation is required with rail and stile measurements"); return; }
+    const freight = flatFreight.trim() ? Number(flatFreight) : null;
+    if (freight != null && (!Number.isFinite(freight) || freight < 0)) { toast.error("Fallback freight must be a valid non-negative dollar amount"); return; }
+    update.mutate(withLine({
+      styleId: style.id, featuredLabel: featuredLabel.trim() || null, aliasName: aliasName.trim() || null,
+      doorStyle: doorStyle.trim() || null, color: color.trim() || null, finish: finish.trim() || null, woodSpecies: woodSpecies.trim() || null,
+      warehouseZips: warehouseZips.length ? warehouseZips : null, flatFreightFeeCents: freight == null ? null : Math.round(freight * 100),
+      railWidth: rail, stileWidth: stile, centerRailWidth: center, profileNotes: profileNotes.trim() || null, profileDescription: profileDescription.trim() || null, sourceSpecification: sourceSpecification.trim() || null,
+      doorSampleImageUrl: doorSampleImageUrl.trim() || null, drawerSampleImageUrl: drawerSampleImageUrl.trim() || null, roomSceneImageUrl: roomSceneImageUrl.trim() || null,
+      thumbnailImageUrl: thumbnailImageUrl.trim() || null, cornerSwatchImageUrl: cornerSwatchImageUrl.trim() || null,
+    }));
+  };
+  const imageField = (label: string, hint: string, value: string, setValue: (value: string) => void, target: NonNullable<typeof uploadTarget>) => (
+    <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-center justify-between gap-2"><Label className="text-xs font-semibold">{label}</Label><Button type="button" size="sm" variant="outline" className="h-7" disabled={upload.isPending} onClick={() => requestUpload(target)}><Upload className="mr-1 h-3.5 w-3.5" />Upload</Button></div>
+      {value && <img src={value} alt={`${label} preview`} className="h-24 w-full rounded border border-border object-cover" />}
+      <Input value={value} onChange={(event) => setValue(event.target.value)} placeholder="https://… or upload an image" className="h-8 text-xs" />
+      <p className="text-[11px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+
+  return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}>
+    <DialogContent className="!flex h-[min(92dvh,900px)] max-h-[calc(100dvh-1rem)] w-[min(48rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-none">
+      <DialogHeader className="shrink-0"><DialogTitle className="flex items-center gap-2"><Pencil className="h-4 w-4 text-amber-600" />Edit Featured Door Style <span className="font-normal text-muted-foreground">— {style.ourName}</span></DialogTitle></DialogHeader>
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleUpload(file); event.target.value = ""; }} />
+      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2 pr-2">
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 space-y-3"><div><Label>Customer-facing names</Label><p className="text-xs text-muted-foreground">These names promote this vendor’s own cabinet line in the catalog, featured row, and Designer.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Alias name</Label><Input value={aliasName} onChange={(event) => setAliasName(event.target.value)} placeholder={style.ourName} /></div><div className="space-y-1"><Label className="text-xs">Featured label</Label><Input value={featuredLabel} onChange={(event) => setFeaturedLabel(event.target.value)} placeholder={aliasName || style.ourName} /></div></div><p className="text-xs text-muted-foreground">Leave a field blank to use the vendor’s standard Door Style name.</p></div>
+        <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Door style type</Label><Input value={doorStyle} onChange={(event) => setDoorStyle(event.target.value)} placeholder="e.g. Shaker" /></div><div className="space-y-1"><Label className="text-xs">Color</Label><Input value={color} onChange={(event) => setColor(event.target.value)} placeholder="e.g. White" /></div><div className="space-y-1"><Label className="text-xs">Finish</Label><Input value={finish} onChange={(event) => setFinish(event.target.value)} placeholder="e.g. Painted" /></div><div className="space-y-1"><Label className="text-xs">Wood species</Label><Input value={woodSpecies} onChange={(event) => setWoodSpecies(event.target.value)} placeholder="e.g. Maple" /></div></div>
+        <div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-3"><div><Label className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5 text-sky-700" />Shipping Origin ZIPs</Label><p className="text-xs text-muted-foreground">Same per-style origin controls as Featured Styles. Saved ZIPs become the style’s private freight origins.</p></div><div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" placeholder="5-digit warehouse ZIP" maxLength={5} /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add</Button></div><div className="flex flex-wrap gap-2">{warehouseZips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setWarehouseZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div><div className="space-y-1"><Label className="text-xs">Plan B fallback freight fee (optional)</Label><div className="flex items-center gap-2"><span>$</span><Input value={flatFreight} onChange={(event) => setFlatFreight(event.target.value)} inputMode="decimal" placeholder="Used only if live freight is unavailable" /></div></div></div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label>Frame profile materials</Label><p className="text-xs text-muted-foreground">Provide verified measurements and cite the exact official source so this vendor’s door renders correctly.</p></div><div className="grid grid-cols-3 gap-3"><div className="space-y-1"><Label className="text-xs">Rail (in)</Label><Input type="number" min="0" max="99" step="0.125" value={railWidth} onChange={(event) => setRailWidth(event.target.value)} /></div><div className="space-y-1"><Label className="text-xs">Stile (in)</Label><Input type="number" min="0" max="99" step="0.125" value={stileWidth} onChange={(event) => setStileWidth(event.target.value)} /></div><div className="space-y-1"><Label className="text-xs">Center rail (in)</Label><Input type="number" min="0" max="99" step="0.125" value={centerRailWidth} onChange={(event) => setCenterRailWidth(event.target.value)} /></div></div><div className="space-y-1"><Label className="text-xs">Official frame source citation</Label><Input value={sourceSpecification} onChange={(event) => setSourceSpecification(event.target.value)} placeholder="Official catalog and exact supplier style code" /></div><div className="space-y-1"><Label className="text-xs">Profile notes</Label><Input value={profileNotes} onChange={(event) => setProfileNotes(event.target.value)} placeholder="e.g. Beaded inner edge" /></div><div className="space-y-1"><Label className="text-xs">Profile description</Label><textarea value={profileDescription} onChange={(event) => setProfileDescription(event.target.value)} rows={4} placeholder="Customer-facing educational description of this style" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div>
+        <div className="space-y-3"><div><Label>Image materials</Label><p className="text-xs text-muted-foreground">Upload or paste the exact verified image for this vendor’s Door Style. Saving updates only this vendor’s line.</p></div><div className="grid gap-3 sm:grid-cols-2">{imageField("Room scene photo", "Primary Featured Styles and cabinet-line scene.", roomSceneImageUrl, setRoomSceneImageUrl, "roomScene")}{imageField("Door sample photo", "Door panel material for the Designer and catalog.", doorSampleImageUrl, setDoorSampleImageUrl, "doorSample")}{imageField("Drawer sample photo", "Drawer-front material; blank falls back to the door sample.", drawerSampleImageUrl, setDrawerSampleImageUrl, "drawerSample")}{imageField("Corner swatch", "Angled profile/grain close-up for Featured Styles.", cornerSwatchImageUrl, setCornerSwatchImageUrl, "cornerSwatch")}{imageField("Thumbnail override", "Optional small-card thumbnail override.", thumbnailImageUrl, setThumbnailImageUrl, "thumbnail")}</div></div>
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div><Label>Verified room scene library ({style.roomScenes.length}/6)</Label><p className="text-xs text-muted-foreground">Vendor submissions are verified and can feature this cabinet line. You can only remove scenes submitted by your own line.</p></div>{style.roomScenes.length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{style.roomScenes.map((scene) => <div key={scene.id} className="relative overflow-hidden rounded border border-border bg-background"><img src={scene.imageUrl} alt={`Room scene for ${style.ourName}`} className="h-20 w-full object-cover" /><p className="truncate p-1.5 text-[10px] text-muted-foreground">{scene.isVerified ? "Verified" : "Unverified"}{scene.sourceNote ? ` · ${scene.sourceNote}` : ""}</p>{scene.sourceDistributorId === style.distributorId && <Button type="button" size="icon" variant="ghost" className="absolute right-1 top-1 h-6 w-6 bg-background/90 text-destructive" disabled={deleteScene.isPending} onClick={() => deleteScene.mutate(withLine({ sceneId: scene.id }))} aria-label="Remove my room scene"><Trash2 className="h-3.5 w-3.5" /></Button>}</div>)}</div>}{style.roomScenes.length < 6 && <div className="border-t border-emerald-200 pt-3 space-y-2"><Input value={newSceneUrl} onChange={(event) => setNewSceneUrl(event.target.value)} placeholder="Verified room scene URL" /><Input value={newSceneNote} onChange={(event) => setNewSceneNote(event.target.value)} placeholder="Private source note (optional)" /><Button type="button" size="sm" disabled={!newSceneUrl.trim() || addScene.isPending} onClick={() => addScene.mutate(withLine({ styleId: style.id, imageUrl: newSceneUrl, sourceNote: newSceneNote.trim() || null }))}><Plus className="mr-1 h-3.5 w-3.5" />Add verified scene</Button></div>}</div>
+      </div>
+      <DialogFooter className="shrink-0 border-t border-border pt-3"><Button variant="outline" onClick={onClose} disabled={update.isPending}>Cancel</Button><Button onClick={save} disabled={update.isPending} className="bg-amber-600 text-white hover:bg-amber-700">{update.isPending ? "Saving…" : "Save Featured Style"}</Button></DialogFooter>
+    </DialogContent>
+  </Dialog>;
+}
+
 function VendorFeaturedStylesPage() {
   const utils = trpc.useUtils();
   const adminDistId = useAdminDistributorId();
   const [search, setSearch] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+	  const [editingStyle, setEditingStyle] = useState<VendorFeaturedStyle | null>(null);
   const featuredQueryInput = useMemo(() => ({
     ...(adminDistId ? { distributorId: adminDistId } : {}),
     ...(search.trim() ? { search: search.trim() } : {}),
@@ -1421,15 +1557,15 @@ function VendorFeaturedStylesPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-2xl font-bold"><Star className="h-5 w-5 text-primary" /> Featured Door Styles</h2>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Curate the cabinet lines featured from your vendor portal. This copy of Featured Styles only includes door styles that have cabinets in your catalog.
-          </p>
+	          <h2 className="flex items-center gap-2 text-2xl font-bold"><Star className="h-5 w-5 text-primary" /> Featured Door Styles</h2>
+	          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+	            Curate and edit the materials for cabinet lines featured from your vendor portal. This copy of Featured Styles only includes door styles that have cabinets in your catalog.
+	          </p>
 	        </div>
 	        <Badge variant="secondary" className="self-start text-sm sm:self-auto">{featured.length} matching featured line{featured.length === 1 ? "" : "s"}</Badge>
 	      </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+	      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="relative w-full lg:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -1452,8 +1588,13 @@ function VendorFeaturedStylesPage() {
             return <Button key={category} size="sm" variant={selected ? "default" : "outline"} className="h-8 gap-1.5" onClick={() => setSelectedCategories((current) => selected ? current.filter((item) => item !== category) : [...current, category])} aria-pressed={selected}>{category} <span className="text-[10px] opacity-75">{cabinetCount}</span></Button>;
           })}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">Search matches cabinet master codes, vendor/platform SKUs, and descriptions. Category filters apply to the actual cabinets carried by this vendor.</p>
-      </div>
+	        <p className="mt-3 text-xs text-muted-foreground">Search matches cabinet master codes, vendor/platform SKUs, and descriptions. Category filters apply to the actual cabinets carried by this vendor.</p>
+	      </div>
+
+	      <div data-testid="vendor-featured-style-edit-help" className="flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50/60 p-4 text-sm text-amber-950 sm:flex-row sm:items-center sm:justify-between">
+	        <div><span className="font-semibold">Edit your line directly.</span> Use <span className="font-semibold">Edit materials</span> beside any cabinet-backed door style to update its customer-facing name, photos, frame details, featured materials, and style-specific freight origins.</div>
+	        <span className="shrink-0 text-xs text-amber-800">Only your vendor line changes.</span>
+	      </div>
 
 	      <div>
 	        <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Featured Door Styles ({featured.length})</h3>{hasActiveFilters && <span className="text-xs text-muted-foreground">Clear filters to reorder the complete list.</span>}</div>
@@ -1480,7 +1621,8 @@ function VendorFeaturedStylesPage() {
 	                    </div>
 	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="mt-1 truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")} {style.matchingCabinetCount > style.matchingCabinets.length ? `+${style.matchingCabinetCount - style.matchingCabinets.length} more` : ""}</p>}
 	                  </div>
-	                  <div className="flex shrink-0 items-center gap-1">
+			                  <div className="flex shrink-0 items-center gap-1">
+			                    <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setEditingStyle(style)} aria-label={`Edit ${style.ourName} Featured Style materials`} title="Edit Featured Style materials"><Pencil className="h-3.5 w-3.5" />Edit materials</Button>
 	                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === 0 || reorder.isPending || hasActiveFilters} onClick={() => move(index, -1)} aria-label={`Move ${style.ourName} up`} title={hasActiveFilters ? "Clear filters to reorder" : "Move up"}><ArrowUp className="h-4 w-4" /></Button>
 	                    <Button size="icon" variant="ghost" className="h-8 w-8" disabled={index === featured.length - 1 || reorder.isPending || hasActiveFilters} onClick={() => move(index, 1)} aria-label={`Move ${style.ourName} down`} title={hasActiveFilters ? "Clear filters to reorder" : "Move down"}><ArrowDown className="h-4 w-4" /></Button>
                     <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" disabled={setFeatured.isPending} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: false }))} aria-label={`Remove ${style.ourName} from featured`}><X className="h-4 w-4" /></Button>
@@ -1511,16 +1653,17 @@ function VendorFeaturedStylesPage() {
 	                    <p className="truncate text-xs text-muted-foreground">{style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"} {[style.doorStyle, style.color].filter(Boolean).length > 0 ? `· ${[style.doorStyle, style.color].filter(Boolean).join(" · ")}` : ""}</p>
 	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")}{style.matchingCabinetCount > style.matchingCabinets.length ? ` +${style.matchingCabinetCount - style.matchingCabinets.length}` : ""}</p>}
 	                    <p className={`mt-1 text-[10px] ${sceneReady ? "text-emerald-700" : "text-amber-700"}`}>{sceneReady ? "Verified room scene ready" : "Add a verified room scene in Door Styles first"}</p>
-                  </div>
-                  <Button size="icon" variant="ghost" className="h-8 w-8" disabled={setFeatured.isPending || !sceneReady} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: true }))} aria-label={`Feature ${style.ourName}`} title={sceneReady ? "Feature this cabinet line" : "Add a verified matching room scene in Door Styles first"}><Star className="h-4 w-4 text-muted-foreground/60" /></Button>
+	                  </div>
+		                  <div className="flex shrink-0 items-center gap-1"><Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={() => setEditingStyle(style)} aria-label={`Edit ${style.ourName} Featured Style materials`} title="Edit Featured Style materials"><Pencil className="h-3.5 w-3.5" />Edit materials</Button><Button size="icon" variant="ghost" className="h-8 w-8" disabled={setFeatured.isPending || !sceneReady} onClick={() => setFeatured.mutate(mutateInput({ styleId: style.id, featured: true }))} aria-label={`Feature ${style.ourName}`} title={sceneReady ? "Feature this cabinet line" : "Add a verified matching room scene in Door Styles first"}><Star className="h-4 w-4 text-muted-foreground/60" /></Button></div>
                 </div>
               );
             })}
           </div>
         )}
-      </div>
-    </div>
-  );
+	      </div>
+	      {editingStyle && <VendorFeaturedStyleEditor style={editingStyle} open={Boolean(editingStyle)} onClose={() => setEditingStyle(null)} onSaved={() => { utils.distributorPortal.featuredStyles.invalidate(); utils.distributorPortal.myLine.invalidate(); }} />}
+	    </div>
+	  );
 }
 
 // ─── Shipping Page ────────────────────────────────────────────────────────────
@@ -1528,8 +1671,55 @@ function centsToDollars(value: number | null | undefined): string | null {
   return value == null ? null : `$${(value / 100).toFixed(2)}`;
 }
 
+type VendorShippingLine = {
+  id: number; name: string; warehouseName: string | null; warehouseAddress: string | null; warehouseZips: string[] | null;
+  leadTimeDays: number | null; shippingRuleMode: "live" | "fixed" | "threshold"; shippingFlatFreightFeeCents: number | null;
+  shippingFreeFreightThresholdCents: number | null; shippingZipRates: Array<{ zipPrefix: string; feeCents: number }> | null; shippingExceptions: string | null;
+  pickupEnabled: boolean; pickupZip: string | null; pickupAddress: string | null; pickupRadiusMiles: number | null;
+};
+
+function VendorShippingSettingsEditor({ line, open, onClose, onSaved }: { line: VendorShippingLine; open: boolean; onClose: () => void; onSaved: () => void }) {
+  const adminDistId = useAdminDistributorId();
+  const [warehouseName, setWarehouseName] = useState(line.warehouseName ?? "");
+  const [warehouseAddress, setWarehouseAddress] = useState(line.warehouseAddress ?? "");
+  const [zips, setZips] = useState<string[]>(line.warehouseZips ?? []);
+  const [newZip, setNewZip] = useState("");
+  const [leadTime, setLeadTime] = useState(line.leadTimeDays == null ? "" : String(line.leadTimeDays));
+  const [ruleMode, setRuleMode] = useState<"live" | "fixed" | "threshold">(line.shippingRuleMode);
+  const [flatFee, setFlatFee] = useState(line.shippingFlatFreightFeeCents == null ? "" : (line.shippingFlatFreightFeeCents / 100).toFixed(2));
+  const [freeThreshold, setFreeThreshold] = useState(line.shippingFreeFreightThresholdCents == null ? "" : (line.shippingFreeFreightThresholdCents / 100).toFixed(2));
+  const [zipRates, setZipRates] = useState((line.shippingZipRates ?? []).map((rate) => `${rate.zipPrefix}:${(rate.feeCents / 100).toFixed(2)}`).join("\n"));
+  const [exceptions, setExceptions] = useState(line.shippingExceptions ?? "");
+  const [pickupEnabled, setPickupEnabled] = useState(line.pickupEnabled);
+  const [pickupZip, setPickupZip] = useState(line.pickupZip ?? "");
+  const [pickupAddress, setPickupAddress] = useState(line.pickupAddress ?? "");
+  const [pickupRadius, setPickupRadius] = useState(line.pickupRadiusMiles == null ? "100" : String(line.pickupRadiusMiles));
+  useEffect(() => {
+    if (!open) return;
+    setWarehouseName(line.warehouseName ?? ""); setWarehouseAddress(line.warehouseAddress ?? ""); setZips(line.warehouseZips ?? []); setNewZip("");
+    setLeadTime(line.leadTimeDays == null ? "" : String(line.leadTimeDays)); setRuleMode(line.shippingRuleMode);
+    setFlatFee(line.shippingFlatFreightFeeCents == null ? "" : (line.shippingFlatFreightFeeCents / 100).toFixed(2)); setFreeThreshold(line.shippingFreeFreightThresholdCents == null ? "" : (line.shippingFreeFreightThresholdCents / 100).toFixed(2)); setZipRates((line.shippingZipRates ?? []).map((rate) => `${rate.zipPrefix}:${(rate.feeCents / 100).toFixed(2)}`).join("\n")); setExceptions(line.shippingExceptions ?? "");
+    setPickupEnabled(line.pickupEnabled); setPickupZip(line.pickupZip ?? ""); setPickupAddress(line.pickupAddress ?? ""); setPickupRadius(line.pickupRadiusMiles == null ? "100" : String(line.pickupRadiusMiles));
+  }, [line, open]);
+  const save = trpc.distributorPortal.updateShippingSettings.useMutation({ onSuccess: () => { toast.success("Shipping settings saved"); onSaved(); onClose(); }, onError: (error) => toast.error(error.message) });
+  const addZip = () => { const zip = newZip.replace(/\D/g, "").slice(0, 5); if (!/^\d{5}$/.test(zip)) { toast.error("Warehouse ZIP must be exactly 5 digits"); return; } if (zips.includes(zip)) return; setZips((current) => [...current, zip]); setNewZip(""); };
+  const parseDollars = (value: string, label: string) => { if (!value.trim()) return null; const parsed = Number(value); if (!Number.isFinite(parsed) || parsed < 0) throw new Error(`${label} must be a non-negative amount`); return Math.round(parsed * 100); };
+  const parseZipRates = () => zipRates.split("\n").map((lineValue) => lineValue.trim()).filter(Boolean).map((lineValue) => { const [prefix, dollars] = lineValue.split(":").map((part) => part.trim()); if (!/^\d{3,5}$/.test(prefix ?? "") || !dollars) throw new Error("ZIP rates must use one entry per line: 3–5 digit ZIP prefix: dollar amount"); const amount = Number(dollars); if (!Number.isFinite(amount) || amount < 0) throw new Error("Each ZIP rate must be a non-negative dollar amount"); return { zipPrefix: prefix, feeCents: Math.round(amount * 100) }; });
+  const submit = () => {
+    try {
+      if (zips.length === 0) throw new Error("Add at least one warehouse ZIP");
+      const lead = leadTime.trim() ? Number(leadTime) : null; if (lead != null && (!Number.isInteger(lead) || lead < 0 || lead > 365)) throw new Error("Lead time must be a whole number from 0 to 365 days");
+      const radius = pickupEnabled ? Number(pickupRadius) : 0; if (pickupEnabled && (!Number.isInteger(radius) || radius < 1 || radius > 1000)) throw new Error("Pickup radius must be a whole number from 1 to 1,000 miles");
+      const normalizedPickupZip = pickupZip.replace(/\D/g, ""); if (pickupEnabled && normalizedPickupZip && !/^\d{5}$/.test(normalizedPickupZip)) throw new Error("Pickup ZIP must be exactly 5 digits");
+      save.mutate({ ...(adminDistId ? { distributorId: adminDistId } : {}), warehouseName: warehouseName.trim() || null, warehouseAddress: warehouseAddress.trim() || null, warehouseZips: zips, leadTimeDays: lead, shippingRuleMode: ruleMode, shippingFlatFreightFeeCents: parseDollars(flatFee, "Fixed freight"), shippingFreeFreightThresholdCents: parseDollars(freeThreshold, "Free-freight threshold"), shippingZipRates: parseZipRates(), shippingExceptions: exceptions.trim() || null, pickupEnabled, pickupZip: normalizedPickupZip || null, pickupAddress: pickupAddress.trim() || null, pickupRadiusMiles: pickupEnabled ? radius : null });
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Review shipping settings"); }
+  };
+  return <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}><DialogContent className="!flex h-[min(90dvh,850px)] max-h-[calc(100dvh-1rem)] w-[min(44rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-none"><DialogHeader className="shrink-0"><DialogTitle className="flex items-center gap-2"><Truck className="h-4 w-4 text-primary" />Edit Shipping & Warehouses <span className="font-normal text-muted-foreground">— {line.name}</span></DialogTitle></DialogHeader><div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2 pr-2"><div className="rounded-lg border border-sky-200 bg-sky-50/50 p-3 space-y-3"><div><Label>Warehouse origins</Label><p className="text-xs text-muted-foreground">These ZIPs are the automatic freight origins and power the all-warehouses check.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Warehouse name</Label><Input value={warehouseName} onChange={(event) => setWarehouseName(event.target.value)} placeholder="Warehouse or branch name" /></div><div className="space-y-1"><Label className="text-xs">Lead time (days)</Label><Input value={leadTime} onChange={(event) => setLeadTime(event.target.value)} type="number" min="0" max="365" placeholder="e.g. 7" /></div></div><div className="space-y-1"><Label className="text-xs">Warehouse address</Label><Input value={warehouseAddress} onChange={(event) => setWarehouseAddress(event.target.value)} placeholder="Street address for reference" /></div><div className="flex gap-2"><Input value={newZip} onChange={(event) => setNewZip(event.target.value.replace(/\D/g, "").slice(0, 5))} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addZip(); } }} inputMode="numeric" maxLength={5} placeholder="5-digit warehouse ZIP" /><Button type="button" variant="outline" onClick={addZip}><Plus className="mr-1 h-4 w-4" />Add ZIP</Button></div><div className="flex flex-wrap gap-2">{zips.map((zip) => <Badge key={zip} variant="secondary" className="gap-1 py-1 pl-2.5 pr-1">{zip}<button type="button" onClick={() => setZips((current) => current.filter((item) => item !== zip))} aria-label={`Remove warehouse ZIP ${zip}`}><X className="h-3.5 w-3.5" /></button></Badge>)}</div></div><div className="rounded-lg border border-amber-200 bg-amber-50/50 p-3 space-y-3"><div><Label>Freight rule</Label><p className="text-xs text-muted-foreground">Live quotes remain the preferred method. Fixed and threshold rules need a configured fee or ZIP rate.</p></div><Select value={ruleMode} onValueChange={(value) => setRuleMode(value as typeof ruleMode)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="live">Live carrier quote</SelectItem><SelectItem value="fixed">Fixed freight</SelectItem><SelectItem value="threshold">Free-freight threshold / ZIP rate</SelectItem></SelectContent></Select><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Fixed freight ($)</Label><Input value={flatFee} onChange={(event) => setFlatFee(event.target.value)} inputMode="decimal" placeholder="Optional fallback or fixed charge" /></div><div className="space-y-1"><Label className="text-xs">Free-freight threshold ($)</Label><Input value={freeThreshold} onChange={(event) => setFreeThreshold(event.target.value)} inputMode="decimal" placeholder="Optional order threshold" /></div></div><div className="space-y-1"><Label className="text-xs">ZIP rates</Label><textarea value={zipRates} onChange={(event) => setZipRates(event.target.value)} rows={4} placeholder={"Example:\n900:125.00\n10001:200.00"} className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /><p className="text-[11px] text-muted-foreground">One line per rate: 3–5 digit ZIP prefix: dollar amount.</p></div><div className="space-y-1"><Label className="text-xs">Shipping note / exception</Label><textarea value={exceptions} onChange={(event) => setExceptions(event.target.value)} rows={3} placeholder="Delivery restrictions or freight policy note" className="w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm" /></div></div><div className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-3 space-y-3"><div className="flex items-center justify-between gap-3"><div><Label>Local pickup</Label><p className="text-xs text-muted-foreground">Offer pickup from this vendor’s own location.</p></div><Switch checked={pickupEnabled} onCheckedChange={setPickupEnabled} aria-label="Enable local pickup" /></div>{pickupEnabled && <div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label className="text-xs">Pickup ZIP</Label><Input value={pickupZip} onChange={(event) => setPickupZip(event.target.value.replace(/\D/g, "").slice(0, 5))} inputMode="numeric" maxLength={5} placeholder={zips[0] ?? "5-digit ZIP"} /></div><div className="space-y-1"><Label className="text-xs">Pickup radius (miles)</Label><Input value={pickupRadius} onChange={(event) => setPickupRadius(event.target.value)} type="number" min="1" max="1000" /></div><div className="space-y-1 sm:col-span-2"><Label className="text-xs">Pickup address</Label><Input value={pickupAddress} onChange={(event) => setPickupAddress(event.target.value)} placeholder="Customer-facing pickup address" /></div></div>}</div></div><DialogFooter className="shrink-0 border-t border-border pt-3"><Button variant="outline" onClick={onClose} disabled={save.isPending}>Cancel</Button><Button onClick={submit} disabled={save.isPending}>{save.isPending ? "Saving…" : "Save Shipping Settings"}</Button></DialogFooter></DialogContent></Dialog>;
+}
+
 function VendorShippingPage() {
   const adminDistId = useAdminDistributorId();
+	  const [editingShipping, setEditingShipping] = useState(false);
   const shipping = trpc.distributorPortal.shippingOverview.useQuery(
     adminDistId ? { distributorId: adminDistId } : undefined,
   );
@@ -1554,12 +1744,12 @@ function VendorShippingPage() {
   return (
     <div className="space-y-7">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="flex items-center gap-2 text-2xl font-bold"><Truck className="h-6 w-6 text-primary" /> Shipping & Warehouses</h2>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Shipping origins and cabinet-line readiness for {line.name}. The freight engine uses these same origin assignments when it quotes a shipment.</p>
-        </div>
-        <Badge variant="secondary" className="w-fit">{styles.length} cabinet line{styles.length === 1 ? "" : "s"}</Badge>
-      </div>
+	        <div>
+	          <h2 className="flex items-center gap-2 text-2xl font-bold"><Truck className="h-6 w-6 text-primary" /> Shipping & Warehouses</h2>
+	          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Shipping origins and cabinet-line readiness for {line.name}. The freight engine uses these same origin assignments when it quotes a shipment.</p>
+	        </div>
+		        <div className="flex items-center gap-2"><Badge variant="secondary" className="w-fit">{styles.length} cabinet line{styles.length === 1 ? "" : "s"}</Badge><Button data-testid="vendor-edit-shipping" variant="default" size="sm" onClick={() => setEditingShipping(true)}><Pencil className="mr-1.5 h-4 w-4" />Edit shipping &amp; warehouses</Button></div>
+	      </div>
 
       <Card className={allCabinetsCovered ? "border-emerald-300 bg-emerald-50/50" : "border-amber-300 bg-amber-50/50"}>
         <CardContent className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -1578,9 +1768,13 @@ function VendorShippingPage() {
           </div>
           <Badge variant="outline" className={allCabinetsCovered ? "border-emerald-400 bg-white text-emerald-700" : "border-amber-400 bg-white text-amber-700"}>{warehouses.length} configured warehouse origin{warehouses.length === 1 ? "" : "s"}</Badge>
         </CardContent>
-      </Card>
+	      </Card>
 
-      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+	      <div data-testid="vendor-shipping-edit-help" className="rounded-xl border border-sky-200 bg-sky-50/60 p-4 text-sm text-sky-950">
+	        <span className="font-semibold">Vendor-controlled shipping.</span> Select <span className="font-semibold">Edit shipping &amp; warehouses</span> above to save your warehouse origins, lead time, freight rule, ZIP rates, delivery notes, and local-pickup settings. These settings apply only to your own vendor line.
+	      </div>
+
+	      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Card>
           <CardHeader className="pb-3"><CardTitle className="text-base">Configured warehouses</CardTitle></CardHeader>
           <CardContent>
@@ -1637,10 +1831,11 @@ function VendorShippingPage() {
               </Table>
             </div>
           )}
-        </CardContent>
-      </Card>
-    </div>
-  );
+	        </CardContent>
+	      </Card>
+	      <VendorShippingSettingsEditor line={line as VendorShippingLine} open={editingShipping} onClose={() => setEditingShipping(false)} onSaved={() => shipping.refetch()} />
+	    </div>
+	  );
 }
 
 // ─── Promotions Page ─────────────────────────────────────────────────────────
@@ -3264,6 +3459,7 @@ function VendorPortalDashboard({
       <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
 	        {page === "overview" && (isPelican ? <PelicanVendorOverviewPage onNavigateToCatalog={handleNavigateToCatalog} /> : <OverviewPage />)}
 	        {page === "catalog" && (isPelican ? <PelicanVendorCatalogPage initialCategory={pelicanCategoryFilter} /> : <CatalogPage />)}
+	        {page === "other-products" && <VendorOtherProducts distributorId={adminDistributorId ?? undefined} />}
 	        {page === "styles" && <DoorStylesPage />}
 	        {page === "featured-styles" && <VendorFeaturedStylesPage />}
 	        {page === "shipping" && <VendorShippingPage />}

@@ -1100,6 +1100,13 @@
       "when": 1790280516292,
       "tag": "0156_equal_supreme_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "5",
+      "when": 1790486835643,
+      "tag": "0157_parallel_scourge",
+      "breakpoints": true
     }
   ]
 }

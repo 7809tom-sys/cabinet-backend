@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ROOM, type DesignCabinet, type PlacedCabinet, wallPlacementAt } from "@/lib/design";
-import { OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN, rangeCompanionProposal } from "./rangeCompanion";
+import { OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN, rangeCompanionProposal, repairLegacyWscMicrowaveBridges } from "./rangeCompanion";
 
 function cabinet(overrides: Partial<DesignCabinet>): DesignCabinet {
   return {
@@ -180,5 +180,52 @@ describe("rangeCompanionProposal", () => {
     expect(proposal?.bridgeSpot.wallOffset).toBe(15);
     expect(proposal?.microwaveSpot.wallId).toBe("straight");
     expect(proposal?.microwaveSpot.wallOffset).toBe(15);
+  });
+
+  it("replaces only a centered legacy WSC30 microwave bridge with the permitted selected W3024 at 72 inches", () => {
+    const placedMicrowave: PlacedCabinet = {
+      ...range(),
+      uid: "mw-1",
+      masterCode: "MW-30",
+      description: "Over-Range Microwave 30\"",
+      placement: "appliance",
+      depth: 15,
+      height: 16,
+      mountBottom: 56,
+    };
+    const legacySpiceBridge: PlacedCabinet = {
+      ...range(),
+      uid: "legacy-wsc",
+      masterCode: "WSC30",
+      description: "30 inch x 6 inch Spice Cabinet",
+      category: "Wall",
+      subCategory: "Spice Cabinet",
+      placement: "wall",
+      depth: 12,
+      height: 6,
+      mountBottom: 72,
+    };
+    const repaired = repairLegacyWscMicrowaveBridges(
+      [range(), placedMicrowave, legacySpiceBridge],
+      DEFAULT_ROOM,
+      [wallBridge(24)],
+      [microwave],
+      42,
+    );
+
+    const bridge = repaired.placed.find((item) => item.uid === "legacy-wsc")!;
+    expect(repaired.repairedUids).toEqual(["legacy-wsc"]);
+    expect(bridge).toMatchObject({ masterCode: "W3024", mountBottom: 72, mountBottomAdjusted: true, overRangeMicrowaveBridge: true });
+    expect(bridge.height).toBe(24);
+    expect(bridge.x).toBe(30);
+  });
+
+  it("leaves an ordinary WSC30 spice stack untouched when it is not centered over a real microwave/range pair", () => {
+    const spice = { ...range(), uid: "spice-only", masterCode: "WSC30", placement: "wall" as const, height: 6, depth: 12, x: 0, mountBottom: 54 };
+    const original = [range(), spice];
+    const repaired = repairLegacyWscMicrowaveBridges(original, DEFAULT_ROOM, [wallBridge(24)], [microwave], 42);
+    expect(repaired.placed).toBe(original);
+    expect(repaired.repairedUids).toEqual([]);
+    expect(repaired.placed.find((item) => item.uid === "spice-only")?.masterCode).toBe("WSC30");
   });
 });

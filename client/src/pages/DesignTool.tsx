@@ -145,7 +145,7 @@ import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHick
 import { automaticAngledWallFiller, measuredAngledWallTransition, repairMissingAngledWallFillers } from "@/lib/angledWallFiller";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
-import { rangeCompanionProposal, type RangeCompanionProposal } from "@/lib/rangeCompanion";
+import { rangeCompanionProposal, repairLegacyWscMicrowaveBridges, type RangeCompanionProposal } from "@/lib/rangeCompanion";
 import { isWscSpiceCabinet, wsc30UpperChoices, wsc30UpperPlacement } from "@/lib/spiceStack";
 import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
@@ -2278,6 +2278,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     },
     [roomType]
   );
+  // A previous automatic microwave workflow could persist WSC30—the real
+  // 30×6 spice cabinet—directly above an MW-30. Convert only that centered
+  // legacy microwave assembly to the selected source W30 bridge; ordinary spice
+  // stacks remain untouched and still use their separate W3030/W3036 workflow.
+  useEffect(() => {
+    const repaired = repairLegacyWscMicrowaveBridges(
+      placed,
+      room,
+      wallCabPoolRef.current,
+      appliancePalette,
+      wallCabHeightRef.current,
+    );
+    if (repaired.placed === placed) return;
+    placedRef.current = repaired.placed;
+    setPlaced(repaired.placed);
+    toast.info(`Replaced legacy WSC30 microwave bridge with the selected ${repaired.placed.find((cabinet) => repaired.repairedUids.includes(cabinet.uid))?.masterCode ?? "W30"} bridge at the 72″ datum.`);
+  }, [placed, room, appliancePalette, wallCabPool, wallCabHeight]);
 
   // Closet parts palette (placeholder products), grouped by category.
   const closetGroups = useMemo(() => closetPaletteByCategory(), []);

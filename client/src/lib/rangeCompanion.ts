@@ -4,10 +4,14 @@ import {
   type RoomData,
   bridgeHeightForWallHeight,
   cabinetWall,
+  isMicrowaveOverRangePair,
+  isOverRangeMicrowave,
+  isRangeOrOven,
   mountedMicrowaveOverRangeSpot,
 	OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM,
   wallPlacementAt,
   wallRunOffset,
+	wallRunSpan,
 } from "@/lib/design";
 
 /**
@@ -127,6 +131,79 @@ export function rangeCompanionProposal(
     microwaveMountBottom: microwaveBottom,
     bridgeMountBottom: OVER_RANGE_MICROWAVE_BRIDGE_MOUNT_BOTTOM_IN,
   };
+}
+
+function normalizedCode(value: string | null | undefined): string {
+  return (value ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+
+/**
+ * Repairs an old automatic WSC30-above-MW arrangement when—and only when—it is
+ * directly centered over a real MW-30/range pair. WSC30 remains untouched
+ * everywhere else, including an intentional separate spice stack. The legacy
+ * record is overwritten with the selected, source-backed W30 bridge so its
+ * original WSC30 SKU can no longer appear in the invoice or material list.
+ */
+export function repairLegacyWscMicrowaveBridges(
+  placed: PlacedCabinet[],
+  room: RoomData,
+  wallCabinets: DesignCabinet[],
+  appliancePalette: DesignCabinet[],
+  wallCabinetHeight: number,
+): { placed: PlacedCabinet[]; repairedUids: string[] } {
+  let repaired = false;
+  const repairedUids: string[] = [];
+  const next = placed.map((candidate) => {
+    if (candidate.placement !== "wall" || normalizedCode(candidate.masterCode) !== "WSC30") return candidate;
+    const side = cabinetWall(candidate, room);
+    const candidateCenter = wallRunOffset(candidate, side, room) + wallRunSpan(candidate, side, room) / 2;
+    const microwave = placed.find((item) => (
+      isOverRangeMicrowave(item)
+      && cabinetWall(item, room) === side
+      && Math.abs(wallRunOffset(item, side, room) + wallRunSpan(item, side, room) / 2 - candidateCenter) <= 0.5
+      && placed.some((range) => isRangeOrOven(range.masterCode, range.description) && isMicrowaveOverRangePair(item, range))
+    ));
+    if (!microwave) return candidate;
+    const range = placed.find((item) => isRangeOrOven(item.masterCode, item.description) && isMicrowaveOverRangePair(microwave, item));
+    if (!range) return candidate;
+    // If an actual source-backed bridge is already aligned to this microwave,
+    // WSC30 may be an intentionally separate item and is left alone.
+    const alreadyHasBridge = placed.some((item) => (
+      item.uid !== candidate.uid
+      && item.overRangeMicrowaveBridge === true
+      && cabinetWall(item, room) === side
+      && Math.abs(wallRunOffset(item, side, room) + wallRunSpan(item, side, room) / 2 - candidateCenter) <= 0.5
+    ));
+    if (alreadyHasBridge) return candidate;
+    const proposal = rangeCompanionProposal(range, room, wallCabinets, appliancePalette, wallCabinetHeight);
+    if (!proposal) return candidate;
+    repaired = true;
+    repairedUids.push(candidate.uid);
+    return {
+      ...candidate,
+      cabinetId: proposal.bridge.id,
+      masterCode: proposal.bridge.masterCode,
+      description: proposal.bridge.description,
+      category: proposal.bridge.category,
+      subCategory: proposal.bridge.subCategory,
+      placement: "wall" as const,
+      x: proposal.bridgeSpot.x,
+      y: proposal.bridgeSpot.y,
+      width: Number(proposal.bridge.width),
+      depth: Number(proposal.bridge.depth),
+      height: Number(proposal.bridge.height),
+      rotation: proposal.bridgeSpot.rotation,
+      numberOfDoors: proposal.bridge.numberOfDoors,
+      numberOfDrawers: proposal.bridge.numberOfDrawers,
+      catalogImageUrl: proposal.bridge.catalogImageUrl ?? null,
+      mountBottom: proposal.bridgeMountBottom,
+      mountBottomAdjusted: true,
+      overRangeMicrowaveBridge: true,
+      spiceStackParentUid: null,
+      ...(proposal.bridgeSpot.wallId ? { wallId: proposal.bridgeSpot.wallId, wallOffset: proposal.bridgeSpot.wallOffset ?? 0 } : {}),
+    };
+  });
+  return repaired ? { placed: next, repairedUids } : { placed, repairedUids };
 }
 
 export const rangeCompanionDimensions = numberDimension;

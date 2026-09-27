@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributors, distributorSkus, doorStyles } from "../drizzle/schema";
+import { cabinets, distributors, distributorSkus, doorStyles, vendorProducts } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 function ctxFor(user: Record<string, unknown> | null): TrpcContext {
@@ -346,4 +346,130 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
 	    expect(searchFiltered.styles.length).toBeGreaterThan(0);
 	    expect(searchFiltered.styles.some((style) => style.matchingCabinets.some((match) => match.masterCode === cabinet.masterCode))).toBe(true);
 	  });
+
+	  it("lets a linked vendor save its own Featured Style materials and shipping settings", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const [line] = await db.select({
+	      id: distributors.id,
+	      warehouseName: distributors.warehouseName,
+	      warehouseAddress: distributors.warehouseAddress,
+	      warehouseZips: distributors.warehouseZips,
+	      leadTimeDays: distributors.leadTimeDays,
+	      shippingRuleMode: distributors.shippingRuleMode,
+	      shippingFlatFreightFeeCents: distributors.shippingFlatFreightFeeCents,
+	      shippingFreeFreightThresholdCents: distributors.shippingFreeFreightThresholdCents,
+	      shippingZipRates: distributors.shippingZipRates,
+	      shippingExceptions: distributors.shippingExceptions,
+	      pickupEnabled: distributors.pickupEnabled,
+	      pickupZip: distributors.pickupZip,
+	      pickupAddress: distributors.pickupAddress,
+	      pickupRadiusMiles: distributors.pickupRadiusMiles,
+	    }).from(distributors).limit(1);
+	    if (!line) return;
+	    const caller = appRouter.createCaller(ctxFor({
+	      id: 990111, openId: "dp-vendor-edit", name: "Editable Dist",
+	      email: "dp-vendor-edit@example.com", role: "distributor", distributorId: line.id,
+	    }));
+	    const styles = await caller.distributorPortal.featuredStyles();
+	    const style = styles.styles[0];
+	    if (!style) return;
+	    const [originalStyle] = await db.select({
+	      aliasName: doorStyles.aliasName,
+	      featuredLabel: doorStyles.featuredLabel,
+	      profileNotes: doorStyles.profileNotes,
+	    }).from(doorStyles).where(eq(doorStyles.id, style.id)).limit(1);
+	    if (!originalStyle) return;
+
+	    try {
+	      await caller.distributorPortal.updateFeaturedStyleMaterials({
+	        styleId: style.id,
+	        aliasName: "Vendor-managed display name",
+	        featuredLabel: "Vendor-managed feature",
+	        profileNotes: "Vendor-managed profile note",
+	      });
+	      const [savedStyle] = await db.select({
+	        aliasName: doorStyles.aliasName,
+	        featuredLabel: doorStyles.featuredLabel,
+	        profileNotes: doorStyles.profileNotes,
+	      }).from(doorStyles).where(eq(doorStyles.id, style.id)).limit(1);
+	      expect(savedStyle).toMatchObject({
+	        aliasName: "Vendor-managed display name",
+	        featuredLabel: "Vendor-managed feature",
+	        profileNotes: "Vendor-managed profile note",
+	      });
+
+	      await caller.distributorPortal.updateShippingSettings({
+	        warehouseName: "Vendor editing test warehouse",
+	        warehouseAddress: "1 Vendor Edit Way",
+	        warehouseZips: ["90210"],
+	        leadTimeDays: 5,
+	        shippingRuleMode: "live",
+	        shippingFlatFreightFeeCents: null,
+	        shippingFreeFreightThresholdCents: null,
+	        shippingZipRates: [],
+	        shippingExceptions: "Vendor edit test",
+	        pickupEnabled: false,
+	        pickupZip: null,
+	        pickupAddress: null,
+	        pickupRadiusMiles: null,
+	      });
+	      const shipping = await caller.distributorPortal.shippingOverview();
+	      expect(shipping.line).toMatchObject({ warehouseName: "Vendor editing test warehouse", warehouseZips: ["90210"], leadTimeDays: 5 });
+	    } finally {
+	      await db.update(doorStyles).set(originalStyle).where(eq(doorStyles.id, style.id));
+	      await db.update(distributors).set({
+	        warehouseName: line.warehouseName,
+	        warehouseAddress: line.warehouseAddress,
+	        warehouseZips: line.warehouseZips,
+	        leadTimeDays: line.leadTimeDays,
+	        shippingRuleMode: line.shippingRuleMode,
+	        shippingFlatFreightFeeCents: line.shippingFlatFreightFeeCents,
+	        shippingFreeFreightThresholdCents: line.shippingFreeFreightThresholdCents,
+	        shippingZipRates: line.shippingZipRates,
+	        shippingExceptions: line.shippingExceptions,
+	        pickupEnabled: line.pickupEnabled,
+	        pickupZip: line.pickupZip,
+	        pickupAddress: line.pickupAddress,
+	        pickupRadiusMiles: line.pickupRadiusMiles,
+	      }).where(eq(distributors.id, line.id));
+	    }
+	  });
+
+	  it("keeps non-cabinet vendor imports separate, draft-first, and complete before publication", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db.select({ id: distributors.id }).from(distributors).limit(1);
+    if (!line) return;
+    const caller = appRouter.createCaller(ctxFor({
+      id: 990110, openId: "dp-other-products", name: "Other Products Dist",
+      email: "dp-other-products@example.com", role: "distributor", distributorId: line.id,
+    }));
+    const sku = `OTHER_PRODUCT_${Date.now()}`;
+    let productId: number | null = null;
+    try {
+      const imported = await caller.distributorPortal.importVendorProducts({
+        rows: [{ vendorSku: sku, name: "Supplier fixture", category: "Fixtures", yourCost: 21.5 }],
+      });
+      expect(imported).toMatchObject({ total: 1, created: 1, deleted: 0 });
+      const listed = await caller.distributorPortal.vendorProducts({ search: sku });
+      const product = listed.items.find((item) => item.vendorSku === sku);
+      expect(product).toMatchObject({ name: "Supplier fixture", status: "pending", isPublished: false });
+      productId = product?.id ?? null;
+      expect(productId).not.toBeNull();
+
+      await expect(caller.distributorPortal.saveVendorProduct({
+        id: productId!, vendorSku: sku, name: "Supplier fixture", yourCost: 21.5, mode: "publish",
+      })).rejects.toThrow("source description");
+
+      const published = await caller.distributorPortal.saveVendorProduct({
+        id: productId!, vendorSku: sku, name: "Supplier fixture", description: "Verified source fixture description",
+        category: "Fixtures", yourCost: 21.5, pkgLength: 12, pkgWidth: 8, pkgHeight: 4, pkgWeight: 3,
+        mode: "publish",
+      });
+      expect(published).toMatchObject({ id: productId, status: "approved", isPublished: true });
+    } finally {
+      if (productId != null) await db.delete(vendorProducts).where(eq(vendorProducts.id, productId));
+    }
+  });
 });

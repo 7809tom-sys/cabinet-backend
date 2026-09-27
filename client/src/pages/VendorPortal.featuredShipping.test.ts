@@ -33,10 +33,36 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	  });
 
 	  it("states the automatic warehouse check accurately and keeps it tied to shipping origins", () => {
-    const shippingPage = source.slice(source.indexOf("function VendorShippingPage"), source.indexOf("// ─── Promotions Page"));
-    expect(shippingPage).toContain("All cabinet lines cover every configured warehouse");
-    expect(shippingPage).toContain("does not represent a live on-hand inventory count");
-    expect(shippingPage).toContain("trpc.distributorPortal.shippingOverview.useQuery");
-    expect(shippingPage).toContain("All warehouses");
-  });
+	    const shippingPage = source.slice(source.indexOf("function VendorShippingPage"), source.indexOf("// ─── Promotions Page"));
+	    expect(shippingPage).toContain("All cabinet lines cover every configured warehouse");
+	    expect(shippingPage).toContain("does not represent a live on-hand inventory count");
+	    expect(shippingPage).toContain("trpc.distributorPortal.shippingOverview.useQuery");
+	    expect(shippingPage).toContain("All warehouses");
+	    expect(shippingPage).toContain('data-testid="vendor-edit-shipping"');
+	    expect(shippingPage).toContain("Edit shipping &amp; warehouses");
+	    expect(shippingPage).toContain('data-testid="vendor-shipping-edit-help"');
+	  });
+
+	  it("gives vendors a visible Featured Style materials edit action instead of an icon-only control", () => {
+	    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
+	    expect(featuredPage).toContain('data-testid="vendor-featured-style-edit-help"');
+	    expect(featuredPage).toContain("Edit your line directly.");
+	    expect(featuredPage).toContain("Edit materials");
+	    expect(featuredPage).toContain("VendorFeaturedStyleEditor");
+	    const editor = source.slice(source.indexOf("function VendorFeaturedStyleEditor"), source.indexOf("function VendorFeaturedStylesPage"));
+	    expect(editor).toContain("trpc.distributorPortal.updateFeaturedStyleMaterials.useMutation");
+	    expect(editor).toContain("Save Featured Style");
+	  });
+
+	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
+	    expect(source).toContain('id: "other-products", label: "Other Products"');
+	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');
+	    const otherProducts = readFileSync(new URL("../components/vendor/VendorOtherProducts.tsx", import.meta.url), "utf8");
+	    expect(otherProducts).toContain("WooCommerce/Magento-style supplier import");
+	    expect(otherProducts).toContain("Import spreadsheet");
+	    expect(otherProducts).toContain("Nothing was deleted.");
+	    expect(otherProducts).toContain("GENERIC_SUPPLIER_PRODUCT_IMAGE");
+	    expect(otherProducts).toContain("trpc.distributorPortal.importVendorProducts.useMutation");
+	    expect(otherProducts).toContain("source description, source price, and package dimensions/weight");
+	  });
 });
