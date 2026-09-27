@@ -1,4 +1,5 @@
 export type ApprovedVendorAccessRecord = {
+  id: number;
   sourceKey: string | null;
   contactEmail: string | null;
   isApproved?: boolean;
@@ -11,6 +12,26 @@ export type ApprovedVendorDistributorRecord = {
 };
 
 const PEL_DIST_CODE = "PEL";
+
+/**
+ * Resolve one configured Approved Vendor source key to exactly one active
+ * distributor. Names are intentionally never used: an administrator must pick
+ * or save a real supply-line key before a portal account can be granted.
+ */
+export function approvedVendorSourceDistributorId(
+  sourceKey: string | null | undefined,
+  distributors: readonly ApprovedVendorDistributorRecord[]
+): number | null {
+  const candidate = { sourceKey: sourceKey ?? null };
+  const matchingIds = new Set<number>();
+  for (const distributor of distributors) {
+    if (distributor.isActive === false) continue;
+    if (approvedVendorMatchesDistributor(candidate, distributor)) {
+      matchingIds.add(distributor.id);
+    }
+  }
+  return matchingIds.size === 1 ? Array.from(matchingIds)[0] ?? null : null;
+}
 
 /**
  * Relates the Approved Vendors record to its single supply line. The source key
@@ -41,21 +62,34 @@ export function approvedVendorContactDistributorId(
   vendors: readonly ApprovedVendorAccessRecord[],
   distributors: readonly ApprovedVendorDistributorRecord[]
 ): number | null {
+  return approvedVendorContactAccess(emailLower, vendors, distributors)?.distributorId ?? null;
+}
+
+export type ApprovedVendorContactAccess = {
+  vendorLineId: number;
+  distributorId: number | null;
+};
+
+/**
+ * Resolve the one Approved Vendor record owned by a contact. A distributor line
+ * is optional: a supplier may log in and maintain its own profile before it has
+ * a cabinet catalog. More than one vendor record for one email is deliberately
+ * denied as ambiguous rather than guessing a portal scope.
+ */
+export function approvedVendorContactAccess(
+  emailLower: string,
+  vendors: readonly ApprovedVendorAccessRecord[],
+  distributors: readonly ApprovedVendorDistributorRecord[]
+): ApprovedVendorContactAccess | null {
   const normalizedEmail = emailLower.trim().toLowerCase();
   if (!normalizedEmail) return null;
-
-  const matchedLineIds = new Set<number>();
-  for (const vendor of vendors) {
-    if (vendor.isApproved === false || vendor.contactEmail?.trim().toLowerCase() !== normalizedEmail) {
-      continue;
-    }
-    for (const distributor of distributors) {
-      if (distributor.isActive === false) continue;
-      if (approvedVendorMatchesDistributor(vendor, distributor)) {
-        matchedLineIds.add(distributor.id);
-      }
-    }
-  }
-
-  return matchedLineIds.size === 1 ? Array.from(matchedLineIds)[0] ?? null : null;
+  const matchingVendors = vendors.filter(
+    (vendor) => vendor.isApproved !== false && vendor.contactEmail?.trim().toLowerCase() === normalizedEmail
+  );
+  if (matchingVendors.length !== 1) return null;
+  const vendor = matchingVendors[0];
+  return {
+    vendorLineId: vendor.id,
+    distributorId: approvedVendorSourceDistributorId(vendor.sourceKey, distributors),
+  };
 }

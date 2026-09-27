@@ -44,6 +44,100 @@ describe("distributorPortal — access control", () => {
     const preview = await caller.distributorPortal.myLine({ distributorId: line.id });
     expect(preview.line.id).toBe(line.id);
   });
+
+  it("lets a linked supplier update only its own approved profile", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [line] = await db
+      .select({ id: distributors.id })
+      .from(distributors)
+      .where(eq(distributors.isActive, true))
+      .limit(1);
+    if (!line) return;
+
+    const marker = `PROFILE_TEST_${Date.now()}`;
+    const created = await db.insert(vendorLines).values({
+      name: marker,
+      sourceKey: `dist:${line.id}`,
+      contactName: "Before",
+      contactEmail: "before@example.com",
+      contactPhone: "555-0000",
+      isApproved: true,
+    });
+    const vendorId = Number((created as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
+    try {
+      const supplier = appRouter.createCaller(ctxFor({
+        id: 990105,
+        openId: "dp-profile",
+        name: "Profile supplier",
+        email: "before@example.com",
+        role: "distributor",
+        distributorId: line.id,
+        approvedVendorLineId: vendorId,
+      }));
+      const result = await supplier.distributorPortal.updateSupplierProfile({
+        contactName: "Updated supplier",
+        contactEmail: "updated@example.com",
+        contactPhone: "555-0100",
+        websiteUrl: "https://supplier.example.com",
+        notes: "Updated by the linked supplier",
+        catalogPdfUrl: "https://supplier.example.com/catalog.pdf",
+        specBookPdfUrl: "https://supplier.example.com/specs.pdf",
+      });
+      expect(result).toMatchObject({ success: true, vendorId });
+      const [stored] = await db
+        .select({ contactName: vendorLines.contactName, contactEmail: vendorLines.contactEmail, notes: vendorLines.notes })
+        .from(vendorLines)
+        .where(eq(vendorLines.id, vendorId));
+      expect(stored).toMatchObject({
+        contactName: "Updated supplier",
+        contactEmail: "updated@example.com",
+        notes: "Updated by the linked supplier",
+      });
+	    } finally {
+	      await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
+	    }
+	  });
+
+	  it("lets an approved vendor without a catalog line update only its own profile", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const marker = `PROFILE_ONLY_TEST_${Date.now()}`;
+	    const created = await db.insert(vendorLines).values({
+	      name: marker,
+	      sourceKey: null,
+	      contactName: "Profile-only supplier",
+	      contactEmail: "profile-only@example.com",
+	      contactPhone: "555-0200",
+	      isApproved: true,
+	    });
+	    const vendorId = Number((created as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
+	    try {
+	      const supplier = appRouter.createCaller(ctxFor({
+	        id: 990106,
+	        openId: "dp-profile-only",
+	        name: "Profile only supplier",
+	        email: "profile-only@example.com",
+	        role: "distributor",
+	        distributorId: null,
+	        approvedVendorLineId: vendorId,
+	      }));
+	      const profile = await supplier.distributorPortal.supplierProfile();
+	      expect(profile.vendor).toMatchObject({ id: vendorId, name: marker });
+	      const result = await supplier.distributorPortal.updateSupplierProfile({
+	        contactName: "Updated profile-only supplier",
+	        contactEmail: "profile-only@example.com",
+	        contactPhone: "555-0201",
+	        websiteUrl: "",
+	        notes: "Source line pending",
+	        catalogPdfUrl: "",
+	        specBookPdfUrl: "",
+	      });
+	      expect(result).toMatchObject({ success: true, vendorId });
+	    } finally {
+	      await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
+	    }
+	  });
 });
 
 describe("distributorPortal — scoped data + visibility toggle", () => {

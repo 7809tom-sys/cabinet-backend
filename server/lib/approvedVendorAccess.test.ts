@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  approvedVendorContactAccess,
   approvedVendorContactDistributorId,
   approvedVendorMatchesDistributor,
+  approvedVendorSourceDistributorId,
 } from "./approvedVendorAccess";
 
 const distributors = [
@@ -18,10 +20,19 @@ describe("approved vendor supplier portal access", () => {
     expect(approvedVendorMatchesDistributor({ sourceKey: "supplier name" }, distributors[0])).toBe(false);
   });
 
+  it("resolves one active source key without ever using a vendor name", () => {
+    expect(approvedVendorSourceDistributorId("dist:210001", distributors)).toBe(210001);
+    expect(approvedVendorSourceDistributorId("mad", distributors)).toBe(210002);
+    expect(approvedVendorSourceDistributorId("pelican", [{ id: 9, code: "PEL", isActive: true }])).toBe(9);
+    expect(approvedVendorSourceDistributorId("dist:210003", distributors)).toBeNull();
+    expect(approvedVendorSourceDistributorId("Kitchen Crest", distributors)).toBeNull();
+    expect(approvedVendorSourceDistributorId(null, distributors)).toBeNull();
+  });
+
   it("links the exact approved contact email to one active supplier line", () => {
     expect(
       approvedVendorContactDistributorId("supplier@example.com", [
-        { sourceKey: "dist:210001", contactEmail: " Supplier@Example.com ", isApproved: true },
+        { id: 1, sourceKey: "dist:210001", contactEmail: " Supplier@Example.com ", isApproved: true },
       ], distributors)
     ).toBe(210001);
   });
@@ -29,24 +40,30 @@ describe("approved vendor supplier portal access", () => {
   it("does not grant an inactive, unapproved, unmatched, or ambiguous vendor line", () => {
     expect(
       approvedVendorContactDistributorId("supplier@example.com", [
-        { sourceKey: "dist:210003", contactEmail: "supplier@example.com", isApproved: true },
+        { id: 1, sourceKey: "dist:210003", contactEmail: "supplier@example.com", isApproved: true },
       ], distributors)
     ).toBeNull();
     expect(
       approvedVendorContactDistributorId("supplier@example.com", [
-        { sourceKey: "dist:210001", contactEmail: "supplier@example.com", isApproved: false },
+        { id: 1, sourceKey: "dist:210001", contactEmail: "supplier@example.com", isApproved: false },
       ], distributors)
     ).toBeNull();
     expect(
       approvedVendorContactDistributorId("supplier@example.com", [
-        { sourceKey: "unknown", contactEmail: "supplier@example.com", isApproved: true },
+        { id: 1, sourceKey: "unknown", contactEmail: "supplier@example.com", isApproved: true },
       ], distributors)
     ).toBeNull();
     expect(
       approvedVendorContactDistributorId("supplier@example.com", [
-        { sourceKey: "dist:210001", contactEmail: "supplier@example.com", isApproved: true },
-        { sourceKey: "dist:210002", contactEmail: "supplier@example.com", isApproved: true },
+        { id: 1, sourceKey: "dist:210001", contactEmail: "supplier@example.com", isApproved: true },
+        { id: 2, sourceKey: "dist:210002", contactEmail: "supplier@example.com", isApproved: true },
       ], distributors)
     ).toBeNull();
+  });
+
+  it("gives one approved contact its own vendor record before a catalog line is linked", () => {
+    expect(approvedVendorContactAccess("vendor@example.com", [
+      { id: 7, sourceKey: null, contactEmail: "vendor@example.com", isApproved: true },
+    ], distributors)).toEqual({ vendorLineId: 7, distributorId: null });
   });
 });

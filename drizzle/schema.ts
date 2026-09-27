@@ -30,6 +30,10 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin", "distributor", "dealer", "partner", "designer", "sales_rep", "contractor"]).default("user").notNull(),
   distributorId: int("distributorId"), // set for role=distributor: which supply line this user manages
+  // Every approved vendor contact can log in, including a vendor whose source
+  // catalog has not been linked to a distributor line yet. This is the scoped
+  // Approved Vendors record they may edit; it never grants cross-vendor access.
+  approvedVendorLineId: int("approvedVendorLineId"),
   // Pricing tier the OWNER assigns after seeing the customer on the site (Tawk.to ping).
   // Drives which price column the user sees/checks out at. Default homeowner until changed.
   pricingTier: mysqlEnum("pricingTier", ["homeowner", "contractor", "wholesale"]).default("homeowner").notNull(),

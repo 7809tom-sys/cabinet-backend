@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, cabinets, vendorLines, distributors, distributorSkus } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import {
-  approvedVendorContactDistributorId,
+  approvedVendorContactAccess,
   approvedVendorMatchesDistributor,
 } from "./lib/approvedVendorAccess";
 
@@ -175,17 +175,18 @@ export async function getUserByEmailLower(emailLower: string) {
 }
 
 /**
- * Resolves a supplier portal line only for the exact contact email saved on an
- * approved vendor record. It deliberately returns null for blank, inactive, or
- * ambiguous configuration instead of guessing from a vendor name.
+ * Resolves the one approved vendor record for an exact contact email. Its
+ * distributor line is optional so an approved supplier can maintain its own
+ * profile before catalog/source-line onboarding is complete.
  */
-async function approvedVendorLineIdForEmail(
+async function approvedVendorAccessForEmail(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   emailLower: string
-): Promise<number | null> {
+): Promise<{ vendorLineId: number; distributorId: number | null } | null> {
   const [vendorRows, distributorRows] = await Promise.all([
     db
       .select({
+        id: vendorLines.id,
         sourceKey: vendorLines.sourceKey,
         contactEmail: vendorLines.contactEmail,
         isApproved: vendorLines.isApproved,
@@ -197,7 +198,7 @@ async function approvedVendorLineIdForEmail(
       .from(distributors),
   ]);
 
-  return approvedVendorContactDistributorId(emailLower, vendorRows, distributorRows);
+  return approvedVendorContactAccess(emailLower, vendorRows, distributorRows);
 }
 
 /**
@@ -225,12 +226,14 @@ export async function createEmailUser(params: {
   // invitation. Owner credentials always remain administrator credentials.
   let role: "admin" | "user" | "distributor" = isOwner ? "admin" : "user";
   let distributorId: number | null = null;
+  let approvedVendorLineId: number | null = null;
 
   if (!isOwner) {
-    const approvedLineId = await approvedVendorLineIdForEmail(db, params.emailLower);
-    if (approvedLineId != null) {
+    const approvedVendorAccess = await approvedVendorAccessForEmail(db, params.emailLower);
+    if (approvedVendorAccess) {
       role = "distributor";
-      distributorId = approvedLineId;
+      distributorId = approvedVendorAccess.distributorId;
+      approvedVendorLineId = approvedVendorAccess.vendorLineId;
     }
   }
 
@@ -244,6 +247,8 @@ export async function createEmailUser(params: {
       .where(and(eq(vendorLines.inviteToken, params.inviteToken), eq(vendorLines.isApproved, true)))
       .limit(1);
     if (vendorLine && !isOwner) {
+      role = "distributor";
+      approvedVendorLineId = vendorLine.id;
       const distributorRows = await db
         .select({ id: distributors.id, code: distributors.code, name: distributors.name, isActive: distributors.isActive })
         .from(distributors);
@@ -255,7 +260,6 @@ export async function createEmailUser(params: {
         : [];
       const matched = sourceMatched.length === 1 ? sourceMatched[0] : legacyNameMatched.length === 1 ? legacyNameMatched[0] : null;
       if (matched) {
-      role = "distributor";
         distributorId = matched.id;
       }
     }
@@ -271,6 +275,7 @@ export async function createEmailUser(params: {
     companyName: params.companyName ?? null,
     role,
     distributorId,
+    approvedVendorLineId,
     lastSignedIn: new Date(),
   });
 
@@ -284,20 +289,33 @@ export async function createEmailUser(params: {
  * are never altered here, and an unresolved/ambiguous vendor contact changes
  * nothing.
  */
-export async function synchronizeApprovedVendorLogin<T extends { id: number; role: string; distributorId: number | null }>(
+export async function synchronizeApprovedVendorLogin<T extends { id: number; role: string; distributorId: number | null; approvedVendorLineId?: number | null }>(
   user: T,
   emailLower: string
 ): Promise<T> {
   if (user.role !== "user" && user.role !== "distributor") return user;
   const db = await getDb();
   if (!db) return user;
-  const distributorId = await approvedVendorLineIdForEmail(db, emailLower);
-  if (distributorId == null) return user;
+  const approvedVendorAccess = await approvedVendorAccessForEmail(db, emailLower);
+  if (!approvedVendorAccess) return user;
 
-  if (user.role !== "distributor" || user.distributorId !== distributorId) {
-    await db.update(users).set({ role: "distributor", distributorId }).where(eq(users.id, user.id));
+  if (
+    user.role !== "distributor"
+    || user.distributorId !== approvedVendorAccess.distributorId
+    || user.approvedVendorLineId !== approvedVendorAccess.vendorLineId
+  ) {
+    await db.update(users).set({
+      role: "distributor",
+      distributorId: approvedVendorAccess.distributorId,
+      approvedVendorLineId: approvedVendorAccess.vendorLineId,
+    }).where(eq(users.id, user.id));
   }
-  return { ...user, role: "distributor", distributorId };
+  return {
+    ...user,
+    role: "distributor",
+    distributorId: approvedVendorAccess.distributorId,
+    approvedVendorLineId: approvedVendorAccess.vendorLineId,
+  };
 }
 
 export async function recordLoginResult(

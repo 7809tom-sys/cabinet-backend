@@ -100,6 +100,17 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("Open or download ${label}");
   });
 
+  it("lets a supplier update its own profile and upload its own catalog resources", () => {
+    const profile = source.slice(source.indexOf("function SupplierProfileEditor"), source.indexOf("function SupplierProfilePage"));
+    expect(profile).toContain('data-testid="edit-supplier-profile"');
+    expect(profile).toContain("trpc.distributorPortal.updateSupplierProfile.useMutation");
+    expect(profile).toContain("trpc.distributorPortal.uploadSupplierResourcePdf.useMutation");
+    expect(profile).toContain("Edit supplier profile");
+    expect(profile).toContain("Supply-line identity, approval, and pricing stay protected.");
+    expect(profile).toContain('accept="application/pdf"');
+    expect(profile).toContain("PDF files must be between 1 byte and 12 MB.");
+  });
+
   it("gives administrators a labeled quick vendor-account switcher that preserves the current portal section", () => {
     expect(source).toContain("function AdminVendorQuickSwitch");
     expect(source).toContain('data-testid="admin-vendor-quick-switcher"');
@@ -119,6 +130,14 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(login).toContain("same contact email saved on your approved vendor record");
     expect(login).toContain("Registration works only with the contact email on an approved vendor record");
     expect(login).toContain("linked automatically to that supplier’s own portal");
+  });
+
+  it("keeps every approved vendor logged into its own editable profile before a catalog line is linked", () => {
+    expect(source).toContain("const supplierProfileOnly = Boolean(");
+    expect(source).toContain("user.approvedVendorLineId != null");
+    expect(source).toContain('page={supplierProfileOnly ? "supplier-profile" : page}');
+    expect(source).toContain('item.id === "supplier-profile"');
+    expect(source).toContain("Pending source-line link");
   });
 
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {

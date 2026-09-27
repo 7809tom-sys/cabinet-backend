@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -50,6 +51,17 @@ function money(v: string | null | undefined): string {
   if (v == null) return "—";
   const n = Number(v);
   return Number.isFinite(n) ? `$${n.toFixed(2)}` : "—";
+}
+
+const MAX_SUPPLIER_RESOURCE_BYTES = 12 * 1024 * 1024;
+
+async function readSupplierPdfAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The PDF could not be read."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(file);
+  });
 }
 
 // ─── Sub-pages ────────────────────────────────────────────────────────────────
@@ -448,24 +460,227 @@ function OverviewPage({ onNavigate }: { onNavigate: (page: VendorPage) => void }
 }
 
 // ─── Supplier Profile & Resources ─────────────────────────────────────────────
+type SupplierProfileVendor = {
+  id: number;
+  name: string;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  websiteUrl: string | null;
+  notes: string | null;
+  catalogPdfUrl: string | null;
+  specBookPdfUrl: string | null;
+};
+
+function SupplierProfileEditor({
+  vendor,
+  adminDistributorId,
+}: {
+  vendor: SupplierProfileVendor;
+  adminDistributorId?: number;
+}) {
+  const utils = trpc.useUtils();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    contactName: vendor.contactName ?? "",
+    contactEmail: vendor.contactEmail ?? "",
+    contactPhone: vendor.contactPhone ?? "",
+    websiteUrl: vendor.websiteUrl ?? "",
+    notes: vendor.notes ?? "",
+    catalogPdfUrl: vendor.catalogPdfUrl ?? "",
+    specBookPdfUrl: vendor.specBookPdfUrl ?? "",
+  });
+  const catalogInputRef = useRef<HTMLInputElement>(null);
+  const specBookInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm({
+      contactName: vendor.contactName ?? "",
+      contactEmail: vendor.contactEmail ?? "",
+      contactPhone: vendor.contactPhone ?? "",
+      websiteUrl: vendor.websiteUrl ?? "",
+      notes: vendor.notes ?? "",
+      catalogPdfUrl: vendor.catalogPdfUrl ?? "",
+      specBookPdfUrl: vendor.specBookPdfUrl ?? "",
+    });
+  }, [open, vendor]);
+
+  const withLine = <T extends Record<string, unknown>>(input: T) =>
+    adminDistributorId ? { ...input, distributorId: adminDistributorId } : input;
+  const save = trpc.distributorPortal.updateSupplierProfile.useMutation({
+    onSuccess: () => {
+      void utils.distributorPortal.myLine.invalidate();
+      toast.success("Supplier profile updated");
+      setOpen(false);
+    },
+    onError: (error) => toast.error(error.message || "Could not update supplier profile."),
+  });
+  const upload = trpc.distributorPortal.uploadSupplierResourcePdf.useMutation({
+    onSuccess: (result) => {
+      setForm((current) => result.resource === "catalog"
+        ? { ...current, catalogPdfUrl: result.url }
+        : { ...current, specBookPdfUrl: result.url });
+      void utils.distributorPortal.myLine.invalidate();
+      toast.success(result.resource === "catalog" ? "PDF catalog uploaded" : "PDF spec book uploaded");
+    },
+    onError: (error) => toast.error(error.message || "Could not upload the PDF."),
+  });
+
+  const uploadPdf = async (resource: "catalog" | "specBook", file?: File) => {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Choose a PDF file.");
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_SUPPLIER_RESOURCE_BYTES) {
+      toast.error("PDF files must be between 1 byte and 12 MB.");
+      return;
+    }
+    try {
+      await upload.mutateAsync(withLine({
+        resource,
+        fileBase64: await readSupplierPdfAsBase64(file),
+        contentType: "application/pdf",
+        fileName: file.name,
+      }));
+    } catch (error) {
+      if (error instanceof Error) toast.error(error.message);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button type="button" variant="outline" className="gap-2" onClick={() => setOpen(true)} data-testid="edit-supplier-profile">
+        <Pencil className="h-4 w-4" /> Edit supplier profile
+      </Button>
+      <DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit {vendor.name}</DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground">
+          Update the public supplier contact, website, notes, catalog, and specification resources for your own approved vendor record. Supply-line identity, approval, and pricing stay protected.
+        </p>
+        <div className="grid gap-4 py-2 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="supplier-contact-name">Contact name</Label>
+            <Input id="supplier-contact-name" value={form.contactName} onChange={(event) => setForm({ ...form, contactName: event.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="supplier-contact-email">Contact email / portal login</Label>
+            <Input id="supplier-contact-email" type="email" value={form.contactEmail} onChange={(event) => setForm({ ...form, contactEmail: event.target.value })} placeholder="supplier-contact@company.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="supplier-contact-phone">Contact phone</Label>
+            <Input id="supplier-contact-phone" value={form.contactPhone} onChange={(event) => setForm({ ...form, contactPhone: event.target.value })} />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="supplier-website">Website</Label>
+            <Input id="supplier-website" type="url" value={form.websiteUrl} onChange={(event) => setForm({ ...form, websiteUrl: event.target.value })} placeholder="https://www.supplier.com" />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label htmlFor="supplier-notes">Notes</Label>
+            <Textarea id="supplier-notes" rows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} placeholder="Lead-time, ordering, or source notes for CabinetDealz." />
+          </div>
+          <SupplierProfilePdfField
+            id="supplier-catalog-pdf"
+            label="PDF catalog"
+            value={form.catalogPdfUrl}
+            inputRef={catalogInputRef}
+            uploading={upload.isPending}
+            onChange={(catalogPdfUrl) => setForm({ ...form, catalogPdfUrl })}
+            onUpload={(file) => void uploadPdf("catalog", file)}
+          />
+          <SupplierProfilePdfField
+            id="supplier-spec-book-pdf"
+            label="PDF spec book"
+            value={form.specBookPdfUrl}
+            inputRef={specBookInputRef}
+            uploading={upload.isPending}
+            onChange={(specBookPdfUrl) => setForm({ ...form, specBookPdfUrl })}
+            onUpload={(file) => void uploadPdf("specBook", file)}
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button
+            disabled={save.isPending || upload.isPending || !form.contactEmail.trim()}
+            onClick={() => save.mutate(withLine(form))}
+          >
+            {save.isPending ? "Saving…" : "Save supplier profile"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function SupplierProfilePdfField({
+  id,
+  label,
+  value,
+  inputRef,
+  uploading,
+  onChange,
+  onUpload,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  uploading: boolean;
+  onChange: (value: string) => void;
+  onUpload: (file?: File) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-lg border p-3">
+      <Label htmlFor={`${id}-url`}>{label}</Label>
+      <Input id={`${id}-url`} type="url" value={value} onChange={(event) => onChange(event.target.value)} placeholder="Paste a verified PDF URL" />
+      <input
+        ref={inputRef}
+        id={id}
+        type="file"
+        accept="application/pdf"
+        className="hidden"
+        onChange={(event) => {
+          onUpload(event.target.files?.[0]);
+          event.currentTarget.value = "";
+        }}
+      />
+      <Button type="button" variant="outline" size="sm" className="gap-1" disabled={uploading} onClick={() => inputRef.current?.click()}>
+        <Upload className="h-3.5 w-3.5" /> {uploading ? "Uploading…" : "Upload PDF"}
+      </Button>
+      <p className="text-xs text-muted-foreground">PDF only · max 12 MB</p>
+    </div>
+  );
+}
+
 function SupplierProfilePage() {
   const { user } = useAuth();
   const adminDistId = useAdminDistributorId();
-  const myLine = trpc.distributorPortal.myLine.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const profile = trpc.distributorPortal.supplierProfile.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const myLine = trpc.distributorPortal.myLine.useQuery(
+    adminDistId ? { distributorId: adminDistId } : undefined,
+    { enabled: Boolean(adminDistId || user?.distributorId) }
+  );
 
-  if (myLine.isLoading) {
+  if (profile.isLoading) {
     return <Card><CardContent className="p-6"><Skeleton className="h-40 w-full" /></CardContent></Card>;
   }
-  if (myLine.error || !myLine.data) {
+  if (profile.error || !profile.data) {
     return <div className="p-4 text-destructive">The supplier profile could not be loaded.</div>;
   }
 
-  const { line, approvedVendor } = myLine.data;
+  const approvedVendor = profile.data.vendor;
+  const line = myLine.data?.line ?? null;
   return (
     <div data-testid="supplier-profile-page" className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Supplier Profile &amp; Resources</h2>
-        <p className="text-muted-foreground">This portal is the authenticated view of the approved supplier record for your supply line.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Supplier Profile &amp; Resources</h2>
+          <p className="text-muted-foreground">This portal is the authenticated view of the approved supplier record for your supply line.</p>
+        </div>
+        {approvedVendor && <SupplierProfileEditor vendor={approvedVendor} adminDistributorId={adminDistId} />}
       </div>
 
       <Card>
@@ -474,13 +689,12 @@ function SupplierProfilePage() {
         </CardHeader>
         <CardContent className="grid gap-3 text-sm md:grid-cols-2">
           <div><p className="text-muted-foreground">Signed-in account</p><p className="font-medium break-all">{user?.email || "—"}</p></div>
-          <div><p className="text-muted-foreground">Linked supply line</p><p className="font-medium">{line.name}</p></div>
+          <div><p className="text-muted-foreground">Catalog / supply line</p><p className="font-medium">{line?.name ?? "Pending source-line link"}</p></div>
           <p className="text-xs text-muted-foreground md:col-span-2">For security, passwords are never displayed or stored in readable form.</p>
         </CardContent>
       </Card>
 
-      {approvedVendor ? (
-        <>
+      <>
           <Card>
             <CardHeader>
               <CardTitle>{approvedVendor.name}</CardTitle>
@@ -504,13 +718,7 @@ function SupplierProfilePage() {
               <SupplierPdfResource label="PDF Spec Book" url={approvedVendor.specBookPdfUrl} />
             </CardContent>
           </Card>
-        </>
-      ) : (
-        <Card>
-          <CardHeader><CardTitle>Approved supplier record pending</CardTitle></CardHeader>
-          <CardContent className="text-sm text-muted-foreground">This signed-in portal is linked to <strong>{line.name}</strong>, but its Approved Vendor record has not been associated yet. An administrator must set that Approved Vendor’s source key to <strong>dist:{line.id}</strong> (or to the exact supply-line code) to make the account contact information and resource PDFs available here.</CardContent>
-        </Card>
-      )}
+      </>
     </div>
   );
 }
@@ -3669,6 +3877,12 @@ export default function VendorPortal() {
 
   // Fetch distributors list for admin selector
   const isAdmin = user?.role === "admin";
+  const supplierProfileOnly = Boolean(
+    !isAdmin
+    && user?.role === "distributor"
+    && user.distributorId == null
+    && user.approvedVendorLineId != null
+  );
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
   const navigateToPage = useCallback((nextPage: VendorPage) => {
     setPage(nextPage);
@@ -3751,12 +3965,13 @@ export default function VendorPortal() {
   return (
     <VendorPortalDashboard
       user={user}
-      page={page}
+      page={supplierProfileOnly ? "supplier-profile" : page}
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
       onSwitchVendor={switchAdminVendor}
       distList={distList.data ?? []}
+      supplierProfileOnly={supplierProfileOnly}
     />
   );
 }
@@ -3823,6 +4038,7 @@ function VendorPortalDashboard({
   adminDistributorId,
   onSwitchVendor,
   distList,
+  supplierProfileOnly = false,
 }: {
   user: any;
   page: VendorPage;
@@ -3831,11 +4047,15 @@ function VendorPortalDashboard({
   adminDistributorId: number | null;
   onSwitchVendor: (id: number) => void;
   distList: PortalDistributorOption[];
+  supplierProfileOnly?: boolean;
 }) {
   const activeDistCode = isAdmin && adminDistributorId
     ? (distList.find((d: any) => d.id === adminDistributorId)?.code ?? undefined)
     : undefined;
   const isPelican = activeDistCode === PEL_DIST_CODE;
+  const portalItems = supplierProfileOnly
+    ? NAV_ITEMS.filter((item) => item.id === "supplier-profile")
+    : NAV_ITEMS;
   const [pelicanCategoryFilter, setPelicanCategoryFilter] = useState<string | undefined>(undefined);
 
   const handleNavigateToCatalog = useCallback((category?: string) => {
@@ -3862,7 +4082,7 @@ function VendorPortalDashboard({
           )}
         </div>
         <nav className="p-2 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {portalItems.map((item) => {
             const isActive = page === item.id;
             return (
               <button
@@ -3885,7 +4105,7 @@ function VendorPortalDashboard({
       {/* Mobile nav */}
 	      <div className="md:hidden fixed bottom-0 left-0 right-0 border-t bg-card z-50">
 	        <nav aria-label="Vendor portal sections" className="flex gap-1 overflow-x-auto px-2 py-2">
-          {NAV_ITEMS.map((item) => {
+          {portalItems.map((item) => {
             const isActive = page === item.id;
             return (
               <button

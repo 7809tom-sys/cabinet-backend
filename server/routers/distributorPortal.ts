@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { and, eq, inArray, desc, gte, lte, isNotNull, or, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, distributorProcedure, router } from "../_core/trpc";
+import { adminProcedure, distributorProcedure, router, supplierProfileProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import {
 	  distributors,
@@ -11,7 +11,8 @@ import {
 	  doorStyles,
 	  doorStyleMeasurementSubmissions,
 	  doorStyleRoomScenes,
-  vendorLines,
+	  vendorLines,
+	  users,
   orderRequests,
   kitchenDesigns,
   aiServiceRequests,
@@ -54,6 +55,45 @@ function resolveLineId(
     });
   }
   return inputDistributorId;
+}
+
+async function resolveApprovedVendorProfile(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  ctx: { isAdmin: boolean; distributorId: number | null; approvedVendorLineId: number | null },
+  requestedDistributorId?: number
+) {
+  if (!ctx.isAdmin && ctx.approvedVendorLineId != null) {
+    const [vendor] = await db
+      .select({ id: vendorLines.id })
+      .from(vendorLines)
+      .where(and(eq(vendorLines.id, ctx.approvedVendorLineId), eq(vendorLines.isApproved, true)))
+      .limit(1);
+    if (!vendor) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Your approved vendor record is no longer active." });
+    }
+    return vendor;
+  }
+
+  const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, requestedDistributorId);
+  const [line] = await db
+    .select({ id: distributors.id, code: distributors.code })
+    .from(distributors)
+    .where(eq(distributors.id, lineId))
+    .limit(1);
+  if (!line) throw new TRPCError({ code: "NOT_FOUND", message: "Supply line not found" });
+
+  const approvedVendors = await db
+    .select({ id: vendorLines.id, sourceKey: vendorLines.sourceKey })
+    .from(vendorLines)
+    .where(eq(vendorLines.isApproved, true));
+  const vendor = approvedVendors.find((candidate) => approvedVendorMatchesDistributor(candidate, line));
+  if (!vendor) {
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "No approved vendor record is linked to this supply line. Contact an administrator to link it.",
+    });
+  }
+  return vendor;
 }
 
 const MAX_DESIGN_TOOL_PICKS = 8;
@@ -206,6 +246,137 @@ export const distributorPortalRouter = router({
         },
         styles,
       };
+    }),
+
+  /**
+   * Supplier-owned details on the approved vendor record. Supply-line identity,
+   * approval, and catalog mappings remain administrative controls; this mutation
+   * never accepts a caller-selected vendor ID.
+   */
+  updateSupplierProfile: supplierProfileProcedure
+    .input(z.object({
+      distributorId: z.number().optional(),
+      contactName: z.string().trim().max(191),
+      contactEmail: z.string().trim().email().max(255),
+      contactPhone: z.string().trim().max(64),
+      websiteUrl: z.string().trim().max(512).refine(
+        (value) => !value || /^https?:\/\//i.test(value),
+        "Website must be an http or https URL."
+      ),
+      notes: z.string().trim().max(2000),
+      catalogPdfUrl: z.string().trim().max(512).refine(
+        (value) => !value || /^https?:\/\//i.test(value),
+        "Catalog resource must be an http or https URL."
+      ),
+      specBookPdfUrl: z.string().trim().max(512).refine(
+        (value) => !value || /^https?:\/\//i.test(value),
+        "Spec-book resource must be an http or https URL."
+      ),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId);
+
+      const nextEmailLower = input.contactEmail.toLowerCase();
+      const shouldUpdateLoginEmail = !ctx.isAdmin && ctx.user.emailLower !== nextEmailLower;
+      if (shouldUpdateLoginEmail) {
+        const [existing] = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.emailLower, nextEmailLower))
+          .limit(1);
+        if (existing && existing.id !== ctx.user.id) {
+          throw new TRPCError({ code: "CONFLICT", message: "That email is already used by another account." });
+        }
+      }
+
+      await db
+        .update(vendorLines)
+        .set({
+          contactName: input.contactName,
+          contactEmail: input.contactEmail,
+          contactPhone: input.contactPhone,
+          websiteUrl: input.websiteUrl || null,
+          notes: input.notes || null,
+          catalogPdfUrl: input.catalogPdfUrl || null,
+          specBookPdfUrl: input.specBookPdfUrl || null,
+        })
+        .where(eq(vendorLines.id, approvedVendor.id));
+      // A supplier editing its own contact email should be able to use that
+      // exact address at the next password sign-in. Admin preview never alters
+      // the administrator's account.
+      if (shouldUpdateLoginEmail) {
+        await db
+          .update(users)
+          .set({ email: input.contactEmail, emailLower: nextEmailLower })
+          .where(eq(users.id, ctx.user.id));
+      }
+      return { success: true, vendorId: approvedVendor.id } as const;
+    }),
+
+  /** Upload a catalog or specification PDF to the caller's own approved vendor record. */
+  uploadSupplierResourcePdf: supplierProfileProcedure
+    .input(z.object({
+      distributorId: z.number().optional(),
+      resource: z.enum(["catalog", "specBook"]),
+      fileBase64: z.string().min(1).max(16 * 1024 * 1024),
+      contentType: z.literal("application/pdf"),
+      fileName: z.string().trim().min(1).max(256),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId);
+
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const maxBytes = 12 * 1024 * 1024;
+      if (buffer.length === 0 || buffer.length > maxBytes) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "PDF files must be between 1 byte and 12 MB." });
+      }
+      if (buffer.subarray(0, 4).toString("ascii") !== "%PDF") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only valid PDF files can be uploaded." });
+      }
+
+      const safeName = input.fileName
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .replace(/\.pdf$/i, "")
+        .slice(0, 96) || input.resource;
+      const { url } = await storagePut(
+        `vendor-resources/${approvedVendor.id}/${input.resource}-${Date.now()}-${safeName}.pdf`,
+        buffer,
+        "application/pdf"
+      );
+      const field = input.resource === "catalog" ? "catalogPdfUrl" : "specBookPdfUrl";
+      await db.update(vendorLines).set({ [field]: url }).where(eq(vendorLines.id, approvedVendor.id));
+      return { success: true, resource: input.resource, url } as const;
+    }),
+
+  /** The authenticated supplier profile, including vendors still awaiting a catalog line. */
+  supplierProfile: supplierProfileProcedure
+    .input(z.object({ distributorId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const resolved = await resolveApprovedVendorProfile(db, ctx, input?.distributorId);
+      const [vendor] = await db
+        .select({
+          id: vendorLines.id,
+          name: vendorLines.name,
+          category: vendorLines.category,
+          contactName: vendorLines.contactName,
+          contactEmail: vendorLines.contactEmail,
+          contactPhone: vendorLines.contactPhone,
+          websiteUrl: vendorLines.websiteUrl,
+          notes: vendorLines.notes,
+          catalogPdfUrl: vendorLines.catalogPdfUrl,
+          specBookPdfUrl: vendorLines.specBookPdfUrl,
+        })
+        .from(vendorLines)
+        .where(eq(vendorLines.id, resolved.id))
+        .limit(1);
+      if (!vendor) throw new TRPCError({ code: "NOT_FOUND", message: "Approved vendor record not found" });
+      return { vendor };
     }),
 
 	/**

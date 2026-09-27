@@ -56,6 +56,8 @@ type VendorLine = {
   websiteUrl: string | null;
   catalogPdfUrl: string | null;
   specBookPdfUrl: string | null;
+  portalReadiness?: "not-approved" | "email-required" | "profile-only" | "ready";
+  linkedDistributor?: { id: number; code: string; name: string } | null;
 };
 
 const money = (cents: number) =>
@@ -219,6 +221,7 @@ function VendorDialog({
   onSaved: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const supplierLines = trpc.distributors.list.useQuery(undefined, { enabled: open });
   const [form, setForm] = useState({
     name: vendor?.name ?? "",
     sourceKey: vendor?.sourceKey ?? "",
@@ -268,12 +271,30 @@ function VendorDialog({
               />
             </div>
             <div>
-              <Label className="text-xs">Source key (for auto sales)</Label>
+              <Label className="text-xs">Source key / supplier portal line</Label>
               <Input
                 value={form.sourceKey}
                 onChange={(e) => setForm({ ...form, sourceKey: e.target.value })}
-                placeholder="pelican or dist:3"
+                placeholder="Choose an active line below"
               />
+              <Select
+                value={form.sourceKey.startsWith("dist:") ? form.sourceKey : undefined}
+                onValueChange={(sourceKey) => setForm({ ...form, sourceKey })}
+              >
+                <SelectTrigger className="mt-2 h-8 text-xs">
+                  <SelectValue placeholder="Select active supplier line" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(supplierLines.data ?? []).filter((line: any) => line.isActive).map((line: any) => (
+                    <SelectItem key={line.id} value={`dist:${line.id}`}>
+                      {line.name} ({line.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                An approved contact can log in only after a source line and contact email are both saved.
+              </p>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -662,6 +683,7 @@ export default function ApprovedVendorsAdmin() {
                 <TableHead className="w-[60px] text-center">ID</TableHead>
                 <TableHead className="w-[140px]">Category</TableHead>
                 <TableHead className="w-[100px]">Status</TableHead>
+                <TableHead className="w-[180px]">Portal login</TableHead>
                 <TableHead className="w-[110px] text-right">Total Sales</TableHead>
                 <TableHead className="w-[260px] text-right">Actions</TableHead>
               </TableRow>
@@ -669,7 +691,7 @@ export default function ApprovedVendorsAdmin() {
               <TableBody>
                 {filteredVendors.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                       No vendors match &ldquo;{search}&rdquo;
                     </TableCell>
                   </TableRow>
@@ -714,21 +736,41 @@ export default function ApprovedVendorsAdmin() {
                         {v.id}
                       </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-sm">
-                      {v.category || "—"}
-                    </TableCell>
-                    <TableCell>
-                      {v.isApproved ? (
-                        <Badge className="gap-1 bg-green-600 hover:bg-green-600">
-                          <CheckCircle2 className="h-3 w-3" /> Approved
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="gap-1">
-                          <XCircle className="h-3 w-3" /> Inactive
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
+	                    <TableCell className="text-muted-foreground text-sm">
+	                      {v.category || "—"}
+	                    </TableCell>
+	                    <TableCell>
+	                      {v.isApproved ? (
+	                        <Badge className="gap-1 bg-green-600 hover:bg-green-600">
+	                          <CheckCircle2 className="h-3 w-3" /> Approved
+	                        </Badge>
+	                      ) : (
+	                        <Badge variant="secondary" className="gap-1">
+	                          <XCircle className="h-3 w-3" /> Inactive
+	                        </Badge>
+	                      )}
+	                    </TableCell>
+	                    <TableCell className="text-xs">
+	                      {v.portalReadiness === "ready" ? (
+	                        <div className="space-y-0.5">
+	                          <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">Portal ready</Badge>
+	                          <p className="text-muted-foreground">{v.linkedDistributor ? `${v.linkedDistributor.code} · ${v.linkedDistributor.name}` : "Profile-only supplier"}</p>
+	                        </div>
+                      ) : v.portalReadiness === "profile-only" ? (
+                        <div className="space-y-0.5 text-amber-800">
+                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Profile portal ready</Badge>
+                          <p>Link a supply line in Edit to add catalog tools.</p>
+	                        </div>
+	                      ) : v.portalReadiness === "email-required" ? (
+	                        <div className="space-y-0.5 text-amber-800">
+	                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">Add contact email</Badge>
+	                          <p>The contact email is the portal login.</p>
+	                        </div>
+	                      ) : (
+	                        <span className="text-muted-foreground">Approve this vendor to enable login.</span>
+	                      )}
+	                    </TableCell>
+	                    <TableCell className="text-right">
                       <div className="font-semibold">{money(v.totalSalesCents || 0)}</div>
                       {v.salesUpdatedAt && (
                         <div className="text-[10px] text-muted-foreground">

@@ -28,4 +28,12 @@ describe("Approved vendor PDF resources", () => {
     expect(source).toContain("No separate invite is required.");
     expect(source).toContain("Add a contact email to enable this supplier’s portal login.");
   });
+
+  it("shows every approved vendor whether its contact can log in now", () => {
+    expect(source).toContain("Portal login");
+    expect(source).toContain("Portal ready");
+    expect(source).toContain("Profile portal ready");
+    expect(source).toContain("The contact email is the portal login.");
+    expect(source).toContain("Select active supplier line");
+  });
 });

@@ -2,9 +2,10 @@ import { z } from "zod";
 import { asc, eq, sql } from "drizzle-orm";
 import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { vendorLines, orders, orderItems } from "../../drizzle/schema";
+import { distributors, vendorLines, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
 import { storagePut } from "../storage";
+import { approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
 
 // Approved Vendors scorecard.
 //
@@ -23,7 +24,32 @@ export const vendorsRouter = router({
   list: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [] as (typeof vendorLines.$inferSelect)[];
-    return db.select().from(vendorLines).orderBy(asc(vendorLines.name));
+    const [lines, supplierLines] = await Promise.all([
+      db.select().from(vendorLines).orderBy(asc(vendorLines.name)),
+      db
+        .select({ id: distributors.id, code: distributors.code, name: distributors.name, isActive: distributors.isActive })
+        .from(distributors),
+    ]);
+
+    return lines.map((line) => {
+      const distributorId = approvedVendorSourceDistributorId(line.sourceKey, supplierLines);
+      const distributor = supplierLines.find((candidate) => candidate.id === distributorId) ?? null;
+      const hasContactEmail = Boolean(line.contactEmail?.trim());
+      const portalReadiness = !line.isApproved
+        ? "not-approved"
+        : !hasContactEmail
+          ? "email-required"
+          : distributor
+            ? "ready"
+            : "profile-only";
+      return {
+        ...line,
+        portalReadiness,
+        linkedDistributor: distributor
+          ? { id: distributor.id, code: distributor.code, name: distributor.name }
+          : null,
+      };
+    });
   }),
 
   upsert: adminProcedure

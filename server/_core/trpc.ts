@@ -78,6 +78,38 @@ export const distributorProcedure = t.procedure.use(
   }),
 );
 
+// Supplier profile access: every approved vendor contact is a distributor-role
+// account, but a newly approved supplier may not have a catalog/distributor line
+// yet. It can edit only its own approved-vendor profile until that line exists.
+export const supplierProfileProcedure = t.procedure.use(
+  t.middleware(async opts => {
+    const { ctx, next } = opts;
+    if (!ctx.user) {
+      throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
+    }
+    const isAdmin = ctx.user.role === "admin";
+    const isSupplier = ctx.user.role === "distributor";
+    if (!isAdmin && !isSupplier) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Supplier access required" });
+    }
+    if (!isAdmin && ctx.user.distributorId == null && ctx.user.approvedVendorLineId == null) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your account is not linked to an approved vendor record yet. Contact the platform admin.",
+      });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user,
+        isAdmin,
+        distributorId: isSupplier ? ctx.user.distributorId : null,
+        approvedVendorLineId: isSupplier ? ctx.user.approvedVendorLineId : null,
+      },
+    });
+  }),
+);
+
 // Designer access: a user with role=designer or admin. Designers publish
 // availability and manage the consultations booked against their slots.
 export const designerProcedure = t.procedure.use(
