@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search } from "lucide-react";
+import { Store, RefreshCw, Plus, Pencil, Trash2, CheckCircle2, XCircle, UserPlus, ShieldCheck, Clock, Link2, Copy, ExternalLink, Search, BookOpen, FileText, Upload } from "lucide-react";
 import { Link } from "wouter";
 import {
   Select,
@@ -54,10 +54,123 @@ type VendorLine = {
   salesUpdatedAt: Date | string | null;
   notes: string | null;
   websiteUrl: string | null;
+  catalogPdfUrl: string | null;
+  specBookPdfUrl: string | null;
 };
 
 const money = (cents: number) =>
   (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+
+const MAX_VENDOR_RESOURCE_BYTES = 12 * 1024 * 1024;
+
+async function readPdfAsBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("The PDF could not be read."));
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.readAsDataURL(file);
+  });
+}
+
+function VendorPdfResourceField({
+  vendorId,
+  resource,
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  vendorId?: number;
+  resource: "catalog" | "specBook";
+  label: string;
+  description: string;
+  value: string;
+  onChange: (url: string) => void;
+}) {
+  const inputId = `vendor-${vendorId ?? "new"}-${resource}-pdf`;
+  const upload = trpc.vendors.uploadResourcePdf.useMutation({
+    onSuccess: (result) => {
+      onChange(result.url);
+      toast.success(`${label} uploaded and linked to this vendor.`);
+    },
+    onError: (error) => toast.error(error.message || `Could not upload ${label.toLowerCase()}.`),
+  });
+
+  const handleFile = async (file?: File) => {
+    if (!file || !vendorId) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Choose a PDF file.");
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_VENDOR_RESOURCE_BYTES) {
+      toast.error("PDF files must be between 1 byte and 12 MB.");
+      return;
+    }
+    try {
+      upload.mutate({
+        id: vendorId,
+        resource,
+        fileBase64: await readPdfAsBase64(file),
+        contentType: "application/pdf",
+        fileName: file.name,
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "The PDF could not be read.");
+    }
+  };
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <Label htmlFor={`${inputId}-url`} className="text-sm font-semibold">{label}</Label>
+          <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+        {value && (
+          <a href={value} target="_blank" rel="noopener noreferrer" className="shrink-0">
+            <Button type="button" size="sm" variant="outline" className="gap-1">
+              <ExternalLink className="h-3.5 w-3.5" /> Open
+            </Button>
+          </a>
+        )}
+      </div>
+      <Input
+        id={`${inputId}-url`}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Paste a verified PDF URL"
+        type="url"
+      />
+      {vendorId ? (
+        <div className="flex items-center gap-2">
+          <input
+            id={inputId}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(event) => {
+              void handleFile(event.target.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            disabled={upload.isPending}
+            onClick={() => document.getElementById(inputId)?.click()}
+          >
+            <Upload className="h-3.5 w-3.5" /> {upload.isPending ? "Uploading…" : "Upload PDF"}
+          </Button>
+          <span className="text-xs text-muted-foreground">PDF only · max 12 MB</span>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">Save this new vendor first to upload a PDF, or paste a verified PDF URL now.</p>
+      )}
+    </div>
+  );
+}
 
 // ─── Invite Link Button ──────────────────────────────────────────────────────
 function InviteLinkButton({ vendorId, vendorName }: { vendorId: number; vendorName: string }) {
@@ -116,6 +229,8 @@ function VendorDialog({
     isApproved: vendor?.isApproved ?? true,
     notes: vendor?.notes ?? "",
     websiteUrl: vendor?.websiteUrl ?? "",
+    catalogPdfUrl: vendor?.catalogPdfUrl ?? "",
+    specBookPdfUrl: vendor?.specBookPdfUrl ?? "",
   });
 
   const upsert = trpc.vendors.upsert.useMutation({
@@ -130,7 +245,7 @@ function VendorDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-h-[90dvh] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{vendor ? "Edit vendor line" : "Add vendor line"}</DialogTitle>
         </DialogHeader>
@@ -193,6 +308,24 @@ function VendorDialog({
               type="url"
             />
           </div>
+          <div className="grid gap-3">
+            <VendorPdfResourceField
+              vendorId={vendor?.id}
+              resource="catalog"
+              label="PDF catalog"
+              description="The current source catalog for this supply line."
+              value={form.catalogPdfUrl}
+              onChange={(catalogPdfUrl) => setForm({ ...form, catalogPdfUrl })}
+            />
+            <VendorPdfResourceField
+              vendorId={vendor?.id}
+              resource="specBook"
+              label="PDF spec book"
+              description="Dimensions, packaging, installation, or technical specifications."
+              value={form.specBookPdfUrl}
+              onChange={(specBookPdfUrl) => setForm({ ...form, specBookPdfUrl })}
+            />
+          </div>
           <div>
             <Label className="text-xs">Notes</Label>
             <Textarea
@@ -224,6 +357,8 @@ function VendorDialog({
                 isApproved: form.isApproved,
                 notes: form.notes,
                 websiteUrl: form.websiteUrl.trim() || null,
+                catalogPdfUrl: form.catalogPdfUrl.trim() || null,
+                specBookPdfUrl: form.specBookPdfUrl.trim() || null,
               })
             }
           >
@@ -540,6 +675,24 @@ export default function ApprovedVendorsAdmin() {
                       )}
                       {v.contactEmail && (
                         <div className="text-xs text-muted-foreground">{v.contactEmail}</div>
+                      )}
+                      {(v.catalogPdfUrl || v.specBookPdfUrl) && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {v.catalogPdfUrl && (
+                            <a href={v.catalogPdfUrl} target="_blank" rel="noopener noreferrer">
+                              <Badge variant="outline" className="gap-1 text-xs hover:bg-muted">
+                                <BookOpen className="h-3 w-3" /> Catalog PDF
+                              </Badge>
+                            </a>
+                          )}
+                          {v.specBookPdfUrl && (
+                            <a href={v.specBookPdfUrl} target="_blank" rel="noopener noreferrer">
+                              <Badge variant="outline" className="gap-1 text-xs hover:bg-muted">
+                                <FileText className="h-3 w-3" /> Spec book
+                              </Badge>
+                            </a>
+                          )}
+                        </div>
                       )}
                     </TableCell>
                     <TableCell className="text-center">

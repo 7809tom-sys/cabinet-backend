@@ -72,6 +72,7 @@ export function SiteFooter() {
             <ul className="space-y-2 text-sm">
               {[
                 { label: t("nav_supplier_portal"), href: "/distributor" },
+                { label: "Become a Vendor / Supplier", href: "/become-a-vendor" },
                 { label: t("home_aud_affiliates_cta"), href: "/affiliate" },
                 { label: t("nav_admin"), href: "/admin" },
                 { label: "About Cabinet Dealz", href: "/about" },

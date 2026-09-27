@@ -4,6 +4,7 @@ import { router, adminProcedure, publicProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { vendorLines, orders, orderItems } from "../../drizzle/schema";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
+import { storagePut } from "../storage";
 
 // Approved Vendors scorecard.
 //
@@ -39,6 +40,8 @@ export const vendorsRouter = router({
         totalSalesCents: z.number().int().min(0).optional(),
         notes: z.string().nullable().optional(),
         websiteUrl: z.string().max(512).nullable().optional(),
+        catalogPdfUrl: z.string().max(512).nullable().optional(),
+        specBookPdfUrl: z.string().max(512).nullable().optional(),
       })
     )
     .mutation(async ({ input }) => {
@@ -54,6 +57,51 @@ export const vendorsRouter = router({
       const res = await db.insert(vendorLines).values({ name: input.name, ...patch });
       const insertId = (res as unknown as [{ insertId: number }])[0]?.insertId ?? 0;
       return { success: true, id: Number(insertId) } as const;
+    }),
+
+  /** Store a source catalog or specification book for one approved vendor line. */
+  uploadResourcePdf: adminProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        resource: z.enum(["catalog", "specBook"]),
+        fileBase64: z.string().min(1).max(16 * 1024 * 1024),
+        contentType: z.literal("application/pdf"),
+        fileName: z.string().min(1).max(256),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      const [vendor] = await db
+        .select({ id: vendorLines.id })
+        .from(vendorLines)
+        .where(eq(vendorLines.id, input.id))
+        .limit(1);
+      if (!vendor) throw new Error("Vendor line not found");
+
+      const buffer = Buffer.from(input.fileBase64, "base64");
+      const maxBytes = 12 * 1024 * 1024;
+      if (buffer.length === 0 || buffer.length > maxBytes) {
+        throw new Error("PDF files must be between 1 byte and 12 MB.");
+      }
+      if (buffer.subarray(0, 4).toString("ascii") !== "%PDF") {
+        throw new Error("Only a valid PDF catalog or specification book can be uploaded.");
+      }
+
+      const safeName = input.fileName
+        .replace(/[^a-zA-Z0-9._-]/g, "_")
+        .replace(/\.pdf$/i, "")
+        .slice(0, 96) || input.resource;
+      const { url } = await storagePut(
+        `vendor-resources/${vendor.id}/${input.resource}-${Date.now()}-${safeName}.pdf`,
+        buffer,
+        "application/pdf"
+      );
+      const field = input.resource === "catalog" ? "catalogPdfUrl" : "specBookPdfUrl";
+      await db.update(vendorLines).set({ [field]: url }).where(eq(vendorLines.id, vendor.id));
+      return { url, resource: input.resource };
     }),
 
   remove: adminProcedure

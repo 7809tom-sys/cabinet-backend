@@ -2131,6 +2131,10 @@ export const vendorLines = mysqlTable("vendor_lines", {
   salesUpdatedAt: timestamp("salesUpdatedAt"),
   notes: text("notes"),
   websiteUrl: varchar("websiteUrl", { length: 512 }),
+  /** Source PDF catalog URL, either vendor-hosted or stored in managed file storage. */
+  catalogPdfUrl: varchar("catalogPdfUrl", { length: 512 }),
+  /** Source PDF specification book URL, either vendor-hosted or stored in managed file storage. */
+  specBookPdfUrl: varchar("specBookPdfUrl", { length: 512 }),
   inviteToken: varchar("inviteToken", { length: 64 }).unique(),
   inviteCreatedAt: timestamp("inviteCreatedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

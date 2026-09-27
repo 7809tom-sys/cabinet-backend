@@ -142,4 +142,34 @@ describe("vendors router", () => {
     expect(rec.totalSalesCents).toBe(12345);
     await caller.vendors.remove({ id });
   });
+
+  it("persists source catalog and specification-book URLs for an approved vendor", async () => {
+    const created = await caller.vendors.upsert({
+      name: TEST_VENDOR_NAME + "_resources",
+      catalogPdfUrl: "https://example.test/catalog.pdf",
+      specBookPdfUrl: "https://example.test/specifications.pdf",
+    });
+    expect(created.success).toBe(true);
+
+    const list = await caller.vendors.list();
+    const vendor = list.find((line) => line.id === created.id);
+    expect(vendor?.catalogPdfUrl).toBe("https://example.test/catalog.pdf");
+    expect(vendor?.specBookPdfUrl).toBe("https://example.test/specifications.pdf");
+
+    await caller.vendors.remove({ id: created.id! });
+  });
+
+  it("rejects a non-PDF payload before storing a vendor resource", async () => {
+    const created = await caller.vendors.upsert({ name: TEST_VENDOR_NAME + "_invalid_resource" });
+    await expect(
+      caller.vendors.uploadResourcePdf({
+        id: created.id!,
+        resource: "catalog",
+        fileBase64: Buffer.from("not a PDF").toString("base64"),
+        contentType: "application/pdf",
+        fileName: "invalid.pdf",
+      })
+    ).rejects.toThrow("Only a valid PDF catalog or specification book can be uploaded.");
+    await caller.vendors.remove({ id: created.id! });
+  });
 });

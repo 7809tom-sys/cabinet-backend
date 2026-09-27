@@ -18,6 +18,11 @@ describe("public navigation and update notification", () => {
     expect(footerSource).toContain('{ label: "About Cabinet Dealz", href: "/about" }');
   });
 
+  it("exposes a public vendor and supplier application route in the footer", () => {
+    expect(footerSource).toContain('{ label: "Become a Vendor / Supplier", href: "/become-a-vendor" }');
+    expect(appSource).toContain('<Route path="/become-a-vendor">');
+  });
+
   it("uses the compact navigation before the header can overflow at standard desktop widths", () => {
     expect(topNavSource).toContain('className="hidden xl:flex items-center gap-0"');
     expect(topNavSource).toContain('className="xl:hidden"');
