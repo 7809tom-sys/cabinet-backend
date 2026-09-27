@@ -1844,7 +1844,7 @@
 - [x] Provide a simple Add ZIP code button with duplicate prevention, visible saved ZIPs, and per-ZIP removal in the shipping feature-area editor
 - [x] Fix Shipping provider credential replacement so an administrator-entered updated key persists safely rather than reverting to the previous key after save or reload
 - [x] Add a dedicated Save WWEX settings action beside the WWEX Client ID and Client Secret fields so provider credentials can be persisted without scrolling to the general Shipping save button
-- [ ] Diagnose and correct the reported shipping/freight price while preserving live-rate behavior, approved Plan B fallback fees, accessorials, and the $800 kitchen freight floor
+- [x] Diagnose and correct the reported shipping/freight price while preserving live-rate behavior, approved Plan B fallback fees, accessorials, and the $800 kitchen freight floor
 - [ ] Replace the incompatible generic WWEX rate payload with the verified Speedship staging shopFlow contract so a live carrier price can be returned safely
 - [ ] Configure verified WWEX staging token and shopFlow endpoints with safe readiness feedback before testing live carrier pricing
 - [x] Prevent the WWEX Client ID and Client Secret form state from reverting to previously loaded values after a successful dedicated credential save
