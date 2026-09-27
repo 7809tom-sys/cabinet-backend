@@ -290,6 +290,16 @@ export default function App() {
             </Suspense>
           )}
         </Route>
+        {/* The family-locked storefront owns the catalog at #shop. Preserve
+            older catalog-root links inside the same affiliate scope rather
+            than falling through to the platform 404. */}
+        <Route path="/store/:slug/catalog">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <Storefront slug={params.slug} />
+            </Suspense>
+          )}
+        </Route>
         <Route path="/store/:slug/catalog/:masterCode">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
