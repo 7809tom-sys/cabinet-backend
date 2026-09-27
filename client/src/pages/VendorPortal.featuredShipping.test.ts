@@ -140,6 +140,14 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
     expect(source).toContain("Pending source-line link");
   });
 
+  it("lets administrators switch across every approved vendor record, including profile-only suppliers", () => {
+    expect(source).toContain("const approvedVendors = trpc.vendors.list.useQuery");
+    expect(source).toContain("adminApprovedVendorLineId");
+    expect(source).toContain('url.searchParams.set("vendor", String(vendor.id))');
+    expect(source).toContain("Profile only");
+    expect(source).toContain("approvedVendorList.filter((vendor) => vendor.isApproved)");
+  });
+
 	  it("adds a separate WooCommerce/Magento-style non-cabinet product import workspace", () => {
 	    expect(source).toContain('id: "other-products", label: "Other Products"');
 	    expect(source).toContain('{page === "other-products" && <VendorOtherProducts');

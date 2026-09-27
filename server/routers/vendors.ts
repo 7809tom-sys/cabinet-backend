@@ -23,7 +23,7 @@ import { approvedVendorSourceDistributorId } from "../lib/approvedVendorAccess";
 export const vendorsRouter = router({
   list: adminProcedure.query(async () => {
     const db = await getDb();
-    if (!db) return [] as (typeof vendorLines.$inferSelect)[];
+    if (!db) return [];
     const [lines, supplierLines] = await Promise.all([
       db.select().from(vendorLines).orderBy(asc(vendorLines.name)),
       db
@@ -35,7 +35,7 @@ export const vendorsRouter = router({
       const distributorId = approvedVendorSourceDistributorId(line.sourceKey, supplierLines);
       const distributor = supplierLines.find((candidate) => candidate.id === distributorId) ?? null;
       const hasContactEmail = Boolean(line.contactEmail?.trim());
-      const portalReadiness = !line.isApproved
+      const portalReadiness: "not-approved" | "email-required" | "profile-only" | "ready" = !line.isApproved
         ? "not-approved"
         : !hasContactEmail
           ? "email-required"

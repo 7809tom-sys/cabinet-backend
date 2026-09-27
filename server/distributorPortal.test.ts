@@ -138,6 +138,33 @@ describe("distributorPortal — access control", () => {
 	      await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
 	    }
 	  });
+
+	  it("lets an administrator preview the exact selected profile-only vendor", async () => {
+	    const db = await getDb();
+	    if (!db) return;
+	    const marker = `ADMIN_PROFILE_ONLY_${Date.now()}`;
+	    const created = await db.insert(vendorLines).values({
+	      name: marker,
+	      sourceKey: null,
+	      contactEmail: "admin-profile-only@example.com",
+	      isApproved: true,
+	    });
+	    const vendorId = Number((created as unknown as [{ insertId: number }])[0]?.insertId ?? 0);
+	    try {
+	      const admin = appRouter.createCaller(ctxFor({
+	        id: 990107,
+	        openId: "dp-admin-profile-only",
+	        name: "Administrator",
+	        email: "admin@example.com",
+	        role: "admin",
+	        distributorId: null,
+	      }));
+	      const profile = await admin.distributorPortal.supplierProfile({ approvedVendorLineId: vendorId });
+	      expect(profile.vendor).toMatchObject({ id: vendorId, name: marker });
+	    } finally {
+	      await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));
+	    }
+	  });
 });
 
 describe("distributorPortal — scoped data + visibility toggle", () => {

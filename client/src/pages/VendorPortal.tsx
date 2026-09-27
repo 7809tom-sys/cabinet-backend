@@ -35,6 +35,10 @@ const AdminDistributorContext = createContext<number | undefined>(undefined);
 function useAdminDistributorId(): number | undefined {
   return useContext(AdminDistributorContext);
 }
+const AdminApprovedVendorContext = createContext<number | undefined>(undefined);
+function useAdminApprovedVendorLineId(): number | undefined {
+  return useContext(AdminApprovedVendorContext);
+}
 // Carries the distributor code (e.g. "PEL") so sub-pages can branch on it
 const AdminDistributorCodeContext = createContext<string | undefined>(undefined);
 function useAdminDistributorCode(): string | undefined {
@@ -475,9 +479,11 @@ type SupplierProfileVendor = {
 function SupplierProfileEditor({
   vendor,
   adminDistributorId,
+  adminApprovedVendorLineId,
 }: {
   vendor: SupplierProfileVendor;
   adminDistributorId?: number;
+  adminApprovedVendorLineId?: number;
 }) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
@@ -506,8 +512,11 @@ function SupplierProfileEditor({
     });
   }, [open, vendor]);
 
-  const withLine = <T extends Record<string, unknown>>(input: T) =>
-    adminDistributorId ? { ...input, distributorId: adminDistributorId } : input;
+  const withScope = <T extends Record<string, unknown>>(input: T) => ({
+    ...input,
+    ...(adminDistributorId ? { distributorId: adminDistributorId } : {}),
+    ...(adminApprovedVendorLineId ? { approvedVendorLineId: adminApprovedVendorLineId } : {}),
+  });
   const save = trpc.distributorPortal.updateSupplierProfile.useMutation({
     onSuccess: () => {
       void utils.distributorPortal.myLine.invalidate();
@@ -538,7 +547,7 @@ function SupplierProfileEditor({
       return;
     }
     try {
-      await upload.mutateAsync(withLine({
+      await upload.mutateAsync(withScope({
         resource,
         fileBase64: await readSupplierPdfAsBase64(file),
         contentType: "application/pdf",
@@ -605,7 +614,7 @@ function SupplierProfileEditor({
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button
             disabled={save.isPending || upload.isPending || !form.contactEmail.trim()}
-            onClick={() => save.mutate(withLine(form))}
+            onClick={() => save.mutate(withScope(form))}
           >
             {save.isPending ? "Saving…" : "Save supplier profile"}
           </Button>
@@ -658,7 +667,11 @@ function SupplierProfilePdfField({
 function SupplierProfilePage() {
   const { user } = useAuth();
   const adminDistId = useAdminDistributorId();
-  const profile = trpc.distributorPortal.supplierProfile.useQuery(adminDistId ? { distributorId: adminDistId } : undefined);
+  const adminApprovedVendorLineId = useAdminApprovedVendorLineId();
+  const profileInput = adminApprovedVendorLineId
+    ? { approvedVendorLineId: adminApprovedVendorLineId, ...(adminDistId ? { distributorId: adminDistId } : {}) }
+    : adminDistId ? { distributorId: adminDistId } : undefined;
+  const profile = trpc.distributorPortal.supplierProfile.useQuery(profileInput);
   const myLine = trpc.distributorPortal.myLine.useQuery(
     adminDistId ? { distributorId: adminDistId } : undefined,
     { enabled: Boolean(adminDistId || user?.distributorId) }
@@ -680,7 +693,7 @@ function SupplierProfilePage() {
           <h2 className="text-2xl font-bold tracking-tight">Supplier Profile &amp; Resources</h2>
           <p className="text-muted-foreground">This portal is the authenticated view of the approved supplier record for your supply line.</p>
         </div>
-        {approvedVendor && <SupplierProfileEditor vendor={approvedVendor} adminDistributorId={adminDistId} />}
+        {approvedVendor && <SupplierProfileEditor vendor={approvedVendor} adminDistributorId={adminDistId} adminApprovedVendorLineId={adminApprovedVendorLineId} />}
       </div>
 
       <Card>
@@ -3871,19 +3884,31 @@ export default function VendorPortal() {
 
   // Admin bypass: detect ?as=<distributorId> in URL
   const asParam = params.get("as");
+  const vendorParam = params.get("vendor");
   const [adminDistributorId, setAdminDistributorId] = useState<number | null>(
     asParam ? Number(asParam) : null
+  );
+  const [adminApprovedVendorLineId, setAdminApprovedVendorLineId] = useState<number | null>(
+    vendorParam ? Number(vendorParam) : null
   );
 
   // Fetch distributors list for admin selector
   const isAdmin = user?.role === "admin";
   const supplierProfileOnly = Boolean(
-    !isAdmin
-    && user?.role === "distributor"
-    && user.distributorId == null
-    && user.approvedVendorLineId != null
+    (isAdmin && adminApprovedVendorLineId != null && adminDistributorId == null)
+    || (!isAdmin
+      && user?.role === "distributor"
+      && user.distributorId == null
+      && user.approvedVendorLineId != null)
   );
   const distList = trpc.distributors.list.useQuery(undefined, { enabled: isAdmin === true });
+  const approvedVendors = trpc.vendors.list.useQuery(undefined, { enabled: isAdmin === true });
+
+  useEffect(() => {
+    if (!isAdmin || !adminApprovedVendorLineId) return;
+    const selected = approvedVendors.data?.find((vendor) => vendor.id === adminApprovedVendorLineId);
+    if (selected) setAdminDistributorId(selected.linkedDistributor?.id ?? null);
+  }, [adminApprovedVendorLineId, approvedVendors.data, isAdmin]);
   const navigateToPage = useCallback((nextPage: VendorPage) => {
     setPage(nextPage);
     const url = new URL(window.location.href);
@@ -3891,13 +3916,19 @@ export default function VendorPortal() {
     else url.searchParams.set("section", nextPage);
     window.history.replaceState({}, "", url.toString());
   }, []);
-  const switchAdminVendor = useCallback((distributorId: number) => {
-    if (!Number.isSafeInteger(distributorId) || distributorId <= 0) return;
+  const switchAdminVendor = useCallback((vendor: PortalApprovedVendorOption) => {
+    if (!Number.isSafeInteger(vendor.id) || vendor.id <= 0) return;
+    const distributorId = vendor.linkedDistributor?.id ?? null;
+    setAdminApprovedVendorLineId(vendor.id);
     setAdminDistributorId(distributorId);
+    if (!distributorId) setPage("supplier-profile");
     const url = new URL(window.location.href);
-    url.searchParams.set("as", String(distributorId));
-    // Keep the section in place so an administrator can compare the same
-    // page—Shipping, Featured Styles, etc.—across vendor accounts quickly.
+    url.searchParams.set("vendor", String(vendor.id));
+    if (distributorId) url.searchParams.set("as", String(distributorId));
+    else {
+      url.searchParams.delete("as");
+      url.searchParams.set("section", "supplier-profile");
+    }
     window.history.replaceState({}, "", url.toString());
   }, []);
 
@@ -3931,7 +3962,7 @@ export default function VendorPortal() {
   }
 
   // Admin must select a vendor to view as
-  if (isAdmin && !adminDistributorId) {
+  if (isAdmin && !adminDistributorId && !adminApprovedVendorLineId) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-4 max-w-md">
@@ -3940,16 +3971,17 @@ export default function VendorPortal() {
             Select a vendor to view their portal as:
           </p>
           <div className="flex flex-col gap-2">
-            {distList.isLoading && <Loader2 className="h-5 w-5 animate-spin mx-auto" />}
-            {(distList.data ?? []).map((d: any) => (
+            {approvedVendors.isLoading && <Loader2 className="h-5 w-5 animate-spin mx-auto" />}
+            {(approvedVendors.data ?? []).filter((vendor) => vendor.isApproved).map((vendor) => (
               <Button
-                key={d.id}
+                key={vendor.id}
                 variant="outline"
                 className="w-full justify-start gap-2"
-                onClick={() => switchAdminVendor(d.id)}
+                onClick={() => switchAdminVendor(vendor)}
               >
-                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{d.code}</span>
-                {d.name}
+                <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{vendor.linkedDistributor?.code ?? "PROFILE"}</span>
+                <span>{vendor.name}</span>
+                {!vendor.linkedDistributor && <span className="ml-auto text-xs text-muted-foreground">Profile only</span>}
               </Button>
             ))}
           </div>
@@ -3969,29 +4001,38 @@ export default function VendorPortal() {
       setPage={navigateToPage}
       isAdmin={isAdmin}
       adminDistributorId={adminDistributorId}
+      adminApprovedVendorLineId={adminApprovedVendorLineId}
       onSwitchVendor={switchAdminVendor}
       distList={distList.data ?? []}
+      approvedVendorList={approvedVendors.data ?? []}
       supplierProfileOnly={supplierProfileOnly}
     />
   );
 }
 
 type PortalDistributorOption = { id: number; code: string; name: string };
+type PortalApprovedVendorOption = {
+  id: number;
+  name: string;
+  isApproved: boolean;
+  portalReadiness: "not-approved" | "email-required" | "profile-only" | "ready";
+  linkedDistributor: PortalDistributorOption | null;
+};
 
 function AdminVendorQuickSwitch({
-  adminDistributorId,
-  distList,
+  adminApprovedVendorLineId,
+  approvedVendorList,
   onSwitchVendor,
   className = "",
   mobile = false,
 }: {
-  adminDistributorId: number;
-  distList: PortalDistributorOption[];
-  onSwitchVendor: (id: number) => void;
+  adminApprovedVendorLineId: number;
+  approvedVendorList: PortalApprovedVendorOption[];
+  onSwitchVendor: (vendor: PortalApprovedVendorOption) => void;
   className?: string;
   mobile?: boolean;
 }) {
-  const activeVendor = distList.find((vendor) => vendor.id === adminDistributorId);
+  const activeVendor = approvedVendorList.find((vendor) => vendor.id === adminApprovedVendorLineId);
   return (
     <section
       data-testid="admin-vendor-quick-switcher"
@@ -4001,15 +4042,18 @@ function AdminVendorQuickSwitch({
       <div className="mb-2 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-800">Admin quick switch</p>
-          <p className="truncate text-xs font-medium text-violet-950" title={activeVendor ? `${activeVendor.code} — ${activeVendor.name}` : undefined}>
-            {activeVendor ? `${activeVendor.code} — ${activeVendor.name}` : "Selected vendor"}
+          <p className="truncate text-xs font-medium text-violet-950" title={activeVendor?.name}>
+            {activeVendor ? `${activeVendor.linkedDistributor?.code ?? "PROFILE"} — ${activeVendor.name}` : "Selected vendor"}
           </p>
         </div>
         <Badge variant="secondary" className="shrink-0 border border-violet-200 bg-white text-[10px] text-violet-800">Admin preview</Badge>
       </div>
       <Select
-        value={String(adminDistributorId)}
-        onValueChange={(value) => onSwitchVendor(Number(value))}
+        value={String(adminApprovedVendorLineId)}
+        onValueChange={(value) => {
+          const selected = approvedVendorList.find((vendor) => vendor.id === Number(value));
+          if (selected) onSwitchVendor(selected);
+        }}
       >
         <SelectTrigger
           aria-label="Quick switch vendor account"
@@ -4018,9 +4062,9 @@ function AdminVendorQuickSwitch({
           <SelectValue placeholder="Select vendor account" />
         </SelectTrigger>
         <SelectContent>
-          {distList.map((vendor) => (
+          {approvedVendorList.filter((vendor) => vendor.isApproved).map((vendor) => (
             <SelectItem key={vendor.id} value={String(vendor.id)}>
-              {vendor.code} — {vendor.name}
+              {vendor.linkedDistributor?.code ?? "PROFILE"} — {vendor.name}{vendor.linkedDistributor ? "" : " (profile only)"}
             </SelectItem>
           ))}
         </SelectContent>
@@ -4036,8 +4080,10 @@ function VendorPortalDashboard({
   setPage,
   isAdmin,
   adminDistributorId,
+  adminApprovedVendorLineId,
   onSwitchVendor,
   distList,
+  approvedVendorList,
   supplierProfileOnly = false,
 }: {
   user: any;
@@ -4045,8 +4091,10 @@ function VendorPortalDashboard({
   setPage: (p: VendorPage) => void;
   isAdmin: boolean;
   adminDistributorId: number | null;
-  onSwitchVendor: (id: number) => void;
+  adminApprovedVendorLineId: number | null;
+  onSwitchVendor: (vendor: PortalApprovedVendorOption) => void;
   distList: PortalDistributorOption[];
+  approvedVendorList: PortalApprovedVendorOption[];
   supplierProfileOnly?: boolean;
 }) {
   const activeDistCode = isAdmin && adminDistributorId
@@ -4065,6 +4113,7 @@ function VendorPortalDashboard({
 
   return (
     <AdminDistributorContext.Provider value={isAdmin && adminDistributorId ? adminDistributorId : undefined}>
+    <AdminApprovedVendorContext.Provider value={isAdmin && adminApprovedVendorLineId ? adminApprovedVendorLineId : undefined}>
     <AdminDistributorCodeContext.Provider value={activeDistCode}>
     <div className="flex min-h-[calc(100vh-64px)]">
       {/* Sidebar */}
@@ -4072,10 +4121,10 @@ function VendorPortalDashboard({
         <div className="p-4 border-b">
           <h1 className="font-bold text-lg">Vendor Portal</h1>
           <p className="text-xs text-muted-foreground mt-1">{user.name}</p>
-          {isAdmin && adminDistributorId && (
+          {isAdmin && adminApprovedVendorLineId && (
             <AdminVendorQuickSwitch
-              adminDistributorId={adminDistributorId}
-              distList={distList}
+              adminApprovedVendorLineId={adminApprovedVendorLineId}
+              approvedVendorList={approvedVendorList}
               onSwitchVendor={onSwitchVendor}
               className="mt-3"
             />
@@ -4125,10 +4174,10 @@ function VendorPortalDashboard({
 
       {/* Main content */}
 	      <main className="flex-1 p-6 pb-20 md:pb-6 overflow-y-auto">
-	        {isAdmin && adminDistributorId && (
-	          <AdminVendorQuickSwitch
-	            adminDistributorId={adminDistributorId}
-	            distList={distList}
+        {isAdmin && adminApprovedVendorLineId && (
+          <AdminVendorQuickSwitch
+            adminApprovedVendorLineId={adminApprovedVendorLineId}
+            approvedVendorList={approvedVendorList}
 	            onSwitchVendor={onSwitchVendor}
 	            className="mb-4 md:hidden"
 	            mobile
@@ -4152,6 +4201,7 @@ function VendorPortalDashboard({
       </main>
     </div>
     </AdminDistributorCodeContext.Provider>
+    </AdminApprovedVendorContext.Provider>
     </AdminDistributorContext.Provider>
   );
 }

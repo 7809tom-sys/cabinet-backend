@@ -60,8 +60,18 @@ function resolveLineId(
 async function resolveApprovedVendorProfile(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   ctx: { isAdmin: boolean; distributorId: number | null; approvedVendorLineId: number | null },
-  requestedDistributorId?: number
+  requestedDistributorId?: number,
+  requestedApprovedVendorLineId?: number
 ) {
+  if (ctx.isAdmin && requestedApprovedVendorLineId != null) {
+    const [vendor] = await db
+      .select({ id: vendorLines.id })
+      .from(vendorLines)
+      .where(and(eq(vendorLines.id, requestedApprovedVendorLineId), eq(vendorLines.isApproved, true)))
+      .limit(1);
+    if (!vendor) throw new TRPCError({ code: "NOT_FOUND", message: "Approved vendor record not found" });
+    return vendor;
+  }
   if (!ctx.isAdmin && ctx.approvedVendorLineId != null) {
     const [vendor] = await db
       .select({ id: vendorLines.id })
@@ -256,6 +266,7 @@ export const distributorPortalRouter = router({
   updateSupplierProfile: supplierProfileProcedure
     .input(z.object({
       distributorId: z.number().optional(),
+      approvedVendorLineId: z.number().optional(),
       contactName: z.string().trim().max(191),
       contactEmail: z.string().trim().email().max(255),
       contactPhone: z.string().trim().max(64),
@@ -276,7 +287,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId);
+      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId, input.approvedVendorLineId);
 
       const nextEmailLower = input.contactEmail.toLowerCase();
       const shouldUpdateLoginEmail = !ctx.isAdmin && ctx.user.emailLower !== nextEmailLower;
@@ -319,6 +330,7 @@ export const distributorPortalRouter = router({
   uploadSupplierResourcePdf: supplierProfileProcedure
     .input(z.object({
       distributorId: z.number().optional(),
+      approvedVendorLineId: z.number().optional(),
       resource: z.enum(["catalog", "specBook"]),
       fileBase64: z.string().min(1).max(16 * 1024 * 1024),
       contentType: z.literal("application/pdf"),
@@ -327,7 +339,7 @@ export const distributorPortalRouter = router({
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId);
+      const approvedVendor = await resolveApprovedVendorProfile(db, ctx, input.distributorId, input.approvedVendorLineId);
 
       const buffer = Buffer.from(input.fileBase64, "base64");
       const maxBytes = 12 * 1024 * 1024;
@@ -354,11 +366,11 @@ export const distributorPortalRouter = router({
 
   /** The authenticated supplier profile, including vendors still awaiting a catalog line. */
   supplierProfile: supplierProfileProcedure
-    .input(z.object({ distributorId: z.number().optional() }).optional())
+    .input(z.object({ distributorId: z.number().optional(), approvedVendorLineId: z.number().optional() }).optional())
     .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const resolved = await resolveApprovedVendorProfile(db, ctx, input?.distributorId);
+      const resolved = await resolveApprovedVendorProfile(db, ctx, input?.distributorId, input?.approvedVendorLineId);
       const [vendor] = await db
         .select({
           id: vendorLines.id,
