@@ -49,6 +49,16 @@ function percentToBps(pct: string) {
   return Math.round(parseFloat(pct) * 100);
 }
 
+/** A blank field means “use the inherited markup”; a saved markup can never be negative. */
+function markupInputError(pct: string): string | null {
+  const normalized = pct.trim();
+  if (!normalized) return null;
+  const value = Number(normalized);
+  if (!Number.isFinite(value)) return "Enter a valid markup percentage.";
+  if (value < 0) return "Minimum is 0% — a customer sale price cannot be below the protected cost floor.";
+  return null;
+}
+
 type AffiliatePricingPanelProps = {
   /** Required whenever an administrator is previewing a specific affiliate. */
   affiliateId?: number;
@@ -109,19 +119,24 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
   const defaultMarkupBps = percentToBps(defaultPct || "0");
   const customerPrice = floor * (1 + defaultMarkupBps / 10000);
   const profit = customerPrice - floor;
+  const defaultMarkupError = markupInputError(defaultPct);
+  const categoryMarkupError = CATEGORIES
+    .map((category) => ({ category, error: markupInputError(categoryPcts[category] ?? "") }))
+    .find((result) => result.error !== null);
+  const pricingInputError = defaultMarkupError ?? categoryMarkupError?.error ?? null;
 
   function save() {
-    const defaultBps = percentToBps(defaultPct || "0");
-    if (isNaN(defaultBps) || defaultBps < 0) {
-      toast.error("Default markup must be a valid non-negative number");
+    if (pricingInputError) {
+      toast.error(pricingInputError);
       return;
     }
+    const defaultBps = percentToBps(defaultPct || "0");
     const catMap: Record<string, number> = {};
     for (const cat of CATEGORIES) {
       const v = categoryPcts[cat];
       if (v !== undefined && v !== "") {
         const bps = percentToBps(v);
-        if (!isNaN(bps) && bps >= 0) catMap[cat] = bps;
+        catMap[cat] = bps;
       }
     }
     if (isAdminView) {
@@ -238,12 +253,18 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
                 value={defaultPct}
                 onChange={(e) => setDefaultPct(e.target.value)}
                 placeholder="e.g. 20"
+                aria-invalid={Boolean(defaultMarkupError)}
+                className={defaultMarkupError ? "border-destructive focus-visible:ring-destructive" : undefined}
               />
               <span className="text-muted-foreground text-sm">%</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              This is your profit margin on top of your cost floor. A 20% markup on a $1,000 floor = $1,200 customer price.
-            </p>
+            {defaultMarkupError ? (
+              <p className="text-xs text-destructive">{defaultMarkupError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                This is your profit margin on top of your cost floor. A 20% markup on a $1,000 floor = $1,200 customer price. The minimum is 0%.
+              </p>
+            )}
           </div>
 
           {/* Per-category overrides */}
@@ -267,10 +288,14 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
                       value={categoryPcts[cat] ?? ""}
                       onChange={(e) => setCategoryPcts((p) => ({ ...p, [cat]: e.target.value }))}
                       placeholder={defaultPct || "default"}
-                      className="text-sm"
+                      aria-invalid={Boolean(markupInputError(categoryPcts[cat] ?? ""))}
+                      className={markupInputError(categoryPcts[cat] ?? "") ? "text-sm border-destructive focus-visible:ring-destructive" : "text-sm"}
                     />
                     <span className="text-muted-foreground text-sm">%</span>
                   </div>
+                  {markupInputError(categoryPcts[cat] ?? "") && (
+                    <p className="text-xs text-destructive">{markupInputError(categoryPcts[cat] ?? "")}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -279,11 +304,11 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
           <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>
-              Per-style overrides (set in My Catalog) take priority over category overrides, which take priority over your default markup.
+              Per-style overrides (set in My Catalog) take priority over category overrides, which take priority over your default markup. A 0% markup is the cost-floor minimum; lower values cannot be saved.
             </span>
           </div>
 
-          <Button onClick={save} disabled={updateOwnMarkup.isPending || updateAdminMarkup.isPending} className="gap-1.5">
+          <Button onClick={save} disabled={updateOwnMarkup.isPending || updateAdminMarkup.isPending || Boolean(pricingInputError)} className="gap-1.5">
             <Save className="h-4 w-4" />
             {updateOwnMarkup.isPending || updateAdminMarkup.isPending ? "Saving…" : "Save Pricing"}
           </Button>

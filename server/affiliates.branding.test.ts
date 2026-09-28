@@ -106,6 +106,14 @@ describe("affiliate white-label branding + markup", () => {
     }
   });
 
+  it("rejects a negative markup so an affiliate cannot save a sale below its cost floor", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(partnerCtx());
+    await expect(caller.affiliates.updateMyMarkup({ defaultMarkupBps: -1 })).rejects.toThrow();
+    await expect(caller.affiliates.upsertStyleBranding({ styleId: 1, markupBps: -1 })).rejects.toThrow();
+  });
+
   it("myBranding exposes every active door style so all 1–61 styles are configurable", async () => {
     const db = await getDb();
     if (!db) return;

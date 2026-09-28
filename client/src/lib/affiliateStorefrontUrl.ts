@@ -38,9 +38,14 @@ export function affiliateDashboardLinks(
 ): { storefrontUrl: string; referralUrl: string } {
   const base = affiliatePublicOrigin(affiliate.slug, origin);
   const useDedicatedAffiliateDomain = base.endsWith(AFFILIATE_DOMAIN_SUFFIX);
+  const storefrontPath = affiliateStorefrontPath(affiliate.slug);
   return {
-    storefrontUrl: useDedicatedAffiliateDomain ? base : `${base}${affiliateStorefrontPath(affiliate.slug)}`,
-    referralUrl: `${base}/order/new?ref=${encodeURIComponent(affiliate.referralCode)}`,
+    storefrontUrl: useDedicatedAffiliateDomain ? base : `${base}${storefrontPath}`,
+    // A dedicated domain resolves its own /order path into the affiliate scope.
+    // Preview/central origins require the explicit routed path to preserve it.
+    referralUrl: useDedicatedAffiliateDomain
+      ? `${base}/order?ref=${encodeURIComponent(affiliate.referralCode)}`
+      : `${base}${storefrontPath}/order?ref=${encodeURIComponent(affiliate.referralCode)}`,
   };
 }
 

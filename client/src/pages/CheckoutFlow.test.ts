@@ -30,6 +30,8 @@ describe("customer hosted checkout flow", () => {
 
   it("provides payment-confirmed and cancelled return pages", () => {
     const app = source("client/src/App.tsx");
+    expect(app).toContain('path="/store/:slug/order"');
+    expect(app).toContain('path="/store/:slug/order/new"');
     expect(app).toContain('path="/checkout/success"');
     expect(app).toContain('path="/checkout/cancelled"');
     expect(app).toContain('path="/store/:slug/checkout/success"');

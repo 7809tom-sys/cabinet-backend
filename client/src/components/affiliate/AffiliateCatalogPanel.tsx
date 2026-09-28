@@ -35,6 +35,16 @@ function percentToBps(pct: string): number | null {
   return Math.round(n * 100);
 }
 
+/** A blank style override inherits the affiliate/category setting; a sale can never be below cost. */
+function styleMarkupInputError(pct: string): string | null {
+  const normalized = pct.trim();
+  if (!normalized) return null;
+  const value = Number(normalized);
+  if (!Number.isFinite(value)) return "Enter a valid markup percentage.";
+  if (value < 0) return "Minimum is 0% — a customer sale price cannot be below the protected cost floor.";
+  return null;
+}
+
 function StyleCard({
   style,
   affiliateDefaultBps,
@@ -91,6 +101,11 @@ function StyleCard({
   }
 
   function saveEdit() {
+    const markupError = styleMarkupInputError(markupPct);
+    if (markupError) {
+      toast.error(markupError);
+      return;
+    }
     const bps = markupPct === "" ? null : percentToBps(markupPct);
     if (isAdminView) {
       if (affiliateId === undefined) {
@@ -231,10 +246,14 @@ function StyleCard({
                   value={markupPct}
                   onChange={(e) => setMarkupPct(e.target.value)}
                   placeholder={bpsToPercent(affiliateDefaultBps) || "0"}
-                  className="h-8 text-sm"
+                  aria-invalid={Boolean(styleMarkupInputError(markupPct))}
+                  className={styleMarkupInputError(markupPct) ? "h-8 text-sm border-destructive focus-visible:ring-destructive" : "h-8 text-sm"}
                 />
                 <span className="text-muted-foreground text-sm">%</span>
               </div>
+              {styleMarkupInputError(markupPct) && (
+                <p className="text-xs text-destructive">{styleMarkupInputError(markupPct)}</p>
+              )}
             </div>
           </div>
           <div className="flex gap-2">

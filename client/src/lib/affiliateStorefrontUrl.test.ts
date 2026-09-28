@@ -13,15 +13,22 @@ describe("affiliate storefront URLs", () => {
       "https://www.cabinetdealz.com",
     )).toEqual({
       storefrontUrl: "https://firstclass.cabinetdealz.com",
-      referralUrl: "https://firstclass.cabinetdealz.com/order/new?ref=FIRSTCLASS",
+      referralUrl: "https://firstclass.cabinetdealz.com/order?ref=FIRSTCLASS",
     });
     expect(affiliateDashboardLinks(
       { slug: "reaves-way-cabinet-shop", referralCode: "REAVESWAYCABINETSHOP" },
       "https://www.cabinetdealz.com",
     )).toEqual({
       storefrontUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com",
-      referralUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/order/new?ref=REAVESWAYCABINETSHOP",
+      referralUrl: "https://reaves-way-cabinet-shop.cabinetdealz.com/order?ref=REAVESWAYCABINETSHOP",
     });
+  });
+
+  it("keeps referral checkout inside the affiliate route on a shared preview origin", () => {
+    expect(affiliateDashboardLinks(
+      { slug: "firstclass", referralCode: "FIRSTCLASS" },
+      "https://preview.manus.com",
+    ).referralUrl).toBe("https://preview.manus.com/store/firstclass/order?ref=FIRSTCLASS");
   });
 
   it("builds the canonical routed storefront path for each affiliate slug", () => {

@@ -30,4 +30,12 @@ describe("Affiliate Dashboard pricing scope", () => {
     expect(catalogPanel).toContain("adminUpsert.mutate({ affiliateId, styleId: style.id");
     expect(catalogPanel).toContain("!isAdminView && (");
   });
+
+  it("shows and enforces the protected cost floor for global and per-style markup edits", () => {
+    expect(pricingPanel).toContain("a customer sale price cannot be below the protected cost floor");
+    expect(pricingPanel).toContain('min="0"');
+    expect(catalogPanel).toContain("function styleMarkupInputError");
+    expect(catalogPanel).toContain("a customer sale price cannot be below the protected cost floor");
+    expect(catalogPanel).toContain("if (markupError)");
+  });
 });

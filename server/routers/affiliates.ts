@@ -1189,7 +1189,7 @@ export const affiliatesRouter = router({
         ? "https://www.cabinetdealz.com"
         : "https://www.cabinetdealz.com";
       const storeUrl = `${origin}/store/${a.slug}`;
-      const refLink = `${origin}/order/new?ref=${a.referralCode}`;
+      const refLink = `${storeUrl}/order?ref=${a.referralCode}`;
       const loginUrl = `${origin}/affiliate`;
       const welcomeGuideUrl = `${origin}/manus-storage/Cabinet-Dealz-Affiliate-Welcome-Guide_f17152cc.pdf`;
       await notifyOwner({

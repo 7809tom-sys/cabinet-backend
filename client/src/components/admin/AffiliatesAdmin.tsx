@@ -301,7 +301,7 @@ type AffiliateItem = {
 function AffiliateDetailsPanel({ affiliate: a, origin }: { affiliate: AffiliateItem; origin: string }) {
   const utils = trpc.useUtils();
   const storeUrl = affiliateStorefrontUrl(a.slug, origin);
-  const refLink = `${origin}/order/new?ref=${a.referralCode}`;
+  const refLink = `${storeUrl}/order?ref=${a.referralCode}`;
   const loginUrl = `${origin}/affiliate`;
   const [activeTab, setActiveTab] = useState<"credentials" | "template" | "referrals" | "earnings" | "crm" | "catalog" | "storefront" | "analytics" | "pricing" | "marketing" | "w9">("credentials");
 
