@@ -19,9 +19,12 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain("Carrier shipping is unavailable for");
   });
 
-  it("uses parcel rating only after verified carton eligibility and otherwise retains the LTL plan", () => {
+  it("uses direct UPS or EasyPost parcel rating only after verified carton eligibility and otherwise retains the LTL plan", () => {
     expect(source).toContain("resolveParcelShipmentMode(resolvedGroup.parcelPackages)");
+    expect(source).toContain('liveProvider === "ups"');
+    expect(source).toContain('parcelDecision.eligibleCarriers.includes("ups")');
     expect(source).toContain('liveProvider === "easypost" && parcelDecision.mode === "parcel"');
+    expect(source).toContain("upsParcelQuote({");
     expect(source).toContain("easypostParcelQuote(liveKey");
     expect(source).toContain("eligibleCarriers: parcelDecision.eligibleCarriers");
     expect(source).toContain('transportMode: "parcel"');

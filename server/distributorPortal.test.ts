@@ -81,18 +81,28 @@ describe("distributorPortal — access control", () => {
         contactPhone: "555-0100",
         websiteUrl: "https://supplier.example.com",
         notes: "Updated by the linked supplier",
-        catalogPdfUrl: "https://supplier.example.com/catalog.pdf",
-        specBookPdfUrl: "https://supplier.example.com/specs.pdf",
+        // storagePut returns first-party paths, which must remain saveable when
+        // a supplier edits the rest of their profile.
+        catalogPdfUrl: "/manus-storage/vendor-resources/catalog.pdf",
+        specBookPdfUrl: "/manus-storage/vendor-resources/spec-book.pdf",
       });
       expect(result).toMatchObject({ success: true, vendorId });
       const [stored] = await db
-        .select({ contactName: vendorLines.contactName, contactEmail: vendorLines.contactEmail, notes: vendorLines.notes })
+        .select({
+          contactName: vendorLines.contactName,
+          contactEmail: vendorLines.contactEmail,
+          notes: vendorLines.notes,
+          catalogPdfUrl: vendorLines.catalogPdfUrl,
+          specBookPdfUrl: vendorLines.specBookPdfUrl,
+        })
         .from(vendorLines)
         .where(eq(vendorLines.id, vendorId));
       expect(stored).toMatchObject({
         contactName: "Updated supplier",
         contactEmail: "updated@example.com",
         notes: "Updated by the linked supplier",
+        catalogPdfUrl: "/manus-storage/vendor-resources/catalog.pdf",
+        specBookPdfUrl: "/manus-storage/vendor-resources/spec-book.pdf",
       });
 	    } finally {
 	      await db.delete(vendorLines).where(eq(vendorLines.id, vendorId));

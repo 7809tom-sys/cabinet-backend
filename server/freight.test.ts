@@ -38,6 +38,7 @@ function settingsPayload(s: NonNullable<Awaited<ReturnType<typeof readSettings>>
     quoteMode: (s.quoteMode ?? "estimator") as "estimator" | "live",
     liveProvider: (s.liveProvider ?? "estimator") as
       | "estimator"
+      | "ups"
       | "easypost"
       | "shippo"
       | "freightquote"

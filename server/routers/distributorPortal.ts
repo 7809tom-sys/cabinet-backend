@@ -277,13 +277,16 @@ export const distributorPortalRouter = router({
         "Website must be an http or https URL."
       ),
       notes: z.string().trim().max(2000),
+      // storagePut returns a first-party /manus-storage/... path. A supplier
+      // must be able to save an existing uploaded catalog/spec book without
+      // re-uploading it or replacing it with an external URL.
       catalogPdfUrl: z.string().trim().max(512).refine(
-        (value) => !value || /^https?:\/\//i.test(value),
-        "Catalog resource must be an http or https URL."
+        (value) => !value || /^https?:\/\//i.test(value) || value.startsWith("/manus-storage/"),
+        "Catalog resource must be an http(s) URL or a CabinetDealz storage path."
       ),
       specBookPdfUrl: z.string().trim().max(512).refine(
-        (value) => !value || /^https?:\/\//i.test(value),
-        "Spec-book resource must be an http or https URL."
+        (value) => !value || /^https?:\/\//i.test(value) || value.startsWith("/manus-storage/"),
+        "Spec-book resource must be an http(s) URL or a CabinetDealz storage path."
       ),
     }))
     .mutation(async ({ ctx, input }) => {

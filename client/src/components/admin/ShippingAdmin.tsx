@@ -40,7 +40,12 @@ interface SettingsForm {
   defaultCabinetWeightLbs: string;
   // Live-quote model
   quoteMode: "estimator" | "live";
-  liveProvider: "estimator" | "easypost" | "shippo" | "freightquote" | "globaltranz" | "worldwideexpress";
+  liveProvider: "estimator" | "ups" | "easypost" | "shippo" | "freightquote" | "globaltranz" | "worldwideexpress";
+  // Direct UPS Rating API credentials
+  upsClientId: string;
+  upsClientSecret: string;
+  upsAccountNumber: string;
+  upsEnvironment: "sandbox" | "production";
   // Freightquote credentials
   fqClientId: string;
   fqClientSecret: string;
@@ -82,6 +87,7 @@ export default function ShippingAdmin() {
   const [zones, setZones] = useState<ZoneRow[]>([]);
   const [apiKeyInput, setApiKeyInput] = useState(""); // write-only
   const [hasKey, setHasKey] = useState(false);
+  const [hasUpsClientSecret, setHasUpsClientSecret] = useState(false);
   const [hasWwexClientSecret, setHasWwexClientSecret] = useState(false);
   const [zipDrafts, setZipDrafts] = useState<Record<number, string>>({});
   const [formInitialized, setFormInitialized] = useState(false);
@@ -91,9 +97,10 @@ export default function ShippingAdmin() {
     // only, so an earlier cached response can never put an old Client ID back.
     if (!data || formInitialized) return;
     const s = data.settings as
-      | (NonNullable<typeof data.settings> & { hasLiveApiKey?: boolean; hasWwexClientSecret?: boolean })
+      | (NonNullable<typeof data.settings> & { hasLiveApiKey?: boolean; hasUpsClientSecret?: boolean; hasWwexClientSecret?: boolean })
       | null;
     setHasKey(!!s?.hasLiveApiKey);
+    setHasUpsClientSecret(!!s?.hasUpsClientSecret);
     setHasWwexClientSecret(!!s?.hasWwexClientSecret);
     setForm({
       enabled: s?.enabled ?? true,
@@ -110,6 +117,10 @@ export default function ShippingAdmin() {
       defaultCabinetWeightLbs: String(s?.defaultCabinetWeightLbs ?? "45"),
       quoteMode: (s?.quoteMode ?? "estimator") as "estimator" | "live",
       liveProvider: (s?.liveProvider ?? "estimator") as SettingsForm["liveProvider"],
+      upsClientId: (s as Record<string, unknown>)?.upsClientId as string ?? "",
+      upsClientSecret: "",
+      upsAccountNumber: (s as Record<string, unknown>)?.upsAccountNumber as string ?? "",
+      upsEnvironment: ((s as Record<string, unknown>)?.upsEnvironment as "sandbox" | "production") ?? "sandbox",
       fqClientId: (s as Record<string, unknown>)?.fqClientId as string ?? "",
       fqClientSecret: "",
       fqAccountNumber: (s as Record<string, unknown>)?.fqAccountNumber as string ?? "",
@@ -170,6 +181,21 @@ export default function ShippingAdmin() {
       setForm((current) => current ? { ...current, wwexClientId: result.wwexClientId, wwexClientSecret: "" } : current);
       utils.freight.adminGet.invalidate();
       toast.success("WWEX Client ID and Client Secret saved.");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const saveUpsCredentials = trpc.freight.saveUpsCredentials.useMutation({
+    onSuccess: (result) => {
+      setHasUpsClientSecret(result.hasUpsClientSecret);
+      setForm((current) => current ? {
+        ...current,
+        upsClientId: result.upsClientId,
+        upsAccountNumber: result.upsAccountNumber,
+        upsEnvironment: result.upsEnvironment,
+        upsClientSecret: "",
+      } : current);
+      utils.freight.adminGet.invalidate();
+      toast.success("UPS Client ID, Client Secret, and linked account number saved.");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -306,6 +332,18 @@ export default function ShippingAdmin() {
     saveWwexCredentials.mutate({ wwexClientId, wwexClientSecret });
   }
 
+  function handleSaveUpsCredentials() {
+    if (!form) return;
+    const upsClientId = form.upsClientId.trim();
+    const upsClientSecret = form.upsClientSecret.trim();
+    const upsAccountNumber = form.upsAccountNumber.trim().toUpperCase();
+    if (!upsClientId || !upsClientSecret || !upsAccountNumber) {
+      toast.error("Enter the UPS Client ID, Client Secret, and linked account number before saving.");
+      return;
+    }
+    saveUpsCredentials.mutate({ upsClientId, upsClientSecret, upsAccountNumber, upsEnvironment: form.upsEnvironment });
+  }
+
   const liveMode = form.quoteMode === "live";
 
   return (
@@ -342,6 +380,7 @@ export default function ShippingAdmin() {
               >
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="ups">UPS Rating API (direct parcel)</SelectItem>
                   <SelectItem value="easypost">EasyPost (UPS/FedEx/USPS parcel + LTL)</SelectItem>
                   <SelectItem value="freightquote">Freightquote by C.H. Robinson</SelectItem>
                   <SelectItem value="globaltranz">GlobalTranz</SelectItem>
@@ -378,6 +417,50 @@ export default function ShippingAdmin() {
               Live mode is on but no API key is connected yet — the storefront will show
               "shipping quoted on your order" until you save a key.
             </p>
+          )}
+
+          {/* ── Direct UPS Rating API credentials ─────────────────────────── */}
+          {liveMode && form.liveProvider === "ups" && (
+            <div id="ups-direct-settings" className="rounded-lg border border-border bg-muted/30 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">UPS Rating API — Direct Parcel Credentials</p>
+              <p className="rounded-md border border-sky-300 bg-sky-50 p-3 text-xs text-sky-950 dark:bg-sky-950/30 dark:text-sky-100">
+                <strong>Exact-carton rule:</strong> Direct UPS is used only when every item has verified packaged length, width, height, and weight and fits the UPS parcel screen. Larger, mixed, or incomplete-carton orders remain visibly unavailable for this provider rather than being converted to an estimate or a made-up UPS package.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">UPS Developer Client ID</Label>
+                  <Input name="ups-client-id" value={form.upsClientId} onChange={(e) => set({ upsClientId: e.target.value })} placeholder="Client ID from developer.ups.com" autoComplete="off" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">UPS Developer Client Secret</Label>
+                  <Input name="ups-client-secret" type="password" value={form.upsClientSecret} onChange={(e) => set({ upsClientSecret: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleSaveUpsCredentials(); } }} placeholder="Enter a replacement secret" autoComplete="new-password" autoCapitalize="none" spellCheck={false} data-lpignore="true" data-1p-ignore="true" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Linked UPS account number</Label>
+                  <Input name="ups-account-number" value={form.upsAccountNumber} onChange={(e) => set({ upsAccountNumber: e.target.value.toUpperCase() })} placeholder="e.g. 22V1B8" autoComplete="off" autoCapitalize="characters" spellCheck={false} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Environment</Label>
+                  <Select value={form.upsEnvironment} onValueChange={(v) => set({ upsEnvironment: v as "sandbox" | "production" })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sandbox">UPS CIE sandbox (test)</SelectItem>
+                      <SelectItem value="production">UPS production (live rates)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2 flex flex-col gap-2 rounded-md border border-primary/30 bg-primary/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-medium text-foreground">Save the UPS Client ID, Client Secret, account number, and environment together.</p>
+                  <Button type="button" size="sm" className="shrink-0" onClick={handleSaveUpsCredentials} disabled={saveUpsCredentials.isPending}>
+                    {saveUpsCredentials.isPending ? "Saving UPS credentials…" : "Save UPS credentials"}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Create or select the <strong>Rating</strong> API product at <a href="https://developer.ups.com" target="_blank" rel="noopener noreferrer" className="underline">developer.ups.com</a>, then save its Client ID and Client Secret here. The secret is write-only and is never displayed again. A rate lookup creates no label, pickup, shipment, payment, or UPS account change.
+                {hasUpsClientSecret ? " A UPS Client Secret is already on file; enter a replacement above to change it." : " No UPS Client Secret is saved yet."}
+              </p>
+            </div>
           )}
 
           {/* ── Freightquote (C.H. Robinson) credentials ─────────────────── */}

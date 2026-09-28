@@ -1660,8 +1660,14 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   // Live carrier/broker API key (e.g. EasyPost / Shippo). When quoteMode="live"
   // and a key is present, freight is fetched live from the carrier instead of the
   // in-house estimator.
-  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(), // estimator | easypost | shippo | freightquote | globaltranz | worldwideexpress
+  liveProvider: varchar("liveProvider", { length: 64 }).default("estimator").notNull(), // estimator | ups | easypost | shippo | freightquote | globaltranz | worldwideexpress
   liveApiKey: varchar("liveApiKey", { length: 255 }),
+  // UPS Rating API — an OAuth client created in the UPS Developer Portal and
+  // linked to the UPS profile/shipper number. Used only for direct parcel rates.
+  upsClientId: varchar("upsClientId", { length: 255 }),
+  upsClientSecret: varchar("upsClientSecret", { length: 255 }),
+  upsAccountNumber: varchar("upsAccountNumber", { length: 64 }),
+  upsEnvironment: mysqlEnum("upsEnvironment", ["sandbox", "production"]).default("sandbox"),
   // Broker API credentials — stored per-broker so the admin can configure all
   // three without losing settings when switching between them.
   // Freightquote (C.H. Robinson Navisphere) — OAuth2 client_credentials

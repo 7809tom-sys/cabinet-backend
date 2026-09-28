@@ -1128,6 +1128,13 @@
       "when": 1790538398425,
       "tag": "0160_woozy_spacker_dave",
       "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "5",
+      "when": 1790616628278,
+      "tag": "0162_ups_direct_parcel_rating",
+      "breakpoints": true
     }
   ]
 }

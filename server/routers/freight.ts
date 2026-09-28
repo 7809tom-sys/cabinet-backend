@@ -47,6 +47,7 @@ import {
 import { freightquoteQuote } from "../_core/freightquote";
 import { globaltranzQuote } from "../_core/globaltranz";
 import { normalizeSpeedshipFreightClass, worldwideexpressQuote } from "../_core/worldwideexpress";
+import { upsParcelQuote } from "../_core/ups";
 import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { getPricingSettings } from "../db";
@@ -849,7 +850,15 @@ async function requestLiveRate(input: {
 }): Promise<LiveRateResult> {
   const startedAt = Date.now();
   let live: LiveRateResult;
-  if (input.provider === "freightquote") {
+  if (input.provider === "ups") {
+    // Direct UPS is intentionally parcel-only. Never reshape a pallet into a
+    // UPS package or invent carton data merely to obtain a rate.
+    live = {
+      ok: false,
+      amountCents: 0,
+      error: "Direct UPS rating is available only when every item has a verified, UPS-eligible carton. This shipment requires an LTL carrier quote.",
+    };
+  } else if (input.provider === "freightquote") {
     live = await freightquoteQuote(
       {
         clientId: input.settings.fqClientId ?? "",
@@ -920,6 +929,7 @@ async function requestLiveRate(input: {
 }
 
 function liveProviderEnvironment(row: ShippingSettings): "sandbox" | "production" | null {
+  if (row.liveProvider === "ups") return row.upsEnvironment ?? "sandbox";
   if (row.liveProvider === "freightquote") return row.fqEnvironment ?? "sandbox";
   if (row.liveProvider === "globaltranz") return row.gtzEnvironment ?? "sandbox";
   if (row.liveProvider === "worldwideexpress") return row.wwexEnvironment ?? "sandbox";
@@ -1389,11 +1399,15 @@ export const freightRouter = router({
             continue;
           }
 
-          // EasyPost is the configured provider that can return live parcel
-          // services. Every carton must pass the UPS/FedEx/USPS screen first;
-          // otherwise the group remains on the established LTL pallet path.
+          // Direct UPS and EasyPost are parcel-only. Every carton must pass the
+          // shared carrier screen first; otherwise the group remains on the
+          // established LTL pallet path with no invented carton dimensions.
           const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
-          if (liveProvider === "easypost" && parcelDecision.mode === "parcel") {
+          const directUpsParcel = liveProvider === "ups"
+            && parcelDecision.mode === "parcel"
+            && parcelDecision.eligibleCarriers.includes("ups");
+          const easyPostParcel = liveProvider === "easypost" && parcelDecision.mode === "parcel";
+          if (directUpsParcel || easyPostParcel) {
             const parcelCartons: LiveParcel[] = parcelDecision.packageResults.map((result, index) => {
               const carton = result.package;
               if (!carton) throw new Error("Parcel mode requires normalized carton data.");
@@ -1406,13 +1420,40 @@ export const freightRouter = router({
               };
             });
             const parcelWeight = parcelCartons.reduce((sum, carton) => sum + carton.weightLbs, 0);
-            const live = await easypostParcelQuote(liveKey, {
-              fromZip: group.originZip,
-              toZip: input.destinationZip,
-              parcels: parcelCartons,
-              eligibleCarriers: parcelDecision.eligibleCarriers,
-              residential: input.accessorials?.residential,
-            });
+            const live = await (directUpsParcel
+              ? (async () => {
+                  const [fromAddress, toAddress] = await Promise.all([
+                    resolveZipAddress(group.originZip),
+                    resolveZipAddress(input.destinationZip),
+                  ]);
+                  if (!fromAddress || !toAddress) {
+                    return {
+                      ok: false as const,
+                      amountCents: 0,
+                      packages: [],
+                      error: "Direct UPS rating requires verified city/state data for both origin and destination ZIP codes.",
+                    };
+                  }
+                  return upsParcelQuote({
+                    clientId: settingsRow.upsClientId ?? "",
+                    clientSecret: settingsRow.upsClientSecret ?? "",
+                    accountNumber: settingsRow.upsAccountNumber ?? "",
+                    environment: (settingsRow.upsEnvironment ?? "sandbox") as "sandbox" | "production",
+                  }, {
+                    fromZip: group.originZip,
+                    toZip: input.destinationZip,
+                    fromAddress,
+                    toAddress,
+                    parcels: parcelCartons,
+                  });
+                })()
+              : easypostParcelQuote(liveKey, {
+                  fromZip: group.originZip,
+                  toZip: input.destinationZip,
+                  parcels: parcelCartons,
+                  eligibleCarriers: parcelDecision.eligibleCarriers,
+                  residential: input.accessorials?.residential,
+                }));
             const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
             const shipmentGroup: FreightShipmentGroup = {
               label: group.label,
@@ -1585,6 +1626,7 @@ export const freightRouter = router({
       ? {
           ...settingsRow,
           liveApiKey: null, hasLiveApiKey: !!settingsRow.liveApiKey,
+          upsClientSecret: null, hasUpsClientSecret: !!settingsRow.upsClientSecret,
           fqClientSecret: null, hasFqClientSecret: !!settingsRow.fqClientSecret,
           gtzPassword: null, hasGtzPassword: !!settingsRow.gtzPassword,
           gtzApiKey: null, hasGtzApiKey: !!settingsRow.gtzApiKey,
@@ -1753,7 +1795,7 @@ export const freightRouter = router({
         defaultCabinetWeightLbs: z.number().min(1).max(1000),
         // Live-quote / pallet / floor controls.
         quoteMode: z.enum(["estimator", "live"]),
-        liveProvider: z.enum(["estimator", "easypost", "shippo", "freightquote", "globaltranz", "worldwideexpress"]),
+        liveProvider: z.enum(["estimator", "ups", "easypost", "shippo", "freightquote", "globaltranz", "worldwideexpress"]),
         // Freightquote (C.H. Robinson) credentials
         fqClientId: z.string().max(255).nullable().optional(),
         fqClientSecret: z.string().max(255).nullable().optional(),
@@ -1865,6 +1907,40 @@ export const freightRouter = router({
       return { ok: true, wwexClientId: input.wwexClientId, hasWwexClientSecret: true };
     }),
 
+  // ─── Admin: save direct UPS Rating API credentials as one protected set ──────
+  saveUpsCredentials: adminProcedure
+    .input(z.object({
+      upsClientId: z.string().trim().min(1).max(255),
+      upsClientSecret: z.string().trim().min(1).max(255),
+      upsAccountNumber: z.string().trim().min(1).max(64).transform((value) => value.toUpperCase()),
+      upsEnvironment: z.enum(["sandbox", "production"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await loadSettingsRow();
+      const values = {
+        upsClientId: input.upsClientId,
+        upsClientSecret: input.upsClientSecret,
+        upsAccountNumber: input.upsAccountNumber,
+        upsEnvironment: input.upsEnvironment,
+        updatedAt: new Date(),
+      };
+      if (existing) {
+        await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      } else {
+        await db.insert(shippingSettings).values(values);
+      }
+      // The secret is deliberately write-only; only a presence bit returns.
+      return {
+        ok: true,
+        upsClientId: input.upsClientId,
+        upsAccountNumber: input.upsAccountNumber,
+        upsEnvironment: input.upsEnvironment,
+        hasUpsClientSecret: true,
+      };
+    }),
+
   // ─── Admin: test a live quote with the stored key + an example shipment ──────
   testLiveQuote: adminProcedure
     .input(
@@ -1893,6 +1969,12 @@ export const freightRouter = router({
 
       if (row.liveProvider === "estimator") {
         return { ok: false, error: "Select a live freight provider before testing." };
+      }
+      if (row.liveProvider === "ups") {
+        return {
+          ok: false,
+          error: "Direct UPS is parcel-only. Use Freight Test Lab with a saved design whose items all have verified UPS-eligible carton dimensions and packaged weight.",
+        };
       }
       const live = await requestLiveRate({
         provider: row.liveProvider,
