@@ -52,4 +52,13 @@ describe("AffiliatesAdmin portal actions", () => {
     expect(source).toContain("Choose Affiliate Storefront Template");
   });
 
+  it("keeps all template choices reachable within the available viewport", () => {
+    const source = readFileSync(new URL("./AffiliatesAdmin.tsx", import.meta.url), "utf8");
+    expect(source).toContain('h-[min(82dvh,36rem)]');
+    expect(source).toContain('max-h-[calc(100dvh-1rem)]');
+    expect(source).toContain("min-h-0 flex-1 overflow-y-auto overscroll-contain");
+    expect(source).toContain("line-clamp-3");
+    expect(source).toContain("DialogFooter className=\"shrink-0 border-t border-border pt-3\"");
+  });
+
 });

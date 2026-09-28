@@ -1257,61 +1257,64 @@ function CreateAffiliateDialog({ onCreated }: { onCreated: () => void }) {
 
       {/* ── Step 1: Template picker ── */}
       {step === "template" && (
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="!flex h-[min(82dvh,36rem)] max-h-[calc(100dvh-1rem)] w-[min(54rem,calc(100vw-1rem))] flex-col overflow-hidden p-4 sm:max-w-none sm:p-5">
+          <DialogHeader className="shrink-0 pr-7">
             <DialogTitle>Choose Affiliate Storefront Template</DialogTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Choose one of eight approved storefront presentations. Every option keeps the same white-label catalog, pricing, CRM routing, Designer access, and canonical links; only the public presentation changes.
             </p>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-3 py-2 sm:grid-cols-4">
-            {TEMPLATES.map((tpl) => {
-              const active = tpl.id === selectedTemplate;
-              return (
-                <div
-                  key={tpl.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setSelectedTemplate(tpl.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      setSelectedTemplate(tpl.id);
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain py-2 pr-1">
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              {TEMPLATES.map((tpl) => {
+                const active = tpl.id === selectedTemplate;
+                return (
+                  <div
+                    key={tpl.id}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={active}
+                    onClick={() => setSelectedTemplate(tpl.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        setSelectedTemplate(tpl.id);
+                      }
+                    }}
+                    className={
+                      "relative min-w-0 cursor-pointer rounded-lg border-2 p-2.5 transition-all " +
+                      (active
+                        ? "border-primary bg-primary/5 shadow-sm"
+                        : "border-border hover:border-primary/50")
                     }
-                  }}
-                  className={
-                    "relative cursor-pointer rounded-xl border-2 p-4 transition-all " +
-                    (active
-                      ? "border-primary bg-primary/5 shadow-sm"
-                      : "border-border hover:border-primary/50")
-                  }
-                >
-                  {active && (
-                    <div className="absolute top-3 right-3 h-5 w-5 rounded-full bg-primary flex items-center justify-center">
-                      <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2 mb-2">
-                    <div className="font-semibold text-sm">{tpl.name}</div>
-                    <span className="text-xs bg-muted text-muted-foreground rounded px-1.5 py-0.5">{active ? "Selected" : tpl.badge}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">{tpl.desc}</p>
-                  <a
-                    href={`/store-preview/${tpl.id}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-3 inline-flex items-center gap-1 text-xs text-primary hover:underline"
                   >
-                    <ExternalLink className="h-3 w-3" /> Live preview
-                  </a>
-                </div>
-              );
-            })}
+                    {active && (
+                      <div className="absolute top-2 right-2 h-4 w-4 rounded-full bg-primary flex items-center justify-center">
+                        <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                    <div className="mb-1 flex min-w-0 items-start gap-1.5 pr-4">
+                      <div className="truncate font-semibold text-sm">{tpl.name}</div>
+                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">{active ? "Selected" : tpl.badge}</span>
+                    </div>
+                    <p className="line-clamp-3 min-h-[3.75rem] text-xs leading-snug text-muted-foreground">{tpl.desc}</p>
+                    <a
+                      href={`/store-preview/${tpl.id}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    >
+                      <ExternalLink className="h-3 w-3" /> Live preview
+                    </a>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t border-border pt-3">
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={() => setStep("details")}>
               Continue with {TEMPLATES.find((template) => template.id === selectedTemplate)?.name ?? "selected"} →
