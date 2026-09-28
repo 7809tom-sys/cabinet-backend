@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GUIDED_ROOM_WORKFLOW_STEPS, guidedRoomWorkflowStepState, numberedLayoutTile, RoomLayoutStarter, roomFromSeededShape, type SeededLayout } from "./RoomLayoutStarter";
@@ -18,6 +18,7 @@ vi.mock("@/lib/trpc", () => ({
 }));
 
 afterEach(() => {
+  cleanup();
   usePresetsQuery.mockReset();
   useEligibleCatalogQuery.mockReset();
 });
@@ -114,6 +115,45 @@ describe("roomFromSeededShape", () => {
     expect(screen.getByRole("button", { name: /open builder/i })).toBeTruthy();
     expect(screen.queryByText(/1\. pick a room shape/i)).toBeNull();
     expect(screen.queryByText(/apply room shape and continue/i)).toBeNull();
+  });
+
+  it("keeps the starter layouts available and shows a cheerful coming-soon notice when continuous walls are unavailable", () => {
+    usePresetsQuery.mockReturnValue({
+      data: {
+        roomShapes: [{
+          id: "rectangle",
+          name: "Rectangle",
+          description: "A simple four-wall room.",
+          roomType: "kitchen",
+          geometryTemplate: {},
+          defaultDimensions: { width: 144, depth: 120, ceilingHeight: 96 },
+        }],
+        layouts: [{
+          id: "one-wall",
+          roomShapePresetId: "rectangle",
+          name: "One wall",
+          description: "A beginner layout.",
+          minimumWidth: 96,
+          minimumDepth: 96,
+        }],
+      },
+      isLoading: false,
+      error: null,
+    });
+    useEligibleCatalogQuery.mockReturnValue({ data: undefined, isFetching: false });
+
+    render(createElement(RoomLayoutStarter, {
+      selectedStyleId: null,
+      selectedDistributorId: null,
+      onApplyRoom: vi.fn(),
+      continuousWallComingSoonMessage: "Continuous walls will be ready for this storefront soon.",
+    }));
+
+    expect(screen.getByText(/continuous walls are coming soon/i)).toBeTruthy();
+    expect(screen.getByText(/will be ready for this storefront soon/i)).toBeTruthy();
+    expect(screen.queryByRole("switch", { name: /use advanced continuous walls/i })).toBeNull();
+    expect(screen.getByText(/1\. pick a room shape/i)).toBeTruthy();
+    expect(screen.queryByText(/build walls continuously/i)).toBeNull();
   });
 
   it("signals that the first-cabinet guide should open after applying a beginner room", () => {

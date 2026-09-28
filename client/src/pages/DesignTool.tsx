@@ -343,6 +343,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [affiliateSlugProp, search],
   );
   const affiliateSlug = affiliateSlugForStoreScope(storeScope);
+  // Continuous walls are an internal CabinetDealz testing tool for now. Affiliate
+  // stores retain the standard room-shape Designer and see the release notice.
+  const continuousWallsEnabled = !affiliateSlug;
+  const continuousWallsComingSoonMessage = affiliateSlug
+    ? "Our advanced continuous-wall builder is being prepared for partner storefronts. Easy room shapes are ready for your kitchen today."
+    : null;
   const { data: affiliateBrand } = trpc.affiliates.bySlug.useQuery(
     { slug: affiliateSlug ?? "" },
     { enabled: !!affiliateSlug, retry: false },
@@ -16254,7 +16260,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     continuousWallBlockedReason={continuousWallBlockedReason}
                     continuousWallDraft={continuousWallDraft}
                     onContinuousWallDraftChange={setContinuousWallDraft}
-                    onApplyContinuousRoom={applyContinuousWallRoom}
+                    continuousWallComingSoonMessage={continuousWallsComingSoonMessage}
+                    onApplyContinuousRoom={continuousWallsEnabled ? applyContinuousWallRoom : undefined}
                     onApplyRoom={(next) => {
                       applyRoom(next);
                       setPolygonEditMode(Boolean(next.vertices?.length));
@@ -16675,7 +16682,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         >
           <DialogHeader className="border-b px-5 py-4">
             <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
-            <DialogDescription>Choose an existing room shape or build every connected wall continuously from exact measurements. Your advanced wall draft stays here until you explicitly clear it or apply it.</DialogDescription>
+            <DialogDescription>{continuousWallsEnabled
+              ? "Choose an existing room shape or build every connected wall continuously from exact measurements. Your advanced wall draft stays here until you explicitly clear it or apply it."
+              : "Choose an existing room shape to begin your kitchen. Continuous walls are coming soon to partner storefronts."}
+            </DialogDescription>
           </DialogHeader>
           <div className="p-5">
             <RoomLayoutStarter
@@ -16685,7 +16695,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               continuousWallBlockedReason={continuousWallBlockedReason}
               continuousWallDraft={continuousWallDraft}
               onContinuousWallDraftChange={setContinuousWallDraft}
-              onApplyContinuousRoom={applyContinuousWallRoom}
+              continuousWallComingSoonMessage={continuousWallsComingSoonMessage}
+              onApplyContinuousRoom={continuousWallsEnabled ? applyContinuousWallRoom : undefined}
               onApplyRoom={(next) => {
                 if (layoutLocked) return;
                 applyRoom(next);

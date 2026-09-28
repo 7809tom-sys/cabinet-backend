@@ -53,6 +53,8 @@ interface RoomLayoutStarterProps {
   /** Shows the lightweight first-cabinet guide after a beginner room is applied. */
   onBeginnerRoomApplied?: () => void;
   onApplyContinuousRoom?: (room: WallBuilderRoomGeometry) => void;
+  /** Friendly storefront copy when continuous-wall testing is not enabled in this scope. */
+  continuousWallComingSoonMessage?: string | null;
   continuousWallBlockedReason?: string | null;
   wallHeightIn?: number;
   /** Preserves unfinished advanced wall measurements across dialog/sheet closes. */
@@ -108,6 +110,7 @@ export function RoomLayoutStarter({
   onLayoutSelected,
   onBeginnerRoomApplied,
   onApplyContinuousRoom,
+  continuousWallComingSoonMessage,
   continuousWallBlockedReason,
   wallHeightIn = 96,
   continuousWallDraft,
@@ -118,6 +121,7 @@ export function RoomLayoutStarter({
   const [layoutId, setLayoutId] = useState<string | null>(null);
   const [workflowStage, setWorkflowStage] = useState<1 | 2 | 3 | 4>(1);
   const [startMode, setStartMode] = useState<"starter" | "continuous">("starter");
+  const showContinuousWallComingSoon = !onApplyContinuousRoom && Boolean(continuousWallComingSoonMessage?.trim());
 
   const roomShapes = (data?.roomShapes ?? []) as SeededRoomShape[];
   const layouts = (data?.layouts ?? []) as SeededLayout[];
@@ -196,6 +200,19 @@ export function RoomLayoutStarter({
             <div className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border bg-muted/30 text-xs font-semibold" aria-hidden="true">
               <span className={`flex items-center gap-1.5 px-2.5 py-2 transition-colors duration-200 ${startMode === "starter" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}><LayoutPanelTop className="h-3.5 w-3.5" /> Easy shapes</span>
               <span className={`flex items-center justify-end gap-1.5 px-2.5 py-2 text-right transition-colors duration-200 ${startMode === "continuous" ? "bg-[#b98d3e] text-white" : "text-muted-foreground"}`}>Continuous walls <Ruler className="h-3.5 w-3.5" /></span>
+            </div>
+          </section>
+        ) : showContinuousWallComingSoon ? (
+          <section className="rounded-xl border border-amber-300/80 bg-amber-50/70 p-3 shadow-sm" aria-label="Continuous walls availability">
+            <div className="flex items-start gap-3">
+              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-100 text-[#9a6717]"><Ruler className="h-4 w-4" /></div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-sm font-semibold text-amber-950">Continuous walls are coming soon</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#9a6717]">Coming soon</span>
+                </div>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900">{continuousWallComingSoonMessage}</p>
+              </div>
             </div>
           </section>
         ) : null}
