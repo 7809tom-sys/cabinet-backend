@@ -45,6 +45,7 @@ import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import {
   affiliateSlugForStoreScope,
+  cartPathForStoreScope,
   designerDraftActiveKey,
   designerDraftStorageKey,
   migrateLegacyDesignerDraftToOwner,
@@ -343,6 +344,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [affiliateSlugProp, search],
   );
   const affiliateSlug = affiliateSlugForStoreScope(storeScope);
+  const cartDestination = cartPathForStoreScope(storeScope);
   // Continuous walls are an internal CabinetDealz testing tool for now. Affiliate
   // stores retain the standard room-shape Designer and see the release notice.
   const continuousWallsEnabled = !affiliateSlug;
@@ -3602,7 +3604,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (currentSavedDesignId != null && (cartItems.length === 0 || cartSourceDesignId === currentSavedDesignId)) {
       replaceWithDesignItems(cartableLines, currentSavedDesignId);
       showCartSuccessToast(cartableLines.reduce((count, line) => count + line.qty, 0));
-      navigate("/cart");
+      navigate(cartDestination);
       return;
     }
     // If the cart already holds items from a DIFFERENT distributor, adding would
@@ -3626,11 +3628,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     if (added > 0) {
       showCartSuccessToast(added);
-      navigate("/cart");
+      navigate(cartDestination);
     } else {
       toast.error(t("dt_cart_failed"));
     }
-  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, showCartSuccessToast, t]);
+  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
     if (cartableLines.length === 0) {

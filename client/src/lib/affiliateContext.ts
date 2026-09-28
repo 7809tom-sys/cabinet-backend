@@ -67,6 +67,16 @@ export function affiliateSlugForStoreScope(scope: StoreScope): string | null {
   return normalized === OWNER_STORE_SCOPE ? null : normalized;
 }
 
+/**
+ * Commerce navigation must retain the same tenant as the Designer, catalog, and
+ * browser storage. The platform cart stays at /cart; every affiliate cart uses
+ * its routed white-label shell.
+ */
+export function cartPathForStoreScope(scope: StoreScope): string {
+  const slug = affiliateSlugForStoreScope(scope);
+  return slug ? `/store/${encodeURIComponent(slug)}/cart` : "/cart";
+}
+
 export function storefrontAccountScope(scope: StoreScope): string {
   return affiliateSlugForStoreScope(scope) ?? "main";
 }

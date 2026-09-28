@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { isAffiliateStorefrontPath, affiliateSlugFromHostname, affiliateSlugFromPath } from "./affiliateContext";
+import { cartPathForStoreScope, isAffiliateStorefrontPath, affiliateSlugFromHostname, affiliateSlugFromPath } from "./affiliateContext";
 import { buildSheetCsv, type BuildSheetArgs } from "@/components/design/DesignActions";
 
 const ROOT = join(__dirname, "..", "..", "..");
@@ -31,6 +31,11 @@ describe("affiliate storefront context detection", () => {
   it("extracts an affiliate slug from a direct custom-domain commerce visit", () => {
     expect(affiliateSlugFromHostname("reaves-way-cabinet-shop.cabinetdealz.com")).toBe("reaves-way-cabinet-shop");
     expect(affiliateSlugFromHostname("www.cabinetdealz.com")).toBeNull();
+  });
+
+  it("keeps Designer cart handoffs in the active affiliate storefront", () => {
+    expect(cartPathForStoreScope("reaves-way-cabinet-shop")).toBe("/store/reaves-way-cabinet-shop/cart");
+    expect(cartPathForStoreScope("owner")).toBe("/cart");
   });
 });
 

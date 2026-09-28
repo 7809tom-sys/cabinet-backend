@@ -15,4 +15,9 @@ describe("saved Design Tool checkout linkage", () => {
     expect(source).toContain("appending a plan to unrelated cart items deliberately drops that link");
     expect(cartContextSource).toContain("setSourceDesignId(null);");
   });
+
+  it("keeps every Designer-to-cart handoff in the active affiliate storefront", () => {
+    expect(source).toContain("const cartDestination = cartPathForStoreScope(storeScope);");
+    expect(source.match(/navigate\(cartDestination\)/g)).toHaveLength(2);
+  });
 });
