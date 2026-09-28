@@ -36,7 +36,7 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
-import { resolveAffiliateStorefrontSale, resolveMarkupBps } from "@shared/affiliateBranding";
+import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
@@ -512,9 +512,11 @@ export const ordersRouter = router({
           adjustedListPrice: distributorSkus.adjustedListPrice,
           listPrice: distributorSkus.listPrice,
           retailPriceBasis: distributors.retailPriceBasis,
+          category: cabinets.category,
         })
         .from(distributorSkus)
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
         .where(
           and(
             inArray(distributorSkus.cabinetId, input.cabinetIds),
@@ -524,52 +526,32 @@ export const ordersRouter = router({
           )
         );
 
-      // ── Affiliate markup config (loaded once if a slug is provided) ──────────
-      // When the order is placed through an affiliate storefront, apply their
-      // markup on top of the homeowner price so the order builder and review
-      // screen show the same prices the customer saw on the storefront.
-      let affiliateMarkupConfig: {
-        globalMarkupBps: number;
-        categoryMarkupBps: Record<string, number>;
-        styleMarkupBps: Record<number, number>;
-      } | null = null;
+      // Checkout must use the identical protected cost-plus-markup calculation
+      // as the affiliate storefront—not the generic CabinetDealz homeowner
+      // tier plus a second markup. An unknown or disabled affiliate scope gets
+      // no price rather than silently falling back to a CabinetDealz price.
+      const requestedAffiliateScope = Boolean(input.affiliateSlug?.trim());
+      const affiliatePricing = requestedAffiliateScope
+        ? await loadAffiliateStorefrontPricing(input.affiliateSlug)
+        : null;
 
-      if (input.affiliateSlug) {
-        const slug = input.affiliateSlug.toLowerCase();
-        const affRows = await db
-          .select()
-          .from(affiliates)
-          .where(eq(affiliates.slug, slug))
-          .limit(1);
-        const aff = affRows[0];
-        if (aff && aff.storefrontEnabled && aff.status !== "inactive") {
-          const brandRows = await db
-            .select({ styleId: affiliateStyleBranding.styleId, markupBps: affiliateStyleBranding.markupBps })
-            .from(affiliateStyleBranding)
-            .where(eq(affiliateStyleBranding.affiliateId, aff.id));
-          const styleMarkupBps: Record<number, number> = {};
-          for (const r of brandRows) {
-            if (typeof r.markupBps === "number") styleMarkupBps[r.styleId] = r.markupBps;
-          }
-          let categoryMarkupBps: Record<string, number> = {};
-          try {
-            if (aff.categoryMarkupJson) categoryMarkupBps = JSON.parse(aff.categoryMarkupJson);
-          } catch { categoryMarkupBps = {}; }
-          affiliateMarkupConfig = {
-            globalMarkupBps: aff.defaultMarkupBps ?? 0,
-            categoryMarkupBps,
-            styleMarkupBps,
-          };
-        }
-      }
-
-      // Best (lowest) SELL price per cabinet for the chosen tier (cost × markup).
+      // Best (lowest) sell price per cabinet for the chosen tier. Affiliate
+      // price selection is source cost → protected affiliate cost → that
+      // affiliate's global/category/style markup, exactly as catalog and cart.
       const best = new Map<number, number>();
       // Best (lowest) WHOLESALE floor per cabinet — owner-only "My Cost".
       const bestCost = new Map<number, number>();
       for (const r of rows) {
         if (r.cabinetId == null) continue;
-        const price = sellPriceForTier(r, ps, orderTier(input.tier));
+        const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
+        const price = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+              styleId: input.styleId,
+              categoryKey: r.category,
+            }).retailCents / 100
+          : requestedAffiliateScope
+            ? null
+            : sellPriceForTier(r, ps, orderTier(input.tier));
         if (price !== null && Number.isFinite(price)) {
           const cur = best.get(r.cabinetId);
           if (cur === undefined || price < cur) best.set(r.cabinetId, price);
@@ -586,19 +568,6 @@ export const ordersRouter = router({
       return {
         prices: input.cabinetIds.map((id) => {
           let unitPrice = best.has(id) ? best.get(id)! : null;
-          // Apply affiliate markup on top of the homeowner price when browsing
-          // through an affiliate storefront. The styleId here is the door-style
-          // lock for the whole order — category is unknown at this level so only
-          // global + per-style markup applies (category markup is applied
-          // client-side where the category is known).
-          if (unitPrice !== null && affiliateMarkupConfig) {
-            const bps = resolveMarkupBps(affiliateMarkupConfig, { styleId: input.styleId });
-            if (bps > 0) {
-              const cents = Math.round(unitPrice * 100);
-              const marked = cents + Math.round((cents * bps) / 10000);
-              unitPrice = marked / 100;
-            }
-          }
           return {
             cabinetId: id,
             unitPrice,
