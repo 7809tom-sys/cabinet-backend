@@ -7,6 +7,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { useCart } from "@/contexts/CartContext";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -69,6 +70,7 @@ export default function Cart() {
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
   const [, navigate] = useLocation();
   const [zipInput, setZipInput] = useState(zip ?? "");
+  const [requestUpsParcelQuote, setRequestUpsParcelQuote] = useState(false);
 
   // Determine the viewer's current pricing tier from their login state.
   const { user } = useAuth();
@@ -216,7 +218,8 @@ export default function Cart() {
     merchandiseSubtotalCents: Math.max(0, Math.round(liveSubtotal * 100)),
     accessorials: { residential: false, liftgate: false },
     items: cartFreightItems,
-  }), [normalizedZip, liveSubtotal, cartFreightItems]);
+    carrierPreference: requestUpsParcelQuote ? "ups" as const : undefined,
+  }), [normalizedZip, liveSubtotal, cartFreightItems, requestUpsParcelQuote]);
   const cartFreightEstimate = trpc.freight.estimate.useQuery(cartFreightInput, {
     enabled: false,
     retry: false,
@@ -251,6 +254,7 @@ export default function Cart() {
       styleId: firstItem?.styleId ?? null,
       tier: firstItem?.tier ?? null,
       kitchenDesignId: sourceDesignId,
+      carrierPreference: requestUpsParcelQuote ? "ups" : null,
     };
     try {
       sessionStorage.setItem(cartPrefillStorageKey(storeScope), JSON.stringify(prefill));
@@ -596,11 +600,35 @@ export default function Cart() {
           <p className="mb-4 text-xs text-muted-foreground">
             {t("crt_shipping_note")}
           </p>
+          <label
+            htmlFor="ups-parcel-quote"
+            className="mb-3 flex cursor-pointer items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50/70 p-3 text-sm text-amber-950 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100"
+          >
+            <Checkbox
+              id="ups-parcel-quote"
+              checked={requestUpsParcelQuote}
+              onCheckedChange={(checked) => setRequestUpsParcelQuote(checked === true)}
+              className="mt-0.5 border-amber-700 data-[state=checked]:border-amber-800 data-[state=checked]:bg-amber-800"
+            />
+            <span>
+              <span className="flex items-center gap-2 font-semibold">
+                <span aria-label="UPS" className="inline-flex rounded-sm bg-[#351c15] px-1.5 py-0.5 text-[10px] font-black tracking-wide text-[#ffb500]">UPS</span>
+                Get a UPS package quote
+              </span>
+              <span className="mt-0.5 block text-xs text-amber-900/85 dark:text-amber-100/85">
+                Checks only verified cartons against UPS parcel limits. If any carton is not eligible, no UPS price is created; clear this option to request the normal freight quote.
+              </span>
+            </span>
+          </label>
           <div className="mb-4 rounded-lg border border-border bg-muted/25 p-3" aria-busy={cartFreightEstimate.isFetching}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Live shipping quote</p>
-                <p className="text-xs text-muted-foreground">Uses the actual eligible cabinet items and pallet plan in this cart.</p>
+                <p className="text-xs text-muted-foreground">
+                  {requestUpsParcelQuote
+                    ? "Requests a read-only UPS price for verified, UPS-eligible cartons only."
+                    : "Uses the actual eligible cabinet items and pallet plan in this cart."}
+                </p>
               </div>
               <Button
                 size="sm"
@@ -608,7 +636,7 @@ export default function Cart() {
                 onClick={requestLiveCartQuote}
                 disabled={cartFreightEstimate.isFetching || !normalizedZip || isMixedSupplier || cartFreightItems.length === 0}
               >
-                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get live quote</>}
+                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Get UPS quote</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get live quote</>}
               </Button>
             </div>
             {cartFreightEstimate.isFetching && (

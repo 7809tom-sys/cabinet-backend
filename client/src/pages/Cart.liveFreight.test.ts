@@ -33,10 +33,26 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Carrier handling review:");
   });
 
+  it("offers an explicit UPS-only parcel quote check without treating an LTL pallet as a UPS carton", () => {
+    expect(cartSource).toContain('id="ups-parcel-quote"');
+    expect(cartSource).toContain("Get a UPS package quote");
+    expect(cartSource).toContain('carrierPreference: requestUpsParcelQuote ? "ups" as const : undefined');
+    expect(cartSource).toContain("Get UPS quote");
+    expect(cartSource).toContain("only verified cartons against UPS parcel limits");
+  });
+
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {
     expect(builderSource).toContain("applyCartCheckoutPrefill(line, cartLine)");
     expect(prefillSource).toContain("cartDistributorId: item.distributorId ?? null");
     expect(reviewSource).toContain("distributorId: line.cartDistributorId ?? null");
+  });
+
+  it("carries an intentional UPS parcel preference into secure checkout", () => {
+    expect(cartSource).toContain('carrierPreference: requestUpsParcelQuote ? "ups" : null');
+    expect(builderSource).toContain('if (decoded.carrierPreference === "ups") setCarrierPreference("ups")');
+    expect(builderSource).toContain("carrierPreference={carrierPreference ?? undefined}");
+    expect(reviewSource).toContain("carrierPreference,");
+    expect(reviewSource).toContain("UPS package quote requested from cart.");
   });
 
   it("records a rejected cross-supplier add attempt and displays a prominent cart alert", () => {

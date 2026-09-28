@@ -1287,6 +1287,10 @@ export const freightRouter = router({
         items: itemsSchema,
         merchandiseSubtotalCents: z.number().int().min(0).default(0),
         accessorials: accessorialsSchema,
+        // A customer may deliberately request a direct UPS parcel check from
+        // the cart. This does not turn an LTL shipment into a parcel shipment:
+        // every carton still has to pass the source-backed UPS eligibility gate.
+        carrierPreference: z.enum(["ups"]).optional(),
         // Optional: explicit supply line for this cart. When omitted we infer it
         // from the cart's cabinetIds so freight ships from the nearest warehouse.
         distributorId: z.number().int().positive().nullable().optional(),
@@ -1338,7 +1342,7 @@ export const freightRouter = router({
             fallbackOriginZip: settings.originZip,
           })
         : [];
-      if (settingsRow && (liveProvider !== "estimator" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
+      if (settingsRow && (liveProvider !== "estimator" || input.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
         if (load.units === 0) {
@@ -1368,7 +1372,9 @@ export const freightRouter = router({
             settings.defaultCabinetWeightLbs,
           );
           const plan = buildPallets(resolvedGroup.packages, caps);
-          if (group.distributorRuleFeeCents != null) {
+          // An explicit UPS parcel request is a diagnostic quote request. Do
+          // not silently return the distributor's LTL/flat rule instead.
+          if (group.distributorRuleFeeCents != null && input.carrierPreference !== "ups") {
             totalBillableWeightLbs += plan.totalWeightLbs;
             shipmentGroups.push({
               label: group.label,
@@ -1403,7 +1409,7 @@ export const freightRouter = router({
           // shared carrier screen first; otherwise the group remains on the
           // established LTL pallet path with no invented carton dimensions.
           const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
-          const directUpsParcel = liveProvider === "ups"
+          const directUpsParcel = (liveProvider === "ups" || input.carrierPreference === "ups")
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
           const easyPostParcel = liveProvider === "easypost" && parcelDecision.mode === "parcel";
@@ -1494,6 +1500,33 @@ export const freightRouter = router({
             } else {
               failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
             }
+            continue;
+          }
+
+          // The customer specifically selected the UPS package-quote option.
+          // Preserve the honest pallet plan for reference, but never fall back
+          // to an LTL estimate or invented carton just to show a UPS price.
+          if (input.carrierPreference === "ups") {
+            totalBillableWeightLbs += plan.totalWeightLbs;
+            shipmentGroups.push({
+              label: group.label,
+              originZip: group.originZip,
+              freightClass: liveFreightClass,
+              transportMode: "ltl",
+              palletCount: plan.palletCount,
+              totalWeightLbs: plan.totalWeightLbs,
+              totalContentsWeightLbs: plan.totalContentsWeightLbs,
+              totalCubicFt: plan.totalCubicFt,
+              pallets: plan.pallets.map((pallet) => ({
+                lengthIn: pallet.lengthIn,
+                widthIn: pallet.widthIn,
+                heightIn: pallet.heightIn,
+                weightLbs: pallet.weightLbs,
+                contentsWeightLbs: pallet.contentsWeightLbs,
+                contentsCubicFt: pallet.contentsCubicFt,
+              })),
+            });
+            failedGroups.push(`${group.label}: UPS parcel quoting requires every carton to have verified package dimensions and weight and to meet the UPS parcel limits. ${parcelDecision.reasons[0] ?? "This shipment remains LTL freight."}`);
             continue;
           }
 

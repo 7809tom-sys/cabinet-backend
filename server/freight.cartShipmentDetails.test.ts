@@ -31,4 +31,12 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain('transportMode: "ltl"');
     expect(source).toContain('source: "parcel"');
   });
+
+  it("allows a customer-requested UPS parcel check but never fabricates a UPS price for an LTL-only shipment", () => {
+    expect(source).toContain('carrierPreference: z.enum(["ups"]).optional()');
+    expect(source).toContain('input.carrierPreference === "ups"');
+    expect(source).toContain('group.distributorRuleFeeCents != null && input.carrierPreference !== "ups"');
+    expect(source).toContain("UPS parcel quoting requires every carton to have verified package dimensions and weight");
+    expect(source).toContain("This shipment remains LTL freight.");
+  });
 });

@@ -42,6 +42,7 @@ export default function OrderBuilder() {
   const [initialStyleId, setInitialStyleId] = useState<number | null>(null);
   const [initialTier, setInitialTier] = useState<string | null>(null);
   const [kitchenDesignId, setKitchenDesignId] = useState<number | null>(null);
+  const [carrierPreference, setCarrierPreference] = useState<"ups" | null>(null);
 
   // If the user arrived from the cart ("Request this order"), pick up the
   // prefilled {code, qty} pairs, match them, and drop straight into review.
@@ -60,7 +61,7 @@ export default function OrderBuilder() {
     let parsed: CartCheckoutPrefillItem[] = [];
     try {
       const decoded = JSON.parse(raw) as
-        | { items: CartCheckoutPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null }
+        | { items: CartCheckoutPrefillItem[]; styleId: number | null; tier: string | null; kitchenDesignId?: number | null; carrierPreference?: "ups" | null }
         | CartCheckoutPrefillItem[]; // legacy format
       if (Array.isArray(decoded)) {
         parsed = decoded;
@@ -69,6 +70,7 @@ export default function OrderBuilder() {
         if (decoded.styleId) setInitialStyleId(decoded.styleId);
         if (decoded.tier) setInitialTier(decoded.tier);
         if (Number.isInteger(decoded.kitchenDesignId) && decoded.kitchenDesignId! > 0) setKitchenDesignId(decoded.kitchenDesignId!);
+        if (decoded.carrierPreference === "ups") setCarrierPreference("ups");
       }
     } catch {
       return;
@@ -165,6 +167,7 @@ export default function OrderBuilder() {
             initialStyleId={initialStyleId ?? undefined}
             kitchenDesignId={kitchenDesignId ?? undefined}
             initialTier={initialTier ?? undefined}
+            carrierPreference={carrierPreference ?? undefined}
           />
         )}
       </div>

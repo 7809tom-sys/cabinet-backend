@@ -85,6 +85,8 @@ interface Props {
   initialTier?: string;
   /** Exact saved Designer plan that synchronized this cart, if the cart was unchanged. */
   kitchenDesignId?: number;
+  /** Optional cart selection to request a verified UPS parcel quote only. */
+  carrierPreference?: "ups";
 }
 
 // Extract the dimension digits from a raw code so the Fix picker can pre-search
@@ -200,7 +202,7 @@ function ConfidenceBadge({ line }: { line: ReviewLine }) {
   );
 }
 
-export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId }: Props) {
+export function OrderReview({ lines, source, onLinesChange, onReset, initialStyleId, initialTier, kitchenDesignId, carrierPreference }: Props) {
   const { t } = useLanguage();
   const { user, isAuthenticated } = useAuth();
   const accountTier = (user as { pricingTier?: string } | null)?.pricingTier;
@@ -511,6 +513,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         residential: deliveryLocationType === "residential",
         liftgate: liftgateRequired,
       },
+      carrierPreference,
       items: pricedLines
         .filter(isCabinetFreightLine)
         .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
@@ -523,7 +526,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           weightLbs: null,
         })),
     }),
-    [zipDebounced, total, deliveryLocationType, liftgateRequired, pricedLines, selectedStyle?.styleId],
+    [zipDebounced, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
   );
   const freightEstimate = trpc.freight.estimate.useQuery(freightInput, {
     enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && freightInput.items.length > 0,
@@ -1170,6 +1173,14 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         )}
         {deliveryMethod === "ship" && (
           <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+            {carrierPreference === "ups" && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-amber-950 dark:border-amber-700 dark:bg-amber-950/20 dark:text-amber-100">
+                <span aria-label="UPS" className="mt-0.5 inline-flex rounded-sm bg-[#351c15] px-1.5 py-0.5 text-[10px] font-black tracking-wide text-[#ffb500]">UPS</span>
+                <span className="text-xs">
+                  <strong>UPS package quote requested from cart.</strong> This checkout will only accept a UPS price when every carton has verified package data and passes UPS parcel limits. No LTL estimate is substituted for this request.
+                </span>
+              </div>
+            )}
             {hasOnlyTemporaryFreeShippingItems ? (
               <div role="status" className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
                 <p className="text-sm font-semibold">Free test shipping</p>
