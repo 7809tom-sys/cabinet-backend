@@ -60,25 +60,54 @@ describe("duplicate normalized cabinet codes", () => {
     expect(noDashAlias).toEqual(canonical);
   });
 
-	it("keeps an unpriced 3DB12 canonical and alias out of public lookup", async () => {
+	it("keeps the source-backed 3DB12 master and its formatted alias on one live detail route", async () => {
 	  const caller = appRouter.createCaller({} as any);
-	  const canonical = await caller.cabinets.byCode({ masterCode: "3-DB12" });
-	  const alias = await caller.cabinets.byCode({ masterCode: "3DB12" });
+	  const canonical = await caller.cabinets.byCode({ masterCode: "3DB12" });
+	  const formattedAlias = await caller.cabinets.byCode({ masterCode: "3-DB12" });
 
-	  // The aliases remain in the Admin catalog for configuration, but the
-	  // customer-facing lookup must never expose a sellable $0 product.
-	  expect(canonical).toBeNull();
-	  expect(alias).toBeNull();
+	  expect(canonical).toEqual(expect.objectContaining({
+	    id: 9360024,
+	    masterCode: "3DB12",
+	    description: '12" 3 Drawer Base Cabinet',
+	    width: "12.00",
+	    height: "34.50",
+	    depth: "24.00",
+	  }));
+	  expect(formattedAlias).toEqual(canonical);
+	  await expect(caller.pricing.stylesForCabinet({ cabinetId: canonical!.id })).resolves.toEqual(
+	    expect.arrayContaining([expect.objectContaining({ homeownerPrice: expect.any(String) })]),
+	  );
 	});
 
-	it("keeps an unpriced 3DB21 canonical and alias out of public lookup", async () => {
-	  const caller = appRouter.createCaller({} as any);
-	  const canonical = await caller.cabinets.byCode({ masterCode: "3-DB21" });
-	  const alias = await caller.cabinets.byCode({ masterCode: "3DB21" });
+  it("keeps the source-backed 3DB21 master and its formatted alias on one live detail route", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const canonical = await caller.cabinets.byCode({ masterCode: "3DB21" });
+	  const formattedAlias = await caller.cabinets.byCode({ masterCode: "3-DB21" });
 
-	  expect(canonical).toBeNull();
-	  expect(alias).toBeNull();
-	});
+	  expect(canonical).toEqual(expect.objectContaining({
+	    id: 9360027,
+	    masterCode: "3DB21",
+	    description: '21" Three Drawer Base Cabinet',
+	    width: "21.00",
+	    height: "34.50",
+	    depth: "24.00",
+	  }));
+	  expect(formattedAlias).toEqual(canonical);
+    await expect(caller.pricing.stylesForCabinet({ cabinetId: canonical!.id })).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ homeownerPrice: expect.any(String) })]),
+    );
+  });
+
+  it("uses each source-backed three-drawer master as the exact family-card detail target", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const family = await caller.doorStyles.familyCatalog({ styleId: 330005 });
+    const threeDrawerCards = family.items.filter((item) => ["3DB12", "3DB21"].includes(item.masterCode));
+
+    expect(threeDrawerCards).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 9360024, cabinetId: 9360024, masterCode: "3DB12" }),
+      expect.objectContaining({ id: 9360027, cabinetId: 9360027, masterCode: "3DB21" }),
+    ]));
+  });
 
 	it("keeps a priced canonical detail route visible when its own code is retained as a search alias", async () => {
 	  const caller = appRouter.createCaller({} as any);
@@ -96,14 +125,12 @@ describe("duplicate normalized cabinet codes", () => {
 	  expect(styles.some((style) => style.homeownerPrice != null)).toBe(true);
 	});
 
-	it("keeps every active canonical self-alias reachable while inactive historical self-aliases remain hidden", async () => {
+	it("keeps every source-backed canonical self-alias reachable", async () => {
 	  const caller = appRouter.createCaller({} as any);
-	  const activeCodes = ["B12", "B15", "B18", "B21", "U188424", "U189624"];
+	  const activeCodes = ["B12", "B15", "B18", "B21", "3DB12", "3DB21", "U188424", "U189624"];
 	  const resolved = await Promise.all(activeCodes.map((masterCode) => caller.cabinets.byCode({ masterCode })));
 
 	  expect(resolved.map((cabinet) => cabinet?.masterCode)).toEqual(activeCodes);
-	  await expect(caller.cabinets.byCode({ masterCode: "3DB12" })).resolves.toBeNull();
-	  await expect(caller.cabinets.byCode({ masterCode: "3DB21" })).resolves.toBeNull();
 	});
 
 	it("resolves W-24-30 to the canonical W-2430 record without moving supplier price rows", async () => {
