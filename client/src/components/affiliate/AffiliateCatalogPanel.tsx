@@ -35,7 +35,17 @@ function percentToBps(pct: string): number | null {
   return Math.round(n * 100);
 }
 
-function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateDefaultBps: number }) {
+function StyleCard({
+  style,
+  affiliateDefaultBps,
+  affiliateId,
+  isAdminView,
+}: {
+  style: StyleRow;
+  affiliateDefaultBps: number;
+  affiliateId?: number;
+  isAdminView: boolean;
+}) {
   const utils = trpc.useUtils();
   const [editing, setEditing] = useState(false);
   const [brandName, setBrandName] = useState(style.override?.brandName ?? "");
@@ -47,6 +57,14 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
       utils.affiliates.myBranding.invalidate();
       setEditing(false);
       toast.success("Style updated");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const adminUpsert = trpc.affiliates.adminUpsertStyleBranding.useMutation({
+    onSuccess: () => {
+      if (affiliateId !== undefined) void utils.affiliates.adminBranding.invalidate({ affiliateId });
+      setEditing(false);
+      toast.success("Selected affiliate style updated");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -74,6 +92,14 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
 
   function saveEdit() {
     const bps = markupPct === "" ? null : percentToBps(markupPct);
+    if (isAdminView) {
+      if (affiliateId === undefined) {
+        toast.error("Select an affiliate before saving a style markup.");
+        return;
+      }
+      adminUpsert.mutate({ affiliateId, styleId: style.id, brandName: brandName || null, markupBps: bps });
+      return;
+    }
     upsert.mutate({
       styleId: style.id,
       brandName: brandName || null,
@@ -117,13 +143,15 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
                 <p className="text-xs text-muted-foreground truncate">Original: {style.ourName || style.styleCode}</p>
               )}
             </div>
-            <button
-              onClick={toggleFeatured}
-              className={`shrink-0 p-1 rounded transition-colors ${featured ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
-              title={featured ? "Remove from featured" : "Feature this style"}
-            >
-              {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
-            </button>
+            {!isAdminView && (
+              <button
+                onClick={toggleFeatured}
+                className={`shrink-0 p-1 rounded transition-colors ${featured ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
+                title={featured ? "Remove from featured" : "Feature this style"}
+              >
+                {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+              </button>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             {featured && <Badge className="text-xs bg-primary/10 text-primary border-primary/30">Featured</Badge>}
@@ -136,47 +164,51 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
         </div>
       </div>
 
-      {/* Enable / Disable line toggle bar */}
-      <div className="border-t border-border px-3 py-2 flex items-center justify-between bg-muted/20">
-        <span className="text-xs font-medium text-foreground">
-          {isEnabled ? "Line Active on Storefront" : "Line Hidden from Storefront"}
-        </span>
-        <Button
-          variant={isEnabled ? "outline" : "default"}
-          size="sm"
-          className="h-7 text-xs"
-          onClick={toggleEnabled}
-        >
-          {isEnabled ? "Turn Off Line" : "Turn On Line"}
-        </Button>
-      </div>
+      {/* These actions have a separate admin workflow; do not let a view-as
+          session accidentally use owner-scoped mutations. */}
+      {!isAdminView && (
+        <div className="border-t border-border px-3 py-2 flex items-center justify-between bg-muted/20">
+          <span className="text-xs font-medium text-foreground">
+            {isEnabled ? "Line Active on Storefront" : "Line Hidden from Storefront"}
+          </span>
+          <Button
+            variant={isEnabled ? "outline" : "default"}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={toggleEnabled}
+          >
+            {isEnabled ? "Turn Off Line" : "Turn On Line"}
+          </Button>
+        </div>
+      )}
 
-      {/* Room scene row */}
-      <div className="border-t border-border px-3 py-2 flex items-center gap-3">
-        {roomScene ? (
-          <>
-            <img src={roomScene} alt="Room scene" className="w-12 h-8 rounded object-cover border border-border" />
-            <span className="text-xs text-muted-foreground flex-1">Custom room scene uploaded</span>
-            <button
-              onClick={() => upsert.mutate({ styleId: style.id })}
-              className="text-xs text-destructive hover:underline"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground flex-1">No custom room scene</span>
-        )}
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-        <Button
-          variant="outline" size="sm" className="gap-1 text-xs h-7"
-          onClick={() => fileRef.current?.click()}
-          disabled={uploadScene.isPending}
-        >
-          {uploadScene.isPending ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
-          {roomScene ? "Replace" : "Upload Photo"}
-        </Button>
-      </div>
+      {!isAdminView && (
+        <div className="border-t border-border px-3 py-2 flex items-center gap-3">
+          {roomScene ? (
+            <>
+              <img src={roomScene} alt="Room scene" className="w-12 h-8 rounded object-cover border border-border" />
+              <span className="text-xs text-muted-foreground flex-1">Custom room scene uploaded</span>
+              <button
+                onClick={() => upsert.mutate({ styleId: style.id })}
+                className="text-xs text-destructive hover:underline"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground flex-1">No custom room scene</span>
+          )}
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <Button
+            variant="outline" size="sm" className="gap-1 text-xs h-7"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploadScene.isPending}
+          >
+            {uploadScene.isPending ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
+            {roomScene ? "Replace" : "Upload Photo"}
+          </Button>
+        </div>
+      )}
 
       {/* Edit row */}
       {editing ? (
@@ -206,7 +238,7 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" className="gap-1 h-7" onClick={saveEdit} disabled={upsert.isPending}>
+            <Button size="sm" className="gap-1 h-7" onClick={saveEdit} disabled={upsert.isPending || adminUpsert.isPending}>
               <Check className="h-3.5 w-3.5" /> Save
             </Button>
             <Button size="sm" variant="outline" className="h-7" onClick={() => setEditing(false)}>Cancel</Button>
@@ -226,8 +258,19 @@ function StyleCard({ style, affiliateDefaultBps }: { style: StyleRow; affiliateD
   );
 }
 
-export default function AffiliateCatalogPanel() {
-  const { data, isLoading } = trpc.affiliates.myBranding.useQuery();
+type AffiliateCatalogPanelProps = {
+  affiliateId?: number;
+  isAdminView?: boolean;
+};
+
+export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false }: AffiliateCatalogPanelProps) {
+  const ownBranding = trpc.affiliates.myBranding.useQuery(undefined, { enabled: !isAdminView });
+  const adminBranding = trpc.affiliates.adminBranding.useQuery(
+    { affiliateId: affiliateId ?? 0 },
+    { enabled: isAdminView && affiliateId !== undefined, retry: false },
+  );
+  const data = isAdminView ? adminBranding.data : ownBranding.data;
+  const isLoading = isAdminView ? adminBranding.isLoading : ownBranding.isLoading;
   const [search, setSearch] = useState("");
 
   if (isLoading) {
@@ -284,7 +327,13 @@ export default function AffiliateCatalogPanel() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {sorted.map((s) => (
-            <StyleCard key={s.id} style={s as StyleRow} affiliateDefaultBps={data.defaultMarkupBps} />
+            <StyleCard
+              key={s.id}
+              style={s as StyleRow}
+              affiliateDefaultBps={data.defaultMarkupBps}
+              affiliateId={affiliateId}
+              isAdminView={isAdminView}
+            />
           ))}
         </div>
       )}

@@ -646,9 +646,9 @@ export default function AffiliateDashboard() {
       case "analytics":
         return <AffiliateAnalyticsPanel />;
       case "catalog":
-        return <AffiliateCatalogPanel />;
+        return <AffiliateCatalogPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />;
       case "pricing":
-        return <AffiliatePricingPanel />;
+        return <AffiliatePricingPanel affiliateId={affiliate.id} isAdminView={isAdminViewAs} />;
       case "customize":
       return (
           <div className="flex gap-6 items-start w-full">

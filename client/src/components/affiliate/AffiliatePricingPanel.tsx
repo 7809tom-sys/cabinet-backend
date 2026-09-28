@@ -49,9 +49,24 @@ function percentToBps(pct: string) {
   return Math.round(parseFloat(pct) * 100);
 }
 
-export default function AffiliatePricingPanel() {
+type AffiliatePricingPanelProps = {
+  /** Required whenever an administrator is previewing a specific affiliate. */
+  affiliateId?: number;
+  isAdminView?: boolean;
+};
+
+export default function AffiliatePricingPanel({ affiliateId, isAdminView = false }: AffiliatePricingPanelProps) {
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.affiliates.myBranding.useQuery();
+  // Never let an admin "view as" session fall back to the first affiliate
+  // linked to that admin. Both reads and writes are explicitly keyed by the
+  // storefront selected in AffiliateDashboard.
+  const ownBranding = trpc.affiliates.myBranding.useQuery(undefined, { enabled: !isAdminView });
+  const adminBranding = trpc.affiliates.adminBranding.useQuery(
+    { affiliateId: affiliateId ?? 0 },
+    { enabled: isAdminView && affiliateId !== undefined, retry: false },
+  );
+  const data = isAdminView ? adminBranding.data : ownBranding.data;
+  const isLoading = isAdminView ? adminBranding.isLoading : ownBranding.isLoading;
 
   // Local state for default markup
   const [defaultPct, setDefaultPct] = useState<string>("");
@@ -61,10 +76,17 @@ export default function AffiliatePricingPanel() {
   // Calculator state
   const [calcRetail, setCalcRetail] = useState("1000");
 
-  const updateMarkup = trpc.affiliates.updateMyMarkup.useMutation({
+  const updateOwnMarkup = trpc.affiliates.updateMyMarkup.useMutation({
     onSuccess: () => {
       toast.success("Pricing saved");
       utils.affiliates.myBranding.invalidate();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+  const updateAdminMarkup = trpc.affiliates.adminUpdateMarkup.useMutation({
+    onSuccess: () => {
+      toast.success("Pricing saved for the selected affiliate");
+      if (affiliateId !== undefined) void utils.affiliates.adminBranding.invalidate({ affiliateId });
     },
     onError: (e) => toast.error(e.message),
   });
@@ -102,7 +124,15 @@ export default function AffiliatePricingPanel() {
         if (!isNaN(bps) && bps >= 0) catMap[cat] = bps;
       }
     }
-    updateMarkup.mutate({ defaultMarkupBps: defaultBps, categoryMarkup: catMap });
+    if (isAdminView) {
+      if (affiliateId === undefined) {
+        toast.error("Select an affiliate before saving pricing.");
+        return;
+      }
+      updateAdminMarkup.mutate({ affiliateId, defaultMarkupBps: defaultBps, categoryMarkup: catMap });
+      return;
+    }
+    updateOwnMarkup.mutate({ defaultMarkupBps: defaultBps, categoryMarkup: catMap });
   }
 
   if (isLoading) {
@@ -253,9 +283,9 @@ export default function AffiliatePricingPanel() {
             </span>
           </div>
 
-          <Button onClick={save} disabled={updateMarkup.isPending} className="gap-1.5">
+          <Button onClick={save} disabled={updateOwnMarkup.isPending || updateAdminMarkup.isPending} className="gap-1.5">
             <Save className="h-4 w-4" />
-            {updateMarkup.isPending ? "Saving…" : "Save Pricing"}
+            {updateOwnMarkup.isPending || updateAdminMarkup.isPending ? "Saving…" : "Save Pricing"}
           </Button>
         </CardContent>
       </Card>
