@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -3160,8 +3160,10 @@ export function addCabinet(
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
   const openShelfCode = `${sku.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const kitchenCrestGenericShelfCount = kitchenCrestGenericOpenEndShelfCount(sku);
   const isWallOpenShelf = /^W(?:E)?OS\d{4}$/.test(openShelfCode)
-    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b/i.test(`${sku.subCategory ?? ""} ${sku.description ?? ""}`);
+    || kitchenCrestGenericShelfCount != null
+    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b|\bopen\s+end\s+shelf\s+wall\b/i.test(`${sku.subCategory ?? ""} ${sku.description ?? ""}`);
   const isWallEndOpenShelf = /^WEOS\d{4}$/.test(openShelfCode)
     || /\bwall\s+end\s+(?:open\s+)?shelf\b/i.test(`${sku.subCategory ?? ""} ${sku.description ?? ""}`);
   // A WOS/WEOS is a full-height wall cabinet with an open, curved-shelf
@@ -3605,11 +3607,13 @@ export function addCabinet(
       sidePanel.position.x = side * (bodyWidth / 2 - panelThickness / 2);
       addOpenShelfPart(sidePanel, { wallOpenShelfPart: side === -1 ? "left-side" : "right-side" });
     }
-    // WEOS0930 is cataloged with two fixed bow-front shelves. Standard WOS
-    // shelves use only their authored count; do not invent a count from a name.
+    // WEOS0930 keeps its source-documented two bowed shelves. The named
+    // KitchenCrest OE6 family uses the supplied generic square-shelf counts;
+    // all other open shelves retain only their authored count.
     const fixedShelfCount = isWallEndOpenShelf
       ? Math.max(1, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 2) || 2)))
-      : Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0)));
+      : kitchenCrestGenericShelfCount
+        ?? Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0)));
     for (let index = 0; index < fixedShelfCount; index += 1) {
       const shelf = new THREE.Mesh(
         wallEndOpenShelfBoardGeometry(interiorWidth, interiorDepth, shelfThickness, isWallEndOpenShelf),
@@ -3621,6 +3625,7 @@ export function addCabinet(
         wallOpenShelfFixedShelf: index + 1,
         bowedFrontEdge: isWallEndOpenShelf,
         sourceFixedShelfCount: fixedShelfCount,
+        kitchenCrestGenericOpenEndShelf: kitchenCrestGenericShelfCount != null,
       });
     }
   } else if (isFloatingShelf) {
@@ -4036,7 +4041,8 @@ export function addCabinet(
       noCabinetFronts: true,
       sourceFixedShelfCount: isWallEndOpenShelf
         ? Math.max(1, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 2) || 2)))
-        : Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0))),
+        : kitchenCrestGenericShelfCount
+          ?? Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0))),
     };
   } else if (isFloatingShelf) {
     frontGroup.userData = { ...frontGroup.userData, floatingShelf: true, noCabinetFronts: true };

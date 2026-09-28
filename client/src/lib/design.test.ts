@@ -30,7 +30,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
 	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
+	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement, kitchenCrestGenericOpenEndShelfCount,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -83,6 +83,18 @@ describe("floating-shelf legacy dimension repair", () => {
       numberOfDoors: 0, numberOfDrawers: 0, fixedShelfCount: 2,
     });
     expect(normalizeWallOpenShelfPlacement({ ...staleWeos0930, masterCode: "WOS0930" })).toMatchObject({ width: 9, height: 30, depth: 12 });
+  });
+
+  it("uses the supplied KitchenCrest OE6 square-shelf count only when the source description confirms the form", () => {
+    const oe630: PlacedCabinet = {
+      uid: "oe630", cabinetId: 630, masterCode: "OE630", description: '6" x 30" Open End Shelf Wall Cabinet',
+      placement: "wall", x: 0, y: 0, width: 6, depth: 12, height: 30, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0, fixedShelfCount: 3,
+    };
+    expect(kitchenCrestGenericOpenEndShelfCount(oe630)).toBe(2);
+    expect(normalizeWallOpenShelfPlacement(oe630)).toMatchObject({ fixedShelfCount: 2, width: 6, height: 30, depth: 12 });
+    expect(kitchenCrestGenericOpenEndShelfCount({ ...oe630, masterCode: "OE636", height: 36 })).toBe(3);
+    expect(kitchenCrestGenericOpenEndShelfCount({ ...oe630, description: "Oven End Cabinet" })).toBeNull();
   });
 });
 

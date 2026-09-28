@@ -119,7 +119,27 @@ export function isWallOpenShelfCabinet(c: {
   const code = `${c.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
   return /^W(?:E)?OS\d{4}$/.test(code)
-    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b/.test(hay);
+    || kitchenCrestGenericOpenEndShelfCount(c) != null
+    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b|\bopen\s+end\s+shelf\s+wall\b/.test(hay);
+}
+
+/**
+ * The 2023 KitchenCrest line-art book documents OE630/OE636/OE642 as square
+ * six-inch wall open-end shelves: two interior shelves at 30 inches and three
+ * at 36/42 inches. The code and an explicit open-shelf description must both
+ * match, so an unrelated source line can never inherit this generic form.
+ * This is visual/configuration normalization only; source dimensions, price,
+ * availability, image, and the sellable identity remain untouched.
+ */
+export function kitchenCrestGenericOpenEndShelfCount(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): number | null {
+  const code = `${c.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  if (!/^OE6(?:30|36|42)$/.test(code) || !/\bopen\s+(?:end\s+)?shelf\b/.test(hay)) return null;
+  return code === "OE630" ? 2 : 3;
 }
 
 export const KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN = 24;
@@ -174,9 +194,10 @@ export function normalizeWallOpenShelfPlacement(cabinet: PlacedCabinet): PlacedC
   if (!isWallOpenShelfCabinet(cabinet)) return cabinet;
   const code = `${cabinet.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
   const match = /^W(?:E)?OS(\d{2})(\d{2})$/.exec(code);
-  if (!match) return cabinet;
-  const width = Number(match[1]);
-  const height = Number(match[2]);
+  const genericShelfCount = kitchenCrestGenericOpenEndShelfCount(cabinet);
+  if (!match && genericShelfCount == null) return cabinet;
+  const width = match ? Number(match[1]) : Number(cabinet.width);
+  const height = match ? Number(match[2]) : Number(cabinet.height);
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return cabinet;
   return {
     ...cabinet,
@@ -189,7 +210,8 @@ export function normalizeWallOpenShelfPlacement(cabinet: PlacedCabinet): PlacedC
     nominalHeight: height,
     numberOfDoors: 0,
     numberOfDrawers: 0,
-    fixedShelfCount: /^WEOS\d{4}$/.test(code) ? 2 : cabinet.fixedShelfCount,
+    fixedShelfCount: genericShelfCount
+      ?? (/^WEOS\d{4}$/.test(code) ? 2 : cabinet.fixedShelfCount),
   };
 }
 

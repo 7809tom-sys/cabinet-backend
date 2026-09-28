@@ -7,7 +7,7 @@ import {
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
-	  isGlassDoorCabinet, glassDoorShelfCount,
+	  isGlassDoorCabinet, glassDoorShelfCount, kitchenCrestGenericOpenEndShelfCount,
 } from "@/lib/design";
 import {
   type HardwareStyleId,
@@ -412,7 +412,13 @@ export function ElevationView({
     // Resolve per-style frame inset (px) for this cabinet.
     const cabFrameInset = !isAppliance && frameInsetFor ? frameInsetFor(p) : null;
     const cabFrameMetrics = !isAppliance && frameMetricsFor ? frameMetricsFor(p) : null;
-    const customProfile = p.customProfile ?? null;
+	    const kitchenCrestGenericShelfCount = kitchenCrestGenericOpenEndShelfCount(p);
+	    // KitchenCrest's OE630/OE636/OE642 line art is square-front open shelving.
+	    // Keep the existing source record and dimensions, but do not let a stale
+	    // curved profile change that verified generic form in the elevation.
+	    const customProfile = kitchenCrestGenericShelfCount != null
+	      ? "curved-open-shelf"
+	      : p.customProfile ?? null;
     const facePresentation = resolveElevationFacePresentation(p, customProfile, p.genericDrawingUrl, isAppliance);
     const cabType: CabinetDrawingType | null = facePresentation.cabinetType;
     const isEndAngle = facePresentation.isEndAngle;
@@ -580,8 +586,9 @@ export function ElevationView({
               face={cabFinish.face}
               edge={edgeColor}
               kind={cabPanelKind}
-              fixedShelves={p.fixedShelfCount ?? 0}
-              adjustableShelves={p.adjustableShelfCount ?? 0}
+	              fixedShelves={kitchenCrestGenericShelfCount ?? p.fixedShelfCount ?? 0}
+	              adjustableShelves={p.adjustableShelfCount ?? 0}
+	              squareOpenEndShelf={kitchenCrestGenericShelfCount != null}
               doorSampleUrl={cabDoorSampleUrl}
               drawerSampleUrl={cabDrawerSampleUrl}
               faceWidthIn={p.width}
@@ -2174,6 +2181,7 @@ export function CustomProfileFace({
   drawerSampleUrl,
   faceWidthIn,
   faceHeightIn,
+  squareOpenEndShelf = false,
 }: {
   profile: string;
   face: string;
@@ -2185,6 +2193,8 @@ export function CustomProfileFace({
   drawerSampleUrl?: string | null;
   faceWidthIn?: number;
   faceHeightIn?: number;
+  /** Verified KitchenCrest OE6 line art uses square, not bowed, shelf fronts. */
+  squareOpenEndShelf?: boolean;
 }) {
   const shelfCount = Math.max(2, fixedShelves || adjustableShelves || 3);
   const rail = `color-mix(in srgb, ${face} 68%, #000)`;
@@ -2270,9 +2280,11 @@ export function CustomProfileFace({
     );
   }
 
-  const isCurved = profile === "curved-open-shelf";
+  const isCurved = profile === "curved-open-shelf" && !squareOpenEndShelf;
   return (
     <div
+      data-cabinet-profile={squareOpenEndShelf ? "kitchencrest-square-open-end-shelf" : profile}
+      data-open-shelf-count={squareOpenEndShelf ? shelfCount : undefined}
       className="absolute inset-0 overflow-hidden"
       style={{ border: `3px solid ${edge}`, background: cavity, borderTopRightRadius: isCurved ? "42% 16%" : 0, borderBottomRightRadius: isCurved ? "42% 16%" : 0 }}
     >

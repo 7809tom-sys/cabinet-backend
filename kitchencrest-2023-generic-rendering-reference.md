@@ -10,7 +10,7 @@ The supplied book is useful as a **generic line-art and construction reference**
 
 It is **not** a license to replace another manufacturer’s authoritative product information. A KitchenCrest drawing may supply a generic form only when the other line’s verified code, description, dimensions, and configuration describe the same cabinet type. The other line remains authoritative for its SKU, dimensions, price, availability, image, finish, and any source-specific geometry. Distributor price data remains the source for price.
 
-No live catalog, price, availability, dimensions, source mapping, or saved design was changed while reviewing this book.
+No live catalog, price, availability, dimensions, source mapping, or saved design was changed while reviewing this book. The only implementation made from the book is a narrow renderer correction for three existing, verified open-end shelf masters: **OE630**, **OE636**, and **OE642**. It keeps the current source dimensions and product data but renders the documented square shelf fronts and two/three shelf counts. The prior curved profile and stale counts no longer control that exact source-confirmed form.
 
 ## What the book establishes for shared Designer forms
 
@@ -49,11 +49,17 @@ The generic line art distinguishes corner types but does not replace the establi
 
 The review covered the entire 29-page book. The most relevant pages are 1–6 for base, drawer, sink, easy-reach, blind-corner, and microwave forms; pages 7–16 for standard, bridge, deep, corner, specialty, and open-end wall forms; pages 17–21 for tall and vanity forms; and pages 22–29 for panels, returns, skins, decorative ends, mouldings, fillers, toe kick, and accessories. [1]
 
-## Safe implementation sequence
+## Implemented source-gated shelf correction
+
+The active catalog contains exact, verified OE630, OE636, and OE642 wall open-end shelf records: each is 6 inches wide, 12 inches deep, wall mounted, active, and Designer-visible. Their descriptions explicitly identify the open-end wall-shelf form. The renderer now applies the book’s square 30/36/42-inch shelf treatment only when both the exact OE6 code and that source description agree. OE630 therefore has two square interior shelves; OE636 and OE642 have three. Their original dimensions, sellable identity, source price, availability, and source image remain unchanged.
+
+The rule deliberately excludes the separate verified WEOS0930 wall-end shelf. That source keeps its 9-by-30-by-12 form and two bowed fixed shelves. The two families cannot overwrite one another merely because both contain “end shelf” in their names.
+
+## Next safe implementation sequence
 
 The next safe implementation step is a **read-only comparison** between the current Designer’s generic specialty forms and the book’s named form categories. Each candidate should be classified as one of the following:
 
-1. The source record already agrees with the illustrated form; a renderer-only regression can be added.
+1. The source record already agrees with the illustrated form; a renderer-only regression can be added, as with OE630/OE636/OE642.
 2. The source record differs; retain the source-specific form and document the difference.
 3. The source record is incomplete or conflicted; hold it in the red Designer-compliance workflow until a supplier source resolves it.
 

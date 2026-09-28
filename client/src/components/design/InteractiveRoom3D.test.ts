@@ -164,6 +164,39 @@ describe("3D fallback appliance run seams", () => {
     expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(12, 6);
   });
 
+  it("renders the KitchenCrest OE630 generic form as a square 6-by-30-by-12 open-end shelf with two shelves", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 630,
+      cabinetId: 630,
+      masterCode: "OE630",
+      description: '6" x 30" Open End Shelf Wall Cabinet',
+      placementType: "wall",
+      width: 6,
+      height: 30,
+      depth: 12,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      // The live master had a stale count; the supplied generic line art is the
+      // deliberate visual authority for this exact, description-confirmed form.
+      fixedShelfCount: 3,
+    }, "back", {}, 144, 120, "#b99a6b", "#f8f8f6", undefined, { x: 18, z: 6, rotation: 0, bottom: 54 });
+
+    const shelfRoot = root.children[0]!;
+    const fixedShelves: THREE.Mesh[] = [];
+    shelfRoot.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.wallOpenShelfFixedShelf) fixedShelves.push(node);
+    });
+    expect(fixedShelves).toHaveLength(2);
+    expect(fixedShelves.every((shelf) => shelf.geometry.type === "BoxGeometry" && shelf.userData.bowedFrontEdge === false)).toBe(true);
+    expect(fixedShelves.every((shelf) => shelf.userData.kitchenCrestGenericOpenEndShelf === true)).toBe(true);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(shelfRoot);
+    expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(6, 6);
+    expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(30, 6);
+    expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(12, 6);
+  });
+
   it("renders a 45-degree base filler as a narrow front board from the floor to the cabinet top", () => {
     const root = new THREE.Group();
     addCabinet(root, {

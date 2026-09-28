@@ -63,4 +63,21 @@ describe("glass-door elevation rendering", () => {
     expect(markup.match(/data-transparent-glass="true"/g)).toHaveLength(1);
     expect(markup.match(/data-glass-cabinet-shelf=/g)).toHaveLength(2);
   });
+
+  it("renders the supplied OE630 generic open-end form with two square shelf levels, not the stale curved profile", () => {
+    const markup = renderGlassCabinet({
+      masterCode: "OE630",
+      description: '6" x 30" Open End Shelf Wall Cabinet',
+      subCategory: "Open Shelf",
+      width: 6,
+      height: 30,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      customProfile: "curved-open-shelf",
+      fixedShelfCount: 3,
+    });
+    expect(markup).toContain('data-cabinet-profile="kitchencrest-square-open-end-shelf"');
+    expect(markup).toContain('data-open-shelf-count="2"');
+    expect(markup).toContain("border-top-right-radius:0");
+  });
 });
