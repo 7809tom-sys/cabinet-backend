@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner";
 import DoorPhotoCorrectButton from "./DoorPhotoCorrectButton";
 import { MediaPicker } from "./MediaPicker";
+import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -1293,10 +1294,13 @@ export default function FeaturedStylesAdmin() {
           </div>
         ) : (
           <ul className="space-y-2">
-            {featured.map((s, i) => (
+            {featured.map((s, i) => {
+              const designerCompliance = designerFrameCompliance(s);
+              return (
               <li
                 key={s.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5"
+                data-testid={designerCompliance.isCompliant ? "featured-style-designer-compliant" : "featured-style-designer-noncompliant"}
+                className={`flex items-center gap-3 rounded-lg border p-2.5 ${designerCompliance.isCompliant ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
               >
                 <span className="flex items-center justify-center h-6 w-6 rounded bg-primary/10 text-primary text-xs font-bold shrink-0">
                   {i + 1}
@@ -1338,29 +1342,24 @@ export default function FeaturedStylesAdmin() {
                     <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700">
                       <ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready
                     </Badge>
-                    {(() => {
-                      const hasRail = Number(s.railWidth) > 0;
-                      const hasStile = Number(s.stileWidth) > 0;
-                      const complete = hasRail && hasStile;
-                      return (
-                        <Badge
-                          variant="outline"
-                          className={complete
-                            ? "border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] text-sky-700"
-                            : "border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] text-amber-700"}
-                          title={complete
-                            ? "Verified rail and stile values will drive the Designer frame for this style."
-                            : hasRail || hasStile
-                              ? "Only one frame dimension is entered; the Designer retains a neutral fallback for the other."
-                              : "No verified rail-and-stile entry is recorded; the Designer retains its neutral fallback."}
-                        >
-                          {complete ? "Designer frame ready" : hasRail || hasStile ? "Designer frame partial" : "Designer frame blank"}
-                        </Badge>
-                      );
-                    })()}
+                    <Badge
+                      variant="outline"
+                      className={designerCompliance.isCompliant
+                        ? "border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] text-sky-700"
+                        : "border-red-400 bg-red-100 px-1.5 py-0 text-[10px] font-semibold text-red-800"}
+                      title={designerCompliance.isCompliant
+                        ? "Verified rail, stile, and official citation will drive the Designer frame for this style."
+                        : `Not Designer-compliant: ${designerCompliance.reason}`}
+                    >
+                      {!designerCompliance.isCompliant && <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />}
+                      {designerCompliance.isCompliant ? "Designer compliant" : "Not Designer-compliant"}
+                    </Badge>
                     <span className="text-xs text-muted-foreground">{[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}</span>
                     <SkuBadge style={s} />
                   </div>
+                  {!designerCompliance.isCompliant && (
+                    <p className="mt-1 text-xs font-medium text-red-800">Designer requirement: {designerCompliance.reason}</p>
+                  )}
                   <div className="mt-1 min-w-0"><SourceAttribution style={s} /></div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
@@ -1408,7 +1407,8 @@ export default function FeaturedStylesAdmin() {
                   </Button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

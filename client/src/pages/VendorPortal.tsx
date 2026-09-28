@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect, FormEvent, createContext, useContext } from "react";
 import {
   LayoutDashboard, Package, Palette, Star, ClipboardList, Upload,
-  Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, Loader2,
+  Eye, EyeOff, Search, DollarSign, ImageIcon, Check, X, AlertTriangle, Loader2,
 	  PlusCircle, Plus, ArrowLeft, ArrowUp, ArrowDown, GripVertical, Truck, MapPin, FileSpreadsheet, Download, BarChart3, Pencil, Trash2, RotateCcw,
 	  Sparkles, Clock, CheckCircle2, Send, Link2, CreditCard, FileText, ExternalLink, Ruler,
 } from "lucide-react";
@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
+import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
 
 // ─── Admin Distributor Context ───────────────────────────────────────────────
 const AdminDistributorContext = createContext<number | undefined>(undefined);
@@ -2149,22 +2150,40 @@ function VendorFeaturedStylesPage() {
 	            {hasActiveFilters ? "No featured cabinet lines match these cabinet filters." : "No featured cabinet lines yet. Add a room-scene-ready style from your cabinet catalog below."}
           </div>
         ) : (
-          <ul className="space-y-2">
-            {featured.map((style, index) => {
-              const image = vendorStyleThumb(style);
-              return (
-                <li key={style.id} className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
-                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
-                  {image ? <img src={image} alt={style.ourName} className="h-12 w-12 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="h-12 w-12 shrink-0 rounded bg-muted" />}
-                  <div className="min-w-0 flex-1">
+	          <ul className="space-y-2">
+	            {featured.map((style, index) => {
+	              const image = vendorStyleThumb(style);
+	              const designerCompliance = designerFrameCompliance(style);
+	              return (
+	                <li
+	                  key={style.id}
+	                  data-testid={designerCompliance.isCompliant ? "vendor-featured-style-designer-compliant" : "vendor-featured-style-designer-noncompliant"}
+	                  className={`flex items-center gap-3 rounded-lg border p-2.5 ${designerCompliance.isCompliant ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
+	                >
+	                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
+	                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
+	                  {image ? <img src={image} alt={style.ourName} className="h-12 w-12 shrink-0 rounded object-cover ring-1 ring-border" /> : <div className="h-12 w-12 shrink-0 rounded bg-muted" />}
+	                  <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{style.ourName}</p>
 	                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
 	                      <Badge variant="outline" className="border-blue-300 bg-blue-50 px-1.5 py-0 text-[10px] text-blue-700"><Package className="mr-0.5 h-2.5 w-2.5" /> {style.skuCount} cabinet SKU{style.skuCount === 1 ? "" : "s"}</Badge>
 	                      <Badge variant="outline" className="border-emerald-300 bg-emerald-50 px-1.5 py-0 text-[10px] text-emerald-700"><ImageIcon className="mr-0.5 h-2.5 w-2.5" /> Room scene ready</Badge>
+	                      <Badge
+	                        variant="outline"
+	                        className={designerCompliance.isCompliant
+	                          ? "border-sky-300 bg-sky-50 px-1.5 py-0 text-[10px] text-sky-700"
+	                          : "border-red-400 bg-red-100 px-1.5 py-0 text-[10px] font-semibold text-red-800"}
+	                        title={designerCompliance.isCompliant
+	                          ? "Verified rail, stile, and official citation will drive the Designer frame for this style."
+	                          : `Not Designer-compliant: ${designerCompliance.reason}`}
+	                      >
+	                        {!designerCompliance.isCompliant && <AlertTriangle className="mr-0.5 h-2.5 w-2.5" />}
+	                        {designerCompliance.isCompliant ? "Designer compliant" : "Not Designer-compliant"}
+	                      </Badge>
 	                      {style.catalogCategories.slice(0, 2).map((category) => <Badge key={category} variant="secondary" className="px-1.5 py-0 text-[10px]">{category}</Badge>)}
 	                      <span className="text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</span>
 	                    </div>
+	                    {!designerCompliance.isCompliant && <p className="mt-1 text-xs font-medium text-red-800">Designer requirement: {designerCompliance.reason}</p>}
 	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="mt-1 truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")} {style.matchingCabinetCount > style.matchingCabinets.length ? `+${style.matchingCabinetCount - style.matchingCabinets.length} more` : ""}</p>}
 	                  </div>
 			                  <div className="flex shrink-0 items-center gap-1">

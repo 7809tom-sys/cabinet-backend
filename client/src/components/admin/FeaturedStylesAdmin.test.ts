@@ -31,10 +31,11 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
   });
 
 		it("shows the curated room-scene list whether each style has a complete Designer frame entry", () => {
-		  expect(adminSource).toContain('"Designer frame ready"');
-		  expect(adminSource).toContain('"Designer frame partial"');
-		  expect(adminSource).toContain('"Designer frame blank"');
-		  expect(adminSource).toContain("Verified rail and stile values will drive the Designer frame");
+		  expect(adminSource).toContain("designerFrameCompliance");
+		  expect(adminSource).toContain('"featured-style-designer-noncompliant"');
+		  expect(adminSource).toContain("border-red-400 bg-red-50/80");
+		  expect(adminSource).toContain('"Not Designer-compliant"');
+		  expect(adminSource).toContain("Designer requirement:");
 		});
 
 		it("requires an exact official citation before a complete frame can render", () => {

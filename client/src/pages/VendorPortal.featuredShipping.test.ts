@@ -63,18 +63,27 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    expect(editor).toContain("Save origins");
 	  });
 
-	  it("gives vendors a visible Featured Style materials edit action instead of an icon-only control", () => {
-	    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
-	    expect(featuredPage).toContain('data-testid="vendor-featured-style-edit-help"');
+		it("gives vendors a visible Featured Style materials edit action instead of an icon-only control", () => {
+		    const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
+		    expect(featuredPage).toContain('data-testid="vendor-featured-style-edit-help"');
 	    expect(featuredPage).toContain("Edit your line directly.");
 	    expect(featuredPage).toContain("Edit materials");
 	    expect(featuredPage).toContain("VendorFeaturedStyleEditor");
 	    const editor = source.slice(source.indexOf("function VendorFeaturedStyleEditor"), source.indexOf("function VendorFeaturedStylesPage"));
 	    expect(editor).toContain("trpc.distributorPortal.updateFeaturedStyleMaterials.useMutation");
-	    expect(editor).toContain("Save Featured Style");
-	  });
+		    expect(editor).toContain("Save Featured Style");
+		  });
 
-	  it("makes both editing areas reachable from the vendor dashboard and preserves the chosen section", () => {
+		it("highlights featured styles that cannot use a source-bound Designer frame in red", () => {
+		  const featuredPage = source.slice(source.indexOf("function VendorFeaturedStylesPage"), source.indexOf("// ─── Shipping Page"));
+		  expect(featuredPage).toContain("designerFrameCompliance(style)");
+		  expect(featuredPage).toContain('"vendor-featured-style-designer-noncompliant"');
+		  expect(featuredPage).toContain("border-red-400 bg-red-50/80");
+		  expect(featuredPage).toContain('"Not Designer-compliant"');
+		  expect(featuredPage).toContain("Designer requirement:");
+		});
+
+		it("makes both editing areas reachable from the vendor dashboard and preserves the chosen section", () => {
 	    const overview = source.slice(source.indexOf("function OverviewPage"), source.indexOf("// ─── Catalog Page"));
 	    expect(overview).toContain('data-testid="vendor-editing-shortcuts"');
 	    expect(overview).toContain("Manage Featured Styles");
