@@ -5,6 +5,7 @@ import {
   countertopSurfacePlanPolygon,
   countertopSurfaces,
   customWallCabinetSide,
+  paletteActiveWallPlacement,
   wallPlacementAt,
   type PlacedCabinet,
   type RoomData,
@@ -47,6 +48,23 @@ describe("Continuous Wall Builder placement parity", () => {
 
     // The measured second wall is x=100. Its inside face is west; the cabinet
     // body must end on x=100, never begin there and extend beyond the room.
+    expect(spot).toMatchObject({ x: 76, y: 39, rotation: 90, wallId: wall.id, wallOffset: 0 });
+  });
+
+  it("uses that same inside face for a direct catalog add on the selected wall", () => {
+    const room = drawnRoom("left90");
+    const wall = room.customWalls![1]!;
+
+    const spot = paletteActiveWallPlacement(
+      wall.id as never,
+      room,
+      [],
+      [],
+      21,
+      24,
+      "base",
+    );
+
     expect(spot).toMatchObject({ x: 76, y: 39, rotation: 90, wallId: wall.id, wallOffset: 0 });
   });
 
