@@ -1756,6 +1756,11 @@ export function threeDRoomWallSideFromObject(object: THREE.Object3D | null | und
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
 export const THREE_D_WALL_OPACITY = 0.72;
 export const THREE_D_WALL_DEPTH_WRITE = false;
+// Full-height room planes are useful when intentionally requested, but they
+// should never obscure the cabinet layout on first load. The perimeter edges,
+// floor, and actual cabinet geometry still establish the room while the clear
+// stage preserves an unobstructed working view on desktop, tablet, and mobile.
+export const THREE_D_ROOM_CONTEXT_DEFAULT = false;
 
 /** Keeps the orbit camera outside the furnished room envelope at every supported room size. */
 export function threeDCameraDistanceLimits(maxSpan: number) {
@@ -7768,7 +7773,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  const [resetKey, setResetKey] = useState(0);
 	  const [cameraReadyKey, setCameraReadyKey] = useState(0);
 	  const [cameraPreset, setCameraPreset] = useState<ThreeDCameraPreset>("presentation");
-  const [showRoomContext, setShowRoomContext] = useState(true);
+	  const [showRoomContext, setShowRoomContext] = useState(THREE_D_ROOM_CONTEXT_DEFAULT);
   const [wallHeightIn, setWallHeightIn] = useState(() => constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
   const [wallHeights, setWallHeights] = useState<Record<WallSide, number>>(() => resolvedThreeDWallHeights(roomOverride, wallHeightIn));
   const [webglUnavailable, setWebglUnavailable] = useState(false);
@@ -8306,7 +8311,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
-	    const wallMaterial = new THREE.MeshStandardMaterial({ color: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roughness: hasRoomWallAppearance ? resolvedRoomWallAppearance.roughness : 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0.055, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+	    const wallMaterial = new THREE.MeshStandardMaterial({ color: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roughness: hasRoomWallAppearance ? resolvedRoomWallAppearance.roughness : 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0, depthWrite: THREE_D_WALL_DEPTH_WRITE });
     const roomEdgeMaterial = new THREE.MeshStandardMaterial({ color: "#d1cbc1", roughness: 0.58, metalness: 0.04 });
     const measuredWallSegments = threeDMeasuredWallSegments(roomOverride);
     const explicitWallSegments = measuredWallSegments.length
@@ -8335,7 +8340,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       wall.position.set(transform.x, transform.y, transform.z);
       wall.rotation.y = transform.rotationY;
 	      wall.userData = { roomWall: true, physicalWallSide: side, customWallId: customWall?.id ?? null, wallHeightIn: typeof customWallHeight === "number" ? customWallHeight : wallHeights[side], roomWallColor: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null };
-      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0.025;
+      if (index > 1) (wall.material as THREE.MeshStandardMaterial).opacity = showRoomContext ? 0.18 : 0;
       threeScene.add(wall);
       const baseboard = new THREE.Mesh(new THREE.BoxGeometry(length, 0.08, 0.05), roomEdgeMaterial);
       baseboard.position.set(transform.x, 0.04, transform.z);
