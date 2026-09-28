@@ -41,6 +41,7 @@ import { canViewAffiliatePrivateCost } from "../lib/affiliatePrivateCost";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
@@ -1063,19 +1064,56 @@ export const doorStylesRouter = router({
             return { style: scrubDoorStyle(style), items };
     }),
 
-  // Admin: SKU count per door style (how many line items each style carries).
+  // Admin: catalog and Designer-readiness count per door style. Readiness uses
+  // the same source-SKU and canonical-master gates as the actual palette.
   skuCountsByStyle: adminProcedure.query(async () => {
     const db = await getDb();
     if (!db) return [];
-    const rows = await db
-      .select({
-        styleId: distributorSkus.styleId,
-        skuCount: sql<number>`count(distinct ${distributorSkus.id})`,
-        cabinetCount: sql<number>`count(distinct ${distributorSkus.cabinetId})`,
-      })
-      .from(distributorSkus)
-      .groupBy(distributorSkus.styleId);
-    return rows;
+    const [sourceRows, aliases, masters] = await Promise.all([
+      db
+        .select({
+          skuId: distributorSkus.id,
+          styleId: distributorSkus.styleId,
+          cabinetId: distributorSkus.cabinetId,
+          sourceMasterCode: cabinets.masterCode,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          listPrice: distributorSkus.listPrice,
+          yourCost: distributorSkus.yourCost,
+          sourceConflictStatus: cabinets.conflictStatus,
+        })
+        .from(distributorSkus)
+        .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId)),
+      db
+        .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+        .from(skuMasterAliases)
+        .where(eq(skuMasterAliases.conflictStatus, "ok")),
+      db
+        .select({
+          masterCode: cabinets.masterCode,
+          isActive: cabinets.isActive,
+          showInDesigner: cabinets.showInDesigner,
+          conflictStatus: cabinets.conflictStatus,
+        })
+        .from(cabinets),
+    ]);
+    const readinessBySku = designerCabinetReadinessBySku(sourceRows, aliases, masters);
+    const byStyle = new Map<number, { skuCount: number; cabinetIds: Set<number>; readinessByMaster: Map<string, boolean> }>();
+    for (const row of sourceRows) {
+      const current = byStyle.get(row.styleId) ?? { skuCount: 0, cabinetIds: new Set<number>(), readinessByMaster: new Map<string, boolean>() };
+      current.skuCount += 1;
+      if (row.cabinetId != null) current.cabinetIds.add(row.cabinetId);
+      const readiness = readinessBySku.get(row.skuId);
+      const identity = readiness?.canonicalMasterCode ?? row.sourceMasterCode;
+      if (identity) current.readinessByMaster.set(identity, current.readinessByMaster.get(identity) === true || readiness?.isCompliant === true);
+      byStyle.set(row.styleId, current);
+    }
+    return Array.from(byStyle, ([styleId, value]) => ({
+      styleId,
+      skuCount: value.skuCount,
+      cabinetCount: value.cabinetIds.size,
+      designerNoncompliantCabinetCount: Array.from(value.readinessByMaster.values()).filter((isCompliant) => !isCompliant).length,
+    }));
   }),
 
   // Admin: quick catalog preview for a door style — returns all SKUs with cost/retail prices.
@@ -1107,32 +1145,55 @@ export const doorStylesRouter = router({
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
         .where(whereClause);
 
-      const rows = await db
-        .select({
-          skuId: distributorSkus.id,
-          platformSku: distributorSkus.platformSku,
-          masterCode: cabinets.masterCode,
-          description: cabinets.description,
-          category: cabinets.category,
-          width: cabinets.width,
-          height: cabinets.height,
-          depth: cabinets.depth,
-          yourCost: distributorSkus.yourCost,
-          listPrice: distributorSkus.listPrice,
-          wholesalePrice: distributorSkus.wholesalePrice,
-          contractorPrice: distributorSkus.contractorPrice,
-          homeownerPrice: distributorSkus.homeownerPrice,
-          isAvailable: distributorSkus.isAvailable,
-          isPublished: distributorSkus.isPublished,
-        })
-        .from(distributorSkus)
-        .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(whereClause)
-        .orderBy(asc(cabinets.masterCode))
-        .limit(input.pageSize)
-        .offset(offset);
+      const [rows, aliases, masters] = await Promise.all([
+        db
+          .select({
+            skuId: distributorSkus.id,
+            platformSku: distributorSkus.platformSku,
+            masterCode: cabinets.masterCode,
+            description: cabinets.description,
+            category: cabinets.category,
+            width: cabinets.width,
+            height: cabinets.height,
+            depth: cabinets.depth,
+            yourCost: distributorSkus.yourCost,
+            listPrice: distributorSkus.listPrice,
+            wholesalePrice: distributorSkus.wholesalePrice,
+            contractorPrice: distributorSkus.contractorPrice,
+            homeownerPrice: distributorSkus.homeownerPrice,
+            isAvailable: distributorSkus.isAvailable,
+            isPublished: distributorSkus.isPublished,
+            sourceMasterCode: cabinets.masterCode,
+            sourceConflictStatus: cabinets.conflictStatus,
+          })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
+          .where(whereClause)
+          .orderBy(asc(cabinets.masterCode))
+          .limit(input.pageSize)
+          .offset(offset),
+        db
+          .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+          .from(skuMasterAliases)
+          .where(eq(skuMasterAliases.conflictStatus, "ok")),
+        db
+          .select({
+            masterCode: cabinets.masterCode,
+            isActive: cabinets.isActive,
+            showInDesigner: cabinets.showInDesigner,
+            conflictStatus: cabinets.conflictStatus,
+          })
+          .from(cabinets),
+      ]);
+      const readinessBySku = designerCabinetReadinessBySku(rows, aliases, masters);
 
-      return { rows, total: Number(total) };
+      return {
+        rows: rows.map((row) => ({
+          ...row,
+          ...readinessBySku.get(row.skuId),
+        })),
+        total: Number(total),
+      };
     }),
 
   // Admin: permanently delete a door style. Only allowed if no SKUs reference it.

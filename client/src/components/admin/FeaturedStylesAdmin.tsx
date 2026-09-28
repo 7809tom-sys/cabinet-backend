@@ -155,15 +155,16 @@ function CatalogPreviewModal({
                   <TableHead className="w-24 text-right text-amber-700 font-semibold">Your Cost</TableHead>
                   <TableHead className="w-24 text-right">List</TableHead>
                   <TableHead className="w-24 text-right">Wholesale</TableHead>
-                  <TableHead className="w-24 text-right">Contractor</TableHead>
-                  <TableHead className="w-24 text-right">Homeowner</TableHead>
-                  <TableHead className="w-16 text-center">Avail</TableHead>
-                </TableRow>
+	                  <TableHead className="w-24 text-right">Contractor</TableHead>
+	                  <TableHead className="w-24 text-right">Homeowner</TableHead>
+	                  <TableHead className="w-16 text-center">Avail</TableHead>
+	                  <TableHead className="w-48">Designer</TableHead>
+	                </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.skuId} className="text-xs">
-                    <TableCell className="font-mono font-medium sticky left-0 bg-background">{row.masterCode}</TableCell>
+	                {rows.map((row) => (
+	                  <TableRow key={row.skuId} data-testid={row.isCompliant ? "featured-cabinet-designer-compliant" : "featured-cabinet-designer-noncompliant"} className={`text-xs ${row.isCompliant ? "" : "bg-red-50/80"}`}>
+	                    <TableCell className={`font-mono font-medium sticky left-0 ${row.isCompliant ? "bg-background" : "bg-red-50"}`}>{row.canonicalMasterCode ?? row.masterCode}</TableCell>
                     <TableCell className="max-w-[220px] truncate text-muted-foreground" title={row.description}>{row.description}</TableCell>
                     <TableCell className="text-right text-muted-foreground whitespace-nowrap">
                       {[row.width, row.height].filter(Boolean).map(Number).filter(Number.isFinite).join('×') || '—'}
@@ -173,14 +174,21 @@ function CatalogPreviewModal({
                     <TableCell className="text-right">{fmt(row.wholesalePrice)}</TableCell>
                     <TableCell className="text-right">{fmt(row.contractorPrice)}</TableCell>
                     <TableCell className="text-right">{fmt(row.homeownerPrice)}</TableCell>
-                    <TableCell className="text-center">
+	                    <TableCell className="text-center">
                       {row.isAvailable && row.isPublished ? (
                         <span className="text-emerald-600 font-medium">✓</span>
                       ) : (
                         <span className="text-muted-foreground/40">—</span>
                       )}
-                    </TableCell>
-                  </TableRow>
+	                    </TableCell>
+	                    <TableCell>
+	                      {row.isCompliant ? (
+	                        <span className="font-medium text-emerald-700">Designer ready</span>
+	                      ) : (
+	                        <span className="font-medium text-red-800">Not Designer-compliant: {row.reason ?? "readiness could not be verified"}</span>
+	                      )}
+	                    </TableCell>
+	                  </TableRow>
                 ))}
               </TableBody>
             </Table>
@@ -1071,12 +1079,16 @@ export default function FeaturedStylesAdmin() {
 
   const styles = useMemo(() => (data ?? []) as unknown as AdminStyle[], [data]);
 
-  // Build a map of styleId -> { skuCount, cabinetCount }
-  const countMap = useMemo(() => {
-    const map = new Map<number, { skuCount: number; cabinetCount: number }>();
-    if (skuCounts) {
-      for (const row of skuCounts) {
-        map.set(row.styleId, { skuCount: Number(row.skuCount), cabinetCount: Number(row.cabinetCount) });
+	  // Build a map of styleId -> catalog counts plus exact Designer cabinet holds.
+	  const countMap = useMemo(() => {
+	    const map = new Map<number, { skuCount: number; cabinetCount: number; designerNoncompliantCabinetCount: number }>();
+	    if (skuCounts) {
+	      for (const row of skuCounts) {
+	        map.set(row.styleId, {
+	          skuCount: Number(row.skuCount),
+	          cabinetCount: Number(row.cabinetCount),
+	          designerNoncompliantCabinetCount: Number(row.designerNoncompliantCabinetCount ?? 0),
+	        });
       }
     }
     return map;
@@ -1213,8 +1225,8 @@ export default function FeaturedStylesAdmin() {
   }
 
   // SKU count badge helper — clickable to open the catalog preview modal
-  function SkuBadge({ style: s }: { style: AdminStyle }) {
-    const counts = countMap.get(s.id);
+	  function SkuBadge({ style: s }: { style: AdminStyle }) {
+	    const counts = countMap.get(s.id);
     if (!counts || counts.skuCount === 0) {
       return (
         <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-orange-300 text-orange-600 bg-orange-50">
@@ -1222,17 +1234,18 @@ export default function FeaturedStylesAdmin() {
         </Badge>
       );
     }
-    return (
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setPreviewStyle(s); }}
-        title="Click to preview catalog items with pricing"
-        className="inline-flex items-center"
-      >
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-blue-300 text-blue-700 bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors">
-          <Package className="h-2.5 w-2.5 mr-0.5" />
-          {counts.skuCount} SKUs
-        </Badge>
+	    const hasDesignerHolds = counts.designerNoncompliantCabinetCount > 0;
+	    return (
+	      <button
+	        type="button"
+	        onClick={(e) => { e.stopPropagation(); setPreviewStyle(s); }}
+	        title={hasDesignerHolds ? "Click to review highlighted cabinets that are not Designer-compliant" : "Click to preview catalog items with pricing"}
+	        className="inline-flex items-center"
+	      >
+	        <Badge data-testid={hasDesignerHolds ? "featured-cabinet-count-designer-noncompliant" : "featured-cabinet-count-designer-compliant"} variant="outline" className={`text-[10px] px-1.5 py-0 cursor-pointer transition-colors ${hasDesignerHolds ? "border-red-400 bg-red-100 font-semibold text-red-800 hover:bg-red-200" : "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"}`}>
+	          {hasDesignerHolds ? <AlertTriangle className="h-2.5 w-2.5 mr-0.5" /> : <Package className="h-2.5 w-2.5 mr-0.5" />}
+	          {hasDesignerHolds ? `${counts.designerNoncompliantCabinetCount} cabinet hold${counts.designerNoncompliantCabinetCount === 1 ? "" : "s"}` : `${counts.skuCount} SKUs`}
+	        </Badge>
       </button>
     );
   }
@@ -1292,15 +1305,17 @@ export default function FeaturedStylesAdmin() {
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
             No curated homepage scenes yet. Add a room-scene-ready style from the list below.
           </div>
-        ) : (
-          <ul className="space-y-2">
-            {featured.map((s, i) => {
-              const designerCompliance = designerFrameCompliance(s);
-              return (
-              <li
-                key={s.id}
-                data-testid={designerCompliance.isCompliant ? "featured-style-designer-compliant" : "featured-style-designer-noncompliant"}
-                className={`flex items-center gap-3 rounded-lg border p-2.5 ${designerCompliance.isCompliant ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
+	        ) : (
+	          <ul className="space-y-2">
+	            {featured.map((s, i) => {
+	              const designerCompliance = designerFrameCompliance(s);
+	              const cabinetHoldCount = countMap.get(s.id)?.designerNoncompliantCabinetCount ?? 0;
+	              const allDesignerCompliant = designerCompliance.isCompliant && cabinetHoldCount === 0;
+	              return (
+	              <li
+	                key={s.id}
+	                data-testid={allDesignerCompliant ? "featured-style-designer-compliant" : "featured-style-designer-noncompliant"}
+	                className={`flex items-center gap-3 rounded-lg border p-2.5 ${allDesignerCompliant ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
               >
                 <span className="flex items-center justify-center h-6 w-6 rounded bg-primary/10 text-primary text-xs font-bold shrink-0">
                   {i + 1}
@@ -1357,10 +1372,13 @@ export default function FeaturedStylesAdmin() {
                     <span className="text-xs text-muted-foreground">{[s.doorStyle, s.color, s.finish].filter(Boolean).join(" · ")}</span>
                     <SkuBadge style={s} />
                   </div>
-                  {!designerCompliance.isCompliant && (
-                    <p className="mt-1 text-xs font-medium text-red-800">Designer requirement: {designerCompliance.reason}</p>
-                  )}
-                  <div className="mt-1 min-w-0"><SourceAttribution style={s} /></div>
+	                  {!designerCompliance.isCompliant && (
+	                    <p className="mt-1 text-xs font-medium text-red-800">Designer requirement: {designerCompliance.reason}</p>
+	                  )}
+	                  {cabinetHoldCount > 0 && (
+	                    <p className="mt-1 text-xs font-medium text-red-800">Designer cabinet requirement: {cabinetHoldCount} catalog cabinet{cabinetHoldCount === 1 ? " is" : "s are"} held. Open the red cabinet-hold badge to see every highlighted item and its exact reason.</p>
+	                  )}
+	                  <div className="mt-1 min-w-0"><SourceAttribution style={s} /></div>
                 </div>
                 <div className="flex items-center gap-1 shrink-0">
                   {/* Quick-edit button */}

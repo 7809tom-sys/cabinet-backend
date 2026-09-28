@@ -83,6 +83,14 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 		  expect(featuredPage).toContain("Designer requirement:");
 		});
 
+		it("shows every featured cabinet's exact Designer readiness, not only the door-frame warning", () => {
+		  expect(source).toContain("function FeaturedCabinetDesignerReadiness");
+		  expect(source).toContain("designerNoncompliantCabinetCount");
+		  expect(source).toContain('"vendor-featured-cabinets-designer-noncompliant"');
+		  expect(source).toContain('"vendor-featured-cabinet-designer-noncompliant"');
+		  expect(source).toContain("Not Designer-compliant:");
+		});
+
 		it("makes both editing areas reachable from the vendor dashboard and preserves the chosen section", () => {
 	    const overview = source.slice(source.indexOf("function OverviewPage"), source.indexOf("// ─── Catalog Page"));
 	    expect(overview).toContain('data-testid="vendor-editing-shortcuts"');

@@ -482,10 +482,16 @@ describe("distributorPortal — scoped data + visibility toggle", () => {
 	      caller.distributorPortal.featuredStyles(),
 	      caller.distributorPortal.shippingOverview(),
 	    ]);
-	    for (const style of featuredResult.styles) {
-	      expect(ownStyleIds.has(style.id)).toBe(true);
-	      expect(style.skuCount).toBeGreaterThan(0);
-	    }
+		    for (const style of featuredResult.styles) {
+		      expect(ownStyleIds.has(style.id)).toBe(true);
+		      expect(style.skuCount).toBeGreaterThan(0);
+		      expect(style.designerCabinets.length).toBeGreaterThan(0);
+		      expect(style.designerNoncompliantCabinetCount).toBeGreaterThanOrEqual(0);
+		      for (const cabinet of style.designerCabinets) {
+		        expect(typeof cabinet.isCompliant).toBe("boolean");
+		        if (!cabinet.isCompliant) expect(typeof cabinet.reason).toBe("string");
+		      }
+		    }
 	    expect(shipping.line.id).toBe(lineA.id);
 	    for (const style of shipping.styles) expect(ownStyleIds.has(style.id)).toBe(true);
 

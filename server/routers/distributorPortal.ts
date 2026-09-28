@@ -15,8 +15,9 @@ import {
 	  users,
   orderRequests,
   kitchenDesigns,
-  aiServiceRequests,
-} from "../../drizzle/schema";
+	  aiServiceRequests,
+	  skuMasterAliases,
+	} from "../../drizzle/schema";
 import { storagePut } from "../storage";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { matchVendorCabinetBySku, hasVendorPrice, buildUnmatchedPlatformSku } from "../vendorProductSubmission";
@@ -31,6 +32,7 @@ import {
   type DistributorShippingRuleMode,
 } from "@shared/distributorShipping";
 import { approvedVendorMatchesDistributor } from "../lib/approvedVendorAccess";
+import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 
 /**
  * Resolve the supply line this request operates on.
@@ -411,6 +413,7 @@ export const distributorPortalRouter = router({
 	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input?.distributorId);
 	    const catalogRows = await db
 	      .select({
+	        skuId: distributorSkus.id,
 	        styleId: distributorSkus.styleId,
 	        cabinetId: cabinets.id,
 	        masterCode: cabinets.masterCode,
@@ -418,6 +421,11 @@ export const distributorPortalRouter = router({
 	        category: cabinets.category,
 	        platformSku: distributorSkus.platformSku,
 	        distributorSku: distributorSkus.distributorSku,
+	        isAvailable: distributorSkus.isAvailable,
+	        isPublished: distributorSkus.isPublished,
+	        listPrice: distributorSkus.listPrice,
+	        yourCost: distributorSkus.yourCost,
+	        sourceConflictStatus: cabinets.conflictStatus,
 	      })
 	      .from(distributorSkus)
 	      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
@@ -460,7 +468,7 @@ export const distributorPortalRouter = router({
 	      .filter((id): id is number => id != null)));
 	    if (styleIds.length === 0) return { styles: [], categories };
 
-	    const [styles, scenes] = await Promise.all([
+	    const [styles, scenes, aliases, masters] = await Promise.all([
 	      db
 	        .select({
 	          id: doorStyles.id,
@@ -509,7 +517,32 @@ export const distributorPortalRouter = router({
 	        .from(doorStyleRoomScenes)
 	        .where(inArray(doorStyleRoomScenes.styleId, styleIds))
 	        .orderBy(doorStyleRoomScenes.sortOrder, doorStyleRoomScenes.id),
+	      db
+	        .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
+	        .from(skuMasterAliases)
+	        .where(eq(skuMasterAliases.conflictStatus, "ok")),
+	      db
+	        .select({
+	          masterCode: cabinets.masterCode,
+	          isActive: cabinets.isActive,
+	          showInDesigner: cabinets.showInDesigner,
+	          conflictStatus: cabinets.conflictStatus,
+	        })
+	        .from(cabinets),
 	    ]);
+	    const readinessBySku = designerCabinetReadinessBySku(
+	      catalogRows.map((row) => ({
+	        skuId: row.skuId,
+	        sourceMasterCode: row.masterCode,
+	        isAvailable: row.isAvailable,
+	        isPublished: row.isPublished,
+	        listPrice: row.listPrice,
+	        yourCost: row.yourCost,
+	        sourceConflictStatus: row.sourceConflictStatus,
+	      })),
+	      aliases,
+	      masters,
+	    );
 
 	    const catalogByStyle = new Map<number, typeof catalogRows>();
 	    const matchingByStyle = new Map<number, typeof matchingCatalogRows>();
@@ -533,12 +566,47 @@ export const distributorPortalRouter = router({
 	        const matchingCabinets = Array.from(new Map(matchingCatalog.map((row) => [row.cabinetId, row])).values())
 	          .slice(0, 3)
 	          .map((row) => ({ masterCode: row.masterCode, description: row.description, category: row.category }));
+	        const designerCabinetsByMaster = new Map<string, {
+	          masterCode: string;
+	          description: string;
+	          category: string;
+	          distributorSku: string;
+	          platformSku: string;
+	          isCompliant: boolean;
+	          reason: string | null;
+	          canonicalMasterCode: string | null;
+	        }>();
+	        for (const row of allCatalog) {
+	          const readiness = readinessBySku.get(row.skuId) ?? {
+	            isCompliant: false,
+	            reason: "Designer readiness could not be verified",
+	            canonicalMasterCode: null,
+	          };
+	          const masterCode = readiness.canonicalMasterCode ?? row.masterCode;
+	          const existing = designerCabinetsByMaster.get(masterCode);
+	          // A canonical cabinet is selectable when any one exact SKU for this
+	          // style can supply it; a stale alias does not make it falsely red.
+	          if (!existing || (!existing.isCompliant && readiness.isCompliant)) {
+	            designerCabinetsByMaster.set(masterCode, {
+	              masterCode,
+	              description: row.description,
+	              category: row.category,
+	              distributorSku: row.distributorSku,
+	              platformSku: row.platformSku,
+	              ...readiness,
+	            });
+	          }
+	        }
+	        const designerCabinets = Array.from(designerCabinetsByMaster.values())
+	          .sort((left, right) => left.masterCode.localeCompare(right.masterCode));
 	        return {
 	          ...style,
 	          skuCount: allCatalog.length,
 	          catalogCategories: Array.from(categoriesByStyle.get(style.id) ?? []).sort((left, right) => left.localeCompare(right)),
 	          matchingCabinetCount: new Set(matchingCatalog.map((row) => row.cabinetId)).size,
 	          matchingCabinets,
+	          designerCabinets,
+	          designerNoncompliantCabinetCount: designerCabinets.filter((cabinet) => !cabinet.isCompliant).length,
 	          roomScenes: scenes.filter((scene) => scene.styleId === style.id),
 	        };
 	      }),

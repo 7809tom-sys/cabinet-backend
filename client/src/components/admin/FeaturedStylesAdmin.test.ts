@@ -38,6 +38,15 @@ describe("FeaturedStylesAdmin room-scene libraries", () => {
 		  expect(adminSource).toContain("Designer requirement:");
 		});
 
+		it("highlights every individual featured cabinet that cannot enter the Designer", () => {
+		  expect(adminSource).toContain("designerNoncompliantCabinetCount");
+		  expect(adminSource).toContain('"featured-cabinet-count-designer-noncompliant"');
+		  expect(adminSource).toContain('"featured-cabinet-designer-noncompliant"');
+		  expect(adminSource).toContain("Not Designer-compliant:");
+		  expect(adminSource).toContain("Designer cabinet requirement:");
+		  expect(adminSource).toContain("Open the red cabinet-hold badge");
+		});
+
 		it("requires an exact official citation before a complete frame can render", () => {
 		  expect(adminSource).toContain("Official frame source citation");
 		  expect(adminSource).toContain("Source citation needed");

@@ -1895,10 +1895,21 @@ type VendorFeaturedStyle = {
 	  profileDescription: string | null;
 	  sourceSpecification: string | null;
   isActive: boolean;
-  skuCount: number;
-  catalogCategories: string[];
-  matchingCabinetCount: number;
-  matchingCabinets: Array<{ masterCode: string; description: string; category: string }>;
+	  skuCount: number;
+	  catalogCategories: string[];
+	  matchingCabinetCount: number;
+	  matchingCabinets: Array<{ masterCode: string; description: string; category: string }>;
+	  designerCabinets: Array<{
+	    masterCode: string;
+	    description: string;
+	    category: string;
+	    distributorSku: string;
+	    platformSku: string;
+	    isCompliant: boolean;
+	    reason: string | null;
+	    canonicalMasterCode: string | null;
+	  }>;
+	  designerNoncompliantCabinetCount: number;
 	  roomScenes: Array<{ id: number; imageUrl: string; sortOrder: number; isVerified: boolean; isActive: boolean; sourceNote: string | null; sourceDistributorId: number | null }>;
 };
 
@@ -1910,6 +1921,41 @@ function vendorStyleThumb(style: VendorFeaturedStyle): string | null {
     || style.doorSampleImageUrl
     || style.thumbnailImageUrl
     || null;
+}
+
+/** Cabinet source-SKU holds are independent from a style's door-frame profile. */
+function FeaturedCabinetDesignerReadiness({ style }: { style: VendorFeaturedStyle }) {
+  const hasIssues = style.designerNoncompliantCabinetCount > 0;
+  return (
+    <details
+      data-testid={hasIssues ? "vendor-featured-cabinets-designer-noncompliant" : "vendor-featured-cabinets-designer-compliant"}
+      className={`mt-2 rounded-md border px-2.5 py-1.5 text-xs ${hasIssues ? "border-red-300 bg-red-50/80 text-red-900" : "border-emerald-200 bg-emerald-50/60 text-emerald-900"}`}
+      open={hasIssues}
+    >
+	  <summary className="cursor-pointer select-none font-medium">
+	        {hasIssues
+	          ? `${style.designerNoncompliantCabinetCount} of ${style.designerCabinets.length} featured cabinet${style.designerCabinets.length === 1 ? " is" : "s are"} not Designer-compliant`
+	          : `All ${style.designerCabinets.length} featured cabinet${style.designerCabinets.length === 1 ? " is" : "s are"} Designer-compliant`}
+      </summary>
+      <ul className="mt-2 space-y-1.5 border-t border-current/15 pt-2" aria-label={`${style.ourName} cabinet Designer readiness`}>
+        {style.designerCabinets.map((cabinet) => (
+          <li
+            key={cabinet.platformSku}
+            data-testid={cabinet.isCompliant ? "vendor-featured-cabinet-designer-compliant" : "vendor-featured-cabinet-designer-noncompliant"}
+            className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded px-1.5 py-1 ${cabinet.isCompliant ? "bg-white/60" : "bg-red-100 text-red-950"}`}
+          >
+            <span className="font-mono font-semibold">{cabinet.masterCode}</span>
+            <span className="truncate text-muted-foreground">{cabinet.description}</span>
+            {cabinet.isCompliant ? (
+              <span className="ml-auto shrink-0 font-medium text-emerald-700">Designer ready</span>
+            ) : (
+              <span className="ml-auto shrink-0 font-medium text-red-800">Not Designer-compliant: {cabinet.reason}</span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
 }
 
 /** The vendor-facing merchandising editor mirrors the internal Featured Styles
@@ -2154,11 +2200,12 @@ function VendorFeaturedStylesPage() {
 	            {featured.map((style, index) => {
 	              const image = vendorStyleThumb(style);
 	              const designerCompliance = designerFrameCompliance(style);
+	              const cabinetCompliance = style.designerNoncompliantCabinetCount === 0;
 	              return (
 	                <li
 	                  key={style.id}
-	                  data-testid={designerCompliance.isCompliant ? "vendor-featured-style-designer-compliant" : "vendor-featured-style-designer-noncompliant"}
-	                  className={`flex items-center gap-3 rounded-lg border p-2.5 ${designerCompliance.isCompliant ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
+	                  data-testid={designerCompliance.isCompliant && cabinetCompliance ? "vendor-featured-style-designer-compliant" : "vendor-featured-style-designer-noncompliant"}
+	                  className={`flex items-center gap-3 rounded-lg border p-2.5 ${designerCompliance.isCompliant && cabinetCompliance ? "border-border bg-card" : "border-red-400 bg-red-50/80"}`}
 	                >
 	                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-xs font-bold text-primary">{index + 1}</span>
 	                  <GripVertical className="h-4 w-4 shrink-0 text-muted-foreground/40" />
@@ -2184,6 +2231,7 @@ function VendorFeaturedStylesPage() {
 	                      <span className="text-xs text-muted-foreground">{[style.doorStyle, style.color, style.finish].filter(Boolean).join(" · ")}</span>
 	                    </div>
 	                    {!designerCompliance.isCompliant && <p className="mt-1 text-xs font-medium text-red-800">Designer requirement: {designerCompliance.reason}</p>}
+	                    <FeaturedCabinetDesignerReadiness style={style} />
 	                    {hasActiveFilters && style.matchingCabinets.length > 0 && <p className="mt-1 truncate text-[11px] text-primary">Matches: {style.matchingCabinets.map((cabinet) => cabinet.masterCode).join(", ")} {style.matchingCabinetCount > style.matchingCabinets.length ? `+${style.matchingCabinetCount - style.matchingCabinets.length} more` : ""}</p>}
 	                  </div>
 			                  <div className="flex shrink-0 items-center gap-1">
