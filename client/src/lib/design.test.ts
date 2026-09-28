@@ -30,7 +30,7 @@ import {
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
 	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
-  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
+	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement,
 } from "./design";
 
 const ROOM_12x10: RoomData = { width: 144, depth: 120 };
@@ -65,6 +65,24 @@ describe("floating-shelf legacy dimension repair", () => {
     };
     const normalized = normalizeFloatingShelfPlacement(staleFs48);
     expect(normalized).toMatchObject({ placement: "wall", width: 48, depth: 12, height: 2.06, numberOfDoors: 0, numberOfDrawers: 0 });
+  });
+
+  it("keeps WEOS0930 as a 9-by-30-by-12 wall-end shelf with two fixed shelves while retaining WOS0930's source attributes", () => {
+    const staleWeos0930: PlacedCabinet = {
+      uid: "stale-weos0930", cabinetId: 930, masterCode: "WEOS0930", description: "Versa Shaker Wall End Shelf",
+      placement: "base", x: 0, y: 0, width: 9, depth: 24, height: 2.06, rotation: 0,
+      numberOfDoors: 0, numberOfDrawers: 0,
+    };
+    const normalized = normalizeWallOpenShelfPlacement(staleWeos0930);
+    expect(isFloatingShelfItem(staleWeos0930)).toBe(false);
+    expect(isWallOpenShelfCabinet(staleWeos0930)).toBe(true);
+    expect(isPlaceableAccessory(staleWeos0930)).toBe(true);
+    expect(accessoryPlacement(staleWeos0930)).toBe("wall");
+    expect(normalized).toMatchObject({
+      placement: "wall", width: 9, height: 30, depth: 12,
+      numberOfDoors: 0, numberOfDrawers: 0, fixedShelfCount: 2,
+    });
+    expect(normalizeWallOpenShelfPlacement({ ...staleWeos0930, masterCode: "WOS0930" })).toMatchObject({ width: 9, height: 30, depth: 12 });
   });
 });
 

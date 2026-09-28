@@ -134,6 +134,7 @@ type SceneSku = {
   mountBottom?: number | null;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
+  fixedShelfCount?: number | null;
   adjustableShelfCount?: number | null;
   glassDoor?: boolean | null;
   doorOrientation?: "side-by-side" | "stacked" | null;
@@ -3094,6 +3095,37 @@ export function angledTransitionLocalFootprint(
   });
 }
 
+/**
+ * The source drawing for WEOS0930 shows a 9×30×12 wall-end shelf with a straight
+ * rear, open front, and a rounded front edge on each fixed interior shelf. This
+ * is a shelf board—not a photo texture or a generic box.
+ */
+export function wallEndOpenShelfBoardGeometry(
+  width: number,
+  depth: number,
+  thickness: number,
+  bowedFront = true,
+) {
+  if (!bowedFront) return new THREE.BoxGeometry(width, thickness, depth);
+  const halfWidth = width / 2;
+  const halfDepth = depth / 2;
+  // The catalog drawing's bow is centered in the 9-inch face and stays inside
+  // the 12-inch cabinet depth. Its side endpoints are 2 inches behind the
+  // foremost center point, keeping the shelf usable and physically plausible.
+  const bowDepth = Math.min(2 * INCH, Math.max(0.035, width * 0.22), depth * 0.28);
+  const sideFrontZ = halfDepth - bowDepth;
+  const shape = new THREE.Shape();
+  shape.moveTo(-halfWidth, -halfDepth);
+  shape.lineTo(halfWidth, -halfDepth);
+  shape.lineTo(halfWidth, sideFrontZ);
+  shape.quadraticCurveTo(0, halfDepth + bowDepth, -halfWidth, sideFrontZ);
+  shape.closePath();
+  const geometry = new THREE.ExtrudeGeometry(shape, { depth: thickness, bevelEnabled: false, steps: 1 });
+  geometry.rotateX(-Math.PI / 2);
+  geometry.translate(0, -thickness / 2, 0);
+  return geometry;
+}
+
 export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -3127,7 +3159,14 @@ export function addCabinet(
   const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
-  const isFloatingShelf = /floating\s*shelf|open\s*shelf/i.test(`${sku.masterCode ?? ""} ${sku.description ?? ""}`);
+  const openShelfCode = `${sku.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const isWallOpenShelf = /^W(?:E)?OS\d{4}$/.test(openShelfCode)
+    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b/i.test(`${sku.subCategory ?? ""} ${sku.description ?? ""}`);
+  const isWallEndOpenShelf = /^WEOS\d{4}$/.test(openShelfCode)
+    || /\bwall\s+end\s+(?:open\s+)?shelf\b/i.test(`${sku.subCategory ?? ""} ${sku.description ?? ""}`);
+  // A WOS/WEOS is a full-height wall cabinet with an open, curved-shelf
+  // carcass. Only explicit FS/floating-shelf items use the thin-shelf path.
+  const isFloatingShelf = !isWallOpenShelf && (/^FS[-_ ]?\d+(?:\.\d+)?$/i.test(sku.masterCode ?? "") || /floating\s*shelf/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""}`));
   const floatingShelfWidth = Number(/^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(sku.masterCode ?? "")?.[1]);
   const lCornerLegRatio = isWall ? 0.5 : 2 / 3;
   const widthIn = isFloatingShelf && Number.isFinite(floatingShelfWidth) && floatingShelfWidth > 0
@@ -3533,6 +3572,57 @@ export function addCabinet(
     toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
     toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
     cabinet.add(toeRecess);
+  } else if (isWallOpenShelf) {
+    // A wall open shelf is a full carcass, never a thin floating shelf. The
+    // WEOS wall-end source alone adds the source-documented bowed shelf fronts.
+    const panelThickness = Math.min(0.06, Math.max(0.035, Math.min(bodyWidth, bodyDepth) * 0.075));
+    const shelfThickness = Math.min(0.052, Math.max(0.028, bodyHeight * 0.022));
+    const interiorWidth = Math.max(0.08, bodyWidth - panelThickness * 2);
+    const interiorDepth = Math.max(0.08, bodyDepth - panelThickness);
+    const interiorHeight = Math.max(0.08, bodyHeight - shelfThickness * 2);
+    const addOpenShelfPart = (mesh: THREE.Mesh, data: Record<string, unknown>) => {
+      mesh.userData = {
+        wallOpenShelf: true,
+        wallEndOpenShelf: isWallEndOpenShelf,
+        catalogCurvedShelfAssembly: isWallEndOpenShelf,
+        selectedStyleSideSkin: true,
+        ...data,
+      };
+      cabinet.add(mesh);
+      bodyMeshes.push(mesh);
+    };
+    const top = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, shelfThickness, bodyDepth), bodyMaterial);
+    top.position.y = bodyHeight / 2 - shelfThickness / 2;
+    addOpenShelfPart(top, { wallOpenShelfPart: "top" });
+    const bottomShelf = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, shelfThickness, bodyDepth), bodyMaterial);
+    bottomShelf.position.y = -bodyHeight / 2 + shelfThickness / 2;
+    addOpenShelfPart(bottomShelf, { wallOpenShelfPart: "bottom" });
+    const back = new THREE.Mesh(new THREE.BoxGeometry(interiorWidth, interiorHeight, panelThickness), bodyMaterial);
+    back.position.z = -bodyDepth / 2 + panelThickness / 2;
+    addOpenShelfPart(back, { wallOpenShelfPart: "back" });
+    for (const side of [-1, 1] as const) {
+      const sidePanel = new THREE.Mesh(new THREE.BoxGeometry(panelThickness, interiorHeight, bodyDepth), bodyMaterial);
+      sidePanel.position.x = side * (bodyWidth / 2 - panelThickness / 2);
+      addOpenShelfPart(sidePanel, { wallOpenShelfPart: side === -1 ? "left-side" : "right-side" });
+    }
+    // WEOS0930 is cataloged with two fixed bow-front shelves. Standard WOS
+    // shelves use only their authored count; do not invent a count from a name.
+    const fixedShelfCount = isWallEndOpenShelf
+      ? Math.max(1, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 2) || 2)))
+      : Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0)));
+    for (let index = 0; index < fixedShelfCount; index += 1) {
+      const shelf = new THREE.Mesh(
+        wallEndOpenShelfBoardGeometry(interiorWidth, interiorDepth, shelfThickness, isWallEndOpenShelf),
+        bodyMaterial,
+      );
+      shelf.position.set(0, -bodyHeight / 2 + shelfThickness + (interiorHeight * (index + 1)) / (fixedShelfCount + 1), panelThickness / 2);
+      addOpenShelfPart(shelf, {
+        wallOpenShelfPart: "fixed-shelf",
+        wallOpenShelfFixedShelf: index + 1,
+        bowedFrontEdge: isWallEndOpenShelf,
+        sourceFixedShelfCount: fixedShelfCount,
+      });
+    }
   } else if (isFloatingShelf) {
     const shelfBody = new THREE.Mesh(
       new THREE.BoxGeometry(bodyWidth, Math.max(0.05, bodyHeight), bodyDepth),
@@ -3752,6 +3842,7 @@ export function addCabinet(
   // equally dimensional instead of relying on the Shaker rail overlay alone.
   const usesConstructedFaceFrame = placement !== "appliance"
     && !isRefrigeratorEndPanel
+    && !isWallOpenShelf
     && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
   if (usesConstructedFaceFrame) {
     const frameMaterial = new THREE.MeshStandardMaterial({ color: plainStructuralColor, roughness: 0.46, metalness: 0.01 });
@@ -3937,7 +4028,17 @@ export function addCabinet(
   };
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
-  if (isFloatingShelf) {
+  if (isWallOpenShelf) {
+    frontGroup.userData = {
+      ...frontGroup.userData,
+      wallOpenShelf: true,
+      wallEndOpenShelf: isWallEndOpenShelf,
+      noCabinetFronts: true,
+      sourceFixedShelfCount: isWallEndOpenShelf
+        ? Math.max(1, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 2) || 2)))
+        : Math.max(0, Math.min(4, Math.round(Number(sku.fixedShelfCount ?? 0) || 0))),
+    };
+  } else if (isFloatingShelf) {
     frontGroup.userData = { ...frontGroup.userData, floatingShelf: true, noCabinetFronts: true };
   } else if (isRefrigeratorEndPanel) {
     // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
@@ -7258,6 +7359,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     depth: cornerBody?.depth ?? footprint?.d ?? cabinet.depth ?? appliance?.depth,
     numberOfDoors: cabinet.numberOfDoors ?? null,
     numberOfDrawers: cabinet.numberOfDrawers ?? null,
+	    fixedShelfCount: cabinet.fixedShelfCount ?? null,
 	    adjustableShelfCount: glassDoorShelfCount(cabinet) || cabinet.adjustableShelfCount || null,
 	    glassDoor: isGlassDoorCabinet(cabinet),
     doorOrientation: cabinet.doorOrientation ?? null,

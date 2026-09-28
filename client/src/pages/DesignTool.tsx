@@ -102,11 +102,11 @@ import { cn } from "@/lib/utils";
 import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
-	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement,
+	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, missingRefrigeratorPanelRoles, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
-	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -2924,7 +2924,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // so the elevation view renders them as plain steel boxes (no door lines).
       const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
 	      const normalizedPlaced = rawPlaced.map((p) => {
-	        const shelf = normalizeFloatingShelfPlacement(p);
+	        const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
 	        return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
 	          ? { ...shelf, placement: "appliance" as const }
 	          : shelf;
@@ -4334,12 +4334,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
       // render as a thin board against the run rather than a full 24" box.
-      const isFloatingShelf = isFloatingShelfItem(c);
+	      const isFloatingShelf = isFloatingShelfItem(c);
+	      const isWallOpenShelf = isWallOpenShelfCabinet(c);
       // Floating shelves remain wall-mounted accessories even when a catalog
       // filter surfaces them from the Base tab. They must never inherit a base
       // run, an island face, or a room-center fallback from that filter state.
-      const isAccessory = ((forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c)) || isFloatingShelf;
-      const accPlacement = isFloatingShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
+	      const isAccessory = ((forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
+	      const accPlacement = isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
       const isFlatPanel = isAccessory && isPanelItem(c);
       const isFillerAccessory = isAccessory && isFillerItem(c);
       const catalogDimensions = resolvedDesignCabinetDimensions(c);
@@ -4350,7 +4351,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // A base filler reserves its complete cabinet-run depth. The 3D renderer
 	      // uses that reserved depth only to place the 3/4-inch board flush at the
 	      // front, so it cannot protrude from the dishwasher-side cabinet run.
-      const depth = isFloatingShelf ? STD.WALL_DEPTH : isFlatPanel ? 0.75 : isFillerAccessory ? (accPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
+	      const depth = isFloatingShelf || isWallOpenShelf ? STD.WALL_DEPTH : isFlatPanel ? 0.75 : isFillerAccessory ? (accPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH) : isAccessory ? footprintDepth(c) : catalogDimensions.depth;
       const height = isFloatingShelf ? 2.06 : isAccessory ? dim(c.height, standardHeight(accPlacement)) : catalogDimensions.height;
       // ── Build the new cabinet object OUTSIDE setPlaced so we can run side
       // effects (dialogs, toasts, sink auto-place) exactly once afterward.
@@ -9636,7 +9637,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (Array.isArray(d.placed)) {
             // Normalize appliance placement (same fix as loadSavedDesign)
 	            const normalizedDraft = (d.placed as PlacedCabinet[]).map((p) => {
-	              const shelf = normalizeFloatingShelfPlacement(p);
+	              const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
 	              return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
 	                ? { ...shelf, placement: "appliance" as const }
 	                : shelf;

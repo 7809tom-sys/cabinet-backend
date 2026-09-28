@@ -81,7 +81,7 @@ export function isPlaceableAccessory(c: {
   // They must be considered before the loose-trim exclusion because some vendor
   // catalogs file them under a broad Trim & Molding category.
   if (/\bf(?:ill)?[-_]?\d|\bfiller\b/.test(hay)) return true;
-  if (/floating shelf|\bopen shelf\b/.test(hay)) return true;
+  if (isFloatingShelfItem(c) || isWallOpenShelfCabinet(c)) return true;
   if (isLooseTrimItem(c)) return false;
   if (isPanelItem(c)) return true; // end panels / skins / decorative panels
   // Appliance garages sit on the counter as a real box.
@@ -92,15 +92,34 @@ export function isPlaceableAccessory(c: {
   return false;
 }
 
-/** A catalog shelf mounted independently on a wall. These pieces may share a
- * plan span only when their real elevation bands remain separate. */
+/** A thin, independently mounted floating shelf—not a full wall open-shelf cabinet. */
 export function isFloatingShelfItem(c: {
   description?: string | null;
   masterCode?: string | null;
   subCategory?: string | null;
 }): boolean {
-  const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
-  return /floating shelf|\bopen shelf\b/.test(hay);
+  const code = `${c.masterCode ?? ""}`.trim().toUpperCase();
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  return /^FS[-_ ]?\d+(?:\.\d+)?$/.test(code)
+    || /\bfloating\s+shelf\b/.test(hay)
+    || (/\bopen\s+shelf\b/.test(hay) && !isWallOpenShelfCabinet(c));
+}
+
+/**
+ * Catalog wall open-shelf cabinets are full-height, wall-mounted cabinet boxes.
+ * They must never be reduced to a 2.06-inch floating shelf just because their
+ * description includes "open shelf." The KitchenCrest WOS family is a standard
+ * wall-open shelf; a WEOS or an explicit Wall End Shelf is a distinct end form.
+ */
+export function isWallOpenShelfCabinet(c: {
+  description?: string | null;
+  masterCode?: string | null;
+  subCategory?: string | null;
+}): boolean {
+  const code = `${c.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const hay = `${c.subCategory ?? ""} ${c.description ?? ""}`.toLowerCase();
+  return /^W(?:E)?OS\d{4}$/.test(code)
+    || /\bwall\s+(?:end\s+)?open\s+shelf\b|\bwall\s+end\s+shelf\b/.test(hay);
 }
 
 export const KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN = 24;
@@ -144,6 +163,36 @@ export function normalizeFloatingShelfPlacement(cabinet: PlacedCabinet): PlacedC
   };
 }
 
+/**
+ * Restores stale WOS/WEOS placements that were once incorrectly normalized as
+ * thin floating shelves. The source nomenclature is width-first then height:
+ * WOS0930 / WEOS0930 = 9-inch wide × 30-inch high and a 12-inch wall depth.
+ * Only the explicit Wall End Shelf (WEOS) carries the verified bowed-front,
+ * two-fixed-shelf geometry; a standard WOS retains its own source attributes.
+ */
+export function normalizeWallOpenShelfPlacement(cabinet: PlacedCabinet): PlacedCabinet {
+  if (!isWallOpenShelfCabinet(cabinet)) return cabinet;
+  const code = `${cabinet.masterCode ?? ""}`.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+  const match = /^W(?:E)?OS(\d{2})(\d{2})$/.exec(code);
+  if (!match) return cabinet;
+  const width = Number(match[1]);
+  const height = Number(match[2]);
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) return cabinet;
+  return {
+    ...cabinet,
+    placement: "wall",
+    width,
+    nominalWidth: width,
+    depth: STD.WALL_DEPTH,
+    nominalDepth: STD.WALL_DEPTH,
+    height,
+    nominalHeight: height,
+    numberOfDoors: 0,
+    numberOfDrawers: 0,
+    fixedShelfCount: /^WEOS\d{4}$/.test(code) ? 2 : cabinet.fixedShelfCount,
+  };
+}
+
 /** True for physical filler strips, including compact catalog codes such as F342. */
 export function isFillerItem(c: {
   masterCode?: string | null;
@@ -184,7 +233,7 @@ export function accessoryPlacement(c: {
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   if (isKneeDrawerItem(c)) return "baseTop";
   if (/appliance garage|\bag-?\d/.test(hay)) return "wall";
-  if (/floating shelf|\bopen shelf\b/.test(hay)) return "wall";
+  if (isFloatingShelfItem(c) || isWallOpenShelfCabinet(c)) return "wall";
   if (/wall ?skin|\bws\b|wall panel|refrigerator panel/.test(hay)) return "wall";
   return "base";
 }

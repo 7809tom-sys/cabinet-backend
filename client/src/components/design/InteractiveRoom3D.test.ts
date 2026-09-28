@@ -124,6 +124,46 @@ describe("3D fallback appliance run seams", () => {
     expect(((rangeChassis!.geometry as THREE.BoxGeometry).parameters.width as number) * 12).toBeCloseTo(30, 6);
   });
 
+  it("renders WEOS0930 as the verified 9-by-30-by-12 open wall-end shelf with two bowed fixed shelves", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 930,
+      cabinetId: 930,
+      masterCode: "WEOS0930",
+      description: "Versa Shaker Wall End Shelf",
+      placementType: "wall",
+      width: 9,
+      height: 30,
+      depth: 12,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+      fixedShelfCount: 2,
+    }, "back", {}, 144, 120, "#b99a6b", "#f8f8f6", undefined, { x: 18, z: 6, rotation: 0, bottom: 54 });
+
+    const shelfRoot = root.children[0]!;
+    const shellParts: THREE.Mesh[] = [];
+    const fixedShelves: THREE.Mesh[] = [];
+    const cabinetFronts: THREE.Object3D[] = [];
+    shelfRoot.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.wallOpenShelfPart) shellParts.push(node);
+      if (node instanceof THREE.Mesh && node.userData.wallOpenShelfFixedShelf) fixedShelves.push(node);
+      if (node.userData.cabinetFront) cabinetFronts.push(node);
+    });
+    expect(shelfRoot.userData.floorStandingCabinet).toBeUndefined();
+    expect(shellParts.map((part) => part.userData.wallOpenShelfPart).sort()).toEqual([
+      "back", "bottom", "fixed-shelf", "fixed-shelf", "left-side", "right-side", "top",
+    ]);
+    expect(fixedShelves).toHaveLength(2);
+    expect(fixedShelves.every((shelf) => shelf.geometry.type === "ExtrudeGeometry" && shelf.userData.bowedFrontEdge === true)).toBe(true);
+    expect(fixedShelves.map((shelf) => shelf.userData.wallOpenShelfFixedShelf)).toEqual([1, 2]);
+    expect(cabinetFronts).toHaveLength(0);
+    root.updateMatrixWorld(true);
+    const bounds = new THREE.Box3().setFromObject(shelfRoot);
+    expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(9, 6);
+    expect((bounds.max.y - bounds.min.y) * 12).toBeCloseTo(30, 6);
+    expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(12, 6);
+  });
+
   it("renders a 45-degree base filler as a narrow front board from the floor to the cabinet top", () => {
     const root = new THREE.Group();
     addCabinet(root, {
