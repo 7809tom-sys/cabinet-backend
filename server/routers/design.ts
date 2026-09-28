@@ -12,6 +12,7 @@ import { generateImage } from "../_core/imageGeneration";
 import { buildPhotorealPrompt } from "@shared/photorealPrompt";
 import { autoFillSpan, type FillCabinet, type FillMode } from "../../shared/fillEngine";
 import { sellPriceForTier } from "@shared/margins";
+import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { getPricingSettings } from "../db";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -21,6 +22,7 @@ import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacy
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import {
   relevantCategories,
   selectRecommendations,
@@ -2811,11 +2813,14 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
           styleId: z.number(),
           distributorId: z.number().nullable().optional(),
         })).max(200),
+        /** Public affiliate slug; absent for CabinetDealz-owned carts. */
+        affiliateSlug: z.string().trim().min(1).max(64).optional(),
       })
     )
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db || input.items.length === 0) return [];
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
 
       const canonicalItems = await resolveDesignPriceAliases(db, input.items);
       const masterCodes = Array.from(new Set(canonicalItems.map((i) => i.masterCode)));
@@ -2828,6 +2833,7 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
       const rows = await db
         .select({
           masterCode: cabinets.masterCode,
+          category: cabinets.category,
           styleId: distributorSkus.styleId,
           distributorId: distributorSkus.distributorId,
           listPrice: distributorSkus.listPrice,
@@ -2861,6 +2867,13 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
         const selected = selectExactCartPriceRows([item], rows, ps)[0];
         if (!selected) return [];
         const r = selected.row;
+        const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
+        const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+              styleId: Number(r.styleId),
+              categoryKey: r.category,
+            }).retailCents / 100
+          : null;
         return [{
           masterCode: item.requestedMasterCode,
           styleId: Number(r.styleId),
@@ -2871,7 +2884,9 @@ Return an empty actions array ONLY if the user asked a pure question with no wal
               adjustedListPrice: r.adjustedListPrice,
               wholesalePrice: sellPriceForTier(r, ps, "wholesale")?.toFixed(2) ?? null,
               contractorPrice: sellPriceForTier(r, ps, "contractor")?.toFixed(2) ?? null,
-              homeownerPrice: sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
+              homeownerPrice: affiliateSale != null
+                ? affiliateSale.toFixed(2)
+                : sellPriceForTier(r, ps, "homeowner")?.toFixed(2) ?? null,
             },
             resolveStorefrontTier(ctx.user),
             ctx.user?.role === "admin",

@@ -18,11 +18,12 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useWhiteLabelHead } from "@/hooks/useWhiteLabelHead";
 import { StorefrontEmbed } from "@/components/storefront/StorefrontEmbed";
+import type { AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 
 const PLATFORM_NAVY = "#1a2b4a";
 const PLATFORM_GOLD = "#c9a227";
 
-type TemplateId = "classic" | "showcase" | "minimal" | "craftsman";
+type TemplateId = AffiliateStorefrontTemplate;
 
 type Brand = { primary: string; accent: string };
 
@@ -252,6 +253,18 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
       )}
       {template === "craftsman" && (
         <CraftsmanHero {...{ data: localizedData, brand, t, withRef, headlineFont, LangToggle, Logo }} />
+      )}
+      {template === "coastal" && (
+        <CoastalHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
+      )}
+      {template === "gallery" && (
+        <GalleryHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
+      )}
+      {template === "studio" && (
+        <StudioHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
+      )}
+      {template === "heritage" && (
+        <HeritageHero {...{ data: localizedData, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }} />
       )}
 
       <main className="flex-1">
@@ -798,6 +811,169 @@ function CraftsmanHero({ data, brand, t, withRef, headlineFont, LangToggle, Logo
                   {t("hero_design")}
                 </Button>
               </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ─── Coastal: sunlit, welcoming editorial split ──────────────────────────────
+function CoastalHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }: HeaderProps) {
+  return (
+    <>
+      <header className="sticky top-0 z-40 border-b border-stone-200 bg-[#fffdf8]/95 backdrop-blur">
+        <div className="container flex h-16 items-center justify-between">
+          <Logo />
+          <div className="flex items-center gap-2">
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
+            {LangToggle}
+            <Link href={withRef(`/store/${data.slug}/order`)}>
+              <Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.primary }}>{t("nav_quote")}</Button>
+            </Link>
+          </div>
+        </div>
+      </header>
+      <section className="overflow-hidden bg-[#f7f3ec]">
+        <div className="container grid items-center gap-10 py-14 md:py-20 lg:grid-cols-[.9fr_1.1fr] lg:py-24">
+          <div className="relative z-10 max-w-xl">
+            <p className="mb-5 text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: brand.accent }}>Kitchen, made personal</p>
+            <h1 className={`${headlineFont} text-4xl font-bold leading-[1.04] tracking-tight md:text-6xl`} style={{ color: brand.primary }}>
+              {data.tagline || "A Brighter Way to Build Your Kitchen."}
+            </h1>
+            <p className="mt-6 text-lg leading-relaxed text-stone-600 md:text-xl">
+              {data.aboutText || `Explore cabinetry, plan your room, and get an easy-to-understand quote with ${data.storeName}.`}
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#shop"><Button size="lg" className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.primary }}>{t("hero_browse")} <ArrowRight className="h-4 w-4" /></Button></a>
+              <Link href={withRef(`/design?affiliate=${data.slug}`)}><Button size="lg" variant="outline" className="gap-2 bg-white/70" style={{ borderColor: brand.primary, color: brand.primary }}>{t("hero_design")}</Button></Link>
+            </div>
+          </div>
+          <div className="relative">
+            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full opacity-25" style={{ backgroundColor: brand.accent }} />
+            <img src={heroImg} alt="Designed kitchen" className="relative aspect-[5/4] w-full rounded-[2rem] object-cover shadow-2xl" />
+            <div className="absolute -bottom-5 left-6 rounded-2xl bg-white px-5 py-4 shadow-xl">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Designed around you</p>
+              <p className="mt-1 text-sm font-bold" style={{ color: brand.primary }}>Cabinets, finishes &amp; a plan in one place</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ─── Gallery: dark architectural feature-wall presentation ───────────────────
+function GalleryHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }: HeaderProps) {
+  return (
+    <header className="overflow-hidden bg-slate-950 text-white">
+      <div className="container flex h-16 items-center justify-between border-b border-white/15">
+        <Logo light />
+        <div className="flex items-center gap-2">
+          <NavLinks t={t} withRef={withRef} variant="light" slug={data.slug} />
+          {LangToggle}
+          <Link href={withRef(`/store/${data.slug}/order`)}><Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.accent }}>{t("nav_quote")}</Button></Link>
+        </div>
+      </div>
+      <section className="container grid gap-10 py-14 md:py-20 lg:grid-cols-[1fr_.92fr] lg:py-24">
+        <div className="flex flex-col justify-center">
+          <div className="mb-7 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.26em] text-white/60">
+            <span className="h-px w-10" style={{ backgroundColor: brand.accent }} /> Cabinetry gallery
+          </div>
+          <h1 className={`${headlineFont} max-w-2xl text-5xl font-bold leading-[.98] tracking-tight md:text-7xl`}>
+            {data.tagline || "Design With Distinction."}
+          </h1>
+          <p className="mt-7 max-w-xl text-lg leading-relaxed text-white/75 md:text-xl">
+            {data.aboutText || `Curated cabinets, practical planning, and professional support from ${data.storeName}.`}
+          </p>
+          <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+            <a href="#shop"><Button size="lg" className="gap-2 font-semibold text-slate-950" style={{ backgroundColor: brand.accent }}>{t("hero_browse")} <ArrowRight className="h-4 w-4" /></Button></a>
+            <Link href={withRef(`/design?affiliate=${data.slug}`)}><Button size="lg" variant="outline" className="gap-2 border-white/35 bg-white/5 text-white hover:bg-white/15">{t("hero_design")}</Button></Link>
+          </div>
+        </div>
+        <div className="relative min-h-[350px] lg:min-h-0">
+          <div className="absolute inset-0 translate-x-4 translate-y-4 rounded-[1.75rem] border border-white/20" style={{ borderColor: brand.accent }} />
+          <img src={heroImg} alt="Designed kitchen" className="relative h-full min-h-[350px] w-full rounded-[1.75rem] object-cover" />
+          <div className="absolute bottom-6 left-6 rounded-full border border-white/30 bg-black/40 px-4 py-2 text-xs font-semibold uppercase tracking-wider backdrop-blur">Project-ready cabinetry</div>
+        </div>
+      </section>
+    </header>
+  );
+}
+
+// ─── Studio: crisp color block for design-forward showrooms ──────────────────
+function StudioHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }: HeaderProps) {
+  return (
+    <>
+      <header className="sticky top-0 z-40 bg-card shadow-sm">
+        <div className="container flex h-16 items-center justify-between">
+          <Logo />
+          <div className="flex items-center gap-2">
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
+            {LangToggle}
+            <Link href={withRef(`/store/${data.slug}/order`)}><Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.primary }}>{t("nav_quote")}</Button></Link>
+          </div>
+        </div>
+      </header>
+      <section className="bg-card">
+        <div className="container grid overflow-hidden lg:grid-cols-2 lg:rounded-b-[2rem]">
+          <div className="flex min-h-[440px] flex-col justify-center px-7 py-16 text-white md:px-12 lg:px-16" style={{ backgroundColor: brand.primary }}>
+            <p className="mb-6 text-xs font-semibold uppercase tracking-[0.24em] text-white/70">Design studio</p>
+            <h1 className={`${headlineFont} text-5xl font-bold leading-[.98] tracking-tight md:text-6xl`}>
+              {data.tagline || "Modern Kitchens, Made Personal."}
+            </h1>
+            <p className="mt-6 max-w-lg text-lg leading-relaxed text-white/80">
+              {data.aboutText || `Start with the details that matter, then make the entire kitchen your own with ${data.storeName}.`}
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a href="#shop"><Button size="lg" className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>{t("hero_browse")} <ArrowRight className="h-4 w-4" /></Button></a>
+              <Link href={withRef(`/design?affiliate=${data.slug}`)}><Button size="lg" variant="outline" className="gap-2 border-white/40 bg-white/10 text-white hover:bg-white/20">{t("hero_design")}</Button></Link>
+            </div>
+          </div>
+          <div className="relative min-h-[350px]">
+            <img src={heroImg} alt="Designed kitchen" className="absolute inset-0 h-full w-full object-cover" />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-8 text-white">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">Your vision, precisely planned</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ─── Heritage: framed, traditional presentation with refined detail ──────────
+function HeritageHero({ data, brand, t, withRef, headlineFont, heroImg, LangToggle, Logo }: HeaderProps) {
+  return (
+    <>
+      <header className="sticky top-0 z-40 border-b-4 bg-[#fbf8f1]" style={{ borderColor: brand.accent }}>
+        <div className="container flex h-16 items-center justify-between">
+          <Logo />
+          <div className="flex items-center gap-2">
+            <NavLinks t={t} withRef={withRef} variant="dark" slug={data.slug} />
+            {LangToggle}
+            <Link href={withRef(`/store/${data.slug}/order`)}><Button size="sm" className="font-semibold text-white" style={{ backgroundColor: brand.primary }}>{t("nav_quote")}</Button></Link>
+          </div>
+        </div>
+      </header>
+      <section className="bg-[#fbf8f1] py-10 md:py-16">
+        <div className="container border p-3 md:p-5" style={{ borderColor: brand.primary }}>
+          <div className="grid gap-8 bg-white p-6 md:p-10 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
+            <div>
+              <p className="mb-5 text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: brand.accent }}>Enduring kitchen design</p>
+              <h1 className={`${headlineFont} text-4xl font-bold leading-[1.02] md:text-6xl`} style={{ color: brand.primary }}>{data.tagline || "Built With Care. Designed To Last."}</h1>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-stone-600">
+                {data.aboutText || `Beautiful cabinet choices and dependable guidance for the home you are creating with ${data.storeName}.`}
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <a href="#shop"><Button size="lg" className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.primary }}>{t("hero_browse")} <ArrowRight className="h-4 w-4" /></Button></a>
+                <Link href={withRef(`/design?affiliate=${data.slug}`)}><Button size="lg" variant="outline" className="gap-2" style={{ borderColor: brand.accent, color: brand.primary }}>{t("hero_design")}</Button></Link>
+              </div>
+            </div>
+            <div className="relative">
+              <img src={heroImg} alt="Designed kitchen" className="aspect-[4/3] w-full object-cover" />
+              <div className="absolute -bottom-4 -left-4 border bg-[#fbf8f1] px-4 py-3 text-sm font-semibold shadow-lg" style={{ borderColor: brand.accent, color: brand.primary }}>Thoughtful details. Lasting value.</div>
             </div>
           </div>
         </div>

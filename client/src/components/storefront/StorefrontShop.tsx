@@ -550,8 +550,9 @@ function LockedCatalog({
       subCategory: category === "Accessory" && subGroup ? subGroup : undefined,
       search: debounced || undefined,
       limit: 60,
+      slug: slug || undefined,
     }),
-    [family.styleId, category, subGroup, debounced]
+    [family.styleId, category, subGroup, debounced, slug]
   );
   const { data: catalog, isLoading } = trpc.storefront.familyCatalog.useQuery(catalogInput);
   const { data: promos } = trpc.promotions.activeForStorefront.useQuery();
@@ -644,7 +645,7 @@ function LockedCatalog({
         </p>
 
         {/* AI recommender */}
-        <Recommender family={family} brand={brand} lang={lang} branding={branding} />
+        <Recommender family={family} brand={brand} lang={lang} branding={branding} slug={slug} />
 
         {/* Category tabs + search */}
         <div className="mt-8 mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -845,18 +846,17 @@ function CatalogCard({
   const eligible =
     item.category === "Wall" && !item.masterCode.toUpperCase().endsWith("GD");
   const { data: upsell } = trpc.storefront.glassDoorUpsell.useQuery(
-    { styleId, masterCode: item.masterCode },
+    { styleId, masterCode: item.masterCode, slug },
     { enabled: eligible }
   );
 
   const showing = glass && upsell ? upsell : item;
   const code = showing.masterCode;
   const description = translateSpec(showing.description, lang);
-  // Apply the affiliate's white-label markup to the platform homeowner price.
-  const price = branding.applyMarkup(showing.homeownerPrice, {
-    styleId,
-    category: showing.category,
-  });
+  // The storefront API has already calculated the affiliate's sale price from
+  // protected affiliate cost + its own markup. Never markup a public platform
+  // homeowner/list price in the browser.
+  const price = Number(showing.homeownerPrice);
   const hasCurrentPrice = typeof price === "number" && Number.isFinite(price) && price > 0;
   const detailHref = affiliateCabinetDetailHref({ slug, masterCode: code, styleId, cabinetId: item.id });
 
@@ -914,13 +914,18 @@ function CatalogCard({
         {/* Promotion badge + pricing */}
         {(() => {
           const basePrice = hasCurrentPrice ? price : null;
-          const promo = basePrice != null
+          // Affiliate sale prices are already cost-floor protected by the
+          // server. A generic platform promotion cannot replace that price.
+          const promo = !slug && basePrice != null
             ? findPromo(showing, styleId, family.distributorId, promos)
             : null;
           const salePrice = promo && basePrice != null ? applyPromoPrice(basePrice, promo) : null;
           const savePct = promo && basePrice != null ? promoSavePct(basePrice, promo) : null;
           return (
             <div className="flex items-center gap-2 flex-wrap">
+              {slug && hasCurrentPrice && (
+                <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Affiliate sale price</Badge>
+              )}
               {salePrice != null ? (
                 <>
                   <span className="font-serif text-lg font-bold text-emerald-600">{money(salePrice)}</span>
@@ -1024,17 +1029,19 @@ function Recommender({
   brand,
   lang,
   branding,
+  slug,
 }: {
   family: LockedFamily;
   brand: Brand;
   lang: Lang;
   branding: StorefrontBranding;
+  slug?: string;
 }) {
   const [intent, setIntent] = useState("");
   const [submitted, setSubmitted] = useState<string | null>(null);
 
   const { data, isFetching } = trpc.storefront.recommendForIntent.useQuery(
-    { styleId: family.styleId, intent: submitted ?? "", limit: 6 },
+    { styleId: family.styleId, intent: submitted ?? "", limit: 6, slug },
     { enabled: !!submitted }
   );
 
@@ -1081,7 +1088,7 @@ function Recommender({
                     {it.masterCode}
                   </span>
                   <p className="line-clamp-2 text-xs text-muted-foreground">{translateSpec(it.description, lang)}</p>
-                  <div className="mt-1 text-sm font-bold">{money(branding.applyMarkup(it.homeownerPrice, { styleId: family.styleId, category: it.category }))}</div>
+                  <div className="mt-1 text-sm font-bold">{money(it.homeownerPrice)}</div>
                 </div>
               ))}
             </div>

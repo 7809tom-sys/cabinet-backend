@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
+import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 
 function publicCtx(): TrpcContext {
   return {
@@ -165,8 +166,17 @@ describe("affiliate storefront template", () => {
     const caller = appRouter.createCaller(publicCtx());
     const store = await caller.affiliates.bySlug({ slug: "firstclass" });
     expect(store).not.toBeNull();
-    // every storefront resolves to one of the four valid templates
-    expect(["classic", "showcase", "minimal", "craftsman"]).toContain(store?.template);
+    // every storefront resolves to one of the eight valid templates
+    expect(AFFILIATE_STOREFRONT_TEMPLATE_IDS).toContain(store?.template);
+  });
+
+  it("provides a live preview payload for every approved template", async () => {
+    const caller = appRouter.createCaller(publicCtx());
+    for (const template of AFFILIATE_STOREFRONT_TEMPLATE_IDS) {
+      const preview = await caller.affiliates.previewTemplate({ template });
+      expect(preview.template).toBe(template);
+      expect(preview.slug).toBe(`preview-${template}`);
+    }
   });
 
   it("partner can persist a valid template via updateMyStorefront and it round-trips", async () => {
@@ -176,13 +186,13 @@ describe("affiliate storefront template", () => {
 
     // capture the original so we can restore it after the test
     const before = await partnerCaller.affiliates.myAffiliate();
-    const original = (before?.template as "classic" | "showcase" | "minimal" | "craftsman") ?? "classic";
+    const original = (before?.template as AffiliateStorefrontTemplate) ?? "classic";
 
     try {
-      await partnerCaller.affiliates.updateMyStorefront({ template: "showcase" });
+      await partnerCaller.affiliates.updateMyStorefront({ template: "coastal" });
       const publicCaller = appRouter.createCaller(publicCtx());
       const store = await publicCaller.affiliates.bySlug({ slug: "firstclass" });
-      expect(store?.template).toBe("showcase");
+      expect(store?.template).toBe("coastal");
     } finally {
       // restore to avoid leaking state into other tests / the live preview
       await partnerCaller.affiliates.updateMyStorefront({ template: original });

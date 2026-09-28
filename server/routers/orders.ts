@@ -36,8 +36,9 @@ import {
 import { invokeLLM } from "../_core/llm";
 import { sellPriceForTier } from "@shared/margins";
 import { getPricingSettings } from "../db";
-import { resolveMarkupBps } from "@shared/affiliateBranding";
+import { resolveAffiliateStorefrontSale, resolveMarkupBps } from "@shared/affiliateBranding";
 import { affiliateStyleBranding } from "../../drizzle/schema";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -734,7 +735,12 @@ export const ordersRouter = router({
           : userDbTier === "contractor"
             ? "Contractor"
             : "Homeowner"; // guests and homeowners default to Homeowner
-      const normalizedLines: OrderLineItem[] = input.lineItems.map((l) => {
+      const scopeSlug = input.storeScope.trim().toLowerCase();
+      const affiliatePricing = await loadAffiliateStorefrontPricing(scopeSlug);
+      if (scopeSlug !== "owner" && !affiliatePricing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "This affiliate store is not available." });
+      }
+      let normalizedLines: OrderLineItem[] = input.lineItems.map((l) => {
         const unitPrice = l.unitPrice ?? null;
         const linePrice =
           l.linePrice ?? (unitPrice !== null ? Number((unitPrice * l.qty).toFixed(2)) : null);
@@ -752,6 +758,58 @@ export const ordersRouter = router({
           matched: l.matched,
         };
       });
+      if (affiliatePricing) {
+        const masterCodes = Array.from(new Set(
+          normalizedLines.map((line) => line.masterCode?.trim().toUpperCase()).filter((code): code is string => Boolean(code)),
+        ));
+        const styleIds = Array.from(new Set(
+          normalizedLines.map((line) => line.styleId ?? input.styleId ?? null).filter((styleId): styleId is number => typeof styleId === "number"),
+        ));
+        const saleByLine = new Map<string, number>();
+        if (masterCodes.length > 0 && styleIds.length > 0) {
+          const rows = await db
+            .select({
+              masterCode: cabinets.masterCode,
+              category: cabinets.category,
+              styleId: distributorSkus.styleId,
+              yourCost: distributorSkus.yourCost,
+            })
+            .from(cabinets)
+            .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+            .where(and(
+              inArray(cabinets.masterCode, masterCodes),
+              inArray(distributorSkus.styleId, styleIds),
+              eq(distributorSkus.isAvailable, true),
+              eq(distributorSkus.isPublished, true),
+            ));
+          for (const row of rows) {
+            const sourceCostCents = row.yourCost == null ? null : Math.round(Number(row.yourCost) * 100);
+            if (sourceCostCents == null || !Number.isFinite(sourceCostCents) || sourceCostCents <= 0) continue;
+            const saleCents = resolveAffiliateStorefrontSale(
+              sourceCostCents,
+              affiliatePricing.platformSettings,
+              affiliatePricing.markup,
+              { styleId: Number(row.styleId), categoryKey: row.category },
+            ).retailCents;
+            saleByLine.set(`${row.masterCode}:${row.styleId}`, saleCents / 100);
+          }
+        }
+        normalizedLines = normalizedLines.map((line) => {
+          const styleId = line.styleId ?? input.styleId ?? null;
+          const key = line.masterCode && styleId != null ? `${line.masterCode.trim().toUpperCase()}:${styleId}` : null;
+          const sale = key ? saleByLine.get(key) : null;
+          if (sale == null) {
+            if (input.submit && line.matched !== false) {
+              throw new TRPCError({
+                code: "PRECONDITION_FAILED",
+                message: `A current source-backed affiliate sale price is unavailable for ${line.masterCode ?? "a cabinet line"}.`,
+              });
+            }
+            return line;
+          }
+          return { ...line, unitPrice: sale, linePrice: Number((sale * line.qty).toFixed(2)), tier: "Homeowner" };
+        });
+      }
       const hasOnlyTemporaryFreeShippingItems = isTemporaryOneDollarFreeShippingOrder(normalizedLines);
 
       // Family-lock: a single order must stay within one door-style family.
@@ -835,7 +893,6 @@ export const ordersRouter = router({
       // active affiliate it belongs to and tag this request.
       let affiliateId: number | null = null;
       let referralCode: string | null = null;
-	  const scopeSlug = input.storeScope.trim().toLowerCase();
 	  if (scopeSlug !== "owner") {
 	    const [scopeAffiliate] = await db
 	      .select({ id: affiliates.id, status: affiliates.status, referralCode: affiliates.referralCode })

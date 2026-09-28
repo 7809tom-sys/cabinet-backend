@@ -24,6 +24,7 @@ import {
 import { EMBED_CODE_MAX_LENGTH, embedCodeHasErrors } from "@shared/embedCode";
 import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
+import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
@@ -172,7 +173,7 @@ const brandingInput = z.object({
   yearsInBusiness: z.number().int().min(0).max(200).nullable().optional(),
   facebookUrl: z.string().max(512).nullable().optional(),
   instagramUrl: z.string().max(512).nullable().optional(),
-  template: z.enum(["classic", "showcase", "minimal", "craftsman"]).optional(),
+  template: z.enum(AFFILIATE_STOREFRONT_TEMPLATE_IDS).optional(),
   fontFamily: z.string().max(64).nullable().optional(),
   headingFont: z.string().max(64).nullable().optional(),
   buttonRadius: z.string().max(16).nullable().optional(),
@@ -272,21 +273,29 @@ export const affiliatesRouter = router({
 
   // ─── Public: template preview — returns mock storefront data for a given template ──
   previewTemplate: publicProcedure
-    .input(z.object({ template: z.enum(["classic", "showcase", "minimal", "craftsman"]) }))
+    .input(z.object({ template: z.enum(AFFILIATE_STOREFRONT_TEMPLATE_IDS) }))
     .query(({ input }) => {
       // Returns a fully-populated mock affiliate so the Storefront page can
       // render a live preview without a real database row.
-      const names: Record<string, string> = {
+      const names: Record<AffiliateStorefrontTemplate, string> = {
         classic: "Premier Kitchen & Bath",
         showcase: "Showcase Cabinetry Co.",
         minimal: "Studio Cabinet Design",
         craftsman: "Craftsman Cabinet Works",
+        coastal: "Coastal Kitchen Studio",
+        gallery: "Gallery Cabinet Collective",
+        studio: "Studio Cabinet Design",
+        heritage: "Heritage Kitchen Works",
       };
-      const taglines: Record<string, string> = {
+      const taglines: Record<AffiliateStorefrontTemplate, string> = {
         classic: "Beautiful Kitchens, Built Around You.",
         showcase: "Your Dream Kitchen Starts Here.",
         minimal: "Clean Lines. Lasting Quality.",
         craftsman: "Crafted for the Way You Live.",
+        coastal: "A Brighter Way to Build Your Kitchen.",
+        gallery: "Design With Distinction.",
+        studio: "Modern Kitchens, Made Personal.",
+        heritage: "Built With Care. Designed To Last.",
       };
       return {
         id: 0,
@@ -434,7 +443,7 @@ export const affiliatesRouter = router({
         yearsInBusiness: input.yearsInBusiness ?? null,
         facebookUrl: input.facebookUrl ?? null,
         instagramUrl: input.instagramUrl ?? null,
-        template: blueprint.template,
+        template: input.template ?? blueprint.template,
         buttonRadius: blueprint.buttonRadius,
         defaultMarkupBps: blueprint.defaultMarkupBps,
         notes: input.notes ?? null,

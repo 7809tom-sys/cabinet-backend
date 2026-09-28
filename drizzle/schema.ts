@@ -14,6 +14,7 @@ import {
   unique,
   uniqueIndex,
 } from "drizzle-orm/mysql-core";
+import { AFFILIATE_STOREFRONT_TEMPLATE_IDS } from "../shared/affiliateStorefrontTemplates";
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -1374,7 +1375,7 @@ export const affiliates = mysqlTable("affiliates", {
   instagramUrl: varchar("instagramUrl", { length: 512 }),
   storefrontEnabled: boolean("storefrontEnabled").default(true).notNull(),
   // Storefront layout template variant
-  template: mysqlEnum("template", ["classic", "showcase", "minimal", "craftsman"]).default("classic").notNull(),
+  template: mysqlEnum("template", AFFILIATE_STOREFRONT_TEMPLATE_IDS).default("classic").notNull(),
   // White-label markup: default % (bps) this affiliate adds on top of their
   // affiliate cost to produce the customer-facing retail price. Per-style and
   // per-category overrides live in affiliateStyleBranding / as JSON below.

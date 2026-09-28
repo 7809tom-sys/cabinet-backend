@@ -3,6 +3,7 @@ import { eq, and, sql, inArray, gte, lte, isNull, ne, or } from "drizzle-orm";
 import { publicProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
+import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import {
   cabinets,
   distributors,
@@ -16,6 +17,7 @@ import {
 } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 
 // ─── Family-locked storefront browsing ─────────────────────────────────────────
 // RULE: a shopping/quote session is locked to ONE distributor + ONE cabinet
@@ -369,6 +371,7 @@ export const storefrontRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       if (input.slug) {
         const affRows = await db
@@ -490,20 +493,30 @@ export const storefrontRouter = router({
         `${a.category ?? ""}:${a.masterCode}`.localeCompare(`${b.category ?? ""}:${b.masterCode}`, undefined, { numeric: true }),
       );
 
-      // Resolve customer retail from the distributor's policy: cost plus the
-      // homeowner markup by default, or its verified source list when selected.
+      // CabinetDealz keeps its source-backed homeowner policy. An affiliate
+      // storefront instead uses protected affiliate cost plus that affiliate's
+      // saved markup—never the generic homeowner/list price.
       const ps = await getPricingSettings();
-      const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => ({
-        ...r,
-        // Raw cost columns stay server-side; homeowner retail follows the source
-        // line's configured policy.
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
-            ps,
-            "homeowner"
-          )?.toFixed(2) ?? null,
-      }));
+      const priced = rows.slice(input.offset, input.offset + input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => {
+        const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
+        const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+              styleId: input.styleId,
+              categoryKey: r.category,
+            }).retailCents / 100
+          : null;
+        return {
+          ...r,
+          homeownerPrice: affiliateSale != null
+            ? affiliateSale.toFixed(2)
+            : sellPriceForTier(
+                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
+                ps,
+                "homeowner"
+              )?.toFixed(2) ?? null,
+          affiliateSalePrice: affiliateSale != null ? affiliateSale.toFixed(2) : null,
+        };
+      });
 
       return {
         items: priced,
@@ -520,11 +533,13 @@ export const storefrontRouter = router({
         styleId: z.number(),
         intent: z.string().min(1),
         limit: z.number().min(1).max(24).default(8),
+        slug: z.string().optional(),
       })
     )
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { intent: input.intent, items: [] as unknown[] };
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       const intent = input.intent.toLowerCase();
       // Map a free-text intent to catalog categories/subcategories/keywords,
@@ -634,17 +649,29 @@ export const storefrontRouter = router({
         rows = canonicalRows(allRows.filter((row) => matchesIntent(row, wants.fallbackCategories)));
       }
 
-      // Resolve retail by source policy and strip raw cost columns.
+      // Affiliate recommendations use the same cost-floor sale price as the
+      // catalog cards; no recommendation may reveal a different list price.
       const psRec = await getPricingSettings();
-      const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => ({
-        ...r,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
-            psRec,
-            "homeowner"
-          )?.toFixed(2) ?? null,
-      }));
+      const items = rows.slice(0, input.limit).map(({ wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...r }) => {
+        const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
+        const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+          ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+              styleId: input.styleId,
+              categoryKey: r.category,
+            }).retailCents / 100
+          : null;
+        return {
+          ...r,
+          homeownerPrice: affiliateSale != null
+            ? affiliateSale.toFixed(2)
+            : sellPriceForTier(
+                { wholesalePrice, adjustedListPrice, yourCost, listPrice: r.listPrice, retailPriceBasis },
+                psRec,
+                "homeowner"
+              )?.toFixed(2) ?? null,
+          affiliateSalePrice: affiliateSale != null ? affiliateSale.toFixed(2) : null,
+        };
+      });
 
       return { intent: input.intent, items };
     }),
@@ -655,10 +682,11 @@ export const storefrontRouter = router({
   // Oven/tall cabinets are intentionally excluded — glass doors are ordered
   // separately for those, never offered as a swap here.
   glassDoorUpsell: publicProcedure
-    .input(z.object({ styleId: z.number(), masterCode: z.string() }))
+    .input(z.object({ styleId: z.number(), masterCode: z.string(), slug: z.string().optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       const code = input.masterCode.toUpperCase().trim();
       // Only WALL cabinet codes get the glass swap. Wall codes start with W / AW
@@ -707,17 +735,27 @@ export const storefrontRouter = router({
 
       const g = rows[0];
       if (!g) return null;
-      // Resolve retail by source policy and strip raw cost columns.
+      // A glass-door swap is still priced as an affiliate sale on affiliate
+      // storefronts, never as a generic CabinetDealz homeowner/list price.
       const psG = await getPricingSettings();
       const { wholesalePrice, adjustedListPrice, yourCost, retailPriceBasis, ...rest } = g;
+      const sourceCostCents = yourCost == null ? null : Math.round(Number(yourCost) * 100);
+      const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+        ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+            styleId: input.styleId,
+            categoryKey: rest.category,
+          }).retailCents / 100
+        : null;
       return {
         ...rest,
-        homeownerPrice:
-          sellPriceForTier(
-            { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice, retailPriceBasis },
-            psG,
-            "homeowner"
-          )?.toFixed(2) ?? rest.homeownerPrice,
+        homeownerPrice: affiliateSale != null
+          ? affiliateSale.toFixed(2)
+          : sellPriceForTier(
+              { wholesalePrice, adjustedListPrice, yourCost, listPrice: rest.listPrice, retailPriceBasis },
+              psG,
+              "homeowner"
+            )?.toFixed(2) ?? rest.homeownerPrice,
+        affiliateSalePrice: affiliateSale != null ? affiliateSale.toFixed(2) : null,
       };
     }),
 

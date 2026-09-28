@@ -41,6 +41,10 @@ import {
   AFFILIATE_MEMBERSHIP,
   formatMembershipPrice,
 } from "@shared/affiliate";
+import {
+  AFFILIATE_STOREFRONT_TEMPLATES,
+  type AffiliateStorefrontTemplate,
+} from "@shared/affiliateStorefrontTemplates";
 import { KITCHEN_SCENES } from "@/lib/doorFamilyPhotos";
 import {
   Dialog,
@@ -832,15 +836,15 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
           </div>
         </div>
         <p className="text-sm text-muted-foreground">
-          To change your template, go to the <strong>Customize</strong> tab. You can preview all four templates before choosing.
+          To change your template, go to the <strong>Customize</strong> tab. You can preview all eight templates before choosing.
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {(["classic", "showcase", "minimal", "craftsman"] as const).map((t) => (
+          {AFFILIATE_STOREFRONT_TEMPLATES.map(({ id: t, name }) => (
             <a key={t} href={`/store-preview/${t}`} target="_blank" rel="noreferrer"
               className={`rounded-lg border p-3 text-center text-sm hover:border-primary transition-colors cursor-pointer ${
                 (affiliate.template ?? "classic") === t ? "border-primary bg-primary/5 font-semibold" : "border-border"
               }`}>
-              {t.charAt(0).toUpperCase() + t.slice(1)}
+              {name}
               {(affiliate.template ?? "classic") === t && (
                 <span className="ml-1 text-xs text-primary">(active)</span>
               )}
@@ -911,7 +915,7 @@ type AffiliateRow = {
   facebookUrl: string | null;
   instagramUrl: string | null;
   storefrontEnabled: boolean | null;
-  template: "classic" | "showcase" | "minimal" | "craftsman" | null;
+  template: AffiliateStorefrontTemplate | null;
   fontFamily: string | null;
   headingFont: string | null;
   buttonRadius: string | null;
@@ -943,12 +947,21 @@ const BUTTON_RADII = [
   { value: "9999px", label: "Pill (fully rounded)" },
 ];
 
-const TEMPLATES: { id: "classic" | "showcase" | "minimal" | "craftsman"; name: string; desc: string; thumb: string }[] = [
-  { id: "classic",   name: "Classic",   desc: "Navy split hero with a lifestyle photo and serif headline.", thumb: "/manus-storage/classic_37966efb.jpg" },
-  { id: "showcase",  name: "Showcase",  desc: "Full-bleed kitchen photo with overlaid headline and CTAs.",  thumb: "/manus-storage/showcase_888cd21d.jpg" },
-  { id: "minimal",   name: "Minimal",   desc: "Light, airy layout with thin rules and lots of whitespace.", thumb: "/manus-storage/minimal_ecbddcb9.jpg" },
-  { id: "craftsman", name: "Craftsman", desc: "Warm, bold type on an accent block — no photo required.",   thumb: "/manus-storage/craftsman_1a0d1798.jpg" },
-];
+const TEMPLATE_THUMBNAILS: Record<AffiliateStorefrontTemplate, string> = {
+  classic: "/manus-storage/classic_37966efb.jpg",
+  showcase: "/manus-storage/showcase_888cd21d.jpg",
+  minimal: "/manus-storage/minimal_ecbddcb9.jpg",
+  craftsman: "/manus-storage/craftsman_1a0d1798.jpg",
+  coastal: KITCHEN_SCENES["shaker-white"],
+  gallery: KITCHEN_SCENES["shaker-espresso"],
+  studio: KITCHEN_SCENES["slab-natural"],
+  heritage: KITCHEN_SCENES["raised-cherry"],
+};
+
+const TEMPLATES = AFFILIATE_STOREFRONT_TEMPLATES.map((template) => ({
+  ...template,
+  thumb: TEMPLATE_THUMBNAILS[template.id],
+}));
 
 type KitchenSceneKey = "shaker-white" | "shaker-gray" | "shaker-espresso" | "raised-cherry" | "slab-natural";
 
@@ -985,7 +998,7 @@ function CustomizeTab({
 }) {
   const [uploading, setUploading] = useState(false);
   const [logoUploading, setLogoUploading] = useState(false);
-  const [previewingTemplate, setPreviewingTemplate] = useState<"classic" | "showcase" | "minimal" | "craftsman" | null>(null);
+  const [previewingTemplate, setPreviewingTemplate] = useState<AffiliateStorefrontTemplate | null>(null);
   const formFromAffiliate = (a: AffiliateRow) => ({
     storeName: a.storeName ?? "",
     tagline: a.tagline ?? "",
@@ -1003,7 +1016,7 @@ function CustomizeTab({
     facebookUrl: a.facebookUrl ?? "",
     instagramUrl: a.instagramUrl ?? "",
     storefrontEnabled: a.storefrontEnabled ?? true,
-    template: (a.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
+    template: (a.template ?? "classic") as AffiliateStorefrontTemplate,
     fontFamily: a.fontFamily ?? "",
     headingFont: a.headingFont ?? "",
     buttonRadius: a.buttonRadius ?? "0.375rem",
@@ -1025,7 +1038,7 @@ function CustomizeTab({
     facebookUrl: affiliate.facebookUrl ?? "",
     instagramUrl: affiliate.instagramUrl ?? "",
     storefrontEnabled: affiliate.storefrontEnabled ?? true,
-    template: (affiliate.template ?? "classic") as "classic" | "showcase" | "minimal" | "craftsman",
+    template: (affiliate.template ?? "classic") as AffiliateStorefrontTemplate,
     fontFamily: affiliate.fontFamily ?? "",
     headingFont: affiliate.headingFont ?? "",
     buttonRadius: affiliate.buttonRadius ?? "0.375rem",
@@ -1920,7 +1933,7 @@ function CustomizeTab({
 // Opens a full-screen dialog with a scaled iframe showing the /store-preview
 // route for the selected template. Lets affiliates compare layouts before
 // committing. Uses a plain iframe — no asChild / DOM nesting risk.
-type TemplateId = "classic" | "showcase" | "minimal" | "craftsman";
+type TemplateId = AffiliateStorefrontTemplate;
 function TemplatePreviewDialog({
   open,
   templateId,

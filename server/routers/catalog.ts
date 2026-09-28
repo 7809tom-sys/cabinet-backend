@@ -30,6 +30,7 @@ import {
 import { resolvePresentation, applyMarkup } from "../lib/presentation";
 import { resolveStorefrontTier, visiblePricesForViewer } from "../../shared/pricingTier";
 import { sellPriceForTier } from "@shared/margins";
+import { resolveAffiliateStorefrontSale } from "@shared/affiliateBranding";
 import { invokeLLM } from "../_core/llm";
 import sharp from "sharp";
 import { generateImage } from "../_core/imageGeneration";
@@ -43,6 +44,7 @@ import { priceLadder } from "@shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -3814,6 +3816,10 @@ export const pricingRouter = router({
         access: affiliateAccess,
       });
       const ps = await getPricingSettings();
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      // A detail page reached from an unavailable/disabled affiliate scope must
+      // never fall back to CabinetDealz's generic homeowner/list price.
+      if (input.affiliateSlug && !affiliatePricing) return [];
       // The Administration fee stack sets the real amount an affiliate owes
       // Cabinet Dealz. Administration retains the raw supplier cost as My Cost;
       // an affiliate owner receives only a separately named, adjusted Affiliate
@@ -3869,6 +3875,7 @@ export const pricingRouter = router({
       const rows = await db
         .select({
           styleId: distributorSkus.styleId,
+          category: cabinets.category,
           styleCode: doorStyles.styleCode,
           // Customer-facing catalog, Designer, cart, and materials-list labels
           // must use the verified white-label alias where one exists. ourName is
@@ -3970,6 +3977,24 @@ export const pricingRouter = router({
             viewerTier,
             isAdmin,
           );
+          const sourceCostCents = r.yourCost == null ? null : Math.round(Number(r.yourCost) * 100);
+          const affiliateSale = affiliatePricing && sourceCostCents != null && Number.isFinite(sourceCostCents) && sourceCostCents > 0
+            ? resolveAffiliateStorefrontSale(sourceCostCents, affiliatePricing.platformSettings, affiliatePricing.markup, {
+                styleId: Number(r.styleId),
+                categoryKey: r.category,
+              }).retailCents / 100
+            : null;
+          const publicPrices = affiliatePricing
+            ? {
+                // An affiliate page shows its actual sale price, not a public
+                // CabinetDealz price or a list-price comparison.
+                listPrice: null,
+                adjustedListPrice: null,
+                wholesalePrice: null,
+                contractorPrice: null,
+                homeownerPrice: affiliateSale?.toFixed(2) ?? null,
+              }
+            : gated;
           const rawCost = r.yourCost == null ? null : Number(r.yourCost);
           const affiliateAdjustedCost =
             rawCost != null && Number.isFinite(rawCost) && affiliateFeeSettings
@@ -3985,11 +4010,11 @@ export const pricingRouter = router({
             doorSampleImageUrl: r.doorSampleImageUrl,
             roomSceneImageUrl: r.roomSceneImageUrl,
             thumbnailImageUrl: r.thumbnailImageUrl,
-            listPrice: gated.listPrice,
-            adjustedListPrice: gated.adjustedListPrice,
-            wholesalePrice: gated.wholesalePrice,
-            contractorPrice: gated.contractorPrice,
-            homeownerPrice: gated.homeownerPrice,
+            listPrice: publicPrices.listPrice,
+            adjustedListPrice: publicPrices.adjustedListPrice,
+            wholesalePrice: publicPrices.wholesalePrice,
+            contractorPrice: publicPrices.contractorPrice,
+            homeownerPrice: publicPrices.homeownerPrice,
             // Keep the two private values distinct. Administration sees its raw
             // supplier acquisition cost as My Cost. An affiliate owner sees only
             // the Administration-adjusted amount as Affiliate Cost. Neither

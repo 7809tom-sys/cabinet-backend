@@ -62,9 +62,8 @@ export default function Cart() {
     hostname: typeof window !== "undefined" ? window.location.hostname : "",
   });
   const currentAffiliateSlug = affiliateSlugForStoreScope(storeScope);
-  // Affiliate storefront items already contain the marked-up homeowner price
-  // shown to the customer. Do not replace that price with the generic platform
-  // tier price returned by the live refresh query.
+  // Affiliate carts request that storefront's server-calculated sale price. The
+  // browser never refreshes them from CabinetDealz's generic homeowner/list price.
   const isAffiliateCart = Boolean(currentAffiliateSlug);
   const money = (n: number | null): string =>
     n == null ? t("crt_quoted") : `$${n.toFixed(2)}`;
@@ -90,7 +89,7 @@ export default function Cart() {
   // always shows the correct price for the viewer's current tier, even if the
   // stored unitPrice was added under a different tier.
   const { data: livePriceRows } = trpc.design.priceForCartItems.useQuery(
-    { items: cartPairs },
+    { items: cartPairs, affiliateSlug: currentAffiliateSlug ?? undefined },
     { enabled: cartPairs.length > 0 }
   );
 
@@ -100,11 +99,11 @@ export default function Cart() {
   const livePriceMap = useMemo(() => {
     const m = new Map<string, number>();
     for (const r of livePriceRows ?? []) {
-      const price = resolveTierPrice(viewerTier, r);
+      const price = isAffiliateCart ? Number(r.homeownerPrice) : resolveTierPrice(viewerTier, r);
       if (price != null) m.set(`${r.masterCode}:${r.styleId}:${r.distributorId ?? "_"}`, price);
     }
     return m;
-  }, [livePriceRows, viewerTier]);
+  }, [livePriceRows, viewerTier, isAffiliateCart]);
 
   // Get the live price for a cart item, falling back to the stored unitPrice.
   const liveUnitPrice = (item: (typeof items)[number]): number | null => {

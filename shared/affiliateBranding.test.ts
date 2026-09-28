@@ -3,8 +3,10 @@ import {
   resolveBrandName,
   resolveMarkupBps,
   resolveAffiliateRetail,
+  resolveAffiliateStorefrontSale,
   type AffiliateMarkup,
 } from "./affiliateBranding";
+import { DEFAULT_PRICING_SETTINGS } from "./pricing";
 
 describe("resolveBrandName", () => {
   it("uses the affiliate override when set", () => {
@@ -83,5 +85,20 @@ describe("resolveAffiliateRetail", () => {
   it("rounds to whole cents", () => {
     const r = resolveAffiliateRetail(333, { globalMarkupBps: 333 }, {});
     expect(Number.isInteger(r.retailCents)).toBe(true);
+  });
+});
+
+describe("resolveAffiliateStorefrontSale", () => {
+  it("prices from protected affiliate cost, not a public homeowner/list price", () => {
+    const sale = resolveAffiliateStorefrontSale(
+      10_000,
+      { ...DEFAULT_PRICING_SETTINGS, affiliateMarkupBps: 500 },
+      { globalMarkupBps: 2_000 },
+      { categoryKey: "Base", styleId: 42 },
+    );
+    // $100 source cost → $105 protected affiliate cost → $126 customer sale.
+    expect(sale.affiliateCostCents).toBe(10_500);
+    expect(sale.retailCents).toBe(12_600);
+    expect(sale.retailCents).toBeGreaterThanOrEqual(sale.affiliateCostCents);
   });
 });

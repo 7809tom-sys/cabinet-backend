@@ -44,4 +44,12 @@ describe("AffiliatesAdmin portal actions", () => {
     expect(html).toContain("Invite to Sales Demo");
   });
 
+  it("offers all eight storefront templates and sends the selected template on affiliate creation", () => {
+    const source = readFileSync(new URL("./AffiliatesAdmin.tsx", import.meta.url), "utf8");
+    expect(source).toContain("AFFILIATE_STOREFRONT_TEMPLATES");
+    expect(source).toContain("template: selectedTemplate");
+    expect(source).toContain("setSelectedTemplate(tpl.id)");
+    expect(source).toContain("Choose Affiliate Storefront Template");
+  });
+
 });

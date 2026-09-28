@@ -227,11 +227,13 @@ export function PriceCard({
   tier,
   viewerRole = "customer",
   promo = null,
+  affiliateStorefront = false,
 }: {
   row: StyleRow;
   tier: PricingTier;
   viewerRole?: "admin" | "affiliate-owner" | "customer";
   promo?: ActivePromo | null;
+  affiliateStorefront?: boolean;
 }) {
   let price = priceNumberForTier(row, tier);
   const compareAt = compareAtPrice(tier, row);
@@ -295,7 +297,7 @@ export function PriceCard({
             )}
           </div>
           <div className="text-xs text-muted-foreground mt-0.5">
-            {TIER_DESCRIPTION[tier]}
+            {affiliateStorefront ? "Affiliate sale price" : TIER_DESCRIPTION[tier]}
           </div>
         </div>
         <div className="text-right text-xs text-muted-foreground shrink-0">
@@ -462,6 +464,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   );
 
   const styleRows = (styles ?? []) as StyleRow[];
+  const isAffiliateStorefront = Boolean(affiliateSlug);
 
   // Auto-select: the family passed in ?style= if it's available for this
   // cabinet, otherwise the explicit user choice, otherwise the first style.
@@ -482,9 +485,12 @@ export default function CabinetDetail({ masterCode }: Props) {
   // Fetch active promotions for storefront display
   const { data: activePromos } = trpc.promotions.activeForStorefront.useQuery();
   const activePromo = useMemo(() => {
+    // Affiliate storefront prices already come from the server's protected
+    // cost-floor calculator. A generic platform promo must not replace them.
+    if (isAffiliateStorefront) return null;
     if (!selectedRow || !activePromos?.length) return null;
     return findMatchingPromo(activePromos as ActivePromo[], selectedRow, cabinet?.category);
-  }, [selectedRow, activePromos, cabinet?.category]);
+  }, [isAffiliateStorefront, selectedRow, activePromos, cabinet?.category]);
 
   // Recolor the to-scale drawing to the selected door style's real finish.
   const finishResult = finishColorsWithName(
@@ -867,14 +873,15 @@ export default function CabinetDetail({ masterCode }: Props) {
 
   // Add a specific style row to the cart (used directly and after an auto-switch).
   const addRow = (row: StyleRow) => {
-    const unitPrice = priceNumberForTier(row, tier);
+    const saleTier: PricingTier = isAffiliateStorefront ? "homeowner" : tier;
+    const unitPrice = priceNumberForTier(row, saleTier);
     const res = addItem({
       masterCode: resolvedMasterCode,
       name: cabinet?.description ?? row.name,
       styleId: row.styleId,
       styleLabel: row.name,
       distributorId: row.distributorId ?? null,
-      tier,
+      tier: saleTier,
       unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
       qty,
       catalogImageUrl: cabinet?.catalogImageUrl ?? null,
@@ -882,7 +889,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     });
     if (res.ok) {
       toast.success(`Added ${qty}× ${resolvedMasterCode} to cart`, {
-        description: `${row.name} · ${tierLabel(tier)} pricing`,
+        description: `${row.name} · ${isAffiliateStorefront ? "affiliate sale" : tierLabel(saleTier)} pricing`,
       });
     }
     return res;
@@ -1391,7 +1398,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               </div>
 
               {canSeePricing ? (
-                isPro ? (
+                isPro && !isAffiliateStorefront ? (
                   <Tabs value={tier} onValueChange={(v) => setTier(v as PricingTier)}>
                     <TabsList className="w-full">
                       {visibleTiers.map((t) => (
@@ -1403,12 +1410,12 @@ export default function CabinetDetail({ masterCode }: Props) {
 
                     {visibleTiers.map((t) => (
                       <TabsContent key={t} value={t} className="mt-3">
-                        <PriceCard row={selectedRow} tier={t} viewerRole={viewerRole} promo={activePromo} />
+                        <PriceCard row={selectedRow} tier={t} viewerRole={viewerRole} promo={activePromo} affiliateStorefront={isAffiliateStorefront} />
                       </TabsContent>
                     ))}
                   </Tabs>
                 ) : (
-                  <PriceCard row={selectedRow} tier="homeowner" viewerRole={viewerRole} promo={activePromo} />
+                  <PriceCard row={selectedRow} tier="homeowner" viewerRole={viewerRole} promo={activePromo} affiliateStorefront={isAffiliateStorefront} />
                 )
               ) : (
                 <div className="rounded-lg border border-border bg-muted/40 p-4 text-sm text-muted-foreground space-y-2">

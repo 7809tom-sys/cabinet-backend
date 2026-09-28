@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { calculateCartLineTotal, resolveAffiliateCartUnitPrice } from "./affiliateCartPricing";
 
 describe("resolveAffiliateCartUnitPrice", () => {
-  it("preserves the stored marked-up homeowner price for affiliate carts", () => {
+  it("uses the current server-calculated sale price for affiliate carts", () => {
     expect(
       resolveAffiliateCartUnitPrice({
         storedUnitPrice: 137.5,
@@ -10,7 +10,7 @@ describe("resolveAffiliateCartUnitPrice", () => {
         tier: "homeowner",
         isAffiliateCart: true,
       }),
-    ).toBe(137.5);
+    ).toBe(100);
   });
 
   it("uses the live tier price for a normal non-affiliate cart", () => {

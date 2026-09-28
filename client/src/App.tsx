@@ -356,7 +356,7 @@ export default function App() {
         <Route path="/store-preview/:template">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
-              <StorefrontPreview template={params.template as "classic" | "showcase" | "minimal" | "craftsman"} />
+              <StorefrontPreview template={params.template} />
             </Suspense>
           )}
         </Route>

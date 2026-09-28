@@ -10,12 +10,12 @@ export type CartPricingInput = {
 /**
  * Select the price shown in the cart.
  *
- * Affiliate storefront items are stored with the exact marked-up homeowner
- * price shown on the storefront. A design-origin price lock always wins,
- * regardless of wholesale, contractor, homeowner, or affiliate context. The
- * generic live cart endpoint only returns platform tier prices, so it must not
- * replace that stored value for an affiliate homeowner item. Non-affiliate
- * catalog items continue to use the live tier price when available.
+ * A design-origin price lock always wins, regardless of wholesale, contractor,
+ * homeowner, or affiliate context. Affiliate carts now receive their own exact
+ * server-calculated sale price from the live cart endpoint, so a saved affiliate
+ * markup update appears on that affiliate storefront without ever borrowing the
+ * CabinetDealz homeowner/list price. Non-affiliate catalog items continue to
+ * use the live tier price when available.
  */
 export function resolveAffiliateCartUnitPrice({
   storedUnitPrice,
@@ -27,8 +27,8 @@ export function resolveAffiliateCartUnitPrice({
   if (priceLocked && storedUnitPrice != null && Number.isFinite(storedUnitPrice)) {
     return storedUnitPrice;
   }
-  if (isAffiliateCart && tier === "homeowner" && storedUnitPrice != null) {
-    return storedUnitPrice;
+  if (isAffiliateCart && tier === "homeowner") {
+    return liveUnitPrice ?? storedUnitPrice ?? null;
   }
   return liveUnitPrice ?? storedUnitPrice ?? null;
 }

@@ -11,3 +11,16 @@ describe("affiliate storefront testimonials", () => {
     expect(source).toContain("What customers say about");
   });
 });
+
+describe("affiliate storefront template coverage", () => {
+  it("renders every approved presentation branch without changing shared catalog or checkout content", () => {
+    for (const template of ["classic", "showcase", "minimal", "craftsman", "coastal", "gallery", "studio", "heritage"]) {
+      expect(source).toContain(`template === "${template}"`);
+    }
+    expect(source).toContain("CoastalHero");
+    expect(source).toContain("GalleryHero");
+    expect(source).toContain("StudioHero");
+    expect(source).toContain("HeritageHero");
+    expect(source).toContain("StorefrontShop slug={data.slug}");
+  });
+});

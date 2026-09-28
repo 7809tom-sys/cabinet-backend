@@ -14,7 +14,12 @@
 // All money is integer cents; markups are basis points (10000 = +100%).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { applyBps, roundCents } from "./pricing";
+import {
+  applyBps,
+  priceLadder,
+  roundCents,
+  type PlatformPricingSettings,
+} from "./pricing";
 
 /** A single brand-name override row for one affiliate. */
 export interface BrandNameOverride {
@@ -100,4 +105,29 @@ export function resolveAffiliateRetail(
     retailCents,
     profitCents: retailCents - cost,
   };
+}
+
+/**
+ * The only customer-facing price calculation for an affiliate storefront.
+ *
+ * Start from the confidential supplier cost, derive the platform's protected
+ * affiliate cost with the current fee ladder, then apply that affiliate's own
+ * saved markup.  The supplier cost and intermediate affiliate cost remain
+ * server-only; callers return only `retailCents` to a shopper.
+ *
+ * This deliberately does not accept the CabinetDealz homeowner/list price as
+ * an input.  An affiliate's public sale price must never inherit another
+ * storefront's price or fall below its protected affiliate cost.
+ */
+export function resolveAffiliateStorefrontSale(
+  sourceCostCents: number,
+  platformSettings: PlatformPricingSettings,
+  markup: AffiliateMarkup,
+  opts: { categoryKey?: string | null; styleId?: number | null } = {},
+): AffiliateRetailResult {
+  const affiliateCostCents = priceLadder(
+    Math.max(0, roundCents(sourceCostCents)),
+    platformSettings,
+  ).affiliateCents;
+  return resolveAffiliateRetail(affiliateCostCents, markup, opts);
 }

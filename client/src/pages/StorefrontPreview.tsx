@@ -1,6 +1,6 @@
 // ─── Storefront Template Preview ─────────────────────────────────────────────
 // Renders a live, full-page preview of a storefront template using mock data.
-// Accessible at /store-preview/:template (classic | showcase | minimal | craftsman).
+// Accessible at /store-preview/:template for every approved affiliate layout.
 // Used by the "Add Affiliate" dialog so admins can see each template before picking.
 
 import { Link } from "wouter";
@@ -8,20 +8,19 @@ import { trpc } from "@/lib/trpc";
 import { Spinner } from "@/components/ui/spinner";
 import { ArrowLeft } from "lucide-react";
 import Storefront from "@/pages/Storefront";
+import {
+  AFFILIATE_STOREFRONT_TEMPLATE_IDS,
+  AFFILIATE_STOREFRONT_TEMPLATES,
+  isAffiliateStorefrontTemplate,
+  type AffiliateStorefrontTemplate,
+} from "@shared/affiliateStorefrontTemplates";
 
-type TemplateId = "classic" | "showcase" | "minimal" | "craftsman";
-
-const VALID: TemplateId[] = ["classic", "showcase", "minimal", "craftsman"];
-
-const TEMPLATE_NAMES: Record<TemplateId, string> = {
-  classic: "Classic",
-  showcase: "Showcase",
-  minimal: "Minimal",
-  craftsman: "Craftsman",
-};
+const TEMPLATE_NAMES = Object.fromEntries(
+  AFFILIATE_STOREFRONT_TEMPLATES.map((item) => [item.id, item.name])
+) as Record<AffiliateStorefrontTemplate, string>;
 
 export default function StorefrontPreview({ template }: { template: string }) {
-  const id = VALID.includes(template as TemplateId) ? (template as TemplateId) : "classic";
+  const id = isAffiliateStorefrontTemplate(template) ? template : "classic";
 
   const { data, isLoading } = trpc.affiliates.previewTemplate.useQuery({ template: id });
 
@@ -46,7 +45,7 @@ export default function StorefrontPreview({ template }: { template: string }) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {VALID.filter((t) => t !== id).map((t) => (
+          {AFFILIATE_STOREFRONT_TEMPLATE_IDS.filter((t) => t !== id).map((t) => (
             <Link key={t} href={`/store-preview/${t}`}>
               <button className="text-xs text-white/70 hover:text-white px-2.5 py-1 rounded border border-white/20 hover:border-white/50 transition-colors">
                 {TEMPLATE_NAMES[t]}
