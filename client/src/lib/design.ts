@@ -7946,6 +7946,60 @@ export function wallDimensions(
   return segs;
 }
 
+export type MeasuredWallCabinetSide = "left" | "right";
+
+/**
+ * Resolves the physical room side of a measured custom wall. Closed room
+ * outlines are authoritative by winding. An intentionally open continuous wall
+ * path has no polygon area, so its first real measured turn declares the inside
+ * of the connected run: a clockwise/right turn keeps cabinets on the left side;
+ * a counter-clockwise/left turn keeps them on the right side.
+ *
+ * This one resolver prevents the plan viewport from ever deciding which side of
+ * a measured wall is valid. The default preserves the established first-wall
+ * convention for a one-wall/straight open path until the owner adds a turn.
+ */
+export function customWallCabinetSide(
+  room: Pick<RoomData, "vertices" | "customWalls" | "openWallPath">,
+  _wallId?: string | null,
+): MeasuredWallCabinetSide {
+  const vertices = room.vertices ?? [];
+  const walls = room.customWalls ?? [];
+  if (vertices.length < 2 || walls.length === 0) return "left";
+
+  const pointFor = (vertexId: string) => vertices.find((vertex) => vertex.id === vertexId) ?? null;
+  const crossForJoin = (first: typeof walls[number], second: typeof walls[number]) => {
+    if (first.endVertexId !== second.startVertexId) return 0;
+    const start = pointFor(first.startVertexId);
+    const joint = pointFor(first.endVertexId);
+    const end = pointFor(second.endVertexId);
+    if (!start || !joint || !end) return 0;
+    const firstX = joint.x - start.x;
+    const firstY = joint.y - start.y;
+    const secondX = end.x - joint.x;
+    const secondY = end.y - joint.y;
+    return firstX * secondY - firstY * secondX;
+  };
+
+  if (!room.openWallPath && walls.length === vertices.length) {
+    // Screen-coordinate Y increases downward, so a positive signed area is a
+    // clockwise outline whose interior is to the directed wall's left.
+    let signedArea = 0;
+    for (let index = 0; index < vertices.length; index += 1) {
+      const current = vertices[index]!;
+      const next = vertices[(index + 1) % vertices.length]!;
+      signedArea += current.x * next.y - next.x * current.y;
+    }
+    if (Math.abs(signedArea) > COLLISION_EPSILON_IN) return signedArea > 0 ? "left" : "right";
+  }
+
+  for (let index = 0; index < walls.length - 1; index += 1) {
+    const cross = crossForJoin(walls[index]!, walls[index + 1]!);
+    if (Math.abs(cross) > COLLISION_EPSILON_IN) return cross > 0 ? "left" : "right";
+  }
+  return "left";
+}
+
 // Convert a run-axis coordinate on a wall into the {x, y, rotation} a placed
 // cabinet needs. `along` is the run-axis start (X for top/bottom, Y for left/
 // right); the perpendicular coordinate is pinned to the wall.
@@ -7998,14 +8052,28 @@ export function wallPlacementAt(
         : along;
       const radians = polygonWallAngle(customWall, room.vertices);
       const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
-      const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
+      // A closed clockwise room has its interior on the left of every directed
+      // wall. An open continuous path may be traced counter-clockwise instead;
+      // use its first measured turn to preserve the owner's inside face. This is
+      // deliberately shared by catalog clicks, Plan drags, 3D moves, restoring a
+      // saved room, countertops, and collision checks: the canvas bounds are not
+      // a substitute for an actual measured wall.
+      const sideOfWall = customWallCabinetSide(room, customWall.id);
+      const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
+      const inward = sideOfWall === "left"
+        ? leftNormal
+        : { x: -leftNormal.x, y: -leftNormal.y };
       const center = {
         x: start.x + tangent.x * (offset + width / 2) + inward.x * (depth / 2),
         y: start.y + tangent.y * (offset + width / 2) + inward.y * (depth / 2),
       };
       const boundWidth = Math.abs(width * tangent.x) + Math.abs(depth * inward.x);
       const boundDepth = Math.abs(width * tangent.y) + Math.abs(depth * inward.y);
-      const rotation = ((Math.round(radians * 180 / Math.PI) % 360) + 360) % 360;
+      // A right-side run has the same physical back edge but its cabinet fronts
+      // face the opposite direction. Persist that 180° rotation so Plan, 3D,
+      // hardware, elevation, and the countertop all agree on the selected wall.
+      const rotationRadians = radians + (sideOfWall === "right" ? Math.PI : 0);
+      const rotation = ((Math.round(rotationRadians * 180 / Math.PI) % 360) + 360) % 360;
       return { x: center.x - boundWidth / 2, y: center.y - boundDepth / 2, rotation, wallId: customWall.id, wallOffset: offset };
     }
   }
@@ -10280,7 +10348,7 @@ function measuredWallSurfaceWithMiterPoint(
   const world = countertopSurfacePlanPolygon(surface);
   const radians = polygonWallAngle(wall, room.vertices);
   const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
-  const inward = countertopRunFaceNormal(radians, "left");
+  const inward = countertopRunFaceNormal(radians, customWallCabinetSide(room, wall.id));
   const runStart = surface.customWallRunStartIn ?? 0;
   const targetAlong = atStart
     ? runStart
@@ -10358,10 +10426,10 @@ export function miteredMeasuredWallCountertopSurfaces(
     const miterPoint = countertopOffsetEdgeMiterPoint(
       { x: vertex.x, y: vertex.y },
       firstRadians,
-      countertopRunFaceNormal(firstRadians, "left"),
+      countertopRunFaceNormal(firstRadians, customWallCabinetSide(room, firstWall.id)),
       firstSurface.depth,
       secondRadians,
-      countertopRunFaceNormal(secondRadians, "left"),
+      countertopRunFaceNormal(secondRadians, customWallCabinetSide(room, secondWall.id)),
       secondSurface.depth,
     );
     resolved[firstIndex] = measuredWallSurfaceWithMiterPoint(

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -7247,10 +7247,13 @@ export function openingTransform(opening: WallOpening, roomOrWidth: RoomData | n
       const tangentY = (end.y - start.y) / length;
       const centerOffset = Math.max(0, Math.min(length, opening.offset + opening.width / 2));
       const inset = 0.06;
+      const side = customWallCabinetSide(room!, customWall.id);
+      const leftNormal = { x: -tangentY, y: tangentX };
+      const inward = side === "left" ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
       return {
-        x: start.x + tangentX * centerOffset - tangentY * inset,
-        z: start.y + tangentY * centerOffset + tangentX * inset,
-        rotation: threeDPlanRotation(polygonWallAngle(customWall, room!.vertices!)),
+        x: start.x + tangentX * centerOffset + inward.x * inset,
+        z: start.y + tangentY * centerOffset + inward.y * inset,
+        rotation: threeDPlanRotation(polygonWallAngle(customWall, room!.vertices!) + (side === "right" ? Math.PI : 0)),
       };
     }
   }
