@@ -192,6 +192,12 @@ describe("orders.createRequest + confirm", () => {
     expect(confirmed.status).toBe("confirmed");
   });
 
+  it("keeps the selected distributor in the signed freight verification path", () => {
+    const source = require("node:fs").readFileSync(require("node:path").resolve(process.cwd(), "server/routers/orders.ts"), "utf8");
+    expect(source).toContain("distributorId: l.distributorId ?? null");
+    expect(source).toContain("freightQuoteItemsForOrder(normalizedLines)");
+  });
+
   it("rejects an order request with no line items", async () => {
     const caller = appRouter.createCaller(publicCtx());
     await expect(

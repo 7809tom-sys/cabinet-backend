@@ -1193,6 +1193,10 @@ export type OrderLineItem = {
   linePrice: number | null;
   doorStyle?: string | null; // chosen door-style name for this line
   styleId?: number | null;
+  /** Exact supplier line used for freight and fulfillment when a cart selected one. */
+  distributorId?: number | null;
+  /** Surface products have no cabinet freight profile and are excluded from the pallet quote. */
+  productKind?: "surface" | null;
   tier?: "Wholesale" | "Contractor" | "Homeowner" | null;
   matched: boolean;
 };

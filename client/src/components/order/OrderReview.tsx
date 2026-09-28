@@ -601,7 +601,16 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         description: t("or_submitted_desc"),
       });
     },
-    onError: (e) => toast.error(t("or_could_not_submit"), { description: e.message }),
+    onError: (e) => {
+      if (/shipping quote no longer matches|freight quote has expired/i.test(e.message)) {
+        toast.info("Refreshing your verified shipping quote", {
+          description: "Shipping or pricing details changed. Submit again when the refreshed quote appears.",
+        });
+        void freightEstimate.refetch();
+        return;
+      }
+      toast.error(t("or_could_not_submit"), { description: e.message });
+    },
   });
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -670,6 +679,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
         styleId: isSurfaceCheckoutLine(l) ? null : l.cartStyleId ?? selectedStyle?.styleId ?? null,
+        distributorId: isSurfaceCheckoutLine(l) ? null : l.cartDistributorId ?? null,
+        productKind: isSurfaceCheckoutLine(l) ? "surface" : null,
         doorStyle: isSurfaceCheckoutLine(l) ? null : brandedStyleName ?? null,
         tier: resolveCheckoutTier(l.cartTier, accountTier),
         matched: l.matched,

@@ -1,0 +1,32 @@
+import type { FreightQuoteTokenItem } from "../_core/freightQuoteToken";
+import { isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
+
+/**
+ * The exact cabinet identity committed into a shipping-quote token.
+ *
+ * Only source-backed catalog cabinets can affect cabinet freight. Surface and
+ * free-text checkout lines have no cabinet/package record and must not become a
+ * phantom freight carton during order submission.
+ */
+export type FreightQuoteOrderLine = {
+  cabinetId: number | null;
+  masterCode?: string | null;
+  styleId?: number | null;
+  distributorId?: number | null;
+  productKind?: "surface" | null;
+  qty: number;
+};
+
+export function freightQuoteItemsForOrder(lines: FreightQuoteOrderLine[]): FreightQuoteTokenItem[] {
+  return lines
+    .filter((line) => line.productKind !== "surface")
+    .filter((line) => line.cabinetId != null || Boolean(line.masterCode?.trim()))
+    .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
+    .map((line) => ({
+      cabinetId: line.cabinetId,
+      masterCode: line.masterCode ?? null,
+      styleId: line.styleId ?? null,
+      distributorId: line.distributorId ?? null,
+      qty: line.qty,
+    }));
+}

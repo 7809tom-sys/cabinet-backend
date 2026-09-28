@@ -28,6 +28,7 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain('residential: deliveryLocationType === "residential"');
     expect(source).toContain("liftgate: liftgateRequired");
     expect(source).toContain("distributorId: line.cartDistributorId ?? null");
+    expect(source).toContain("distributorId: isSurfaceCheckoutLine(l) ? null : l.cartDistributorId ?? null");
     expect(source).toContain("final pallet dimensions and loaded weight");
   });
 
@@ -42,5 +43,10 @@ describe("OrderReview freight accessorial controls", () => {
     expect(source).toContain("<PayWithStripe");
     expect(source).toContain("orderRequestId={submittedId}");
     expect(source).toContain("total + taxAmount + (deliveryMethod === \"ship\" ? freightCents / 100 : 0)");
+  });
+
+  it("refreshes a stale or mismatched signed quote instead of submitting it", () => {
+    expect(source).toContain("Refreshing your verified shipping quote");
+    expect(source).toContain("freightEstimate.refetch()");
   });
 });

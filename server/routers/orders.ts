@@ -43,6 +43,7 @@ import { buildAffiliateOrderPersistence } from "@shared/affiliateOrderAlias";
 import { createCheckoutSession } from "../stripe";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuoteToken";
+import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
 
@@ -197,6 +198,8 @@ const lineItemInput = z.object({
   linePrice: z.number().nullable().optional(),
   doorStyle: z.string().max(128).nullable().optional(),
   styleId: z.number().nullable().optional(),
+  distributorId: z.number().int().positive().nullable().optional(),
+  productKind: z.enum(["surface"]).nullable().optional(),
   tier: tierEnum.nullable().optional(),
   matched: z.boolean(),
 });
@@ -723,6 +726,8 @@ export const ordersRouter = router({
           linePrice,
           doorStyle: l.doorStyle ?? input.styleName ?? null,
           styleId: l.styleId ?? input.styleId ?? null,
+          distributorId: l.distributorId ?? null,
+          productKind: l.productKind ?? null,
           tier: l.tier ?? input.tier,
           matched: l.matched,
         };
@@ -822,17 +827,7 @@ export const ordersRouter = router({
           });
         }
         const expectedZip = (input.zip ?? "").replace(/\D/g, "").slice(0, 5);
-        const expectedItemsHash = freightItemsHash(
-          normalizedLines
-            .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
-            .map((line) => ({
-              cabinetId: line.cabinetId,
-              masterCode: line.masterCode,
-              styleId: line.styleId ?? input.styleId ?? null,
-              distributorId: null,
-              qty: line.qty,
-            })),
-        );
+        const expectedItemsHash = freightItemsHash(freightQuoteItemsForOrder(normalizedLines));
         const quoteMatchesOrder =
           quote.destinationZip === expectedZip &&
           quote.merchandiseSubtotalCents === Math.max(0, Math.round(total * 100)) &&
