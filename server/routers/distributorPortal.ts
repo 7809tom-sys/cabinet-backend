@@ -10,6 +10,7 @@ import {
 	  vendorProducts,
 	  doorStyles,
 	  doorStyleMeasurementSubmissions,
+	  doorStyleMeasurementDrafts,
 	  doorStyleRoomScenes,
 	  vendorLines,
 	  users,
@@ -798,6 +799,95 @@ export const distributorPortalRouter = router({
 		  }),
 
 		/**
+		 * Load the current user's in-progress sheet for one door style. Drafts are
+		 * deliberately separate from submissions and are never visible to admins
+		 * or other supplier accounts.
+		 */
+		doorMeasurementDraft: distributorProcedure
+		  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive() }))
+		  .query(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const [draft] = await db.select().from(doorStyleMeasurementDrafts)
+		      .where(and(
+		        eq(doorStyleMeasurementDrafts.styleId, input.styleId),
+		        eq(doorStyleMeasurementDrafts.distributorId, lineId),
+		        eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
+		      )).limit(1);
+		    return draft ?? null;
+		  }),
+
+		/** Save incomplete sheet work without entering the CabinetDealz review queue. */
+		saveDoorMeasurementDraft: distributorProcedure
+		  .input(z.object({
+		    distributorId: z.number().optional(),
+		    styleId: z.number().int().positive(),
+		    appliesToStyleIds: z.array(z.number().int().positive()).min(1).max(100),
+		    measuredBy: z.string().trim().max(255).optional(),
+		    measuredOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD for the measurement date"),
+		    measurements: sampleDoorMeasurementSchema,
+		  }))
+		  .mutation(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const [style] = await db.select({ id: doorStyles.id }).from(doorStyles)
+		      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId))).limit(1);
+		    if (!style) throw new TRPCError({ code: "FORBIDDEN", message: "That Door Style does not belong to your cabinet line." });
+		    const appliesToStyleIds = Array.from(new Set([style.id, ...input.appliesToStyleIds]));
+		    const linkedStyles = await db.select({ id: doorStyles.id }).from(doorStyles)
+		      .where(and(eq(doorStyles.distributorId, lineId), inArray(doorStyles.id, appliesToStyleIds)));
+		    if (linkedStyles.length !== appliesToStyleIds.length) {
+		      throw new TRPCError({ code: "FORBIDDEN", message: "Every checked Door Style must belong to your own cabinet line." });
+		    }
+		    const draftValues = {
+		      styleId: style.id,
+		      distributorId: lineId,
+		      savedBy: ctx.user.id,
+		      savedByName: ctx.user.name ?? null,
+		      appliesToStyleIds,
+		      measuredBy: input.measuredBy?.trim() ?? "",
+		      measuredOn: input.measuredOn,
+		      measurementData: input.measurements,
+		    };
+		    const [existing] = await db.select({ id: doorStyleMeasurementDrafts.id }).from(doorStyleMeasurementDrafts)
+		      .where(and(
+		        eq(doorStyleMeasurementDrafts.styleId, style.id),
+		        eq(doorStyleMeasurementDrafts.distributorId, lineId),
+		        eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
+		      )).limit(1);
+		    if (existing) {
+		      await db.update(doorStyleMeasurementDrafts).set({
+		        savedByName: draftValues.savedByName,
+		        appliesToStyleIds: draftValues.appliesToStyleIds,
+		        measuredBy: draftValues.measuredBy,
+		        measuredOn: draftValues.measuredOn,
+		        measurementData: draftValues.measurementData,
+		        updatedAt: new Date(),
+		      }).where(eq(doorStyleMeasurementDrafts.id, existing.id));
+		      return { id: existing.id, saved: true as const };
+		    }
+		    const [result] = await db.insert(doorStyleMeasurementDrafts).values(draftValues);
+		    return { id: Number((result as { insertId?: number }).insertId), saved: true as const };
+		  }),
+
+		/** Remove a draft after it has been submitted, or when the owner discards it. */
+		deleteDoorMeasurementDraft: distributorProcedure
+		  .input(z.object({ distributorId: z.number().optional(), styleId: z.number().int().positive() }))
+		  .mutation(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    await db.delete(doorStyleMeasurementDrafts).where(and(
+		      eq(doorStyleMeasurementDrafts.styleId, input.styleId),
+		      eq(doorStyleMeasurementDrafts.distributorId, lineId),
+		      eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
+		    ));
+		    return { deleted: true as const };
+		  }),
+
+		/**
 		 * Record the exact measurements a vendor took from a supplied sample door.
 		 * This is an official first-party source record, but it is intentionally
 		 * pending until CabinetDealz confirms the physical sample before Designer
@@ -854,6 +944,11 @@ export const distributorPortalRouter = router({
 		      submittedBy: ctx.user.id,
 		      submittedByName: ctx.user.name ?? null,
 		    });
+		    await db.delete(doorStyleMeasurementDrafts).where(and(
+		      eq(doorStyleMeasurementDrafts.styleId, style.id),
+		      eq(doorStyleMeasurementDrafts.distributorId, lineId),
+		      eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
+		    ));
 		    return { id: Number((result as { insertId?: number }).insertId), status: "pending" as const, citation };
 		  }),
 

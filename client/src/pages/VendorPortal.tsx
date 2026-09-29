@@ -1733,18 +1733,83 @@ function VendorDoorMeasurementDialog({
 	    edgeProfilePhotoProvided: false,
 	    backPhotoProvided: false,
 	  });
+	  const draftInput = useMemo(() => ({
+	    styleId: style.id,
+	    ...(distributorId ? { distributorId } : {}),
+	  }), [style.id, distributorId]);
+	  const draft = trpc.distributorPortal.doorMeasurementDraft.useQuery(draftInput);
+	  const [draftHydrated, setDraftHydrated] = useState(false);
+	  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+	  useEffect(() => {
+	    if (draftHydrated || !draft.data) return;
+	    const saved = draft.data.measurementData ?? {};
+	    const textValue = (key: string) => saved[key] == null ? "" : String(saved[key]);
+	    setMeasuredBy(draft.data.measuredBy ?? "");
+	    setMeasuredOn(draft.data.measuredOn || new Date().toISOString().slice(0, 10));
+	    setAppliesToStyleIds(draft.data.appliesToStyleIds.length ? draft.data.appliesToStyleIds : [style.id]);
+	    setDoorStyle(String(saved.doorStyle ?? "Shaker"));
+	    setDoorStyleOther(textValue("doorStyleOther"));
+	    setColorFinish(textValue("colorFinish"));
+	    setPanel(String(saved.panel ?? "Flat"));
+	    setOutsideEdgeProfile(textValue("outsideEdgeProfile"));
+	    setInsideFrameProfile(textValue("insideFrameProfile"));
+	    setDrawerConstruction(String(saved.drawerConstruction ?? "5-piece (frame and panel)"));
+	    setCabinetConstruction(String(saved.cabinetConstruction ?? "Face frame"));
+	    setOverlay(String(saved.overlay ?? "Full overlay"));
+	    setFields({
+	      sampleWidth: textValue("sampleWidth"), sampleHeight: textValue("sampleHeight"), doorThickness: textValue("doorThickness"),
+	      topRailWidth: textValue("topRailWidth"), bottomRailWidth: textValue("bottomRailWidth"), leftStileWidth: textValue("leftStileWidth"), rightStileWidth: textValue("rightStileWidth"), centerRailWidth: textValue("centerRailWidth"),
+	      drawerRailWidth: textValue("drawerRailWidth"), drawerStileWidth: textValue("drawerStileWidth"), slabBelowHeight: textValue("slabBelowHeight"), drawerFrontThickness: textValue("drawerFrontThickness"),
+	      doorGap: textValue("doorGap"), faceFrameWidth: textValue("faceFrameWidth"),
+	    });
+    setPhotos({
+      doorPhotoProvided: saved.doorPhotoProvided === true,
+      drawerPhotoProvided: saved.drawerPhotoProvided === true,
+      edgeProfilePhotoProvided: saved.edgeProfilePhotoProvided === true,
+      backPhotoProvided: saved.backPhotoProvided === true,
+    });
+    setDraftSavedAt(draft.data.updatedAt ? new Date(draft.data.updatedAt).toLocaleString() : null);
+    setDraftHydrated(true);
+  }, [draft.data, draftHydrated, style.id]);
 	  const requiredMeasurementKeys = ["topRailWidth", "bottomRailWidth", "leftStileWidth", "rightStileWidth"] as const;
 	  const completedRequiredMeasurements = requiredMeasurementKeys.filter((key) => fields[key].trim()).length;
 	  const sourceCitationPreview = `Measured from sample door: ${style.distributorName} ${style.styleCode}, measured by ${measuredBy.trim() || "[name]"} on ${measuredOn || "[date]"}.`;
+	  const buildMeasurements = () => ({
+	    doorStyle: doorStyle as "Shaker" | "Slim Shaker" | "Double Shaker" | "Raised Panel" | "Beaded" | "Slab" | "Other",
+	    doorStyleOther: doorStyleOther.trim() || undefined,
+	    colorFinish: colorFinish.trim() || undefined,
+	    sampleWidth: numeric(fields.sampleWidth), sampleHeight: numeric(fields.sampleHeight), doorThickness: numeric(fields.doorThickness),
+	    topRailWidth: numeric(fields.topRailWidth), bottomRailWidth: numeric(fields.bottomRailWidth),
+	    leftStileWidth: numeric(fields.leftStileWidth), rightStileWidth: numeric(fields.rightStileWidth), centerRailWidth: numeric(fields.centerRailWidth),
+	    panel: panel as "Flat" | "Raised" | "Beadboard",
+	    outsideEdgeProfile: outsideEdgeProfile.trim() || undefined,
+	    insideFrameProfile: insideFrameProfile.trim() || undefined,
+	    drawerConstruction: drawerConstruction as "5-piece (frame and panel)" | "Slab",
+	    drawerRailWidth: numeric(fields.drawerRailWidth), drawerStileWidth: numeric(fields.drawerStileWidth),
+	    slabBelowHeight: numeric(fields.slabBelowHeight), drawerFrontThickness: numeric(fields.drawerFrontThickness),
+	    cabinetConstruction: cabinetConstruction as "Face frame" | "Frameless",
+	    overlay: overlay as "Full overlay" | "Partial overlay" | "Inset",
+	    doorGap: numeric(fields.doorGap), faceFrameWidth: numeric(fields.faceFrameWidth),
+	    ...photos,
+	  });
+	  const saveDraft = trpc.distributorPortal.saveDoorMeasurementDraft.useMutation({
+	    onSuccess: () => {
+	      void utils.distributorPortal.doorMeasurementDraft.invalidate(draftInput);
+	      setDraftSavedAt(new Date().toLocaleString());
+	      toast.success("Measuring sheet draft saved. You can resume it later.");
+	    },
+	    onError: (error) => toast.error(error.message || "Could not save the measuring sheet draft."),
+	  });
 	  const submit = trpc.distributorPortal.submitDoorMeasurement.useMutation({
-    onSuccess: () => {
-      utils.distributorPortal.myLine.invalidate();
+	    onSuccess: () => {
+	      utils.distributorPortal.myLine.invalidate();
+	      void utils.distributorPortal.doorMeasurementDraft.invalidate(draftInput);
       toast.success("Sample-door measurements submitted for CabinetDealz verification.");
       onClose();
     },
     onError: (error) => toast.error(error.message),
   });
-  const numeric = (value: string) => value.trim() ? Number(value) : null;
+	  const numeric = (value: string) => value.trim() ? Number(value) : null;
 	  const updateField = (key: keyof MeasurementFields, value: string) => setFields((current) => ({ ...current, [key]: value }));
 	  const toggleStyle = (styleId: number, checked: boolean) => setAppliesToStyleIds((current) => {
 	    if (styleId === style.id) return current.includes(styleId) ? current : [styleId, ...current];
@@ -1756,7 +1821,7 @@ function VendorDoorMeasurementDialog({
       <Input type="number" min="0" max="120" step="0.0625" inputMode="decimal" value={fields[key]} onChange={(event) => updateField(key, event.target.value)} />
     </div>
   );
-  const submitMeasurements = () => {
+	  const submitMeasurements = () => {
     const required = ["topRailWidth", "bottomRailWidth", "leftStileWidth", "rightStileWidth"] as const;
     if (!measuredBy.trim()) {
       toast.error("Enter the name of the person who measured the sample.");
@@ -1771,32 +1836,30 @@ function VendorDoorMeasurementDialog({
       toast.error("Measurements must be valid inch values.");
       return;
     }
-    submit.mutate({
-	      ...(distributorId ? { distributorId } : {}),
+	    submit.mutate({
+		      ...(distributorId ? { distributorId } : {}),
 	      styleId: style.id,
 	      appliesToStyleIds,
       measuredBy: measuredBy.trim(),
       measuredOn,
-      measurements: {
-        doorStyle: doorStyle as "Shaker" | "Slim Shaker" | "Double Shaker" | "Raised Panel" | "Beaded" | "Slab" | "Other",
-        doorStyleOther: doorStyleOther.trim() || undefined,
-        colorFinish: colorFinish.trim() || undefined,
-        sampleWidth: numeric(fields.sampleWidth), sampleHeight: numeric(fields.sampleHeight), doorThickness: numeric(fields.doorThickness),
-        topRailWidth: numeric(fields.topRailWidth), bottomRailWidth: numeric(fields.bottomRailWidth),
-        leftStileWidth: numeric(fields.leftStileWidth), rightStileWidth: numeric(fields.rightStileWidth), centerRailWidth: numeric(fields.centerRailWidth),
-        panel: panel as "Flat" | "Raised" | "Beadboard",
-        outsideEdgeProfile: outsideEdgeProfile.trim() || undefined,
-        insideFrameProfile: insideFrameProfile.trim() || undefined,
-        drawerConstruction: drawerConstruction as "5-piece (frame and panel)" | "Slab",
-        drawerRailWidth: numeric(fields.drawerRailWidth), drawerStileWidth: numeric(fields.drawerStileWidth),
-        slabBelowHeight: numeric(fields.slabBelowHeight), drawerFrontThickness: numeric(fields.drawerFrontThickness),
-        cabinetConstruction: cabinetConstruction as "Face frame" | "Frameless",
-        overlay: overlay as "Full overlay" | "Partial overlay" | "Inset",
-        doorGap: numeric(fields.doorGap), faceFrameWidth: numeric(fields.faceFrameWidth),
-        ...photos,
-      },
-    });
-  };
+	      measurements: buildMeasurements(),
+	    });
+	  };
+	  const saveDraftNow = () => {
+	    const numericValues = Object.values(fields).filter((value) => value.trim()).map((value) => Number(value));
+	    if (numericValues.some((value) => !Number.isFinite(value) || value < 0 || value > 120)) {
+	      toast.error("Measurements must be valid inch values before saving the draft.");
+	      return;
+	    }
+	    saveDraft.mutate({
+	      ...(distributorId ? { distributorId } : {}),
+	      styleId: style.id,
+	      appliesToStyleIds,
+	      measuredBy: measuredBy.trim() || undefined,
+	      measuredOn,
+	      measurements: buildMeasurements(),
+	    });
+	  };
 
   return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="!flex h-[min(92dvh,900px)] max-h-[calc(100dvh-1rem)] w-[min(54rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-none">
@@ -1810,6 +1873,8 @@ function VendorDoorMeasurementDialog({
 	          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
 	            <span className="rounded-full bg-white px-2.5 py-1 font-medium text-amber-900">Required frame measurements: {completedRequiredMeasurements}/4</span>
 	            {completedRequiredMeasurements === 4 ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />Ready for review</span> : <span className="text-amber-900/80">Enter top, bottom, left, and right frame measurements to submit.</span>}
+	            {draft.isLoading && <span className="text-muted-foreground">Checking for saved draft…</span>}
+	            {draftSavedAt && <span className="text-emerald-700">Draft saved {draftSavedAt}</span>}
 	          </div>
 	        </div>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -1877,10 +1942,11 @@ function VendorDoorMeasurementDialog({
           <p className="text-xs text-muted-foreground">Upload the actual photos in the Door Styles card; these checkmarks document what accompanied this measurement submission.</p>
         </section>
       </div>
-      <DialogFooter className="shrink-0 border-t border-border pt-3">
-        <Button variant="outline" onClick={onClose} disabled={submit.isPending}>Cancel</Button>
-        <Button onClick={submitMeasurements} disabled={submit.isPending} className="bg-amber-600 text-white hover:bg-amber-700">{submit.isPending ? "Submitting…" : "Submit for CabinetDealz verification"}</Button>
-      </DialogFooter>
+	      <DialogFooter className="shrink-0 border-t border-border pt-3">
+	        <Button variant="outline" onClick={onClose} disabled={submit.isPending}>Cancel</Button>
+	        <Button variant="secondary" onClick={saveDraftNow} disabled={saveDraft.isPending || submit.isPending}>{saveDraft.isPending ? "Saving draft…" : "Save Draft"}</Button>
+	        <Button onClick={submitMeasurements} disabled={submit.isPending || saveDraft.isPending} className="bg-amber-600 text-white hover:bg-amber-700">{submit.isPending ? "Submitting…" : "Submit for CabinetDealz verification"}</Button>
+	      </DialogFooter>
     </DialogContent>
   </Dialog>;
 }

@@ -469,6 +469,27 @@ export const doorStyleMeasurementSubmissions = mysqlTable("door_style_measuremen
 
 export type DoorStyleMeasurementSubmission = typeof doorStyleMeasurementSubmissions.$inferSelect;
 
+// In-progress sample-door sheets are separate from submissions so incomplete
+// work never enters the CabinetDealz verification queue.
+export const doorStyleMeasurementDrafts = mysqlTable("door_style_measurement_drafts", {
+  id: int("id").autoincrement().primaryKey(),
+  styleId: int("styleId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  savedBy: int("savedBy").notNull(),
+  savedByName: varchar("savedByName", { length: 255 }),
+  appliesToStyleIds: json("appliesToStyleIds").$type<number[]>().notNull(),
+  measuredBy: varchar("measuredBy", { length: 255 }).notNull().default(""),
+  measuredOn: varchar("measuredOn", { length: 10 }).notNull(),
+  measurementData: json("measurementData").$type<Record<string, unknown>>().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("door_style_measurement_drafts_owner_style_idx").on(table.styleId, table.distributorId, table.savedBy),
+  index("door_style_measurement_drafts_owner_idx").on(table.savedBy, table.updatedAt),
+]);
+
+export type DoorStyleMeasurementDraft = typeof doorStyleMeasurementDrafts.$inferSelect;
+
 // ─── Door Style Room Scenes ─────────────────────────────────────────────────
 // Images remain in S3. This table retains only a scene's durable storage
 // reference, ordering, and private verification/source details.
