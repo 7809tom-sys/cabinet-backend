@@ -31,6 +31,13 @@ describe("Designer verified price fallback", () => {
     expect(source).not.toContain('lineTotal != null ? `$${lineTotal.toFixed(2)}` : "N/A"');
   });
 
+  it("labels an unpriced visual-only appliance as excluded instead of an unavailable cabinet", () => {
+    expect(source).toContain('const isLayoutAppliance = g.sample.placement === "appliance"');
+    expect(source).toContain('isLayoutAppliance ? "Not included"');
+    expect(source).toContain("Appliance price not included");
+    expect(source).toContain("{!isLayoutAppliance && <Popover>");
+  });
+
   it("normalizes saved foreign cabinet finish overrides after the independent door-style list resolves", () => {
     expect(source).toContain("clearForeignSavedStyleOverrides(current, lockedDistributorId, styleDistributorIdById)");
     expect(source).toContain("if (lockedDistributorId == null || styleDistributorIdById.size === 0) return;");

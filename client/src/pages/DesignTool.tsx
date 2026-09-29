@@ -14653,6 +14653,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   // line cannot omit the fee or apply the percentage twice.
                   const adjustedUnitPrice = adjustedDesignUnitPrice(g.sample, g.unitPrice);
                   const lineTotal = adjustedUnitPrice != null ? adjustedUnitPrice * g.qty : null;
+                  // Launch-stage appliances are layout-only models. They have
+                  // no authorized supplier SKU or selling price, so label the
+                  // exclusion explicitly instead of making the shopper think a
+                  // priced cabinet has become unavailable.
+                  const isLayoutAppliance = g.sample.placement === "appliance"
+                    && (g.sample.cabinetId == null || Number(g.sample.cabinetId) === 0);
                   const idx = sectionItems.findIndex((s) => s.key === g.key);
                   const canMoveUp = idx > 0;
                   const canMoveDown = idx < sectionItems.length - 1;
@@ -14724,9 +14730,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       {/* Price + edit/delete controls */}
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
-	                          <div className={`font-semibold leading-none ${styleId && lineTotal == null ? "text-rose-700" : ""}`}>
-	                            {styleId ? (lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable") : "—"}
+	                          <div
+                              className={`font-semibold leading-none ${styleId && lineTotal == null && !isLayoutAppliance ? "text-rose-700" : ""}`}
+                              title={isLayoutAppliance ? "Appliance price is not included in the cabinet estimate." : undefined}
+                            >
+	                            {styleId ? (isLayoutAppliance ? "Not included" : lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable") : "—"}
 	                          </div>
+	                          {isLayoutAppliance && (
+                              <div className="mt-0.5 text-[9px] text-muted-foreground">Appliance price not included</div>
+                            )}
                           {styleId && g.qty > 1 && adjustedUnitPrice != null && (
                             <div className="text-[9px] text-muted-foreground mt-0.5">${adjustedUnitPrice.toFixed(2)} ea</div>
                           )}
@@ -14736,8 +14748,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             </div>
                           )}
                         </div>
-                        {/* Discount/surcharge quick-set */}
-                        <Popover>
+	                        {/* Discount/surcharge quick-set */}
+	                        {!isLayoutAppliance && <Popover>
                           <PopoverTrigger asChild>
                             <button
                               type="button"
@@ -14780,7 +14792,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                               <Button size="sm" variant="outline" className="h-6 text-[10px] px-2" onClick={() => setDiscountPctForGroup(g.uids, null)}>Clear</Button>
                             </div>
                           </PopoverContent>
-                        </Popover>
+	                        </Popover>}
                         {/* Edit / resolve: jump to this cabinet and open its editor so
                             the user can correct whatever caused a conflict (size,
                             swing, blind-corner pull spec, finish, position, etc.). */}
