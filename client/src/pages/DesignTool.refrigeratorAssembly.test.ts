@@ -68,13 +68,11 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(placement).toContain("setSelectedUid(duplicate.uid)");
 	  });
 
-	  it("routes the refrigerator properties side-panel toggle through the owned surround transaction", () => {
-	    expect(source).toContain("const setRefrigeratorSidePanels = useCallback");
-	    expect(source).toContain("setPendingRefrigeratorPanelToggle({ fridgeUid, enabled })");
-	    expect(source).toContain("panels: pending.enabled ? \"both\" : \"none\"");
-	    expect(source).toContain("preserveExistingBridge: Boolean(currentBridge)");
-	    expect(source).toContain("onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}");
-	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}");
+	  it("keeps refrigerator panel choices inside the insertion attributes dialog", () => {
+	    expect(source).not.toContain("const setRefrigeratorSidePanels = useCallback");
+	    expect(source).not.toContain("onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}");
+	    expect(source).not.toContain("pendingRefrigeratorPanelToggle");
+	    expect(source).toContain("open={!!fridgeDialog}");
 	  });
 
 	  it("keeps a correct 72-inch cap while automatic recovery adds only refrigerator end panels", () => {
@@ -112,31 +110,28 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(source).toContain("const fridgeSurround = refrigeratorSurroundCatalog;");
 	  });
 
-	  it("repairs restored built-in refrigerators through the same source-priced panel transaction", () => {
-	    expect(source).toContain("missingRefrigeratorPanelRoles(placed, candidate, room).length > 0");
-	    expect(source).toContain("refrigeratorPanelRepairAttemptedRef.current.add(restoredRefrigeratorNeedingPanels.uid)");
-	    expect(source).toContain("setPendingRefrigeratorPanelToggle({ fridgeUid: restoredRefrigeratorNeedingPanels.uid, enabled: true })");
-	    expect(source).toContain("setFridgeDialog({ fridgeUid: restoredRefrigeratorNeedingPanels.uid })");
+	  it("does not auto-add refrigerator panels to restored designs", () => {
+	    expect(source).not.toContain("missingRefrigeratorPanelRoles(placed, candidate, room).length > 0");
+	    expect(source).not.toContain("refrigeratorPanelRepairAttemptedRef");
 	  });
 
-	  it("routes wall-drag, keyboard nudge, D-pad, and exact depth moves through the shared assembly commit", () => {
-    expect(source.match(/commitRefrigeratorAssemblyCandidate\(/g)?.length).toBeGreaterThanOrEqual(3);
-    const moveStart = source.indexOf("const moveCabinet = useCallback");
-    const moveEnd = source.indexOf("const swingSelected", moveStart);
-    const nudgeStart = source.indexOf("const nudgeSelected = useCallback");
-    const nudgeEnd = source.indexOf("// Raise/lower the selected WALL cabinet", nudgeStart);
-    const dpadStart = source.indexOf("const moveCabinetFrom3D = useCallback");
-    const dpadEnd = source.indexOf("// Clear the override", dpadStart);
-    expect(source.slice(moveStart, moveEnd)).toContain("commitRefrigeratorAssemblyCandidate(prev, uid, movedCabinet, room)");
-    expect(source.slice(nudgeStart, nudgeEnd)).toContain("commitRefrigeratorAssemblyCandidate(prev, selectedUid, candidate, room)");
-	    expect(source.slice(dpadStart, dpadEnd)).toContain("commitRefrigeratorAssemblyCandidate(prev, uid, candidate, room)");
+	  it("moves a refrigerator independently from separately selected attributes", () => {
+	    const moveStart = source.indexOf("const moveCabinet = useCallback");
+	    const moveEnd = source.indexOf("const swingSelected", moveStart);
+	    const nudgeStart = source.indexOf("const nudgeSelected = useCallback");
+	    const nudgeEnd = source.indexOf("// Raise/lower the selected WALL cabinet", nudgeStart);
+	    const dpadStart = source.indexOf("const moveCabinetFrom3D = useCallback");
+	    const dpadEnd = source.indexOf("// Clear the override", dpadStart);
+	    expect(source.slice(moveStart, moveEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
+	    expect(source.slice(nudgeStart, nudgeEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
+	    expect(source.slice(dpadStart, dpadEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
+	    expect(source.slice(dpadStart, dpadEnd)).toContain("commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate)");
 	  });
 
-	  it("asks before a refrigerator delete removes its owned panels, cap, and fillers", () => {
-	    expect(source).toContain("const requestCabinetDeletion = useCallback");
-	    expect(source).toContain("setRefrigeratorBayDeletePrompt({ fridgeUid: uid, memberCount: members.length })");
-	    expect(source).toContain("Delete the complete refrigerator bay?");
-	    expect(source).toContain('data-testid="confirm-delete-refrigerator-bay"');
-	    expect(source).toContain("removeCabinetsAndReleaseVoid(uids, true)");
+	  it("deletes only the refrigerator without a grouped-bay dialog", () => {
+	    const deletion = sourceBetween("const requestCabinetDeletion = useCallback", "const unlockCornerSnap");
+	    expect(deletion).toContain("removeCabinetAndReleaseVoid(uid)");
+	    expect(source).not.toContain("refrigeratorBayDeletePrompt");
+	    expect(source).not.toContain("Delete the complete refrigerator bay?");
 	  });
 });
