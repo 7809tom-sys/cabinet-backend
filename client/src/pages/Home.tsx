@@ -215,8 +215,9 @@ function AboutYourKitchen() {
             </article>
           ))}
         </div>
-        <div className="mt-8 text-center">
+        <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link href="/design"><Button className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">Start Designing <ArrowRight className="h-4 w-4" /></Button></Link>
+          <Link href="/bundles"><Button variant="outline" className="gap-2 bg-background">Browse Kitchen Packages <ArrowRight className="h-4 w-4" /></Button></Link>
         </div>
       </div>
     </section>
