@@ -62,6 +62,7 @@ import {
   resolveParcelShipmentMode,
   type AuthoritativeParcelPackage,
 } from "@shared/parcelEligibility";
+import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
 
 // ─── Settings loading + defaults ────────────────────────────────────────────────
 const DEFAULT_SETTINGS: FreightSettings = {
@@ -202,6 +203,8 @@ async function resolvePackages(
     physicalWidth: number | null;
     physicalHeight: number | null;
     physicalDepth: number | null;
+    category: string;
+    description: string;
     isTrim: boolean;
   };
   type PackageOverride = {
@@ -249,6 +252,7 @@ async function resolvePackages(
             physicalHeight: cabinets.height,
             physicalDepth: cabinets.depth,
             category: cabinets.category,
+            description: cabinets.description,
             subCategory: cabinets.subCategory,
           })
           .from(cabinets)
@@ -265,6 +269,8 @@ async function resolvePackages(
             physicalWidth: numeric(r.physicalWidth),
             physicalHeight: numeric(r.physicalHeight),
             physicalDepth: numeric(r.physicalDepth),
+            category: r.category,
+            description: r.description,
             isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
         }
@@ -283,6 +289,7 @@ async function resolvePackages(
             physicalHeight: cabinets.height,
             physicalDepth: cabinets.depth,
             category: cabinets.category,
+            description: cabinets.description,
             subCategory: cabinets.subCategory,
           })
           .from(cabinets)
@@ -299,6 +306,8 @@ async function resolvePackages(
             physicalWidth: numeric(r.physicalWidth),
             physicalHeight: numeric(r.physicalHeight),
             physicalDepth: numeric(r.physicalDepth),
+            category: r.category,
+            description: r.description,
             isTrim: /trim|molding|moulding|crown|valance|toe.?kick/i.test(`${r.category ?? ""} ${r.subCategory ?? ""}`),
           });
         }
@@ -402,13 +411,31 @@ async function resolvePackages(
     // Supplier SKU package data is the most specific source for the exact
     // distributor + door style + cabinet being purchased. It must take
     // precedence over a line-wide override or generic master carton.
-    const packageWeight = supplierPackage?.packageWeight ?? override?.packageWeight ?? pkg?.packageWeight ?? null;
-    const packageLength = supplierPackage?.l ?? override?.l ?? pkg?.l ?? null;
-    const packageWidth = supplierPackage?.w ?? override?.w ?? pkg?.w ?? null;
-    const packageHeight = supplierPackage?.h ?? override?.h ?? pkg?.h ?? null;
     const physicalWidth = override?.physicalWidth ?? pkg?.physicalWidth ?? null;
     const physicalHeight = override?.physicalHeight ?? pkg?.physicalHeight ?? null;
     const physicalDepth = override?.physicalDepth ?? pkg?.physicalDepth ?? null;
+    const genericPackage = pkg ? genericCabinetPackage({
+      widthIn: physicalWidth,
+      heightIn: physicalHeight,
+      depthIn: physicalDepth,
+      assembledWeightLbs: override?.fallbackWeight ?? pkg?.fallbackWeight,
+      category: pkg?.category,
+      description: pkg?.description,
+    }) : null;
+    const sourcePackageWeight = supplierPackage?.packageWeight ?? override?.packageWeight ?? null;
+    const sourcePackageLength = supplierPackage?.l ?? override?.l ?? null;
+    const sourcePackageWidth = supplierPackage?.w ?? override?.w ?? null;
+    const sourcePackageHeight = supplierPackage?.h ?? override?.h ?? null;
+    const packageWeight = sourcePackageWeight ?? pkg?.packageWeight ?? genericPackage?.weightLbs ?? null;
+    const packageLength = sourcePackageLength ?? pkg?.l ?? genericPackage?.lengthIn ?? null;
+    const packageWidth = sourcePackageWidth ?? pkg?.w ?? genericPackage?.widthIn ?? null;
+    const packageHeight = sourcePackageHeight ?? pkg?.h ?? genericPackage?.heightIn ?? null;
+    const usesEstimatedPackage = genericPackage != null && [
+      sourcePackageWeight,
+      sourcePackageLength,
+      sourcePackageWidth,
+      sourcePackageHeight,
+    ].some((value) => value == null || value <= 0);
 
     const resolvedWeight =
       it.weightLbs != null
@@ -434,7 +461,7 @@ async function resolvePackages(
         physicalHeight ?? 0,
         physicalDepth ?? 0,
       ) || null,
-      isTrim: pkg?.isTrim ?? false,
+      isTrim: genericPackage?.isTrim === true || pkg?.isTrim === true,
     });
     const hasAuthoritativePackage = [packageLength, packageWidth, packageHeight, packageWeight]
       .every((value) => value != null && value > 0);
@@ -445,6 +472,8 @@ async function resolvePackages(
         heightIn: packageHeight,
         weightLbs: packageWeight,
         hasAuthoritativePackage,
+        isEstimatedPackage: usesEstimatedPackage,
+        freightClass: genericPackage?.freightClass ?? null,
         label: supplierPackage?.code ?? pkg?.code ?? it.masterCode ?? null,
       });
     }
@@ -1452,6 +1481,14 @@ export const freightRouter = router({
             settings.defaultCabinetWeightLbs,
           );
           const plan = buildPallets(resolvedGroup.packages, caps);
+          const resolvedLoad = totalPackagedLoad(resolvedGroup.packages);
+          const densityClass = resolvedGroup.parcelPackages.every((pkg) => pkg.hasAuthoritativePackage)
+            ? freightClassFromDensity(resolvedLoad.weightLbs / resolvedLoad.cubicFt)
+            : null;
+          const groupFreightClass = densityClass ?? liveFreightClass;
+          const estimatedPackageCount = resolvedGroup.parcelPackages
+            .filter((pkg) => pkg.isEstimatedPackage)
+            .length;
           // An explicit UPS parcel request is a diagnostic quote request. Do
           // not silently return the distributor's LTL/flat rule instead.
           if (group.distributorRuleFeeCents != null && input.carrierPreference !== "ups") {
@@ -1459,12 +1496,13 @@ export const freightRouter = router({
             shipmentGroups.push({
               label: group.label,
               originZip: group.originZip,
-              freightClass: liveFreightClass,
+              freightClass: groupFreightClass,
               transportMode: "ltl",
               palletCount: plan.palletCount,
               totalWeightLbs: plan.totalWeightLbs,
               totalContentsWeightLbs: plan.totalContentsWeightLbs,
               totalCubicFt: plan.totalCubicFt,
+              estimatedPackageCount,
               pallets: plan.pallets.map((pallet) => ({
                 lengthIn: pallet.lengthIn,
                 widthIn: pallet.widthIn,
@@ -1552,6 +1590,7 @@ export const freightRouter = router({
               totalCubicFt: 0,
               pallets: [],
               parcelCount: parcelCartons.length,
+              estimatedPackageCount,
               parcels: parcelCartons.map((carton, index) => ({
                 ...carton,
                 label: carton.label ?? null,
@@ -1563,9 +1602,9 @@ export const freightRouter = router({
               transitDays: live.transitDays,
               estimatedDeliveryDate: live.estimatedDeliveryDate,
             };
-            shipmentGroups.push(shipmentGroup);
-            totalBillableWeightLbs += parcelWeight;
             if (live.ok) {
+              shipmentGroups.push(shipmentGroup);
+              totalBillableWeightLbs += parcelWeight;
               rateGroups.push({
                 key: group.key,
                 label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${parcelCartons.length} carton${parcelCartons.length === 1 ? "" : "s"}`,
@@ -1578,6 +1617,26 @@ export const freightRouter = router({
                 estimatedDeliveryDate: live.estimatedDeliveryDate,
               });
             } else {
+              totalBillableWeightLbs += plan.totalWeightLbs;
+              shipmentGroups.push({
+                label: group.label,
+                originZip: group.originZip,
+                freightClass: groupFreightClass,
+                transportMode: "ltl",
+                palletCount: plan.palletCount,
+                totalWeightLbs: plan.totalWeightLbs,
+                totalContentsWeightLbs: plan.totalContentsWeightLbs,
+                totalCubicFt: plan.totalCubicFt,
+                estimatedPackageCount,
+                pallets: plan.pallets.map((pallet) => ({
+                  lengthIn: pallet.lengthIn,
+                  widthIn: pallet.widthIn,
+                  heightIn: pallet.heightIn,
+                  weightLbs: pallet.weightLbs,
+                  contentsWeightLbs: pallet.contentsWeightLbs,
+                  contentsCubicFt: pallet.contentsCubicFt,
+                })),
+              });
               failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
             }
             continue;
@@ -1591,12 +1650,13 @@ export const freightRouter = router({
             shipmentGroups.push({
               label: group.label,
               originZip: group.originZip,
-              freightClass: liveFreightClass,
+              freightClass: groupFreightClass,
               transportMode: "ltl",
               palletCount: plan.palletCount,
               totalWeightLbs: plan.totalWeightLbs,
               totalContentsWeightLbs: plan.totalContentsWeightLbs,
               totalCubicFt: plan.totalCubicFt,
+              estimatedPackageCount,
               pallets: plan.pallets.map((pallet) => ({
                 lengthIn: pallet.lengthIn,
                 widthIn: pallet.widthIn,
@@ -1614,12 +1674,13 @@ export const freightRouter = router({
           const shipmentGroup: FreightShipmentGroup = {
             label: group.label,
             originZip: group.originZip,
-            freightClass: liveFreightClass,
+            freightClass: groupFreightClass,
             transportMode: "ltl",
             palletCount: plan.palletCount,
             totalWeightLbs: plan.totalWeightLbs,
             totalContentsWeightLbs: plan.totalContentsWeightLbs,
             totalCubicFt: plan.totalCubicFt,
+            estimatedPackageCount,
             pallets: plan.pallets.map((pallet) => ({
               lengthIn: pallet.lengthIn,
               widthIn: pallet.widthIn,
@@ -1639,7 +1700,7 @@ export const freightRouter = router({
               heightIn: pallet.heightIn,
               weightLbs: pallet.weightLbs,
             })),
-            freightClass: liveFreightClass,
+            freightClass: groupFreightClass,
             residential: input.accessorials?.residential,
             liftgate: input.accessorials?.liftgate,
             limitedAccess: input.accessorials?.limitedAccess,

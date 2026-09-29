@@ -16,10 +16,11 @@ describe("supplier SKU package data in freight resolution", () => {
   });
 
   it("gives exact supplier package data priority over line-wide and master fallbacks", () => {
-    expect(source).toContain("supplierPackage?.packageWeight ?? override?.packageWeight ?? pkg?.packageWeight");
-    expect(source).toContain("supplierPackage?.l ?? override?.l ?? pkg?.l");
-    expect(source).toContain("supplierPackage?.w ?? override?.w ?? pkg?.w");
-    expect(source).toContain("supplierPackage?.h ?? override?.h ?? pkg?.h");
+    expect(source).toContain("supplierPackage?.packageWeight ?? override?.packageWeight ?? null");
+    expect(source).toContain("sourcePackageWeight ?? pkg?.packageWeight ?? genericPackage?.weightLbs");
+    expect(source).toContain("sourcePackageLength ?? pkg?.l ?? genericPackage?.lengthIn");
+    expect(source).toContain("sourcePackageWidth ?? pkg?.w ?? genericPackage?.widthIn");
+    expect(source).toContain("sourcePackageHeight ?? pkg?.h ?? genericPackage?.heightIn");
     expect(source).toContain("label: supplierPackage?.code ?? pkg?.code");
   });
 });

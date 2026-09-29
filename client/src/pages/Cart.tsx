@@ -658,11 +658,16 @@ export default function Cart() {
                       ? formatCarrierDeliveryDate(group.estimatedDeliveryDate)
                       : null;
                     return (
-                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
-                        <div className="font-medium text-foreground">{group.label}</div>
-	                        {group.transportMode === "parcel" ? (
+	                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
+	                        <div className="font-medium text-foreground">{group.label}</div>
+	                        {(group.estimatedPackageCount ?? 0) > 0 && (
+	                          <div className="my-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">
+	                            Generic flat-pack measurements used for {group.estimatedPackageCount} carton{group.estimatedPackageCount === 1 ? "" : "s"}. Exact supplier package data replaces these estimates automatically when entered.
+	                          </div>
+	                        )}
+		                        {group.transportMode === "parcel" ? (
 	                          <>
-	                            <div>{group.parcelCount ?? group.parcels?.length ?? 0} verified carton{(group.parcelCount ?? group.parcels?.length ?? 0) === 1 ? "" : "s"} · Live UPS/FedEx/USPS service</div>
+		                            <div>{group.parcelCount ?? group.parcels?.length ?? 0} {(group.estimatedPackageCount ?? 0) > 0 ? "estimated" : "verified"} carton{(group.parcelCount ?? group.parcels?.length ?? 0) === 1 ? "" : "s"} · Live UPS/FedEx/USPS service</div>
 	                            {group.parcels?.map((parcel, index) => <div key={index}>Carton {index + 1}{parcel.label ? ` · ${parcel.label}` : ""}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb{parcel.carrier ? ` · ${parcel.carrier}${parcel.service ? ` ${parcel.service}` : ""}` : ""}{parcel.amountCents != null ? ` · $${(parcel.amountCents / 100).toFixed(2)}` : ""}</div>)}
 	                            {group.parcelReviewWarnings?.length ? (
 	                              <div className="mt-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">

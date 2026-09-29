@@ -28,6 +28,10 @@ export interface AuthoritativeParcelPackage {
   weightLbs: number | null | undefined;
   /** A missing catalog package record must never become a made-up parcel. */
   hasAuthoritativePackage: boolean;
+  /** True when missing supplier fields were filled by the approved generic cabinet rule. */
+  isEstimatedPackage?: boolean;
+  /** Density-based LTL class calculated from the complete carton. */
+  freightClass?: string | null;
   /** Optional label used only in customer/admin explanations. */
   label?: string | null;
 }

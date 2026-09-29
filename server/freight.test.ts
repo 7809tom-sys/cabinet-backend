@@ -104,7 +104,7 @@ describe("freight.estimate", () => {
     await adminCaller.freight.adminUpdateSettings(settingsPayload(s, { enabled: s.enabled }));
   }, 15_000);
 
-  it("falls back from UPS to a usable LTL estimate for a Skyline cabinet without verified carton data", async () => {
+  it("uses the generic B24 carton for UPS and falls back cleanly when the UPS connection is unavailable", async () => {
     const adminCaller = appRouter.createCaller(userCtx("admin"));
     const before = await readSettings();
     const s = before!;
@@ -124,6 +124,9 @@ describe("freight.estimate", () => {
       expect(q.zoneName).toContain("Estimated LTL freight");
       expect(q.reason).toMatch(/UPS parcel rating is not available/i);
       expect(q.shipmentGroups?.[0]?.transportMode).toBe("ltl");
+      expect(q.shipmentGroups?.[0]?.estimatedPackageCount).toBe(1);
+      expect(q.shipmentGroups?.[0]?.totalContentsWeightLbs).toBe(51);
+      expect(q.shipmentGroups?.[0]?.freightClass).toBe("77.5");
       expect(q.totalCents).toBeGreaterThan(0);
     } finally {
       await adminCaller.freight.adminUpdateSettings(settingsPayload(s));

@@ -98,6 +98,8 @@ export interface FreightShipmentGroup {
   pallets: FreightPalletDetail[];
   parcelCount?: number;
   parcels?: FreightParcelDetail[];
+  /** Cartons filled by the approved generic cabinet packaging rule. */
+  estimatedPackageCount?: number;
   /** Carrier threshold flags; the live carrier rate remains the final authority. */
   parcelReviewWarnings?: string[];
   /** Carrier transit after pickup; warehouse processing time is separate. */

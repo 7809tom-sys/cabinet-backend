@@ -33,6 +33,13 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Carrier handling review:");
   });
 
+  it("discloses when the approved generic package rule supplied carton measurements", () => {
+    expect(cartSource).toContain("group.estimatedPackageCount");
+    expect(cartSource).toContain("Generic flat-pack measurements used for");
+    expect(cartSource).toContain("Exact supplier package data replaces these estimates automatically");
+    expect(cartSource).toContain('? "estimated" : "verified"');
+  });
+
   it("offers a UPS-first check that falls back to the configured LTL estimate without treating a pallet as a UPS carton", () => {
     expect(cartSource).toContain('id="ups-parcel-quote"');
     expect(cartSource).toContain("Prefer a UPS package quote");
