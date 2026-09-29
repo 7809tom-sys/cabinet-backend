@@ -5403,10 +5403,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
       // Refrigerator dialog
       if (isRefrigerator(finalCab)) {
-	      // A selected source style is required for real priced panels, cap, and
-	      // fillers. Without it, keep the explicit configuration dialog visible
-	      // rather than hiding a refrigerator in a pending automatic state.
-        if (styleId) setAutoRefrigeratorBayUid(finalCab.uid);
+	      // A refrigerator is a source-priced grouped bay, but the customer must
+	      // choose its real appliance dimensions, cap, and enclosure panels before
+	      // that bay is committed. Do not immediately consume this state with an
+	      // automatic default transaction: the attributes dialog is the placement
+	      // step for every directly inserted refrigerator.
         setFridgeDialog({ fridgeUid: finalCab.uid });
       }
       // Oven tall cabinet dialog
@@ -6465,10 +6466,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
 	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
-	  // A directly placed refrigerator receives its source-backed cap and both
-	  // end panels immediately. The dialog remains available for intentional
-	  // reconfiguration, but a normal refrigerator drop is one physical bay.
-	  const [autoRefrigeratorBayUid, setAutoRefrigeratorBayUid] = useState<string | null>(null);
+	  // A directly placed refrigerator remains selected until the attributes
+	  // dialog commits its source-backed cap and end-panel choices as one bay.
 	  const [refrigeratorBayDeletePrompt, setRefrigeratorBayDeletePrompt] = useState<{ fridgeUid: string; memberCount: number } | null>(null);
 	  const [pendingRefrigeratorPanelToggle, setPendingRefrigeratorPanelToggle] = useState<{ fridgeUid: string; enabled: boolean } | null>(null);
 	  const refrigeratorPanelRepairAttemptedRef = useRef(new Set<string>());
@@ -7004,15 +7003,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    setPendingRefrigeratorPanelToggle({ fridgeUid, enabled });
 	    setFridgeDialog({ fridgeUid });
 	  }, [styleId]);
-
-	  useEffect(() => {
-	    if (!autoRefrigeratorBayUid || !fridgeForDialog || fridgeForDialog.uid !== autoRefrigeratorBayUid || !fridgeSurround) return;
-	    // The resolver already gates every returned row to the selected source
-	    // style. Build exactly one deep, full-height refrigerator bay rather than
-	    // dropping visually related loose pieces at separate coordinates.
-	    setAutoRefrigeratorBayUid(null);
-	    applyFridgeSurround({ above: "deep", panels: "both", smooth: false });
-	  }, [applyFridgeSurround, autoRefrigeratorBayUid, fridgeForDialog, fridgeSurround]);
 
 	  useEffect(() => {
 	    const pending = pendingRefrigeratorPanelToggle;
@@ -16032,7 +16022,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
 	      <RefrigeratorOptionsDialog
-	        open={!!fridgeDialog && !pendingRefrigeratorPanelToggle && !autoRefrigeratorBayUid}
+	        open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         fridgeWidthInches={fridgeForDialog
           ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)

@@ -74,7 +74,7 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(source).toContain("panels: pending.enabled ? \"both\" : \"none\"");
 	    expect(source).toContain("preserveExistingBridge: Boolean(currentBridge)");
 	    expect(source).toContain("onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}");
-	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle && !autoRefrigeratorBayUid}");
+	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}");
 	  });
 
 	  it("keeps a correct 72-inch cap while automatic recovery adds only refrigerator end panels", () => {
@@ -85,11 +85,12 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(transaction).toContain('if (opts.above !== "none" && !existingBridge)');
 	  });
 
-	  it("builds a normal refrigerator drop as one source-backed bay with exact clearance and no synthetic panels", () => {
+	  it("opens the refrigerator attributes dialog before a normal drop builds its source-backed bay", () => {
 	    const transaction = refrigeratorTransaction();
-	    expect(source).toContain("setAutoRefrigeratorBayUid(finalCab.uid)");
-	    expect(source).toContain("catalogFillers, appliancePalette, styleId, rememberFailedWallFit");
-	    expect(source).toContain("applyFridgeSurround({ above: \"deep\", panels: \"both\", smooth: false })");
+	    const placement = sourceBetween("// Refrigerator dialog", "// Oven tall cabinet dialog");
+	    expect(placement).toContain("setFridgeDialog({ fridgeUid: finalCab.uid })");
+	    expect(placement).toContain("customer must\n\t      // choose its real appliance dimensions, cap, and enclosure panels");
+	    expect(source).not.toContain("autoRefrigeratorBayUid");
 	    expect(transaction).toContain("const bay = refrigeratorBayRunMetrics(configuredFridge, room)");
 	    expect(transaction).toContain("const remainingOpening = Math.max(0, bay.openingWidth - aWidth)");
 	    expect(transaction).toContain('addCapFiller("bridge-left-filler", bay.openingStart)');
