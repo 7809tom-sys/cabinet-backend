@@ -135,10 +135,16 @@ const sampleDoorMeasurementSchema = z.object({
   overlay: z.enum(["Full overlay", "Partial overlay", "Inset"]).optional(),
   doorGap: z.number().min(0).max(12).nullable().optional(),
   faceFrameWidth: z.number().positive().max(24).nullable().optional(),
-  doorPhotoProvided: z.boolean().optional(),
-  drawerPhotoProvided: z.boolean().optional(),
-  edgeProfilePhotoProvided: z.boolean().optional(),
-  backPhotoProvided: z.boolean().optional(),
+	  doorPhotoProvided: z.boolean().optional(),
+	  drawerPhotoProvided: z.boolean().optional(),
+	  edgeProfilePhotoProvided: z.boolean().optional(),
+	  backPhotoProvided: z.boolean().optional(),
+	  referencePhotos: z.array(z.object({
+	    photoType: z.enum(["door", "drawer", "edge", "back"]),
+	    url: z.string().max(512),
+	    fileName: z.string().max(256),
+	    uploadedAt: z.string().max(40),
+	  })).max(4).optional(),
 });
 
 const monthOffset = (months: number) => {
@@ -885,6 +891,47 @@ export const distributorPortalRouter = router({
 		      eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
 		    ));
 		    return { deleted: true as const };
+		  }),
+
+		/** Attach or replace one of the four reference images on an existing draft. */
+		uploadDoorMeasurementDraftPhoto: distributorProcedure
+		  .input(z.object({
+		    distributorId: z.number().optional(),
+		    styleId: z.number().int().positive(),
+		    photoType: z.enum(["door", "drawer", "edge", "back"]),
+		    imageBase64: z.string().min(1).max(11_000_000),
+		    contentType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+		    fileName: z.string().trim().min(1).max(256),
+		  }))
+		  .mutation(async ({ ctx, input }) => {
+		    const db = await getDb();
+		    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+		    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
+		    const [draft] = await db.select().from(doorStyleMeasurementDrafts).where(and(
+		      eq(doorStyleMeasurementDrafts.styleId, input.styleId),
+		      eq(doorStyleMeasurementDrafts.distributorId, lineId),
+		      eq(doorStyleMeasurementDrafts.savedBy, ctx.user.id),
+		    )).limit(1);
+		    if (!draft) throw new TRPCError({ code: "BAD_REQUEST", message: "Save the measuring-sheet draft before attaching a photo." });
+		    const buffer = Buffer.from(input.imageBase64, "base64");
+		    if (buffer.length === 0 || buffer.length > 8 * 1024 * 1024) {
+		      throw new TRPCError({ code: "BAD_REQUEST", message: "Reference images must be smaller than 8 MB." });
+		    }
+		    const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 80) || "reference.jpg";
+		    const { url } = await storagePut(
+		      `door-measurement-drafts/${ctx.user.id}/${lineId}/${input.styleId}/${Date.now()}-${input.photoType}-${safeName}`,
+		      buffer,
+		      input.contentType,
+		    );
+		    const currentData = draft.measurementData ?? {};
+		    const currentPhotos = Array.isArray(currentData.referencePhotos) ? currentData.referencePhotos : [];
+		    const photo = { photoType: input.photoType, url, fileName: input.fileName, uploadedAt: new Date().toISOString() };
+		    const referencePhotos = [...currentPhotos.filter((item) => item && typeof item === "object" && (item as { photoType?: string }).photoType !== input.photoType), photo];
+		    await db.update(doorStyleMeasurementDrafts).set({
+		      measurementData: { ...currentData, referencePhotos },
+		      updatedAt: new Date(),
+		    }).where(eq(doorStyleMeasurementDrafts.id, draft.id));
+		    return { photo, saved: true as const };
 		  }),
 
 		/**

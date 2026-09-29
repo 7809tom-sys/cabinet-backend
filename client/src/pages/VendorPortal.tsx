@@ -1694,6 +1694,13 @@ type MeasurementFields = Record<
   string
 >;
 
+type MeasurementReferencePhoto = {
+  photoType: "door" | "drawer" | "edge" | "back";
+  url: string;
+  fileName: string;
+  uploadedAt: string;
+};
+
 const EMPTY_MEASUREMENT_FIELDS: MeasurementFields = {
   sampleWidth: "", sampleHeight: "", doorThickness: "",
   topRailWidth: "", bottomRailWidth: "", leftStileWidth: "", rightStileWidth: "", centerRailWidth: "",
@@ -1733,6 +1740,9 @@ function VendorDoorMeasurementDialog({
 	    edgeProfilePhotoProvided: false,
 	    backPhotoProvided: false,
 	  });
+	  const [referencePhotos, setReferencePhotos] = useState<MeasurementReferencePhoto[]>([]);
+	  const photoInputRef = useRef<HTMLInputElement>(null);
+	  const [photoUploadType, setPhotoUploadType] = useState<MeasurementReferencePhoto["photoType"] | null>(null);
 	  const draftInput = useMemo(() => ({
 	    styleId: style.id,
 	    ...(distributorId ? { distributorId } : {}),
@@ -1762,12 +1772,13 @@ function VendorDoorMeasurementDialog({
 	      drawerRailWidth: textValue("drawerRailWidth"), drawerStileWidth: textValue("drawerStileWidth"), slabBelowHeight: textValue("slabBelowHeight"), drawerFrontThickness: textValue("drawerFrontThickness"),
 	      doorGap: textValue("doorGap"), faceFrameWidth: textValue("faceFrameWidth"),
 	    });
-    setPhotos({
+	    setPhotos({
       doorPhotoProvided: saved.doorPhotoProvided === true,
       drawerPhotoProvided: saved.drawerPhotoProvided === true,
       edgeProfilePhotoProvided: saved.edgeProfilePhotoProvided === true,
-      backPhotoProvided: saved.backPhotoProvided === true,
-    });
+	      backPhotoProvided: saved.backPhotoProvided === true,
+	    });
+	    setReferencePhotos(Array.isArray(saved.referencePhotos) ? saved.referencePhotos.filter((photo): photo is MeasurementReferencePhoto => Boolean(photo && typeof photo === "object" && "photoType" in photo && "url" in photo)) : []);
     setDraftSavedAt(draft.data.updatedAt ? new Date(draft.data.updatedAt).toLocaleString() : null);
     setDraftHydrated(true);
   }, [draft.data, draftHydrated, style.id]);
@@ -1790,6 +1801,7 @@ function VendorDoorMeasurementDialog({
 	    cabinetConstruction: cabinetConstruction as "Face frame" | "Frameless",
 	    overlay: overlay as "Full overlay" | "Partial overlay" | "Inset",
 	    doorGap: numeric(fields.doorGap), faceFrameWidth: numeric(fields.faceFrameWidth),
+	    referencePhotos,
 	    ...photos,
 	  });
 	  const saveDraft = trpc.distributorPortal.saveDoorMeasurementDraft.useMutation({
@@ -1799,6 +1811,9 @@ function VendorDoorMeasurementDialog({
 	      toast.success("Measuring sheet draft saved. You can resume it later.");
 	    },
 	    onError: (error) => toast.error(error.message || "Could not save the measuring sheet draft."),
+	  });
+	  const uploadReferencePhoto = trpc.distributorPortal.uploadDoorMeasurementDraftPhoto.useMutation({
+	    onError: (error) => toast.error(error.message || "Could not upload the reference photo."),
 	  });
 	  const submit = trpc.distributorPortal.submitDoorMeasurement.useMutation({
 	    onSuccess: () => {
@@ -1859,6 +1874,48 @@ function VendorDoorMeasurementDialog({
 	      measuredOn,
 	      measurements: buildMeasurements(),
 	    });
+	  };
+	  const handleReferencePhotoUpload = async (file: File) => {
+	    if (!photoUploadType) return;
+	    if (!(file.type === "image/jpeg" || file.type === "image/png" || file.type === "image/webp")) {
+	      toast.error("Use a JPG, PNG, or WebP reference image.");
+	      return;
+	    }
+	    if (file.size > 8 * 1024 * 1024) {
+	      toast.error("Reference images must be smaller than 8 MB.");
+	      return;
+	    }
+	    try {
+	      await saveDraft.mutateAsync({
+	        ...(distributorId ? { distributorId } : {}),
+	        styleId: style.id,
+	        appliesToStyleIds,
+	        measuredBy: measuredBy.trim() || undefined,
+	        measuredOn,
+	        measurements: buildMeasurements(),
+	      });
+	      const reader = new FileReader();
+	      const base64 = await new Promise<string>((resolve, reject) => {
+	        reader.onload = () => resolve((reader.result as string).split(",")[1] ?? "");
+	        reader.onerror = reject;
+	        reader.readAsDataURL(file);
+	      });
+	      const result = await uploadReferencePhoto.mutateAsync({
+	        ...(distributorId ? { distributorId } : {}),
+	        styleId: style.id,
+	        photoType: photoUploadType,
+	        imageBase64: base64,
+	        contentType: file.type as "image/jpeg" | "image/png" | "image/webp",
+	        fileName: file.name,
+	      });
+	      setReferencePhotos((current) => [...current.filter((photo) => photo.photoType !== photoUploadType), result.photo]);
+	      setDraftSavedAt(new Date().toLocaleString());
+	      toast.success("Reference photo attached to this draft.");
+	    } catch {
+	      // The mutation surfaces its own error toast; keep the dialog open so the user can retry.
+	    } finally {
+	      setPhotoUploadType(null);
+	    }
 	  };
 
   return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -1934,7 +1991,41 @@ function VendorDoorMeasurementDialog({
             {numberField("Gap between doors (in)", "doorGap")}{numberField("Face frame width (in)", "faceFrameWidth")}
           </div>
         </section>
-        <section className="space-y-2 rounded-lg border border-border p-3">
+	        <section data-testid="measurement-reference-photos" className="space-y-3 rounded-lg border border-violet-200 bg-violet-50/40 p-3">
+	          <div>
+	            <h3 className="font-semibold text-violet-950">Reference photos</h3>
+	            <p className="text-xs text-violet-900/75">Attach one clear image for each view. Photos are saved with this draft and can be replaced later.</p>
+	          </div>
+	          <div className="grid gap-3 sm:grid-cols-2">
+	            {([
+	              ["door", "Door, straight on"],
+	              ["drawer", "Drawer front, straight on"],
+	              ["edge", "Edge profile close-up"],
+	              ["back", "Back of door"],
+	            ] as const).map(([photoType, label]) => {
+	              const photo = referencePhotos.find((item) => item.photoType === photoType);
+	              return <div key={photoType} className="rounded-md border border-violet-200 bg-background p-2">
+	                <div className="flex items-center justify-between gap-2">
+	                  <p className="text-xs font-medium">{label}</p>
+	                  <button
+	                    type="button"
+	                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium hover:bg-muted"
+	                    onClick={() => { setPhotoUploadType(photoType); photoInputRef.current?.click(); }}
+	                    disabled={saveDraft.isPending || uploadReferencePhoto.isPending}
+	                  >
+	                    <Upload className="h-3.5 w-3.5" />{photo ? "Replace" : "Attach"}
+	                  </button>
+	                </div>
+	                {photo ? <div className="mt-2 flex items-center gap-2">
+	                  <img src={photo.url} alt={label} className="h-16 w-20 rounded border object-cover" />
+	                  <div className="min-w-0 text-[11px] text-muted-foreground"><p className="truncate">{photo.fileName}</p><a href={photo.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Open image</a></div>
+	                </div> : <p className="mt-2 text-[11px] text-muted-foreground">No photo attached yet.</p>}
+              </div>;
+            })}
+          </div>
+          <input ref={photoInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void handleReferencePhotoUpload(file); event.target.value = ""; }} />
+	        </section>
+	        <section className="space-y-2 rounded-lg border border-border p-3">
           <h3 className="font-semibold">Photos supplied with a ruler or tape in frame</h3>
           <div className="grid gap-2 sm:grid-cols-2">
             {([['doorPhotoProvided', 'Door, straight on'], ['drawerPhotoProvided', 'Drawer front, straight on'], ['edgeProfilePhotoProvided', 'Edge profile close-up'], ['backPhotoProvided', 'Back of door']] as const).map(([key, label]) => <label key={key} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={photos[key]} onChange={(event) => setPhotos((current) => ({ ...current, [key]: event.target.checked }))} />{label}</label>)}
