@@ -11,6 +11,7 @@ const orderReview = readFileSync(new URL("../components/order/OrderReview.tsx", 
 const topNav = readFileSync(new URL("../components/TopNav.tsx", import.meta.url), "utf8");
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const storefrontShop = readFileSync(new URL("../components/storefront/StorefrontShop.tsx", import.meta.url), "utf8");
+const dashboardLayout = readFileSync(new URL("../components/affiliate/AffiliateDashboardLayout.tsx", import.meta.url), "utf8");
 
 describe("store-scope persistence contract", () => {
   it("remounts cart and Preferred providers into scoped storage buckets", () => {
@@ -32,12 +33,21 @@ describe("store-scope persistence contract", () => {
     expect(presentation).not.toContain('startsWith("cabinet-dealz:designer-draft:v1:")');
   });
 
-  it("scopes checkout handoff and never derives current branding from an old cart", () => {
+	it("scopes checkout handoff and never derives current branding from an old cart", () => {
     expect(cart).toContain("cartPrefillStorageKey(storeScope)");
     expect(orderBuilder).toContain("cartPrefillStorageKey(storeScope)");
     expect(orderReview).toContain("affiliateSlugForStoreScope(storeScope)");
     expect(topNav).not.toContain('localStorage.getItem("cd_cart_slug_v1")');
     expect(app).not.toContain('localStorage.getItem("cd_cart_slug_v1")');
 	  expect(storefrontShop).toContain('slug ? `/store/${slug}/order` : "/order/new"');
-  });
+	});
+
+	it("keeps affiliate dashboard and customer-shell navigation inside the affiliate scope", () => {
+		expect(dashboardLayout).toContain("affiliateCatalogPath(storeSlug)");
+		expect(dashboardLayout).toContain("affiliateDesignerPath(storeSlug)");
+		expect(dashboardLayout).toContain("affiliateOrderPath(storeSlug)");
+		expect(app).toContain("affiliateCatalogPath(slug)");
+		expect(app).toContain("affiliateDesignerPath(slug)");
+		expect(app).toContain("affiliateOrderPath(slug)");
+	});
 });

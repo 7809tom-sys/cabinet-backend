@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
+import { affiliateCatalogPath, affiliateDesignerPath, affiliateOrderPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { Link } from "wouter";
 import { AffiliateStoreSwitcher } from "./AffiliateStoreSwitcher";
 
@@ -153,6 +153,9 @@ function SidebarInner({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeItem = NAV_ITEMS.find((i) => i.section === section);
   const storeUrl = affiliateStorefrontUrl(storeSlug);
+  const catalogUrl = affiliateCatalogPath(storeSlug);
+  const designerUrl = affiliateDesignerPath(storeSlug);
+  const quoteUrl = affiliateOrderPath(storeSlug);
   const visibleNavItems = NAV_ITEMS.filter((item) =>
     isAffiliateOwner || user?.role === "admin" || item.section === "overview" || (item.section === "crm" && canAccessCrm) || (item.section === "design" && canAccessDesigner),
   );
@@ -235,7 +238,20 @@ function SidebarInner({
 
             {/* View Store link */}
             {!isCollapsed && (
-              <div className="px-3 pb-2 mt-2">
+              <div className="px-3 pb-2 mt-2 space-y-1">
+                <p className="px-2 pt-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Customer links</p>
+                <a href={catalogUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <BookOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Browse my catalog</span>
+                </a>
+                <a href={designerUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <Palette className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Open my Designer</span>
+                </a>
+                <a href={quoteUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Get a quote</span>
+                </a>
                 <a
                   href={storeUrl}
                   target="_blank"

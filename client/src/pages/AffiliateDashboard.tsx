@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { affiliateDashboardLinks, affiliateDashboardPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
+import { affiliateDashboardLinks, affiliateDashboardPath, affiliateDesignerPath, affiliateStorefrontUrl } from "@/lib/affiliateStorefrontUrl";
 import { resolveAffiliateDashboardSelection } from "@/lib/affiliateDashboardSelection";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/affiliate/AffiliateDashboardLayout";
@@ -864,7 +864,7 @@ function CredentialsPanel({ affiliate, storeUrl, refLink, onCopy }: CredentialsP
               <Store className="h-4 w-4" /> View My Storefront
             </Button>
           </a>
-          <a href="/design">
+          <a href={affiliateDesignerPath(affiliate.slug)}>
             <Button variant="outline" className="gap-2">
               <PencilRuler className="h-4 w-4" /> Open 3D Designer
             </Button>

@@ -49,4 +49,9 @@ describe("affiliate quick storefront setup", () => {
     expect(source).toContain("About the mini homepage preview");
     expect(source).toContain("About the customer Designer button");
   });
+
+  it("opens the customer Designer inside the selected affiliate scope", () => {
+    expect(source).toContain("affiliateDesignerPath(affiliate.slug)");
+    expect(source).not.toContain('<a href="/design">');
+  });
 });

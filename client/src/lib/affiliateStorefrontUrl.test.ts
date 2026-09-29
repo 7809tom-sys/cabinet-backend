@@ -1,4 +1,4 @@
-import { affiliateDashboardLinks, affiliateDashboardPath, affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
+import { affiliateCatalogPath, affiliateDashboardLinks, affiliateDashboardPath, affiliateDesignerPath, affiliateOrderPath, affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
 import { describe, expect, it, vi } from "vitest";
 
 describe("affiliate storefront URLs", () => {
@@ -34,6 +34,12 @@ describe("affiliate storefront URLs", () => {
   it("builds the canonical routed storefront path for each affiliate slug", () => {
     expect(affiliateStorefrontPath("firstclass")).toBe("/store/firstclass");
     expect(affiliateStorefrontPath("reaves-way-cabinet-shop")).toBe("/store/reaves-way-cabinet-shop");
+  });
+
+  it("keeps catalog, designer, and quote destinations inside the affiliate storefront", () => {
+    expect(affiliateCatalogPath("spartan-city-cabinet")).toBe("/store/spartan-city-cabinet/catalog");
+    expect(affiliateDesignerPath("spartan-city-cabinet")).toBe("/store/spartan-city-cabinet/design");
+    expect(affiliateOrderPath("spartan-city-cabinet")).toBe("/store/spartan-city-cabinet/order");
   });
 
   it("uses the active application origin and never emits a legacy subdomain URL", () => {

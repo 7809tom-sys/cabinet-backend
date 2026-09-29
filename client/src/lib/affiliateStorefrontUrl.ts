@@ -26,6 +26,19 @@ export function affiliateStorefrontPath(slug: string): string {
   return `/store/${encodeURIComponent(slug.trim().toLowerCase())}`;
 }
 
+/** Customer-facing routes that must remain inside the selected affiliate scope. */
+export function affiliateCatalogPath(slug: string): string {
+  return `${affiliateStorefrontPath(slug)}/catalog`;
+}
+
+export function affiliateDesignerPath(slug: string): string {
+  return `${affiliateStorefrontPath(slug)}/design`;
+}
+
+export function affiliateOrderPath(slug: string): string {
+  return `${affiliateStorefrontPath(slug)}/order`;
+}
+
 /** The canonical administrative dashboard address for one affiliate record. */
 export function affiliateDashboardPath(affiliateId: number): string {
   return `/affiliate?viewAs=${encodeURIComponent(String(affiliateId))}`;

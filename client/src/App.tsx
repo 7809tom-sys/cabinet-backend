@@ -23,6 +23,7 @@ import {
 } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
 import { PreferredProductsProvider } from "@/contexts/PreferredProductsContext";
+import { affiliateCatalogPath, affiliateDesignerPath, affiliateOrderPath } from "@/lib/affiliateStorefrontUrl";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -147,9 +148,14 @@ function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; 
             <span className="text-lg font-bold" style={{ color: primaryColor }}>{storeName}</span>
           )}
         </a>
-        <a href={`/store/${slug}/cart`} className="text-sm font-medium text-muted-foreground">
-          <ShoppingCart className="h-5 w-5" />
-        </a>
+        <nav className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs sm:text-sm font-medium text-muted-foreground" aria-label="Store navigation">
+          <a href={affiliateCatalogPath(slug)} className="hover:text-foreground">Catalog</a>
+          <a href={affiliateDesignerPath(slug)} className="hover:text-foreground">3D Designer</a>
+          <a href={affiliateOrderPath(slug)} className="hover:text-foreground">Get a Quote</a>
+          <a href={`/store/${slug}/cart`} aria-label="Shopping cart" className="hover:text-foreground">
+            <ShoppingCart className="h-5 w-5" />
+          </a>
+        </nav>
       </header>
       <main className={fullHeight ? "flex-1 min-h-0 overflow-hidden" : "flex-1"}>
         {children ?? <Cart />}
