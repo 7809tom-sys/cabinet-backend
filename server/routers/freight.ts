@@ -216,10 +216,21 @@ async function resolvePackages(
     physicalHeight: number | null;
     physicalDepth: number | null;
   };
+  type SupplierSkuPackage = {
+    distributorId: number;
+    cabinetId: number;
+    styleId: number;
+    code: string;
+    packageWeight: number | null;
+    l: number | null;
+    w: number | null;
+    h: number | null;
+  };
   const numeric = (value: unknown): number | null => value == null ? null : Number(value);
   const byId = new Map<number, Pkg>();
   const byCode = new Map<string, Pkg>();
   const overridesByDistributorCabinet = new Map<string, PackageOverride>();
+  const supplierPackagesByLineStyleCabinet = new Map<string, SupplierSkuPackage>();
 
   if (ids.length > 0 || codes.length > 0) {
     const db = await getDb();
@@ -301,6 +312,39 @@ async function resolvePackages(
         items.map((item) => item.distributorId).filter((id): id is number => typeof id === "number"),
       ));
       if (resolvedCabinetIds.length > 0 && distributorIds.length > 0) {
+        const supplierRows = await db
+          .select({
+            distributorId: distributorSkus.distributorId,
+            cabinetId: distributorSkus.cabinetId,
+            styleId: distributorSkus.styleId,
+            code: distributorSkus.distributorSku,
+            packageWeight: distributorSkus.pkgWeight,
+            l: distributorSkus.pkgLength,
+            w: distributorSkus.pkgWidth,
+            h: distributorSkus.pkgHeight,
+          })
+          .from(distributorSkus)
+          .where(and(
+            inArray(distributorSkus.cabinetId, resolvedCabinetIds),
+            inArray(distributorSkus.distributorId, distributorIds),
+          ));
+        for (const record of supplierRows) {
+          if (record.cabinetId == null) continue;
+          supplierPackagesByLineStyleCabinet.set(
+            `${record.distributorId}:${record.styleId}:${record.cabinetId}`,
+            {
+              distributorId: record.distributorId,
+              cabinetId: record.cabinetId,
+              styleId: record.styleId,
+              code: record.code,
+              packageWeight: numeric(record.packageWeight),
+              l: numeric(record.l),
+              w: numeric(record.w),
+              h: numeric(record.h),
+            },
+          );
+        }
+
         const rows = await db
           .select({
             distributorId: distributorCabinetOverrides.distributorId,
@@ -352,10 +396,16 @@ async function resolvePackages(
     const override = pkg && it.distributorId != null
       ? overridesByDistributorCabinet.get(`${it.distributorId}:${pkg.id}`)
       : undefined;
-    const packageWeight = override?.packageWeight ?? pkg?.packageWeight ?? null;
-    const packageLength = override?.l ?? pkg?.l ?? null;
-    const packageWidth = override?.w ?? pkg?.w ?? null;
-    const packageHeight = override?.h ?? pkg?.h ?? null;
+    const supplierPackage = pkg && it.distributorId != null && it.styleId != null
+      ? supplierPackagesByLineStyleCabinet.get(`${it.distributorId}:${it.styleId}:${pkg.id}`)
+      : undefined;
+    // Supplier SKU package data is the most specific source for the exact
+    // distributor + door style + cabinet being purchased. It must take
+    // precedence over a line-wide override or generic master carton.
+    const packageWeight = supplierPackage?.packageWeight ?? override?.packageWeight ?? pkg?.packageWeight ?? null;
+    const packageLength = supplierPackage?.l ?? override?.l ?? pkg?.l ?? null;
+    const packageWidth = supplierPackage?.w ?? override?.w ?? pkg?.w ?? null;
+    const packageHeight = supplierPackage?.h ?? override?.h ?? pkg?.h ?? null;
     const physicalWidth = override?.physicalWidth ?? pkg?.physicalWidth ?? null;
     const physicalHeight = override?.physicalHeight ?? pkg?.physicalHeight ?? null;
     const physicalDepth = override?.physicalDepth ?? pkg?.physicalDepth ?? null;
@@ -395,7 +445,7 @@ async function resolvePackages(
         heightIn: packageHeight,
         weightLbs: packageWeight,
         hasAuthoritativePackage,
-        label: pkg?.code ?? it.masterCode ?? null,
+        label: supplierPackage?.code ?? pkg?.code ?? it.masterCode ?? null,
       });
     }
   }
