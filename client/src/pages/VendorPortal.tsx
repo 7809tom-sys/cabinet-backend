@@ -1727,13 +1727,16 @@ function VendorDoorMeasurementDialog({
   const [overlay, setOverlay] = useState("Full overlay");
 	  const [fields, setFields] = useState<MeasurementFields>(EMPTY_MEASUREMENT_FIELDS);
 	  const [appliesToStyleIds, setAppliesToStyleIds] = useState<number[]>([style.id]);
-  const [photos, setPhotos] = useState({
-    doorPhotoProvided: false,
-    drawerPhotoProvided: false,
-    edgeProfilePhotoProvided: false,
-    backPhotoProvided: false,
-  });
-  const submit = trpc.distributorPortal.submitDoorMeasurement.useMutation({
+	  const [photos, setPhotos] = useState({
+	    doorPhotoProvided: false,
+	    drawerPhotoProvided: false,
+	    edgeProfilePhotoProvided: false,
+	    backPhotoProvided: false,
+	  });
+	  const requiredMeasurementKeys = ["topRailWidth", "bottomRailWidth", "leftStileWidth", "rightStileWidth"] as const;
+	  const completedRequiredMeasurements = requiredMeasurementKeys.filter((key) => fields[key].trim()).length;
+	  const sourceCitationPreview = `Measured from sample door: ${style.distributorName} ${style.styleCode}, measured by ${measuredBy.trim() || "[name]"} on ${measuredOn || "[date]"}.`;
+	  const submit = trpc.distributorPortal.submitDoorMeasurement.useMutation({
     onSuccess: () => {
       utils.distributorPortal.myLine.invalidate();
       toast.success("Sample-door measurements submitted for CabinetDealz verification.");
@@ -1797,14 +1800,18 @@ function VendorDoorMeasurementDialog({
 
   return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
     <DialogContent className="!flex h-[min(92dvh,900px)] max-h-[calc(100dvh-1rem)] w-[min(54rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-none">
-      <DialogHeader className="shrink-0">
-        <DialogTitle className="flex items-center gap-2"><Ruler className="h-5 w-5 text-amber-600" />Sample-door measurement submission</DialogTitle>
+	      <DialogHeader className="shrink-0">
+	        <DialogTitle className="flex items-center gap-2"><Ruler className="h-5 w-5 text-amber-600" />Interactive sample-door measuring sheet</DialogTitle>
       </DialogHeader>
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto py-2 pr-2">
-        <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm">
-          <p className="font-semibold">{style.distributorName} · {style.ourName} · {style.styleCode}</p>
-          <p className="mt-1 text-muted-foreground">This records your measurements as an official vendor source. It will not change Designer geometry until CabinetDealz measures the physical sample door and approves it.</p>
-        </div>
+	        <div data-testid="interactive-door-measuring-sheet" className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-sm">
+	          <p className="font-semibold">{style.distributorName} · {style.ourName} · {style.styleCode}</p>
+	          <p className="mt-1 text-muted-foreground">Fill out one sheet per door profile. Every entry below is carried into the door-specification review record. Designer geometry changes only after CabinetDealz verifies the physical sample.</p>
+	          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+	            <span className="rounded-full bg-white px-2.5 py-1 font-medium text-amber-900">Required frame measurements: {completedRequiredMeasurements}/4</span>
+	            {completedRequiredMeasurements === 4 ? <span className="inline-flex items-center gap-1 text-emerald-700"><CheckCircle2 className="h-3.5 w-3.5" />Ready for review</span> : <span className="text-amber-900/80">Enter top, bottom, left, and right frame measurements to submit.</span>}
+	          </div>
+	        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="space-y-1"><Label className="text-xs">Measured by *</Label><Input value={measuredBy} onChange={(event) => setMeasuredBy(event.target.value)} placeholder="Name" /></div>
           <div className="space-y-1"><Label className="text-xs">Measurement date</Label><Input type="date" value={measuredOn} onChange={(event) => setMeasuredOn(event.target.value)} /></div>
@@ -1829,13 +1836,30 @@ function VendorDoorMeasurementDialog({
             {numberField("Top rail (in)", "topRailWidth", true)}{numberField("Bottom rail (in)", "bottomRailWidth", true)}
             {numberField("Left stile (in)", "leftStileWidth", true)}{numberField("Right stile (in)", "rightStileWidth", true)}{numberField("Center rail, if any (in)", "centerRailWidth")}
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1"><Label className="text-xs">Panel</Label><Select value={panel} onValueChange={setPanel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Flat", "Raised", "Beadboard"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
-            <div className="space-y-1"><Label className="text-xs">Outside edge profile</Label><Input value={outsideEdgeProfile} onChange={(event) => setOutsideEdgeProfile(event.target.value)} /></div>
-            <div className="space-y-1"><Label className="text-xs">Inside frame profile</Label><Input value={insideFrameProfile} onChange={(event) => setInsideFrameProfile(event.target.value)} /></div>
-          </div>
-        </section>
-        <section className="space-y-3 rounded-lg border border-border p-3">
+	          <div className="grid gap-3 sm:grid-cols-3">
+	            <div className="space-y-1"><Label className="text-xs">Panel</Label><Select value={panel} onValueChange={setPanel}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Flat", "Raised", "Beadboard"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
+	            <div className="space-y-1"><Label className="text-xs">Outside edge profile</Label><Input value={outsideEdgeProfile} onChange={(event) => setOutsideEdgeProfile(event.target.value)} /></div>
+	            <div className="space-y-1"><Label className="text-xs">Inside frame profile</Label><Input value={insideFrameProfile} onChange={(event) => setInsideFrameProfile(event.target.value)} /></div>
+	          </div>
+	        </section>
+	        <section data-testid="door-specification-preview" className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/50 p-3">
+	          <div>
+	            <h3 className="font-semibold text-emerald-950">Live door specification preview</h3>
+	            <p className="text-xs text-emerald-900/75">This is the specification CabinetDealz will review from your completed sheet. It updates as you type.</p>
+	          </div>
+	          <div className="grid gap-2 text-xs sm:grid-cols-3">
+	            <div><span className="text-muted-foreground">Door profile</span><p className="font-medium">{doorStyle === "Other" ? doorStyleOther || "Other" : doorStyle}</p></div>
+	            <div><span className="text-muted-foreground">Panel</span><p className="font-medium">{panel}</p></div>
+	            <div><span className="text-muted-foreground">Mount</span><p className="font-medium">{cabinetConstruction} · {overlay}</p></div>
+	            <div><span className="text-muted-foreground">Top / bottom rail</span><p className="font-medium">{fields.topRailWidth || "—"} / {fields.bottomRailWidth || "—"} in</p></div>
+	            <div><span className="text-muted-foreground">Left / right stile</span><p className="font-medium">{fields.leftStileWidth || "—"} / {fields.rightStileWidth || "—"} in</p></div>
+	            <div><span className="text-muted-foreground">Center rail</span><p className="font-medium">{fields.centerRailWidth || "None"} {fields.centerRailWidth ? "in" : ""}</p></div>
+	          </div>
+	          <div className="rounded-md border border-emerald-200 bg-white p-2.5 text-xs text-emerald-950">
+	            <span className="font-medium">Source citation preview:</span> {sourceCitationPreview}
+	          </div>
+	        </section>
+	        <section className="space-y-3 rounded-lg border border-border p-3">
           <h3 className="font-semibold">Drawer front and mount</h3>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1"><Label className="text-xs">Drawer construction</Label><Select value={drawerConstruction} onValueChange={setDrawerConstruction}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["5-piece (frame and panel)", "Slab"].map((value) => <SelectItem key={value} value={value}>{value}</SelectItem>)}</SelectContent></Select></div>
