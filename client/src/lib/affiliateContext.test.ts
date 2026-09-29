@@ -25,14 +25,20 @@ describe("affiliate custom-domain client fallback", () => {
     expect(affiliateSlugFromHostname("nested.reaves-way-cabinet-shop.cabinetdealz.com")).toBeNull();
   });
 
-  it("rewrites a transparent-proxy cabinet detail visit into the affiliate route while preserving the query", () => {
-    expect(affiliateStorefrontFallbackPath(
-      "/catalog/W-12-30",
+	  it("rewrites a transparent-proxy cabinet detail visit into the affiliate route while preserving the query", () => {
+	    expect(affiliateStorefrontFallbackPath(
+	      "/catalog/W-12-30",
       "reaves-way-cabinet-shop.cabinetdealz.com",
       "?style=330005&cabinetId=9360055",
     )).toBe("/store/reaves-way-cabinet-shop/catalog/W-12-30?style=330005&cabinetId=9360055");
-    expect(affiliateStorefrontFallbackPath("/store/reaves-way-cabinet-shop/catalog/W-12-30", "reaves-way-cabinet-shop.cabinetdealz.com")).toBeNull();
-  });
+	    expect(affiliateStorefrontFallbackPath("/store/reaves-way-cabinet-shop/catalog/W-12-30", "reaves-way-cabinet-shop.cabinetdealz.com")).toBeNull();
+	  });
+
+	  it("never rewrites affiliate or platform administration into the public storefront route tree", () => {
+	    const host = "reaves-way-cabinet-shop.cabinetdealz.com";
+	    expect(affiliateStorefrontFallbackPath("/affiliate", host, "?viewAs=5730001")).toBeNull();
+	    expect(affiliateStorefrontFallbackPath("/admin", host, "?tab=affiliates&affiliateId=5730001")).toBeNull();
+	  });
 });
 
 describe("store scope resolution", () => {

@@ -40,10 +40,15 @@ export function affiliateStorefrontPath(slug: string, requestedUrl: string): str
 
 /** Paths that must reach server middleware instead of the storefront SPA redirect. */
 export function isAffiliateStorefrontBypassPath(requestPath: string): boolean {
+	  const pathname = requestPath.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
   return (
-    requestPath.startsWith("/api/") ||
-    requestPath.startsWith("/store/") ||
-    requestPath.startsWith("/__manus__") ||
+	    requestPath.startsWith("/api/") ||
+	    requestPath.startsWith("/store/") ||
+	    pathname === "/affiliate" ||
+	    pathname.startsWith("/affiliate/") ||
+	    pathname === "/admin" ||
+	    pathname.startsWith("/admin/") ||
+	    requestPath.startsWith("/__manus__") ||
     requestPath.startsWith("/manus-storage") ||
     requestPath.startsWith("/assets/") ||
     requestPath === "/robots.txt" ||

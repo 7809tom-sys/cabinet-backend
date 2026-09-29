@@ -20,6 +20,15 @@ export function isAffiliateStorefrontPath(pathname: string): boolean {
   return pathname.startsWith("/store/") || pathname.startsWith("/store-preview/");
 }
 
+/** Management routes must remain outside the public storefront route tree. */
+export function isAffiliateManagementPath(pathname: string): boolean {
+  const normalized = pathname.split(/[?#]/)[0].replace(/\/+$/, "") || "/";
+  return normalized === "/affiliate"
+    || normalized.startsWith("/affiliate/")
+    || normalized === "/admin"
+    || normalized.startsWith("/admin/");
+}
+
 /** Extract the affiliate slug from a storefront path, when present. */
 export function affiliateSlugFromPath(pathname: string): string | null {
 	const match = pathname.match(/^\/(?:store|store-preview)\/([^/]+)/);
@@ -140,8 +149,8 @@ export function affiliateStorefrontFallbackPath(
   hostname: string | null | undefined,
   search = "",
 ): string | null {
-  const slug = affiliateSlugFromHostname(hostname);
-  if (!slug || isAffiliateStorefrontPath(pathname)) return null;
+	  const slug = affiliateSlugFromHostname(hostname);
+	  if (!slug || isAffiliateStorefrontPath(pathname) || isAffiliateManagementPath(pathname)) return null;
   const suffix = pathname === "/" ? "" : pathname;
   return `/store/${slug}${suffix}${search}`;
 }

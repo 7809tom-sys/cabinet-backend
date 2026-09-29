@@ -20,6 +20,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import {
   affiliateSlugForStoreScope,
   affiliateStorefrontFallbackPath,
+	  isAffiliateManagementPath,
   resolveStoreScope,
 } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
@@ -202,6 +203,14 @@ function DistributorPortalRedirect() {
   return <PageLoader />;
 }
 
+function AffiliateManagementAliasRedirect({ target }: { target: "/affiliate" | "/admin" }) {
+	  useEffect(() => {
+	    window.location.replace(`${target}${window.location.search}`);
+	  }, [target]);
+
+	  return <PageLoader />;
+}
+
 /**
  * Affiliate owners use their own dashboard as the permanent back door. If one
  * opens an unscoped platform URL—or another affiliate's store—return them to
@@ -246,7 +255,7 @@ export default function App() {
     );
     if (fallback) {
       window.location.replace(fallback);
-    } else if (slug && !window.location.pathname.startsWith("/store/")) {
+	    } else if (slug && !window.location.pathname.startsWith("/store/") && !isAffiliateManagementPath(window.location.pathname)) {
       const suffix = window.location.pathname === "/" ? "" : window.location.pathname;
       window.location.replace(`/store/${slug}${suffix}${window.location.search}`);
     }
@@ -368,7 +377,7 @@ export default function App() {
             </Suspense>
           )}
         </Route>
-        <Route path="/store/:slug/bundles">
+	        <Route path="/store/:slug/bundles">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <AffiliateShell slug={params.slug}>
@@ -376,8 +385,14 @@ export default function App() {
               </AffiliateShell>
             </Suspense>
           )}
-        </Route>
-        <Route path="/store/:slug">
+	        </Route>
+	        <Route path="/store/:slug/affiliate">
+	          <AffiliateManagementAliasRedirect target="/affiliate" />
+	        </Route>
+	        <Route path="/store/:slug/admin">
+	          <AffiliateManagementAliasRedirect target="/admin" />
+	        </Route>
+	        <Route path="/store/:slug">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <Storefront slug={params.slug} />

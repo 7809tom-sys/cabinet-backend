@@ -44,6 +44,13 @@ describe("public navigation and update notification", () => {
 	    expect(appSource).toContain("if (destination) window.location.replace(destination)");
 	  });
 
+	  it("repairs legacy storefront-prefixed management URLs before they can show a 404", () => {
+	    expect(appSource).toContain('function AffiliateManagementAliasRedirect');
+	    expect(appSource).toContain('<Route path="/store/:slug/affiliate">');
+	    expect(appSource).toContain('<AffiliateManagementAliasRedirect target="/affiliate" />');
+	    expect(appSource).toContain('<Route path="/store/:slug/admin">');
+	  });
+
   it("keeps the affiliate shell's catalog, designer, quote, and cart links scoped", () => {
     expect(appSource).toContain("affiliateCatalogPath(slug)");
     expect(appSource).toContain("affiliateDesignerPath(slug)");

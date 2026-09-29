@@ -40,4 +40,12 @@ describe("affiliate subdomain host resolution", () => {
     expect(isAffiliateStorefrontBypassPath("/sitemap.xml")).toBe(true);
     expect(isAffiliateStorefrontBypassPath("/catalog")).toBe(false);
   });
+
+	  it("keeps affiliate administration and platform admin routes outside the public storefront tree", () => {
+	    expect(isAffiliateStorefrontBypassPath("/affiliate")).toBe(true);
+	    expect(isAffiliateStorefrontBypassPath("/affiliate?viewAs=5730001")).toBe(true);
+	    expect(isAffiliateStorefrontBypassPath("/admin?tab=affiliates")).toBe(true);
+	    expect(isAffiliateStorefrontBypassPath("/admin/catalog-import")).toBe(true);
+	    expect(isAffiliateStorefrontBypassPath("/catalog")).toBe(false);
+	  });
 });
