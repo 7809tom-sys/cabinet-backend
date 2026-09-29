@@ -1673,6 +1673,12 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: null } as any)).toBe("B-30 cabinet");
   });
 
+  it("labels refrigerator measurements as optional selected parts rather than a grouped bay", () => {
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("Refrigerator dimensions · selected parts");
+    expect(rendererSource).not.toContain("Refrigerator bay · source geometry");
+  });
+
   it("docks selected-cabinet details below the 3D drawing instead of overlaying its controls", () => {
     const className = threeDSelectedCabinetDockClass();
     expect(className).toContain("mt-1");

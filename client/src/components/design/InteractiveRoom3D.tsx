@@ -9989,7 +9989,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		                </div>
 		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
 		                {refrigeratorBayProof && <div data-testid="three-d-refrigerator-bay-proof" className={`mt-1 rounded border px-1.5 py-1 text-[10px] ${refrigeratorBayProof.hasLeftPanel && refrigeratorBayProof.hasRightPanel && refrigeratorBayProof.bridgeCenterOffset != null ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
-		                  <div className="font-bold uppercase tracking-wide">Refrigerator bay · source geometry</div>
+		                  <div className="font-bold uppercase tracking-wide">Refrigerator dimensions · selected parts</div>
 		                  <dl className="mt-0.5 grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-4">
 		                    <div><dt className="uppercase opacity-70">Opening</dt><dd className="font-semibold">{formatEighthInches(refrigeratorBayProof.openingWidth)}</dd></div>
 		                    <div><dt className="uppercase opacity-70">Left gap</dt><dd className="font-semibold">{refrigeratorBayProof.leftGap == null ? "Panel missing" : formatEighthInches(refrigeratorBayProof.leftGap)}</dd></div>
