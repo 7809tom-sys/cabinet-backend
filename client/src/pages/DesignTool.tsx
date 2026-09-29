@@ -107,7 +107,7 @@ import {
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, refrigeratorBayRunMetrics, missingRefrigeratorPanelRoles, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
-	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -1979,16 +1979,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const smallGapFillerPlanPreview = useMemo<PlacedCabinet[]>(() => {
     if (!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid || !smallGapFillerPreviewMode) return [];
     const layout = smallGapFillerLayout({ ...smallGapFillerPrompt, remaining: selectedSmallGapFillerCut }, smallGapFillerPreviewMode);
-    const depth = dim(smallGapFillerDefinition.depth, smallGapFillerPrompt.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-    const height = installedFillerVerticalSpec(
-      smallGapFillerPrompt.layer,
-      dim(smallGapFillerDefinition.height, smallGapFillerPrompt.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
-    ).storedHeight;
     return layout.pieces.map((piece, index) => {
-      const spot = smallGapFillerPrompt.islandFace && island
-        ? null
-        : wallPlacementAt(piece.start, piece.width, depth, smallGapFillerPrompt.wall, room);
-      const preview: PlacedCabinet = {
+      const ownerUid = smallGapFillerPrompt.boundedCabinetUids
+        ? (piece.side === "left" ? smallGapFillerPrompt.boundedCabinetUids[0] : smallGapFillerPrompt.boundedCabinetUids[1])
+        : smallGapFillerPrompt.cabinetUid;
+      const owner = placed.find((item) => item.uid === ownerUid) ?? null;
+      const fallbackDepth = dim(smallGapFillerDefinition.depth, smallGapFillerPrompt.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+      const fallbackHeight = installedFillerVerticalSpec(
+        smallGapFillerPrompt.layer,
+        dim(smallGapFillerDefinition.height, smallGapFillerPrompt.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+      ).storedHeight;
+      const draft: PlacedCabinet = {
         uid: `filler-gap-preview-${smallGapFillerPrompt.cabinetUid}-${smallGapFillerPreviewMode}-${index}`,
         cabinetId: smallGapFillerDefinition.id,
         masterCode: smallGapFillerDefinition.masterCode,
@@ -1996,24 +1997,34 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         category: "Filler",
         subCategory: "Filler",
         placement: smallGapFillerPrompt.layer,
-        x: spot?.x ?? 0,
-        y: spot?.y ?? 0,
+        x: 0,
+        y: 0,
         width: piece.width,
         nominalWidth: Number(smallGapFillerDefinition.width) || selectedSmallGapFillerCut,
-        depth,
-        nominalDepth: depth,
-        height,
-        nominalHeight: height,
-        rotation: spot?.rotation ?? 0,
+        depth: fallbackDepth,
+        nominalDepth: fallbackDepth,
+        height: fallbackHeight,
+        nominalHeight: Number(smallGapFillerDefinition.height) || fallbackHeight,
+        rotation: 0,
         numberOfDoors: 0,
         numberOfDrawers: 0,
+      };
+      const matched = owner ? matchInstalledFillerToCabinet(draft, owner, room) : draft;
+      const spot = smallGapFillerPrompt.islandFace && island
+        ? null
+        : wallPlacementAt(piece.start, piece.width, matched.depth, smallGapFillerPrompt.wall, room);
+      const preview: PlacedCabinet = {
+        ...matched,
+        x: spot?.x ?? 0,
+        y: spot?.y ?? 0,
+        rotation: spot?.rotation ?? 0,
         ...(spot?.wallId ? { wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide } : {}),
       };
       return smallGapFillerPrompt.islandFace && island
         ? islandFacePlacement(preview, island, smallGapFillerPrompt.islandFace, piece.start)
         : preview;
     });
-  }, [island, room, selectedSmallGapFillerCut, selectedSmallGapFillerCutIsValid, smallGapFillerDefinition, smallGapFillerPreviewMode, smallGapFillerPrompt]);
+  }, [island, placed, room, selectedSmallGapFillerCut, selectedSmallGapFillerCutIsValid, smallGapFillerDefinition, smallGapFillerPreviewMode, smallGapFillerPrompt]);
   const pricingIdForPlacedCabinet = useCallback(
     (cabinet: PlacedCabinet) => catalogFillerPricingId(cabinet, catalogFillers) ?? pricingCabinetIdFor(cabinet),
     [catalogFillers, pricingCabinetIdFor],
@@ -3034,12 +3045,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // line items. Included in the dedup key so different colors stay separate.
       const cabStyleId = styleId ? pricingStyleIdFor(p) : null;
       const cabColor = cabStyleId != null ? (styleNameById.get(cabStyleId) ?? null) : null;
-      const discKey = p.discountPct ?? 0;
-      const gdFlag = p.glassDoor ? "GD" : "";
-	      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
+	      const discKey = p.discountPct ?? 0;
+	      const gdFlag = p.glassDoor ? "GD" : "";
+	      const fillerOwner = isFillerItem(p) ? adjacentCabinetForFiller(p, placed, room) : null;
+	      const fillerInstallNote = fillerOwner
+	        ? `Installed to match ${fillerOwner.masterCode}: ${formatInches(placedHeight(p))} high at ${formatInches(elevationBox(p, room).bottom)} above floor`
+	        : "";
+		      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
 	        ? `Mitered ${p.fillerMiterAngle ?? 22.5}° (forms 45° turn)`
 	        : "";
-	      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
+		      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${fillerInstallNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -3053,7 +3068,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          // The base cabinet keeps its canonical SKU. A separately priced glass
 	          // door appears as its own cart/material line instead of replacing it.
 	          code: p.masterCode,
-	          description: [p.description, sizeNote, miterCutNote, attrNote]
+		          description: [p.description, sizeNote, fillerInstallNote, miterCutNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
           color: cabColor,
@@ -3145,7 +3160,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       });
     }
     return rows;
-  }, [placed, priceMap, styleId, pricingStyleIdFor, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
+	  }, [placed, room, priceMap, styleId, pricingStyleIdFor, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
 
   const affiliatePriceListItems = useMemo(() => {
     if (!styleId) return [] as Array<{ masterCode: string; styleId: number; quantity: number }>;
@@ -4970,7 +4985,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          const fillerDepth = fillerLayer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
           const snappedSpot = wallPlacementAt(best.start, best.length, fillerDepth, best.side, room);
           const horizontal = best.side === "top" || best.side === "bottom";
-          finalCab = {
+	          finalCab = {
             ...newCab,
             x: snappedSpot.x,
             y: snappedSpot.y,
@@ -4979,10 +4994,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             nominalWidth: horizontal ? best.length : newCab.width,
             depth: horizontal ? newCab.depth : best.length,
             nominalDepth: horizontal ? newCab.depth : best.length,
-            masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
-          };
-        }
-      }
+	            masterCode: `FILL-${Math.round(best.length * 10) / 10}`,
+	          };
+	          const owner = adjacentCabinetForFiller(finalCab, [...prev, finalCab], room);
+	          if (owner) finalCab = matchInstalledFillerToCabinet(finalCab, owner, room);
+	        }
+	      }
 
       // Short cabinets centered over a sink normally begin at the required
       // 70-inch finished-floor bottom. A real window may raise that bottom just enough
@@ -6092,9 +6109,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // A direct gap-fill is an installed, priced trim piece—not a loose panel.
       // Persist the same installation contract used by the measured filler dialog
       // so the 3D scene, plan/materials calculation, and countertop all extend
-      // across the finished base-run end.
-      const fillerUid = makeUid();
-      const newCab: PlacedCabinet = {
+	      // across the finished base-run end.
+	      const fillerUid = makeUid();
+	      let newCab: PlacedCabinet = {
         uid: fillerUid,
         cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
@@ -6117,10 +6134,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         styleId: styleIdRef.current ?? null,
         fillerPieceGroupId: `filler-group-${fillerUid}`,
         fillerBillingRole: "primary",
-        fillerTotalWidth: width,
-        fillerPlacementMode: "right",
-      };
-      setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
+	        fillerTotalWidth: width,
+	        fillerPlacementMode: "right",
+	      };
+	      const owner = adjacentCabinetForFiller(newCab, [...placedRef.current, newCab], room);
+	      if (owner) newCab = matchInstalledFillerToCabinet(newCab, owner, room);
+	      setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_toast_added_filler", { w }));
     },
@@ -6206,7 +6225,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        Number.isFinite(height) ? height : placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT,
 	      ).storedHeight;
       const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
-      const newFiller: PlacedCabinet = {
+	      const newFiller = matchInstalledFillerToCabinet({
         uid: makeUid(),
         cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
@@ -6217,10 +6236,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         x: fillerSpot.x, y: fillerSpot.y,
         width: fillerW, nominalWidth: dim(fillerDef.width, fillerW), depth: fillerDepth, nominalDepth: fillerDepth, height: fillerHeight, nominalHeight: fillerHeight,
         rotation: fillerSpot.rotation,
-        numberOfDoors: 0, numberOfDrawers: 0,
-        catalogImageUrl: fillerDef.catalogImageUrl ?? null,
-        styleId: styleIdRef.current ?? null,
-      };
+	        numberOfDoors: 0, numberOfDrawers: 0,
+	        catalogImageUrl: fillerDef.catalogImageUrl ?? null,
+	        styleId: styleIdRef.current ?? null,
+	      }, newCab, room);
       setPlaced((prev) => appendCollisionFreePlacements(prev, [newCab, newFiller]).placed);
       setSelectedUid(newCab.uid);
       toast.success(t("dt_gap_combo_toast", { code: c.masterCode, filler: formatInches(fillerW) }));
@@ -6286,37 +6305,38 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       return;
     }
 
-	  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
-	  const fillerDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-  	  const fillerHeight = installedFillerVerticalSpec(
-	    cutOpportunity.layer,
-	    Number.isFinite(Number(cabinet.height)) ? Number(cabinet.height) : cutOpportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT,
-	  ).storedHeight;
-	  const catalogWidth = dim(fillerDef.width, cutOpportunity.remaining);
-    const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {
-	    const wallSpot = cutOpportunity.islandFace && island
-	      ? null
-	      : wallPlacementAt(piece.start, piece.width, fillerDepth, cutOpportunity.wall, room);
-      const installationNote = mode === "split"
-        ? ` — ${piece.side} half ${formatInches(piece.width)}`
-        : ` — install on ${piece.side}`;
-      const fillerPiece: PlacedCabinet = {
-        uid: makeUid(),
+		  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
+		  const fallbackDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+	  	  const fallbackHeight = installedFillerVerticalSpec(
+		    cutOpportunity.layer,
+		    Number.isFinite(Number(cabinet.height)) ? Number(cabinet.height) : cutOpportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT,
+		  ).storedHeight;
+		  const catalogWidth = dim(fillerDef.width, cutOpportunity.remaining);
+	    const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {
+	      const ownerUid = cutOpportunity.boundedCabinetUids
+	        ? (piece.side === "left" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1])
+	        : cabinet.uid;
+	      const owner = workingPlaced.find((item) => item.uid === ownerUid) ?? cabinet;
+	      const installationNote = mode === "split"
+	        ? ` — ${piece.side} half ${formatInches(piece.width)}`
+	        : ` — install on ${piece.side}`;
+	      const draft: PlacedCabinet = {
+	        uid: makeUid(),
         cabinetId: fillerDef.id,
         masterCode: fillerDef.masterCode,
 	      description: `${fittedCatalogFillerDescription(fillerDef, cutOpportunity.remaining)}${installationNote}`,
         category: fillerDef.category ?? "Filler",
         subCategory: fillerDef.subCategory ?? "Filler",
 	      placement: cutOpportunity.layer,
-        x: wallSpot?.x ?? 0,
-        y: wallSpot?.y ?? 0,
+	        x: 0,
+	        y: 0,
         width: piece.width,
         nominalWidth: catalogWidth,
-        depth: fillerDepth,
-        nominalDepth: fillerDepth,
-        height: fillerHeight,
-        nominalHeight: fillerHeight,
-        rotation: wallSpot?.rotation ?? 0,
+	        depth: fallbackDepth,
+	        nominalDepth: fallbackDepth,
+	        height: fallbackHeight,
+	        nominalHeight: Number(fillerDef.height) || fallbackHeight,
+	        rotation: 0,
         numberOfDoors: 0,
         numberOfDrawers: 0,
         catalogImageUrl: fillerDef.catalogImageUrl ?? null,
@@ -6325,11 +6345,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         fillerBillingRole: index === 0 ? "primary" : "secondary",
 	      fillerTotalWidth: cutOpportunity.remaining,
 	      fillerPlacementMode: mode,
-	      fillerForCabinetUid: cutOpportunity.boundedCabinetUids
-	        ? (piece.side === "left" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1])
-	        : cabinet.uid,
-	    };
-	    return cutOpportunity.islandFace && island
+		      fillerForCabinetUid: owner.uid,
+		    };
+	      const matched = matchInstalledFillerToCabinet(draft, owner, room);
+		    const wallSpot = cutOpportunity.islandFace && island
+		      ? null
+		      : wallPlacementAt(piece.start, piece.width, matched.depth, cutOpportunity.wall, room);
+	      const fillerPiece: PlacedCabinet = {
+	        ...matched,
+	        x: wallSpot?.x ?? 0,
+	        y: wallSpot?.y ?? 0,
+	        rotation: wallSpot?.rotation ?? 0,
+	        ...(wallSpot?.wallId ? { wallId: wallSpot.wallId, wallOffset: wallSpot.wallOffset, peninsulaSide: wallSpot.peninsulaSide } : {}),
+	      };
+		    return cutOpportunity.islandFace && island
 	      ? islandFacePlacement(fillerPiece, island, cutOpportunity.islandFace, piece.start)
         : fillerPiece;
     });

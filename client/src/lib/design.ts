@@ -226,6 +226,104 @@ export function isFillerItem(c: {
   return /^F(?:ILL)?[-_]?\d/.test(code) || /\bfiller\b/.test(hay);
 }
 
+const FILLER_ADJACENCY_TOLERANCE_IN = 0.25;
+
+function fillerLayer(placement: Placement): "wall" | "floor" | null {
+  if (placement === "wall") return "wall";
+  if (placement === "base" || placement === "tall" || placement === "appliance") return "floor";
+  return null;
+}
+
+/**
+ * Returns the cabinet whose exposed side directly borders an installed filler.
+ * An explicit saved owner is authoritative; older plans are repaired by exact
+ * same-wall edge contact. Wall and floor runs never cross-match.
+ */
+export function adjacentCabinetForFiller(
+  filler: PlacedCabinet,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): PlacedCabinet | null {
+  if (!isFillerItem(filler)) return null;
+  const explicitOwner = filler.fillerForCabinetUid
+    ? placed.find((item) => item.uid === filler.fillerForCabinetUid && !isFillerItem(item)) ?? null
+    : null;
+  if (explicitOwner) return explicitOwner;
+
+  const layer = fillerLayer(filler.placement);
+  if (!layer) return null;
+  const wall = cabinetWall(filler, room);
+  const fillerStart = wallRunOffset(filler, wall, room);
+  const fillerEnd = fillerStart + wallRunSpan(filler, wall, room);
+  return placed
+    .filter((item) => item.uid !== filler.uid && !isFillerItem(item))
+    .filter((item) => fillerLayer(item.placement) === layer && cabinetWall(item, room) === wall)
+    .map((item) => {
+      const start = wallRunOffset(item, wall, room);
+      const end = start + wallRunSpan(item, wall, room);
+      return { item, edgeGap: Math.min(Math.abs(fillerStart - end), Math.abs(fillerEnd - start)) };
+    })
+    .filter(({ edgeGap }) => edgeGap <= FILLER_ADJACENCY_TOLERANCE_IN)
+    .sort((left, right) => {
+      const placementPriority = (left.item.placement === "appliance" ? 1 : 0) - (right.item.placement === "appliance" ? 1 : 0);
+      return placementPriority || left.edgeGap - right.edgeGap;
+    })[0]?.item ?? null;
+}
+
+/**
+ * Installation rule: a filler is cut to the exact vertical envelope of the
+ * cabinet beside it and sits on the same front-depth datum. Catalog/nominal
+ * dimensions remain available for purchasing; installed dimensions drive the
+ * plan, elevation, 3D scene, and build sheet.
+ */
+export function matchInstalledFillerToCabinet(
+  filler: PlacedCabinet,
+  owner: PlacedCabinet,
+  room?: Pick<RoomData, "ceilingHeight"> | null,
+): PlacedCabinet {
+  if (!isFillerItem(filler) || isFillerItem(owner)) return filler;
+  const ownerElevation = elevationBox(owner, room);
+  const placement: Placement = owner.placement === "wall"
+    ? "wall"
+    : owner.placement === "tall" ? "tall" : "base";
+  const ownerDepth = Number(owner.depth);
+  return {
+    ...filler,
+    placement,
+    depth: Number.isFinite(ownerDepth) && ownerDepth > 0
+      ? ownerDepth
+      : placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH,
+    height: ownerElevation.height,
+    mountBottom: ownerElevation.bottom,
+    fillerForCabinetUid: owner.uid,
+  };
+}
+
+/** Repairs legacy filler records before collision checks and rendering. */
+export function normalizeInstalledFillersToAdjacentCabinets(
+  placements: PlacedCabinet[],
+  room: RoomData,
+): PlacedCabinet[] {
+  let changed = false;
+  const next = placements.map((item) => {
+    if (!isFillerItem(item) || item.integratedWallBlindFiller === true || item.fillerTransitionKind) return item;
+    const owner = adjacentCabinetForFiller(item, placements, room);
+    if (!owner) return item;
+    const matched = matchInstalledFillerToCabinet(item, owner, room);
+    const itemBottom = item.mountBottom == null ? null : Number(item.mountBottom);
+    const matchedBottom = matched.mountBottom == null ? null : Number(matched.mountBottom);
+    const differs = matched.placement !== item.placement
+      || Math.abs(Number(matched.depth) - Number(item.depth)) > 0.001
+      || Math.abs(Number(matched.height) - Number(item.height)) > 0.001
+      || itemBottom !== matchedBottom
+      || item.fillerForCabinetUid !== matched.fillerForCabinetUid;
+    if (!differs) return item;
+    changed = true;
+    return matched;
+  });
+  return changed ? next : placements;
+}
+
 export const FILLER_MIN_WIDTH_IN = 0.125;
 
 /** A filler may trim down to 1/8in, but never grows beyond its own catalog width. */
@@ -3347,7 +3445,11 @@ export function normalizeWallBlindCornerRequiredFillers(placements: PlacedCabine
  * refrigerator or other item is rejected instead of replacing its neighbor.
  */
 export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: RoomData): CollisionResolution {
-  const normalizedPlacements = normalizeWallBlindCornerRequiredFillers(placements).map(normalizePlacedWallCabinetSkuDimensions);
+  const wallBlindNormalized = normalizeWallBlindCornerRequiredFillers(placements);
+  const fillerNormalized = room
+    ? normalizeInstalledFillersToAdjacentCabinets(wallBlindNormalized, room)
+    : wallBlindNormalized;
+  const normalizedPlacements = fillerNormalized.map(normalizePlacedWallCabinetSkuDimensions);
   const resolution: CollisionResolution = { placed: [], rejected: [] };
   for (const candidate of normalizedPlacements) {
     if (isRefrigeratorEndPanel(candidate) && refrigeratorEndPanelConflictDetail(candidate, resolution.placed)) {
@@ -7281,11 +7383,12 @@ export function freeSegmentsOnWall(
         ? sourceStart <= 2
         : sourceEnd >= sourceLength - 2;
     })();
-    const reservesAdjoiningWall = (
-      cornerKind === "l-shape" ||
-      cornerKind === "diagonal" ||
-      cornerKind === "corner-drawer"
-    ) && (isAgainstWall(p, side, room) || seatedAtSharedCustomVertex);
+	    const reservesAdjoiningWall = (
+	      cornerKind === "l-shape" ||
+	      cornerKind === "diagonal" ||
+	      cornerKind === "corner-drawer" ||
+	      cornerKind === "blind-corner"
+	    ) && (isAgainstWall(p, side, room) || seatedAtSharedCustomVertex);
     // Explicit custom runs normally contain only their own cabinets. A true
     // corner cabinet is the intentional exception: it physically consumes both
     // adjoining wall legs, including two continuous-wall segments.
@@ -7297,9 +7400,9 @@ export function freeSegmentsOnWall(
       // 12-inch L notch is interior access space, not a valid parallel cabinet
       // run. Reserve the full 36-inch LSB36/ERB36 outer envelope, matching the
       // physical-body collision test below.
-      const adjacentLeg = cornerKind === "l-shape"
-        ? Math.max(0, footprint.w)
-        : Math.min(footprint.w, footprint.d);
+	      const adjacentLeg = cornerKind === "l-shape"
+	        ? Math.max(0, footprint.w)
+	        : Math.min(footprint.w, footprint.d);
       const targetStartsAtSharedVertex = sharedCustomVertex === targetCustomWall.startVertexId;
       if (targetStartsAtSharedVertex) {
         blocked.push({ s: 0, e: Math.min(wallLen, adjacentLeg) });

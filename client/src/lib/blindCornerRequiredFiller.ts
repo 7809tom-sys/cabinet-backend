@@ -75,7 +75,7 @@ export function buildRequiredBlindCornerFiller(
   if (!catalog) return { ok: false, reason: "missing-catalog-filler" };
   if (wallBlind) {
     const catalogWidth = finite(catalog.width, BLIND_CORNER_FILLER_WIDTH_IN);
-    const height = installedFillerVerticalSpec("wall", finite(catalog.height, blind.height ?? STD.WALL_HEIGHT)).storedHeight;
+    const height = installedFillerVerticalSpec("wall", finite(blind.height, STD.WALL_HEIGHT)).storedHeight;
     return {
       ok: true,
       filler: {
@@ -113,7 +113,7 @@ export function buildRequiredBlindCornerFiller(
   if (!layout.filler) return { ok: false, reason: "invalid-corner" };
 
   const catalogWidth = finite(catalog.width, BLIND_CORNER_FILLER_WIDTH_IN);
-  const height = installedFillerVerticalSpec("base", finite(catalog.height, STD.BASE_HEIGHT)).storedHeight;
+  const height = installedFillerVerticalSpec("base", finite(blind.height, STD.BASE_HEIGHT)).storedHeight;
   return {
     ok: true,
     filler: {
@@ -134,6 +134,7 @@ export function buildRequiredBlindCornerFiller(
       nominalDepth: finite(catalog.depth, STD.BASE_DEPTH),
       height,
       nominalHeight: height,
+      mountBottom: blind.mountBottom ?? 0,
       numberOfDoors: 0,
       numberOfDrawers: 0,
       catalogImageUrl: catalog.catalogImageUrl ?? null,
@@ -141,6 +142,7 @@ export function buildRequiredBlindCornerFiller(
       fillerPieceGroupId: requiredBlindCornerFillerGroupId(blind),
 	      fillerPlacementMode: layout.filler.fillerPlacementMode ?? "right",
       fillerTotalWidth: BLIND_CORNER_FILLER_WIDTH_IN,
+      fillerForCabinetUid: blind.uid,
     },
   };
 }

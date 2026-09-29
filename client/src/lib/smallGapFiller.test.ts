@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, cabinetWallDragPreview, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
 	appendSmallGapFillerPlacement,
@@ -144,16 +144,87 @@ const cabinet: PlacedCabinet = {
     });
   });
 
-  it("preserves the catalog height for wall fillers", () => {
-    expect(installedFillerVerticalSpec("wall", 42)).toEqual({
-      storedHeight: 42,
-      visibleBottom: 0,
-      visibleHeight: 42,
-      visibleTop: 42,
-    });
-  });
+	  it("preserves the catalog height for wall fillers", () => {
+	    expect(installedFillerVerticalSpec("wall", 42)).toEqual({
+	      storedHeight: 42,
+	      visibleBottom: 0,
+	      visibleHeight: 42,
+	      visibleTop: 42,
+	    });
+	  });
 
-  it("detects a six-inch-or-smaller trailing opening after placement", () => {
+	  it("makes an ordinary base filler exactly match its adjacent cabinet", () => {
+	    const owner: PlacedCabinet = { ...cabinet, uid: "custom-base", depth: 25, height: 36, mountBottom: 1 };
+	    const filler: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "base-filler",
+	      masterCode: "F342",
+	      description: "Base filler — cut to 2\"",
+	      category: "Filler",
+	      width: 2,
+	      x: 18,
+	      depth: 24,
+	      height: 34.5,
+	    };
+	    expect(matchInstalledFillerToCabinet(filler, owner, DEFAULT_ROOM)).toMatchObject({
+	      placement: "base",
+	      depth: 25,
+	      height: 36,
+	      mountBottom: 1,
+	      fillerForCabinetUid: owner.uid,
+	    });
+	  });
+
+	  it("repairs a legacy wall filler from the exact cabinet touching its edge", () => {
+	    const owner: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "wall-30",
+	      masterCode: "W1830",
+	      placement: "wall",
+	      width: 18,
+	      depth: 12,
+	      height: 30,
+	      mountBottom: 54,
+	    };
+	    const filler: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "legacy-wall-filler",
+	      masterCode: "WF342",
+	      description: "Wall filler — cut to 3\"",
+	      category: "Filler",
+	      placement: "wall",
+	      x: 18,
+	      width: 3,
+	      depth: 12,
+	      height: 42,
+	      mountBottom: 0,
+	    };
+	    expect(adjacentCabinetForFiller(filler, [owner, filler], DEFAULT_ROOM)?.uid).toBe(owner.uid);
+	    expect(normalizeInstalledFillersToAdjacentCabinets([owner, filler], DEFAULT_ROOM)[1]).toMatchObject({
+	      height: 30,
+	      mountBottom: 54,
+	      depth: 12,
+	      fillerForCabinetUid: owner.uid,
+	    });
+	  });
+
+	  it("does not overwrite dedicated front-miter filler geometry", () => {
+	    const special: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "miter-filler",
+	      masterCode: "F342",
+	      description: "Filler transition",
+	      category: "Filler",
+	      width: 2,
+	      depth: 0.75,
+	      height: 30,
+	      fillerTransitionKind: "front-miter-pair",
+	      fillerForCabinetUid: cabinet.uid,
+	    };
+	    expect(normalizeInstalledFillersToAdjacentCabinets([cabinet, special], DEFAULT_ROOM)[1]).toEqual(special);
+	  });
+
+	  it("detects a six-inch-or-smaller trailing opening after placement", () => {
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 20.5 }, [cabinet], [], cabinet.uid);
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
   });

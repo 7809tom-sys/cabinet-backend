@@ -2456,7 +2456,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       .toEqual({ x: 0, y: 0, rotation: 0 });
   });
 
-  it("reserves LS3612's physical leg on the adjoining right-wall base run for DW-24 and 3-DB18 catalog placement", () => {
+	  it("reserves LS3612's physical leg on the adjoining right-wall base run for DW-24 and 3-DB18 catalog placement", () => {
     const ls3612 = cab({
       uid: "ls3612-top-right",
       masterCode: "LS3612",
@@ -2482,10 +2482,43 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const drawerBaseSpot = paletteActiveWallPlacement("right", ROOM_12x10, [ls3612], [], 18, 24, "base");
     expect(drawerBaseSpot).toEqual({ x: 120, y: 36, rotation: 90 });
     const drawerBase = cab({ uid: "3db18", masterCode: "3-DB18", description: "18 inch Three Drawer Base", placement: "base", ...drawerBaseSpot!, width: 18, depth: 24, height: 34.5 });
-    expect(hasCollision(drawerBase, [ls3612])).toBe(false);
-  });
+	    expect(hasCollision(drawerBase, [ls3612])).toBe(false);
+	  });
 
-  it("offers the same LS3612-bounded right-wall opening to drag-to-add", () => {
+	  it("reserves BBC-36's physical 24-inch body on the adjoining wall and places DW-24 immediately after it", () => {
+	    const blind = cab({
+	      uid: "bbc36-top-left",
+	      masterCode: "BBC-36",
+	      description: "36 inch Blind Corner Base Cabinet",
+	      placement: "base",
+	      x: 0,
+	      y: 0,
+	      width: 36,
+	      depth: 24,
+	      height: 34.5,
+	      rotation: 0,
+	      swing: "right",
+	      cornerType: "blind-corner",
+	    });
+
+	    expect(freeSegmentsOnWall("left", ROOM_12x10, [blind], [], 0.5, 0, "appliance"))
+	      .toEqual([{ start: 24, length: 96 }]);
+	    const dishwasherSpot = paletteActiveWallPlacement("left", ROOM_12x10, [blind], [], 24, 24, "appliance");
+	    expect(dishwasherSpot).toEqual({ x: 0, y: 24, rotation: 90 });
+	    const dishwasher = cab({
+	      uid: "dw24-beside-bbc",
+	      masterCode: "DW-24",
+	      description: "24 inch Dishwasher",
+	      placement: "appliance",
+	      ...dishwasherSpot!,
+	      width: 24,
+	      depth: 24,
+	      height: 34.5,
+	    });
+	    expect(cabinetPlacementCollisionDetail(dishwasher, [blind], ROOM_12x10)).toBeNull();
+	  });
+
+	  it("offers the same LS3612-bounded right-wall opening to drag-to-add", () => {
     const ls3612 = cab({ uid: "ls3612-drag", masterCode: "LS3612", description: "36 inch Lazy Susan Corner Base", placement: "base", x: 108, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0 });
     const segments = freeSegmentsOnWall("right", ROOM_12x10, [ls3612], [], 0.5, 0, "base");
     const gaps = segments.map((segment) => ({ side: "right" as const, layer: "base" as const, start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: true, isFillerSize: false }));
