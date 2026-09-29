@@ -27,6 +27,7 @@ import {
   type FreightQuoteLine,
   type FreightShipmentGroup,
   combineStyleFreightGroups,
+  estimateFreight,
   type FreightRateGroup,
 } from "@shared/freight";
 import {
@@ -944,6 +945,27 @@ function liveProviderEnvironment(row: ShippingSettings): "sandbox" | "production
   return null;
 }
 
+async function configuredFreightEstimate(input: {
+  destinationZip: string;
+  totalWeightLbs: number;
+  merchandiseSubtotalCents: number;
+  accessorials?: {
+    liftgate?: boolean;
+    residential?: boolean;
+    insideDelivery?: boolean;
+  };
+}, settings: FreightSettings): Promise<FreightQuote> {
+  const db = await getDb();
+  const zoneRows = db
+    ? await db.select().from(freightZones).orderBy(asc(freightZones.sortOrder))
+    : [];
+  return estimateFreight(input, settings, zoneRows.map((zone) => ({
+    zoneName: zone.zoneName,
+    zipPrefixes: zone.zipPrefixes,
+    rateCents: zone.rateCents,
+  })));
+}
+
 async function simulateFreight(input: {
   destinationZip: string;
   items: FreightItemInput[];
@@ -1602,6 +1624,21 @@ export const freightRouter = router({
         }
 
         if (failedGroups.length > 0) {
+          const fallback = await configuredFreightEstimate({
+            destinationZip: input.destinationZip,
+            totalWeightLbs: totalBillableWeightLbs,
+            merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+            accessorials: input.accessorials,
+          }, settings);
+          if (fallback.available) {
+            const requestedCarrier = input.carrierPreference === "ups" ? "UPS parcel rating" : "live carrier rating";
+            return attachFreightQuoteToken({
+              ...fallback,
+              zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
+              reason: `${requestedCarrier} is not available for this cart. A configured LTL freight estimate is shown instead; the final carrier amount is confirmed before shipment.`,
+              shipmentGroups,
+            }, input);
+          }
           return {
             available: false,
             zoneName: null,
@@ -1640,19 +1677,26 @@ export const freightRouter = router({
       }
 
       // Quote requests never substitute table estimates or Plan B fees for a
-      // carrier response. An unconfigured carrier is visibly unavailable.
-      return {
-        available: false,
-        zoneName: null,
-        billableWeightLbs: 0,
-        lines: [],
-        freightBeforeMarkupCents: 0,
-        markupCents: 0,
-        damageFeeCents: 0,
-        totalCents: 0,
-        freeFreightApplied: false,
-        reason: "Carrier shipping is unavailable because a carrier connection has not been configured.",
-      };
+      // carrier response. Until a carrier account is connected, use the
+      // administrator-configured zone estimator and label it clearly as an
+      // estimate so checkout can continue without presenting it as a live rate.
+      const load = totalPackagedLoad(packages);
+      const fallback = await configuredFreightEstimate({
+        destinationZip: input.destinationZip,
+        totalWeightLbs: load.weightLbs,
+        merchandiseSubtotalCents: input.merchandiseSubtotalCents,
+        accessorials: input.accessorials,
+      }, settings);
+      return fallback.available
+        ? attachFreightQuoteToken({
+            ...fallback,
+            zoneName: `Estimated LTL freight · ${fallback.zoneName ?? "configured zone"}`,
+            reason: "A live carrier account is not connected yet. This is the configured freight estimate; the final carrier amount is confirmed before shipment.",
+          }, input)
+        : {
+            ...fallback,
+            reason: fallback.reason ?? "Carrier shipping is unavailable because a carrier connection has not been configured.",
+          };
     }),
 
   // ─── Admin: read current settings + zones ───────────────────────────────────

@@ -14,7 +14,7 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("item.distributorId != null");
     expect(cartSource).toContain("trpc.freight.estimate.useQuery(cartFreightInput");
     expect(cartSource).toContain("distributorId: item.distributorId");
-    expect(cartSource).toContain("Get live quote");
+    expect(cartSource).toContain("Get shipping quote");
   });
 
   it("shows the live carrier pallet plan instead of a generic shipping estimate", () => {
@@ -33,12 +33,13 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("Carrier handling review:");
   });
 
-  it("offers an explicit UPS-only parcel quote check without treating an LTL pallet as a UPS carton", () => {
+  it("offers a UPS-first check that falls back to the configured LTL estimate without treating a pallet as a UPS carton", () => {
     expect(cartSource).toContain('id="ups-parcel-quote"');
-    expect(cartSource).toContain("Get a UPS package quote");
+    expect(cartSource).toContain("Prefer a UPS package quote");
     expect(cartSource).toContain('carrierPreference: requestUpsParcelQuote ? "ups" as const : undefined');
-    expect(cartSource).toContain("Get UPS quote");
-    expect(cartSource).toContain("only verified cartons against UPS parcel limits");
+    expect(cartSource).toContain("Check UPS / freight");
+    expect(cartSource).toContain("automatically returns the configured LTL freight estimate instead");
+    expect(cartSource).toContain("cartFreightEstimate.data.reason");
   });
 
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {

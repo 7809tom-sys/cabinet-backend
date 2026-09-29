@@ -64,7 +64,7 @@ async function readSettings() {
 }
 
 describe("freight.estimate", () => {
-  it("requires a carrier connection instead of returning the legacy estimator price", async () => {
+  it("returns the configured freight estimate when a live carrier account is not connected", async () => {
     const adminCaller = appRouter.createCaller(userCtx("admin"));
     const before = await readSettings();
     const s = before!;
@@ -78,8 +78,10 @@ describe("freight.estimate", () => {
         items: [{ cabinetId: null, qty: 4, weightLbs: 50 }], // 200 lbs, no catalog lookup
         merchandiseSubtotalCents: 200000,
       });
-      expect(q.available).toBe(false);
-      expect(q.reason).toMatch(/carrier connection has not been configured/i);
+      expect(q.available).toBe(true);
+      expect(q.zoneName).toContain("Estimated LTL freight");
+      expect(q.reason).toMatch(/live carrier account is not connected/i);
+      expect(q.totalCents).toBeGreaterThan(0);
     } finally {
       await adminCaller.freight.adminUpdateSettings(settingsPayload(s));
     }
@@ -100,6 +102,32 @@ describe("freight.estimate", () => {
     expect(q.available).toBe(false);
     // Restore enabled state.
     await adminCaller.freight.adminUpdateSettings(settingsPayload(s, { enabled: s.enabled }));
+  }, 15_000);
+
+  it("falls back from UPS to a usable LTL estimate for a Skyline cabinet without verified carton data", async () => {
+    const adminCaller = appRouter.createCaller(userCtx("admin"));
+    const before = await readSettings();
+    const s = before!;
+    await adminCaller.freight.adminUpdateSettings(
+      settingsPayload(s, { enabled: true, quoteMode: "estimator", liveProvider: "estimator" }),
+    );
+    try {
+      const caller = appRouter.createCaller(publicCtx());
+      const q = await caller.freight.estimate({
+        destinationZip: "30303",
+        items: [{ cabinetId: 9360006, masterCode: "B24", styleId: 390001, distributorId: 180001, qty: 1 }],
+        merchandiseSubtotalCents: 50000,
+        carrierPreference: "ups",
+        distributorId: 180001,
+      });
+      expect(q.available).toBe(true);
+      expect(q.zoneName).toContain("Estimated LTL freight");
+      expect(q.reason).toMatch(/UPS parcel rating is not available/i);
+      expect(q.shipmentGroups?.[0]?.transportMode).toBe("ltl");
+      expect(q.totalCents).toBeGreaterThan(0);
+    } finally {
+      await adminCaller.freight.adminUpdateSettings(settingsPayload(s));
+    }
   }, 15_000);
 });
 

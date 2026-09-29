@@ -612,20 +612,20 @@ export default function Cart() {
             <span>
               <span className="flex items-center gap-2 font-semibold">
                 <span aria-label="UPS" className="inline-flex rounded-sm bg-[#351c15] px-1.5 py-0.5 text-[10px] font-black tracking-wide text-[#ffb500]">UPS</span>
-                Get a UPS package quote
+                Prefer a UPS package quote
               </span>
               <span className="mt-0.5 block text-xs text-amber-900/85 dark:text-amber-100/85">
-                Checks only verified cartons against UPS parcel limits. If any carton is not eligible, no UPS price is created; clear this option to request the normal freight quote.
+                Checks verified cartons for UPS first. If the cart is not UPS-eligible, the site automatically returns the configured LTL freight estimate instead.
               </span>
             </span>
           </label>
           <div className="mb-4 rounded-lg border border-border bg-muted/25 p-3" aria-busy={cartFreightEstimate.isFetching}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">Live shipping quote</p>
+                <p className="text-sm font-semibold">Shipping quote</p>
                 <p className="text-xs text-muted-foreground">
                   {requestUpsParcelQuote
-                    ? "Requests a read-only UPS price for verified, UPS-eligible cartons only."
+                    ? "Checks UPS first, then automatically uses the LTL freight estimate when cabinets require freight."
                     : "Uses the actual eligible cabinet items and pallet plan in this cart."}
                 </p>
               </div>
@@ -635,7 +635,7 @@ export default function Cart() {
                 onClick={requestLiveCartQuote}
                 disabled={cartFreightEstimate.isFetching || !normalizedZip || isMixedSupplier || cartFreightItems.length === 0}
               >
-                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Get UPS quote</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get live quote</>}
+                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
               </Button>
             </div>
             {cartFreightEstimate.isFetching && (
@@ -650,8 +650,9 @@ export default function Cart() {
             {!cartFreightEstimate.isFetching && cartFreightEstimate.error && <p className="mt-2 text-xs text-destructive">{cartFreightEstimate.error.message}</p>}
             {!cartFreightEstimate.isFetching && cartFreightEstimate.data && (
               cartFreightEstimate.data.available ? (
-                <div className="mt-3 space-y-2 text-xs">
-                  <div className="flex justify-between gap-3 font-medium"><span>{cartFreightEstimate.data.zoneName ?? "Carrier quote"}</span><span>${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</span></div>
+                  <div className="mt-3 space-y-2 text-xs">
+                    <div className="flex justify-between gap-3 font-medium"><span>{cartFreightEstimate.data.zoneName ?? "Carrier quote"}</span><span>${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</span></div>
+                    {cartFreightEstimate.data.reason && <p className="rounded-md border border-amber-200 bg-amber-50 p-2 text-amber-900">{cartFreightEstimate.data.reason}</p>}
                   {cartFreightEstimate.data.shipmentGroups?.map((group) => {
                     const deliveryDate = group.estimatedDeliveryDate
                       ? formatCarrierDeliveryDate(group.estimatedDeliveryDate)

@@ -39,4 +39,12 @@ describe("public cart freight shipment details", () => {
     expect(source).toContain("UPS parcel quoting requires every carton to have verified package dimensions and weight");
     expect(source).toContain("This shipment remains LTL freight.");
   });
+
+  it("returns the configured LTL estimate when UPS or the live carrier cannot rate the cart", () => {
+    expect(source).toContain("async function configuredFreightEstimate");
+    expect(source).toContain("estimateFreight(input, settings");
+    expect(source).toContain("Estimated LTL freight ·");
+    expect(source).toContain("A configured LTL freight estimate is shown instead");
+    expect(source).toContain("final carrier amount is confirmed before shipment");
+  });
 });
