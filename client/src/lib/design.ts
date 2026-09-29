@@ -5637,8 +5637,7 @@ export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number
 // order uses the final exposed 3D crown perimeter, including every return and
 // the four-inch allowance at both cut ends of each outside corner.
 export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
-  if (p.placement === "tall") return true;
-  if (p.placement !== "wall") return false;
+  if (p.placement !== "tall" && p.placement !== "wall") return false;
   // Island wall cabinets are floor/counter-height casework, never upper runs.
   // The explicit island marker remains authoritative for older saves whose
   // mountBottom may still contain a room-wall value.
@@ -5646,8 +5645,17 @@ export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boole
   // A wall cabinet deliberately dropped to a 4½-inch toe kick is floor-seated
   // casework. Use the rendered elevation bottom so restored plans, counter-height
   // variants, and explicit mountBottom values all follow the same physical rule.
-  const bottom = elevationBox(p, room).bottom;
-  return bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
+  const box = elevationBox(p, room);
+  if (box.bottom <= STD.TOE_KICK + COLLISION_EPSILON_IN && p.placement === "wall") return false;
+  if (!room || !isStacker(p) || !isGlassDoorCabinet(p)) return true;
+
+  // Crown rises three inches above the cabinet top. A glass stacker that already
+  // reaches the local ceiling cannot physically receive crown; drawing it anyway
+  // pushes the sloped rail through the ceiling and makes its deep return look
+  // like a shelf hanging into the room.
+  const ceiling = wallCabinetVerticalMoveLimit(p, room).ceiling;
+  const top = box.bottom + box.height;
+  return ceiling - top >= CROWN_HEIGHT_IN - COLLISION_EPSILON_IN;
 }
 
 /**

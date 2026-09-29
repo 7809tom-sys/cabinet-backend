@@ -6178,11 +6178,21 @@ export function addThreeDGlassStackerRearSupports(
     if (!stacker) continue;
     const transform = existingCabinetTransform(stacker, room);
     const box = elevationBox(stacker, room);
-    const material = new THREE.MeshStandardMaterial({
-      color: finishOverrides?.[stacker.uid] ?? fallbackColor,
-      roughness: 0.62,
-      metalness: 0,
+    const ownerGroup = root.children.find((node) => node.userData.placedUid === stacker.uid);
+    let ownerFinishMaterial: THREE.MeshStandardMaterial | null = null;
+    ownerGroup?.traverse((node) => {
+      if (ownerFinishMaterial || !(node instanceof THREE.Mesh)) return;
+      const candidate = Array.isArray(node.material) ? node.material[0] : node.material;
+      if (candidate instanceof THREE.MeshStandardMaterial && candidate.userData.selectedFinishSideSkin === true) {
+        ownerFinishMaterial = candidate;
+      }
     });
+    const material = ownerFinishMaterial
+      ?? new THREE.MeshStandardMaterial({
+        color: finishOverrides?.[stacker.uid] ?? fallbackColor,
+        roughness: 0.62,
+        metalness: 0,
+      });
     const group = new THREE.Group();
     group.position.set(transform.x * INCH, 0, transform.z * INCH);
     group.rotation.y = transform.rotation;
@@ -6208,6 +6218,28 @@ export function addThreeDGlassStackerRearSupports(
     rearPanel.userData = { glassStackerRearFiller: true, concealedSupport: true };
     group.add(rearPanel);
 
+    // Close both exposed ends of the pack-out with thin, finish-matched filler
+    // panels. The 2x4 rails remain concealed instead of showing as a beige box
+    // beside the refrigerator upper when viewed from an open end of the run.
+    const sidePanelThickness = Math.min(0.75, support.width / 2);
+    for (const side of [-1, 1] as const) {
+      const sidePanel = new THREE.Mesh(
+        new THREE.BoxGeometry(sidePanelThickness * INCH, support.height * INCH, support.gapDepth * INCH),
+        material,
+      );
+      sidePanel.position.set(
+        side * (support.width / 2 - sidePanelThickness / 2) * INCH,
+        (box.bottom + support.height / 2) * INCH,
+        (-support.stackerDepth / 2 - support.gapDepth / 2) * INCH,
+      );
+      sidePanel.userData = {
+        glassStackerRearFillerSide: side === -1 ? "left" : "right",
+        concealedSupport: true,
+        selectedFinishStructuralSurface: true,
+      };
+      group.add(sidePanel);
+    }
+
     const railHeight = Math.min(3.5, support.height / 2);
     for (const verticalCenter of [box.bottom + railHeight / 2, box.bottom + support.height - railHeight / 2]) {
       const rail = new THREE.Mesh(
@@ -6218,6 +6250,7 @@ export function addThreeDGlassStackerRearSupports(
       rail.userData = { glassStackerTwoByFourSupport: true, concealedSupport: true };
       group.add(rail);
     }
+    group.userData.sharesOwnerCabinetFinishMaterial = Boolean(ownerFinishMaterial);
     root.add(group);
   }
 }

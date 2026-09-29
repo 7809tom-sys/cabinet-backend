@@ -22,7 +22,7 @@ function wallCabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
 }
 
 describe("stacked glass wall cabinet crown eligibility", () => {
-  it("removes crown from the lower wall cabinet and retains it on the top glass stacker", () => {
+  it("removes crown from both boxes when the top glass stacker reaches the ceiling", () => {
     const lower = wallCabinet({ uid: "lower", masterCode: "W2430" });
     const glassStacker = wallCabinet({
       uid: "glass-stacker",
@@ -33,7 +33,7 @@ describe("stacked glass wall cabinet crown eligibility", () => {
       stackedOnCabinetUid: lower.uid,
     });
 
-    expect(crownEligibleCabinets([lower, glassStacker], room).map((cabinet) => cabinet.uid)).toEqual(["glass-stacker"]);
+    expect(crownEligibleCabinets([lower, glassStacker], room).map((cabinet) => cabinet.uid)).toEqual([]);
   });
 
   it("does not suppress lower-cabinet crown when a glass cabinet is not physically stacked on its top", () => {
@@ -47,6 +47,21 @@ describe("stacked glass wall cabinet crown eligibility", () => {
       stackedOnCabinetUid: lower.uid,
     });
 
-    expect(crownEligibleCabinets([lower, elevatedGlass], room).map((cabinet) => cabinet.uid)).toEqual(["lower", "elevated-glass"]);
+    expect(crownEligibleCabinets([lower, elevatedGlass], room).map((cabinet) => cabinet.uid)).toEqual(["lower"]);
+  });
+
+  it("keeps crown on the top stacker when the local ceiling has the full three-inch clearance", () => {
+    const tallRoom: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    const lower = wallCabinet({ uid: "lower", masterCode: "W2430" });
+    const glassStacker = wallCabinet({
+      uid: "glass-stacker",
+      masterCode: "W2412GD",
+      description: "24 inch Wall Glass Door Cabinet",
+      height: 12,
+      mountBottom: 84,
+      stackedOnCabinetUid: lower.uid,
+    });
+
+    expect(crownEligibleCabinets([lower, glassStacker], tallRoom).map((cabinet) => cabinet.uid)).toEqual(["glass-stacker"]);
   });
 });

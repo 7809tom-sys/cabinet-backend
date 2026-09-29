@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import * as THREE from "three";
 import {
+  addThreeDGlassStackerRearSupports,
   crownMiterEndpointTrims,
   existingCabinetTransform,
   threeDGlassStackerRearSupportSpecs,
@@ -91,5 +93,36 @@ describe("front-flush glass stacker rear support", () => {
     const parent = cabinet({ uid: "parent", depth: 24 });
     const stacker = cabinet({ uid: "stacker", masterCode: "DCW2412GD", description: "Glass Door Stacker", depth: 24, stackedOnCabinetUid: parent.uid, glassDoor: true });
     expect(threeDGlassStackerRearSupportSpecs([parent, stacker])).toEqual([]);
+  });
+
+  it("closes both exposed chase ends with the glass cabinet's finish material", () => {
+    const parent = cabinet({ uid: "parent", masterCode: "WR3612", depth: 24, height: 12, mountBottom: 72 });
+    const stacker = cabinet({
+      uid: "stacker",
+      masterCode: "W3612GD",
+      description: "36 inch Glass Door Stacker",
+      depth: 12,
+      y: 12,
+      stackedOnCabinetUid: parent.uid,
+      depthPositionAdjusted: true,
+      glassDoor: true,
+    });
+    const root = new THREE.Group();
+    const cabinetGroup = new THREE.Group();
+    cabinetGroup.userData.placedUid = stacker.uid;
+    const finish = new THREE.MeshStandardMaterial({ color: "#f4f1e8" });
+    finish.userData.selectedFinishSideSkin = true;
+    cabinetGroup.add(new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), finish));
+    root.add(cabinetGroup);
+
+    addThreeDGlassStackerRearSupports(root, [parent, stacker], { width: 144, depth: 120, ceilingHeight: 108 }, undefined, "#c8b89c");
+
+    const support = root.children.find((node) => node.userData.glassStackerRearSupport === true) as THREE.Group | undefined;
+    expect(support).toBeDefined();
+    expect(support?.userData.sharesOwnerCabinetFinishMaterial).toBe(true);
+    const closures = support?.children.filter((node) => node.userData.glassStackerRearFillerSide) as THREE.Mesh[];
+    expect(closures).toHaveLength(2);
+    expect(closures.map((mesh) => mesh.userData.glassStackerRearFillerSide)).toEqual(["left", "right"]);
+    expect(closures.every((mesh) => mesh.material === finish)).toBe(true);
   });
 });
