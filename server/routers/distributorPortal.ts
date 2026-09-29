@@ -733,7 +733,7 @@ export const distributorPortalRouter = router({
 	    if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 	    const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
 	    const [style] = await db
-	      .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured })
+		      .select({ id: doorStyles.id, isFeatured: doorStyles.isFeatured, doorSampleImageUrl: doorStyles.doorSampleImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
 	      .from(doorStyles)
 	      .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
 	      .limit(1);
@@ -771,9 +771,11 @@ export const distributorPortalRouter = router({
 	    if (fields.flatFreightFeeCents !== undefined) patch.flatFreightFeeCents = fields.flatFreightFeeCents;
 	    if (fields.doorSampleImageUrl !== undefined) patch.doorSampleImageUrl = fields.doorSampleImageUrl?.trim() || null;
 	    if (fields.drawerSampleImageUrl !== undefined) patch.drawerSampleImageUrl = fields.drawerSampleImageUrl?.trim() || null;
-	    if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
-	    if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
-	    if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
+		    if (fields.roomSceneImageUrl !== undefined) patch.roomSceneImageUrl = fields.roomSceneImageUrl?.trim() || null;
+		    if (fields.thumbnailImageUrl !== undefined) patch.thumbnailImageUrl = fields.thumbnailImageUrl?.trim() || null;
+		    const submittedDoorSample = fields.doorSampleImageUrl?.trim() || style.doorSampleImageUrl || null;
+		    if (submittedDoorSample && !style.thumbnailImageUrl && !fields.thumbnailImageUrl) patch.thumbnailImageUrl = submittedDoorSample;
+		    if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
 	    if (fields.railWidth !== undefined) patch.railWidth = fields.railWidth ?? null;
 	    if (fields.stileWidth !== undefined) patch.stileWidth = fields.stileWidth ?? null;
 	    if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
@@ -2489,7 +2491,7 @@ export const distributorPortalRouter = router({
   // ─── Door Style Image Update (instant) ────────────────────────────────────────
 
 	/** Vendor updates one of its Door Style merchandising image slots. */
-	updateDoorStyleImage: distributorProcedure
+	  updateDoorStyleImage: distributorProcedure
     .input(
       z.object({
         distributorId: z.number().optional(),
@@ -2505,9 +2507,9 @@ export const distributorPortalRouter = router({
       const lineId = resolveLineId(ctx.distributorId, ctx.isAdmin, input.distributorId);
 
       // Verify style belongs to this line
-      const style = await db
-        .select({ id: doorStyles.id })
-        .from(doorStyles)
+	      const style = await db
+	        .select({ id: doorStyles.id, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+	        .from(doorStyles)
         .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.distributorId, lineId)))
         .limit(1);
       if (!style[0]) throw new TRPCError({ code: "FORBIDDEN", message: "That style does not belong to your line." });
@@ -2525,9 +2527,11 @@ export const distributorPortalRouter = router({
 	        cornerSwatch: "cornerSwatchImageUrl",
 	      } as const;
 
-	      await db
-	        .update(doorStyles)
-	        .set({ [fieldMap[input.imageType]]: url } as any)
+		      const imagePatch: Record<string, string> = { [fieldMap[input.imageType]]: url };
+		      if (input.imageType === "doorSample" && !style[0].thumbnailImageUrl) imagePatch.thumbnailImageUrl = url;
+		      await db
+		        .update(doorStyles)
+		        .set(imagePatch as any)
 	        .where(eq(doorStyles.id, input.styleId));
 
 	      // A room scene uploaded by the owner of a supply line is first-party

@@ -531,6 +531,13 @@ export const doorStylesRouter = router({
       if (fields.sourceSpecification !== undefined) patch.sourceSpecification = fields.sourceSpecification?.trim() || null;
       if (fields.cornerSwatchImageUrl !== undefined) patch.cornerSwatchImageUrl = fields.cornerSwatchImageUrl?.trim() || null;
       if (fields.isActive !== undefined) patch.isActive = fields.isActive;
+      const currentImages = await db
+        .select({ doorSampleImageUrl: doorStyles.doorSampleImageUrl, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+        .from(doorStyles)
+        .where(eq(doorStyles.id, id))
+        .limit(1);
+      const submittedDoorSample = fields.doorSampleImageUrl?.trim() || currentImages[0]?.doorSampleImageUrl || null;
+      if (submittedDoorSample && !currentImages[0]?.thumbnailImageUrl && !fields.thumbnailImageUrl) patch.thumbnailImageUrl = submittedDoorSample;
       if (Object.keys(patch).length === 0) return { ok: true };
       const needsCurrentStyle =
         (fields.roomSceneImageUrl !== undefined && !fields.roomSceneImageUrl?.trim()) ||
