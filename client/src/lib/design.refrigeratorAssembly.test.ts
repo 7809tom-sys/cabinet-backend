@@ -4,11 +4,12 @@ import {
   commitRefrigeratorAssemblyCandidate,
   fitRefrigeratorEnclosurePlacements,
   hasCollision,
-  missingRefrigeratorPanelRoles,
-  normalizeRefrigeratorBayUppers,
+	 missingRefrigeratorPanelRoles,
+	 normalizeRefrigeratorBayUppers,
 	 refrigeratorAssemblyMemberRole,
 	 refrigeratorBayRunMetrics,
-  type PlacedCabinet,
+	 refrigeratorBayVerificationMetrics,
+	 type PlacedCabinet,
   type RoomData,
 	wallPlacementAt,
 	wallPlacementAtUnbounded,
@@ -84,6 +85,22 @@ describe("refrigerator assembly reconciliation", () => {
 	     refrigeratorCenter: 42,
 	     openingStart: 23.5,
 	     openingEnd: 60.5,
+	   });
+	 });
+
+	 it("reports the exact opening, panel clearance, and cap centering from persisted bay members", () => {
+	   const fridge = item({ uid: "proof-fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, width: 36, depth: 24, height: 70 });
+	   const leftPanel = item({ uid: "proof-left", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", x: 22.75, width: 0.75, depth: 25.5, height: 96, refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "left-panel" });
+	   const rightPanel = item({ uid: "proof-right", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", x: 60.5, width: 0.75, depth: 25.5, height: 96, refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "right-panel" });
+	   const cap = item({ uid: "proof-cap", masterCode: "W3624", description: "36 inch Wall Cabinet", placement: "wall", x: 24, width: 36, depth: 12, height: 24, mountBottom: 72, refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "bridge" });
+	   expect(refrigeratorBayVerificationMetrics([fridge, leftPanel, rightPanel, cap], fridge, room)).toEqual({
+	     refrigeratorWidth: 36,
+	     openingWidth: 37,
+	     leftGap: 0.5,
+	     rightGap: 0.5,
+	     bridgeCenterOffset: 0,
+	     hasLeftPanel: true,
+	     hasRightPanel: true,
 	   });
 	 });
 

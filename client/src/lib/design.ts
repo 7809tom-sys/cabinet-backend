@@ -6448,6 +6448,51 @@ export function refrigeratorAssemblyMembers(
 }
 
 /**
+ * Measured, source-geometry proof for a completed refrigerator bay. The same
+ * values drive the 3D inspector and regression fixtures: they deliberately use
+ * the catalog appliance span and persisted member locations, never a rendered
+ * appliance mesh or a screen-space bounding box.
+ */
+export function refrigeratorBayVerificationMetrics(
+  placed: PlacedCabinet[],
+  refrigerator: PlacedCabinet,
+  room?: RoomData | null,
+): {
+  refrigeratorWidth: number;
+  openingWidth: number;
+  leftGap: number | null;
+  rightGap: number | null;
+  bridgeCenterOffset: number | null;
+  hasLeftPanel: boolean;
+  hasRightPanel: boolean;
+} {
+  const enclosure = room ?? DEFAULT_ROOM;
+  const metrics = refrigeratorBayRunMetrics(refrigerator, enclosure);
+  const members = refrigeratorAssemblyMembers(placed, refrigerator, enclosure);
+  const leftPanel = members.find(({ role }) => role === "left-panel")?.member;
+  const rightPanel = members.find(({ role }) => role === "right-panel")?.member;
+  const bridge = members.find(({ role }) => role === "bridge")?.member;
+  const leftGap = leftPanel
+    ? metrics.refrigeratorStart - (wallRunOffset(leftPanel, metrics.side, enclosure) + wallRunSpan(leftPanel, metrics.side, enclosure))
+    : null;
+  const rightGap = rightPanel
+    ? wallRunOffset(rightPanel, metrics.side, enclosure) - metrics.refrigeratorEnd
+    : null;
+  const bridgeCenterOffset = bridge
+    ? (wallRunOffset(bridge, metrics.side, enclosure) + wallRunSpan(bridge, metrics.side, enclosure) / 2) - metrics.refrigeratorCenter
+    : null;
+  return {
+    refrigeratorWidth: metrics.refrigeratorWidth,
+    openingWidth: metrics.openingWidth,
+    leftGap,
+    rightGap,
+    bridgeCenterOffset,
+    hasLeftPanel: Boolean(leftPanel),
+    hasRightPanel: Boolean(rightPanel),
+  };
+}
+
+/**
  * Returns the finished end-panel sides still missing from a refrigerator
  * enclosure. New refrigerators explicitly persist their requested mode. Legacy
  * refrigerators that already have an over-fridge cabinet are treated as a
