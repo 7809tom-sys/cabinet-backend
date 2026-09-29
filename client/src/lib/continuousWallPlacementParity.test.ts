@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { appendWallBuilderSegment, wallBuilderRoomGeometry, type WallBuilderSegment } from "./polygonRoom";
 import {
   containCabinetOnDrawnWalls,
-  countertopSurfacePlanPolygon,
-  countertopSurfaces,
-  customWallCabinetSide,
+	 countertopSurfacePlanPolygon,
+	 countertopSurfaces,
+	 commitRefrigeratorAssemblyCandidate,
+	 customWallCabinetSide,
   paletteActiveWallPlacement,
   wallPlacementAt,
   type PlacedCabinet,
@@ -117,13 +118,48 @@ describe("Continuous Wall Builder placement parity", () => {
     };
     const leftBase = place("left-base", "B24", "base", 0, 24, 24);
     const fridge = place("fridge", "FRIDGE-36", "appliance", 24, 36, 24);
-    const leftPanel = place("left-panel", "REPV2496", "tall", 23.25, 0.75, 25.5);
-    const rightPanel = place("right-panel", "REPV2496", "tall", 60.5, 0.75, 25.5);
+	    const leftPanel = place("left-panel", "REPV2496", "tall", 23.25, 0.75, 24);
+	    const rightPanel = place("right-panel", "REPV2496", "tall", 60.5, 0.75, 24);
     const rightBase = place("right-base", "B24", "base", 61.25, 24, 24);
 
     expect(countertopSurfaces([leftBase, fridge, leftPanel, rightPanel, rightBase], room)).toMatchObject([
       { customWallId: wall.id, customWallRunStartIn: 0, linearInches: 24 },
-      { customWallId: wall.id, customWallRunStartIn: 61.25, linearInches: 24 },
-    ]);
-  });
+	      { customWallId: wall.id, customWallRunStartIn: 61.25, linearInches: 24 },
+	    ]);
+	  });
+
+	  it("moves the refrigerator, its source cap, and both panels together on the selected measured wall", () => {
+	    const room = drawnRoom("right90");
+	    const wall = room.customWalls![0]!;
+	    const place = (uid: string, masterCode: string, placement: PlacedCabinet["placement"], start: number, width: number, depth: number, role?: PlacedCabinet["refrigeratorAssemblyRole"]): PlacedCabinet => {
+	      const spot = wallPlacementAt(start, width, depth, wall.id as never, room);
+	      return {
+	        uid, cabinetId: 1, masterCode, description: masterCode, placement,
+	        x: spot.x, y: spot.y, width, depth, height: placement === "appliance" ? 70 : placement === "wall" ? 24 : 96,
+	        rotation: spot.rotation, wallId: wall.id, wallOffset: start,
+	        refrigeratorAssemblyId: role ? "fridge" : undefined,
+	        refrigeratorAssemblyRole: role,
+	        refrigeratorPanelMode: placement === "appliance" ? "both" : undefined,
+	        mountBottom: role === "bridge" ? 72 : placement === "tall" ? 0 : undefined,
+	        customProfile: role?.endsWith("panel") ? "refrigerator-end-panel" : undefined,
+	      };
+	    };
+	    const fridge = place("fridge", "FRIDGE-36", "appliance", 24, 36, 30);
+	    const cap = place("cap", "W301224", "wall", 27.5, 30, 24, "bridge");
+	    const left = place("left", "REPV3096", "tall", 23.25, 0.75, 24, "left-panel");
+	    const right = place("right", "REPV3096", "tall", 60.5, 0.75, 24, "right-panel");
+	    const movedSpot = wallPlacementAt(48, 36, 30, wall.id as never, room);
+
+	    const moved = commitRefrigeratorAssemblyCandidate(
+	      [fridge, cap, left, right],
+	      fridge.uid,
+	      { ...fridge, ...movedSpot, wallOffset: 48 },
+	      room,
+	    )!;
+
+	    expect(moved.find((item) => item.uid === "fridge")?.wallOffset).toBeCloseTo(48);
+	    expect(moved.find((item) => item.uid === "cap")?.wallOffset).toBeCloseTo(51);
+	    expect(moved.find((item) => item.uid === "left")?.wallOffset).toBeCloseTo(46.75);
+	    expect(moved.find((item) => item.uid === "right")?.wallOffset).toBeCloseTo(84.5);
+	  });
 });
