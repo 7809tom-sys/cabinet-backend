@@ -95,6 +95,9 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(transaction).toContain('addCapFiller("bridge-right-filler", bay.refrigeratorEnd)');
 	    expect(transaction).toContain("No source-priced over-refrigerator cabinet is available");
 	    expect(transaction).toContain("No source-priced refrigerator end panel is available");
+	    expect(transaction).toContain("const catalogCapDepth = sourceDimensions?.depth");
+	    expect(transaction).toContain("const aDepth = catalogCapDepth > 0 ? catalogCapDepth : requestedCapDepth");
+	    expect(transaction).toContain("const pDepth = sourcePanelDepth");
 	    expect(transaction).not.toContain("masterCode: `PANEL-${syntheticPanelHeight}`");
 	  });
 

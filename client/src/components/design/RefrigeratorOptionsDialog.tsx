@@ -40,7 +40,7 @@ export interface FridgeSurroundChoice {
   panels: FridgePanels;
   /** The specific end panel chosen by the user (id). Null when panels === "none". */
   endPanelId: number | null;
-  /** The chosen end panel depth in inches (24–36). Null when panels === "none". */
+  /** The verified selected end-panel depth in inches. Null when panels === "none". */
   panelDepth: number | null;
   /**
    * The auto-calculated panel height in inches.
@@ -92,9 +92,6 @@ type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 
 // Bridge cabinet widths — all distributors carry 30", 33", 36" fridge cabinets
 const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
-
-// End panel depth options (inches)
-const PANEL_DEPTH_OPTIONS = [24, 26, 28, 30, 32, 34, 36];
 
 // Fridge height used for panel height calculation
 const FRIDGE_STANDARD_H = 72;
@@ -291,6 +288,16 @@ export function RefrigeratorOptionsDialog({
 
   // Best-match end panel
   const bestPanel = useMemo(() => endPanels[0] ?? null, [endPanels]);
+  const selectedPanel = useMemo(
+    () => endPanels.find((panel) => String(panel.id) === selectedPanelId) ?? bestPanel,
+    [bestPanel, endPanels, selectedPanelId],
+  );
+  const sourcePanelDepth = useMemo(() => {
+    const direct = parseFloat(String(selectedPanel?.depth ?? ""));
+    if (Number.isFinite(direct) && direct > 3) return direct;
+    const alternate = parseFloat(String(selectedPanel?.width ?? ""));
+    return Number.isFinite(alternate) && alternate > 3 ? alternate : null;
+  }, [selectedPanel]);
 
   const hasRequiredBridge = above !== "bridge" || Boolean(chosenBridge);
   const hasRequiredPanels = panels === "none" || Boolean(bestPanel);
@@ -312,7 +319,7 @@ export function RefrigeratorOptionsDialog({
       // still choose No Cabinet before applying this optional enclosure.
       setAbove("bridge");
       setPanels("both");
-      setPanelDepth(24);
+      setPanelDepth(sourcePanelDepth ?? 24);
       setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
       setSmooth(false);
     }
@@ -324,6 +331,10 @@ export function RefrigeratorOptionsDialog({
       setSelectedPanelId(String(bestPanel.id));
     }
   }, [panels, selectedPanelId, bestPanel]);
+
+  useEffect(() => {
+    if (sourcePanelDepth != null) setPanelDepth(sourcePanelDepth);
+  }, [sourcePanelDepth]);
 
   // Auto-correct depth when height changes and current depth has no matching cabinet
   useEffect(() => {
@@ -578,13 +589,10 @@ export function RefrigeratorOptionsDialog({
 
             {panels !== "none" && (
               <div className="space-y-3 pt-1">
-                {/* Panel Depth */}
-                <DimSelector
-                  label="Panel Depth"
-                  value={panelDepth}
-                  options={PANEL_DEPTH_OPTIONS}
-                  onChange={setPanelDepth}
-                />
+                <p className="text-xs text-muted-foreground">
+                  Panel depth: <span className="font-semibold text-foreground">{sourcePanelDepth ?? "—"}{sourcePanelDepth != null ? "″" : ""}</span>
+                  {selectedPanel ? <> from source SKU <span className="font-semibold text-foreground">{selectedPanel.masterCode}</span></> : null}
+                </p>
 
                 {/* Panel style selector */}
                 {endPanels.length > 0 && (

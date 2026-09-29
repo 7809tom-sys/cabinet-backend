@@ -69,6 +69,8 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     expect(options.open).toBe(true);
     expect(screen.getByRole("button", { name: "Add Cabinet" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Both" })).toBeTruthy();
+	  expect(screen.getByText(/panel depth:/i).textContent).toContain('24″');
+    expect(screen.getByText(/source SKU/i).textContent).toContain("REP2496");
   });
 
   it("recommends a matching cabinet above the refrigerator without removing the No Cabinet choice", () => {

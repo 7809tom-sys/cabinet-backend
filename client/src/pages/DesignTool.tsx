@@ -6714,16 +6714,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             return;
           }
           const isDeep = opts.above === "deep";
-          // Deep refrigerator/corner upper: project 27" and step UP 6" taller
-          // than a standard wall cabinet for the staggered built-in look. The
-          // shallow bridge stays a normal-height, 12"-deep upper.
-          // For bridge cabinets, use the user-chosen depth (12" shallow or 24" full depth).
-          // Deep/corner uppers always project to fridgeCornerUpperDepth().
-          const aDepth = isDeep
-            ? fridgeCornerUpperDepth()
-            : (opts.above === "bridge" && opts.bridgeDepth)
-              ? opts.bridgeDepth
+          // The refrigerator cap and side panels are one physical face plane.
+          // Keep the cap on the verified catalog depth—not a 3D stagger effect—
+          // so it is flush to the front of the selected-line end panels. A
+          // catalog depth is authoritative; the dialog choice is only a
+          // fallback for an older source row that does not record dimensions.
+          const catalogCapDepth = sourceDimensions?.depth ?? (parseFloat(String(chosen.depth ?? "")) || 0);
+          const requestedCapDepth = opts.above === "bridge" && opts.bridgeDepth
+            ? opts.bridgeDepth
+            : isDeep
+              ? STD.BASE_DEPTH
               : STD.WALL_DEPTH;
+          const aDepth = catalogCapDepth > 0 ? catalogCapDepth : requestedCapDepth;
           // Use the user-chosen bridge height directly (12/18/24) so the placed cabinet
           // always has the exact height the user selected, even if the catalog entry differs.
           const catalogH = parseFloat(String((chosen.height ?? STD.WALL_HEIGHT))) || STD.WALL_HEIGHT;
@@ -6821,11 +6823,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const rawPanelWidth = dim(panelRow!.width, 0);
         const rawPanelDepth = dim(panelRow!.depth, 0);
         const sourcePanelDepth = rawPanelDepth > 3 ? rawPanelDepth : rawPanelWidth > 3 ? rawPanelWidth : 0;
-        const pDepth = (opts.panelDepth && opts.panelDepth > 0)
-          ? opts.panelDepth
-          : sourcePanelDepth > 0
-            ? sourcePanelDepth
-            : STD.BASE_DEPTH + 1.5;
+        if (sourcePanelDepth <= 0) {
+          const message = `${panelRow!.masterCode} has no verified refrigerator-panel depth, so the refrigerator bay was not completed.`;
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
+        // An end panel stays at its verified source depth. Do not turn a UI
+        // preference or the 3D appliance bounding box into package dimensions.
+        const pDepth = sourcePanelDepth;
         // Infer dimensions from masterCode when catalog values are null
         // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
         const code = (panelRow!.masterCode ?? "").toUpperCase();
