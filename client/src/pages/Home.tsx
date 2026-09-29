@@ -188,6 +188,41 @@ function Hero() {
   );
 }
 
+// ─── About Your Kitchen ───────────────────────────────────────────────────────
+
+function AboutYourKitchen() {
+  const questions = [
+    { icon: Ruler, question: "Where do I start?", answer: "Start with how you use your kitchen: prep, cook, clean up, and store. Then lay those work areas onto your walls before choosing finishes." },
+    { icon: Grid3X3, question: "What layout fits my space?", answer: "Try a single-wall, galley, L-shape, U-shape, or island layout in the designer and compare the options side by side." },
+    { icon: FileSpreadsheet, question: "What should I measure?", answer: "Measure each wall, the ceiling height, and every window, door, and opening from the corner. Rough measurements are enough to begin." },
+    { icon: CircleCheck, question: "When will I know the price?", answer: "Your quote and materials list update as you build, including cabinets, fillers, and trim, so you can see the cost from the first cabinet onward." },
+  ];
+
+  return (
+    <section className="border-y border-border bg-muted/30 py-14 md:py-18" aria-labelledby="about-your-kitchen-title">
+      <div className="container">
+        <div className="mx-auto max-w-2xl text-center">
+          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-[var(--color-wood)]">About Your Kitchen</p>
+          <h2 id="about-your-kitchen-title" className="mt-2 font-serif text-3xl font-bold text-foreground md:text-4xl">The four questions to answer first</h2>
+          <p className="mt-3 text-muted-foreground">A simple starting point for planning a kitchen that works for your space and your life.</p>
+        </div>
+        <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {questions.map(({ icon: Icon, question, answer }) => (
+            <article key={question} className="rounded-2xl border border-border bg-background p-5 shadow-sm">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-gold)]/15 text-[var(--color-wood)]"><Icon className="h-5 w-5" aria-hidden="true" /></div>
+              <h3 className="mt-4 font-serif text-lg font-bold text-foreground">{question}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{answer}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-8 text-center">
+          <Link href="/design"><Button className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">Start Designing <ArrowRight className="h-4 w-4" /></Button></Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ─── Featured Door Style Color Line (from DB) ─────────────────────────────────
 
 type FeaturedDoorStyle = {
@@ -960,6 +995,7 @@ export default function Home() {
       <StorefrontBanner />
       <AuthenticatedWelcomeBanner />
       <Hero />
+      <AboutYourKitchen />
       <FeaturedStyles />
       <ProductShowcase />
       <AffiliatePromo />
