@@ -2099,7 +2099,11 @@ export function footprintDepth(c: DesignCabinet): number {
   // plan footprint is a square bounding box (e.g. 24" wide => 24" deep), not the
   // standard shallow wall/base depth.
   // cornerType="base-end-corner" is the admin override for BEC cabinets.
-  if (c.cornerType === "base-end-corner" || isDiagonalCorner(c.masterCode || "", c.description || undefined)) {
+  if (
+    c.cornerType === "base-end-corner"
+    || isAngledWallCabinet(c.masterCode || "", c.description || undefined)
+    || isDiagonalCorner(c.masterCode || "", c.description || undefined)
+  ) {
     const w = dim(c.width, 24);
     return w > 0 ? w : 24;
   }
@@ -2172,6 +2176,10 @@ export type PlacedCornerGeometryKind = "standard" | "diagonal" | "triangle" | "b
 
 export function placedCornerGeometryKind(p: PlacedCabinet): PlacedCornerGeometryKind {
   if (isBaseEndCornerCabinet(p)) return "base-end";
+  // AW is a regular wall-run END cabinet. Its own mesh/plan clip contains the
+  // 45-degree exposed face; placement must retain the owning wall's rotation.
+  // This guard also repairs older saved AW rows that still carry cornerType.
+  if (isAngledWallCabinet(p.masterCode, p.description)) return "standard";
   if (/^cdb[-_]?\d/i.test(p.masterCode) || /corner drawer base/i.test(p.description ?? "")) return "corner-drawer";
   if (isTriangleCorner(p.masterCode, p.cornerType)) return "triangle";
   if (p.cornerType === "diagonal" || isDiagonalCorner(p.masterCode, p.description)) return "diagonal";
@@ -2197,16 +2205,6 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // handling without putting it on any L-corner or filler path.
   if (cornerKind === "base-end") {
     return { w: STD.BASE_DEPTH, d: STD.BASE_DEPTH };
-  }
-  // AW1230-style angled wall cabinets use a true 12-by-12 triangular envelope:
-  // each 12-inch side is against a wall and the single door spans the 45-degree
-  // outer face. They share corner rotation with WDC cabinets but must never be
-  // inflated to WDC's 24-by-24 wall-corner envelope.
-  if (cornerKind === "diagonal" && isAngledWallCabinet(p.masterCode, p.description)) {
-    return {
-      w: Math.max(6, p.width || STD.WALL_DEPTH),
-      d: Math.max(6, p.depth || STD.WALL_DEPTH),
-    };
   }
   // Diagonal and L-corner records share a square plan envelope. The shared
   // classifier above is deliberately the only source of this decision for both
@@ -4709,20 +4707,23 @@ function height_safe(roomDepth: number, _placement: Placement): number {
 // by masterCode prefix so both placed packages and palette drops render correctly.
 export function isCornerCabinet(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
+  const desc = (description || "").toLowerCase();
+  // AW = angled WALL-END cabinet. It finishes a normal wall run with a 45°
+  // exposed face; it is not installed in or owned by a room corner.
+  if (/^AW[-\d]/.test(code) || (/\bangle(?:d)? wall end\b/.test(desc) && !/corner/.test(desc))) return false;
   // ERB/BER are the easy-reach corner base codes (BER is the Skyline naming;
   // ERB is how the catalog stores the same cabinet). WER is the wall easy-reach.
   // LS## = Lazy Susan (e.g. LS3612, LS3312); LSB## = Lazy Susan Base (older naming)
   // BER## = Easy-Reach corner base (Skyline naming, e.g. BER33, BER36)
-  if (/^(BBC|WBC|BLB|LSB?|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|AW-|AW\d|WDC|KWD|AG-|AG\d|CAG)/.test(code)) return true;
+  if (/^(BBC|WBC|BLB|LSB?|CSB|WLS|DCW|DCB|ER|ERB|BER|WER|WDC|KWD|AG-|AG\d|CAG)/.test(code)) return true;
   if (/-CNR|CORNER/.test(code)) return true;
-  const desc = (description || "").toLowerCase();
   return /corner|lazy susan|easy reach|blind|diagonal|angled (wall|corner)/.test(desc);
 }
 
-// An ANGLED WALL cabinet (AW-*) has a 45° face that transitions between two
-// wall runs, but it is a regular wall-tab cabinet — NOT a corner cabinet. Use
-// this to keep AW units OUT of the Corner palette tab. (Its diagonal canvas
-// footprint is still handled by isDiagonalCorner below, which is intentional.)
+// An ANGLED WALL-END cabinet (AW-*) has a 45° exposed end face on a normal wall
+// run. It is a regular wall-tab cabinet — NOT a corner cabinet. Use
+// this to keep AW units OUT of the Corner palette tab while its dedicated plan
+// clip and 3D profile still render the angled exposed end.
 export function isAngledWallCabinet(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
   const desc = (description || "").toLowerCase();
@@ -4733,7 +4734,7 @@ export function isAngledWallCabinet(masterCode: string, description?: string): b
 
 /**
  * True only for cabinets whose installed location is owned by a room vertex.
- * AW1230/AW-12-30 remains a diagonal-profile wall-run transition: it can be
+ * AW1230/AW-12-30 remains a diagonal-profile wall-run end: it can be
  * moved by measured wall offset and must never be forced into the protected
  * ERB/WDC/LS-style corner-snap workflow merely because its face is angled.
  */
@@ -4754,13 +4755,14 @@ export function requiresRoomCornerPlacement(cabinet: Pick<PlacedCabinet, "master
 export function isDiagonalCorner(masterCode: string, description?: string): boolean {
   const code = (masterCode || "").toUpperCase();
   const normalizedCode = code.replace(/[^A-Z0-9]/g, "");
-  // Diagonal corner wall/base, angled wall (AW), and corner appliance garages
-  // (AG) all sit across the corner at 45 degrees and share the same footprint.
+  // Diagonal corner wall/base and corner appliance garages (AG) occupy room
+  // corners. AW wall-end cabinets are deliberately excluded and use their own
+  // non-corner profile and placement rule.
   // BEC = Base End Cabinet: an end-of-run angle cabinet, never a room-corner
   // cabinet. It is handled by the independent end-angle drawing profile.
-  if (/^(DCW|WDC|KWD|DCB|DCFF|AW-|AW\d|AG-|AG\d|CAG)/.test(code) || normalizedCode.includes("DCW") || normalizedCode.includes("WDC")) return true;
+  if (/^(DCW|WDC|KWD|DCB|DCFF|AG-|AG\d|CAG)/.test(code) || normalizedCode.includes("DCW") || normalizedCode.includes("WDC")) return true;
   const desc = (description || "").toLowerCase();
-  if (/diagonal|angled (wall|corner)|appliance garage/.test(desc)) return true;
+  if (/diagonal|angled corner|appliance garage/.test(desc)) return true;
   return false;
 }
 
@@ -11401,8 +11403,7 @@ export function cabinetWallDragPreview(
   const peers = others.filter((item) => item.uid !== moving.uid);
   const gaps = wallGaps(room, peers, openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
-  const cornerKind = placedCornerGeometryKind(moving);
-  const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer" || cornerKind === "triangle";
+  const trueRoomCorner = requiresRoomCornerPlacement(moving);
   if (trueRoomCorner) {
     const wallSpan = horizontal ? room.width : room.depth;
     const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;

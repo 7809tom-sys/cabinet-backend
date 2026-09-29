@@ -6376,7 +6376,7 @@ describe("interactive 3D room scene helpers", () => {
       if (node.userData.angledWallWedge) wedges.push(node);
       if (node.userData.angledWallDoor) doors.push(node);
     });
-    expect(aw1230).toMatchObject({ width: 12, depth: 12, cornerType: "diagonal" });
+    expect(aw1230).toMatchObject({ width: 12, depth: 12, cornerType: null });
     expect(wedges).toHaveLength(1);
     expect(doors).toHaveLength(1);
     root.updateMatrixWorld(true);
@@ -6393,6 +6393,26 @@ describe("interactive 3D room scene helpers", () => {
     // The door's 0.052ft depth has a 0.026ft half-depth. Its inner surface
     // remains just outside the triangular hypotenuse instead of penetrating it.
     expect(pose.x * pose.normalX + pose.z * pose.normalZ).toBeGreaterThan(0.026);
+  });
+
+  it("keeps an AW end cabinet parallel to its owning wall even when an older saved row says cornerType diagonal", () => {
+    const transform = existingCabinetTransform({
+      uid: "legacy-aw1230-position",
+      cabinetId: 9360146,
+      masterCode: "AW1230",
+      description: '12" × 30" × 12" Angled Wall End Cabinet',
+      placement: "wall",
+      x: 60,
+      y: 0,
+      width: 12,
+      depth: 12,
+      height: 30,
+      rotation: 0,
+      wallId: "top",
+      wallOffset: 60,
+      cornerType: "diagonal",
+    } as never, { width: 144, depth: 120, ceilingHeight: 96 });
+    expect(transform).toMatchObject({ x: 66, z: 6, rotation: 0 });
   });
 
   // Retained only as historical documentation of the pre-source import model.

@@ -38,6 +38,28 @@ async function canonicalIdsForLiveSourceRows(
 }
 
 describe("design.placeableCabinets availability filter", () => {
+  it("returns AW1230, AW1236, and AW1242 as regular wall-end cabinets, never corners", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const wall = await appRouter.createCaller(publicCtx()).design.placeableCabinets({ placement: "wall" });
+    const aw = wall.filter((cabinet) => ["AW1230", "AW1236", "AW1242"].includes(cabinet.masterCode));
+
+    expect(aw.map((cabinet) => cabinet.masterCode).sort()).toEqual(["AW1230", "AW1236", "AW1242"]);
+    expect(aw.map((cabinet) => Number(cabinet.height)).sort((a, b) => a - b)).toEqual([30, 36, 42]);
+    for (const cabinet of aw) {
+      expect(cabinet).toMatchObject({
+        category: "Wall",
+        subCategory: "Wall End Cabinet",
+        placement: "wall",
+        isCornerCabinet: false,
+        cornerType: null,
+        graphicType: "wall_angle",
+        numberOfDoors: 1,
+      });
+    }
+  });
+
   it("only returns cabinets that have a published + available distributor SKU", async () => {
     const db = await getDb();
     if (!db) {

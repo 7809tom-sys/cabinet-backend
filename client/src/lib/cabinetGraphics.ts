@@ -9,7 +9,8 @@ export type CabinetDrawingType =
   | "sink-base" // false tilt-out top panel + sink cutout indication
   | "appliance-garage" // tambour roll-up slats
   | "blind-corner" // L-shaped footprint (blind corner cabinets)
-  | "diagonal-corner" // 45° angled front face (DCW, WDC, DCB, AW, AG)
+  | "diagonal-corner" // 45° room-corner front face (DCW, WDC, DCB, AG)
+  | "wall-end-angle" // AW: regular wall-run end with one 45° exposed face
   | "l-corner" // L-shaped corner with doors on angled face (LS, ER, CSB)
   | "corner-drawer-base" // L-shaped corner with stacked drawers on the main face (CDB-*)
   | "vanity" // vanity door/drawer combo
@@ -315,6 +316,9 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
   // inconsistent supplier category or corner fields on saved placements.
+  if (graphic === "wall_angle" || /^(?:aw[-_]?\d|aw[-_]?\d+-\d+)/.test(code) || /angle(?:d)? wall end cabinet/.test(hay)) {
+    return "wall-end-angle";
+  }
   if (graphic === "end-angle" || graphic === "base_end_angle") {
     return "end-angle";
   }
@@ -637,6 +641,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "shelf-insert") return "Microwave Cabinet Shelf Insert";
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
+  if (type === "wall-end-angle") return "Angled Wall End Cabinet";
   if (type === "diagonal-corner") return `Diagonal Corner ${placement}`;
   if (type === "end-angle") return "Base End Cabinet — 45° Angled End";
   if (type === "end-return") return "Base End Corner Cabinet";
@@ -714,6 +719,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "sink-base": "sink base cabinet with false tilt-out front",
     "appliance-garage": "appliance garage with tambour door",
     "blind-corner": "blind corner cabinet",
+    "wall-end-angle": "angled wall end cabinet with one diagonal door",
     "diagonal-corner": "diagonal corner cabinet with angled front",
     "end-angle": "base end cabinet with angled outer face",
     "end-return": "24-by-24 base end-corner cabinet with two 12-inch return faces",

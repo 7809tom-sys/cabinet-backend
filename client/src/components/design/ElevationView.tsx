@@ -2264,9 +2264,9 @@ export function CustomProfileFace({
   }
 
   if (profile === "wall_angle") {
-    // AW1230: a compact angled wall cabinet with two adjustable shelves behind
-    // one side-hinged door. The diagonal casing records its 45-degree plan form;
-    // the front stays a single practical door instead of being split like WDC.
+    // AW1230/AW1236/AW1242: one angled wall-end design at 30, 36, or 42 inches
+    // high. The SKU supplies shelf count; every height keeps one side-hinged door
+    // and the same 45-degree exposed-end casing instead of a split WDC face.
     return (
       <div data-cabinet-profile="angled-wall" className="absolute inset-0 overflow-hidden" style={{ border: `3px solid ${edge}`, background: cavity }}>
         <div className="absolute left-0 top-0 bottom-0 w-[60%]" style={{ borderRight: `2px solid ${rail}` }}>

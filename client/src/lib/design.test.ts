@@ -270,6 +270,21 @@ describe("3D same-wall cabinet drag", () => {
     expect(hasCollision(topRight.candidate!, [])).toBe(false);
   });
 
+  it("moves an AW wall-end cabinet along the selected wall without rotating or snapping it to a room corner", () => {
+    const moving = cabinet("moving-aw1230", 0, 0, 12);
+    moving.masterCode = "AW1230";
+    moving.description = '12" × 30" × 12" Angled Wall End Cabinet';
+    moving.placement = "wall";
+    moving.depth = 12;
+    moving.height = 30;
+    moving.wallId = "top";
+    moving.wallOffset = 0;
+
+    const preview = cabinetWallDragPreview(moving, ROOM_12x10, [moving], [], 72)!;
+    expect(preview.candidate).toMatchObject({ x: 66, y: 0, rotation: 0, wallId: "top" });
+    expect(preview.fit).toMatchObject({ snapStart: 66, snapEnd: 78, status: "valid" });
+  });
+
   it("rejects a true corner-cabinet snap when the destination corner is occupied", () => {
     const moving = cabinet("moving-corner-occupied", 0, 0, 36);
     moving.masterCode = "LS3612";
@@ -847,9 +862,12 @@ describe("corner cabinet detection", () => {
 
 describe("angled wall cabinets are NOT corner cabinets (palette tab routing)", () => {
   it("flags AW-* angled wall cabinets", () => {
-    expect(isAngledWallCabinet("AW-12-30", "12x30 Angled Wall Cabinet")).toBe(true);
-    expect(isAngledWallCabinet("AW-12-42")).toBe(true);
+    for (const code of ["AW1230", "AW1236", "AW1242", "AW-12-30", "AW-12-36", "AW-12-42"]) {
+      expect(isAngledWallCabinet(code, "Angled Wall End Cabinet")).toBe(true);
+      expect(isCornerCabinet(code, "Angled Wall End Cabinet")).toBe(false);
+    }
     expect(isAngledWallCabinet("X-9", "24in Angled Wall unit")).toBe(true);
+    expect(isCornerCabinet("X-9", "12in Angled Wall End Cabinet")).toBe(false);
   });
   it("does NOT flag true corner / diagonal / other cabinets as angled wall", () => {
     expect(isAngledWallCabinet("DCW-24-30", "Diagonal Corner Wall")).toBe(false);
@@ -860,13 +878,13 @@ describe("angled wall cabinets are NOT corner cabinets (palette tab routing)", (
   });
   it("an angled wall cabinet is still drawn diagonally (rendering unchanged)", () => {
     // Routing to the Wall tab must NOT change its canvas footprint.
-    expect(isDiagonalCorner("AW-12-30", "12x30 Angled Wall Cabinet")).toBe(true);
+    expect(isDiagonalCorner("AW-12-30", "12x30 Angled Wall End Cabinet")).toBe(false);
   });
 
   it("does not force AW aliases into protected room-corner placement or movement locks", () => {
-    for (const masterCode of ["AW1230", "AW-12-30"]) {
-      expect(isProtectedCornerCabinet(masterCode, '12" Angled Wall Cabinet')).toBe(false);
-      expect(requiresRoomCornerPlacement({ masterCode, description: '12" Angled Wall Cabinet', placement: "wall" })).toBe(false);
+    for (const masterCode of ["AW1230", "AW1236", "AW1242", "AW-12-30", "AW-12-36", "AW-12-42"]) {
+      expect(isProtectedCornerCabinet(masterCode, '12" Angled Wall End Cabinet')).toBe(false);
+      expect(requiresRoomCornerPlacement({ masterCode, description: '12" Angled Wall End Cabinet', placement: "wall" })).toBe(false);
     }
     expect(isProtectedCornerCabinet("WDC2430", "Wall Diagonal Corner Cabinet")).toBe(true);
     expect(requiresRoomCornerPlacement({ masterCode: "WDC2430", description: "Wall Diagonal Corner Cabinet", placement: "wall" })).toBe(true);
@@ -3128,7 +3146,7 @@ describe("diagonal corner footprint", () => {
     expect(isDiagonalCorner("DCW-2424")).toBe(true); // diagonal corner wall
     expect(isDiagonalCorner("WDC-24")).toBe(true);
     expect(isDiagonalCorner("DCB-36")).toBe(true); // diagonal corner base
-    expect(isDiagonalCorner("AW-12")).toBe(true); // angled wall
+    expect(isDiagonalCorner("AW-12")).toBe(false); // angled wall END, not a room corner
     expect(isDiagonalCorner("X-99", "Diagonal Corner Wall Cabinet")).toBe(true);
     expect(isDiagonalCorner("B-24", "Base 24 inch")).toBe(false); // ordinary base
     expect(isDiagonalCorner("BBC-36", "Blind Corner Base")).toBe(false); // blind, not diagonal
@@ -3332,7 +3350,7 @@ describe("lazy-Susan / L-corner footprint", () => {
       height: 30,
       customProfile: "wall_angle",
     });
-    expect(placedCornerGeometryKind(aw)).toBe("diagonal");
+    expect(placedCornerGeometryKind(aw)).toBe("standard");
     expect(placedFootprint(aw)).toEqual({ w: 12, d: 12 });
   });
 

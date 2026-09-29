@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, nearestIslandFaceInRect, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { PlanCanvas, nearestIslandFaceInRect, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -19,6 +19,26 @@ const base = {
 } as const;
 
 describe("plan corner geometry", () => {
+  it("keeps an AW wall-end wedge in the cabinet's local wall-run frame instead of aiming it at the nearest room corner", () => {
+    const aw = {
+      ...base,
+      uid: "aw1230-middle-of-run",
+      masterCode: "AW1230",
+      description: '12" × 30" × 12" Angled Wall End Cabinet',
+      placement: "wall" as const,
+      x: 60,
+      y: 0,
+      width: 12,
+      depth: 12,
+      height: 30,
+      wallId: "top" as const,
+      wallOffset: 60,
+      customProfile: "wall_angle",
+    };
+    expect(planCornerGeometry(aw)).toMatchObject({ isCorner: false, isDiagonal: false });
+    expect(planCabinetClipPath(aw, { width: 144, depth: 120, ceilingHeight: 96 })).toBe("polygon(0 0, 100% 0, 100% 100%)");
+  });
+
   it("uses BEC-24's explicit end-angle Config while excluding it from true-corner geometry", () => {
     const result = planCornerGeometry({
       ...base,

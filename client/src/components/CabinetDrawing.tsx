@@ -97,6 +97,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <BlindCornerFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "diagonal-corner":
       return <DiagonalCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
+    case "wall-end-angle":
+      return <DiagonalCornerFront x={x} y={y} w={w} h={h} fill={fill} cabinet={cabinet} />;
     case "end-angle":
       return <BaseEndAngleFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "l-corner":

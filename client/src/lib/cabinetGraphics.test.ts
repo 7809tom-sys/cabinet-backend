@@ -54,6 +54,24 @@ describe("three-drawer base family", () => {
 });
 
 describe("cabinetDrawingType", () => {
+	  it("labels every AW height as an angled wall end cabinet rather than a diagonal corner", () => {
+	    for (const masterCode of ["AW1230", "AW1236", "AW1242"]) {
+	      const cabinet = {
+	        masterCode,
+	        description: `12\" Angled Wall End Cabinet`,
+	        category: "Wall",
+	        subCategory: "Wall End Cabinet",
+	        graphicType: "wall_angle",
+	        width: 12,
+	        numberOfDoors: 1,
+	      };
+	      expect(cabinetDrawingType(cabinet)).toBe("wall-end-angle");
+	      expect(cabinetTypeLabel(cabinet)).toBe("Angled Wall End Cabinet");
+	      expect(cabinetAltText(cabinet)).toContain("angled wall end cabinet with one diagonal door");
+	      expect(cabinetAltText(cabinet)).not.toContain("diagonal corner cabinet");
+	    }
+	  });
+
 	  it("keeps vendor-prefixed DCW stacker cabinets as diagonal corner fronts", () => {
 	    expect(cabinetDrawingType({
 	      masterCode: "SW-DCW2412-GD",

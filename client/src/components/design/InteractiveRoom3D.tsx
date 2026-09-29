@@ -2989,9 +2989,9 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   // metadata turn this exact code back into the retired diamond/end-return mesh.
   if (normalizedCode === "BEC24") return { kind: "standard" as const, pattern: null };
   if (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? "")) return { kind: "farmhouse-sink" as const, pattern: null };
-  // AW1230, AW1236, and AW1242 are one angled-wall family. Catalog rows do
-  // not consistently store diagonal corner metadata, so code/description must
-  // route each one through the true triangular hypotenuse branch first.
+  // AW1230, AW1236, and AW1242 are one angled wall-END family. They are not
+  // room-corner cabinets, but all three use the same true triangular end mesh,
+  // with cabinet height and shelf count supplied by the individual SKU.
   if (isAngledWallProfile(sku)) return { kind: "diagonal-corner" as const, pattern: null };
   if (/corner-drawer-base/.test(graphic) || /^cdb[-_]?\d/.test(sku.masterCode) || /corner drawer base/i.test(sku.description ?? "")) return { kind: "corner-drawer" as const, pattern: null };
   if (sku.cornerGeometryKind === "base-end" || /end-angle|base_end_angle|end-return|base_end_return/.test(graphic) || /^(?:bec|ba)[-_]?\d/i.test(sku.masterCode) || /base end (?:corner|cabinet|return)/i.test(sku.description ?? "")) return { kind: "end-return" as const, pattern: null };

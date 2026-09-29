@@ -2168,13 +2168,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     { enabled: paletteType === "corner" }
   );
 
-  // An "Angled Wall" cabinet (AW-*) has a 45° face but is a normal wall-run
-  // transition unit — it is NOT a corner cabinet, so it must live on the regular
-  // "Wall" tab, not the "Corner" tab. (Its diagonal CANVAS rendering is handled
-  // separately by isDiagonalCorner in design.ts and is intentionally left intact.)
+  // An "Angled Wall" cabinet (AW-*) has a 45° exposed end but is a normal
+  // wall-run end unit — it is NOT a corner cabinet, so it must live on the regular
+  // "Wall" tab, not the "Corner" tab. Its local end-wedge canvas clip and 3D
+  // profile render the angle without changing the cabinet's wall-run position.
   const isAngledWall = useCallback((c: DesignCabinet) => {
-    if (c.isCornerCabinet === true) return false; // a true corner unit wins
-    if ((c.subCategory || "").toLowerCase().includes("corner")) return false;
+    // Code/description is authoritative for AW. This also repairs older saved
+    // rows whose imported isCornerCabinet flag was incorrectly true.
     return isAngledWallCabinet(c.masterCode, c.description || undefined);
   }, []);
 

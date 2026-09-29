@@ -115,6 +115,22 @@ describe("catalog nomenclature truth", () => {
       .toBe("Chrome Tray Insert for ERB36 Easy-Reach Corner Cabinet");
   });
 
+  it("keeps every AW height in the regular Wall End Cabinet family", () => {
+    for (const [masterCode, height, shelves] of [["AW1230", 30, 2], ["AW1236", 36, 2], ["AW1242", 42, 3]] as const) {
+      expect(parseCatalogNomenclature(masterCode)).toMatchObject({
+        family: "angle-wall",
+        expectedCategory: "Wall",
+        expectedSubCategory: "Wall End Cabinet",
+        expectedPlacement: "wall",
+        expectedWidth: 12,
+        expectedHeight: height,
+        expectedDepth: 12,
+      });
+      expect(designerFriendlyDescription({ masterCode, numberOfDoors: 1, numberOfAdjShelves: shelves }))
+        .toBe(`12" × ${height}" × 12" Angled Wall End Cabinet — 1 Door, ${shelves} Shelves`);
+    }
+  });
+
   it("preserves the Capital-specified BEC24 base-end cabinet instead of guessing a 24-inch corner box", () => {
     expect(parseCatalogNomenclature("BEC-24")).toMatchObject({
       family: "base-end-cabinet",

@@ -191,6 +191,12 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
  * diagonal WDC impossible to silently fall back to a square box.
  */
 export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): string | undefined {
+  // AW is positioned like a standard wall cabinet. Its exposed end is angled
+  // inside the cabinet's local frame, so never rotate this clip toward the
+  // nearest room corner; the cabinet group's saved wall rotation handles that.
+  if (isAngledWallCabinet(cabinet.masterCode, cabinet.description)) {
+    return triangleCornerClipPath(0);
+  }
   const { isCorner, isTriangle, isDiagonal, isBlind, isConfiguredL } = planCornerGeometry(cabinet);
   const savedRotation = ((Math.round(cabinet.rotation) % 360) + 360) % 360;
   const lockedAngledCorner = Boolean(
@@ -203,11 +209,7 @@ export function planCabinetClipPath(cabinet: PlacedCabinet, room: RoomData): str
   // corner turn here mirrors the L notch and produces a plan/3D disagreement.
   const rotation = lockedAngledCorner ? 0 : cornerRotationForPlaced(cabinet, room);
   if (isTriangle) return triangleCornerClipPath(rotation);
-  // AW1230 is a compact angled wall cabinet: two 12-inch wall legs and one
-  // full-length 45-degree hinged face. It is not a 24-inch WDC pentagon.
-  if (isDiagonal) return isAngledWallCabinet(cabinet.masterCode, cabinet.description)
-    ? triangleCornerClipPath(rotation)
-    : diagonalCornerClipPath(rotation);
+  if (isDiagonal) return diagonalCornerClipPath(rotation);
   if ((isConfiguredL || isCorner) && !isBlind) {
     return cornerClipPath(rotation, cornerLegRatioForPlaced(cabinet));
   }

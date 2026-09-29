@@ -453,6 +453,7 @@ export function parseCatalogNomenclature(masterCode: string): CatalogNomenclatur
       normalizedCode,
       family: "angle-wall",
       expectedCategory: "Wall",
+      expectedSubCategory: "Wall End Cabinet",
       expectedPlacement: "wall",
       expectedWidth: Number(angleWall[1]),
       expectedHeight: Number(angleWall[2]),
@@ -640,7 +641,7 @@ export function designerFriendlyDescription(input: DesignerFriendlyDescriptionIn
     case "wall-plate-rack":
       return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Plate Rack Cabinet`;
     case "angle-wall":
-      return `${dimensions ?? ""}${dimensions ? " " : ""}Angle Wall Cabinet${joinProductDetails([door, shelves])}`;
+      return `${dimensions ?? ""}${dimensions ? " " : ""}Angled Wall End Cabinet${joinProductDetails([door, shelves])}`;
     case "wall":
       return `${dimensions ?? ""}${dimensions ? " " : ""}Wall Cabinet${joinProductDetails([door, shelves])}`;
     case "tall":
