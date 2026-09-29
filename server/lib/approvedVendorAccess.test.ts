@@ -18,6 +18,7 @@ describe("approved vendor supplier portal access", () => {
     expect(approvedVendorMatchesDistributor({ sourceKey: "ucd" }, distributors[0])).toBe(true);
     expect(approvedVendorMatchesDistributor({ sourceKey: "pelican" }, { id: 99, code: "PEL" })).toBe(true);
     expect(approvedVendorMatchesDistributor({ sourceKey: "supplier name" }, distributors[0])).toBe(false);
+    expect(approvedVendorMatchesDistributor({ sourceKey: "UCD" }, { id: 210002, code: "USCD" })).toBe(true);
   });
 
   it("resolves one active source key without ever using a vendor name", () => {
@@ -27,6 +28,7 @@ describe("approved vendor supplier portal access", () => {
     expect(approvedVendorSourceDistributorId("dist:210003", distributors)).toBeNull();
     expect(approvedVendorSourceDistributorId("Kitchen Crest", distributors)).toBeNull();
     expect(approvedVendorSourceDistributorId(null, distributors)).toBeNull();
+    expect(approvedVendorSourceDistributorId("UCD", [{ id: 210002, code: "USCD", isActive: true }])).toBe(210002);
   });
 
   it("links the exact approved contact email to one active supplier line", () => {

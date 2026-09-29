@@ -248,7 +248,9 @@ export const distributorPortalRouter = router({
       });
 
       return {
-        line,
+        // Keep all joins and mutations keyed to the real distributor row, but
+        // show the approved supplier's customer-facing name in the portal.
+        line: approvedVendor ? { ...line, name: approvedVendor.name } : line,
         approvedVendor,
         counts: {
           total: Number(counts?.total ?? 0),

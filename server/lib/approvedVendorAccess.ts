@@ -12,6 +12,11 @@ export type ApprovedVendorDistributorRecord = {
 };
 
 const PEL_DIST_CODE = "PEL";
+// Legacy approved-vendor records used UCD while the live distributor row uses
+// USCD. This is an explicit code migration, not name-based matching.
+const LEGACY_DISTRIBUTOR_CODE_ALIASES: Record<string, string> = {
+  ucd: "uscd",
+};
 
 /**
  * Resolve one configured Approved Vendor source key to exactly one active
@@ -44,9 +49,11 @@ export function approvedVendorMatchesDistributor(
 ): boolean {
   const sourceKey = vendor.sourceKey?.trim().toLowerCase();
   if (!sourceKey) return false;
+  const normalizedDistributorCode = distributor.code.trim().toLowerCase();
   return (
     sourceKey === `dist:${distributor.id}` ||
-    sourceKey === distributor.code.trim().toLowerCase() ||
+    sourceKey === normalizedDistributorCode ||
+    LEGACY_DISTRIBUTOR_CODE_ALIASES[sourceKey] === normalizedDistributorCode ||
     (sourceKey === "pelican" && distributor.code.trim().toUpperCase() === PEL_DIST_CODE)
   );
 }
