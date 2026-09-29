@@ -36,12 +36,13 @@ describe("public navigation and update notification", () => {
     expect(appSource).toContain('<Storefront slug={params.slug} focusShop />');
   });
 
-  it("returns affiliate owners from unscoped platform pages to their own storefront", () => {
-    expect(appSource).toContain("function AffiliateOwnerScopeGuard");
-    expect(appSource).toContain('user?.role === "admin"');
-    expect(appSource).toContain('window.location.replace(affiliateStorefrontPath(affiliate.slug))');
-    expect(appSource).toContain('pathname.startsWith("/store/")');
-  });
+	  it("returns affiliate owners from unscoped platform pages to their own administration page", () => {
+	    expect(appSource).toContain("function AffiliateOwnerScopeGuard");
+	    expect(appSource).toContain('user?.role === "admin"');
+	    expect(appSource).toContain("affiliateOwnerScopeDestination");
+	    expect(appSource).toContain("affiliateId: affiliate.id");
+	    expect(appSource).toContain("if (destination) window.location.replace(destination)");
+	  });
 
   it("keeps the affiliate shell's catalog, designer, quote, and cart links scoped", () => {
     expect(appSource).toContain("affiliateCatalogPath(slug)");

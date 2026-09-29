@@ -7,7 +7,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 import { DenoiseMaterial, WebGLPathTracer } from "three-gpu-pathtracer";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ChevronDown, Download, FileDown, Info, LoaderCircle, Magnet, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ChevronDown, Download, FileDown, Info, LoaderCircle, Magnet, Mail, Maximize2, Minimize2, Minus, Move3D, Palette, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -386,6 +386,23 @@ export type InteractiveRoomPresentation = {
   countertopFinish: string;
 };
 
+export type ThreeDCabinetFinishPreviewOption = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+/** Cycles Plan colors → each real selected catalog finish → Plan colors. */
+export function nextThreeDCabinetFinishPreviewId(
+  options: readonly ThreeDCabinetFinishPreviewOption[],
+  currentId: string | null,
+): string | null {
+  if (options.length === 0) return null;
+  if (currentId == null) return options[0]!.id;
+  const currentIndex = options.findIndex((option) => option.id === currentId);
+  return currentIndex >= 0 && currentIndex < options.length - 1 ? options[currentIndex + 1]!.id : null;
+}
+
 export type ThreeDCabinetMoveDirection = "up" | "down" | "left" | "right" | "in" | "out";
 
 export type ThreeDPlanMoveDelta = { x: number; y: number };
@@ -554,6 +571,8 @@ interface Props {
   initialPresentation?: InteractiveRoomPresentation;
   /** Active design-tool finish derived from the chosen catalog door style. */
   catalogFinishOverride?: string | null;
+  /** Real selected catalog finishes available for a temporary whole-room color check. */
+  cabinetFinishPreviewOptions?: ThreeDCabinetFinishPreviewOption[];
   /** Exact resolved 2D finish color for each placed cabinet, keyed by placement UID. */
   cabinetFinishOverrides?: Record<string, string>;
   /** Exact saved 2D door profile for each placed cabinet, keyed by placement UID. */
@@ -7892,7 +7911,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -7925,9 +7944,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  const [showRoomContext, setShowRoomContext] = useState(THREE_D_ROOM_CONTEXT_DEFAULT);
   const [wallHeightIn, setWallHeightIn] = useState(() => constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
   const [wallHeights, setWallHeights] = useState<Record<WallSide, number>>(() => resolvedThreeDWallHeights(roomOverride, wallHeightIn));
-  const [webglUnavailable, setWebglUnavailable] = useState(false);
-  const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
-  const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
+	  const [webglUnavailable, setWebglUnavailable] = useState(false);
+	  const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
+	  const [cabinetPreviewFinishId, setCabinetPreviewFinishId] = useState<string | null>(null);
+	  const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
   const [materialTransitioning, setMaterialTransitioning] = useState(false);
   const [temporaryPreviewFading, setTemporaryPreviewFading] = useState(false);
   const [photoRenderOpen, setPhotoRenderOpen] = useState(false);
@@ -8038,7 +8058,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   // The active designer style is the customer’s catalog selection. Prefer its
   // resolved finish color over a sparse style-record color field from the scene
   // endpoint, then fall back to the server-derived catalog material.
-  const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
+	  const catalogFinish = resolvedCatalogFinish(scene, catalogFinishOverride);
+	  const selectedCabinetPreviewFinish = cabinetFinishPreviewOptions.find((option) => option.id === cabinetPreviewFinishId) ?? null;
   // Saved-plan fallback scenes deliberately carry neutral material metadata.
   // The active 2D selected style remains authoritative for physical 3D face
   // geometry, so a Slate Echo Shaker never silently turns into a flat slab.
@@ -8088,8 +8109,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       description: "Applied to the current cabinet faces after it has loaded.",
     } : null,
   ].filter((reference): reference is { id: string; label: string; url: string; description: string } => reference !== null);
-  const resolvedCabinetFinish = catalogFinish;
-  const cabinetFinishLabel = catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
+	  const resolvedCabinetFinish = selectedCabinetPreviewFinish?.color ?? catalogFinish;
+	  const cabinetFinishLabel = selectedCabinetPreviewFinish?.name ?? catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
+	  const cycleCabinetPreviewFinish = () => {
+	    setCabinetPreviewFinishId((current) => nextThreeDCabinetFinishPreviewId(cabinetFinishPreviewOptions, current));
+	  };
   const countertopFinishLabel = COUNTERTOP_FINISHES.find((option) => option.color === countertopFinish)?.name ?? "Custom countertop";
   const quoteMaterials = quoteMaterialDetails({
     cabinetPreview: cabinetFinishLabel,
@@ -8129,18 +8153,22 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     });
   };
 
-  useEffect(() => {
-    const nextCabinetFinish = "catalog";
+	  useEffect(() => {
+	    const nextCabinetFinish = "catalog";
     const nextCountertopFinish = resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene);
     setCabinetFinish((current) => current === nextCabinetFinish ? current : nextCabinetFinish);
     setCountertopFinish((current: string) => current === nextCountertopFinish ? current : nextCountertopFinish);
-  }, [scene, catalogCountertopColor, initialPresentation?.cabinetFinish, initialPresentation?.countertopFinish]);
+	  }, [scene, catalogCountertopColor, initialPresentation?.cabinetFinish, initialPresentation?.countertopFinish]);
+
+	  useEffect(() => {
+	    setCabinetPreviewFinishId((current) => current && cabinetFinishPreviewOptions.some((option) => option.id === current) ? current : null);
+	  }, [cabinetFinishPreviewOptions]);
 
   useEffect(() => {
     setMaterialTransitioning(true);
     const timer = window.setTimeout(() => setMaterialTransitioning(false), 340);
     return () => window.clearTimeout(timer);
-  }, [cabinetFinish, countertopFinish]);
+	  }, [cabinetFinish, cabinetPreviewFinishId, countertopFinish]);
 
   useEffect(() => {
     if (!onPresentationChange) return;
@@ -8525,9 +8553,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     floorContact.userData = { presentationContactShadow: true };
     threeScene.add(floorContact);
 
-    const catalogRoot = new THREE.Group();
-	    const cursor = { back: 3, left: 3, right: 3, front: 3 };
-	    const finish = resolvedCabinetFinish;
+	    const catalogRoot = new THREE.Group();
+		    const cursor = { back: 3, left: 3, right: 3, front: 3 };
+		    const finish = resolvedCabinetFinish;
+		    const visibleCabinetFinishOverrides = selectedCabinetPreviewFinish ? undefined : cabinetFinishOverrides;
 	    const fittedFillerToeKickSuppressions = renderExistingDesign
 	      ? threeDFittedFillerToeKickSuppressionUids(placed)
 	      : new Set<string>();
@@ -8564,7 +8593,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
           catalogImageUrl: resolvedPlacedCabinetFrontVisual(cabinet, cabinetFrontVisuals, baseSku.catalogImageUrl),
 	          fillerTransitionFootprint: transitionFootprint,
         };
-        const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, cabinetFinishOverrides, finish);
+	        const cabinetFinish = resolvedPlacedCabinetFinish(cabinet, visibleCabinetFinishOverrides, finish);
         const cabinetDoorProfile = resolvedPlacedCabinetDoorProfile(cabinet, cabinetDoorProfiles, resolvedDoorProfile);
         const cabinetDoorTexture = resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign);
         const transform = /^HOOD[-_]?/i.test(cabinet.masterCode ?? "")
@@ -8592,8 +8621,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 	      }
-	      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, cabinetFinishOverrides, finish);
-	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
+		      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
+		      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
@@ -8675,7 +8704,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
 	  // A catalog filler has already passed geometry/collision validation before this
 	  // cue runs. Animate only its visual group, so the final coordinates and the
@@ -9890,7 +9919,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        const fit = event.shiftKey ? wallGapFreehandPreview(gaps, targetAlong, item.width) : wallGapFitPreview(gaps, targetAlong, item.width);
 	        setCatalogDragMeasurement(fit ? { item, fit, wall, freehand: event.shiftKey } : null);
 	      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY), event.shiftKey); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
-		        <div ref={mountRef} className="h-full w-full" />
+			        <div ref={mountRef} className="h-full w-full" />
+			        {selectedCabinetPreviewFinish && <div data-testid="three-d-cabinet-color-preview-status" role="status" className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-3 py-2 text-xs font-semibold text-[#614512] shadow-sm backdrop-blur"><span className="h-4 w-4 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish.color }} /><span className="truncate">Color check: {selectedCabinetPreviewFinish.name} · rear filler matches · not saved</span></div>}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? (cabinetDragMeasurement.preview.freehand ? "Shift freehand position" : cabinetDragMeasurement.preview.snapped ? "Valid zero-gap snap" : "Valid drop position") : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}
 		        {cabinetDragMeasurement?.preview.fit.status === "valid" && <ThreeDRemainingSpaceLine before={cabinetDragMeasurement.preview.fit.before} after={cabinetDragMeasurement.preview.fit.after} />}
@@ -9899,7 +9929,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		        {catalogDragMeasurement?.fit.status === "valid" && <ThreeDRemainingSpaceLine before={catalogDragMeasurement.fit.before} after={catalogDragMeasurement.fit.after} />}
 		        {hybridPlanUnderlay && <div data-testid="three-d-plan-underlay-badge" className="pointer-events-none absolute left-3 top-3 z-20 rounded-md border border-[#d9c196] bg-white/90 px-2.5 py-1.5 text-[11px] font-semibold text-[#634b20] shadow-sm backdrop-blur">3D over plan · same placement rules</div>}
 	        {temporaryPreviewMessage && <div data-testid="three-d-preview-fade" aria-hidden="true" className={`pointer-events-none absolute inset-0 z-10 bg-background transition-opacity duration-200 motion-reduce:hidden ${temporaryPreviewFading ? "opacity-40" : "opacity-0"}`} />}
-		        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} hidden sm:flex`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button><button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className="absolute right-3 top-3 z-20 flex items-start gap-1 sm:hidden" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button><div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-52 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur"><button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fittedFillerLabels.length > 0 && <div data-testid="three-d-mobile-fitted-filler-labels" className="mt-1 border-t border-[#ead9b6] px-2.5 pt-2 text-[#634b20]"><p className="font-semibold">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-1 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}</div>}</div></div></>}
+		        {embedded && <><div className={`${THREE_D_EMBEDDED_TOOLBAR_CLASS} hidden sm:flex`} onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet" onClick={() => setWorkspacePanel("catalog")} className="inline-flex items-center gap-1.5 rounded-md bg-[#1a2744] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1a2744]/85 active:scale-95"><Plus className="h-3.5 w-3.5" />Add cabinet</button>{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-cabinet-color-toggle" onClick={cycleCabinetPreviewFinish} aria-pressed={Boolean(selectedCabinetPreviewFinish)} className={`inline-flex max-w-52 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold transition active:scale-95 ${selectedCabinetPreviewFinish ? "border-[#a87f33] bg-[#fff7e8] text-[#614512]" : "bg-background text-[#1a2744] hover:bg-muted"}`} title="Temporarily show every cabinet and rear filler in the next selected finish"><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-wall-heights" onClick={() => setWorkspacePanel("room")} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-label="Set individual wall heights"><Rotate3D className="h-3.5 w-3.5" />Wall heights</button>{onToggleWallLayer && <button type="button" data-testid="three-d-toggle-wall-cabinets" onClick={onToggleWallLayer} className="inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] transition hover:bg-muted active:scale-95" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</button>}</div><div data-testid="three-d-mobile-canvas-tools" className="absolute right-3 top-3 z-20 flex items-start gap-1 sm:hidden" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}><button type="button" data-testid="three-d-add-cabinet-mobile" onClick={() => setWorkspacePanel("catalog")} className="inline-flex h-10 items-center gap-1.5 rounded-md bg-[#1a2744] px-3 text-xs font-semibold text-white shadow-sm active:scale-95"><Plus className="h-4 w-4" />Add</button><div className="relative"><button type="button" data-testid="three-d-mobile-canvas-tools-trigger" onClick={() => setMobileCanvasToolsOpen((open) => !open)} aria-expanded={mobileCanvasToolsOpen} aria-label="Canvas controls" className="inline-flex h-10 w-10 items-center justify-center rounded-md border bg-background/95 text-[#1a2744] shadow-sm active:scale-95"><PanelTop className="h-4 w-4" /></button>{mobileCanvasToolsOpen && <div data-testid="three-d-mobile-canvas-tools-menu" className="absolute right-0 top-11 w-56 rounded-lg border bg-background/95 p-2 text-xs shadow-lg backdrop-blur">{cabinetFinishPreviewOptions.length > 1 && <button type="button" data-testid="three-d-mobile-cabinet-color-toggle" onClick={() => { cycleCabinetPreviewFinish(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={Boolean(selectedCabinetPreviewFinish)}><Palette className="h-3.5 w-3.5" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></button>}<button type="button" data-testid="three-d-mobile-wall-heights" onClick={() => { setWorkspacePanel("room"); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted"><Rotate3D className="h-3.5 w-3.5" />Move wall</button>{onToggleWallLayer && <button type="button" data-testid="three-d-mobile-toggle-wall-cabinets" onClick={() => { onToggleWallLayer(); setMobileCanvasToolsOpen(false); }} className="flex w-full items-center gap-2 rounded px-2.5 py-2 text-left font-semibold text-[#1a2744] hover:bg-muted" aria-pressed={showWallLayer}><PanelTop className="h-3.5 w-3.5" />{showWallLayer ? "Hide walls" : "Show walls"}</button>}{fittedFillerLabels.length > 0 && <div data-testid="three-d-mobile-fitted-filler-labels" className="mt-1 border-t border-[#ead9b6] px-2.5 pt-2 text-[#634b20]"><p className="font-semibold">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-1 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}</div>}</div></div></>}
 	        {fittedFillerLabels.length > 0 && <div data-testid="three-d-fitted-filler-labels" className="pointer-events-none absolute left-3 top-3 z-20 hidden max-w-[calc(100%-10rem)] rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-2.5 py-2 text-xs shadow-sm backdrop-blur sm:block"><p className="font-semibold text-[#634b20]">Fitted fillers</p>{fittedFillerLabels.map((label) => <p key={label.uid} className="mt-0.5 truncate font-medium text-[#765416]">{label.masterCode} · {label.text}</p>)}</div>}
 	        {frontDatumSnaps.length > 0 && <div data-testid="three-d-45-degree-front-datum-snap" role="status" aria-live="polite" className="pointer-events-none absolute bottom-3 left-3 z-20 max-w-[calc(100%-11rem)] rounded-lg border border-emerald-500 bg-emerald-50/95 px-2.5 py-2 text-xs text-emerald-950 shadow-lg backdrop-blur">
 	          <div className="flex items-start gap-1.5"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" aria-hidden="true" /><div><p className="font-bold uppercase tracking-wide">45° front datum snapped</p>{frontDatumSnaps.map((snap) => <p key={snap.groupId} className="mt-0.5 font-medium"><span className="font-bold">{snap.datumIn}&quot;</span> {snap.placement === "wall" ? "wall-cabinet" : "base/tall cabinet"} front · {snap.cabinetCodes[0]} ↔ {snap.cabinetCodes[1]}</p>)}</div></div>
@@ -10032,7 +10062,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         <div className="mt-2 flex snap-x gap-2 overflow-x-auto border-t pt-2" aria-label="3D designer action bar">
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("catalog")}><Move3D className="h-4 w-4" />Catalog{catalogItems.length ? ` (${catalogItems.length})` : ""}</Button>
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("view")}><Camera className="h-4 w-4" />View</Button>
-          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("finish")}><Sparkles className="h-4 w-4" />Finish</Button>
+	          <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("finish")}><Sparkles className="h-4 w-4" />Finish</Button>
+	          {cabinetFinishPreviewOptions.length > 1 && <Button type="button" size="sm" variant={selectedCabinetPreviewFinish ? "default" : "outline"} data-testid="three-d-cabinet-color-toggle" className="h-10 max-w-56 shrink-0 snap-start gap-1.5" onClick={cycleCabinetPreviewFinish}><Palette className="h-4 w-4" /><span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish?.color ?? catalogFinish }} /><span className="truncate">Color: {selectedCabinetPreviewFinish?.name ?? "Plan colors"}</span></Button>}
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("room")}><Rotate3D className="h-4 w-4" />Room</Button>
           <Button type="button" size="sm" variant="outline" className="h-10 shrink-0 snap-start gap-1.5" onClick={() => setWorkspacePanel("output")}><Share2 className="h-4 w-4" />Output</Button>
           {orderSummary && <Button type="button" size="sm" className="h-10 shrink-0 snap-start" onClick={() => setPricingOpen(true)}>${orderSummary.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</Button>}
@@ -10062,10 +10093,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
             <div className="mt-4 flex flex-wrap gap-2" aria-label="3D camera presets">{([ ["presentation", "Perspective"], ["front", "Front"], ["wide", "Wide"], ["detail", "Detail"] ] as const).map(([preset, label]) => <Button key={preset} type="button" variant={cameraPreset === preset ? "default" : "outline"} onClick={() => { setCameraPreset(preset); setWorkspacePanel(null); }}>{label}</Button>)}</div>
             <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Clear stage" : "Room context"}</Button><Button type="button" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-4 w-4" />{autoRotate ? "Pause rotation" : "Rotate room"}</Button><Button type="button" variant="outline" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</Button></div>
           </>}
-          {workspacePanel === "finish" && <>
-            <SheetHeader><SheetTitle>Preview finish</SheetTitle></SheetHeader>
-            <p className="mt-2 text-sm text-muted-foreground">Cabinet finishes are always taken from the active 2D catalog selection. Generic preview cabinet colors are not offered here.</p>
-            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><span className="h-8 w-8 rounded-full border border-black/10" style={{ backgroundColor: catalogFinish }} /><div><p className="text-xs font-semibold text-[#4b3a20]">Active cabinet finish</p><p className="text-sm font-semibold text-[#382710]">{cabinetFinishLabel}</p></div></div>
+	          {workspacePanel === "finish" && <>
+	            <SheetHeader><SheetTitle>Preview finish</SheetTitle></SheetHeader>
+	            <p className="mt-2 text-sm text-muted-foreground">Temporarily show every cabinet and concealed rear filler in one of the real catalog finishes selected for this plan. This color check does not change the saved design, cart, or order.</p>
+	            <div className="mt-4 flex items-center gap-3 rounded-xl border border-[#d9c196] bg-[#fffaf1] p-3"><span className="h-8 w-8 rounded-full border border-black/10" style={{ backgroundColor: catalogFinish }} /><div><p className="text-xs font-semibold text-[#4b3a20]">Active cabinet finish</p><p className="text-sm font-semibold text-[#382710]">{cabinetFinishLabel}</p></div></div>
+	            {cabinetFinishPreviewOptions.length > 1 && <div className="mt-3 flex flex-wrap gap-2" aria-label="Cabinet color check choices"><button type="button" onClick={() => setCabinetPreviewFinishId(null)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold ${selectedCabinetPreviewFinish ? "border-border bg-background" : "border-[#a87f33] bg-[#fff7e8]"}`}>Plan colors</button>{cabinetFinishPreviewOptions.map((option) => <button key={option.id} type="button" onClick={() => setCabinetPreviewFinishId(option.id)} className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold ${selectedCabinetPreviewFinish?.id === option.id ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: option.color }} /><span className="truncate">{option.name}</span></button>)}</div>}
             <p className="mt-5 text-xs font-semibold">Countertop preview</p><div className="mt-2 flex flex-wrap gap-2">{COUNTERTOP_FINISHES.map((option) => <button key={option.name} type="button" onClick={() => setCountertopFinish(option.color)} className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs ${countertopFinish === option.color ? "border-[#a87f33] bg-[#fff7e8]" : "border-border bg-background"}`}><span className="h-3 w-3 rounded-full border border-black/10" style={{ backgroundColor: option.color }} />{option.name}</button>)}</div>
           </>}
           {workspacePanel === "room" && <>

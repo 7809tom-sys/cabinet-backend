@@ -24,7 +24,7 @@ import {
 } from "@/lib/affiliateContext";
 import { ShoppingCart } from "lucide-react";
 import { PreferredProductsProvider } from "@/contexts/PreferredProductsContext";
-import { affiliateCatalogPath, affiliateDesignerPath, affiliateOrderPath, affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
+import { affiliateCatalogPath, affiliateDesignerPath, affiliateOrderPath, affiliateOwnerScopeDestination } from "@/lib/affiliateStorefrontUrl";
 
 // Lazy-loaded pages
 const Catalog = lazy(() => import("@/pages/Catalog"));
@@ -203,10 +203,10 @@ function DistributorPortalRedirect() {
 }
 
 /**
- * Affiliate owners work from their own branded storefront. If one manually
- * opens an unscoped platform URL, return them to that storefront instead of
- * exposing the CabinetDealz owner experience. Admins are intentionally exempt
- * so View As and platform operations continue to work.
+ * Affiliate owners use their own dashboard as the permanent back door. If one
+ * opens an unscoped platform URL—or another affiliate's store—return them to
+ * their exact dashboard record. Admins are intentionally exempt so View As and
+ * platform operations continue to work.
  */
 function AffiliateOwnerScopeGuard({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, user } = useAuth();
@@ -218,15 +218,15 @@ function AffiliateOwnerScopeGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isAuthenticated || loading || user?.role === "admin") return;
     const affiliate = data?.affiliate;
-    if (!affiliate?.slug) return;
-    const pathname = window.location.pathname;
-    const allowed = pathname === "/affiliate"
-      || pathname.startsWith("/store/")
-      || pathname.startsWith("/store-preview/");
-    if (!allowed) {
-      window.location.replace(affiliateStorefrontPath(affiliate.slug));
-    }
-  }, [data?.affiliate?.slug, isAuthenticated, loading, user?.role]);
+    if (!affiliate?.id || !affiliate.slug) return;
+    const destination = affiliateOwnerScopeDestination({
+      pathname: window.location.pathname,
+      search: window.location.search,
+      affiliateId: affiliate.id,
+      slug: affiliate.slug,
+    });
+    if (destination) window.location.replace(destination);
+  }, [data?.affiliate?.id, data?.affiliate?.slug, isAuthenticated, loading, user?.role]);
 
   return <>{children}</>;
 }

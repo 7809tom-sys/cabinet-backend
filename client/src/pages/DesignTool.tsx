@@ -10623,6 +10623,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [placed, finishForCab],
   );
 
+  const threeDCabinetFinishPreviewOptions = useMemo(() => {
+    const ids = Array.from(new Set([
+      styleA ?? styleId,
+      styleB,
+      ...distinctStyleIds(placed, styleId),
+    ].filter((id): id is number => typeof id === "number")));
+    return ids.map((id) => {
+      const finish = finishById.get(id) ?? activeFinish;
+      return {
+        id: String(id),
+        name: styleNameById.get(id) ?? `Style #${id}`,
+        color: finish.face,
+      };
+    });
+  }, [activeFinish, finishById, placed, styleA, styleB, styleId, styleNameById]);
+
   const threeDCabinetDoorProfiles = useMemo(
     () => Object.fromEntries(placed.flatMap((cabinet) => {
       const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
@@ -10778,13 +10794,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
-      showWallLayer={showWallLayer}
-      onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
-      onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
-      onSyncCart={syncThreeDOrderWithCart}
-      initialPresentation={interactive3dPresentation ?? undefined}
-      catalogFinishOverride={activeFinish.face}
-      cabinetFinishOverrides={threeDCabinetFinishOverrides}
+	      showWallLayer={showWallLayer}
+	      onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
+	      onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+	      onSyncCart={syncThreeDOrderWithCart}
+	      initialPresentation={interactive3dPresentation ?? undefined}
+	      catalogFinishOverride={activeFinish.face}
+	      cabinetFinishPreviewOptions={threeDCabinetFinishPreviewOptions}
+	      cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
 	      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
@@ -17124,13 +17141,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onOpenCabinetEditor={openAttributes}
 	                onSelectOpening={selectOpening}
 	                onOpenWindowEditor={openWindowAttributes}
-	                onRequestFiller={requestFillerAction}
-	                onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
-                onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
-                onSyncCart={syncThreeDOrderWithCart}
-		                initialPresentation={interactive3dPresentation ?? undefined}
-		                catalogFinishOverride={activeFinish.face}
-		                cabinetFinishOverrides={threeDCabinetFinishOverrides}
+		                onRequestFiller={requestFillerAction}
+		                onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
+	                onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
+	                onSyncCart={syncThreeDOrderWithCart}
+			                initialPresentation={interactive3dPresentation ?? undefined}
+			                catalogFinishOverride={activeFinish.face}
+			                cabinetFinishPreviewOptions={threeDCabinetFinishPreviewOptions}
+			                cabinetFinishOverrides={threeDCabinetFinishOverrides}
 		                cabinetDoorProfiles={threeDCabinetDoorProfiles}
 		                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}

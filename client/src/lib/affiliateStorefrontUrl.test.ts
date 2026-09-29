@@ -1,4 +1,4 @@
-import { affiliateCatalogPath, affiliateDashboardLinks, affiliateDashboardPath, affiliateDesignerPath, affiliateOrderPath, affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
+import { affiliateCatalogPath, affiliateDashboardLinks, affiliateDashboardPath, affiliateDesignerPath, affiliateOrderPath, affiliateOwnerScopeDestination, affiliateStorefrontPath, affiliateStorefrontUrl, copyAffiliateStorefrontLink } from "./affiliateStorefrontUrl";
 import { describe, expect, it, vi } from "vitest";
 
 describe("affiliate storefront URLs", () => {
@@ -34,6 +34,16 @@ describe("affiliate storefront URLs", () => {
   it("builds the canonical routed storefront path for each affiliate slug", () => {
     expect(affiliateStorefrontPath("firstclass")).toBe("/store/firstclass");
     expect(affiliateStorefrontPath("reaves-way-cabinet-shop")).toBe("/store/reaves-way-cabinet-shop");
+  });
+
+  it("keeps affiliate 5730001 in its exact dashboard or its own branded storefront", () => {
+    const affiliate = { affiliateId: 5730001, slug: "reaves-way-cabinet-shop" };
+    expect(affiliateOwnerScopeDestination({ pathname: "/", search: "", ...affiliate })).toBe("/affiliate?viewAs=5730001");
+    expect(affiliateOwnerScopeDestination({ pathname: "/admin", search: "?tab=affiliates&affiliateId=5730001", ...affiliate })).toBe("/affiliate?viewAs=5730001");
+    expect(affiliateOwnerScopeDestination({ pathname: "/affiliate", search: "?section=orders", ...affiliate })).toBe("/affiliate?viewAs=5730001&section=orders");
+    expect(affiliateOwnerScopeDestination({ pathname: "/affiliate", search: "?viewAs=5730001", ...affiliate })).toBeNull();
+    expect(affiliateOwnerScopeDestination({ pathname: "/store/reaves-way-cabinet-shop/design", search: "", ...affiliate })).toBeNull();
+    expect(affiliateOwnerScopeDestination({ pathname: "/store/another-affiliate", search: "", ...affiliate })).toBe("/affiliate?viewAs=5730001");
   });
 
   it("keeps catalog, designer, and quote destinations inside the affiliate storefront", () => {

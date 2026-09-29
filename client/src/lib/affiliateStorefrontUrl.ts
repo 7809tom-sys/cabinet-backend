@@ -44,6 +44,34 @@ export function affiliateDashboardPath(affiliateId: number): string {
   return `/affiliate?viewAs=${encodeURIComponent(String(affiliateId))}`;
 }
 
+/**
+ * Affiliate owners use their dashboard as the permanent back door. They may
+ * visit their own public storefront routes, but an unscoped platform route or
+ * another affiliate's store returns them to their own dashboard.
+ */
+export function affiliateOwnerScopeDestination({
+  pathname,
+  search,
+  affiliateId,
+  slug,
+}: {
+  pathname: string;
+  search: string;
+  affiliateId: number;
+  slug: string;
+}): string | null {
+  const storefrontRoot = affiliateStorefrontPath(slug);
+  if (pathname === storefrontRoot || pathname.startsWith(`${storefrontRoot}/`)) return null;
+
+  const dashboard = affiliateDashboardPath(affiliateId);
+  if (pathname !== "/affiliate") return dashboard;
+
+  const params = new URLSearchParams(search);
+  if (params.get("viewAs") === String(affiliateId)) return null;
+  const section = params.get("section")?.trim();
+  return section ? `${dashboard}&section=${encodeURIComponent(section)}` : dashboard;
+}
+
 /** Canonical public links rendered within the selected affiliate dashboard. */
 export function affiliateDashboardLinks(
   affiliate: { slug: string; referralCode: string },

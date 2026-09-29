@@ -63,21 +63,20 @@ export function registerOAuthRoutes(app: Express) {
       const cookieOptions = getSessionCookieOptions(req);
       res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
 
-      const returnPath = resolveOAuthReturnPath(state);
-      let destination = returnPath;
-      if (returnPath === "/affiliate") {
-        const database = await db.getDb();
-        const signedInUser = await db.getUserByOpenId(userInfo.openId);
-        if (database && signedInUser) {
-          const affiliateRows = await database.select().from(affiliates);
-          destination = resolveAffiliateAdministrationDestination({
-            returnPath,
-            userId: signedInUser.id,
-            email: userInfo.email ?? signedInUser.email,
-            affiliates: affiliateRows,
-          }) ?? returnPath;
-        }
-      }
+	      const returnPath = resolveOAuthReturnPath(state);
+	      let destination = returnPath;
+	      const database = await db.getDb();
+	      const signedInUser = await db.getUserByOpenId(userInfo.openId);
+	      if (database && signedInUser) {
+	        const affiliateRows = await database.select().from(affiliates);
+	        destination = resolveAffiliateAdministrationDestination({
+	          returnPath,
+	          userId: signedInUser.id,
+	          email: userInfo.email ?? signedInUser.email,
+	          userRole: signedInUser.role,
+	          affiliates: affiliateRows,
+	        }) ?? returnPath;
+	      }
 
       res.redirect(302, destination);
     } catch (error) {

@@ -1,22 +1,24 @@
 export type OAuthAffiliateRecord = { id: number; userId: number | null; email: string | null; status?: string | null };
 
 /**
- * Management sign-in is intentionally the only OAuth entry that auto-opens an
- * affiliate Administration route. General Cabinet Dealz sign-ins retain their
- * original safe return location.
+ * Every active affiliate owner signs in through their own Affiliate
+ * Administration route. Platform administrators are never redirected by this
+ * helper, so the central CabinetDealz admin remains admin-only.
  */
 export function resolveAffiliateAdministrationDestination({
   returnPath,
   userId,
   email,
+  userRole,
   affiliates,
 }: {
   returnPath: string;
   userId: number | null | undefined;
   email: string | null | undefined;
+  userRole?: string | null;
   affiliates: OAuthAffiliateRecord[];
 }): string | null {
-  if (returnPath !== "/affiliate" || !userId) return null;
+  if (!userId || userRole === "admin") return null;
   const normalizedEmail = (email ?? "").trim().toLowerCase();
   const match = affiliates.find((affiliate) => affiliate.status !== "inactive" && affiliate.userId === userId)
     ?? affiliates.find((affiliate) => normalizedEmail.length > 0

@@ -25,10 +25,15 @@ describe("OAuth affiliate Administration destination", () => {
     })).toBe("/affiliate?viewAs=31");
   });
 
-  it("does not hijack ordinary Cabinet Dealz sign-in return paths or inactive affiliates", () => {
-    expect(resolveAffiliateAdministrationDestination({ returnPath: "/", userId: 901, email: "marcussmithreaves@gmail.com", affiliates })).toBeNull();
-    expect(resolveAffiliateAdministrationDestination({
-      returnPath: "/affiliate",
+	  it("sends an affiliate owner to Affiliate Administration even from an ordinary sign-in", () => {
+	    expect(resolveAffiliateAdministrationDestination({ returnPath: "/", userId: 901, email: "marcussmithreaves@gmail.com", userRole: "user", affiliates })).toBe("/affiliate?viewAs=31");
+	    expect(resolveAffiliateAdministrationDestination({ returnPath: "/admin", userId: 901, email: "marcussmithreaves@gmail.com", userRole: "user", affiliates })).toBe("/affiliate?viewAs=31");
+	  });
+
+	  it("does not redirect platform administrators or inactive affiliates", () => {
+	    expect(resolveAffiliateAdministrationDestination({ returnPath: "/admin", userId: 901, email: "marcussmithreaves@gmail.com", userRole: "admin", affiliates })).toBeNull();
+	    expect(resolveAffiliateAdministrationDestination({
+	      returnPath: "/affiliate",
       userId: 55,
       email: "inactive@example.com",
       affiliates: [{ id: 55, userId: 55, email: "inactive@example.com", status: "inactive" }],
