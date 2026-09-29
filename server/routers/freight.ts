@@ -703,6 +703,10 @@ async function resolveStyleFreightGroups(input: {
     }
   }
 
+  // A distributor shipment may contain any of that distributor's finishes,
+  // colors, and styles. Keep separate groups only when the physical pickup
+  // origin differs; the pallet builder then mixes all same-origin lines and
+  // uses the fewest pallets allowed by weight/cube limits.
   const groups = new Map<string, StyleFreightGroup>();
   for (const item of input.items) {
     const requestedStyleId = item.styleId ?? null;
@@ -743,15 +747,19 @@ async function resolveStyleFreightGroups(input: {
     const originZip = originZips.length > 0
       ? await chooseNearestDoorStyleOriginZip(input.destinationZip, originZips)
       : await resolveOriginZip(input.destinationZip, distributorId, input.fallbackOriginZip);
-    const key = matchedStyle
-      ? `style:${matchedStyle.id}:${originZip}`
-      : `fallback:${distributorId ?? "global"}:${originZip}`;
+    const key = `distributor:${distributorId ?? "global"}:${originZip}`;
     const existing = groups.get(key);
     if (existing) {
       existing.items.push(item);
+      // Keep a configured legacy Plan B fee available if the first line in a
+      // consolidated distributor shipment did not have one. Live carrier and
+      // distributor fixed/threshold rules remain shipment-level behavior.
+      if (existing.flatFreightFeeCents == null && matchedStyle?.flatFreightFeeCents != null) {
+        existing.flatFreightFeeCents = matchedStyle.flatFreightFeeCents;
+      }
       continue;
     }
-    const styleLabel = matchedStyle?.aliasName || matchedStyle?.ourName;
+    const distributorLabel = matchedStyle?.distributorName || "Configured supply line";
     const distributorRule = matchedStyle
       ? resolveDistributorShippingRule({
           mode: matchedStyle.shippingRuleMode,
@@ -763,7 +771,7 @@ async function resolveStyleFreightGroups(input: {
       : { fixedFeeCents: null, label: null, matchedZipPrefix: null };
     groups.set(key, {
       key,
-      label: `${styleLabel || "Configured supply line"} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
+      label: `${distributorLabel} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
       originZip,
       flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
       distributorRuleFeeCents: distributorRule.fixedFeeCents,
