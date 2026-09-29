@@ -129,12 +129,18 @@ const cabinet: PlacedCabinet = {
 		}, wall)).toBe(expectedMode);
 	});
 
-  it("installs a base filler as a 30-inch visible panel above the 4½-inch toe kick", () => {
-    expect(installedFillerVerticalSpec("base", 96)).toEqual({
+  it("cuts a base filler to the adjoining cabinet height above the 4½-inch toe kick", () => {
+    expect(installedFillerVerticalSpec("base", 34.5)).toEqual({
       storedHeight: 34.5,
       visibleBottom: 4.5,
       visibleHeight: 30,
       visibleTop: 34.5,
+    });
+    expect(installedFillerVerticalSpec("base", 36)).toEqual({
+      storedHeight: 36,
+      visibleBottom: 4.5,
+      visibleHeight: 31.5,
+      visibleTop: 36,
     });
   });
 

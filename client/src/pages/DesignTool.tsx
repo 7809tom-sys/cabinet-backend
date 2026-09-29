@@ -6202,9 +6202,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
       const fillerDepth = dim(fillerDef.depth, placement === "wall" ? STD.WALL_DEPTH : 24);
       const fillerHeight = installedFillerVerticalSpec(
-        placement,
-        dim(fillerDef.height, placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
-      ).storedHeight;
+	        placement,
+	        Number.isFinite(height) ? height : placement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT,
+	      ).storedHeight;
       const fillerSpot = wallPlacementAt(gap.start + cabWidth, fillerW, fillerDepth, gap.side, room);
       const newFiller: PlacedCabinet = {
         uid: makeUid(),
@@ -6288,9 +6288,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 	  const fillerGroupId = cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`;
 	  const fillerDepth = dim(fillerDef.depth, cutOpportunity.layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
-	  const fillerHeight = installedFillerVerticalSpec(
+  	  const fillerHeight = installedFillerVerticalSpec(
 	    cutOpportunity.layer,
-	    dim(fillerDef.height, cutOpportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT),
+	    Number.isFinite(Number(cabinet.height)) ? Number(cabinet.height) : cutOpportunity.layer === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT,
 	  ).storedHeight;
 	  const catalogWidth = dim(fillerDef.width, cutOpportunity.remaining);
     const pieces: PlacedCabinet[] = layout.pieces.map((piece, index) => {

@@ -73,11 +73,14 @@ export function installedFillerVerticalSpec(
   cabinetHeight: number,
 ): InstalledFillerVerticalSpec {
   if (layer === "base") {
+    const storedHeight = Number.isFinite(cabinetHeight) && cabinetHeight > 0
+      ? cabinetHeight
+      : STD.BASE_HEIGHT;
     return {
-      storedHeight: STD.BASE_HEIGHT,
+      storedHeight,
       visibleBottom: STD.TOE_KICK,
-      visibleHeight: STD.BASE_HEIGHT - STD.TOE_KICK,
-      visibleTop: STD.BASE_HEIGHT,
+      visibleHeight: Math.max(0, storedHeight - STD.TOE_KICK),
+      visibleTop: storedHeight,
     };
   }
   // The source catalog record supplies the purchasable stock and price; the

@@ -5995,7 +5995,10 @@ export function blindCornerAutoFiller(
   // Build a confirmed installed filler on the perpendicular adjoining wall.
   const fillerPlacement: Placement = blind.placement === "wall" ? "wall" : "base";
   const fillerDepth = fillerPlacement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
-  const fillerHeight = fillerPlacement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
+  const blindHeight = Number(blind.height);
+  const fillerHeight = Number.isFinite(blindHeight) && blindHeight > 0
+    ? blindHeight
+    : fillerPlacement === "wall" ? STD.WALL_HEIGHT : STD.BASE_HEIGHT;
   const spot = wallPlacementAt(fillerAlong, W, fillerDepth, adjacentWall, room);
   const fillerGroupId = `blind-filler-${blind.uid}`;
   const filler: PlacedCabinet = {
