@@ -180,7 +180,7 @@ export default function ShippingAdmin() {
       setHasWwexClientSecret(result.hasWwexClientSecret);
       setForm((current) => current ? { ...current, wwexClientId: result.wwexClientId, wwexClientSecret: "" } : current);
       utils.freight.adminGet.invalidate();
-      toast.success("WWEX Client ID and Client Secret saved.");
+      toast.success("WWEX Client ID and Client Secret saved securely. The secret box clears by design.");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -554,6 +554,20 @@ export default function ShippingAdmin() {
                   <Button type="button" size="sm" className="shrink-0" onClick={handleSaveWwexCredentials} disabled={saveWwexCredentials.isPending}>
                     {saveWwexCredentials.isPending ? "Saving credentials…" : "Save Client ID + Secret"}
                   </Button>
+                </div>
+                <div
+                  className={`md:col-span-2 flex items-start gap-2 rounded-md border p-3 text-xs ${hasWwexClientSecret && form.wwexClientId.trim()
+                    ? "border-emerald-300 bg-emerald-50 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100"
+                    : "border-amber-300 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"}`}
+                  role="status"
+                  aria-live="polite"
+                >
+                  <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                  {hasWwexClientSecret && form.wwexClientId.trim() ? (
+                    <span><strong>Securely saved:</strong> the WWEX Client ID and Client Secret are on file. The Client Secret input remains blank after saving or reloading because it is write-only; a blank secret box does <strong>not</strong> mean the secret was removed.</span>
+                  ) : (
+                    <span><strong>Credentials need saving:</strong> enter both the WWEX Client ID and Client Secret, then use <strong>Save Client ID + Secret</strong>. The main Shipping save button does not save this protected pair.</span>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs">Account Number</Label>

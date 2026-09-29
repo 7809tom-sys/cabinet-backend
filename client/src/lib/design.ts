@@ -6372,6 +6372,22 @@ export function refrigeratorAssemblyMemberRole(
   const memberStart = wallRunOffset(member, side, room);
   const memberEnd = memberStart + wallRunSpan(member, side, room);
   if (isRefrigeratorWallCabinet(member) && footprintsOverlap(member, refrigerator)) return "bridge";
+  // A saved plan may use a correctly sized ordinary wall SKU above the appliance
+  // rather than a source record whose name is explicitly "refrigerator wall".
+  // It is still the refrigerator enclosure cap when it spans the appliance and
+  // uses the fixed 72-inch refrigerator datum. Treating that physical assembly
+  // as a bridge lets the normal source-backed side-panel repair run, while a
+  // standard 54-inch wall cabinet remains an ordinary wall cabinet.
+  const memberSpan = memberEnd - memberStart;
+  const refrigeratorSpan = refrigeratorEnd - refrigeratorStart;
+  const memberElevation = elevationBox(member, room);
+  const refrigeratorUpperDatum = refrigeratorSurroundElevation(room, 0, memberElevation.height).mountBottom;
+  if (
+    member.placement === "wall"
+    && footprintsOverlap(member, refrigerator)
+    && Math.abs(memberSpan - refrigeratorSpan) <= 0.25
+    && Math.abs(memberElevation.bottom - refrigeratorUpperDatum) <= 0.25
+  ) return "bridge";
   if (!isRefrigeratorEndPanel(member)) return null;
   if (Math.abs(memberEnd - refrigeratorStart) <= 3) return "left-panel";
   if (Math.abs(memberStart - refrigeratorEnd) <= 3) return "right-panel";

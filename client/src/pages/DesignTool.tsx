@@ -6554,6 +6554,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       bridgeWidth?: number | null;
       panels: "left" | "right" | "both" | "none";
       endPanelId?: number | null;
+      /** Retain an already-correct 72-inch refrigerator upper while adding/removing only its side panels. */
+      preserveExistingBridge?: boolean;
       /** The chosen end panel depth in inches (24-36). When provided, overrides the fridge depth for panel placement. */
       panelDepth?: number | null;
       /** Pre-calculated panel height (fridge H + bridge H). When provided, overrides the auto-calc. */
@@ -6629,9 +6631,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // the cabinet above. Keep their top as a single shared value rather than
       // deriving it from the appliance height, which loses the 2-inch clearance.
       let refrigeratorSurroundTop = actualFridgeHeight;
+	      const existingBridge = opts.preserveExistingBridge
+	        ? placed.find((item) => item.uid !== fridge.uid && refrigeratorAssemblyMemberRole(item, fridge, room) === "bridge") ?? null
+	        : null;
+	      if (existingBridge) {
+	        const existingBridgeHeight = Number(existingBridge.height) || 24;
+	        const existingBridgeMount = refrigeratorSurroundElevation(room, actualFridgeHeight, existingBridgeHeight).mountBottom;
+	        // Keep a correct full-width 72-inch upper intact even when its catalog
+	        // name is not an explicit WR refrigerator code. The repair adds only
+	        // the real end-panel parts and makes the existing upper durable.
+	        toPlace.push({
+	          ...existingBridge,
+	          refrigeratorAssemblyId: fridge.uid,
+	          refrigeratorAssemblyRole: "bridge",
+	          mountBottom: existingBridgeMount,
+	        });
+	        bridgeHeightPlaced = existingBridgeHeight;
+	        refrigeratorSurroundTop = existingBridgeMount + existingBridgeHeight;
+	      }
 
       // 1) Cabinet ABOVE the fridge (upper zone → exempt from appliance collision).
-      if (opts.above !== "none") {
+      if (opts.above !== "none" && !existingBridge) {
         // "bridge" now means the fridge-cabinet (deepAbove) catalog since the dialog
         // was updated to use deepAbove for the over-fridge section.
         const src = (opts.above === "deep" || opts.above === "bridge") ? surround.deepAbove : surround.bridgeAbove;
@@ -6888,6 +6908,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      bridgeWidth: currentBridge ? wallRunSpan(currentBridge, cabinetWall(currentBridge, room), room) : null,
 	      bridgeHeight: currentBridge?.height ?? null,
 	      bridgeDepth: currentBridge?.depth ?? null,
+	      preserveExistingBridge: Boolean(currentBridge),
 	      panels: pending.enabled ? "both" : "none",
 	      smooth: false,
 	    });

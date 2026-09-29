@@ -11,7 +11,7 @@ describe("ShippingAdmin WWEX verification controls", () => {
   it("provides a dedicated save action for the Client ID and Client Secret with clear safe-save feedback", () => {
     expect(source).toContain("saveWwexCredentials");
     expect(source).toContain("Save Client ID + Secret");
-    expect(source).toContain("WWEX Client ID and Client Secret saved.");
+    expect(source).toContain("WWEX Client ID and Client Secret saved securely. The secret box clears by design.");
     expect(source).toContain("After saving, the secret field clears by design");
   });
 
@@ -28,6 +28,14 @@ describe("ShippingAdmin WWEX verification controls", () => {
     expect(source).toContain("an earlier cached response can never put an old Client ID back");
     expect(source).not.toContain("wwexClientId: form.wwexClientId || undefined");
     expect(source).not.toContain("wwexClientSecret: form.wwexClientSecret || undefined");
+  });
+
+  it("makes the persisted write-only status visible beside the credential save control", () => {
+    expect(source).toContain("Securely saved:");
+    expect(source).toContain("the WWEX Client ID and Client Secret are on file");
+    expect(source).toContain("a blank secret box does");
+    expect(source).toContain("<strong>not</strong> mean the secret was removed");
+    expect(source).toContain("The main Shipping save button does not save this protected pair.");
   });
 
   it("stores separate verified token and rate URLs for sandbox and production", () => {

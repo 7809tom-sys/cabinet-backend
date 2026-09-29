@@ -6,6 +6,7 @@ import {
   hasCollision,
   missingRefrigeratorPanelRoles,
   normalizeRefrigeratorBayUppers,
+	 refrigeratorAssemblyMemberRole,
   type PlacedCabinet,
   type RoomData,
 	wallPlacementAt,
@@ -73,6 +74,46 @@ function backWallLegacyAssembly(withNeighbor = false) {
 }
 
 describe("refrigerator assembly reconciliation", () => {
+	 it("recovers both source-backed side panels when a standard full-width upper is installed at the 72-inch refrigerator datum", () => {
+	   const fridge = item({
+	     uid: "generic-cap-fridge",
+	     masterCode: "FRIDGE-36",
+	     description: 'Refrigerator 36"',
+	     placement: "appliance",
+	     x: 24,
+	     y: 0,
+	     width: 36,
+	     depth: 30,
+	     height: 70,
+	   });
+	   const ordinaryLookingCap = item({
+	     uid: "generic-cap-upper",
+	     masterCode: "W-36-24",
+	     description: '36" Double Door Wall Cabinet',
+	     placement: "wall",
+	     x: 24,
+	     y: 0,
+	     width: 36,
+	     depth: 12,
+	     height: 24,
+	     mountBottom: 72,
+	   });
+	   const normalized = normalizeRefrigeratorBayUppers([fridge, ordinaryLookingCap], room);
+	   const normalizedFridge = normalized.find((entry) => entry.uid === fridge.uid)!;
+
+	   expect(refrigeratorAssemblyMemberRole(ordinaryLookingCap, fridge, room)).toBe("bridge");
+	   expect(normalizedFridge.refrigeratorPanelMode).toBe("both");
+	   expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual(["left-panel", "right-panel"]);
+	 });
+
+	 it("does not treat an ordinary 54-inch wall cabinet as a refrigerator enclosure cap", () => {
+	   const fridge = item({ uid: "ordinary-fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, y: 0, width: 36, depth: 30, height: 70 });
+	   const ordinaryUpper = item({ uid: "ordinary-upper", masterCode: "W-36-30", placement: "wall", x: 24, y: 0, width: 36, depth: 12, height: 30, mountBottom: 54 });
+
+	   expect(refrigeratorAssemblyMemberRole(ordinaryUpper, fridge, room)).toBeNull();
+	   expect(missingRefrigeratorPanelRoles([fridge, ordinaryUpper], fridge, room)).toEqual([]);
+	 });
+
   it("identifies both missing source panels for a legacy built-in refrigerator while preserving an explicit no-panel choice", () => {
     const legacyWithoutPanels = backWallLegacyAssembly().filter((entry) => entry.uid !== "right-panel");
     const legacyFridge = legacyWithoutPanels.find((entry) => entry.uid === "fridge")!;

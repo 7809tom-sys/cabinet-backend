@@ -70,8 +70,17 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(source).toContain("const setRefrigeratorSidePanels = useCallback");
 	    expect(source).toContain("setPendingRefrigeratorPanelToggle({ fridgeUid, enabled })");
 	    expect(source).toContain("panels: pending.enabled ? \"both\" : \"none\"");
+	    expect(source).toContain("preserveExistingBridge: Boolean(currentBridge)");
 	    expect(source).toContain("onSetRefrigeratorSidePanels={setRefrigeratorSidePanels}");
 	    expect(source).toContain("open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}");
+	  });
+
+	  it("keeps a correct 72-inch cap while automatic recovery adds only refrigerator end panels", () => {
+	    const transaction = refrigeratorTransaction();
+	    expect(transaction).toContain("preserveExistingBridge?: boolean");
+	    expect(transaction).toContain("const existingBridge = opts.preserveExistingBridge");
+	    expect(transaction).toContain('refrigeratorAssemblyRole: "bridge"');
+	    expect(transaction).toContain('if (opts.above !== "none" && !existingBridge)');
 	  });
 
 	  it("repairs restored built-in refrigerators through the same source-priced panel transaction", () => {
