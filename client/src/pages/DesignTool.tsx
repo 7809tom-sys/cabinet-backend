@@ -4432,10 +4432,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        const duplicate = prev.find((item) => isRefrigerator(item)
 	          && Math.abs(wallRunSpan(item, cabinetWall(item, room), room) - width) <= COLLISION_EPSILON_IN);
 	        if (duplicate) {
-	          const message = `${formatInches(width)} refrigerator already placed. Select the existing refrigerator to move it or edit its panels and over-refrigerator cabinet.`;
+	          const message = `${formatInches(width)} refrigerator already placed. Its refrigerator attributes are open again so you can review its panels and over-refrigerator cabinet.`;
 	          setPlacementWarning(message);
 	          toast.info(message);
 	          setSelectedUid(duplicate.uid);
+	          setFridgeDialog({ fridgeUid: duplicate.uid });
 	          return;
 	        }
 	      }
@@ -6952,6 +6953,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         .map((item) => item.uid === fridge.uid ? configuredFridge : item);
       const fittedPreview = fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
       const previewResult = appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid, room);
+	  // A chosen end panel is a real, source-priced architectural part—not a
+	  // decorative overlay that may disappear into an adjacent cabinet. Do not
+	  // commit the cap/fridge and leave `Both` recorded with zero panels when the
+	  // current run has no physical clearance. Keep the customer's choices in the
+	  // dialog and name the blocking cabinet so the run can be adjusted first.
+	  const requestedPanels = toPlace.filter((item) => (
+	    item.refrigeratorAssemblyRole === "left-panel" || item.refrigeratorAssemblyRole === "right-panel"
+	  ));
+	  const rejectedPanels = previewResult.rejected.filter((item) => (
+	    item.refrigeratorAssemblyRole === "left-panel" || item.refrigeratorAssemblyRole === "right-panel"
+	  ));
+	  if (requestedPanels.length > 0 && rejectedPanels.length > 0) {
+	    const panelSides = rejectedPanels
+	      .map((item) => item.refrigeratorAssemblyRole === "left-panel" ? "left" : "right")
+	      .join(" and ");
+	  const blockers = Array.from(new Set(previewResult.panelConflicts.map(({ cabinet }) => cabinet.masterCode)));
+	    const selectedPanelThickness = Math.max(...rejectedPanels.map((item) => Math.max(0, Number(item.width) || 0)));
+	    const message = `${panelSides[0]?.toUpperCase() ?? "Selected"}${panelSides.slice(1)} refrigerator end panel${rejectedPanels.length > 1 ? "s" : ""} need${rejectedPanels.length > 1 ? "" : "s"} ${formatEighthInches(selectedPanelThickness)} of clear run space outside the refrigerator${blockers.length ? `, but would overlap ${blockers.join(", ")}` : " or extend beyond the drawn wall"}. No refrigerator parts were changed. Move or shorten the blocking cabinet, or select only the side with a clear opening.`;
+	    setPlacementWarning(message);
+	    toast.error(message);
+	    return;
+	  }
       const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room);
       placedRef.current = committedPreview;
       setPlaced(() => committedPreview);

@@ -64,8 +64,20 @@ describe("Design Tool refrigerator assembly transactions", () => {
     const placement = sourceBetween("const addCabinet = useCallback", "const placeOnRecommendedWall");
     expect(placement).toContain("const requestedRefrigerator = isRefrigerator");
     expect(placement).toContain("const duplicate = prev.find((item) => isRefrigerator(item)");
-    expect(placement).toContain("refrigerator already placed. Select the existing refrigerator");
+	    expect(placement).toContain("refrigerator already placed. Its refrigerator attributes are open again");
 	    expect(placement).toContain("setSelectedUid(duplicate.uid)");
+	    expect(placement).toContain("setFridgeDialog({ fridgeUid: duplicate.uid })");
+	  });
+
+	  it("never commits an incomplete selected-panel result when a neighboring cabinet blocks a required panel", () => {
+	    const transaction = refrigeratorTransaction();
+	    const rejectedPanelGuard = transaction.indexOf("const requestedPanels = toPlace.filter");
+	    const commit = transaction.indexOf("const committedPreview = normalizeRefrigeratorBayUppers");
+	    expect(rejectedPanelGuard).toBeGreaterThan(-1);
+	    expect(commit).toBeGreaterThan(rejectedPanelGuard);
+	    expect(transaction).toContain("const rejectedPanels = previewResult.rejected.filter");
+	    expect(transaction).toContain("No refrigerator parts were changed.");
+	    expect(transaction.slice(rejectedPanelGuard, commit)).toContain("return;");
 	  });
 
 	  it("keeps refrigerator panel choices inside the insertion attributes dialog", () => {
