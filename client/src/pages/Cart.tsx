@@ -29,6 +29,7 @@ import {
 import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
 import { separateGlassPurchaseItems } from "@/lib/cartGlassPolicy";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
+import { FreightCalculatingStatus } from "@/components/order/FreightCalculatingStatus";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
 export const CART_PREFILL_KEY = "cd_cart_prefill_v1";
@@ -635,16 +636,12 @@ export default function Cart() {
                 onClick={requestLiveCartQuote}
                 disabled={cartFreightEstimate.isFetching || !normalizedZip || isMixedSupplier || cartFreightItems.length === 0}
               >
-                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Rating…</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
+                {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Calculating freight...</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
               </Button>
             </div>
             {cartFreightEstimate.isFetching && (
-              <div role="status" aria-live="polite" className="mt-3 flex items-start gap-3 rounded-md border border-primary/30 bg-primary/5 p-3 text-primary">
-                <Loader2 className="mt-0.5 h-5 w-5 shrink-0 animate-spin" aria-hidden="true" />
-                <div>
-                  <p className="text-sm font-semibold">Calculating live carrier rate…</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Sending this cart’s pallet dimensions, loaded weight, supplier origin, and delivery ZIP to the carrier. This can take up to 30 seconds.</p>
-                </div>
+              <div className="mt-3">
+                <FreightCalculatingStatus upsRequested={requestUpsParcelQuote} compact />
               </div>
             )}
             {!cartFreightEstimate.isFetching && cartFreightEstimate.error && <p className="mt-2 text-xs text-destructive">{cartFreightEstimate.error.message}</p>}
@@ -727,9 +724,13 @@ export default function Cart() {
             className="w-full"
             size="lg"
             onClick={requestOrder}
-            disabled={isMixedSupplier}
+            disabled={isMixedSupplier || cartFreightEstimate.isFetching}
           >
-            <Lock className="mr-1.5 h-4 w-4" /> Continue to secure checkout
+            {cartFreightEstimate.isFetching ? (
+              <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Calculating freight...</>
+            ) : (
+              <><Lock className="mr-1.5 h-4 w-4" /> Continue to secure checkout</>
+            )}
           </Button>
           <Button variant="outline" className="mt-2 w-full bg-background" asChild>
             <Link href={currentAffiliateSlug ? `/store/${currentAffiliateSlug}` : "/catalog"}>{t("crt_continue_shopping")}</Link>

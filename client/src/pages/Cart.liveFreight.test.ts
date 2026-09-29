@@ -7,6 +7,7 @@ const cartContextSource = readFileSync(resolve(process.cwd(), "client/src/contex
 const builderSource = readFileSync(resolve(process.cwd(), "client/src/pages/OrderBuilder.tsx"), "utf8");
 const reviewSource = readFileSync(resolve(process.cwd(), "client/src/components/order/OrderReview.tsx"), "utf8");
 const prefillSource = readFileSync(resolve(process.cwd(), "client/src/lib/cartCheckoutPrefill.ts"), "utf8");
+const loadingSource = readFileSync(resolve(process.cwd(), "client/src/components/order/FreightCalculatingStatus.tsx"), "utf8");
 
 describe("cart live freight quoting", () => {
   it("rates eligible cart cabinet items using their exact supplier and style identity", () => {
@@ -76,9 +77,15 @@ describe("cart live freight quoting", () => {
 
   it("shows an accessible spinner and status while the live carrier rate is calculated", () => {
     expect(cartSource).toContain('aria-busy={cartFreightEstimate.isFetching}');
-    expect(cartSource).toContain('role="status" aria-live="polite"');
-    expect(cartSource).toContain("Calculating live carrier rate…");
-    expect(cartSource).toContain("This can take up to 30 seconds");
+    expect(cartSource).toContain("<FreightCalculatingStatus upsRequested={requestUpsParcelQuote} compact />");
+    expect(reviewSource).toContain('<FreightCalculatingStatus upsRequested={carrierPreference === "ups"} />');
+    expect(loadingSource).toContain('role="status"');
+    expect(loadingSource).toContain('aria-live="polite"');
+    expect(loadingSource).toContain("Calculating freight...");
+    expect(loadingSource).toContain("Checking UPS with the cart’s package dimensions and weight");
+    expect(loadingSource).toContain("animate-spin");
+    expect(loadingSource).toContain("motion-safe:animate-ping");
+    expect(cartSource).toContain("disabled={isMixedSupplier || cartFreightEstimate.isFetching}");
     expect(cartSource).toContain("!cartFreightEstimate.isFetching && cartFreightEstimate.data");
   });
 

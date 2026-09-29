@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { CabinetImage } from "@/components/CabinetImage";
 import PayWithStripe from "@/components/order/PayWithStripe";
+import { FreightCalculatingStatus } from "@/components/order/FreightCalculatingStatus";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { US_STATE_TAX_RATES } from "@shared/usSalesTax";
 import { resolveCheckoutTier, type CheckoutTier } from "@/lib/checkoutContext";
@@ -1248,9 +1249,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             {zipDebounced.length < 5 ? (
               <p className="text-xs text-muted-foreground">Enter the delivery ZIP above to calculate the pallet quote.</p>
             ) : freightEstimate.isFetching ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Calculating pallet dimensions, loaded weight, and live shipping…
-              </div>
+              <FreightCalculatingStatus upsRequested={carrierPreference === "ups"} />
             ) : freightEstimate.data?.available ? (
               <div className="space-y-2 rounded-md border border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
                 <div className="flex items-center justify-between gap-3 text-sm font-semibold">
