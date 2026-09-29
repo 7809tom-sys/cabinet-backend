@@ -6633,7 +6633,11 @@ export function reconcileRefrigeratorAssemblies(
         ...spot,
         refrigeratorAssemblyId: refrigerator.uid,
         refrigeratorAssemblyRole: role,
-        ...(role === "bridge" ? { mountBottom: bridgeMountBottom } : { mountBottom: 0, height: assemblyTop }),
+        ...(role === "bridge"
+          ? { mountBottom: bridgeMountBottom }
+          : role === "bridge-left-filler" || role === "bridge-right-filler"
+            ? { mountBottom: bridgeMountBottom, height: bridgeHeight }
+            : { mountBottom: 0, height: assemblyTop }),
       });
     }
     const assemblyUids = new Set(members.map(({ member }) => member.uid));
@@ -6714,6 +6718,15 @@ export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], room?: R
       const mountBottom = refrigeratorUpperMountBottom(cabinet, placed, enclosure, fridgeTop, cabinetHeight);
       return cabinet.mountBottom === mountBottom ? cabinet : { ...cabinet, mountBottom };
     }
+
+    // A cap filler is a short, source-priced wall piece that only closes the
+    // remainder beside the refrigerator upper. It is neither a full-height end
+    // panel nor an upper cabinet: preserve its explicit cap height and 72-inch
+    // datum instead of expanding it to the refrigerator enclosure top.
+    if (
+      cabinet.refrigeratorAssemblyRole === "bridge-left-filler"
+      || cabinet.refrigeratorAssemblyRole === "bridge-right-filler"
+    ) return cabinet;
 
     // Legacy end panels sit immediately outside a refrigerator, so their thin
     // plan footprint does not overlap the appliance. Match the two touching run

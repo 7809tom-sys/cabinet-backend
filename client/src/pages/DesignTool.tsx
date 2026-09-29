@@ -2548,6 +2548,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ),
     [placed]
   );
+  // A refrigerator is a source-priced assembly, not an appliance plus later
+  // visual patches. Load the selected line's buyable caps and end panels before
+  // the appliance is dropped so their price rows can join the first request.
+  // Width selection remains in the shared bay fitter; the server only returns
+  // availability-gated source rows for the selected style.
+  const { data: refrigeratorSurroundCatalog } = trpc.design.surroundForFridge.useQuery(
+    { styleId: styleId ?? 0 },
+    { enabled: !!styleId },
+  );
+
   // TWO-TONE pricing: price each cabinet at its EFFECTIVE finish (per-cabinet
   // override, else the design default). Build the distinct (cabinetId, styleId)
   // pairs the design actually uses so we fetch every needed price in one call.
@@ -2577,8 +2587,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // prospective rows, a physically required filler could never pass the
 	    // positive-price gate until it had somehow already been added.
 	    catalogFillers.filter(isCatalogFiller).forEach((filler) => push(filler.id, styleId, filler.masterCode));
+      const refrigeratorParts = refrigeratorSurroundCatalog as
+        | { deepAbove?: DesignCabinet[]; bridgeAbove?: DesignCabinet[]; endPanels?: DesignCabinet[]; smoothPanels?: DesignCabinet[] }
+        | undefined;
+      [
+        ...(refrigeratorParts?.deepAbove ?? []),
+        ...(refrigeratorParts?.bridgeAbove ?? []),
+        ...(refrigeratorParts?.endPanels ?? []),
+        ...(refrigeratorParts?.smoothPanels ?? []),
+      ].forEach((part) => push(part.id, styleId, part.masterCode));
 	    return pairs;
-	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers]);
+	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers, refrigeratorSurroundCatalog]);
 
   const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -6541,15 +6560,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    setPendingRefrigeratorPanelToggle({ fridgeUid: restoredRefrigeratorNeedingPanels.uid, enabled: true });
 	    setFridgeDialog({ fridgeUid: restoredRefrigeratorNeedingPanels.uid });
 	  }, [fridgeDialog, pendingRefrigeratorPanelToggle, restoredRefrigeratorNeedingPanels, styleId]);
-  const { data: fridgeSurround } = trpc.design.surroundForFridge.useQuery(
-    {
-      styleId: styleId ?? 0,
-      fridgeWidth: fridgeForDialog
-        ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)
-        : undefined,
-    },
-    { enabled: !!fridgeDialog && !!styleId }
-  );
+	  const fridgeSurround = refrigeratorSurroundCatalog;
   // Place the chosen refrigerator surround pieces flush to the seeded fridge.
 	  const applyFridgeSurround = useCallback(
     (opts: {

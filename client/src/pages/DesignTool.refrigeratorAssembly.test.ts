@@ -102,6 +102,15 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(transaction).not.toContain("masterCode: `PANEL-${syntheticPanelHeight}`");
 	  });
 
+	  it("preloads source caps and panels into the shared materials price request", () => {
+	    const pricePairs = sourceBetween("const pricePairs = useMemo", "const { data: priceRows }");
+	    expect(source).toContain("const { data: refrigeratorSurroundCatalog } = trpc.design.surroundForFridge.useQuery");
+	    expect(pricePairs).toContain("...(refrigeratorParts?.deepAbove ?? [])");
+	    expect(pricePairs).toContain("...(refrigeratorParts?.endPanels ?? [])");
+	    expect(pricePairs).toContain("refrigeratorSurroundCatalog");
+	    expect(source).toContain("const fridgeSurround = refrigeratorSurroundCatalog;");
+	  });
+
 	  it("repairs restored built-in refrigerators through the same source-priced panel transaction", () => {
 	    expect(source).toContain("missingRefrigeratorPanelRoles(placed, candidate, room).length > 0");
 	    expect(source).toContain("refrigeratorPanelRepairAttemptedRef.current.add(restoredRefrigeratorNeedingPanels.uid)");

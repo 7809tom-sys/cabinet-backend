@@ -104,6 +104,15 @@ describe("refrigerator assembly reconciliation", () => {
 	   });
 	 });
 
+	 it("keeps a source-priced refrigerator cap filler short at the refrigerator upper datum", () => {
+	   const fridge = item({ uid: "cap-filler-fridge", masterCode: "FRIDGE-36", placement: "appliance", x: 24, y: 0, width: 36, depth: 30, height: 70 });
+	   const cap = item({ uid: "cap-filler-cap", masterCode: "WR3612", description: "Refrigerator Wall Cabinet", placement: "wall", x: 24, y: 0, width: 36, depth: 24, height: 12, mountBottom: 72, refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "bridge" });
+	   const filler = item({ uid: "cap-filler-left", masterCode: "F342", description: "Cabinet Filler", placement: "wall", x: 23.5, y: 0, width: 0.5, depth: 24, height: 12, mountBottom: 72, refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "bridge-left-filler" });
+
+	   const normalized = normalizeRefrigeratorBayUppers([fridge, cap, filler], room);
+	   expect(normalized.find((entry) => entry.uid === filler.uid)).toMatchObject({ height: 12, mountBottom: 72 });
+	 });
+
 	 it("recovers both source-backed side panels when a standard full-width upper is installed at the 72-inch refrigerator datum", () => {
 	   const fridge = item({
 	     uid: "generic-cap-fridge",
