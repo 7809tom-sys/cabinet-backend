@@ -107,4 +107,23 @@ describe("Continuous Wall Builder placement parity", () => {
     expect(customWallCabinetSide(room, wall.id)).toBe("left");
     expect(continuousSpot).toMatchObject({ x: standardSpot.x, y: standardSpot.y, rotation: standardSpot.rotation });
   });
+
+  it("uses the shared run builder so a refrigerator bay ends both continuous-wall countertops at its panels", () => {
+    const room = drawnRoom("right90");
+    const wall = room.customWalls![0]!;
+    const place = (uid: string, masterCode: string, placement: PlacedCabinet["placement"], start: number, width: number, depth: number): PlacedCabinet => {
+      const spot = wallPlacementAt(start, width, depth, wall.id as never, room);
+      return { uid, cabinetId: 1, masterCode, description: masterCode, placement, x: spot.x, y: spot.y, width, depth, height: placement === "base" ? 34.5 : 96, rotation: spot.rotation, wallId: wall.id, wallOffset: start };
+    };
+    const leftBase = place("left-base", "B24", "base", 0, 24, 24);
+    const fridge = place("fridge", "FRIDGE-36", "appliance", 24, 36, 24);
+    const leftPanel = place("left-panel", "REPV2496", "tall", 23.25, 0.75, 25.5);
+    const rightPanel = place("right-panel", "REPV2496", "tall", 60.5, 0.75, 25.5);
+    const rightBase = place("right-base", "B24", "base", 61.25, 24, 24);
+
+    expect(countertopSurfaces([leftBase, fridge, leftPanel, rightPanel, rightBase], room)).toMatchObject([
+      { customWallId: wall.id, customWallRunStartIn: 0, linearInches: 24 },
+      { customWallId: wall.id, customWallRunStartIn: 61.25, linearInches: 24 },
+    ]);
+  });
 });

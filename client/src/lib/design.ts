@@ -465,8 +465,19 @@ export type DecorativeEndTreatment = "none" | "left" | "right" | "both";
 /** Horizontal position of the visible pull or knob on a placed cabinet front. */
 export type CabinetHardwarePosition = "auto" | "left" | "center" | "right" | "paired" | "top-center";
 
-export type RefrigeratorAssemblyRole = "bridge" | "left-panel" | "right-panel";
+export type RefrigeratorAssemblyRole =
+  | "bridge"
+  | "bridge-left-filler"
+  | "bridge-right-filler"
+  | "left-panel"
+  | "right-panel";
 export type RefrigeratorPanelMode = "left" | "right" | "both" | "none";
+/**
+ * The appliance manufacturer requires one half inch of installation clearance
+ * at either side of a refrigerator.  This is a physical opening dimension, not
+ * a camera/rendering allowance and therefore belongs in the shared plan model.
+ */
+export const REFRIGERATOR_SIDE_CLEARANCE_IN = 0.5;
 export type IslandFace = "front" | "back" | "left" | "right";
 /** Floor treatment for a shallow wall cabinet intentionally used as an island face. */
 export type IslandWallCabinetBaseTreatment = "toe-kick" | "base-molding";
@@ -6357,6 +6368,35 @@ export function isRefrigeratorWallCabinet(p: Pick<PlacedCabinet, "masterCode" | 
   return /^WR\d{4}$/.test(code) || /^RW[-\d]/.test(code) || /refrigerator\s*(wall|bridge|cabinet|upper)/.test(description);
 }
 
+/**
+ * The single source of truth for a refrigerator bay on any wall type.  The
+ * refrigerator itself remains its source-sized appliance.  The clear opening is
+ * one half inch wider at each side; finished panels sit outside that opening.
+ * Every placement, move, recovery, dimension display, and countertop break uses
+ * these measured run-axis values instead of an image or Three.js envelope.
+ */
+export function refrigeratorBayRunMetrics(
+  refrigerator: PlacedCabinet,
+  room: RoomData,
+) {
+  const side = cabinetWall(refrigerator, room);
+  const refrigeratorStart = wallRunOffset(refrigerator, side, room);
+  const refrigeratorWidth = wallRunSpan(refrigerator, side, room);
+  const refrigeratorEnd = refrigeratorStart + refrigeratorWidth;
+  const openingStart = refrigeratorStart - REFRIGERATOR_SIDE_CLEARANCE_IN;
+  const openingEnd = refrigeratorEnd + REFRIGERATOR_SIDE_CLEARANCE_IN;
+  return {
+    side,
+    refrigeratorStart,
+    refrigeratorEnd,
+    refrigeratorWidth,
+    refrigeratorCenter: refrigeratorStart + refrigeratorWidth / 2,
+    openingStart,
+    openingEnd,
+    openingWidth: refrigeratorWidth + REFRIGERATOR_SIDE_CLEARANCE_IN * 2,
+  };
+}
+
 export function refrigeratorAssemblyMemberRole(
   member: PlacedCabinet,
   refrigerator: PlacedCabinet,
@@ -6475,15 +6515,15 @@ export function reconcileRefrigeratorAssemblies(
   for (const refrigeratorUid of reconciled.filter(isRefrigerator).map((item) => item.uid)) {
     const refrigerator = reconciled.find((item) => item.uid === refrigeratorUid);
     if (!refrigerator) continue;
-    const side = cabinetWall(refrigerator, enclosure);
-    const refrigeratorStart = wallRunOffset(refrigerator, side, enclosure);
-    const refrigeratorSpan = wallRunSpan(refrigerator, side, enclosure);
+    const metrics = refrigeratorBayRunMetrics(refrigerator, enclosure);
+    const { side, refrigeratorStart, refrigeratorWidth: refrigeratorSpan } = metrics;
     const members = reconciled.flatMap((member) => {
       if (member.uid === refrigerator.uid) return [];
       const role = refrigeratorAssemblyMemberRole(member, refrigerator, enclosure);
       return role ? [{ member, role }] : [];
     });
     const bridge = members.find(({ role }) => role === "bridge")?.member;
+    const bridgeFillers = members.filter(({ role }) => role === "bridge-left-filler" || role === "bridge-right-filler");
     const panels = members.filter(({ role }) => role === "left-panel" || role === "right-panel");
 	    // A legacy refrigerator with a dedicated upper was authored as a built-in
 	    // enclosure. Earlier saves could lose one or both panel placements while
@@ -6507,6 +6547,7 @@ export function reconcileRefrigeratorAssemblies(
               : "none");
     const desiredRoles = new Set<RefrigeratorAssemblyRole>([
       ...(bridge ? ["bridge" as const] : []),
+      ...bridgeFillers.map(({ role }) => role),
       ...(requestedMode === "left" || requestedMode === "both" ? ["left-panel" as const] : []),
       ...(requestedMode === "right" || requestedMode === "both" ? ["right-panel" as const] : []),
     ]);
@@ -6534,9 +6575,13 @@ export function reconcileRefrigeratorAssemblies(
           })();
       const along = role === "bridge"
         ? refrigeratorStart + (refrigeratorSpan - memberSpan) / 2
+        : role === "bridge-left-filler"
+          ? metrics.openingStart
+        : role === "bridge-right-filler"
+          ? metrics.refrigeratorEnd
         : role === "left-panel"
-          ? refrigeratorStart - memberSpan
-          : refrigeratorStart + refrigeratorSpan;
+          ? metrics.openingStart - memberSpan
+          : metrics.openingEnd;
       const spot = wallPlacementAt(along, memberSpan, memberDepth, side, enclosure);
       assemblyMembers.push({
         ...member,
@@ -8960,6 +9005,8 @@ export interface CountertopSurface {
   ponyWallBackExtensionIn?: number;
   /** Measured continuous wall that owns this cabinet-supported countertop piece. */
   customWallId?: string;
+	/** Stable physical cabinet run represented by this single countertop piece. */
+	cabinetRunId?: string;
   /** Along-wall start for a measured continuous-wall countertop piece. */
   customWallRunStartIn?: number;
   /** Exact continuous-wall IDs joined by a physical countertop miter bridge. */
@@ -9828,8 +9875,9 @@ function unionCountertopSurfacesAtSharedMiterVertex(
 /**
  * A 45° peninsula return is one fabricated countertop path, not a second
  * floating countertop. Miter first, then fold every touching segment of each
- * 45° assembly into one concave Plan polygon. A 90° return stays as its two
- * cleanly mitered fabricated pieces, matching the existing trade convention.
+ * connected return assembly into one cabinet-supported Plan polygon. This
+ * applies to both 45° seams and ordinary 90° turns: a room run is not a new
+ * countertop simply because it changes direction.
  */
 export function unifiedFortyFivePeninsulaCountertopSurfaces(
   surfaces: CountertopSurface[],
@@ -9839,13 +9887,13 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
     ...surface,
     polygon: surface.polygon?.map((point) => ({ ...point })),
   }));
-  const rootsWithFortyFiveReturns = new Set<string>();
-  for (const run of room.peninsulaRuns ?? []) {
-    if (!run.parentRunId || run.turn !== 45) continue;
-    rootsWithFortyFiveReturns.add(peninsulaRootRunId(run, room));
-  }
+	  const rootsWithConnectedReturns = new Set<string>();
+	  for (const run of room.peninsulaRuns ?? []) {
+	    if (!run.parentRunId || (run.turn !== 45 && run.turn !== 90)) continue;
+	    rootsWithConnectedReturns.add(peninsulaRootRunId(run, room));
+	  }
 
-  for (const rootRunId of Array.from(rootsWithFortyFiveReturns)) {
+	  for (const rootRunId of Array.from(rootsWithConnectedReturns)) {
     let merged = true;
     while (merged) {
       merged = false;
@@ -9890,7 +9938,7 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
       .map((id) => room.peninsulaRuns?.find((candidate) => candidate.id === id))
       .find((run): run is PeninsulaRun => Boolean(run));
     const rootRunId = firstRun ? peninsulaRootRunId(firstRun, room) : undefined;
-    if (!rootRunId || !rootsWithFortyFiveReturns.has(rootRunId)) return surface;
+	    if (!rootRunId || !rootsWithConnectedReturns.has(rootRunId)) return surface;
     const terminal = (room.peninsulaRuns ?? []).find((run) => (
       peninsulaRootRunId(run, room) === rootRunId
       && !(room.peninsulaRuns ?? []).some((candidate) => candidate.parentRunId === run.id)
@@ -10470,6 +10518,98 @@ export function miteredMeasuredWallCountertopSurfaces(
   return resolved;
 }
 
+/**
+ * Base countertops are built from physical cabinet runs—not one rectangle per
+ * cabinet. Contiguous support on a wall becomes one surface before the 45° miter
+ * stage, so Plan, 3D and takeoff share the exact same slab count and footprint.
+ * A tall unit, refrigerator bay, appliance break, or real gap has no supporting
+ * surface and therefore ends the run without special-case position patches.
+ */
+function mergeContiguousBaseCountertopRuns(
+  surfaces: CountertopSurface[],
+  room: RoomData,
+): CountertopSurface[] {
+  const tolerance = 1 / 16;
+  const merged: CountertopSurface[] = [];
+  const consumed = new Set<number>();
+  const groups = new Map<string, Array<{ index: number; surface: CountertopSurface; start: number; span: number }>>();
+  const cardinalSideFor = (surface: CountertopSurface): WallSide | null => {
+    if (surface.customWallId || surface.rotation) return null;
+    if (Math.abs(surface.y) <= tolerance) return "top";
+    if (Math.abs(surface.y + surface.depth - room.depth) <= tolerance) return "bottom";
+    if (Math.abs(surface.x) <= tolerance) return "left";
+    if (Math.abs(surface.x + surface.width - room.width) <= tolerance) return "right";
+    return null;
+  };
+  surfaces.forEach((surface, index) => {
+    if (surface.kind !== "base" || surface.polygon?.length || surface.peninsulaRunId) return;
+    const customWall = surface.customWallId;
+    const side = customWall ? null : cardinalSideFor(surface);
+    if (!customWall && !side) return;
+    const key = customWall ? `custom:${customWall}` : `wall:${side}`;
+    const start = customWall
+      ? Number(surface.customWallRunStartIn ?? Number.NaN)
+      : side === "top" || side === "bottom" ? surface.x : surface.y;
+    const span = customWall
+      ? Number(surface.linearInches ?? surface.width)
+      : side === "top" || side === "bottom" ? surface.width : surface.depth;
+    if (!Number.isFinite(start) || !Number.isFinite(span) || span <= 0) return;
+    const entries = groups.get(key) ?? [];
+    entries.push({ index, surface, start, span });
+    groups.set(key, entries);
+  });
+  groups.forEach((entries, key) => {
+    entries.sort((left, right) => left.start - right.start || left.index - right.index);
+    let cursor = 0;
+    while (cursor < entries.length) {
+      const first = entries[cursor]!;
+      const start = first.start;
+      let end = first.start + first.span;
+      const depth = first.surface.depth;
+      const members = [first];
+      cursor += 1;
+      while (cursor < entries.length) {
+        const next = entries[cursor]!;
+        if (next.start > end + tolerance || Math.abs(next.surface.depth - depth) > tolerance) break;
+        end = Math.max(end, next.start + next.span);
+        members.push(next);
+        cursor += 1;
+      }
+      members.forEach(({ index }) => consumed.add(index));
+      const span = end - start;
+      const runId = `${key}:${Math.round(start * 16) / 16}-${Math.round(end * 16) / 16}`;
+      const customWallId = first.surface.customWallId;
+      if (customWallId) {
+        const spot = wallPlacementAt(start, span, depth, customWallId as WallSide, room);
+        const radians = spot.rotation * Math.PI / 180;
+        const aabbWidth = Math.abs(span * Math.cos(radians)) + Math.abs(depth * Math.sin(radians));
+        const aabbDepth = Math.abs(span * Math.sin(radians)) + Math.abs(depth * Math.cos(radians));
+        const centerX = spot.x + aabbWidth / 2;
+        const centerY = spot.y + aabbDepth / 2;
+        merged.push({
+          ...first.surface,
+          x: centerX - span / 2,
+          y: centerY - depth / 2,
+          width: span,
+          depth,
+          rotation: spot.rotation,
+          customWallRunStartIn: start,
+          linearInches: span,
+          areaInches: span * depth,
+          cabinetRunId: runId,
+        });
+        continue;
+      }
+      const side = key.slice("wall:".length) as WallSide;
+      if (side === "top") merged.push({ ...first.surface, x: start, y: 0, width: span, depth, linearInches: span, areaInches: span * depth, cabinetRunId: runId });
+      else if (side === "bottom") merged.push({ ...first.surface, x: start, y: room.depth - depth, width: span, depth, linearInches: span, areaInches: span * depth, cabinetRunId: runId });
+      else if (side === "left") merged.push({ ...first.surface, x: 0, y: start, width: depth, depth: span, linearInches: span, areaInches: span * depth, cabinetRunId: runId });
+      else merged.push({ ...first.surface, x: room.width - depth, y: start, width: depth, depth: span, linearInches: span, areaInches: span * depth, cabinetRunId: runId });
+    }
+  });
+  return [...surfaces.filter((_, index) => !consumed.has(index)), ...merged];
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -10593,6 +10733,10 @@ export function countertopSurfaces(
       out.push({ x: room.width - D - rearExtension, y: Math.max(0, y), width: D + rearExtension, depth: runSpan + cornerGap, kind: "base" });
     }
   }
+  // First collapse cabinet-by-cabinet support into one physical top per
+  // contiguous run. Refrigerator bays and appliance gaps have no support, so
+  // they remain explicit breaks rather than receiving an accidental bridge slab.
+  out.splice(0, out.length, ...mergeContiguousBaseCountertopRuns(out, room));
   // Continuous-wall 45-degree returns use the same two miter-cut slab rule as
   // peninsula returns. Both cabinet-supported pieces meet at one physical seam;
   // do not add a third, decorative bridge triangle over the cabinet geometry.

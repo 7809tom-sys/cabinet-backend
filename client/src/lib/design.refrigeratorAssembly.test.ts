@@ -7,6 +7,7 @@ import {
   missingRefrigeratorPanelRoles,
   normalizeRefrigeratorBayUppers,
 	 refrigeratorAssemblyMemberRole,
+	 refrigeratorBayRunMetrics,
   type PlacedCabinet,
   type RoomData,
 	wallPlacementAt,
@@ -74,6 +75,18 @@ function backWallLegacyAssembly(withNeighbor = false) {
 }
 
 describe("refrigerator assembly reconciliation", () => {
+	 it("uses the source refrigerator width plus half-inch clearance at both panel sides", () => {
+	   const fridge = backWallLegacyAssembly()[0]!;
+	   const metrics = refrigeratorBayRunMetrics(fridge, room);
+	   expect(metrics).toMatchObject({
+	     refrigeratorWidth: 36,
+	     openingWidth: 37,
+	     refrigeratorCenter: 42,
+	     openingStart: 23.5,
+	     openingEnd: 60.5,
+	   });
+	 });
+
 	 it("recovers both source-backed side panels when a standard full-width upper is installed at the 72-inch refrigerator datum", () => {
 	   const fridge = item({
 	     uid: "generic-cap-fridge",
@@ -146,8 +159,8 @@ describe("refrigerator assembly reconciliation", () => {
 
     expect(fridge.refrigeratorPanelMode).toBe("both");
     expect(bridge).toMatchObject({ x: 24, y: 0, width: 36, mountBottom: 72, refrigeratorAssemblyId: "fridge" });
-    expect(leftPanel).toMatchObject({ x: 23.25, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
-    expect(rightPanel).toMatchObject({ x: 60, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
+    expect(leftPanel).toMatchObject({ x: 22.75, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
+    expect(rightPanel).toMatchObject({ x: 60.5, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
     expect(new Set([leftPanel.uid, rightPanel.uid]).size).toBe(2);
     expect(hasCollision(bridge, normalized.filter((entry) => entry.uid !== bridge.uid))).toBe(false);
   });
@@ -169,10 +182,10 @@ describe("refrigerator assembly reconciliation", () => {
   it("shifts the complete enclosure together to retain the restored left panel without moving an earlier neighbor", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(true), room);
     expect(normalized.find((entry) => entry.uid === "neighbor")).toMatchObject({ x: 0, width: 24 });
-    expect(normalized.find((entry) => entry.uid === "fridge")).toMatchObject({ x: 24.75 });
-    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 24.75 });
+    expect(normalized.find((entry) => entry.uid === "fridge")).toMatchObject({ x: 25.25 });
+    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 25.25 });
     expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 24 });
-    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 60.75 });
+    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 61.75 });
   });
 
   it("creates panel space when a refrigerator is between touching cabinet columns", () => {
@@ -301,8 +314,8 @@ describe("refrigerator assembly reconciliation", () => {
     });
     const normalized = normalizeRefrigeratorBayUppers([fridge, bridge, panel("right-left", "left-panel"), panel("right-right", "right-panel")], room);
     expect(normalized.find((entry) => entry.uid === "right-bridge")).toMatchObject({ x: 120, y: 24, mountBottom: 72 });
-    expect(normalized.find((entry) => entry.uid === "right-left")).toMatchObject({ x: 114, y: 23.25 });
-    expect(normalized.find((entry) => entry.uid === "right-right")).toMatchObject({ x: 114, y: 60 });
+    expect(normalized.find((entry) => entry.uid === "right-left")).toMatchObject({ x: 114, y: 22.75 });
+    expect(normalized.find((entry) => entry.uid === "right-right")).toMatchObject({ x: 114, y: 60.5 });
   });
 
   it("keeps assembly ownership and roles through saved-design JSON serialization", () => {
@@ -322,8 +335,8 @@ describe("refrigerator assembly reconciliation", () => {
     const moved = commitRefrigeratorAssemblyCandidate(normalized, fridge.uid, { ...fridge, x: 40 }, room)!;
     expect(moved.find((entry) => entry.uid === fridge.uid)).toMatchObject({ x: 40 });
     expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 40 });
-    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 39.25 });
-    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 76 });
+    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 38.75 });
+    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 76.5 });
   });
 
   it("keeps a 36-inch diagonal-wall refrigerator bridge centered and retains both end panels", () => {

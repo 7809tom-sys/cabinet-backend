@@ -104,7 +104,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
-	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, missingRefrigeratorPanelRoles, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
+	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, refrigeratorBayRunMetrics, missingRefrigeratorPanelRoles, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 	  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -5364,6 +5364,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
       // Refrigerator dialog
       if (isRefrigerator(finalCab)) {
+	      // A selected source style is required for real priced panels, cap, and
+	      // fillers. Without it, keep the explicit configuration dialog visible
+	      // rather than hiding a refrigerator in a pending automatic state.
+        if (styleId) setAutoRefrigeratorBayUid(finalCab.uid);
         setFridgeDialog({ fridgeUid: finalCab.uid });
       }
       // Oven tall cabinet dialog
@@ -6410,6 +6414,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
 	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
+	  // A directly placed refrigerator receives its source-backed cap and both
+	  // end panels immediately. The dialog remains available for intentional
+	  // reconfiguration, but a normal refrigerator drop is one physical bay.
+	  const [autoRefrigeratorBayUid, setAutoRefrigeratorBayUid] = useState<string | null>(null);
+	  const [refrigeratorBayDeletePrompt, setRefrigeratorBayDeletePrompt] = useState<{ fridgeUid: string; memberCount: number } | null>(null);
 	  const [pendingRefrigeratorPanelToggle, setPendingRefrigeratorPanelToggle] = useState<{ fridgeUid: string; enabled: boolean } | null>(null);
 	  const refrigeratorPanelRepairAttemptedRef = useRef(new Set<string>());
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
@@ -6596,13 +6605,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         configuredFridge = resizedFridge;
       }
       configuredFridge = { ...configuredFridge, refrigeratorPanelMode: opts.panels };
-      const side = cabinetWall(configuredFridge, room);
+      const bay = refrigeratorBayRunMetrics(configuredFridge, room);
+      const side = bay.side;
       const fp = placedFootprint(configuredFridge);
       // A custom/continuous wall can be diagonal.  X/Y is therefore only a plan
       // coordinate, never a valid refrigerator run measurement.  All surround
       // pieces must use the persisted wall offset that owns this refrigerator.
-      const fridgeStart = wallRunOffset(configuredFridge, side, room);
-      const fw = wallRunSpan(configuredFridge, side, room);
+      const fridgeStart = bay.refrigeratorStart;
+      const fw = bay.refrigeratorWidth;
       const fd = isCustomRoomWall(room, side) || peninsulaRunById(room, side)
         ? Math.max(0, Number(configuredFridge.depth) || 0)
         : fp.d;
@@ -6686,10 +6696,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             : pickByWidth(src, fw);
         }
         if (chosen) {
-          // A diagonal/custom wall's plan bounding box is wider than the actual
-          // cabinet run. The over-fridge cabinet must follow the refrigerator's
-          // measured run span, not that rotated bounding-box width.
-          const aWidth = (opts.bridgeWidth && opts.bridgeWidth > 0) ? opts.bridgeWidth : fw;
+          // The cap itself remains a real catalog box. The finished opening is
+          // the refrigerator plus 1/2" on each side, so a stock 36" cap over a
+          // 36" appliance is centered and any remainder uses real wall fillers.
+          const sourceDimensions = wallCabinetSkuDimensions(chosen.masterCode);
+          const aWidth = sourceDimensions?.width ?? (parseFloat(String(chosen.width ?? "")) || fw);
+          if (aWidth > bay.openingWidth + COLLISION_EPSILON_IN) {
+            const message = `${chosen.masterCode} is wider than the ${formatEighthInches(bay.openingWidth)} refrigerator opening. Choose a source cabinet that fits the opening.`;
+            setPlacementWarning(message);
+            toast.error(message);
+            return;
+          }
           const isDeep = opts.above === "deep";
           // Deep refrigerator/corner upper: project 27" and step UP 6" taller
           // than a standard wall cabinet for the staggered built-in look. The
@@ -6740,36 +6757,72 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             // intentionally not top-aligned with a neighboring tall cabinet.
             mountBottom,
           });
+          const remainingOpening = Math.max(0, bay.openingWidth - aWidth);
+          if (remainingOpening > COLLISION_EPSILON_IN) {
+            const eachFillerWidth = remainingOpening / 2;
+            const filler = catalogFillerForGap(catalogFillers, eachFillerWidth, "wall");
+            if (!filler) {
+              const message = `No source-priced wall filler can close the ${formatEighthInches(eachFillerWidth)} refrigerator-cap gap on each side.`;
+              setPlacementWarning(message);
+              toast.error(message);
+              return;
+            }
+            const addCapFiller = (role: "bridge-left-filler" | "bridge-right-filler", along: number) => {
+              const fillerSpot = wallPlacementAt(along, eachFillerWidth, aDepth, side, room);
+              toPlace.push({
+                uid: makeUid(),
+                cabinetId: filler.id,
+                masterCode: filler.masterCode,
+                description: fittedCatalogFillerDescription(filler, eachFillerWidth),
+                category: filler.category ?? null,
+                subCategory: filler.subCategory ?? "Filler",
+                placement: "wall",
+                x: fillerSpot.x,
+                y: fillerSpot.y,
+                width: eachFillerWidth,
+                depth: aDepth,
+                height: aHeight,
+                rotation: fillerSpot.rotation,
+                numberOfDoors: 0,
+                numberOfDrawers: 0,
+                catalogImageUrl: filler.catalogImageUrl ?? null,
+                styleId: styleIdRef.current ?? null,
+                refrigeratorAssemblyId: fridge.uid,
+                refrigeratorAssemblyRole: role,
+                mountBottom,
+              });
+            };
+            addCapFiller("bridge-left-filler", bay.openingStart);
+            addCapFiller("bridge-right-filler", bay.refrigeratorEnd);
+          }
         }
       }
 
-      // 2) Refrigerator END PANELS: tall/deep panels flush to the fridge L/R edge.
-      // Use the user-selected panel id if provided, otherwise fall back to best-width match.
-      // If the catalog has no matching panel, create a synthetic placeholder so the panel
-      // always appears in the drawing with the correct dimensions.
-      const syntheticPanelHeight = opts.panelHeight && opts.panelHeight > 0
-        ? opts.panelHeight
-        : refrigeratorSurroundTop;
-      const panelRow: DesignCabinet = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? {
-        id: 0,
-        masterCode: `PANEL-${syntheticPanelHeight}`,
-        description: `Refrigerator End Panel ${syntheticPanelHeight}"H`,
-        category: "Panel",
-        subCategory: null,
-        width: "0.75",
-        height: String(syntheticPanelHeight),
-        depth: "0.75",
-        numberOfDoors: null,
-        numberOfDrawers: null,
-        isCornerCabinet: false,
-        catalogImageUrl: null,
-      };
+      // 2) Refrigerator END PANELS: tall/deep panels outside the measured
+      // refrigerator opening. Every panel must retain a source-backed SKU and
+      // price; a visual-only synthetic part is never permitted in the bay.
+      const panelRow = pickById(surround.endPanels, opts.endPanelId, fd) ?? surround.endPanels?.[0] ?? null;
+      if (opts.panels !== "none" && !panelRow) {
+        const message = "No source-priced refrigerator end panel is available for this door style, so the refrigerator bay was not completed.";
+        setPlacementWarning(message);
+        toast.error(message);
+        return;
+      }
       const placePanel = (leftEdge: boolean) => {
-        // pDepth: use user-chosen panel depth when provided; otherwise match the fridge depth.
-        const pDepth = (opts.panelDepth && opts.panelDepth > 0) ? opts.panelDepth : fd;
+        // Use the verified panel sheet depth. Some supplier rows put the 24"
+        // sheet depth in `width`; other rows use `depth`. Do not use a rendered
+        // refrigerator bounding box as a substitute for either source value.
+        const rawPanelWidth = dim(panelRow!.width, 0);
+        const rawPanelDepth = dim(panelRow!.depth, 0);
+        const sourcePanelDepth = rawPanelDepth > 3 ? rawPanelDepth : rawPanelWidth > 3 ? rawPanelWidth : 0;
+        const pDepth = (opts.panelDepth && opts.panelDepth > 0)
+          ? opts.panelDepth
+          : sourcePanelDepth > 0
+            ? sourcePanelDepth
+            : STD.BASE_DEPTH + 1.5;
         // Infer dimensions from masterCode when catalog values are null
         // (style-prefixed variants like "ANTIQUE WHITE-S2496" often lack stored dims).
-        const code = (panelRow.masterCode ?? "").toUpperCase();
+        const code = (panelRow!.masterCode ?? "").toUpperCase();
         const inferredHeight = code.includes("S2496") || code.includes("REPV") || code.includes("TDEP") ? 96
           : code.includes("S3696") ? 96 : 96;
         const inferredDepth = (code.includes("REPV") || code.includes("S2496") || code.includes("S3696")) ? 0.75 : 0.75;
@@ -6777,7 +6830,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // panels where width=1.5" is the thickness and depth=24" is the floor depth).
         // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
         // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
-        const pThick = refrigeratorEndPanelThickness(panelRow.width, inferredDepth);
+        const pThick = refrigeratorEndPanelThickness(panelRow!.width, inferredDepth);
         // End panels must finish at the same cap as the dedicated refrigerator
         // cabinet, not at the 70" appliance top. This gives a finished full-height
         // enclosure while preserving the 2" clearance beneath the upper cabinet.
@@ -6792,16 +6845,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // enclosure into the room; clamping only this panel to zero would place it
         // inside the refrigerator footprint and make it appear missing.
         let along: number;
-        along = leftEdge ? fridgeStart - pThick : fridgeStart + fw;
+        along = leftEdge ? bay.openingStart - pThick : bay.openingEnd;
         // Preserve the negative start-side offset until the enclosure fitter can
         // move the refrigerator, bridge, and both panels together into the run.
         // The clamped helper would turn this into an overlapping panel at zero.
         const spot = wallPlacementAtUnbounded(along, pThick, pDepth, side, room);
         toPlace.push({
           uid: makeUid(),
-          cabinetId: panelRow.id,
-          masterCode: panelRow.masterCode,
-          description: panelRow.description ?? `Refrigerator End Panel ${pHeight}"H`,
+          cabinetId: panelRow!.id,
+          masterCode: panelRow!.masterCode,
+          description: panelRow!.description ?? `Refrigerator End Panel ${pHeight}"H`,
           category: "Panel",
           subCategory: "Refrigerator End Panel",
           placement: "tall",
@@ -6817,7 +6870,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           // Refrigerator end panels are full-height architectural panels. They
           // always begin on the floor, regardless of a neighboring base cabinet.
           mountBottom: 0,
-          catalogImageUrl: panelRow.catalogImageUrl ?? null,
+          catalogImageUrl: panelRow!.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
           refrigeratorAssemblyId: fridge.uid,
           refrigeratorAssemblyRole: leftEdge ? "left-panel" : "right-panel",
@@ -6880,7 +6933,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
       setFridgeDialog(null);
     },
-	    [fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
+	    [catalogFillers, fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
 	  );
 
 	  const setRefrigeratorSidePanels = useCallback((fridgeUid: string, enabled: boolean) => {
@@ -6896,6 +6949,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    setPendingRefrigeratorPanelToggle({ fridgeUid, enabled });
 	    setFridgeDialog({ fridgeUid });
 	  }, [styleId]);
+
+	  useEffect(() => {
+	    if (!autoRefrigeratorBayUid || !fridgeForDialog || fridgeForDialog.uid !== autoRefrigeratorBayUid || !fridgeSurround) return;
+	    // The resolver already gates every returned row to the selected source
+	    // style. Build exactly one deep, full-height refrigerator bay rather than
+	    // dropping visually related loose pieces at separate coordinates.
+	    setAutoRefrigeratorBayUid(null);
+	    applyFridgeSurround({ above: "deep", panels: "both", smooth: false });
+	  }, [applyFridgeSurround, autoRefrigeratorBayUid, fridgeForDialog, fridgeSurround]);
 
 	  useEffect(() => {
 	    const pending = pendingRefrigeratorPanelToggle;
@@ -8114,9 +8176,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSmallGapFillerPrompt(null);
   }, [deleteAttachedSinkFixtures, island]);
 
-  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
-    removeCabinetsAndReleaseVoid([uid]);
-  }, [removeCabinetsAndReleaseVoid]);
+	  const removeCabinetAndReleaseVoid = useCallback((uid: string) => {
+	    removeCabinetsAndReleaseVoid([uid]);
+	  }, [removeCabinetsAndReleaseVoid]);
+
+	  const requestCabinetDeletion = useCallback((uid: string) => {
+	    const target = placedRef.current.find((cabinet) => cabinet.uid === uid);
+	    if (!target) return;
+	    if (isRefrigerator(target)) {
+	      const members = placedRef.current.filter((cabinet) => cabinet.uid !== uid && refrigeratorAssemblyMemberRole(cabinet, target, room));
+	      if (members.length > 0) {
+	        setRefrigeratorBayDeletePrompt({ fridgeUid: uid, memberCount: members.length });
+	        return;
+	      }
+	    }
+	    removeCabinetAndReleaseVoid(uid);
+	  }, [removeCabinetAndReleaseVoid, room]);
 
   const unlockCornerSnap = useCallback((uid: string) => {
     if (cabinetsLocked) {
@@ -8149,7 +8224,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // removable from the same Delete control (mobile toolbar + Delete/Backspace key).
     if (selectedUid) {
       if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
-      removeCabinetAndReleaseVoid(selectedUid);
+	      requestCabinetDeletion(selectedUid);
       return;
     }
     if (selectedSinkUid) {
@@ -9321,8 +9396,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // cabinet can always be removed regardless of category/placement or how it
   // was selected.
   const deleteCabinet = useCallback((uid: string) => {
-    removeCabinetAndReleaseVoid(uid);
-  }, [removeCabinetAndReleaseVoid]);
+    requestCabinetDeletion(uid);
+  }, [requestCabinetDeletion]);
 
   // Rotate a specific cabinet by uid (used by the on-canvas rotate handle so a
   // touch user can turn any cabinet they tap, not just via the toolbar/keyboard).
@@ -15812,7 +15887,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
       {/* Refrigerator Options: opens right after a fridge is dropped */}
 	      <RefrigeratorOptionsDialog
-	        open={!!fridgeDialog && !pendingRefrigeratorPanelToggle}
+	        open={!!fridgeDialog && !pendingRefrigeratorPanelToggle && !autoRefrigeratorBayUid}
         onOpenChange={(o) => { if (!o) setFridgeDialog(null); }}
         fridgeWidthInches={fridgeForDialog
           ? wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room)
@@ -15822,10 +15897,40 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}
         onApply={applyFridgeSurround}
-        onSkip={() => setFridgeDialog(null)}
-      />
+	        onSkip={() => setFridgeDialog(null)}
+	      />
 
-      {/* Sink Base Top Dialog: opens when a sink base cabinet is placed */}
+	      <AlertDialog open={refrigeratorBayDeletePrompt != null} onOpenChange={(open) => { if (!open) setRefrigeratorBayDeletePrompt(null); }}>
+	        <AlertDialogContent>
+	          <AlertDialogHeader>
+	            <AlertDialogTitle>Delete the complete refrigerator bay?</AlertDialogTitle>
+	            <AlertDialogDescription>
+	              This refrigerator owns {refrigeratorBayDeletePrompt?.memberCount ?? 0} surrounding piece{refrigeratorBayDeletePrompt?.memberCount === 1 ? "" : "s"}—its end panels, cabinet above, and any source-priced cap fillers. Delete all of them together, or keep the bay unchanged.
+	            </AlertDialogDescription>
+	          </AlertDialogHeader>
+	          <AlertDialogFooter>
+	            <AlertDialogCancel>Keep refrigerator bay</AlertDialogCancel>
+	            <AlertDialogAction
+	              data-testid="confirm-delete-refrigerator-bay"
+	              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+	              onClick={() => {
+	                const fridgeUid = refrigeratorBayDeletePrompt?.fridgeUid;
+	                const refrigerator = fridgeUid ? placedRef.current.find((cabinet) => cabinet.uid === fridgeUid) : null;
+	                if (refrigerator) {
+	                  const uids = placedRef.current
+	                    .filter((cabinet) => cabinet.uid === refrigerator.uid || refrigeratorAssemblyMemberRole(cabinet, refrigerator, room))
+	                    .map((cabinet) => cabinet.uid);
+	                  removeCabinetsAndReleaseVoid(uids, true);
+	                  toast.success("Refrigerator, end panels, cap cabinet, and its fitted fillers were removed together.");
+	                }
+	                setRefrigeratorBayDeletePrompt(null);
+	              }}
+	            >Delete refrigerator bay</AlertDialogAction>
+	          </AlertDialogFooter>
+	        </AlertDialogContent>
+	      </AlertDialog>
+
+	      {/* Sink Base Top Dialog: opens when a sink base cabinet is placed */}
       {sinkBaseDialog && (() => {
         const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
           id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;

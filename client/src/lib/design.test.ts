@@ -1971,16 +1971,29 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([filler], ROOM_12x10)).toHaveLength(0);
   });
 
-  it("continues the countertop over both physical pieces of a confirmed split base filler", () => {
+	it("continues the countertop over both physical pieces of a confirmed split base filler", () => {
     const left = cab({ uid: "fill-left", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 24, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
     const right = cab({ uid: "fill-right", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 40.25, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
     expect(countertopSurfaces([left, right], ROOM_12x10)).toMatchObject([
       { x: 24, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
       { x: 40.25, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
     ]);
-  });
+	});
 
-  it("pins a front-wall slab to the bottom of the room", () => {
+	it("merges touching bases into one countertop per run and stops at refrigerator bay panels", () => {
+	  const leftA = cab({ uid: "left-a", masterCode: "B24", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+	  const leftB = cab({ uid: "left-b", masterCode: "B30", placement: "base", width: 30, depth: 24, x: 24, y: 0 });
+	  const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", width: 36, depth: 24, x: 54, y: 0 });
+	  const leftPanel = cab({ uid: "fridge-left-panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", width: 0.75, depth: 25.5, x: 53.25, y: 0, refrigeratorAssemblyId: "fridge", refrigeratorAssemblyRole: "left-panel" });
+	  const rightPanel = cab({ uid: "fridge-right-panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", width: 0.75, depth: 25.5, x: 90.5, y: 0, refrigeratorAssemblyId: "fridge", refrigeratorAssemblyRole: "right-panel" });
+	  const right = cab({ uid: "right", masterCode: "B24", placement: "base", width: 24, depth: 24, x: 91.25, y: 0 });
+	  expect(countertopSurfaces([leftA, leftB, refrigerator, leftPanel, rightPanel, right], ROOM_12x10)).toMatchObject([
+	    { x: 0, y: 0, width: 54, depth: CT_DEPTH, cabinetRunId: "wall:top:0-54" },
+	    { x: 91.25, y: 0, width: 24, depth: CT_DEPTH, cabinetRunId: "wall:top:91.25-115.25" },
+	  ]);
+	});
+
+	it("pins a front-wall slab to the bottom of the room", () => {
     const front = cab({ placement: "base", width: 24, depth: 24, x: 10, y: 96 });
     const [s] = countertopSurfaces([front], ROOM_12x10);
     expect(s.y).toBe(ROOM_12x10.depth - CT_DEPTH);
@@ -2042,8 +2055,22 @@ describe("countertopSurfaces", () => {
     // its full cabinet-supported footprint must survive the shared 45° union.
     expect(polygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
     expect(countertopPolygonSelfIntersects(polygon)).toBe(false);
-    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
-  });
+	    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
+	  });
+
+	  it("makes a single cabinet-supported countertop outline through a 90-degree return", () => {
+	    const parent = { id: "square-counter-parent", parentWall: "top" as const, startOffset: 72, turn: 90 as const, direction: "right" as const, length: 48, height: 34.5, cabinetSide: "right" as const };
+	    const child = { id: "square-counter-child", parentRunId: parent.id, startOffset: 0, turn: 90 as const, direction: "left" as const, length: 36, height: 34.5, cabinetSide: "right" as const };
+	    const room: RoomData = { ...ROOM_12x10, peninsulaRuns: [parent, child] };
+	    const parentSpot = wallPlacementAt(12, 36, 24, parent.id as never, room, "right");
+	    const childSpot = wallPlacementAt(0, 24, 24, child.id as never, room, "right");
+	    const parentBase = cab({ uid: "square-parent-base", masterCode: "B36", description: "36 inch Base Cabinet", placement: "base", ...parentSpot, width: 36, depth: 24, height: 34.5, wallId: parent.id, wallOffset: 12 });
+	    const childBase = cab({ uid: "square-child-base", masterCode: "B24", description: "24 inch Base Cabinet", placement: "base", ...childSpot, width: 24, depth: 24, height: 34.5, wallId: child.id, wallOffset: 0 });
+	    const surfaces = countertopSurfaces([parentBase, childBase], room);
+	    expect(surfaces).toHaveLength(1);
+	    expect(surfaces[0]).toMatchObject({ kind: "base", peninsulaRunId: parent.id, peninsulaRunIds: [parent.id, child.id] });
+	    expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surfaces[0]!))).toBe(false);
+	  });
 });
 
 describe("bearsCountertop", () => {
@@ -3712,8 +3739,8 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalized = normalizeRefrigeratorBayUppers([fridge, bridge, left, right], room);
     const byUid = new Map(normalized.map((item) => [item.uid, item]));
     expect(wallRunOffset(byUid.get("bridge")!, "diag", room)).toBeCloseTo(48, 8);
-    expect(wallRunOffset(byUid.get("left-panel")!, "diag", room)).toBeCloseTo(47.25, 8);
-    expect(wallRunOffset(byUid.get("right-panel")!, "diag", room)).toBeCloseTo(84, 8);
+    expect(wallRunOffset(byUid.get("left-panel")!, "diag", room)).toBeCloseTo(46.75, 8);
+    expect(wallRunOffset(byUid.get("right-panel")!, "diag", room)).toBeCloseTo(84.5, 8);
     expect(byUid.get("bridge")?.mountBottom).toBe(72);
   });
 });
