@@ -88,6 +88,7 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	  it("builds a normal refrigerator drop as one source-backed bay with exact clearance and no synthetic panels", () => {
 	    const transaction = refrigeratorTransaction();
 	    expect(source).toContain("setAutoRefrigeratorBayUid(finalCab.uid)");
+	    expect(source).toContain("catalogFillers, appliancePalette, styleId, rememberFailedWallFit");
 	    expect(source).toContain("applyFridgeSurround({ above: \"deep\", panels: \"both\", smooth: false })");
 	    expect(transaction).toContain("const bay = refrigeratorBayRunMetrics(configuredFridge, room)");
 	    expect(transaction).toContain("const remainingOpening = Math.max(0, bay.openingWidth - aWidth)");

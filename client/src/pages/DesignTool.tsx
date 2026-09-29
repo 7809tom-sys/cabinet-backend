@@ -5377,7 +5377,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, appliancePalette, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, appliancePalette, styleId, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
 	  );
 	  const placeOnRecommendedWall = useCallback(() => {
 	    const recommendation = alternateWallRecommendation;
