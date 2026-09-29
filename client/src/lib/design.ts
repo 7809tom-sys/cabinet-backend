@@ -2730,45 +2730,51 @@ export function lCornerCountertopWorldPolygon(
 ): PlanFootprintPoint[] {
   const bounds = placedFootprint(cabinet);
   const leg = Math.min(bounds.w, bounds.d) * cornerLegRatioForPlaced(cabinet);
-  const x = cabinet.x;
-  const y = cabinet.y;
-  const right = x + bounds.w;
-  const bottom = y + bounds.d;
   const projected = Math.max(0, Math.min(
     Number.isFinite(frontOverhang) ? frontOverhang : 0,
     Math.max(0, bounds.w - leg),
     Math.max(0, bounds.d - leg),
   ));
-  switch ((((cabinet.rotation % 360) + 360) % 360)) {
-    case 90:
-      return [
-        { x: right, y }, { x: right, y: bottom },
-        { x: right - leg - projected, y: bottom },
-        { x: right - leg - projected, y: y + leg + projected },
-        { x, y: y + leg + projected }, { x, y },
-      ];
-    case 180:
-      return [
-        { x: right, y: bottom }, { x, y: bottom },
-        { x, y: bottom - leg - projected },
-        { x: right - leg - projected, y: bottom - leg - projected },
-        { x: right - leg - projected, y }, { x: right, y },
-      ];
-    case 270:
-      return [
-        { x, y: bottom }, { x, y },
-        { x: x + leg + projected, y },
-        { x: x + leg + projected, y: bottom - leg - projected },
-        { x: right, y: bottom - leg - projected }, { x: right, y: bottom },
-      ];
-    default:
-      return [
-        { x, y }, { x: right, y },
-        { x: right, y: y + leg + projected },
-        { x: x + leg + projected, y: y + leg + projected },
-        { x: x + leg + projected, y: bottom }, { x, y: bottom },
-      ];
-  }
+  const rotation = ((Number(cabinet.rotation) % 360) + 360) % 360;
+  const radians = rotation * Math.PI / 180;
+  const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+  const normal = { x: -Math.sin(radians), y: Math.cos(radians) };
+  // `wallPlacementAt` saves a measured angled wall placement from the rotated
+  // bounding-box origin. Recover that same physical center used by the 3D
+  // cabinet transform before rotating the one canonical L outline. Cardinal
+  // rooms retain their ordinary 36-by-36 placement origin unchanged.
+  const rotatedMeasuredPlacement = Boolean(
+    cabinet.wallId
+    && cabinet.wallOffset != null
+    && ![0, 90, 180, 270].includes(Math.round(rotation)),
+  );
+  const rotatedWidth = Math.abs(bounds.w * tangent.x) + Math.abs(bounds.d * normal.x);
+  const rotatedDepth = Math.abs(bounds.w * tangent.y) + Math.abs(bounds.d * normal.y);
+  const center = {
+    x: cabinet.x + (rotatedMeasuredPlacement ? rotatedWidth : bounds.w) / 2,
+    y: cabinet.y + (rotatedMeasuredPlacement ? rotatedDepth : bounds.d) / 2,
+  };
+  const clean = (value: number) => Math.abs(value) < 1e-9 ? 0 : Math.round(value * 1e9) / 1e9;
+  const worldPoint = (local: PlanFootprintPoint): PlanFootprintPoint => {
+    const along = local.x - bounds.w / 2;
+    const inward = local.y - bounds.d / 2;
+    return {
+      x: clean(center.x + tangent.x * along + normal.x * inward),
+      y: clean(center.y + tangent.y * along + normal.y * inward),
+    };
+  };
+  // This canonical path is the LSB36's real cabinet-supported footprint: two
+  // 24-inch legs with the interior notch kept open and the 1.5-inch finished
+  // front edge carried on both exposed legs. Applying one transform avoids the
+  // former custom-wall fallback that reduced an angled LSB36 to one rectangle.
+  return [
+    { x: 0, y: 0 },
+    { x: bounds.w, y: 0 },
+    { x: bounds.w, y: leg + projected },
+    { x: leg + projected, y: leg + projected },
+    { x: leg + projected, y: bounds.d },
+    { x: 0, y: bounds.d },
+  ].map(worldPoint);
 }
 
 function cabinetPlanBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
@@ -10912,23 +10918,17 @@ export function countertopSurfaces(
     // cabinet-supported slab. That avoids seams and maintains coverage over an
     // intentional void between two cabinets.
     if (peninsula) continue;
-    // A Lazy Susan/easy-reach base owns two physical cabinet legs.  A drawn
-    // room's custom-wall branch below is appropriate for a straight run, but
-    // reducing a cardinal corner to that one 25½-inch rectangle fills its
-    // intentional L-notch and can visibly project the top through the adjacent
-    // wall. Preserve the cabinet-supported L contour before selecting a custom
-    // wall run. Diagonal corner catalog families retain their own path below.
+    // A Lazy Susan/easy-reach base owns two physical cabinet legs. A drawn
+    // room's straight-run branch below cannot replace that physical L with one
+    // rectangle, including when its supporting wall is at 45°. Keep the exact
+    // cabinet-supported contour before selecting the straight-run path.
     const cornerGeometry = placedCornerGeometryKind(p);
-    const normalizedRotation = ((Math.round(p.rotation) % 360) + 360) % 360;
-    if (
-      (cornerGeometry === "l-shape" || cornerGeometry === "corner-drawer")
-      && normalizedRotation % 90 === 0
-    ) {
+    const customWall = room.customWalls?.find((wall) => wall.id === side);
+    if (cornerGeometry === "l-shape" || cornerGeometry === "corner-drawer") {
       const surface = countertopSurfaceFromWorldPolygon(lCornerCountertopWorldPolygon(p));
-      if (surface) out.push(surface);
+      if (surface) out.push(customWall ? { ...surface, customWallId: customWall.id } : surface);
       continue;
     }
-    const customWall = room.customWalls?.find((wall) => wall.id === side);
     if (customWall) {
       const runSpan = wallRunSpan(p, side, room);
       if (runSpan > COLLISION_EPSILON_IN) {
@@ -10967,15 +10967,6 @@ export function countertopSurfaces(
           areaInches: runSpan * slabDepth,
         });
       }
-      continue;
-    }
-    // A standard room's L-corner base needs a single L-shaped countertop with
-    // the finished edge extended at both exposed legs. A rectangular top here
-    // fills its intentional notch and shifts the side-leg overhang away from
-    // the adjoining base run.
-    if (cornerGeometry === "l-shape" || cornerGeometry === "corner-drawer") {
-      const surface = countertopSurfaceFromWorldPolygon(lCornerCountertopWorldPolygon(p));
-      if (surface) out.push(surface);
       continue;
     }
     const horizontalWall = side === "top" || side === "bottom";

@@ -16,6 +16,7 @@ import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { lCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
+import { addThreeDMeasuredWallMiterCountertops } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { COUNTERTOP_DEPTH_IN, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -579,6 +580,32 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(slabs.every((item) => item.userData.preservesRangeOpening)).toBe(true);
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-stove", exposedFarEnd: true });
+  });
+
+  it("renders the complete angled LSB36 countertop polygon through the shared measured-wall path", () => {
+    const root = new THREE.Group();
+    const room: RoomData = {
+      width: 144,
+      depth: 144,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 }, { id: "b", x: 144, y: 144 },
+        { id: "c", x: 0, y: 144 },
+      ],
+      customWalls: [
+        { id: "drawn-45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 },
+        { id: "drawn-return", startVertexId: "b", endVertexId: "c" },
+      ],
+    };
+    const lsb36 = {
+      uid: "drawn-45-lsb36", cabinetId: 1, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+      placement: "base", width: 36, depth: 36, height: 34.5, x: 34.5441559, y: 34.5441559,
+      rotation: 45, cornerType: "lazy-susan", wallId: "drawn-45", wallOffset: 0,
+    } as PlacedCabinet;
+    addThreeDMeasuredWallMiterCountertops(root, room, [lsb36], "#e9e7e2");
+    const [slab] = root.children.filter((item) => item.userData.measuredWallContinuousCountertop);
+    expect(slab?.geometry.type).toBe("ExtrudeGeometry");
+    expect(slab?.userData.customWallId).toBe("drawn-45");
   });
 
   it("extrudes a mitered slab polygon instead of the overlapping rectangular footprint", () => {

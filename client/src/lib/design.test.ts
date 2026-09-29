@@ -1963,6 +1963,37 @@ describe("countertopSurfaces", () => {
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 
+  it("keeps an LSB36 countertop on the complete rotated L footprint in a continuous-wall room", () => {
+    const drawnRoom: RoomData = {
+      ...ROOM_12x10,
+      vertices: [
+        { id: "a", x: 0, y: 0 }, { id: "b", x: 144, y: 144 },
+        { id: "c", x: 0, y: 144 },
+      ],
+      customWalls: [
+        { id: "drawn-45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 },
+        { id: "drawn-return", startVertexId: "b", endVertexId: "c" },
+      ],
+    };
+    const corner = cab({
+      uid: "drawn-45-lsb36", masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+      placement: "base", width: 36, depth: 36, x: 34.5441559, y: 34.5441559, rotation: 45,
+      cornerType: "lazy-susan", wallId: "drawn-45", wallOffset: 0,
+    });
+    const [surface] = countertopSurfaces([corner], drawnRoom);
+    const outline = countertopSurfacePlanPolygon(surface!);
+    const expected = lCornerCountertopWorldPolygon(corner);
+    expect(surface).toMatchObject({ kind: "base", customWallId: "drawn-45" });
+    expect(outline).toHaveLength(expected.length);
+    outline.forEach((point, index) => {
+      expect(point.x).toBeCloseTo(expected[index]!.x, 6);
+      expect(point.y).toBeCloseTo(expected[index]!.y, 6);
+    });
+    expect(surface!.polygon).toHaveLength(6);
+    expect(surface!.areaInches).toBeCloseTo(1185.75, 6);
+    expect(countertopPolygonSelfIntersects(outline)).toBe(false);
+  });
+
   it.each([
     [0, [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 }, { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 }]],
     [90, [{ x: 36, y: 0 }, { x: 36, y: 36 }, { x: 10.5, y: 36 }, { x: 10.5, y: 25.5 }, { x: 0, y: 25.5 }, { x: 0, y: 0 }]],
