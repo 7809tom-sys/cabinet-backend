@@ -93,6 +93,7 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(transaction).toContain("const remainingOpening = Math.max(0, bay.openingWidth - aWidth)");
 	    expect(transaction).toContain('addCapFiller("bridge-left-filler", bay.openingStart)');
 	    expect(transaction).toContain('addCapFiller("bridge-right-filler", bay.refrigeratorEnd)');
+	    expect(transaction).toContain("No source-priced over-refrigerator cabinet is available");
 	    expect(transaction).toContain("No source-priced refrigerator end panel is available");
 	    expect(transaction).not.toContain("masterCode: `PANEL-${syntheticPanelHeight}`");
 	  });

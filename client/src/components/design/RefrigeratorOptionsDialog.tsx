@@ -277,8 +277,10 @@ export function RefrigeratorOptionsDialog({
     return result;
   }, [deepAbove, bridgeWidthChoice]);
 
-  // Always allow Add Cabinet — if catalog has no exact match we place a generic one.
-  const hasBridgeAbove = true;
+  // A refrigerator bay is an invoiceable group: the cap and each finished panel
+  // must be an actual selected-line SKU. There is no visual-only generic cap or
+  // filler fallback.
+  const hasBridgeAbove = deepAbove.length > 0;
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
@@ -289,6 +291,10 @@ export function RefrigeratorOptionsDialog({
 
   // Best-match end panel
   const bestPanel = useMemo(() => endPanels[0] ?? null, [endPanels]);
+
+  const hasRequiredBridge = above !== "bridge" || Boolean(chosenBridge);
+  const hasRequiredPanels = panels === "none" || Boolean(bestPanel);
+  const canApply = hasRequiredBridge && hasRequiredPanels;
 
   // ── Reset on open ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -333,6 +339,7 @@ export function RefrigeratorOptionsDialog({
   }, [bridgeHeightChoice, above]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApply = () => {
+    if (!canApply) return;
     // In the repair flow, declining a replacement must preserve the existing
     // ordinary wall cabinet. The customer can remove it separately if desired.
     if (replacementCabinetCode && above === "none") {
@@ -355,9 +362,6 @@ export function RefrigeratorOptionsDialog({
       fridgeDepth: fridgeD,
     });
   };
-
-  // Always allow apply — missing catalog matches use generic placement.
-  const canApply = true;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -609,8 +613,8 @@ export function RefrigeratorOptionsDialog({
                 )}
 
                 {endPanels.length === 0 && (
-                  <p className="text-[11px] text-amber-600">
-                    No end panels found for this style. Panels will be placed as generic fillers.
+                  <p role="status" className="text-[11px] text-amber-700">
+                    No source-priced refrigerator end panel is available for this door style. Choose another style, or select None to place only the refrigerator.
                   </p>
                 )}
               </div>
@@ -637,7 +641,7 @@ export function RefrigeratorOptionsDialog({
           <Button variant="outline" className="bg-background" onClick={onSkip}>
             {t("dt_fridge_skip")}
           </Button>
-          <Button onClick={handleApply} disabled={!canApply}>
+          <Button onClick={handleApply} disabled={!canApply} title={!canApply ? "Choose a source-priced over-fridge cabinet and end panels before building this bay." : undefined}>
             {t("dt_fridge_apply")}
           </Button>
         </DialogFooter>

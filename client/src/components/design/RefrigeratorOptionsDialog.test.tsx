@@ -19,6 +19,15 @@ const endPanel = {
   depth: "24",
 };
 
+const refrigeratorCap = {
+  id: 9390060,
+  masterCode: "W3612",
+  description: "36 inch Wall Cabinet",
+  width: "36",
+  height: "12",
+  depth: "12",
+};
+
 function renderDialog(onApply = vi.fn()) {
   render(
     <RefrigeratorOptionsDialog
@@ -26,6 +35,22 @@ function renderDialog(onApply = vi.fn()) {
       onOpenChange={vi.fn()}
       fridgeWidthInches={36}
       endPanels={[endPanel]}
+	  deepAbove={[refrigeratorCap]}
+      onApply={onApply}
+      onSkip={vi.fn()}
+    />,
+  );
+  return onApply;
+}
+
+function renderUnpricedDialog(onApply = vi.fn()) {
+  render(
+    <RefrigeratorOptionsDialog
+      open
+      onOpenChange={vi.fn()}
+      fridgeWidthInches={36}
+      endPanels={[]}
+      deepAbove={[]}
       onApply={onApply}
       onSkip={vi.fn()}
     />,
@@ -81,5 +106,16 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
       endPanelId: null,
       panelDepth: null,
     }));
+  });
+
+  it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {
+    const onApply = renderUnpricedDialog();
+    const apply = screen.getByRole("button", { name: "dt_fridge_apply" });
+    expect(apply.getAttribute("disabled")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("disabled")).not.toBeNull();
+    fireEvent.click(screen.getByText("More enclosure options"));
+    expect(screen.getByText(/no source-priced refrigerator end panel is available/i)).toBeTruthy();
+    fireEvent.click(apply);
+    expect(onApply).not.toHaveBeenCalled();
   });
 });

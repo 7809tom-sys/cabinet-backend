@@ -6695,6 +6695,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             ? pickById(src, opts.bridgeCabinetId, fw)
             : pickByWidth(src, fw);
         }
+        if (!chosen) {
+          const message = "No source-priced over-refrigerator cabinet is available for this door style, so the refrigerator bay was not completed.";
+          setPlacementWarning(message);
+          toast.error(message);
+          return;
+        }
         if (chosen) {
           // The cap itself remains a real catalog box. The finished opening is
           // the refrigerator plus 1/2" on each side, so a stock 36" cap over a
