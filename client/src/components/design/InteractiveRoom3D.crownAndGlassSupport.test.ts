@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   crownMiterEndpointTrims,
+  existingCabinetTransform,
   threeDGlassStackerRearSupportSpecs,
   type ThreeDCrownPerimeterSegment,
 } from "./InteractiveRoom3D";
@@ -71,15 +72,20 @@ describe("front-flush glass stacker rear support", () => {
       glassDoor: true,
     });
 
-    expect(threeDGlassStackerRearSupportSpecs([parent, stacker])).toEqual([{
+	    expect(threeDGlassStackerRearSupportSpecs([parent, stacker])).toEqual([{
       stackerUid: "stacker",
       parentUid: "parent",
       width: 36,
       height: 12,
       stackerDepth: 12,
-      gapDepth: 12,
-    }]);
-  });
+	      gapDepth: 12,
+	    }]);
+	    expect(existingCabinetTransform({ ...stacker, y: 12, depthPositionAdjusted: true }, { width: 144, depth: 120, ceilingHeight: 108 })).toMatchObject({
+	      x: 18,
+	      z: 18,
+	      bottom: 84,
+	    });
+	  });
 
   it("does not invent a rear support when parent and stacker depths already match", () => {
     const parent = cabinet({ uid: "parent", depth: 24 });

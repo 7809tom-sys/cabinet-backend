@@ -1072,19 +1072,30 @@ describe("interactive 3D room scene helpers", () => {
 	    }
 	  });
 
-		  it("limits standard backsplash to countertop-supported wall runs and keeps transforms on the owning wall", () => {
+		  it("fills each countertop-bearing wall corner to corner and keeps transforms on the owning wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    expect(threeDBacksplashSegments([], [], room)).toEqual([]);
 	    const bases = [
 	      { uid: "top-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null },
 	      { uid: "left-base", masterCode: "B-24", placement: "base", x: 0, y: 24, width: 24, depth: 24, height: 34.5, rotation: 90, islandFace: null },
 	    ] as PlacedCabinet[];
-	    const segments = threeDBacksplashSegments(bases, [], room);
-	    expect(segments).toEqual(expect.arrayContaining([
-	      { side: "top", start: 12, end: 42, bottom: 36, top: 54 },
-	      { side: "left", start: 24, end: 48, bottom: 36, top: 54 },
-	    ]));
-		    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 36, rotation: Math.PI / 2 });
+		    const segments = threeDBacksplashSegments(bases, [], room);
+		    expect(segments).toEqual(expect.arrayContaining([
+		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+		      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
+		    ]));
+			    expect(threeDBacksplashTransform(segments.find((segment) => segment.side === "left")!, room)).toMatchObject({ x: 0.07, z: 48, rotation: Math.PI / 2 });
+		  });
+
+		  it("does not leave an untiled island between separated countertop supports on the same wall", () => {
+		    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+		    const bases = [
+		      { uid: "base-left", masterCode: "B-24", placement: "base", x: 0, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, islandFace: null },
+		      { uid: "base-right", masterCode: "B-24", placement: "base", x: 48, y: 0, width: 24, depth: 24, height: 34.5, rotation: 0, islandFace: null },
+		    ] as PlacedCabinet[];
+		    expect(threeDBacksplashSegments(bases, [], room).filter((segment) => segment.side === "top")).toEqual([
+		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+		    ]);
 		  });
 
 	  it("continues backsplash above every countertop-height base component and under-counter appliance", () => {
@@ -1105,10 +1116,10 @@ describe("interactive 3D room scene helpers", () => {
 	    const lazySusan = { uid: "ls-top-left", masterCode: "LS3612", description: "36 inch Lazy Susan Base Cabinet", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, cornerType: "lazy-susan", islandFace: null } as PlacedCabinet;
 	    expect(threeDBacksplashSupportSpans(lazySusan, "top", room)).toEqual([{ start: 0, end: 36 }]);
 	    expect(threeDBacksplashSupportSpans(lazySusan, "left", room)).toEqual([{ start: 0, end: 36 }]);
-	    expect(threeDBacksplashSegments([lazySusan], [], room)).toEqual(expect.arrayContaining([
-	      { side: "top", start: 0, end: 36, bottom: 36, top: 54 },
-	      { side: "left", start: 0, end: 36, bottom: 36, top: 54 },
-	    ]));
+		    expect(threeDBacksplashSegments([lazySusan], [], room)).toEqual(expect.arrayContaining([
+		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+		      { side: "left", start: 0, end: 96, bottom: 36, top: 54 },
+		    ]));
 	  });
 
 	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
@@ -1130,10 +1141,10 @@ describe("interactive 3D room scene helpers", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    const range = { uid: "range-1", masterCode: "RANGE-30", description: "Freestanding range", placement: "appliance", x: 45, y: 0, width: 30, depth: 24, height: 36, rotation: 0, islandFace: null } as PlacedCabinet;
 	    const hood = { uid: "hood-1", masterCode: "HOOD-30", description: "30 inch Range Hood", placement: "appliance", x: 45, y: 0, width: 30, depth: 18, height: 18, rotation: 0, mountBottom: 66, islandFace: null } as PlacedCabinet;
-	    const openSegments = threeDBacksplashSegments([range, hood], [], room);
-	    expect(openSegments).toEqual(expect.arrayContaining([
-	      { side: "top", start: 45, end: 75, bottom: 36, top: 54 },
-	      { side: "top", start: 45, end: 75, bottom: 54, top: 66 },
+		    const openSegments = threeDBacksplashSegments([range, hood], [], room);
+		    expect(openSegments).toEqual(expect.arrayContaining([
+		      { side: "top", start: 0, end: 120, bottom: 36, top: 54 },
+		      { side: "top", start: 45, end: 75, bottom: 54, top: 66 },
 	    ]));
 	    const wallCabinet = { uid: "wall-1", masterCode: "W-3030", description: "Wall cabinet", placement: "wall", x: 45, y: 0, width: 30, depth: 12, height: 30, rotation: 0, mountBottom: 54, islandFace: null } as PlacedCabinet;
 	    const blockedSegments = threeDBacksplashSegments([range, hood, wallCabinet], [], room);
@@ -1151,21 +1162,21 @@ describe("interactive 3D room scene helpers", () => {
 		    expect(mosaic).toMatchObject({ repeatX: 30 / 11.81, repeatY: 18 / 11.81, offsetX: 0, offsetY: (36 / 11.81) % 1 });
 		  });
 
-	  it("uses a continuous 12-inch field above each physical countertop upstand without changing the supported run", () => {
+	  it("uses one continuous 12-inch field above a corner-to-corner countertop upstand", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    const base = { uid: "upstand-base", masterCode: "B-30", placement: "base", x: 12, y: 0, width: 30, depth: 24, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
 	    expect(threeDBacksplashSegments([base], [], room, "standard", 2.5)).toEqual([
-	      { side: "top", start: 12, end: 42, bottom: 38.5, top: 54 },
+	      { side: "top", start: 0, end: 120, bottom: 38.5, top: 54 },
 	    ]);
-	    expect(threeDBacksplashTileTextureTransform({ side: "top", start: 12, end: 42, bottom: 38.5, top: 54 })).toMatchObject({ repeatX: 2.5, repeatY: 15.5 / 12 });
+	    expect(threeDBacksplashTileTextureTransform({ side: "top", start: 0, end: 120, bottom: 38.5, top: 54 })).toMatchObject({ repeatX: 10, repeatY: 15.5 / 12 });
 	    expect(threeDCountertopUpstandSegments([base], [], room, 2.5)).toEqual([
-	      { side: "top", start: 12, end: 42, bottom: 36, top: 38.5 },
+	      { side: "top", start: 0, end: 120, bottom: 36, top: 38.5 },
 	    ]);
 	    expect(threeDBacksplashSegments([base], [], room, "standard", 3)).toEqual([
-	      { side: "top", start: 12, end: 42, bottom: 39, top: 54 },
+	      { side: "top", start: 0, end: 120, bottom: 39, top: 54 },
 	    ]);
 	    expect(threeDCountertopUpstandSegments([base], [], room, 3)).toEqual([
-	      { side: "top", start: 12, end: 42, bottom: 36, top: 39 },
+	      { side: "top", start: 0, end: 120, bottom: 36, top: 39 },
 	    ]);
 	  });
 

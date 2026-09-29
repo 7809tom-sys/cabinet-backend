@@ -4658,14 +4658,17 @@ export function normalizeGlassStackersToParentFronts(placed: PlacedCabinet[], ro
   let changed = false;
   const normalized = placed.map((stacker) => {
     if (stacker.placement !== "wall" || !isStacker(stacker)) return stacker;
-    const placement = glassStackerParentPlacement(stacker, placed, room, stacker.stackedOnCabinetUid);
-    if (!placement.ok) return stacker;
-    if (
+	    const placement = glassStackerParentPlacement(stacker, placed, room, stacker.stackedOnCabinetUid);
+	    if (!placement.ok) return stacker;
+	    const parent = placed.find((cabinet) => cabinet.uid === placement.parentUid);
+	    const needsFrontDepthOverride = Boolean(parent && (Number(parent.depth) || STD.WALL_DEPTH) - (Number(stacker.depth) || STD.WALL_DEPTH) > 0.25);
+	    if (
       Math.abs(stacker.x - placement.x) <= COLLISION_EPSILON_IN &&
       Math.abs(stacker.y - placement.y) <= COLLISION_EPSILON_IN &&
       Math.abs(Number(stacker.rotation) - placement.rotation) <= COLLISION_EPSILON_IN &&
       Math.abs(Number(stacker.mountBottom) - placement.mountBottom) <= COLLISION_EPSILON_IN &&
-      stacker.stackedOnCabinetUid === placement.parentUid
+	      stacker.stackedOnCabinetUid === placement.parentUid &&
+	      (!needsFrontDepthOverride || stacker.depthPositionAdjusted === true)
     ) return stacker;
     changed = true;
     return {
@@ -4674,10 +4677,44 @@ export function normalizeGlassStackersToParentFronts(placed: PlacedCabinet[], ro
       y: placement.y,
       rotation: placement.rotation,
       mountBottom: placement.mountBottom,
-      stackedOnCabinetUid: placement.parentUid,
+	      stackedOnCabinetUid: placement.parentUid,
+	      ...(needsFrontDepthOverride ? { depthPositionAdjusted: true } : {}),
     };
   });
   return changed ? normalized : placed;
+}
+
+export type GlassStackerFrontSnapTarget = {
+  x: number;
+  y: number;
+  rotation: number;
+  mountBottom: number;
+  parentUid: string;
+  parentCode: string;
+  gapDepth: number;
+  alreadyAligned: boolean;
+};
+
+/** Eligibility and exact destination for the user-facing Snap to Front action. */
+export function glassStackerFrontSnapTarget(
+  stacker: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room: RoomData,
+): GlassStackerFrontSnapTarget | null {
+  if (stacker.placement !== "wall" || !isStacker(stacker)) return null;
+  const placement = glassStackerParentPlacement(stacker, placed, room, stacker.stackedOnCabinetUid);
+  if (!placement.ok) return null;
+  const parent = placed.find((cabinet) => cabinet.uid === placement.parentUid);
+  if (!parent) return null;
+  const gapDepth = (Number(parent.depth) || STD.WALL_DEPTH) - (Number(stacker.depth) || STD.WALL_DEPTH);
+  if (gapDepth <= 0.25) return null;
+  const alreadyAligned =
+    Math.abs(stacker.x - placement.x) <= COLLISION_EPSILON_IN &&
+    Math.abs(stacker.y - placement.y) <= COLLISION_EPSILON_IN &&
+    Math.abs(Number(stacker.rotation) - placement.rotation) <= COLLISION_EPSILON_IN &&
+    Math.abs(Number(stacker.mountBottom) - placement.mountBottom) <= COLLISION_EPSILON_IN &&
+    stacker.depthPositionAdjusted === true;
+  return { ...placement, gapDepth, alreadyAligned };
 }
 
 /**

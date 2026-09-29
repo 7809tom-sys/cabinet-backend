@@ -22,7 +22,7 @@ import {
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
-		  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
+			  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
@@ -2913,22 +2913,34 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	    const legacyStacker = cab({ uid: "glass-stacker", placement: "wall", masterCode: "W3612GD", description: "36 inch Glass Door Stacker", x: 30, y: 0, width: 36, depth: 12, height: 12, rotation: 0, mountBottom: 84, stackedOnCabinetUid: parent.uid, glassDoor: true });
 
 	    expect(glassStackerFrontFlushSpot(legacyStacker, parent, room)).toEqual({ x: 30, y: 12, rotation: 0 });
-	    expect(normalizeGlassStackersToParentFronts([parent, legacyStacker], room)[1]).toMatchObject({
-	      x: 30,
-	      y: 12,
-	      mountBottom: 84,
-	      stackedOnCabinetUid: parent.uid,
-	    });
-	  });
+		    expect(normalizeGlassStackersToParentFronts([parent, legacyStacker], room)[1]).toMatchObject({
+		      x: 30,
+		      y: 12,
+		      mountBottom: 84,
+		      stackedOnCabinetUid: parent.uid,
+		      depthPositionAdjusted: true,
+		    });
+		    expect(glassStackerFrontSnapTarget(legacyStacker, [parent, legacyStacker], room)).toMatchObject({
+		      x: 30,
+		      y: 12,
+		      parentUid: parent.uid,
+		      parentCode: "WR3612",
+		      gapDepth: 12,
+		      alreadyAligned: false,
+		    });
+		    const snapped = normalizeGlassStackersToParentFronts([parent, legacyStacker], room)[1];
+		    expect(glassStackerFrontSnapTarget(snapped, [parent, snapped], room)?.alreadyAligned).toBe(true);
+		  });
 
 	  it("does not move a glass stacker when it already has the same depth as its parent", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
 	    const parent = cab({ uid: "corner-parent", placement: "wall", masterCode: "DCW2430", x: 0, y: 0, width: 24, depth: 24, height: 30, rotation: 0, mountBottom: 54 });
 	    const stacker = cab({ uid: "corner-stacker", placement: "wall", masterCode: "DCW2412GD", description: "24 inch Diagonal Corner Glass Stacker", x: 0, y: 0, width: 24, depth: 24, height: 12, rotation: 0, mountBottom: 84, stackedOnCabinetUid: parent.uid, glassDoor: true });
 
-	    expect(glassStackerFrontFlushSpot(stacker, parent, room)).toEqual({ x: 0, y: 0, rotation: 0 });
-	    expect(normalizeGlassStackersToParentFronts([parent, stacker], room)[1]).toBe(stacker);
-	  });
+		    expect(glassStackerFrontFlushSpot(stacker, parent, room)).toEqual({ x: 0, y: 0, rotation: 0 });
+		    expect(normalizeGlassStackersToParentFronts([parent, stacker], room)[1]).toBe(stacker);
+		    expect(glassStackerFrontSnapTarget(stacker, [parent, stacker], room)).toBeNull();
+		  });
 
 	  it("stacks each supported 12-, 15-, 18-, 21-, and 24-inch glass height on the same matching wall cabinet", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };

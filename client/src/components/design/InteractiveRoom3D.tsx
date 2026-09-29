@@ -7,7 +7,7 @@ import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeom
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader.js";
 import { FullScreenQuad } from "three/examples/jsm/postprocessing/Pass.js";
 import { DenoiseMaterial, WebGLPathTracer } from "three-gpu-pathtracer";
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ChevronDown, Download, FileDown, Info, LoaderCircle, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Camera, CheckCircle2, ChevronDown, Download, FileDown, Info, LoaderCircle, Magnet, Mail, Maximize2, Minimize2, Minus, Move3D, PanelTop, Plus, Printer, RefreshCw, Rotate3D, Save, Share2, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -638,6 +638,8 @@ interface Props {
   onOpenWindowEditor?: (uid: string) => void;
   /** Opens the host Designer's measured, catalog-backed add or edit filler choices. */
   onRequestFiller?: (uid: string) => void;
+  /** Moves an eligible glass stacker flush with the front of its deeper parent cabinet. */
+  onSnapGlassCabinetToFront?: (uid: string) => ThreeDCabinetMoveResult;
   /** Uses the same 90-degree cabinet rotation action as the 2D planner. */
   onRotateCabinet?: (uid: string) => void;
   /** Removes the selected cabinet through the designer's authoritative cleanup path. */
@@ -5466,7 +5468,13 @@ export function existingCabinetTransform(
   // their end-run cabinet is intended to sit on the closest wall. Keep explicit
   // Move In/Move Out adjustments intact, but seat legacy end runs flush so their
   // backs do not float inside the room.
-  const isPeninsulaCabinet = Boolean(room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId));
+	const isPeninsulaCabinet = Boolean(room?.peninsulaRuns?.some((run) => run.id === cabinet.wallId));
+	const preserveGlassStackerFrontDepth = Boolean(
+	  cabinet.depthPositionAdjusted &&
+	  cabinet.stackedOnCabinetUid &&
+	  isStacker(cabinet) &&
+	  isGlassDoorCabinet(cabinet),
+	);
   // A Continuous Wall Builder run is an explicit measured segment, not a
   // legacy rectangular-room edge. A 45-degree base or appliance can happen to
   // be near the rectangular room's front/left boundary; re-seating it to that
@@ -5476,9 +5484,10 @@ export function existingCabinetTransform(
   const isMeasuredWallCabinet = isCustomRoomWall(room as RoomData, cabinet.wallId);
   const legacyWall = hasPlacedRoom
     && !isPeninsulaCabinet
-    && !isMeasuredWallCabinet
-    && !cabinet.islandFace
-    && cabinet.placement === "wall"
+	    && !isMeasuredWallCabinet
+	    && !cabinet.islandFace
+	    && !preserveGlassStackerFrontDepth
+	    && cabinet.placement === "wall"
     ? cabinetWall(cabinet, room as RoomData)
     : hasPlacedRoom
       && !isPeninsulaCabinet
@@ -7126,20 +7135,24 @@ export function threeDBacksplashSegments(
         bottom: opening.sill,
         top: opening.sill + opening.height,
       })),
-      ...placed.flatMap((cabinet) => {
-        if (cabinet.islandFace || cabinetWall(cabinet, room) !== side) return [];
-        const raisedAppliance = cabinet.placement === "appliance" && elevationBox(cabinet, room).bottom > countertopTop;
-        if (cabinet.placement !== "wall" && cabinet.placement !== "tall" && !raisedAppliance) return [];
-        const span = threeDWallRunSpan(cabinet, side);
-        const box = elevationBox(cabinet, room);
-        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
-      }),
-    ];
-    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = supportIntervals.map((interval) => ({
-      ...interval,
-      bottom: tileBottom,
-      top: heightMode === "full-height" ? ceilingTop : standardTop,
-    }));
+	      ...placed.flatMap((cabinet) => {
+	        if (cabinet.islandFace || cabinetWall(cabinet, room) !== side) return [];
+	        const box = elevationBox(cabinet, room);
+	        const raisedAppliance = cabinet.placement === "appliance" && box.bottom > countertopTop;
+	        const floorTallAppliance = cabinet.placement === "appliance" && box.bottom <= 0.5 && !threeDSupportsBacksplash(cabinet, room);
+	        if (cabinet.placement !== "wall" && cabinet.placement !== "tall" && !raisedAppliance && !floorTallAppliance) return [];
+	        const span = threeDWallRunSpan(cabinet, side);
+	        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
+	      }),
+	    ];
+	    const wallLength = side === "top" || side === "bottom" ? room.width : room.depth;
+	    // Once a wall has a countertop run, its backsplash field is continuous
+	    // from corner to corner. Openings, wall/tall cabinets, and refrigerators
+	    // are subtracted below. This prevents small un-tiled islands when adjacent
+	    // base runs, fillers, appliances, or corner transitions do not merge exactly.
+	    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = supportIntervals.length > 0
+	      ? [{ start: 0, end: wallLength, bottom: tileBottom, top: heightMode === "full-height" ? ceilingTop : standardTop }]
+	      : [];
     if (heightMode === "standard") {
       for (const range of rangeIntervals) {
         const matchingHoodBottom = hoodIntervals
@@ -7846,7 +7859,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -9865,9 +9878,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      </div>
       {selectedCabinet && (() => {
 	        const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
-	        const description = threeDSelectedCabinetDescription(selectedCabinet);
-	        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
-	        const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
+		        const description = threeDSelectedCabinetDescription(selectedCabinet);
+		        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
+		        const selectedStackerParent = selectedPlacedCabinet?.stackedOnCabinetUid
+		          ? placed.find((cabinet) => cabinet.uid === selectedPlacedCabinet.stackedOnCabinetUid) ?? null
+		          : null;
+		        const canSnapSelectedGlassToFront = Boolean(
+		          onSnapGlassCabinetToFront &&
+		          selectedPlacedCabinet &&
+		          selectedStackerParent &&
+		          isStacker(selectedPlacedCabinet) &&
+		          isGlassDoorCabinet(selectedPlacedCabinet) &&
+		          Number(selectedStackerParent.depth) - Number(selectedPlacedCabinet.depth) > 0.25,
+		        );
+		        const adminConfigHref = selectedPlacedCabinet ? cabinetConfigHref?.(selectedPlacedCabinet) ?? null : null;
 	        const selectedWall = selectedPlacedCabinet && roomOverride ? cabinetWall(selectedPlacedCabinet, roomOverride) : null;
 		        const wallFit = selectedPlacedCabinet && island && selectedPlacedCabinet.islandFace
 		          ? islandFaceFitMeasure(selectedPlacedCabinet, island, placed)
@@ -9943,9 +9967,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		              </label>
 		              {cabinetMoveResult && <p data-testid="three-d-cabinet-move-result" role="status" aria-live="polite" className={`max-w-36 text-[9px] font-semibold leading-tight ${cabinetMoveResult.status === "moved" ? "text-emerald-700" : "text-rose-700"}`}>{cabinetMoveResult.message}</p>}
 		            </div>}
-		            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
-		              {embedded && <button type="button" data-testid="three-d-collapse-cabinet-attributes" aria-expanded="true" onClick={() => setSelectedCabinetInspectorExpanded(false)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><ChevronDown className="h-3.5 w-3.5 rotate-180" />Collapse</button>}
-		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
+			            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
+			              {embedded && <button type="button" data-testid="three-d-collapse-cabinet-attributes" aria-expanded="true" onClick={() => setSelectedCabinetInspectorExpanded(false)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><ChevronDown className="h-3.5 w-3.5 rotate-180" />Collapse</button>}
+			              {canSnapSelectedGlassToFront && <button type="button" data-testid="three-d-glass-stacker-snap-to-front" onClick={() => { preserveCurrentCameraView(); setAutoRotate(false); setCabinetMoveResult(onSnapGlassCabinetToFront!(selectedCabinet.uid!)); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-emerald-400 bg-emerald-50 px-2 font-semibold text-emerald-900 transition hover:bg-emerald-100 active:scale-95" title={`Align with the front of ${selectedStackerParent?.masterCode ?? "the deeper parent cabinet"}`}><Magnet className="h-3 w-3" />Snap to Front</button>}
+			              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
 		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
 			              {onRequestFiller && selectedPlacedCabinet && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
 			              {onRequestFiller && selectedPlacedCabinet && fittedFillerWidthText && <button type="button" data-testid="three-d-edit-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">Edit filler</button>}

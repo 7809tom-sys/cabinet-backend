@@ -253,6 +253,7 @@ export function glassStackerBulkHeightOptions(
               rotation: placement.rotation,
               mountBottom: placement.mountBottom,
               stackedOnCabinetUid: placement.parentUid,
+              depthPositionAdjusted: true,
             },
           }];
         }

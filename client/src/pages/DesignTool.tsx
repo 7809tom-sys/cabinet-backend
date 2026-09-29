@@ -126,7 +126,7 @@ import {
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-	  elevationBox, isStacker, glassStackerParentPlacement, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+	  elevationBox, isStacker, glassStackerParentPlacement, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
   fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsCountertop, bearsIslandCountertop,
@@ -4826,7 +4826,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
 	        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
 		        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
-		        ...(stackerParentUid ? { stackedOnCabinetUid: stackerParentUid } : {}),
+		        ...(stackerParentUid ? { stackedOnCabinetUid: stackerParentUid, depthPositionAdjusted: true } : {}),
 	        ...(otrMountBottom != null ? { mountBottom: otrMountBottom } : {}),
 	        ...(rangeHoodPlacement?.ok ? { mountBottom: rangeHoodPlacement.mountBottom } : {}),
 	      };
@@ -10168,8 +10168,42 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success(`${placedFromPlan.length} approved cabinet${placedFromPlan.length === 1 ? "" : "s"} replaced the current layout.${roomNote}${unmatchedNote}${applianceNote}`);
   }, [appliancePalette, autoFillCabinets, clearDraft, layoutLocked, room, t, tallCabPool, wallCabPool]);
 
-	  const selectedCab = placed.find((p) => p.uid === selectedUid);
-	  const selectedIslandTransfer = useMemo(() => selectedCab && island && isOnIsland(selectedCab, island)
+		  const selectedCab = placed.find((p) => p.uid === selectedUid);
+		  const selectedGlassFrontSnap = useMemo(
+		    () => selectedCab ? glassStackerFrontSnapTarget(selectedCab, placed, room) : null,
+		    [placed, room, selectedCab],
+		  );
+		  const snapGlassCabinetToFront = useCallback((uid: string): ThreeDCabinetMoveResult => {
+		    const current = placedRef.current;
+		    const cabinet = current.find((item) => item.uid === uid);
+		    if (!cabinet) return { status: "blocked", message: "Select a glass cabinet first." };
+		    const target = glassStackerFrontSnapTarget(cabinet, current, room);
+		    if (!target) {
+		      const message = "Snap to Front is available for a glass stacker above a deeper cabinet.";
+		      toast.error(message);
+		      return { status: "blocked", message };
+		    }
+		    const nextCabinet: PlacedCabinet = {
+		      ...cabinet,
+		      x: target.x,
+		      y: target.y,
+		      rotation: target.rotation,
+		      mountBottom: target.mountBottom,
+		      stackedOnCabinetUid: target.parentUid,
+		      depthPositionAdjusted: true,
+		    };
+		    const next = current.map((item) => item.uid === uid ? nextCabinet : item);
+		    placedRef.current = next;
+		    setPlaced(next);
+		    setSelectedUid(uid);
+		    setPlacementWarning(null);
+		    const message = target.alreadyAligned
+		      ? `${cabinet.masterCode} is already flush with the front of ${target.parentCode}.`
+		      : `${cabinet.masterCode} snapped forward ${formatEighthInches(target.gapDepth)} to match ${target.parentCode}.`;
+		    toast.success(message);
+		    return { status: "moved", message };
+		  }, [room]);
+		  const selectedIslandTransfer = useMemo(() => selectedCab && island && isOnIsland(selectedCab, island)
 	    ? islandFaceTransferOption(selectedCab, island, placed)
 	    : null, [island, placed, selectedCab]);
 	  const applySelectedIslandTransfer = useCallback(() => {
@@ -10741,6 +10775,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       onSelectOpening={selectOpening}
       onOpenWindowEditor={openWindowAttributes}
 	      onRequestFiller={requestFillerAction}
+	      onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
       showWallLayer={showWallLayer}
@@ -12256,14 +12291,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
 	                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
 	              </span>
-	              {selectedIslandTransfer && (
+		              {selectedIslandTransfer && (
 	                <div data-testid="selected-island-face-transfer" className="flex shrink-0 items-center gap-1 rounded-md border border-[#d4a75a]/60 bg-[#fffaf1] px-1.5 py-1">
 	                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#765416]">Island · {inferredIslandFace(selectedCab, island!)}</span>
 	                  <Button type="button" variant="outline" size="sm" className="h-7 gap-1 border-[#a87f33]/60 bg-white px-2 text-[10px] font-semibold text-[#1a2744]" onClick={applySelectedIslandTransfer} title={selectedIslandTransfer.swapped ? `Swap with the nearest ${selectedIslandTransfer.targetFace} cabinet` : `Move this cabinet to the ${selectedIslandTransfer.targetFace} face`}>
 	                    <ArrowRightLeft className="h-3.5 w-3.5" /> {selectedIslandTransfer.swapped ? `Swap to ${selectedIslandTransfer.targetFace}` : `Move to ${selectedIslandTransfer.targetFace}`}
 	                  </Button>
-	                </div>
-	              )}
+		                </div>
+		              )}
+		              {selectedGlassFrontSnap && !cabinetsLocked && (
+		                <Button
+		                  type="button"
+		                  data-testid="glass-stacker-snap-to-front"
+		                  variant="outline"
+		                  size="sm"
+		                  className="h-8 shrink-0 gap-1 border-emerald-400 bg-emerald-50 px-2.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+		                  onClick={() => snapGlassCabinetToFront(selectedCab.uid)}
+		                  title={`Align this glass cabinet with the front of ${selectedGlassFrontSnap.parentCode}; the ${formatEighthInches(selectedGlassFrontSnap.gapDepth)} rear space receives concealed support.`}
+		                >
+		                  <Magnet className="h-3.5 w-3.5" /> Snap to Front
+		                </Button>
+		              )}
               {canShowCompactMoveControl && (
                 <Button
                   type="button"
@@ -12618,10 +12666,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                </div>
 
 		                {selectedCabWallFitText && <div data-testid="mobile-cabinet-fit-guide" role="status" aria-live="polite" className={`rounded-xl border p-3 text-xs font-medium ${!selectedCabWallFit?.seated ? "border-amber-300 bg-amber-50 text-amber-900" : selectedCabWallFit.status === "fits" ? "border-emerald-300 bg-emerald-50 text-emerald-900" : "border-rose-300 bg-rose-50 text-rose-900"}`}>
-	                  <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em]">Live placement measurement · ⅛&quot; precision</div>
-	                  <p>{selectedCabWallFitText}</p>
-	                </div>}
+		                  <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em]">Live placement measurement · ⅛&quot; precision</div>
+		                  <p>{selectedCabWallFitText}</p>
+		                </div>}
 
+		                {selectedGlassFrontSnap && !cabinetsLocked && (
+		                  <div data-testid="mobile-glass-stacker-snap-card" className="rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-emerald-950">
+		                    <div className="flex items-center justify-between gap-3">
+		                      <div>
+		                        <div className="text-sm font-semibold">Flush with {selectedGlassFrontSnap.parentCode}</div>
+		                        <p className="mt-0.5 text-[11px]">Moves the glass cabinet forward {formatEighthInches(selectedGlassFrontSnap.gapDepth)} and keeps the rear support concealed.</p>
+		                      </div>
+		                      <Button type="button" size="sm" data-testid="mobile-glass-stacker-snap-to-front" className="h-9 shrink-0 gap-1 bg-emerald-800 text-white hover:bg-emerald-700" onClick={() => snapGlassCabinetToFront(selectedCab.uid)}>
+		                        <Magnet className="h-3.5 w-3.5" /> Snap to Front
+		                      </Button>
+		                    </div>
+		                  </div>
+		                )}
 
                 <div className="rounded-xl border border-border bg-muted/30 p-3" data-testid="mobile-cabinet-door-hardware">
                   <div className="mb-3 text-sm font-semibold text-foreground">Door &amp; hardware</div>
@@ -17064,6 +17125,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onSelectOpening={selectOpening}
 	                onOpenWindowEditor={openWindowAttributes}
 	                onRequestFiller={requestFillerAction}
+	                onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
                 onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
                 onSyncCart={syncThreeDOrderWithCart}
 		                initialPresentation={interactive3dPresentation ?? undefined}
