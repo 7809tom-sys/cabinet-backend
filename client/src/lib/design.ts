@@ -3446,9 +3446,12 @@ export function normalizeWallBlindCornerRequiredFillers(placements: PlacedCabine
  */
 export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: RoomData): CollisionResolution {
   const wallBlindNormalized = normalizeWallBlindCornerRequiredFillers(placements);
-  const fillerNormalized = room
-    ? normalizeInstalledFillersToAdjacentCabinets(wallBlindNormalized, room)
+  const stackerNormalized = room
+    ? normalizeGlassStackersToParentFronts(wallBlindNormalized, room)
     : wallBlindNormalized;
+  const fillerNormalized = room
+    ? normalizeInstalledFillersToAdjacentCabinets(stackerNormalized, room)
+    : stackerNormalized;
   const normalizedPlacements = fillerNormalized.map(normalizePlacedWallCabinetSkuDimensions);
   const resolution: CollisionResolution = { placed: [], rejected: [] };
   for (const candidate of normalizedPlacements) {
@@ -4537,6 +4540,55 @@ export type GlassStackerParentPlacementResult =
   | { ok: false; reason: "not-stacker" | "no-matching-parent" | "ceiling"; parentCode?: string; requiredTop?: number; ceiling?: number };
 
 /**
+ * A shallow glass stacker above a deeper upper (most commonly a 12-inch glass
+ * cabinet above a 24-inch refrigerator/corner upper) is packed out from the
+ * wall so both cabinet faces finish flush. The space behind the stacker is a
+ * concealed support/filler chase; it is rendered separately in 3D.
+ */
+export function glassStackerFrontFlushSpot(
+  stacker: Pick<PlacedCabinet, "width" | "depth">,
+  parent: PlacedCabinet,
+  room: RoomData,
+): { x: number; y: number; rotation: number } {
+  const side = cabinetWall(parent, room);
+  const parentFootprint = placedFootprint(parent);
+  const parentRotation = ((Math.round(Number(parent.rotation) || 0) % 360) + 360) % 360;
+  const stackerFootprint = parentRotation === 90 || parentRotation === 270
+    ? { w: Number(stacker.depth), d: Number(stacker.width) }
+    : { w: Number(stacker.width), d: Number(stacker.depth) };
+  const parentCenter = {
+    x: parent.x + parentFootprint.w / 2,
+    y: parent.y + parentFootprint.d / 2,
+  };
+  const cardinalFront = side === "top"
+    ? { x: 0, y: 1 }
+    : side === "bottom"
+      ? { x: 0, y: -1 }
+      : side === "left"
+        ? { x: 1, y: 0 }
+        : side === "right"
+          ? { x: -1, y: 0 }
+          : null;
+  const radians = Number(parent.rotation || 0) * Math.PI / 180;
+  const front = cardinalFront ?? { x: Math.sin(radians), y: Math.cos(radians) };
+  const parentDepth = Math.max(0.125, Number(parent.depth) || STD.WALL_DEPTH);
+  const stackerDepth = Math.max(0.125, Number(stacker.depth) || STD.WALL_DEPTH);
+  const frontCenter = {
+    x: parentCenter.x + front.x * parentDepth / 2,
+    y: parentCenter.y + front.y * parentDepth / 2,
+  };
+  const stackerCenter = {
+    x: frontCenter.x - front.x * stackerDepth / 2,
+    y: frontCenter.y - front.y * stackerDepth / 2,
+  };
+  return {
+    x: stackerCenter.x - stackerFootprint.w / 2,
+    y: stackerCenter.y - stackerFootprint.d / 2,
+    rotation: parent.rotation,
+  };
+}
+
+/**
  * Resolve the physical cabinet that a glass stacker belongs on. Matching is
  * strict by room wall, installed width, and cabinet family; a WDC glass stacker
  * cannot silently land on a standard W cabinet. The currently selected matching
@@ -4585,11 +4637,12 @@ export function glassStackerParentPlacement(
     );
     const requiredTop = mountBottom + placedHeight(stacker);
     if (requiredTop <= ceiling + COLLISION_EPSILON_IN) {
+      const frontFlush = glassStackerFrontFlushSpot(stacker, parent, room);
       return {
         ok: true,
-        x: parent.x,
-        y: parent.y,
-        rotation: parent.rotation,
+        x: frontFlush.x,
+        y: frontFlush.y,
+        rotation: frontFlush.rotation,
         mountBottom,
         parentUid: parent.uid,
         parentCode: parent.masterCode,
@@ -4598,6 +4651,33 @@ export function glassStackerParentPlacement(
     firstCeilingBlock ??= { ok: false, reason: "ceiling", parentCode: parent.masterCode, requiredTop, ceiling };
   }
   return firstCeilingBlock ?? { ok: false, reason: "no-matching-parent" };
+}
+
+/** Repairs older saved stackers and keeps live plans flush when a parent moves. */
+export function normalizeGlassStackersToParentFronts(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  let changed = false;
+  const normalized = placed.map((stacker) => {
+    if (stacker.placement !== "wall" || !isStacker(stacker)) return stacker;
+    const placement = glassStackerParentPlacement(stacker, placed, room, stacker.stackedOnCabinetUid);
+    if (!placement.ok) return stacker;
+    if (
+      Math.abs(stacker.x - placement.x) <= COLLISION_EPSILON_IN &&
+      Math.abs(stacker.y - placement.y) <= COLLISION_EPSILON_IN &&
+      Math.abs(Number(stacker.rotation) - placement.rotation) <= COLLISION_EPSILON_IN &&
+      Math.abs(Number(stacker.mountBottom) - placement.mountBottom) <= COLLISION_EPSILON_IN &&
+      stacker.stackedOnCabinetUid === placement.parentUid
+    ) return stacker;
+    changed = true;
+    return {
+      ...stacker,
+      x: placement.x,
+      y: placement.y,
+      rotation: placement.rotation,
+      mountBottom: placement.mountBottom,
+      stackedOnCabinetUid: placement.parentUid,
+    };
+  });
+  return changed ? normalized : placed;
 }
 
 /**

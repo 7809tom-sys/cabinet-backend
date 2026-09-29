@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -5769,6 +5769,10 @@ export function crownMiterEndpointTrims(
   riseInches: number,
 ): CrownMiterEndpointTrim[] {
   const trims = segments.map(() => ({ startTopShift: 0, endTopShift: 0 }));
+  const maxPhysicalShift = Math.max(0, riseInches);
+  const boundedShift = (value: number) => Number.isFinite(value)
+    ? Math.max(-maxPhysicalShift, Math.min(maxPhysicalShift, value))
+    : 0;
   const endpointTolerance = 0.25;
   for (const joint of threeDCrownMiterJoints(segments)) {
     const endpoints = segments.flatMap((segment, segmentIndex) => [
@@ -5810,8 +5814,12 @@ export function crownMiterEndpointTrims(
     const shifts = [firstShift, secondShift];
     endpoints.forEach((endpoint, index) => {
       const trim = trims[endpoint.segmentIndex]!;
-      if (endpoint.atStart) trim.startTopShift = shifts[index]!;
-      else trim.endTopShift = shifts[index]!;
+      // A crown cut may project only within the physical profile rise. Nearly
+      // parallel or stale saved edges can otherwise create a mathematically huge
+      // intersection and a long molding spike hanging across the room.
+      const shift = boundedShift(shifts[index]!);
+      if (endpoint.atStart) trim.startTopShift = shift;
+      else trim.endTopShift = shift;
     });
   }
   return trims;
@@ -6110,6 +6118,98 @@ export function addThreeDCrownMolding(
       flushOutsideMiter: true,
     };
     root.add(rail);
+  }
+}
+
+export type ThreeDGlassStackerRearSupportSpec = {
+  stackerUid: string;
+  parentUid: string;
+  width: number;
+  height: number;
+  stackerDepth: number;
+  gapDepth: number;
+};
+
+/**
+ * Returns the concealed pack-out needed when a shallow glass stacker is seated
+ * flush with the face of a deeper 24-inch upper. A same-finish rear filler hides
+ * the chase while a simple 2x4-style frame supports the stacker from behind.
+ */
+export function threeDGlassStackerRearSupportSpecs(placed: PlacedCabinet[]): ThreeDGlassStackerRearSupportSpec[] {
+  const byUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
+  return placed.flatMap((stacker) => {
+    if (!stacker.stackedOnCabinetUid || !isStacker(stacker) || !isGlassDoorCabinet(stacker)) return [];
+    const parent = byUid.get(stacker.stackedOnCabinetUid);
+    if (!parent) return [];
+    const parentDepth = Math.max(0, Number(parent.depth) || STD.WALL_DEPTH);
+    const stackerDepth = Math.max(0, Number(stacker.depth) || STD.WALL_DEPTH);
+    const gapDepth = parentDepth - stackerDepth;
+    if (gapDepth <= 0.25) return [];
+    return [{
+      stackerUid: stacker.uid,
+      parentUid: parent.uid,
+      width: Math.max(0.125, Number(stacker.width) || Number(parent.width) || 24),
+      height: Math.max(0.125, Number(stacker.height) || 12),
+      stackerDepth,
+      gapDepth,
+    }];
+  });
+}
+
+export function addThreeDGlassStackerRearSupports(
+  root: THREE.Group,
+  placed: PlacedCabinet[],
+  room: RoomData,
+  finishOverrides: Record<string, string> | undefined,
+  fallbackColor: string,
+) {
+  const byUid = new Map(placed.map((cabinet) => [cabinet.uid, cabinet]));
+  for (const support of threeDGlassStackerRearSupportSpecs(placed)) {
+    const stacker = byUid.get(support.stackerUid);
+    if (!stacker) continue;
+    const transform = existingCabinetTransform(stacker, room);
+    const box = elevationBox(stacker, room);
+    const material = new THREE.MeshStandardMaterial({
+      color: finishOverrides?.[stacker.uid] ?? fallbackColor,
+      roughness: 0.62,
+      metalness: 0,
+    });
+    const group = new THREE.Group();
+    group.position.set(transform.x * INCH, 0, transform.z * INCH);
+    group.rotation.y = transform.rotation;
+    group.userData = {
+      glassStackerRearSupport: true,
+      stackerUid: support.stackerUid,
+      parentUid: support.parentUid,
+      concealedTwoByFourFrame: true,
+      rearFillerPanel: true,
+      gapDepthInches: support.gapDepth,
+    };
+
+    const rearPanelThickness = Math.min(0.75, support.gapDepth);
+    const rearPanel = new THREE.Mesh(
+      new THREE.BoxGeometry(support.width * INCH, support.height * INCH, rearPanelThickness * INCH),
+      material,
+    );
+    rearPanel.position.set(
+      0,
+      (box.bottom + support.height / 2) * INCH,
+      (-support.stackerDepth / 2 - support.gapDepth + rearPanelThickness / 2) * INCH,
+    );
+    rearPanel.userData = { glassStackerRearFiller: true, concealedSupport: true };
+    group.add(rearPanel);
+
+    const railHeight = Math.min(3.5, support.height / 2);
+    for (const verticalCenter of [box.bottom + railHeight / 2, box.bottom + support.height - railHeight / 2]) {
+      const rail = new THREE.Mesh(
+        new THREE.BoxGeometry(support.width * INCH, railHeight * INCH, support.gapDepth * INCH),
+        material,
+      );
+      rail.position.set(0, verticalCenter * INCH, (-support.stackerDepth / 2 - support.gapDepth / 2) * INCH);
+      rail.userData = { glassStackerTwoByFourSupport: true, concealedSupport: true };
+      group.add(rail);
+    }
+    root.add(group);
   }
 }
 
@@ -8442,11 +8542,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 	        });
 	      }
-      if (roomOverride) {
-        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-      }
-      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
+	      if (roomOverride) {
+	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+	      }
+	      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, cabinetFinishOverrides, finish);
+	      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, cabinetFinishOverrides, finish);
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;

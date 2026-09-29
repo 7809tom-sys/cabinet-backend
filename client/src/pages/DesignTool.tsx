@@ -126,7 +126,7 @@ import {
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-	  elevationBox, isStacker, glassStackerParentPlacement, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+	  elevationBox, isStacker, glassStackerParentPlacement, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
   fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, bearsCountertop, bearsIslandCountertop,
@@ -828,9 +828,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // sink base changes. This removes a stale elevated mount after a window is
   // deleted while preserving the minimum valid clearance when a window remains.
   useEffect(() => {
-    const normalized = normalizeStandardWallMounts(
-      normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room)),
-      openings,
+    const normalized = normalizeGlassStackersToParentFronts(
+      normalizeStandardWallMounts(
+        normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room)),
+        openings,
+        room,
+      ),
       room,
     );
     if (normalized !== placed) setPlaced(normalized);

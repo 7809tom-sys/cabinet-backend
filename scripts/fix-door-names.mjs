@@ -127,7 +127,8 @@ const NAME_MAP = {
   'Nova Blanc':            'Nova White',
   'Edge Blanc':            'Edge White',
   'Oxford Blanc':          'Oxford White',
-  'Casselberry Blanc':     'Casselberry White',
+  // Casselberry Blanc is the approved Madison-facing alternate name for
+  // Casselberry Antique White; do not translate this proper product name.
 
   // French "Noir" = Black
   'Vellum Noir':           'Velvet Black',

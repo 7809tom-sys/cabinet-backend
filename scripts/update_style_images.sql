@@ -11,7 +11,7 @@ UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/bloom-blanc-room_665a
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/bloom-cinder-room_13cbf284.jpg', doorSampleImageUrl = '/manus-storage/bloom-cinder-door_25fa459b.jpg' WHERE ourName = 'Bloom Cinder';
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/bloom-umbra-room_35ccb400.webp', doorSampleImageUrl = '/manus-storage/bloom-umbra-door_ea09a98f.jpg' WHERE ourName = 'Bloom Umbra';
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/carbon-frost-room_8d6ffc4d.png', doorSampleImageUrl = '/manus-storage/carbon-frost-door_90898980.jpg' WHERE ourName = 'Carbon Frost';
-UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/casselberry-blanc-room_23a0c57b.webp', doorSampleImageUrl = '/manus-storage/casselberry-blanc-door_0ce921e3.webp' WHERE ourName = 'Casselberry Blanc';
+UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/casselberry-blanc-room_23a0c57b.webp', doorSampleImageUrl = '/manus-storage/casselberry-blanc-door_0ce921e3.webp' WHERE ourName IN ('Casselberry Antique White', 'Casselberry Blanc');
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/casselberry-saddle-room_6e96021d.jpg', doorSampleImageUrl = '/manus-storage/casselberry-saddle-door_541890a5.png' WHERE ourName = 'Casselberry Saddle';
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/cinder-core-gray-room_89da5273.webp', doorSampleImageUrl = '/manus-storage/cinder-core-gray-door_e293a585.webp' WHERE ourName = 'Cinder Core Gray';
 UPDATE door_styles SET roomSceneImageUrl = '/manus-storage/cinder-core-room_319c6edb.jpg', doorSampleImageUrl = '/manus-storage/cinder-core-door_f5922e62.jpg' WHERE ourName = 'Cinder Core';
