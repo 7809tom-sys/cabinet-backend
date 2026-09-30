@@ -16,7 +16,6 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     ["catalog and 3D add", "const addCabinet = useCallback", "const addManualFiller"],
     ["2D drag", "const moveCabinet = useCallback", "const swingSelected"],
 	    ["rotation", "const rotateSelected", "const deleteSelected"],
-	    ["keyboard and on-canvas nudge", "const nudgeSelected = useCallback", "const adjustMountHeight"],
 	    ["width resizing", "const setCustomWidth = useCallback", "const adjustWidth"],
     ["depth resizing", "const setCustomDepth = useCallback", "const adjustDepth"],
   ])("normalizes %s before accepting the resulting cabinet", (_label, start, end) => {
@@ -35,7 +34,9 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     const nudgePath = sourceBetween("const nudgeSelected = useCallback", "const adjustMountHeight");
     const threeDPath = sourceBetween("const moveCabinetFrom3D = useCallback", "const resetMountHeight");
     expect(dragPath).not.toContain("customPlacementMode\n\t\t        ?");
-    expect(nudgePath).not.toContain("!customPlacementMode ? snapCabinetSeamOverlap");
+    // Nudge is now the same engine call as a drag (one path for every wall).
+    expect(nudgePath).toContain("moveCabinet(");
+    expect(nudgePath).not.toContain("isCustomRoomWall(");
     expect(threeDPath).not.toContain("customPlacementMode ? movedCandidate : snapCabinetSeamOverlap");
   });
 
@@ -95,8 +96,12 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
     const snapToWallPath = sourceBetween("const snapSelectedToWall = useCallback", "const deleteCabinet");
     expect(addPath).toContain("magneticAvailableWallStart(");
-    expect(dragPath).toContain("magneticAvailableWallStart(segments, desiredStart, cabinet.width)");
-    expect(snapToWallPath).toContain("magneticAvailableWallStart(segments, requestedAlong, selected.width)");
+    // Drag and Snap-to-wall route through the one shared wall-run engine, which
+    // itself applies the same magnetic seam resolver for every wall kind.
+    expect(dragPath).toContain("cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {");
+    expect(snapToWallPath).toContain("cabinetWallMovePreview(selected, { x: selected.x, y: selected.y }, room, peers, openings, {");
+    expect(dragPath).not.toContain("isCustomRoomWall(");
+    expect(snapToWallPath).not.toContain("isCustomRoomWall(");
   });
 
   it("uses the physical 45-degree measured-wall clearance resolver for catalog drops and cabinet moves", () => {
@@ -104,12 +109,14 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     const planDropPath = sourceBetween("const handleDropNew = useCallback", "const placePeninsulaFitRecommendation");
     const dragPath = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
     const snapToWallPath = sourceBetween("const snapSelectedToWall = useCallback", "const deleteCabinet");
-    expect(threeDAddPath).toContain("firstCollisionFreeCustomWallPlacement(");
-    expect(planDropPath).toContain("firstCollisionFreeCustomWallPlacement(");
-    expect(dragPath).toContain("firstCollisionFreeCustomWallPlacement(");
-    expect(snapToWallPath).toContain("firstCollisionFreeCustomWallPlacement(");
-    expect(snapToWallPath).toContain("containingSegment.start + containingSegment.length - selected.width");
-    expect(snapToWallPath).toContain("wallOffset: spot.wallOffset ?? along");
+    // One 1/8-inch collision-free search for every wall; no wall-kind fork.
+    expect(threeDAddPath).toContain("firstCollisionFreeWallPlacement(");
+    expect(planDropPath).toContain("firstCollisionFreeWallPlacement(");
+    expect(threeDAddPath).not.toContain("isCustomRoomWall(");
+    expect(planDropPath).not.toContain("isCustomRoomWall(");
+    expect(dragPath).toContain("cabinetWallMovePreview(");
+    expect(snapToWallPath).toContain("cabinetWallMovePreview(");
+    expect(snapToWallPath).toContain("wallId: side,");
     expect(threeDAddPath).toContain("{ wallId: dropWall, wallOffset: spot.wallOffset ?? along");
     expect(planDropPath).toContain("wallOffset: spot.wallOffset ?? measured.snapStart");
   });

@@ -89,8 +89,10 @@ describe("3D cabinet movement plan mapping", () => {
     expect(right!.candidate.x).toBeCloseTo(3 * Math.SQRT2, 8);
     expect(right!.candidate.y).toBeCloseTo(3 * Math.SQRT2 + 12 * Math.SQRT2, 8);
 
-    const inward = threeDMeasuredWallMoveTarget(diagonalBase, continuousRoom as any, "in", 6);
-    expect(inward).toMatchObject({ constrainedToWall: true, candidate: diagonalBase });
+    // In/Out is the same generic depth move on every wall kind (a standard-room
+    // cabinet may be pulled off its wall); the seated-run helper only owns
+    // Left/Right, so it defers In/Out to the shared plan path.
+    expect(threeDMeasuredWallMoveTarget(diagonalBase, continuousRoom as any, "in", 6)).toBeNull();
   });
 
 	  it("allows a 30-inch depth move and limits oversized input to the controlled attributes range", () => {

@@ -122,7 +122,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -148,7 +148,7 @@ import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlaceme
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
 import { rangeCompanionProposal, repairLegacyWscMicrowaveBridges, type RangeCompanionProposal } from "@/lib/rangeCompanion";
 import { isWscSpiceCabinet, wsc30UpperChoices, wsc30UpperPlacement } from "@/lib/spiceStack";
-import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDMeasuredWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
+import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDSeatedWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
   DEFAULT_HARDWARE_STYLE_ID,
@@ -5728,8 +5728,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        along >= segment.start - COLLISION_EPSILON_IN
 	        && along + width <= segment.start + segment.length + COLLISION_EPSILON_IN
 	      ));
-	      const spot = !strictPointerPlacement && containingSegment && isCustomRoomWall(room, dropWall)
-	        ? firstCollisionFreeCustomWallPlacement(
+	      const spot = !strictPointerPlacement && containingSegment
+	        ? firstCollisionFreeWallPlacement(
 	            dropWall,
 	            room,
 	            wallRunPlaced,
@@ -6638,9 +6638,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // pieces must use the persisted wall offset that owns this refrigerator.
       const fridgeStart = bay.refrigeratorStart;
       const fw = bay.refrigeratorWidth;
-      const fd = isCustomRoomWall(room, side) || peninsulaRunById(room, side)
-        ? Math.max(0, Number(configuredFridge.depth) || 0)
-        : fp.d;
+      // Depth into the room is the catalog depth on every wall kind.
+      const fd = Math.max(0, Number(configuredFridge.depth) || 0) || fp.d;
 
       // Pick the surround row whose width best matches the fridge width (fallback).
       const pickByWidth = (rows: DesignCabinet[] | undefined, target: number): DesignCabinet | undefined => {
@@ -7658,13 +7657,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (!data) return;
       const center = { x: (clientX - roomRect.left) / ppi, y: (clientY - roomRect.top) / ppi };
 	      const activePeninsulaRun = peninsulaRunById(room, targetWall ?? activeWall);
-	      const polygonWall = !activePeninsulaRun && room.vertices && room.customWalls
-	        ? closestWall(center.x, center.y, room.vertices, room.customWalls)
-	        : null;
 	      // A selected peninsula is an explicit placement choice. Preserve it for
 	      // touch catalog drops instead of allowing the pointer's nearest room edge
-	      // to redirect the cabinet back onto an outside wall.
-	      const dropWall = (activePeninsulaRun?.id ?? polygonWall?.id ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
+	      // to redirect the cabinet back onto an outside wall. Otherwise the drop
+	      // lands on the nearest wall run — drawn wall or standard side alike.
+	      const dropWall = (activePeninsulaRun?.id
+	        ?? (targetWall && wallRunFrame(targetWall, room) ? targetWall : null)
+	        ?? nearestWallRunAtPoint(room, center)?.frame.id
+	        ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
       const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
       const dimensions = resolvedDesignCabinetDimensions(data);
 	      const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
@@ -7760,10 +7760,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        setCatalogDragPreview(null);
 	        return;
 	      }
+		      const dropFrame = wallRunFrame(dropWall, room);
 		      const targetAlong = activePeninsulaRun
 		        ? peninsulaRunOffsetAtPoint(activePeninsulaRun, room, center)
-		        : polygonWall && isCustomRoomWall(room, dropWall)
-		        ? positionAlongWall(center.x, center.y, polygonWall, room.vertices!)
+		        : dropFrame
+		        ? wallRunAlongAtPoint(dropFrame, center)
 		        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
@@ -7829,8 +7830,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        measured.snapStart >= segment.start - COLLISION_EPSILON_IN
 	        && measured.snapStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
 	      ));
-	      const spot = useAutomaticSnapping && containingSegment && isCustomRoomWall(room, dropWall)
-	        ? firstCollisionFreeCustomWallPlacement(
+	      const spot = useAutomaticSnapping && containingSegment && !activePeninsulaRun
+	        ? firstCollisionFreeWallPlacement(
 	            dropWall,
 	            room,
 	            wallRunPlaced,
@@ -7902,100 +7903,52 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		      if (!cabinet) return prev;
 		      const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
-		      let requestedCabinet = snapWallCabinetToOwningWall({
+		      // ONE engine for every wall. The requested plan point is projected onto
+		      // the wall run (standard side, drawn wall or peninsula), resolved into a
+		      // clear 1/8-inch position and seated with wallPlacementAt. Only a floor
+		      // cabinet dragged beyond the 6-inch wall magnet stays free-floating.
+		      const requestedBody: PlacedCabinet = {
 		        ...cabinet,
 		        x,
 		        y,
 		        ...(rotation != null ? { rotation } : {}),
-		        ...(target?.wallId ? { wallId: target.wallId as WallSide, wallOffset: target.wallOffset ?? 0 } : {}),
-		      }, room);
+		      };
 	      const peers = workingPrev.filter((p) => p.uid !== uid);
-	      const nearbyWallSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
-	        ? autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)
-	        : null;
-	      if (nearbyWallSnap) requestedCabinet = nearbyWallSnap;
-	      if (
-	        room.vertices?.length
-	        && room.customWalls?.length
-	        && !requestedCabinet.islandFace
-	        && !isCustomRoomWall(room, requestedCabinet.wallId)
-	        && !peninsulaRunById(room, requestedCabinet.wallId)
-	      ) {
-	        const footprint = placedFootprint(requestedCabinet);
-	        const realWall = closestWall(
-	          requestedCabinet.x + footprint.w / 2,
-	          requestedCabinet.y + footprint.d / 2,
-	          room.vertices,
-	          room.customWalls,
-	        );
-	        if (realWall) requestedCabinet = { ...requestedCabinet, wallId: realWall.id as WallSide };
+	      const magnet = automaticSnapping && !customPlacementMode && !exactWallDrag;
+	      const wallMove = requestedBody.islandFace
+	        ? null
+	        : cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {
+	            magnet,
+	            exact: exactWallDrag,
+	            target: target ?? null,
+	            seamToleranceIn: automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+	          });
+	      if (wallMove && wallMove.failure && wallMove.failure !== "no-wall") {
+	        const wallLabel = room.customWalls?.find((wall) => wall.id === wallMove.wall)?.label
+	          ?? (peninsulaRunById(room, wallMove.wall) ? "peninsula" : `${wallMove.wall} wall`);
+	        const message = wallMove.failure === "no-opening"
+	          ? `${cabinet.masterCode} was not moved because the ${wallLabel} has no clear ${formatEighthInches(cabinet.width)} opening.`
+	          : `${cabinet.masterCode} was not moved because the ${wallLabel} has no collision-free ${formatEighthInches(cabinet.width)} position.`;
+	        setPlacementWarning(message);
+	        toast.error(message);
+	        return prev;
 	      }
-	      const requestedWallId = requestedCabinet.wallId ?? cabinet.wallId;
-		      if (!nearbyWallSnap && (isCustomRoomWall(room, requestedWallId) || peninsulaRunById(room, requestedWallId))) {
-	        const peninsula = peninsulaRunById(room, requestedWallId);
-	        const wall = room.customWalls?.find((candidate) => candidate.id === requestedWallId);
-	        if (peninsula || (wall && room.vertices)) {
-          const requestedAlong = peninsula
-            ? peninsulaRunOffsetAtPoint(peninsula, room, { x: x + placedFootprint(cabinet).w / 2, y: y + placedFootprint(cabinet).d / 2 })
-            : positionAlongWall(x + placedFootprint(cabinet).w / 2, y + placedFootprint(cabinet).d / 2, wall!, room.vertices!);
-	          const segments = freeSegmentsOnWall(requestedWallId as WallSide, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
-          // Peninsula and connected-return runs use the same magnetic intent as
-          // perimeter walls. With the magnet on, resolve the closest clear span;
-          // with it off, retain the deliberate along-run position and let the
-          // collision guard reject any real overlap.
-	          const explicitCornerOffset = target?.wallId === requestedWallId && Number.isFinite(target?.wallOffset)
-	            ? Math.max(0, Number(target?.wallOffset))
-	            : null;
-	          const desiredStart = explicitCornerOffset ?? (requestedAlong - cabinet.width / 2);
-	          const shouldMagnetSnapToRun = automaticSnapping && !customPlacementMode && !exactWallDrag;
-	          const nextStart = explicitCornerOffset != null
-	            ? explicitCornerOffset
-	            : shouldMagnetSnapToRun
-	            ? magneticAvailableWallStart(segments, desiredStart, cabinet.width)
-		            : Math.max(0, Math.min(wallLength(requestedWallId as WallSide, room) - cabinet.width, desiredStart));
-		          if (nextStart == null) {
-		            const message = `${cabinet.masterCode} was not moved because this ${peninsula ? "peninsula" : "custom wall"} has no clear ${formatEighthInches(cabinet.width)} opening.`;
-            setPlacementWarning(message);
-            toast.error(message);
-            return prev;
-          }
-	          const containingSegment = segments.find((segment) => (
-	            nextStart >= segment.start - COLLISION_EPSILON_IN
-	            && nextStart + cabinet.width <= segment.start + segment.length + COLLISION_EPSILON_IN
-	          ));
-	          const angledSpot = shouldMagnetSnapToRun && !peninsula && containingSegment && isCustomRoomWall(room, requestedWallId)
-	            ? firstCollisionFreeCustomWallPlacement(
-	                requestedWallId as WallSide,
-	                room,
-	                peers,
-	                cabinet.width,
-	                cabinet.depth,
-	                cabinet.placement,
-	                nextStart,
-	                containingSegment.start,
-	                containingSegment.start + containingSegment.length - cabinet.width,
-	              )
-	            : wallPlacementAt(nextStart, cabinet.width, cabinet.depth, requestedWallId as WallSide, room, cabinet.peninsulaSide);
-	          if (!angledSpot) {
-	            const message = `${cabinet.masterCode} was not moved because the selected 45° wall opening has no collision-free ${formatEighthInches(cabinet.width)} position.`;
-	            setPlacementWarning(message);
-	            toast.error(message);
-	            return prev;
-	          }
-	          requestedCabinet = { ...cabinet, ...angledSpot, wallId: requestedWallId, wallOffset: angledSpot.wallOffset ?? nextStart };
-	        }
+	      let alignedCabinet: PlacedCabinet;
+	      if (wallMove?.candidate) {
+	        alignedCabinet = wallMove.candidate;
+	      } else {
+	        // Free-floating plan item (island run or a floor cabinet away from every
+	        // wall): the same rectangular room/cabinet edge snap as before.
+	        const freeBody = snapWallCabinetToOwningWall(requestedBody, room);
+	        const snappedPosition = magnet ? snapPosition(freeBody, room, peers, island) : null;
+	        alignedCabinet = snappedPosition
+	          ? snapCabinetSeamOverlap(
+	            { ...freeBody, x: snappedPosition.x, y: snappedPosition.y },
+	            peers,
+	            automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+	          )
+	          : freeBody;
 	      }
-		      const shouldSnap = automaticSnapping && !customPlacementMode && !exactWallDrag
-		        && !isCustomRoomWall(room, requestedCabinet.wallId)
-		        && !peninsulaRunById(room, requestedCabinet.wallId);
-	      const snappedPosition = shouldSnap ? snapPosition(requestedCabinet, room, peers, island) : null;
-      const alignedCabinet: PlacedCabinet = snappedPosition
-        ? snapCabinetSeamOverlap(
-          { ...requestedCabinet, x: snappedPosition.x, y: snappedPosition.y },
-          peers,
-          automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
-        )
-        : requestedCabinet;
       const movedCabinet: PlacedCabinet = {
         ...alignedCabinet,
         ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
@@ -8258,68 +8211,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
 	    if (!selectedUid) return;
 	    const current = placedRef.current.find((item) => item.uid === selectedUid);
-	    const currentWall = current ? (current.wallId ?? cabinetWall(current, room)) as WallSide : null;
-	    // A keyboard/canvas nudge on an explicit continuous wall must take the
-	    // same authoritative route as a 3D drag. The old rectangular clamp could
-	    // detach an angled cabinet from its drawn wall or preserve a stale run
-	    // offset. `moveCabinet` re-measures the actual run, preserves wallId and
-	    // wallOffset, and retains all existing collision/filler/sink safeguards.
-	    if (current && currentWall && (isCustomRoomWall(room, currentWall) || peninsulaRunById(room, currentWall))) {
-	      moveCabinet(
-	        selectedUid,
-	        Math.round((current.x + dxIn) * 8) / 8,
-	        Math.round((current.y + dyIn) * 8) / 8,
-	        undefined,
-	        true,
-	      );
-	      return;
-	    }
-	    setPlaced((prev) => {
-		      const selected = prev.find((item) => item.uid === selectedUid);
-		      if (!selected) return prev;
-		      const requiredFillerGroupId = requiredBlindCornerFillerGroupId(selected);
-		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
-	      const moved = workingPrev.map((p) =>
-	        p.uid === selectedUid
-          ? { ...p, x: Math.round((p.x + dxIn) * 10) / 10, y: Math.round((p.y + dyIn) * 10) / 10 }
-          : p
-      );
-      const clamped = clampCabinetsToRoom(moved, room);
-		      const rawCandidate = clamped.find((p) => p.uid === selectedUid);
-		      const peers = clamped.filter((p) => p.uid !== selectedUid);
-			      const seatedCandidate = rawCandidate ? snapWallCabinetToOwningWall(rawCandidate, room) : rawCandidate;
-			      const candidate = seatedCandidate ? snapCabinetSeamOverlap(seatedCandidate, peers) : seatedCandidate;
-		      if (candidate && shouldBlockPlacementCollision(candidate, clamped.filter((p) => p.uid !== selectedUid), customPlacementMode, room)) {
-		        const message = wallCabinetPlacementReason(candidate, room, peers, openings) ?? collisionReason(candidate, peers) ?? `${candidate.masterCode} was not moved because it would overlap an existing item.`;
-        setPlacementWarning(message);
-        toast.error(message);
-        return prev;
-      }
-		      let nextPlaced = candidate
-		        ? clamped.map((item) => item.uid === selectedUid ? candidate : item)
-		        : clamped;
-	      if (candidate && selected && isBlindCorner(candidate.masterCode, candidate.description)) {
-	        const required = buildRequiredBlindCornerFiller(
-	          candidate,
-	          room,
-	          catalogFillers,
-	          makeUid,
-	          candidate.styleId ?? styleIdRef.current ?? null,
-	        );
-	        if (!required.ok || hasCollision(required.filler, nextPlaced)) {
-	          const message = `${candidate.masterCode} was not moved because its required ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)} filler would not fit the adjoining cabinet run.`;
-	          setPlacementWarning(message);
-	          toast.error(message);
-	          return prev;
-	        }
-	        const withRequiredFiller = appendCollisionFreePlacements(nextPlaced, [required.filler]).placed;
-	        if (!withRequiredFiller.some((item) => item.uid === required.filler.uid)) return prev;
-	        nextPlaced = withRequiredFiller;
-	      }
-	      placedRef.current = nextPlaced;
-	      return nextPlaced;
-	    });
-	  }, [catalogFillers, selectedUid, room, customPlacementMode, moveCabinet]);
+	    if (!current) return;
+	    // Every nudge — standard wall, drawn wall, peninsula or free-floating —
+	    // takes the same authoritative route as a drag: moveCabinet re-measures the
+	    // run, keeps wallId/wallOffset current, rounds to the 1/8-inch grid and
+	    // applies the shared collision/filler/sink safeguards.
+	    moveCabinet(
+	      selectedUid,
+	      roundToEighth(current.x + dxIn),
+	      roundToEighth(current.y + dyIn),
+	      undefined,
+	      true,
+	    );
+	  }, [selectedUid, moveCabinet]);
 
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
@@ -8451,47 +8355,39 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
 	      return commit(candidate);
 	    }
-    // Continuous-wall and peninsula runs have their own measured wall frame.
-    // Use that same frame for the 3D arrows as catalog placement and Plan drag,
-    // rather than treating an arbitrary custom wall as the generic right wall.
-    // A screen-space delta is intentionally reserved for the viewer's regular
-    // cardinal-wall gesture; an explicit measured run always retains its real
-    // wall identity, offset, rotation, and flush depth, including touch/drag
-    // gestures that supply a screen delta.
-    const measuredWallTarget = threeDMeasuredWallMoveTarget(cabinet, room, direction, step);
-    if (measuredWallTarget?.constrainedToWall) {
-      return blocked(`${cabinet.masterCode} stays flush to its measured wall. Use Left/Right to move along the wall.`);
+    // ONE engine for every wall: a cabinet seated on a run (standard side,
+    // drawn wall or peninsula) moves Left/Right along that run through the
+    // shared placement engine, keeping wallId, exact 1/8-inch offset, facing
+    // rotation and flush depth. In/Out and run-less cabinets take the generic
+    // plan delta and are re-seated by the same shared re-seat rule.
+    const seatedTarget = threeDSeatedWallMoveTarget(cabinet, room, direction, step, peersWithoutLinkedFiller, openings);
+    if (seatedTarget
+      && Math.abs(seatedTarget.candidate.x - cabinet.x) <= COLLISION_EPSILON_IN
+      && Math.abs(seatedTarget.candidate.y - cabinet.y) <= COLLISION_EPSILON_IN
+      && Math.abs((seatedTarget.candidate.wallOffset ?? 0) - (cabinet.wallOffset ?? 0)) <= COLLISION_EPSILON_IN) {
+      return blocked(`${cabinet.masterCode} cannot move ${direction}; it is already at this wall run's end.`);
     }
-    if (measuredWallTarget
-      && Math.abs(measuredWallTarget.candidate.x - cabinet.x) <= COLLISION_EPSILON_IN
-      && Math.abs(measuredWallTarget.candidate.y - cabinet.y) <= COLLISION_EPSILON_IN
-      && Math.abs((measuredWallTarget.candidate.wallOffset ?? 0) - (cabinet.wallOffset ?? 0)) <= COLLISION_EPSILON_IN) {
-      return blocked(`${cabinet.masterCode} cannot move ${direction}; it is already at this measured wall run's end.`);
-    }
-    const delta = measuredWallTarget
-      ? { x: measuredWallTarget.candidate.x - cabinet.x, y: measuredWallTarget.candidate.y - cabinet.y }
+    const delta = seatedTarget
+      ? { x: seatedTarget.candidate.x - cabinet.x, y: seatedTarget.candidate.y - cabinet.y }
       : (direction === "left" || direction === "right") && screenPlanDelta
         ? screenPlanDelta
         : threeDPlanMoveDelta(cabinet, room, direction, step);
-    const movedCandidate = measuredWallTarget?.candidate ?? {
+    const movedCandidate = seatedTarget?.candidate ?? {
       ...cabinet,
-      x: Math.round((cabinet.x + delta.x) * 8) / 8,
-      y: Math.round((cabinet.y + delta.y) * 8) / 8,
+      x: roundToEighth(cabinet.x + delta.x),
+      y: roundToEighth(cabinet.y + delta.y),
       ...(direction === "in" || direction === "out" ? { depthPositionAdjusted: true } : {}),
     };
-    const candidate = measuredWallTarget?.candidate ?? snapWallCabinetToOwningWall(movedCandidate, room);
+    const candidate = seatedTarget?.candidate ?? snapWallCabinetToOwningWall(movedCandidate, room);
 	    const peers = peersWithoutLinkedFiller;
 	    // D-pad movement is an explicit incremental edit. Do not run automatic
 	    // seam attraction here: a one-inch move beside an existing seam would
 	    // otherwise snap back to its starting position and appear nonfunctional.
 	    // Room bounds and positive-overlap collision checks below remain strict.
-	    const footprint = rotatedSize(candidate);
-        // `wallPlacementAt` already clamps an explicit continuous-wall run to
-        // its true measured endpoints. Applying the old rectangular canvas
-        // bound afterwards can falsely reject a valid diagonal or open-path
-        // wall placement simply because the drawing's bounding box is not the
-        // physical room boundary. Cardinal-room placements retain that guard.
-	    if (!measuredWallTarget && (candidate.x < 0 || candidate.y < 0 || candidate.x + footprint.w > room.width || candidate.y + footprint.d > room.depth)) {
+	    // The shared room clamp is the single "inside the drawn walls" rule for
+	    // every room kind; a move the clamp has to correct is a move outside.
+	    const contained = clampCabinetToRoom(candidate, room);
+	    if (!seatedTarget && (Math.abs(contained.x - candidate.x) > COLLISION_EPSILON_IN || Math.abs(contained.y - candidate.y) > COLLISION_EPSILON_IN)) {
 	      return blocked(`${cabinet.masterCode} cannot move ${direction}; it would extend beyond the room boundary.`);
 	    }
 		    if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
@@ -9302,86 +9198,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        if (!selected) return prev;
 	        const peninsula = peninsulaRunById(room, side);
 	        const customWall = room.customWalls?.find((wall) => wall.id === side);
-	        if (!peninsula && !customWall) {
-	          return prev.map((p) => {
-	            if (p.uid !== selectedUid) return p;
-	            const { x, y } = snapToWall(p, side as WallSide, room);
-	            return { ...p, x, y, wallId: side as WallSide, wallOffset: undefined };
-	          });
-	        }
-
+	        const wallLabel = peninsula ? "peninsula" : customWall?.label ?? `${side} wall`;
         const peers = prev.filter((cabinet) => cabinet.uid !== selectedUid);
-        const footprint = placedFootprint(selected);
-	        const requestedAlong = peninsula
-	          ? peninsulaRunOffsetAtPoint(peninsula, room, {
-	              x: selected.x + footprint.w / 2,
-	              y: selected.y + footprint.d / 2,
-	            })
-	          : positionAlongWall(
-	              selected.x + footprint.w / 2,
-	              selected.y + footprint.d / 2,
-	              customWall!,
-	              room.vertices!,
-	            );
-	        const segments = freeSegmentsOnWall(
-	          side as WallSide,
-          room,
-          peers,
-          openings,
-          selected.width,
-          0,
-          selected.placement,
-        );
-        const along = magneticAvailableWallStart(segments, requestedAlong, selected.width);
-	        if (along == null) {
-	          const message = `${selected.masterCode} does not fit in an open span on this ${peninsula ? "peninsula" : customWall?.label ?? "wall"}.`;
-          setPlacementWarning(message);
-          toast.error(message);
-          return prev;
-        }
-	        const containingSegment = segments.find((segment) => (
-	          along >= segment.start - COLLISION_EPSILON_IN
-	          && along + selected.width <= segment.start + segment.length + COLLISION_EPSILON_IN
-	        ));
-	        // A continuous-wall run is an angled physical frame, not an axis-aligned
-	        // screen rectangle. Reuse the same exact-body search as catalog drops so
-	        // Snap to wall can seat a cabinet beside a 45° join rather than rejecting
-	        // the draw-envelope overlap at the vertex.
-	        const spot = customWall && containingSegment
-	          ? firstCollisionFreeCustomWallPlacement(
-	              side as WallSide,
-	              room,
-	              peers,
-	              selected.width,
-	              selected.depth,
-	              selected.placement,
-	              along,
-	              containingSegment.start,
-	              containingSegment.start + containingSegment.length - selected.width,
-	            )
-	          : wallPlacementAt(
-	              along,
-	              selected.width,
-	              selected.depth,
-	              side as WallSide,
-	              room,
-	              peninsula ? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
-	            );
-	        if (!spot) {
-	          const message = `${selected.masterCode} cannot snap to this ${customWall?.label ?? "measured wall"}: the selected opening has no collision-free ${formatEighthInches(selected.width)} position.`;
+	        // Snap to wall is the same magnet move as a drag, aimed at the chosen run:
+	        // project the current body onto that wall, take the nearest clear span and
+	        // seat it through the shared 1/8-inch search.
+	        const move = cabinetWallMovePreview(selected, { x: selected.x, y: selected.y }, room, peers, openings, {
+	          magnet: true,
+	          wallId: side,
+	          seamToleranceIn: CABINET_CONFLICT_LOCK_IN,
+	        });
+	        if (!move.candidate) {
+	          const message = move.failure === "no-opening"
+	            ? `${selected.masterCode} does not fit in an open span on this ${wallLabel}.`
+	            : `${selected.masterCode} cannot snap to this ${wallLabel}: the selected opening has no collision-free ${formatEighthInches(selected.width)} position.`;
 	          setPlacementWarning(message);
 	          toast.error(message);
 	          return prev;
 	        }
 	        const candidate: PlacedCabinet = {
-	          ...selected,
-	          ...spot,
-		          wallId: side as WallSide,
-		          wallOffset: spot.wallOffset ?? along,
-		          peninsulaSide: peninsula ? spot.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
+	          ...move.candidate,
+	          peninsulaSide: peninsula ? move.candidate.peninsulaSide ?? selected.peninsulaSide ?? peninsula.cabinetSide : undefined,
 	        };
 	        if (shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)) {
-	          const message = collisionReason(candidate, peers, room) ?? `${selected.masterCode} cannot snap to this ${peninsula ? "peninsula" : customWall?.label ?? "wall"} without overlapping another item.`;
+	          const message = collisionReason(candidate, peers, room) ?? `${selected.masterCode} cannot snap to this ${wallLabel} without overlapping another item.`;
           setPlacementWarning(message);
           toast.error(message);
           return prev;

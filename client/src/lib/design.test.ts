@@ -133,7 +133,7 @@ describe("knee drawer mounting", () => {
       { uid: "left-base", cabinetId: 1, masterCode: "B36", description: "Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
       { uid: "right-base", cabinetId: 2, masterCode: "B36", description: "Base", placement: "base", x: 72, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0 },
     ];
-    expect(kneeDrawerWallPlacement("top", ROOM_12x10, bases, [], 36, 21)).toEqual({ x: 36, y: 0, rotation: 0 });
+    expect(kneeDrawerWallPlacement("top", ROOM_12x10, bases, [], 36, 21)).toMatchObject({ x: 36, y: 0, rotation: 0 });
     expect(kneeDrawerWallPlacement("top", ROOM_12x10, bases, [], 42, 21)).toBeNull();
   });
 });
@@ -1388,7 +1388,7 @@ describe("active-wall placement", () => {
 
   it("places first item flush to the back (top) wall at the start corner", () => {
     const spot = nextFreeSpotOnWall(24, 24, "base", "top", room, []);
-    expect(spot).toEqual({ x: 0, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 0, y: 0, rotation: 0 });
   });
 
   it("places first item flush to the front (bottom) wall", () => {
@@ -1400,7 +1400,7 @@ describe("active-wall placement", () => {
 
   it("rotates items 90deg on the left/right walls so depth faces into the room", () => {
     const left = nextFreeSpotOnWall(24, 24, "base", "left", room, []);
-    expect(left).toEqual({ x: 0, y: 0, rotation: 90 });
+    expect(left).toMatchObject({ x: 0, y: 0, rotation: 90 });
     const right = nextFreeSpotOnWall(30, 24, "base", "right", room, []);
     // 30 wide cabinet rotated -> 24 deep faces into room from the right wall
     expect(right.x).toBe(room.width - 24); // 120
@@ -1862,7 +1862,7 @@ describe("wallSpanMeasure (live drag tape, both sides)", () => {
 	    const installedW3624 = cab({ uid: "fit-installed-w3624", masterCode: "W-36-24", placement: "wall", x: 132, y: 60, width: 36, depth: 12, height: 24, rotation: 90, mountBottom: 72 });
 	    const spot = paletteActiveWallPlacement("right", reportedRoom, [wdc42, installedW3624], [], 36, 12, "wall", true);
 
-	    expect(spot).toEqual({ x: 132, y: 24, rotation: 90 });
+	    expect(spot).toMatchObject({ x: 132, y: 24, rotation: 90 });
 	    const w3642 = cab({ uid: "fit-w3642", masterCode: "W-36-42", placement: "wall", ...spot!, width: 36, depth: 12, height: 42, rotation: 90, mountBottom: 54 });
 	    expect(hasCollision(w3642, [wdc42, installedW3624])).toBe(false);
 	    expect(wallCabinetFitMeasure(w3642, reportedRoom, [wdc42, installedW3624], [], "right")).toMatchObject({ requiredSpan: 36, availableStart: 24, availableEnd: 60, availableSpan: 36, before: 0, after: 0, status: "fits" });
@@ -2181,7 +2181,7 @@ function opening(partial: Partial<WallOpening>): WallOpening {
 describe("freeSegmentsOnWall (break the run around openings)", () => {
   it("resolves SB-36 palette placement to the active wall opening and never to the room center", () => {
     const openSpot = paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base");
-    expect(openSpot).toEqual({ x: 0, y: 0, rotation: 0 });
+    expect(openSpot).toMatchObject({ x: 0, y: 0, rotation: 0 });
 
     const filledTopRun = [cab({ uid: "base-run", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
     expect(paletteActiveWallPlacement("top", ROOM_12x10, filledTopRun, [], 36, 24, "base")).toBeNull();
@@ -2193,44 +2193,44 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       cab({ uid: "base-b", placement: "base", x: 54, y: 0, width: 18, depth: 24 }),
     ];
     expect(paletteActiveWallPlacement("top", ROOM_12x10, existing, [], 24, 24, "base"))
-      .toEqual({ x: 0, y: 0, rotation: 0 });
+      .toMatchObject({ x: 0, y: 0, rotation: 0 });
   });
 
   it("keeps wall and floor runs independent while tall cabinets reserve both sequences", () => {
     const baseOnly = cab({ uid: "base", placement: "base", x: 0, y: 0, width: 48, depth: 24 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [baseOnly], [], 30, 12, "wall"))
-      .toEqual({ x: 0, y: 0, rotation: 0 });
+      .toMatchObject({ x: 0, y: 0, rotation: 0 });
 
     const wallOnly = cab({ uid: "wall", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [wallOnly], [], 24, 24, "base"))
-      .toEqual({ x: 0, y: 0, rotation: 0 });
+      .toMatchObject({ x: 0, y: 0, rotation: 0 });
 
     const tall = cab({ uid: "tall", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 84 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [tall], [], 30, 12, "wall"))
-      .toEqual({ x: 24, y: 0, rotation: 0 });
+      .toMatchObject({ x: 24, y: 0, rotation: 0 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [tall], [], 30, 24, "base"))
-      .toEqual({ x: 24, y: 0, rotation: 0 });
+      .toMatchObject({ x: 24, y: 0, rotation: 0 });
 
     const splitRuns = [
       cab({ uid: "base-long", placement: "base", x: 0, y: 0, width: 42, depth: 24 }),
       cab({ uid: "wall-long", placement: "wall", x: 0, y: 0, width: 60, depth: 12, height: 30 }),
     ];
     expect(paletteActiveWallPlacement("top", ROOM_12x10, splitRuns, [], 24, 24, "tall"))
-      .toEqual({ x: 60, y: 0, rotation: 0 });
+      .toMatchObject({ x: 60, y: 0, rotation: 0 });
   });
 
   it("places W-30-24 after the current upper run instead of jumping over a matching stove", () => {
     const upper = cab({ uid: "upper", masterCode: "W-30-30", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
     const stove = cab({ uid: "range", masterCode: "RANGE-30", placement: "appliance", x: 72, y: 0, width: 30, depth: 24, height: 36 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [upper, stove], [], 30, 12, "wall"))
-      .toEqual({ x: 30, y: 0, rotation: 0 });
+      .toMatchObject({ x: 30, y: 0, rotation: 0 });
   });
 
   it("places W-24-42 immediately to the right of a wall-mounted range hood with zero overlap", () => {
     const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 48, depth: 12, height: 42 });
     const hood = cab({ uid: "wall-hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 20, height: 18, mountBottom: 66 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, hood], [], 24, 12, "wall", true))
-      .toEqual({ x: 78, y: 0, rotation: 0 });
+      .toMatchObject({ x: 78, y: 0, rotation: 0 });
   });
 
   it("keeps B-12 on the base layer while W-1242 back-fills the clear upper opening after the hood", () => {
@@ -2238,7 +2238,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const hood = cab({ uid: "hood", masterCode: "HOOD-30", description: "30 inch Wall Mount Range Hood", placement: "appliance", x: 48, y: 0, width: 30, depth: 18, height: 18, mountBottom: 66 });
     const corner = cab({ uid: "right-corner", masterCode: "WDC2442", description: "24 inch Diagonal Corner Wall Cabinet", placement: "wall", x: 120, y: 0, width: 24, depth: 24, height: 42, mountBottom: 54 });
     const w1242Spot = paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, hood, corner], [], 12, 12, "wall", true);
-    expect(w1242Spot).toEqual({ x: 78, y: 0, rotation: 0 });
+    expect(w1242Spot).toMatchObject({ x: 78, y: 0, rotation: 0 });
     expect(hasCollision(cab({ uid: "w1242", masterCode: "W-1242", placement: "wall", ...w1242Spot!, width: 12, depth: 12, height: 42, mountBottom: 54 }), [leftUpper, hood, corner])).toBe(false);
 
     const fullBaseRun = [cab({ uid: "full-base", masterCode: "B-144", placement: "base", x: 0, y: 0, width: 144, depth: 24, height: 34.5 })];
@@ -2276,20 +2276,20 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
     const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, refrigerator], [], 30, 12, "wall", true))
-      .toEqual({ x: 78, y: 0, rotation: 0 });
+      .toMatchObject({ x: 78, y: 0, rotation: 0 });
   });
 
   it("still permits a dedicated refrigerator wall cabinet to share the refrigerator span", () => {
     const leftUpper = cab({ uid: "left-upper", masterCode: "W-24-42", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42 });
     const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 42, y: 0, width: 36, depth: 30, height: 70 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftUpper, refrigerator], [], 36, 24, "wall", false))
-      .toEqual({ x: 24, y: 0, rotation: 0 });
+      .toMatchObject({ x: 24, y: 0, rotation: 0 });
   });
 
   it("centers W-30-24 above an explicitly selected sink base instead of using the generic wall sequence", () => {
     const sinkBase = cab({ uid: "selected-sink-base", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
     const spot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, 24);
-    expect(spot).toEqual({ x: 51, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 51, y: 0, rotation: 0 });
     const w3024 = cab({ uid: "over-sink-w3024", masterCode: "W-30-24", placement: "wall", ...spot!, width: 30, depth: 12, height: 24 });
     expect(overSinkWindowStart(w3024, [sinkBase], [], ROOM_12x10)).toBe(51);
     expect(overSinkWallMountBottom(w3024, [sinkBase], [], ROOM_12x10)).toBe(70);
@@ -2301,7 +2301,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const sinkBase = cab({ uid: "selected-sink-for-tall-upper", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 48, y: 0, width: 36, depth: 24, height: 34.5 });
     expect(selectedSinkBaseWallPlacement(ordinaryBase, ROOM_12x10, 30, 12, 24)).toBeNull();
     const tallWallSpot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, 42);
-    expect(tallWallSpot).toEqual({ x: 51, y: 0, rotation: 0 });
+    expect(tallWallSpot).toMatchObject({ x: 51, y: 0, rotation: 0 });
     const tallWall = cab({ uid: "over-sink-w3042", masterCode: "W-30-42", placement: "wall", ...tallWallSpot!, width: 30, depth: 12, height: 42 });
     expect(elevationBox(tallWall, ROOM_12x10)).toEqual({ bottom: 54, height: 42 });
   });
@@ -2311,7 +2311,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const leftUpper = cab({ uid: `left-${height}`, masterCode: "W-30-42", placement: "wall", x: 21, y: 0, width: 30, depth: 12, height: 42 });
     const rightUpper = cab({ uid: `right-${height}`, masterCode: "W-30-30", placement: "wall", x: 81, y: 0, width: 30, depth: 12, height: 30 });
     const spot = selectedSinkBaseWallPlacement(sinkBase, ROOM_12x10, 30, 12, height);
-    expect(spot).toEqual({ x: 51, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 51, y: 0, rotation: 0 });
     const candidate = cab({ uid: `selected-height-${height}`, masterCode: `W-30-${height}`, placement: "wall", ...spot!, width: 30, depth: 12, height });
     expect(hasCollision(candidate, [leftUpper, rightUpper, sinkBase])).toBe(false);
   });
@@ -2329,7 +2329,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       [leftUpper, sinkBase, rightUpper],
       [],
     );
-    expect(spot).toEqual({ x: 12, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 12, y: 0, rotation: 0 });
     const candidate = cab({ uid: "exact-fit-w3624", masterCode: "W-36-24", placement: "wall", ...spot!, width: 36, depth: 12, height: 24, mountBottom: 70 });
     expect(hasCollision(candidate, [leftUpper, sinkBase, rightUpper])).toBe(false);
     const fit = wallCabinetFitMeasure(candidate, ROOM_12x10, [leftUpper, sinkBase, rightUpper], []);
@@ -2358,7 +2358,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const lowerTarget = cab({ uid: "right-sb36", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
     const spot = selectedLowerCabinetWallPlacement(lowerTarget, room, 36, 12, 24, [earlierUpper, lowerTarget], []);
 
-    expect(spot).toEqual({ x: 132, y: 60, rotation: 90 });
+    expect(spot).toMatchObject({ x: 132, y: 60, rotation: 90 });
     const candidate = cab({ uid: "right-w3624", masterCode: "W-36-24", placement: "wall", ...spot!, width: 36, depth: 12, height: 24, rotation: 90 });
     expect(hasCollision(candidate, [earlierUpper, lowerTarget])).toBe(false);
     expect(adjoiningWallRunMountBottom(candidate, room, [earlierUpper, lowerTarget])).toBe(72);
@@ -2378,7 +2378,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const range = cab({ uid: "right-range30", masterCode: "RANGE-30", description: "30 inch Range", placement: "appliance", x: 119, y: 60, width: 30, depth: 25, height: 36, rotation: 90 });
     const refrigerator = cab({ uid: "right-fridge36", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 114, y: 90, width: 36, depth: 30, height: 70, rotation: 90 });
 
-    expect(selectedLowerCabinetWallPlacement(dishwasher, room, 24, 12, 30, [dishwasher, range, refrigerator], [])).toEqual({ x: 132, y: 36, rotation: 90 });
+    expect(selectedLowerCabinetWallPlacement(dishwasher, room, 24, 12, 30, [dishwasher, range, refrigerator], [])).toMatchObject({ x: 132, y: 36, rotation: 90 });
     expect(selectedLowerCabinetWallPlacement(range, room, 30, 12, 30, [dishwasher, range, refrigerator], [])).toBeNull();
     expect(selectedLowerCabinetWallPlacement(refrigerator, room, 36, 24, 24, [dishwasher, range, refrigerator], [])).toBeNull();
   });
@@ -2387,7 +2387,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const refrigerator = cab({ uid: "top-fridge-36", masterCode: "FRIDGE-36", description: "36 inch Refrigerator", placement: "appliance", x: 60, y: 0, width: 36, depth: 24, height: 70, rotation: 0 });
     const spot = refrigeratorAdjacentOpeningPlacement("top", room, [refrigerator], [], 45, 24, "base");
-    expect(spot).toEqual({ x: 96, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 96, y: 0, rotation: 0 });
     const placedBase = cab({ uid: "top-adjacent-b45", masterCode: "B-45", placement: "base", ...spot!, width: 45, depth: 24, height: 34.5, rotation: 0 });
     expect(findSmallGapFillerOpportunity(room, [refrigerator, placedBase], [], placedBase.uid)).toMatchObject({ remaining: 3, layer: "base" });
   });
@@ -2405,12 +2405,12 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const firstLower = cab({ uid: "right-base-36-a", masterCode: "B-36", placement: "base", x: 120, y: 24, width: 36, depth: 24, height: 34.5, rotation: 90 });
     const secondLower = cab({ uid: "right-base-36-b", masterCode: "B-36", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
     const standardSpot = selectedLowerCabinetWallPlacement(firstLower, room, 36, 12, 42, [firstLower, secondLower], []);
-    expect(standardSpot).toEqual({ x: 132, y: 24, rotation: 90 });
+    expect(standardSpot).toMatchObject({ x: 132, y: 24, rotation: 90 });
     const standardUpper = cab({ uid: "right-standard-upper", masterCode: "W-36-42", placement: "wall", ...standardSpot!, width: 36, depth: 12, height: 42, rotation: 90 });
     expect(elevationBox(standardUpper, room)).toEqual({ bottom: 54, height: 42 });
 
     const shortSpot = selectedLowerCabinetWallPlacement(secondLower, room, 36, 12, 24, [firstLower, secondLower, standardUpper], []);
-    expect(shortSpot).toEqual({ x: 132, y: 60, rotation: 90 });
+    expect(shortSpot).toMatchObject({ x: 132, y: 60, rotation: 90 });
     const shortUpper = cab({ uid: "right-short-upper", masterCode: "W-36-24", placement: "wall", ...shortSpot!, width: 36, depth: 12, height: 24, rotation: 90 });
     expect(adjoiningWallRunMountBottom(shortUpper, room, [standardUpper])).toBe(72);
     expect(elevationBox({ ...shortUpper, mountBottom: 72 }, room)).toEqual({ bottom: 72, height: 24 });
@@ -2422,9 +2422,9 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const coveredLower = cab({ uid: "click-covered-b36", masterCode: "B-36", placement: "base", x: 120, y: 24, width: 36, depth: 24, height: 34.5, rotation: 90 });
     const clearLower = cab({ uid: "click-clear-sb36", masterCode: "SB-36", description: "36-inch Sink Base", placement: "base", x: 120, y: 60, width: 36, depth: 24, height: 34.5, rotation: 90 });
 
-    expect(matchingLowerCabinetWallPlacement("right", room, 36, 12, 24, [earlierUpper, coveredLower, clearLower], [])).toEqual({
+    expect(matchingLowerCabinetWallPlacement("right", room, 36, 12, 24, [earlierUpper, coveredLower, clearLower], [])).toMatchObject({
       targetUid: "click-clear-sb36",
-      spot: { x: 132, y: 60, rotation: 90 },
+      spot: { x: 132, y: 60, rotation: 90, wallId: "right", wallOffset: 60 },
     });
   });
 
@@ -2472,7 +2472,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
     const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });
     const spot = paletteActiveWallPlacement("top", ROOM_12x10, [previous, laterTall], [], 30, 12, "wall");
-    expect(spot).toEqual({ x: 30, y: 0, rotation: 0 });
+    expect(spot).toMatchObject({ x: 30, y: 0, rotation: 0 });
     const w3024 = cab({ uid: "w3024-open-run", masterCode: "W-30-24", placement: "wall", ...spot!, width: 30, depth: 12, height: 24 });
     expect(hasCollision(w3024, [previous, laterTall])).toBe(false);
     expect(w3024.x - (previous.x + previous.width)).toBe(0);
@@ -2484,7 +2484,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const leftWallTall = cab({ uid: "left-corner-tall", placement: "tall", x: 0, y: 0, width: 24, depth: 24, height: 96, rotation: 90 });
     expect(cabinetWall(leftWallTall, ROOM_12x10)).toBe("left");
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [leftWallTall], [], 30, 12, "wall"))
-      .toEqual({ x: 0, y: 0, rotation: 0 });
+      .toMatchObject({ x: 0, y: 0, rotation: 0 });
   });
 
 	  it("reserves LS3612's physical leg on the adjoining right-wall base run for DW-24 and 3-DB18 catalog placement", () => {
@@ -2506,12 +2506,12 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
       .toEqual([{ start: 36, length: 84 }]);
 
     const dishwasherSpot = paletteActiveWallPlacement("right", ROOM_12x10, [ls3612], [], 24, 24, "appliance");
-    expect(dishwasherSpot).toEqual({ x: 120, y: 36, rotation: 90 });
+    expect(dishwasherSpot).toMatchObject({ x: 120, y: 36, rotation: 90 });
     const dishwasher = cab({ uid: "dw24", masterCode: "DW-24", description: "24 inch Dishwasher", placement: "appliance", ...dishwasherSpot!, width: 24, depth: 24, height: 34.5 });
     expect(hasCollision(dishwasher, [ls3612])).toBe(false);
 
     const drawerBaseSpot = paletteActiveWallPlacement("right", ROOM_12x10, [ls3612], [], 18, 24, "base");
-    expect(drawerBaseSpot).toEqual({ x: 120, y: 36, rotation: 90 });
+    expect(drawerBaseSpot).toMatchObject({ x: 120, y: 36, rotation: 90 });
     const drawerBase = cab({ uid: "3db18", masterCode: "3-DB18", description: "18 inch Three Drawer Base", placement: "base", ...drawerBaseSpot!, width: 18, depth: 24, height: 34.5 });
 	    expect(hasCollision(drawerBase, [ls3612])).toBe(false);
 	  });
@@ -2535,7 +2535,7 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
 	    expect(freeSegmentsOnWall("left", ROOM_12x10, [blind], [], 0.5, 0, "appliance"))
 	      .toEqual([{ start: 24, length: 96 }]);
 	    const dishwasherSpot = paletteActiveWallPlacement("left", ROOM_12x10, [blind], [], 24, 24, "appliance");
-	    expect(dishwasherSpot).toEqual({ x: 0, y: 24, rotation: 90 });
+	    expect(dishwasherSpot).toMatchObject({ x: 0, y: 24, rotation: 90 });
 	    const dishwasher = cab({
 	      uid: "dw24-beside-bbc",
 	      masterCode: "DW-24",
@@ -2564,13 +2564,13 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     const existing = cab({ uid: "wall-a", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30 });
     const window = opening({ uid: "window", kind: "window", side: "top", offset: 48, width: 36, height: 36, sill: 42 });
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [existing], [window], 30, 12, "wall"))
-      .toEqual({ x: 87, y: 0, rotation: 0 });
+      .toMatchObject({ x: 87, y: 0, rotation: 0 });
   });
 
   it("uses cabinet width as the run span on vertical walls and continues downward from the wall start", () => {
     const first = cab({ uid: "left-wall-a", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 30, rotation: 90 });
     expect(paletteActiveWallPlacement("left", ROOM_12x10, [first], [], 24, 12, "wall"))
-      .toEqual({ x: 0, y: 30, rotation: 90 });
+      .toMatchObject({ x: 0, y: 30, rotation: 90 });
   });
 
   it("returns the whole wall when nothing blocks it", () => {
@@ -2943,7 +2943,7 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	    const parent = cab({ uid: "deep-parent", placement: "wall", masterCode: "WR3612", description: "36 inch Refrigerator Wall Cabinet", x: 30, y: 0, width: 36, depth: 24, height: 12, rotation: 0, mountBottom: 72 });
 	    const legacyStacker = cab({ uid: "glass-stacker", placement: "wall", masterCode: "W3612GD", description: "36 inch Glass Door Stacker", x: 30, y: 0, width: 36, depth: 12, height: 12, rotation: 0, mountBottom: 84, stackedOnCabinetUid: parent.uid, glassDoor: true });
 
-	    expect(glassStackerFrontFlushSpot(legacyStacker, parent, room)).toEqual({ x: 30, y: 12, rotation: 0 });
+	    expect(glassStackerFrontFlushSpot(legacyStacker, parent, room)).toMatchObject({ x: 30, y: 12, rotation: 0 });
 		    expect(normalizeGlassStackersToParentFronts([parent, legacyStacker], room)[1]).toMatchObject({
 		      x: 30,
 		      y: 12,
@@ -2968,7 +2968,7 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	    const parent = cab({ uid: "corner-parent", placement: "wall", masterCode: "DCW2430", x: 0, y: 0, width: 24, depth: 24, height: 30, rotation: 0, mountBottom: 54 });
 	    const stacker = cab({ uid: "corner-stacker", placement: "wall", masterCode: "DCW2412GD", description: "24 inch Diagonal Corner Glass Stacker", x: 0, y: 0, width: 24, depth: 24, height: 12, rotation: 0, mountBottom: 84, stackedOnCabinetUid: parent.uid, glassDoor: true });
 
-		    expect(glassStackerFrontFlushSpot(stacker, parent, room)).toEqual({ x: 0, y: 0, rotation: 0 });
+		    expect(glassStackerFrontFlushSpot(stacker, parent, room)).toMatchObject({ x: 0, y: 0, rotation: 0 });
 		    expect(normalizeGlassStackersToParentFronts([parent, stacker], room)[1]).toBe(stacker);
 		    expect(glassStackerFrontSnapTarget(stacker, [parent, stacker], room)).toBeNull();
 		  });
@@ -3556,7 +3556,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(isFarmSinkBasePaletteItem({ masterCode: "LSB36", description: "Base Easy Reach Lazy Susan" })).toBe(false);
 
     expect(paletteActiveWallPlacement("top", ROOM_12x10, [], [], 36, 24, "base"))
-      .toEqual({ x: 0, y: 0, rotation: 0 });
+      .toMatchObject({ x: 0, y: 0, rotation: 0 });
 	    const fullTopWall = [cab({ uid: "full-top", x: 0, y: 0, width: 144, depth: 24, placement: "base" })];
 	    expect(paletteActiveWallPlacement("top", ROOM_12x10, fullTopWall, [], 36, 24, "base")).toBeNull();
 	  });

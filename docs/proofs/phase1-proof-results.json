@@ -1,0 +1,356 @@
+{
+  "standard": {
+    "_ppi": 5.666666666666667,
+    "W3030": {
+      "start": {
+        "wallId": "top",
+        "wallOffset": 60,
+        "rotation": 0,
+        "x": 60,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "grab_hit": "W3030 \u2014 30 inch Wall 30 high",
+      "drag_toward_anchor": {
+        "wallId": "top",
+        "wallOffset": 26.25,
+        "rotation": 0,
+        "x": 26.25,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "nudge_right_3in": {
+        "wallId": "top",
+        "wallOffset": 29.25,
+        "rotation": 0,
+        "x": 29.25,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "drag_past_run_end": {
+        "wallId": "top",
+        "wallOffset": 114,
+        "rotation": 0,
+        "x": 114,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "drag_back_to_60": {
+        "wallId": "top",
+        "wallOffset": 60.125,
+        "rotation": 0,
+        "x": 60.125,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      }
+    },
+    "B12": {
+      "start": {
+        "wallId": "top",
+        "wallOffset": 60,
+        "rotation": 0,
+        "x": 60,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "grab_hit": "B12 \u2014 12 inch Base",
+      "drag_toward_anchor": {
+        "wallId": "top",
+        "wallOffset": 24,
+        "rotation": 0,
+        "x": 24,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "nudge_right_3in": {
+        "wallId": "top",
+        "wallOffset": 27,
+        "rotation": 0,
+        "x": 27,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "drag_past_run_end": {
+        "wallId": "top",
+        "wallOffset": 132,
+        "rotation": 0,
+        "x": 132,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "drag_back_to_60": {
+        "wallId": "top",
+        "wallOffset": 84,
+        "rotation": 0,
+        "x": 84,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      }
+    },
+    "B36": {
+      "start": {
+        "wallId": "top",
+        "wallOffset": 96,
+        "rotation": 0,
+        "x": 96,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "grab_hit": "B36 \u2014 36 inch Base",
+      "drag_toward_anchor": {
+        "wallId": "top",
+        "wallOffset": 24,
+        "rotation": 0,
+        "x": 24,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "nudge_right_3in": {
+        "wallId": "top",
+        "wallOffset": 27,
+        "rotation": 0,
+        "x": 27,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "drag_past_run_end": {
+        "wallId": "right",
+        "wallOffset": 0,
+        "rotation": 90,
+        "x": 120,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "drag_back_to_60": {
+        "wallId": "top",
+        "wallOffset": 48,
+        "rotation": 0,
+        "x": 48,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      }
+    }
+  },
+  "drawn": {
+    "_ppi": 5.666666666666667,
+    "W3030": {
+      "start": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 60,
+        "rotation": 0,
+        "x": 60,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "grab_hit": "W3030 \u2014 30 inch Wall 30 high",
+      "drag_toward_anchor": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 26.25,
+        "rotation": 0,
+        "x": 26.25,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "nudge_right_3in": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 29.25,
+        "rotation": 0,
+        "x": 29.25,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "drag_past_run_end": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 114,
+        "rotation": 0,
+        "x": 114,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      },
+      "drag_back_to_60": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 60.125,
+        "rotation": 0,
+        "x": 60.125,
+        "y": 0,
+        "width": 30,
+        "depth": 12,
+        "height": 30,
+        "masterCode": "W3030"
+      }
+    },
+    "B12": {
+      "start": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 60,
+        "rotation": 0,
+        "x": 60,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "grab_hit": "B12 \u2014 12 inch Base",
+      "drag_toward_anchor": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 24,
+        "rotation": 0,
+        "x": 24,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "nudge_right_3in": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 27,
+        "rotation": 0,
+        "x": 27,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "drag_past_run_end": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 132,
+        "rotation": 0,
+        "x": 132,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      },
+      "drag_back_to_60": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 84,
+        "rotation": 0,
+        "x": 84,
+        "y": 0,
+        "width": 12,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B12"
+      }
+    },
+    "B36": {
+      "start": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 96,
+        "rotation": 0,
+        "x": 96,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "grab_hit": "B36 \u2014 36 inch Base",
+      "drag_toward_anchor": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 24,
+        "rotation": 0,
+        "x": 24,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "nudge_right_3in": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 27,
+        "rotation": 0,
+        "x": 27,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "drag_past_run_end": {
+        "wallId": "cw_munkhqc4_5",
+        "wallOffset": 0,
+        "rotation": 90,
+        "x": 120,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      },
+      "drag_back_to_60": {
+        "wallId": "cw_munkhqc4_4",
+        "wallOffset": 48,
+        "rotation": 0,
+        "x": 48,
+        "y": 0,
+        "width": 36,
+        "depth": 24,
+        "height": 34.5,
+        "masterCode": "B36"
+      }
+    }
+  }
+}

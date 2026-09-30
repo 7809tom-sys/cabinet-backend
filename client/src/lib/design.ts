@@ -2605,9 +2605,15 @@ export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabi
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     if (!sharesPlanCollisionZone(moving, o)) continue;
+    // Standard-wall run offsets are trusted only while they still agree with the
+    // saved plan coordinate; a legacy x/y-only edit falls back to the envelope test.
+    const cardinalRun = moving.wallId === "top" || moving.wallId === "bottom" || moving.wallId === "left" || moving.wallId === "right";
+    const runOffsetIsCurrent = (item: PlacedCabinet) => !cardinalRun
+      || Math.abs((moving.wallId === "top" || moving.wallId === "bottom" ? item.x : item.y) - Number(item.wallOffset)) <= 0.5;
     const sameExplicitRun = Boolean(
       moving.wallId && moving.wallId === o.wallId &&
-      moving.wallOffset != null && o.wallOffset != null,
+      moving.wallOffset != null && o.wallOffset != null &&
+      runOffsetIsCurrent(moving) && runOffsetIsCurrent(o),
     );
     if (sameExplicitRun) {
       const start = Number(moving.wallOffset);
@@ -3376,12 +3382,12 @@ export function appendCollisionFreePlacements(
   const placed = [...existing];
   const rejected: PlacedCabinet[] = [];
   for (const candidate of additions) {
-    // A custom-wall placement carries its exact measured wall offset. The generic
-    // rectangular seam snap is only a screen-space convenience and can shift an
-    // otherwise valid 45° ERB/DB24 seam before cleanup examines it. Preserve that
-    // authoritative geometry and use the room-aware collision rule below.
-    const preserveMeasuredWallGeometry = Boolean(room && candidate.wallId && isCustomRoomWall(room, candidate.wallId));
-    const snappedCandidate = preserveMeasuredWallGeometry ? candidate : snapCabinetSeamOverlap(candidate, placed);
+    // A candidate that already carries exact run geometry (wallId + wallOffset
+    // from wallPlacementAt) was seated by the shared 1/8-inch engine, so the
+    // rectangular screen-space seam snap must not move it. Only legacy x/y-only
+    // candidates still use the seam snap, on every kind of wall alike.
+    const carriesRunGeometry = Boolean(room && candidate.wallId && candidate.wallOffset != null && wallRunFrame(candidate.wallId, room));
+    const snappedCandidate = carriesRunGeometry ? candidate : snapCabinetSeamOverlap(candidate, placed);
     const collision = room
       ? cabinetPlacementCollisionDetail(snappedCandidate, placed, room)
       : hasCollision(snappedCandidate, placed);
@@ -6301,9 +6307,27 @@ export function snapToWall(p: PlacedCabinet, side: WallSide, room: RoomData): { 
 export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.placement !== "wall" || p.islandFace) return p;
   const side = cabinetWall(p, room);
-  if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return p;
-  const { x, y } = snapToWall(p, side, room);
-  return { ...p, x, y, depthPositionAdjusted: false };
+  const frame = wallRunFrame(side, room);
+  if (!frame) return p;
+  // Corner bodies keep their own corner seating rules.
+  if (placedCornerGeometryKind(p) !== "standard") {
+    if (frame.kind !== "cardinal") return p;
+    const { x, y } = snapToWall(p, side, room);
+    return { ...p, x, y, depthPositionAdjusted: false };
+  }
+  // Re-seat the shallow box against the wall it belongs to through the shared
+  // run frame: the along-run position of the CURRENT body is kept (a drag may
+  // have moved x/y without refreshing wallOffset), the depth is pushed to the wall.
+  const projectedAlong = wallRunAlongAtPoint(frame, placedPlanCenter(p)) - p.width / 2;
+  const savedAlong = p.wallId === side && p.wallOffset != null ? Number(p.wallOffset) : null;
+  const along = savedAlong != null && Math.abs(savedAlong - projectedAlong) <= 0.5 ? savedAlong : projectedAlong;
+  const spot = wallPlacementAt(along, p.width, p.depth, side, room, p.peninsulaSide);
+  // A saved same-axis quarter turn (180/270 on a standard wall) is a valid
+  // record of the same wall; keep it rather than rewriting the plan graphic.
+  const sameAxis = frame.kind === "cardinal" && ((Math.round(p.rotation) % 180) + 180) % 180 === spot.rotation % 180;
+  const rotation = sameAxis ? p.rotation : spot.rotation;
+  if (Math.abs(spot.x - p.x) <= COLLISION_EPSILON_IN && Math.abs(spot.y - p.y) <= COLLISION_EPSILON_IN && rotation === p.rotation && p.wallId === spot.wallId && p.wallOffset === spot.wallOffset) return p;
+  return { ...p, ...spot, rotation, wallId: spot.wallId, wallOffset: spot.wallOffset, depthPositionAdjusted: false };
 }
 
 // ─── Room dimension parsing / formatting ────────────────────────────────────
@@ -7625,22 +7649,43 @@ export function paletteActiveWallPlacement(
   // the first segment that can contain the requested cabinet is authoritative.
   const segment = segments.find((candidate) => candidate.length + 0.001 >= width);
   if (segment) {
-    return isCustomRoomWall(room, side)
-      ? firstCollisionFreeCustomWallPlacement(side, room, placed, width, depth, placement, segment.start, segment.start, segment.start + segment.length - width)
-      : wallPlacementAt(segment.start, width, depth, side, room);
+    // The free-segment engine already accounted for every cabinet on this wall,
+    // so the segment start is the placement on every wall kind. Only an angled
+    // (45°-family) body can make an axis-aligned envelope look occupied at a
+    // vertex when the physical span is clear; that case, and only that case,
+    // is refined by the shared 1/8-inch collision-free search.
+    const direct = wallPlacementAt(segment.start, width, depth, side, room);
+    const probe: PlacedCabinet = {
+      uid: "wall-placement-probe",
+      cabinetId: 0,
+      masterCode: "WALL-PLACEMENT",
+      description: "Wall placement probe",
+      placement,
+      x: direct.x,
+      y: direct.y,
+      width,
+      depth,
+      rotation: direct.rotation,
+      wallId: direct.wallId,
+      wallOffset: direct.wallOffset,
+    };
+    const collision = cabinetPlacementCollisionDetail(probe, placed, room);
+    if (!collision) return direct;
+    const angled = (item: Pick<PlacedCabinet, "rotation">) => ((Math.round(item.rotation) % 90) + 90) % 90 !== 0;
+    if (!angled(probe) && !angled(collision.cabinet)) return direct;
+    return firstCollisionFreeWallPlacement(side, room, placed, width, depth, placement, segment.start, segment.start, segment.start + segment.length - width);
   }
   return null;
 }
 
 /**
- * Resolves the nearest safe position on an explicit measured wall segment.
- * The builder stores rotated cabinet bodies in an axis-aligned plan envelope,
- * so a 45°/135° turn may appear occupied at its exact vertex even though the
- * active wall has a valid span. This preserves the selected wall, searches only
- * the given measured span in 1/8-inch increments, and never permits a physical
- * cabinet-body overlap.
+ * Resolves the nearest collision-free position on ANY wall run (standard side,
+ * drawn wall or peninsula). It preserves the selected wall, searches only the
+ * given span in 1/8-inch increments from the desired start, and never permits a
+ * physical cabinet-body overlap. This is the single placement search shared by
+ * catalog drops, moves, nudges and Snap-to-wall in both Designer tools.
  */
-export function firstCollisionFreeCustomWallPlacement(
+export function firstCollisionFreeWallPlacement(
   side: WallSide,
   room: RoomData,
   placed: PlacedCabinet[],
@@ -7651,17 +7696,16 @@ export function firstCollisionFreeCustomWallPlacement(
   minStart = 0,
   maxStart = Math.max(0, wallLength(side, room) - width),
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } | null {
-  if (!isCustomRoomWall(room, side)) return wallPlacementAt(desiredStart, width, depth, side, room);
   const lower = Math.max(0, Math.min(maxStart, minStart));
   const upper = Math.max(lower, maxStart);
-  const preferred = Math.max(lower, Math.min(upper, Math.round(desiredStart * 8) / 8));
+  const preferred = Math.max(lower, Math.min(upper, roundToEighth(desiredStart)));
   const candidateAt = (start: number) => {
     const spot = wallPlacementAt(start, width, depth, side, room);
     const candidate: PlacedCabinet = {
-      uid: "custom-wall-placement-preview",
+      uid: "wall-placement-preview",
       cabinetId: 0,
-      masterCode: "CUSTOM-WALL-PLACEMENT",
-      description: "Custom wall placement preview",
+      masterCode: "WALL-PLACEMENT",
+      description: "Wall placement preview",
       placement,
       x: spot.x,
       y: spot.y,
@@ -7687,6 +7731,116 @@ export function firstCollisionFreeCustomWallPlacement(
     }
   }
   return null;
+}
+/** @deprecated One search serves every wall; kept for older call sites and tests. */
+export const firstCollisionFreeCustomWallPlacement = firstCollisionFreeWallPlacement;
+
+export interface CabinetWallMoveOptions {
+  /** Magnet on: resolve to the nearest clear span and pull near edges into exact seams. */
+  magnet: boolean;
+  /** The pointer/keyboard requested this exact along-run start; no magnet, only clamping. */
+  exact?: boolean;
+  /** An explicit run target (corner snap, typed offset) wins over the projected point. */
+  target?: { wallId?: string | null; wallOffset?: number | null } | null;
+  /** Which wall to move along when the request does not name one. */
+  wallId?: WallSide | string | null;
+  /** Seam tolerance for the final edge-contact resolution. */
+  seamToleranceIn?: number;
+}
+
+export type CabinetWallMoveFailure = "no-wall" | "no-opening" | "no-clear-position";
+
+export interface CabinetWallMovePreview {
+  candidate: PlacedCabinet | null;
+  wall: WallSide | null;
+  frame: WallRunFrame | null;
+  /** Requested along-run start before the engine resolved it. */
+  requestedStart: number | null;
+  /** True when a wall or cabinet edge within the snap threshold pulled the cabinet into contact. */
+  snapped: boolean;
+  failure: CabinetWallMoveFailure | null;
+}
+
+/**
+ * THE shared along-wall move engine. A cabinet requested at plan point (x, y)
+ * is projected onto its wall run, resolved into a clear 1/8-inch position and
+ * seated with wallPlacementAt. Standard walls, drawn walls and peninsulas go
+ * through exactly the same steps, so Floor Plan drags, 3D moves, keyboard
+ * nudges and Snap-to-wall behave identically in the Designer and the
+ * Continuous Wall Builder. The caller still applies its collision guard.
+ */
+export function cabinetWallMovePreview(
+  cabinet: PlacedCabinet,
+  requested: { x: number; y: number },
+  room: RoomData,
+  peers: PlacedCabinet[],
+  openings: WallOpening[],
+  options: CabinetWallMoveOptions,
+): CabinetWallMovePreview {
+  const requestedBody: PlacedCabinet = { ...cabinet, x: requested.x, y: requested.y };
+  const center = placedPlanCenter(requestedBody);
+  const targetWallId = options.target?.wallId ?? options.wallId ?? null;
+  const width = Math.max(0, Number(cabinet.width) || 0);
+  const depth = Number(cabinet.depth) || (cabinet.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+  let frame = targetWallId ? wallRunFrame(targetWallId, room) : null;
+  if (!frame) {
+    // The wall magnet reaches the same 6 inches on every wall: a floor cabinet
+    // whose body is within STD.SNAP_THRESHOLD of a run seats on it, otherwise it
+    // stays a free-floating plan item. Wall-hung boxes always belong to a wall.
+    const reach = depth / 2 + STD.SNAP_THRESHOLD;
+    const owned = cabinet.wallId ? wallRunFrame(cabinet.wallId, room) : null;
+    const nearest = nearestWallRunAtPoint(room, center, Math.max(10, STD.SNAP_THRESHOLD));
+    const ownedDistance = owned ? wallRunDistanceToPoint(owned, center) : Number.POSITIVE_INFINITY;
+    const preferred = nearest && (!owned || nearest.distance + STD.SNAP_THRESHOLD < ownedDistance) ? nearest : owned ? { frame: owned, distance: ownedDistance } : nearest;
+    const alwaysSeated = cabinet.placement === "wall";
+    frame = preferred && (alwaysSeated || preferred.distance <= reach + COLLISION_EPSILON_IN) ? preferred.frame : null;
+  }
+  if (!frame) return { candidate: null, wall: null, frame: null, requestedStart: null, snapped: false, failure: "no-wall" };
+  const explicitOffset = options.target?.wallId === frame.id && options.target?.wallOffset != null && Number.isFinite(Number(options.target.wallOffset))
+    ? Math.max(0, Number(options.target.wallOffset))
+    : null;
+  const projectedStart = wallRunAlongAtPoint(frame, center) - width / 2;
+  const requestedStart = roundToEighth(explicitOffset ?? projectedStart);
+  const minStart = frame.runStart;
+  const maxStart = Math.max(frame.runStart, frame.runEnd - width);
+  const clampedStart = Math.max(minStart, Math.min(maxStart, requestedStart));
+  const magnet = options.magnet && !options.exact && explicitOffset == null;
+  // A saved same-axis quarter turn on a standard wall (180 on a horizontal
+  // wall, 270 on a vertical one) is the same seating; keep the user's turn.
+  const keepRotation = (spot: { rotation: number }) => frame!.kind === "cardinal"
+    && ((Math.round(cabinet.rotation) % 180) + 180) % 180 === spot.rotation % 180
+    ? cabinet.rotation
+    : spot.rotation;
+  const seat = (start: number): PlacedCabinet => {
+    const spot = wallPlacementAt(start, width, depth, frame!.id, room, cabinet.peninsulaSide);
+    return { ...cabinet, ...spot, rotation: keepRotation(spot), wallId: spot.wallId ?? frame!.id, wallOffset: spot.wallOffset ?? start };
+  };
+  if (!magnet) {
+    return { candidate: seat(clampedStart), wall: frame.id, frame, requestedStart, snapped: false, failure: null };
+  }
+  const segments = freeSegmentsOnWall(frame.id, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+  const magnetStart = magneticAvailableWallStart(segments, clampedStart, width);
+  if (magnetStart == null) {
+    return { candidate: null, wall: frame.id, frame, requestedStart, snapped: false, failure: "no-opening" };
+  }
+  const containing = segments.find((segment) => (
+    magnetStart >= segment.start - COLLISION_EPSILON_IN
+    && magnetStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+  ));
+  const spot = containing
+    ? firstCollisionFreeWallPlacement(frame.id, room, peers, width, depth, cabinet.placement, magnetStart, containing.start, containing.start + containing.length - width)
+    : wallPlacementAt(magnetStart, width, depth, frame.id, room, cabinet.peninsulaSide);
+  if (!spot) return { candidate: null, wall: frame.id, frame, requestedStart, snapped: false, failure: "no-clear-position" };
+  const seated: PlacedCabinet = { ...cabinet, ...spot, rotation: keepRotation(spot), wallId: spot.wallId ?? frame.id, wallOffset: spot.wallOffset ?? magnetStart };
+  // Final edge-contact resolution: a near seam within the caller's tolerance
+  // becomes exact zero-gap contact. The same rectangular seam rule applies on
+  // every wall; it never approves an overlap.
+  const seamed = snapCabinetSeamOverlap(seated, peers, options.seamToleranceIn);
+  const candidate = seamed === seated
+    ? seated
+    : { ...seamed, wallOffset: roundToEighth(wallRunAlongAtPoint(frame, placedPlanCenter(seamed)) - width / 2) };
+  const snapped = Math.abs((candidate.wallOffset ?? magnetStart) - clampedStart) > COLLISION_EPSILON_IN;
+  return { candidate, wall: frame.id, frame, requestedStart, snapped, failure: null };
 }
 
 /**
@@ -8429,7 +8583,9 @@ export function wallPlacementAt(
   else if (side === "bottom") { y = Math.max(0, room.depth - depth); x = clampedAlong; }
   else if (side === "left") { x = 0; y = clampedAlong; }
   else { x = Math.max(0, room.width - depth); y = clampedAlong; }
-  return { x, y, rotation };
+  // A standard wall carries the same run identity as a drawn wall so every
+  // downstream rule (collision, gaps, drag, nudge, 3D facing) reads one model.
+  return { x, y, rotation, wallId: side, wallOffset: clampedAlong };
 }
 
 /**
@@ -8550,15 +8706,172 @@ export function isCustomRoomWall(room: RoomData, wallId?: string | null): boolea
   return Boolean(wallId && room.vertices && room.customWalls?.some((wall) => wall.id === wallId));
 }
 
-/** Exact run offset, retaining a released cabinet void on every explicit custom run. */
+// ─── One wall-run model for every wall ───────────────────────────────────────
+// A standard room wall, a Continuous Wall Builder wall and a peninsula run are
+// the same thing to the placement engine: a directed segment with a usable
+// cabinet run, an inward normal and a height. Placement, snap, collision, drag
+// and nudge all measure cabinets along this frame, so no caller has to ask
+// which kind of wall it is working with.
+
+/** Round any plan measurement to the Designer's 1/8-inch placement grid. */
+export function roundToEighth(value: number): number {
+  return Math.round((Number(value) || 0) * 8) / 8;
+}
+
+export type WallRunKind = "cardinal" | "custom" | "peninsula";
+
+export interface WallRunFrame {
+  id: WallSide;
+  kind: WallRunKind;
+  /** Physical wall endpoints in plan inches. */
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  /** Direction of travel along the wall, radians from +x. */
+  angle: number;
+  /** Physical wall length. */
+  length: number;
+  /** Usable cabinet run in along-wall inches (a peninsula may shorten a standard wall). */
+  runStart: number;
+  runEnd: number;
+  /** Wall height in inches. */
+  height: number;
+  tangent: { x: number; y: number };
+  /** Unit normal pointing into the room, toward cabinet fronts. */
+  inward: { x: number; y: number };
+  /** Plan rotation (degrees) of a cabinet whose back sits on this wall. */
+  facingRotation: number;
+}
+
+function frameFromSegment(
+  id: WallSide,
+  kind: WallRunKind,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  inwardIsLeftNormal: boolean,
+  runStart: number,
+  runEnd: number,
+  height: number,
+): WallRunFrame {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const length = Math.hypot(dx, dy);
+  const angle = length > COLLISION_EPSILON_IN ? Math.atan2(dy, dx) : 0;
+  const tangent = { x: Math.cos(angle), y: Math.sin(angle) };
+  const leftNormal = { x: -Math.sin(angle), y: Math.cos(angle) };
+  const inward = inwardIsLeftNormal ? leftNormal : { x: -leftNormal.x, y: -leftNormal.y };
+  const facingRotation = ((Math.round((angle * 180) / Math.PI + (inwardIsLeftNormal ? 0 : 180)) % 360) + 360) % 360;
+  return { id, kind, start, end, angle, length, runStart, runEnd, height, tangent, inward, facingRotation };
+}
+
+/** The run frame for any wall id (standard side, drawn wall or peninsula), or null when unknown. */
+export function wallRunFrame(side: WallSide | string | null | undefined, room: RoomData): WallRunFrame | null {
+  if (!side) return null;
+  const peninsula = peninsulaRunById(room, side);
+  if (peninsula) {
+    const { start, end } = peninsulaRunEndpoints(peninsula, room);
+    const length = Math.max(6, peninsula.length);
+    return frameFromSegment(peninsula.id as WallSide, "peninsula", start, end, (peninsula.cabinetSide ?? "left") === "left", 0, length, roomCeiling(room));
+  }
+  const customWall = room.customWalls?.find((wall) => wall.id === side);
+  if (customWall && room.vertices) {
+    const start = room.vertices.find((vertex) => vertex.id === customWall.startVertexId);
+    const end = room.vertices.find((vertex) => vertex.id === customWall.endVertexId);
+    if (!start || !end) return null;
+    const length = polygonWallSegmentLength(customWall, room.vertices);
+    const wallHeight = Number(customWall.height);
+    const height = Number.isFinite(wallHeight) && wallHeight > 0 ? wallHeight : roomCeiling(room);
+    return frameFromSegment(customWall.id as WallSide, "custom", { x: start.x, y: start.y }, { x: end.x, y: end.y }, customWallCabinetSide(room, customWall.id) === "left", 0, length, height);
+  }
+  if (side !== "top" && side !== "bottom" && side !== "left" && side !== "right") return null;
+  const run = cabinetWallRunSegment(side, room);
+  const height = wallCeiling(room, side).high;
+  // Along-wall inches on a standard wall are the room x (top/bottom) or the
+  // room y (left/right), so they equal the exact saved plan coordinate.
+  if (side === "top") return frameFromSegment("top", "cardinal", { x: 0, y: 0 }, { x: room.width, y: 0 }, true, run.start, run.start + run.length, height);
+  if (side === "bottom") return frameFromSegment("bottom", "cardinal", { x: 0, y: room.depth }, { x: room.width, y: room.depth }, false, run.start, run.start + run.length, height);
+  if (side === "left") return frameFromSegment("left", "cardinal", { x: 0, y: 0 }, { x: 0, y: room.depth }, false, run.start, run.start + run.length, height);
+  return frameFromSegment("right", "cardinal", { x: room.width, y: 0 }, { x: room.width, y: room.depth }, true, run.start, run.start + run.length, height);
+}
+
+/** Every perimeter wall run (drawn walls when present, else the four standard sides) plus peninsulas. */
+export function roomWallRunFrames(room: RoomData): WallRunFrame[] {
+  const ids: string[] = room.vertices && (room.customWalls?.length ?? 0) > 0
+    ? (room.customWalls ?? []).map((wall) => wall.id)
+    : ["top", "bottom", "left", "right"];
+  for (const run of room.peninsulaRuns ?? []) ids.push(run.id);
+  return ids.map((id) => wallRunFrame(id, room)).filter((frame): frame is WallRunFrame => frame != null);
+}
+
+/** Unclamped along-wall inches of a plan point on a run frame. */
+export function wallRunAlongAtPoint(frame: WallRunFrame, point: { x: number; y: number }): number {
+  return (point.x - frame.start.x) * frame.tangent.x + (point.y - frame.start.y) * frame.tangent.y;
+}
+
+/** Distance from a plan point to the physical wall segment. */
+export function wallRunDistanceToPoint(frame: WallRunFrame, point: { x: number; y: number }): number {
+  const along = Math.max(0, Math.min(frame.length, wallRunAlongAtPoint(frame, point)));
+  const nearest = { x: frame.start.x + frame.tangent.x * along, y: frame.start.y + frame.tangent.y * along };
+  return Math.hypot(point.x - nearest.x, point.y - nearest.y);
+}
+
+/**
+ * The wall run nearest to a plan point. A peninsula wins only inside its
+ * explicit hit radius so a pointer near a room edge is not stolen by a nearby
+ * peninsula; otherwise the closest usable perimeter run is chosen.
+ */
+export function nearestWallRunAtPoint(
+  room: RoomData,
+  point: { x: number; y: number },
+  peninsulaHitRadius = 0,
+): { frame: WallRunFrame; distance: number; along: number } | null {
+  const scored = roomWallRunFrames(room).map((frame) => {
+    const along = wallRunAlongAtPoint(frame, point);
+    const outsideRun = along < frame.runStart - COLLISION_EPSILON_IN || along > frame.runEnd + COLLISION_EPSILON_IN;
+    const distance = frame.kind === "cardinal" && outsideRun ? Number.POSITIVE_INFINITY : wallRunDistanceToPoint(frame, point);
+    return { frame, distance, along };
+  });
+  const peninsula = scored
+    .filter((entry) => entry.frame.kind === "peninsula" && entry.distance <= peninsulaHitRadius)
+    .sort((left, right) => left.distance - right.distance)[0];
+  if (peninsula) return peninsula;
+  const perimeter = scored
+    .filter((entry) => entry.frame.kind !== "peninsula" && Number.isFinite(entry.distance))
+    .sort((left, right) => left.distance - right.distance)[0];
+  return perimeter ?? null;
+}
+
+/** Plan center of a placed item's rectangular envelope. */
+export function placedPlanCenter(p: PlacedCabinet): { x: number; y: number } {
+  const footprint = placedFootprint(p);
+  return { x: p.x + footprint.w / 2, y: p.y + footprint.d / 2 };
+}
+
+/**
+ * True when a cabinet's saved run metadata (wallId + wallOffset) still describes
+ * a run this room knows about. Standard walls are checked by the same two-inch
+ * against-the-wall tolerance the Designer already uses, so legacy code that moves
+ * x/y without refreshing wallOffset can never report a stale run position.
+ */
+export function seatedWallRunFrame(p: PlacedCabinet, room: RoomData): WallRunFrame | null {
+  if (!p.wallId || p.wallOffset == null || !Number.isFinite(Number(p.wallOffset))) return null;
+  const frame = wallRunFrame(p.wallId, room);
+  if (!frame) return null;
+  if (frame.kind !== "cardinal") return frame;
+  const along = frame.tangent.x !== 0 ? p.x : p.y;
+  return isAgainstWall(p, frame.id, room) && Math.abs(along - Number(p.wallOffset)) <= 0.5 ? frame : null;
+}
+
+/** Exact run offset of a cabinet on the given wall, in that wall's along-run inches. */
 export function wallRunOffset(p: PlacedCabinet, side: string, room: RoomData): number {
-  if ((isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.wallOffset) || 0);
+  const frame = p.wallId === side ? seatedWallRunFrame(p, room) : null;
+  if (frame && frame.kind !== "cardinal") return Math.max(0, Number(p.wallOffset) || 0);
   return side === "top" || side === "bottom" ? p.x : p.y;
 }
 
-/** Along-run cabinet span. Explicit runs use the true catalog width, not a screen bounding box. */
+/** Along-run cabinet span. A seated rotated cabinet uses its true catalog width, never a screen envelope. */
 export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): number {
-  if ((isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && p.wallId === side) return Math.max(0, Number(p.width) || 0);
+  const frame = p.wallId === side ? seatedWallRunFrame(p, room) : null;
+  if (frame && frame.kind !== "cardinal") return Math.max(0, Number(p.width) || 0);
   const size = rotatedSize(p);
   return side === "top" || side === "bottom" ? size.w : size.d;
 }

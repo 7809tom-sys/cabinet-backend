@@ -22,7 +22,7 @@ describe("Design Tool vertical wall-cabinet movement", () => {
 		    expect(callbackStart).toBeGreaterThan(-1);
 		    expect(callbackEnd).toBeGreaterThan(callbackStart);
 		    const callbackSource = source.slice(callbackStart, callbackEnd);
-	    expect(callbackSource).toContain("x: Math.round((cabinet.x + delta.x) * 8) / 8");
+	    expect(callbackSource).toContain("x: roundToEighth(cabinet.x + delta.x)");
 	    expect(callbackSource).not.toContain("snapCabinetSeamOverlap(");
 	    expect(callbackSource).toContain("cannot move ${direction}; it would extend beyond the room boundary");
 	    expect(callbackSource).toContain("shouldBlockPlacementCollision(candidate, peers, customPlacementMode, room)");

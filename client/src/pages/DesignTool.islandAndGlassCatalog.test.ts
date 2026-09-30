@@ -57,7 +57,9 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 
 		  it("uses the enabled cabinet magnet for 3D moves so a small same-run overlap seats at an exact cabinet edge", () => {
 		    expect(source).toContain("moveCabinet(uid, x, y, undefined, !automaticSnapping);");
-		    expect(source).toContain("autoSnapCabinetToNearbyWall(requestedCabinet, room, peers, openings)");
+		    // The shared wall-run engine carries the magnet for every wall kind.
+		    expect(source).toContain("cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {");
+		    expect(source).toContain("magnet,");
 		    expect(source).toContain("A 3D move should use the same cabinet magnet as the plan whenever it is");
 	    expect(source).toContain("smallGapFillerOpportunityFromDragPreview(uid, preview)");
 	    expect(source).toContain("CABINET_CONFLICT_LOCK_IN");

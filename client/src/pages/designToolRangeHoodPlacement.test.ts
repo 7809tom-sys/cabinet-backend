@@ -26,10 +26,10 @@ describe("range hood placement", () => {
       width: 30,
       depth: 18,
       mountBottom: 66,
-    })).toEqual({
+    })).toMatchObject({
       ok: true,
       rangeUid: range.uid,
-      spot: { x: 102, y: 36, rotation: 90 },
+      spot: { x: 102, y: 36, rotation: 90, wallId: "right", wallOffset: 36 },
       mountBottom: 66,
     });
   });

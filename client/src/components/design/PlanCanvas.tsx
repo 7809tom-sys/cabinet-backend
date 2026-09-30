@@ -8,7 +8,7 @@ import {
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
   cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
-	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -23,7 +23,6 @@ import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
-import { closestWall, positionAlongWall } from "@/lib/polygonRoom";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -982,8 +981,37 @@ export function PlanCanvas({
           return;
         }
       }
-      // Auto-rotate: if the cabinet is meeting a wall, turn it so its back is to
-      // that wall BEFORE snapping, so the snapped x/y use the turned footprint.
+      // ONE drag engine for every wall. The pointer body is projected onto the
+      // nearest wall run (standard side, drawn wall or peninsula) and previewed
+      // with the same 1/8-inch placement, magnet and seam rules moveCabinet
+      // commits with. Only a floor cabinet dragged beyond the wall magnet keeps
+      // the free-floating rectangular snap (islands, open-floor pieces).
+      const peers = cabinets.filter((c) => c.uid !== cabinet.uid);
+      const wallMove = cabinet.islandFace
+        ? null
+        : cabinetWallMovePreview(candidate, { x: rawX, y: rawY }, room, peers, openings, {
+            magnet: automaticSnapping,
+            seamToleranceIn: automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+          });
+      if (wallMove?.candidate) {
+        setHoverSnap(true);
+        setHoverSnapWall(true);
+        onMove(
+          dragUid,
+          wallMove.candidate.x,
+          wallMove.candidate.y,
+          wallMove.candidate.rotation,
+          true,
+          { wallId: wallMove.candidate.wallId ?? undefined, wallOffset: wallMove.candidate.wallOffset ?? undefined },
+        );
+        return;
+      }
+      if (wallMove?.failure && wallMove.failure !== "no-wall") {
+        // The chosen run has no clear opening; hold the last committed spot.
+        setHoverSnap(false);
+        setHoverSnapWall(false);
+        return;
+      }
       // Include appliances in the others list so dragged cabinets push against
       // appliances (fridge, range, dishwasher, etc.) and don't slide through them.
       const others = cabinets.filter(
@@ -999,7 +1027,7 @@ export function PlanCanvas({
       setHoverSnapWall(Boolean(snapped.snappedWall));
       onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },
-    [dragUid, cabinets, ppi, room, island, onMove]
+    [dragUid, cabinets, ppi, room, island, onMove, openings, automaticSnapping]
   );
 
   const handlePointerUp = (e: React.PointerEvent) => {
@@ -1090,15 +1118,13 @@ export function PlanCanvas({
 	        const rect = roomEl.getBoundingClientRect();
 	        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
 	        const peninsulaHit = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi));
-	        const customWall = !peninsulaHit && room.vertices?.length && room.customWalls?.length
-	          ? closestWall(point.x, point.y, room.vertices, room.customWalls)
-	          : null;
-	        const side = (peninsulaHit?.run.id ?? customWall?.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
+	        const nearestRun = peninsulaHit ? null : nearestWallRunAtPoint(room, point);
+	        const side = (peninsulaHit?.run.id ?? nearestRun?.frame.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
 	        const placement: "wall" | "base" = catalogDragCabinet.placement === "wall" ? "wall" : "base";
 	        const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
 	        const targetAlong = peninsulaHit?.offset
-	          ?? (customWall && room.vertices ? positionAlongWall(point.x, point.y, customWall, room.vertices) : side === "top" || side === "bottom" ? point.x : point.y);
-	        const gaps = peninsulaHit || customWall
+	          ?? (nearestRun ? nearestRun.along : side === "top" || side === "bottom" ? point.x : point.y);
+	        const gaps = peninsulaHit || nearestRun
 	          ? freeSegmentsOnWall(side, room, cabinets, openings, 0.5, 0, placement).map((segment) => ({
 	              side,
 	              layer: placement,
@@ -1120,10 +1146,7 @@ export function PlanCanvas({
 	          const rect = roomEl.getBoundingClientRect();
 	          const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
 	          const peninsulaWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id;
-	          const customWall = !peninsulaWall && room.vertices?.length && room.customWalls?.length
-	            ? closestWall(point.x, point.y, room.vertices, room.customWalls)?.id
-	            : undefined;
-	          const targetWall = (peninsulaWall ?? customWall) as WallSide | undefined;
+	          const targetWall = (peninsulaWall ?? nearestWallRunAtPoint(room, point)?.frame.id) as WallSide | undefined;
 	          onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall);
 	        }
 	        setCatalogDragFit(null);

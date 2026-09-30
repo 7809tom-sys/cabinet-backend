@@ -9,8 +9,9 @@ describe("PlanCanvas automatic replacement placement", () => {
     expect(source).toContain("automaticSnapping = true");
     expect(source).toContain("setCatalogDragFreehand(!automaticSnapping)");
     expect(source).toContain("const peninsulaWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id");
-    expect(source).toContain("const customWall = !peninsulaWall && room.vertices?.length && room.customWalls?.length");
-    expect(source).toContain("const targetWall = (peninsulaWall ?? customWall) as WallSide | undefined");
+    // One wall-run resolver for standard sides and drawn walls alike.
+    expect(source).toContain("const targetWall = (peninsulaWall ?? nearestWallRunAtPoint(room, point)?.frame.id) as WallSide | undefined");
+    expect(source).not.toContain("closestWall(");
     expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
   });
 

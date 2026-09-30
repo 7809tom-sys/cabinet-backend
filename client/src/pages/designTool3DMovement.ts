@@ -1,14 +1,14 @@
 import {
   cabinetWall,
-  isCustomRoomWall,
-  peninsulaRunById,
+  cabinetWallMovePreview,
+  roundToEighth,
+  seatedWallRunFrame,
   STD,
-  wallPlacementAt,
-  wallPlacementAtUnbounded,
+  wallRunFrame,
   wallRunOffset,
   type PlacedCabinet,
   type RoomData,
-  type WallSide,
+  type WallOpening,
 } from "@/lib/design";
 
 export type ThreeDPlanMoveDirection = "left" | "right" | "in" | "out";
@@ -18,88 +18,51 @@ function controlledMoveStep(incrementIn: number) {
   return Math.max(0.125, Math.min(MAX_CABINET_PLAN_MOVE_IN, Number(incrementIn) || 1));
 }
 
-function measuredWallSide(cabinet: PlacedCabinet, room: RoomData): WallSide | null {
-  const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide | undefined;
-  if (!side) return null;
-  return isCustomRoomWall(room, side) || peninsulaRunById(room, side) ? side : null;
-}
-
-/**
- * A continuous-wall or peninsula cabinet has a local wall frame, rather than a
- * cardinal screen edge. Its stored rotation is the cabinet-facing run direction:
- * left/right follow that run and in/out follow its face normal. This keeps the
- * 3D controls consistent with the same wallPlacementAt geometry used by Plan,
- * catalog drops, and the continuous wall builder.
- */
-function measuredWallPlanMoveDelta(
-  cabinet: PlacedCabinet,
-  room: RoomData,
-  direction: ThreeDPlanMoveDirection,
-  step: number,
-): { x: number; y: number } | null {
-  if (!measuredWallSide(cabinet, room)) return null;
-  const radians = ((Number(cabinet.rotation) || 0) * Math.PI) / 180;
-  const run = { x: Math.cos(radians), y: Math.sin(radians) };
-  const inward = { x: -Math.sin(radians), y: Math.cos(radians) };
-  switch (direction) {
-    case "left": return { x: -run.x * step, y: -run.y * step };
-    case "right": return { x: run.x * step, y: run.y * step };
-    case "in": return { x: inward.x * step, y: inward.y * step };
-    case "out": return { x: -inward.x * step, y: -inward.y * step };
-  }
-}
-
-export interface ThreeDMeasuredWallMoveTarget {
+export interface ThreeDSeatedWallMoveTarget {
   /** The physically seated cabinet target, with its canonical wall identity. */
   candidate: PlacedCabinet;
-  /** In/out is deliberately constrained: a measured wall cabinet remains flush. */
+  /** Kept for older call sites; the shared engine never constrains in/out here. */
   constrainedToWall: boolean;
 }
 
 /**
- * Resolves a 3D move on an explicit continuous-wall or peninsula run through
- * the exact same measured wall resolver used by catalog placement and Plan drag.
- * It prevents a 3D arrow move from losing wallOffset, rotating to a cardinal
- * fallback, or drifting into/out of a continuous wall.
+ * Resolves a 3D Left/Right move for a cabinet seated on ANY wall run (standard
+ * side, drawn wall or peninsula) through the shared along-wall engine, so the
+ * move keeps its wall identity, exact 1/8-inch offset, facing rotation and flush
+ * depth exactly as a Plan drag or keyboard nudge would. Returns null when the
+ * cabinet is not seated on a run (free-floating or deliberately pulled off the
+ * wall) or when the direction is In/Out, which the generic plan path handles.
  */
-export function threeDMeasuredWallMoveTarget(
+export function threeDSeatedWallMoveTarget(
   cabinet: PlacedCabinet,
   room: RoomData,
   direction: ThreeDPlanMoveDirection,
   incrementIn: number,
-): ThreeDMeasuredWallMoveTarget | null {
-  const side = measuredWallSide(cabinet, room);
-  if (!side) return null;
-  if (direction === "in" || direction === "out") {
-    return { candidate: cabinet, constrainedToWall: true };
-  }
-
+  peers: PlacedCabinet[] = [],
+  openings: WallOpening[] = [],
+): ThreeDSeatedWallMoveTarget | null {
+  if (direction === "in" || direction === "out") return null;
+  const frame = seatedWallRunFrame(cabinet, room);
+  if (!frame) return null;
   const step = controlledMoveStep(incrementIn);
-  const offset = wallRunOffset(cabinet, side, room);
-  // Compare two unbounded placements to obtain the source wall's true run
-  // vector. This remains correct when a right-side peninsula cabinet flips its
-  // own rotation to face the opposite direction.
-  const origin = wallPlacementAtUnbounded(offset, cabinet.width, cabinet.depth, side, room, cabinet.peninsulaSide);
-  const next = wallPlacementAtUnbounded(offset + 1, cabinet.width, cabinet.depth, side, room, cabinet.peninsulaSide);
-  const rawRun = { x: next.x - origin.x, y: next.y - origin.y };
-  const runLength = Math.hypot(rawRun.x, rawRun.y);
-  if (runLength <= 1e-9) return { candidate: cabinet, constrainedToWall: true };
-  const run = { x: rawRun.x / runLength, y: rawRun.y / runLength };
-  const localDelta = measuredWallPlanMoveDelta(cabinet, room, direction, step);
-  if (!localDelta) return null;
-  const nextOffset = offset + localDelta.x * run.x + localDelta.y * run.y;
-  const spot = wallPlacementAt(nextOffset, cabinet.width, cabinet.depth, side, room, cabinet.peninsulaSide);
-  return {
-    candidate: {
-      ...cabinet,
-      ...spot,
-      wallId: (spot.wallId ?? side) as WallSide,
-      wallOffset: spot.wallOffset ?? offset,
-      ...(spot.peninsulaSide ? { peninsulaSide: spot.peninsulaSide } : {}),
-    },
-    constrainedToWall: false,
-  };
+  // Move along the run from the saved offset (the authoritative position), not
+  // from a possibly stale plan envelope. Viewer-right is +tangent for a cabinet
+  // whose front faces into the room.
+  const offset = wallRunOffset(cabinet, frame.id, room);
+  const delta = threeDPlanMoveDelta(cabinet, room, direction, step);
+  const alongDelta = delta.x * frame.tangent.x + delta.y * frame.tangent.y;
+  const nextOffset = roundToEighth(offset + alongDelta);
+  const preview = cabinetWallMovePreview(cabinet, { x: cabinet.x, y: cabinet.y }, room, peers, openings, {
+    magnet: false,
+    exact: true,
+    target: { wallId: frame.id, wallOffset: nextOffset },
+  });
+  if (!preview.candidate) return null;
+  return { candidate: preview.candidate, constrainedToWall: false };
 }
+
+/** @deprecated Use threeDSeatedWallMoveTarget — one move path for every wall. */
+export const threeDMeasuredWallMoveTarget = threeDSeatedWallMoveTarget;
 
 export function countertopMountedCabinet(
   cabinet: PlacedCabinet,
@@ -122,8 +85,10 @@ export function commitThreeDCabinetCandidate(
 }
 
 /**
- * Converts the screen-relative 3D move controls into inches on the authoritative
- * 2D plan. The result follows the cabinet front that faces into the room.
+ * Converts the viewer-relative 3D move controls into inches on the authoritative
+ * 2D plan. "Left" and "Right" are the viewer's left and right while facing the
+ * cabinet's wall; "In" moves toward the room, "Out" toward the wall. The same
+ * wall-run frame answers this for a standard side, a drawn wall or a peninsula.
  */
 export function threeDPlanMoveDelta(
   cabinet: PlacedCabinet,
@@ -132,9 +97,20 @@ export function threeDPlanMoveDelta(
   incrementIn: number,
 ) {
   const step = controlledMoveStep(incrementIn);
-  const measuredWallDelta = measuredWallPlanMoveDelta(cabinet, room, direction, step);
-  if (measuredWallDelta) return measuredWallDelta;
   const side = cabinetWall(cabinet, room);
+  const frame = wallRunFrame(side, room);
+  if (frame) {
+    const facing = { x: -frame.inward.x, y: -frame.inward.y };
+    const viewerLeft = { x: facing.y, y: -facing.x };
+    const tidy = (value: number) => (Math.abs(value) < 1e-12 ? 0 : value);
+    const vectors: Record<ThreeDPlanMoveDirection, { x: number; y: number }> = {
+      left: { x: tidy(viewerLeft.x * step), y: tidy(viewerLeft.y * step) },
+      right: { x: tidy(-viewerLeft.x * step), y: tidy(-viewerLeft.y * step) },
+      in: { x: tidy(frame.inward.x * step), y: tidy(frame.inward.y * step) },
+      out: { x: tidy(-frame.inward.x * step), y: tidy(-frame.inward.y * step) },
+    };
+    return vectors[direction];
+  }
   const vectors: Record<ThreeDPlanMoveDirection, { x: number; y: number }> = {
     left: side === "top" ? { x: -step, y: 0 } : side === "bottom" ? { x: step, y: 0 } : side === "left" ? { x: 0, y: step } : { x: 0, y: -step },
     right: side === "top" ? { x: step, y: 0 } : side === "bottom" ? { x: -step, y: 0 } : side === "left" ? { x: 0, y: -step } : { x: 0, y: step },
