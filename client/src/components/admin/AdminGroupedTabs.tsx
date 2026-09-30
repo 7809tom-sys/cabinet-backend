@@ -136,7 +136,6 @@ const GROUPS = [
       { value: "merge-suggestions", label: "Merge Suggestions" },
       { value: "master-sku", label: "Master SKU Aliases" },
       { value: "cabinet-config", label: "Cabinet Config" },
-      { value: "master-changes", label: "✔ Master Changes" },
       { value: "package-data", label: "📦 Package Data & Parcel" },
       { value: "cabinet-attention", label: "⚠ Cabinet Attention" },
       { value: "unpriced-items", label: "⚠ Unpriced Items" },

@@ -901,23 +901,6 @@ function EditModal({
     },
     onError: (e) => toast.error(`Distributor save failed: ${e.message}`),
   });
-  const submitMasterChangeMutation = trpc.masterChanges.submit.useMutation({
-    onSuccess: (result) => {
-      utils.masterChanges.list.invalidate();
-      utils.masterChanges.counts.invalidate();
-      if (result.requestId == null) {
-        toast.info(result.message ?? "No master field changed.");
-      } else {
-        toast.success(
-          `Master change request #${result.requestId} filed (${result.changes} field${result.changes === 1 ? "" : "s"}). The current master stays live until it is approved on the Master Changes tab.`,
-        );
-      }
-      setScopeOpen(false);
-      setDraft({});
-      onClose();
-    },
-    onError: (e) => toast.error(`Could not file master change: ${e.message}`),
-  });
   const removeDistributorMutation = trpc.cabinets.adminRemoveCabinetDistributor.useMutation({
     onSuccess: (result) => {
       utils.cabinets.getDistributorsForCabinet.invalidate({ cabinetId: row.id });
@@ -1145,15 +1128,8 @@ function EditModal({
       config: buildConfigRule() as never,
     });
   };
-  const handleRequestMasterChange = () => {
-    submitMasterChangeMutation.mutate({
-      cabinetId: row.id,
-      sourceDistributorId: scopeDistributorIds.length === 1 ? scopeDistributorIds[0] : null,
-      proposed: buildConfigRule() as never,
-    });
-  };
 
-  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending || removeDistributorMutation.isPending || setDistributorConfigMutation.isPending || submitMasterChangeMutation.isPending;
+  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending || removeDistributorMutation.isPending || setDistributorConfigMutation.isPending;
   const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
   const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
@@ -2124,8 +2100,8 @@ function EditModal({
             </DialogHeader>
             <div className="space-y-3 text-sm">
               <p className="text-muted-foreground">
-                Tick the distributors this configuration applies to. Only those lines change; every other
-                distributor and the master keep their current values.
+                Pick each distributor this configuration applies to. Only the lines you tick change; every
+                other distributor and the shared master keep their current values.
               </p>
               <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
                 {distributorsForCabinet && distributorsForCabinet.length > 0 ? (
@@ -2151,30 +2127,17 @@ function EditModal({
                 )}
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
-                <Button type="button" size="sm" variant="ghost" onClick={() => setScopeDistributorIds((distributorsForCabinet ?? []).map((d) => d.id))}>
-                  Select all
-                </Button>
                 <Button type="button" size="sm" variant="ghost" onClick={() => setScopeDistributorIds([])}>
                   Clear
                 </Button>
               </div>
-              <div className="rounded-md border border-amber-300/60 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
-                <strong>Master change?</strong> Changing the master affects every distributor, so it is not applied
-                right away. It files a request on the <em>Master Changes</em> tab for approval; the current master
-                stays live everywhere until then.
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Each distributor is chosen one at a time. The shared master is never changed from here.
+              </p>
             </div>
             <DialogFooter className="flex-row flex-wrap justify-end gap-2">
               <Button variant="outline" onClick={() => setScopeOpen(false)} disabled={busy}>
                 Back
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={handleRequestMasterChange}
-                disabled={busy}
-                data-testid="cabinet-config-request-master"
-              >
-                {submitMasterChangeMutation.isPending ? <Spinner className="h-4 w-4" /> : "Request master change"}
               </Button>
               <Button
                 onClick={handleSaveForDistributors}
