@@ -357,16 +357,17 @@ const cabinet: PlacedCabinet = {
   });
 
   it("offers the exact two-and-a-half-inch filler remainder between a moved B-12 and a perpendicular corner cabinet", () => {
-    const leftRun: PlacedCabinet = { ...cabinet, uid: "left-run", masterCode: "B-105.5", width: 105.5, x: 0 };
+    // The BER36 must sit inside the 144" room (x 108..144); its full 36" corner leg is reserved on the top wall.
+    const leftRun: PlacedCabinet = { ...cabinet, uid: "left-run", masterCode: "B-93.5", width: 93.5, x: 0 };
     const moving: PlacedCabinet = { ...cabinet, uid: "moving-b12", masterCode: "B-12", width: 12, x: 60 };
-    const corner: PlacedCabinet = { ...cabinet, uid: "corner", masterCode: "BER36", description: "36 inch Easy Reach Corner", width: 36, depth: 24, x: 120, y: 0, rotation: 90 };
-    const preview = cabinetWallDragPreview(moving, DEFAULT_ROOM, [leftRun, moving, corner], [], 112)!;
+    const corner: PlacedCabinet = { ...cabinet, uid: "corner", masterCode: "BER36", description: "36 inch Easy Reach Corner", width: 36, depth: 24, x: 108, y: 0, rotation: 90 };
+    const preview = cabinetWallDragPreview(moving, DEFAULT_ROOM, [leftRun, moving, corner], [], 100)!;
 
-    expect(preview.candidate).toMatchObject({ x: 105.5, y: 0 });
-    expect(preview.fit).toMatchObject({ gap: { start: 105.5, length: 14.5 }, before: 0, after: 2.5 });
+    expect(preview.candidate).toMatchObject({ x: 93.5, y: 0 });
+    expect(preview.fit).toMatchObject({ gap: { start: 93.5, length: 14.5 }, before: 0, after: 2.5 });
     expect(smallGapFillerOpportunityFromDragPreview(moving.uid, preview)).toMatchObject({
       cabinetUid: moving.uid,
-      openingStart: 105.5,
+      openingStart: 93.5,
       openingLength: 14.5,
       remaining: 2.5,
     });

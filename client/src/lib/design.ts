@@ -3,6 +3,7 @@
 import {
   closestWall as closestPolygonWall,
   isLocked45Wall,
+  pointInPolygon,
   positionAlongWall,
   wallAngle as polygonWallAngle,
   wallSegmentLength as polygonWallSegmentLength,
@@ -2605,21 +2606,18 @@ export function cabinetCollisionDetail(moving: PlacedCabinet, others: PlacedCabi
   for (const o of others) {
     if (o.uid === moving.uid) continue;
     if (!sharesPlanCollisionZone(moving, o)) continue;
-    // Standard-wall run offsets are trusted only while they still agree with the
-    // saved plan coordinate; a legacy x/y-only edit falls back to the envelope test.
-    const cardinalRun = moving.wallId === "top" || moving.wallId === "bottom" || moving.wallId === "left" || moving.wallId === "right";
-    const runOffsetIsCurrent = (item: PlacedCabinet) => !cardinalRun
-      || Math.abs((moving.wallId === "top" || moving.wallId === "bottom" ? item.x : item.y) - Number(item.wallOffset)) <= 0.5;
+    // Two cabinets seated on the same run compare along that run, on every wall
+    // kind alike; the commit boundary keeps every wallOffset current.
     const sameExplicitRun = Boolean(
       moving.wallId && moving.wallId === o.wallId &&
       moving.wallOffset != null && o.wallOffset != null &&
-      runOffsetIsCurrent(moving) && runOffsetIsCurrent(o),
+      Number.isFinite(Number(moving.wallOffset)) && Number.isFinite(Number(o.wallOffset)),
     );
     if (sameExplicitRun) {
       const start = Number(moving.wallOffset);
-      const end = start + Math.max(0, Number(moving.width) || 0);
+      const end = start + alongRunSpan(moving);
       const otherStart = Number(o.wallOffset);
-      const otherEnd = otherStart + Math.max(0, Number(o.width) || 0);
+      const otherEnd = otherStart + alongRunSpan(o);
       const overlap = Math.min(end, otherEnd) - Math.max(start, otherStart);
       if (overlap > COLLISION_EPSILON_IN) {
         return { cabinet: o, overlapX: overlap, overlapY: Math.min(moving.depth, o.depth), penetration: overlap };
@@ -3582,7 +3580,7 @@ export function fitRefrigeratorEnclosurePlacements(
   // to zero, but using it at this point hid the off-run panel and left it either
   // clipped or visually absent on diagonal continuous walls.
   const alongStart = (item: PlacedCabinet) => (
-    (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) && item.wallId === side && Number.isFinite(Number(item.wallOffset))
+    item.wallId === side && Number.isFinite(Number(item.wallOffset))
       ? Number(item.wallOffset)
       : wallRunOffset(item, side, room)
   );
@@ -3617,12 +3615,9 @@ export function fitRefrigeratorEnclosurePlacements(
     const offset = wallRunOffset(item, side, room);
     const span = wallRunSpan(item, side, room);
     if (offset < -COLLISION_EPSILON_IN || offset + span > wallRunLength + COLLISION_EPSILON_IN) return false;
-    if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return true;
-    const size = placedFootprint(item);
-    return item.x >= -COLLISION_EPSILON_IN
-      && item.y >= -COLLISION_EPSILON_IN
-      && item.x + size.w <= room.width + COLLISION_EPSILON_IN
-      && item.y + size.d <= room.depth + COLLISION_EPSILON_IN;
+    // Inside the drawn walls: the shared room clamp returns the body unchanged only when it already fits.
+    const clamped = clampCabinetToRoom(item, room);
+    return Math.abs(clamped.x - item.x) <= COLLISION_EPSILON_IN && Math.abs(clamped.y - item.y) <= COLLISION_EPSILON_IN;
   };
 
   for (const shiftIn of candidateShifts) {
@@ -3919,21 +3914,11 @@ export function selectedLowerCabinetWallPlacement(
   if (selected.placement === "appliance" && (isRefrigerator(selected) || isRangeOrOven(selected.masterCode, selected.description) || elevationBox(selected, room).bottom > COLLISION_EPSILON_IN)) return null;
   if (placedCornerGeometryKind(selected) !== "standard") return null;
   const side = cabinetWall(selected, room);
-  const measuredRun = isCustomRoomWall(room, side) || peninsulaRunById(room, side);
-  const horizontal = side === "top" || side === "bottom";
-  const lowerFootprint = placedFootprint(selected);
-  // A continuous-wall cabinet stores its true run offset and catalog width.
-  // Its rotated screen envelope is intentionally larger at 45°, so using the
-  // axis-aligned `x/y` footprint here shifts an upper away from the lower it is
-  // meant to match. Keep the wall's measured axis authoritative instead.
-  const lowerStart = measuredRun
-    ? wallRunOffset(selected, side, room)
-    : horizontal ? selected.x : selected.y;
-  const lowerSpan = measuredRun
-    ? wallRunSpan(selected, side, room)
-    : horizontal ? lowerFootprint.w : lowerFootprint.d;
+  // The lower's run offset and catalog width along its wall, on every wall kind.
+  const lowerStart = wallRunOffset(selected, side, room);
+  const lowerSpan = wallRunSpan(selected, side, room);
   if (width > lowerSpan + COLLISION_EPSILON_IN) return null;
-  const runLength = measuredRun ? wallLength(side, room) : horizontal ? room.width : room.depth;
+  const runLength = wallLength(side, room);
   const centeredStart = Math.max(0, Math.min(lowerStart + lowerSpan / 2 - width / 2, Math.max(0, runLength - width)));
   const centeredSpot = wallPlacementAt(centeredStart, width, depth, side, room);
   const candidate: PlacedCabinet = {
@@ -4038,21 +4023,14 @@ export function matchingLowerCabinetWallPlacement(
   openings: WallOpening[] = [],
 ): { targetUid: string; spot: { x: number; y: number; rotation: number } } | null {
   const horizontal = side === "top" || side === "bottom";
-  const measuredRun = isCustomRoomWall(room, side) || peninsulaRunById(room, side);
   const candidates = placed
     .filter((cabinet) => (cabinet.placement === "base" || cabinet.placement === "appliance") && cabinetWall(cabinet, room) === side)
     .filter((cabinet) => {
       if (cabinet.placement === "appliance" && (isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode, cabinet.description) || elevationBox(cabinet, room).bottom > COLLISION_EPSILON_IN)) return false;
       if (placedCornerGeometryKind(cabinet) !== "standard") return false;
-      const footprint = placedFootprint(cabinet);
-      const span = measuredRun
-        ? wallRunSpan(cabinet, side, room)
-        : horizontal ? footprint.w : footprint.d;
-      return Math.abs(span - width) <= 0.5;
+      return Math.abs(wallRunSpan(cabinet, side, room) - width) <= 0.5;
     })
-    .sort((left, right) => measuredRun
-      ? wallRunOffset(left, side, room) - wallRunOffset(right, side, room)
-      : horizontal ? left.x - right.x : left.y - right.y);
+    .sort((left, right) => wallRunOffset(left, side, room) - wallRunOffset(right, side, room));
   for (const candidate of candidates) {
     const spot = selectedLowerCabinetWallPlacement(candidate, room, width, depth, height, placed, openings);
     if (spot) return { targetUid: candidate.uid, spot };
@@ -5541,10 +5519,10 @@ export const LIGHT_RAIL_INSTALLATION_ALLOWANCE_IN = 4;
 // and a horizontal one on Top/Bottom; proximity only breaks the tie WITHIN the
 // oriented pair.
 export function cabinetWall(p: PlacedCabinet, room: RoomData): WallSide {
-  // Polygon room: if the cabinet has an explicit wallId, return it directly.
-  if (p.wallId && (room.customWalls?.some((wall) => wall.id === p.wallId) || peninsulaRunById(room, p.wallId))) {
-    return p.wallId as WallSide;
-  }
+  // A cabinet that names one of this room's runs (standard side, drawn wall
+  // or peninsula) belongs to that run; the same ownership rule on every wall
+  // kind. Only run-less legacy records fall through to geometric inference.
+  if (p.wallId && wallRunFrame(p.wallId, room)) return p.wallId as WallSide;
   const horizontal = ((Math.round(p.rotation) % 180) + 180) % 180 === 0;
   const { w, d } = rotatedSize(p);
   if (horizontal) {
@@ -6322,9 +6300,9 @@ export function snapWallCabinetToOwningWall(p: PlacedCabinet, room: RoomData): P
   const savedAlong = p.wallId === side && p.wallOffset != null ? Number(p.wallOffset) : null;
   const along = savedAlong != null && Math.abs(savedAlong - projectedAlong) <= 0.5 ? savedAlong : projectedAlong;
   const spot = wallPlacementAt(along, p.width, p.depth, side, room, p.peninsulaSide);
-  // A saved same-axis quarter turn (180/270 on a standard wall) is a valid
-  // record of the same wall; keep it rather than rewriting the plan graphic.
-  const sameAxis = frame.kind === "cardinal" && ((Math.round(p.rotation) % 180) + 180) % 180 === spot.rotation % 180;
+  // A saved same-axis half turn is a valid record of the same run on any
+  // wall; keep it rather than rewriting the plan graphic.
+  const sameAxis = ((Math.round(p.rotation) % 180) + 180) % 180 === ((spot.rotation % 180) + 180) % 180;
   const rotation = sameAxis ? p.rotation : spot.rotation;
   if (Math.abs(spot.x - p.x) <= COLLISION_EPSILON_IN && Math.abs(spot.y - p.y) <= COLLISION_EPSILON_IN && rotation === p.rotation && p.wallId === spot.wallId && p.wallOffset === spot.wallOffset) return p;
   return { ...p, ...spot, rotation, wallId: spot.wallId, wallOffset: spot.wallOffset, depthPositionAdjusted: false };
@@ -6854,12 +6832,7 @@ export function reconcileRefrigeratorAssemblies(
       }
       if (!member) continue;
       const memberSpan = wallRunSpan(member, side, enclosure);
-      const memberDepth = isCustomRoomWall(enclosure, side) || peninsulaRunById(enclosure, side)
-        ? Math.max(0, Number(member.depth) || 0)
-        : (() => {
-            const memberSize = placedFootprint(member);
-            return side === "top" || side === "bottom" ? memberSize.d : memberSize.w;
-          })();
+      const memberDepth = Math.max(0, Number(member.depth) || 0);
       const along = role === "bridge"
         ? refrigeratorStart + (refrigeratorSpan - memberSpan) / 2
         : role === "bridge-left-filler"
@@ -7427,15 +7400,12 @@ export function freeSegmentsOnWall(
   // clears the opening vertically.
   candidate?: PlacedCabinet,
 ): WallSegment[] {
-  const customRoomWall = isCustomRoomWall(room, side);
+  const frame = wallRunFrame(side, room);
   const peninsulaRun = peninsulaRunById(room, side);
-  const explicitRun = customRoomWall || Boolean(peninsulaRun);
-  const horizontal = side === "top" || side === "bottom";
-  const retainedWall = explicitRun
-    ? { start: 0, length: wallLength(side, room) }
-    : cabinetWallRunSegment(side, room);
-  const wallStart = retainedWall.start;
-  const wallEnd = retainedWall.start + retainedWall.length;
+  // ONE run source on every wall kind: the frame's usable run (a peninsula may
+  // shorten a standard wall; drawn walls and peninsulas use their full length).
+  const wallStart = frame ? frame.runStart : 0;
+  const wallEnd = frame ? frame.runEnd : wallLength(side, room);
   const wallLen = wallEnd;
 
   // Collect blocked [start, end] intervals along the run axis.
@@ -7451,25 +7421,16 @@ export function freeSegmentsOnWall(
     }
   }
 
-  // A continuous-wall 45° join needs the same 11-inch installation hold as a
-  // 45° peninsula return. It protects the two 24-inch cabinet faces from
-  // crossing at the inside vertex, leaving the measured front edge for the
-  // line's real cuttable filler boards. A normal 90° join remains flush.
-  if (customRoomWall && ["base", "wall", "tall"].includes(layer)) {
-    const customWall = room.customWalls?.find((wall) => wall.id === side);
-    if (customWall) {
-      const hasLocked45NeighborAt = (vertexId: string) => (room.customWalls ?? []).some((neighbor) => (
-        neighbor.id !== customWall.id
-        && (neighbor.startVertexId === vertexId || neighbor.endVertexId === vertexId)
-        && customWallJoinTurnsFortyFive(customWall, neighbor, room)
-      ));
-      if (hasLocked45NeighborAt(customWall.startVertexId)) {
-        blocked.push({ s: 0, e: Math.min(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, wallLen) });
-      }
-      if (hasLocked45NeighborAt(customWall.endVertexId)) {
-        blocked.push({ s: Math.max(0, wallLen - PENINSULA_INSIDE_CORNER_CLEARANCE_IN), e: wallLen });
-      }
-    }
+  // Inside-corner installation hold by join angle, the same rule on every
+  // perimeter wall: a 45° join reserves 11 inches on each leg so two 24-inch
+  // faces cannot cross at the vertex; a 90° corner is flush (zero hold).
+  if (frame && frame.kind !== "peninsula" && ["base", "wall", "tall"].includes(layer)) {
+    const startJoin = wallRunJoinAt(frame, "start", room);
+    const endJoin = wallRunJoinAt(frame, "end", room);
+    const startHold = startJoin ? insideCornerHoldIn(startJoin.turnDeg) : 0;
+    const endHold = endJoin ? insideCornerHoldIn(endJoin.turnDeg) : 0;
+    if (startHold > 0) blocked.push({ s: 0, e: Math.min(startHold, wallLen) });
+    if (endHold > 0) blocked.push({ s: Math.max(0, wallLen - endHold), e: wallLen });
   }
 
   // Only items on the SAME layer (wall vs floor) block this run. Tall cabinets
@@ -7500,46 +7461,40 @@ export function freeSegmentsOnWall(
     // edge instead of being created inside it and rejected as a full overlap.
     const assignedWall = cabinetWall(p, room);
     const cornerKind = placedCornerGeometryKind(p);
-    const assignedCustomWall = room.customWalls?.find((wall) => wall.id === assignedWall);
-    const targetCustomWall = customRoomWall
-      ? room.customWalls?.find((wall) => wall.id === side)
-      : undefined;
-    const sharedCustomVertex = assignedCustomWall && targetCustomWall
-      ? [assignedCustomWall.startVertexId, assignedCustomWall.endVertexId].find((vertexId) => (
-        vertexId === targetCustomWall.startVertexId || vertexId === targetCustomWall.endVertexId
-      ))
-      : undefined;
-    const seatedAtSharedCustomVertex = (() => {
-      if (!sharedCustomVertex || !assignedCustomWall) return false;
-      const sourceLength = wallLength(assignedWall, room);
+    const trueCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer" || cornerKind === "blind-corner";
+    // A true corner box seated at the vertex shared by its own wall and this
+    // one reserves its adjoining leg here. The join is resolved on the run
+    // frames, so a rectangle corner and a drawn-wall vertex are the same case.
+    const cornerJoin = (() => {
+      if (!trueCorner || assignedWall === side || !frame) return null;
+      const sourceFrame = wallRunFrame(assignedWall, room);
+      if (!sourceFrame) return null;
+      const sourceLength = sourceFrame.length;
       const sourceStart = wallRunOffset(p, assignedWall, room);
       const sourceEnd = sourceStart + wallRunSpan(p, assignedWall, room);
-      return sharedCustomVertex === assignedCustomWall.startVertexId
-        ? sourceStart <= 2
-        : sourceEnd >= sourceLength - 2;
+      const atSourceStart = sourceStart <= 2;
+      const atSourceEnd = sourceEnd >= sourceLength - 2;
+      for (const at of ["start", "end"] as const) {
+        const join = wallRunJoinAt(frame, at, room);
+        if (!join || join.frame.id !== sourceFrame.id) continue;
+        const sharedIsSourceStart = Math.hypot(join.frame.start.x - (at === "start" ? frame.start : frame.end).x, join.frame.start.y - (at === "start" ? frame.start : frame.end).y) <= 0.01;
+        if ((sharedIsSourceStart && atSourceStart) || (!sharedIsSourceStart && atSourceEnd)) return { at };
+      }
+      return null;
     })();
-	    const reservesAdjoiningWall = (
-	      cornerKind === "l-shape" ||
-	      cornerKind === "diagonal" ||
-	      cornerKind === "corner-drawer" ||
-	      cornerKind === "blind-corner"
-	    ) && (isAgainstWall(p, side, room) || seatedAtSharedCustomVertex);
-    // Explicit custom runs normally contain only their own cabinets. A true
-    // corner cabinet is the intentional exception: it physically consumes both
-    // adjoining wall legs, including two continuous-wall segments.
-    if (explicitRun && assignedWall !== side && !reservesAdjoiningWall) continue;
+	    const reservesAdjoiningWall = trueCorner && (cornerJoin != null || isAgainstWall(p, side, room));
     if (assignedWall !== side && !reservesAdjoiningWall) continue;
-    if (assignedWall !== side && reservesAdjoiningWall && targetCustomWall && sharedCustomVertex) {
-      const footprint = placedFootprint(p);
+    if (assignedWall !== side && cornerJoin) {
       // The next unit must butt the corner's exposed outer edge. The apparent
       // 12-inch L notch is interior access space, not a valid parallel cabinet
-      // run. Reserve the full 36-inch LSB36/ERB36 outer envelope, matching the
-      // physical-body collision test below.
-	      const adjacentLeg = cornerKind === "l-shape"
-	        ? Math.max(0, footprint.w)
-	        : Math.min(footprint.w, footprint.d);
-      const targetStartsAtSharedVertex = sharedCustomVertex === targetCustomWall.startVertexId;
-      if (targetStartsAtSharedVertex) {
+      // run. Reserve the corner box's full leg along this run from the shared
+      // vertex (36-inch LSB36/ERB36 envelope, 24-inch diagonal/blind leg) —
+      // one rule for a rectangle corner and a drawn-wall vertex alike.
+      const envelope = placedFootprint(p);
+      const adjacentLeg = cornerKind === "l-shape"
+        ? Math.max(0, envelope.w)
+        : Math.min(envelope.w, envelope.d);
+      if (cornerJoin.at === "start") {
         blocked.push({ s: 0, e: Math.min(wallLen, adjacentLeg) });
       } else {
         blocked.push({ s: Math.max(0, wallLen - adjacentLeg), e: wallLen });
@@ -7557,9 +7512,16 @@ export function freeSegmentsOnWall(
         placedBox.bottom >= candidateBox.bottom + candidateBox.height - 0.01;
       if (verticallySeparate) continue;
     }
-    const s = assignedWall !== side && reservesAdjoiningWall ? placedFootprint(p) : rotatedSize(p);
-    const start = explicitRun ? wallRunOffset(p, side, room) : horizontal ? p.x : p.y;
-    const span = explicitRun ? wallRunSpan(p, side, room) : horizontal ? s.w : s.d;
+    if (assignedWall !== side) {
+      // A true corner box reserved on its adjoining leg blocks its full square envelope.
+      const envelope = placedFootprint(p);
+      const start = side === "top" || side === "bottom" ? p.x : p.y;
+      const span = side === "top" || side === "bottom" ? envelope.w : envelope.d;
+      blocked.push({ s: start, e: start + span });
+      continue;
+    }
+    const start = wallRunOffset(p, side, room);
+    const span = wallRunSpan(p, side, room);
     blocked.push({ s: start, e: start + span });
   }
 
@@ -7789,7 +7751,8 @@ export function cabinetWallMovePreview(
     // stays a free-floating plan item. Wall-hung boxes always belong to a wall.
     const reach = depth / 2 + STD.SNAP_THRESHOLD;
     const owned = cabinet.wallId ? wallRunFrame(cabinet.wallId, room) : null;
-    const nearest = nearestWallRunAtPoint(room, center, Math.max(10, STD.SNAP_THRESHOLD));
+    // A peninsula run is reached by the same magnet as a perimeter wall.
+    const nearest = nearestWallRunAtPoint(room, center, reach);
     const ownedDistance = owned ? wallRunDistanceToPoint(owned, center) : Number.POSITIVE_INFINITY;
     const preferred = nearest && (!owned || nearest.distance + STD.SNAP_THRESHOLD < ownedDistance) ? nearest : owned ? { frame: owned, distance: ownedDistance } : nearest;
     const alwaysSeated = cabinet.placement === "wall";
@@ -7805,10 +7768,9 @@ export function cabinetWallMovePreview(
   const maxStart = Math.max(frame.runStart, frame.runEnd - width);
   const clampedStart = Math.max(minStart, Math.min(maxStart, requestedStart));
   const magnet = options.magnet && !options.exact && explicitOffset == null;
-  // A saved same-axis quarter turn on a standard wall (180 on a horizontal
-  // wall, 270 on a vertical one) is the same seating; keep the user's turn.
-  const keepRotation = (spot: { rotation: number }) => frame!.kind === "cardinal"
-    && ((Math.round(cabinet.rotation) % 180) + 180) % 180 === spot.rotation % 180
+  // A saved same-axis half turn is the same seating on any wall; keep the
+  // user's turn instead of rewriting the plan graphic.
+  const keepRotation = (spot: { rotation: number }) => ((Math.round(cabinet.rotation) % 180) + 180) % 180 === ((spot.rotation % 180) + 180) % 180
     ? cabinet.rotation
     : spot.rotation;
   const seat = (start: number): PlacedCabinet => {
@@ -7887,12 +7849,7 @@ export function alternateWallPlacementRecommendation(
   // only real room walls. The rectangular width/depth bounds exist only to size
   // the canvas; recommending one of those invisible graph edges can place a
   // cabinet completely outside the user's drawn room.
-  const orderedWalls: WallSide[] = room.customWalls?.length
-    ? [
-        ...room.customWalls.map((wall) => wall.id as WallSide),
-        ...(room.peninsulaRuns ?? []).map((run) => run.id as WallSide),
-      ]
-    : ["top", "bottom", "left", "right"];
+  const orderedWalls: WallSide[] = roomWallRunFrames(room).map((frame) => frame.id);
   const options = orderedWalls.flatMap((side, order) => {
     if (side === activeWall) return [];
     const spot = paletteActiveWallPlacement(
@@ -7989,6 +7946,85 @@ export function refrigeratorAdjacentOpeningPlacement(
  * shared vertex.  The returned coordinates remain the axis-aligned bounding-box
  * origin used by saved plan placements and the 3D renderer.
  */
+type CornerRunRay = {
+  id: string;
+  /** Unit direction leaving the shared vertex along this run. */
+  ray: { x: number; y: number };
+  /** Physical run length in inches. */
+  length: number;
+  /** True when the shared vertex is this run's start point. */
+  vertexIsStart: boolean;
+};
+/**
+ * Seats a square-corner body at a vertex shared by two runs that meet at 90°.
+ * A corner cabinet has two back legs, so its angle cannot be taken from
+ * whichever incident wall happened to be selected: that can align one leg while
+ * turning the other into the room. Its local +X/+Y axes are the two rays
+ * leaving the vertex. This is the only corner-seating math: a rectangle's four
+ * corners and a drawn room's vertices go through it identically.
+ */
+function seatCornerBodyAtVertex(
+  moving: PlacedCabinet,
+  vertex: { x: number; y: number },
+  first: CornerRunRay,
+  second: CornerRunRay,
+): { x: number; y: number; rotation: number; wallId: string; wallOffset: number } | null {
+  // `first × second` determines which run can be local +X without mirroring
+  // the physical L/diagonal body; swap when necessary. Both are the same true
+  // corner, but this keeps the second leg on its actual run.
+  const cross = first.ray.x * second.ray.y - first.ray.y * second.ray.x;
+  if (Math.abs(Math.abs(cross) - 1) > 1e-5) return null;
+  const primary = cross > 0 ? first : second;
+  const secondary = cross > 0 ? second : first;
+  const physical = placedFootprint(moving);
+  const bodyWidth = Math.max(0, physical.w);
+  const bodyDepth = Math.max(0, physical.d);
+  if (bodyWidth <= COLLISION_EPSILON_IN || bodyDepth <= COLLISION_EPSILON_IN) return null;
+  const center = {
+    x: vertex.x + primary.ray.x * bodyWidth / 2 + secondary.ray.x * bodyDepth / 2,
+    y: vertex.y + primary.ray.y * bodyWidth / 2 + secondary.ray.y * bodyDepth / 2,
+  };
+  const boundWidth = Math.abs(primary.ray.x * bodyWidth) + Math.abs(secondary.ray.x * bodyDepth);
+  const boundDepth = Math.abs(primary.ray.y * bodyWidth) + Math.abs(secondary.ray.y * bodyDepth);
+  const wallOffset = primary.vertexIsStart ? 0 : Math.max(0, primary.length - bodyWidth);
+  const rotation = ((Math.round(Math.atan2(primary.ray.y, primary.ray.x) * 180 / Math.PI) % 360) + 360) % 360;
+  return {
+    x: center.x - boundWidth / 2,
+    y: center.y - boundDepth / 2,
+    rotation,
+    wallId: primary.id,
+    wallOffset,
+  };
+}
+/**
+ * Seats a square-corner body at the vertex where `frame` meets its adjoining
+ * perimeter run at a true 90° join, on every wall kind. Returns null when the
+ * run has no 90° neighbour at that end (open path end, 45° join).
+ */
+export function wallRunCornerPlacement(
+  moving: PlacedCabinet,
+  frame: WallRunFrame,
+  at: "start" | "end",
+  room: RoomData,
+): { x: number; y: number; rotation: number; wallId: string; wallOffset: number } | null {
+  const join = wallRunJoinAt(frame, at, room);
+  if (!join || join.turnDeg !== 90) return null;
+  const vertex = at === "start" ? frame.start : frame.end;
+  const rayFrom = (run: WallRunFrame, fromStart: boolean) => fromStart
+    ? { x: run.tangent.x, y: run.tangent.y }
+    : { x: -run.tangent.x, y: -run.tangent.y };
+  const otherIsStart = Math.hypot(join.frame.start.x - vertex.x, join.frame.start.y - vertex.y) <= 0.01;
+  return seatCornerBodyAtVertex(
+    moving,
+    vertex,
+    { id: frame.id, ray: rayFrom(frame, at === "start"), length: frame.length, vertexIsStart: at === "start" },
+    { id: join.frame.id, ray: rayFrom(join.frame, otherIsStart), length: join.frame.length, vertexIsStart: otherIsStart },
+  );
+}
+/**
+ * Seats a square-corner body at an explicit measured vertex shared by two
+ * drawn walls. Thin wrapper over the shared vertex/ray corner core.
+ */
 export function customWallTrueCornerPlacement(
   moving: PlacedCabinet,
   firstWall: NonNullable<RoomData["customWalls"]>[number],
@@ -7999,60 +8035,22 @@ export function customWallTrueCornerPlacement(
   if (!room.vertices?.length) return null;
   const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
   if (!vertex) return null;
-  const rayFor = (wall: typeof firstWall) => {
-    const otherId = wall.startVertexId === vertexId
-      ? wall.endVertexId
-      : wall.endVertexId === vertexId
-        ? wall.startVertexId
-        : null;
+  const rayFor = (wall: typeof firstWall): CornerRunRay | null => {
+    const vertexIsStart = wall.startVertexId === vertexId;
+    const otherId = vertexIsStart ? wall.endVertexId : wall.endVertexId === vertexId ? wall.startVertexId : null;
     const other = otherId ? room.vertices!.find((candidate) => candidate.id === otherId) : null;
     if (!other) return null;
     const dx = other.x - vertex.x;
     const dy = other.y - vertex.y;
     const length = Math.hypot(dx, dy);
-    return length > COLLISION_EPSILON_IN ? { x: dx / length, y: dy / length } : null;
+    if (length <= COLLISION_EPSILON_IN) return null;
+    return { id: wall.id, ray: { x: dx / length, y: dy / length }, length, vertexIsStart };
   };
-  const firstRay = rayFor(firstWall);
-  const secondRay = rayFor(secondWall);
-  if (!firstRay || !secondRay) return null;
-
-  // `firstRay × secondRay` determines which wall can be local +X without
-  // mirroring the physical L/diagonal cabinet body.  Swap the incident walls
-  // when necessary; both are the same true corner, but this keeps the second
-  // leg on its actual wall for V-shaped/diagonal room layouts.
-  const cross = firstRay.x * secondRay.y - firstRay.y * secondRay.x;
-  if (Math.abs(Math.abs(cross) - 1) > 1e-5) return null;
-  const primaryWall = cross > 0 ? firstWall : secondWall;
-  const primaryRay = cross > 0 ? firstRay : secondRay;
-  const secondaryRay = cross > 0 ? secondRay : firstRay;
-  const physical = placedFootprint(moving);
-  const bodyWidth = Math.max(0, physical.w);
-  const bodyDepth = Math.max(0, physical.d);
-  if (bodyWidth <= COLLISION_EPSILON_IN || bodyDepth <= COLLISION_EPSILON_IN) return null;
-
-  // A local top-left corner is the cabinet's shared wall vertex.  Its two local
-  // positive axes are the two real incident wall rays; translate the resulting
-  // rotated body back to the persisted AABB origin.
-  const center = {
-    x: vertex.x + primaryRay.x * bodyWidth / 2 + secondaryRay.x * bodyDepth / 2,
-    y: vertex.y + primaryRay.y * bodyWidth / 2 + secondaryRay.y * bodyDepth / 2,
-  };
-  const boundWidth = Math.abs(primaryRay.x * bodyWidth) + Math.abs(secondaryRay.x * bodyDepth);
-  const boundDepth = Math.abs(primaryRay.y * bodyWidth) + Math.abs(secondaryRay.y * bodyDepth);
-  const primaryLength = polygonWallSegmentLength(primaryWall, room.vertices);
-  const wallOffset = primaryWall.startVertexId === vertexId
-    ? 0
-    : Math.max(0, primaryLength - bodyWidth);
-  const rotation = ((Math.round(Math.atan2(primaryRay.y, primaryRay.x) * 180 / Math.PI) % 360) + 360) % 360;
-  return {
-    x: center.x - boundWidth / 2,
-    y: center.y - boundDepth / 2,
-    rotation,
-    wallId: primaryWall.id,
-    wallOffset,
-  };
+  const first = rayFor(firstWall);
+  const second = rayFor(secondWall);
+  if (!first || !second) return null;
+  return seatCornerBodyAtVertex(moving, vertex, first, second);
 }
-
 export function nextAvailableRoomCornerPlacement(
   moving: PlacedCabinet,
   activeWall: WallSide,
@@ -8066,98 +8064,47 @@ export function nextAvailableRoomCornerPlacement(
   const nearPointTolerance = nearPoint
     ? Math.max(24, Math.max(Number(moving.width) || 0, Number(moving.depth) || 0) + 24)
     : Number.POSITIVE_INFINITY;
-  // An explicit wall graph is authoritative.  Older saved Continuous Wall
-  // Builder plans can predate both `openWallPath` and a persisted wall height;
-  // treating those plans as a rectangular room makes a corner cabinet snap to
-  // an invisible canvas edge instead of to two real measured walls. Beginner
-  // Room Shapes remain on the rectangle path because they do not carry explicit
-  // vertices/customWalls at all.
-  const hasExplicitMeasuredWallPath = Boolean(room.vertices?.length && room.customWalls?.length);
-  // ERB/L/diagonal corner products are physically square corner envelopes even
-  // when a catalog line stores a shallow straight-run depth. Resolve a real
-  // custom-wall vertex using that physical footprint so its corner reaches the
-  // shared measured-wall point rather than visibly floating alongside it.
-  const physicalFootprint = placedFootprint(moving);
-  // Seat a true
-  // corner cabinet on an open *real* right-angle vertex rather than dropping it
-  // into a graph-square corner. This must not be limited to cardinal walls:
-  // users can draw a 90° corner with two diagonals, and it is still a normal
-  // flush 90° cabinet corner (not an 11-inch 45° peninsula clearance).
-  if (hasExplicitMeasuredWallPath && room.vertices?.length && room.customWalls?.length) {
-    const orderedWalls = [
-      ...room.customWalls.filter((wall) => wall.id === activeWall),
-      ...room.customWalls.filter((wall) => wall.id !== activeWall),
-    ];
-    for (const wall of orderedWalls) {
-      const angle = polygonWallAngle(wall, room.vertices);
-      const endpoints = [...(["start", "end"] as const)].sort((left, right) => {
-        if (!nearPoint) return 0;
-        const leftVertexId = left === "start" ? wall.startVertexId : wall.endVertexId;
-        const rightVertexId = right === "start" ? wall.startVertexId : wall.endVertexId;
-        const leftVertex = room.vertices!.find((vertex) => vertex.id === leftVertexId);
-        const rightVertex = room.vertices!.find((vertex) => vertex.id === rightVertexId);
-        const leftDistance = leftVertex ? Math.hypot(leftVertex.x - nearPoint.x, leftVertex.y - nearPoint.y) : Number.POSITIVE_INFINITY;
-        const rightDistance = rightVertex ? Math.hypot(rightVertex.x - nearPoint.x, rightVertex.y - nearPoint.y) : Number.POSITIVE_INFINITY;
-        return leftDistance - rightDistance;
-      });
-      for (const endpoint of endpoints) {
-        const vertexId = endpoint === "start" ? wall.startVertexId : wall.endVertexId;
-        const vertex = room.vertices.find((candidate) => candidate.id === vertexId);
-        if (nearPoint && (!vertex || Math.hypot(vertex.x - nearPoint.x, vertex.y - nearPoint.y) > nearPointTolerance)) continue;
-        // A wall can have more than one neighbor after an edit/split. Select an
-        // actual perpendicular neighbor, rather than accepting the first
-        // collinear segment and incorrectly abandoning an otherwise valid 90°
-        // corner.
-        const adjoining = room.customWalls.find((candidate) => candidate.id !== wall.id
-          && (candidate.startVertexId === vertexId || candidate.endVertexId === vertexId)
-          && Math.abs(Math.cos(angle - polygonWallAngle(candidate, room.vertices!))) <= 1e-6);
-        if (!adjoining) continue;
-        const spot = customWallTrueCornerPlacement(moving, wall, adjoining, vertexId, room);
-        if (!spot) continue;
-        const candidate = { ...moving, ...spot };
-        // Include the custom-wall corner reservation, so a B12 cannot occupy
-        // the adjoining ERB leg merely because their plan AABBs meet cleanly.
-        if (!cabinetPlacementCollisionDetail(candidate, [...placed], room)) return spot;
-      }
-    }
-    // Continuous-wall rooms have no invisible graph-square corners. If no
-    // measured right-angle vertex is open, report no corner rather than falling
-    // through to a fake rectangular boundary.
-    return null;
+  // Walk the perimeter from the active run: its start corner, its end corner,
+  // then onward through each adjoining run. A rectangle's four sides and a
+  // drawn room's walls are the same run graph, so this is one search for both.
+  const perimeter = roomWallRunFrames(room).filter((frame) => frame.kind !== "peninsula");
+  if (!perimeter.length) return null;
+  const first = perimeter.find((frame) => frame.id === activeWall) ?? perimeter[0]!;
+  const visited = new Set<string>();
+  const ordered: WallRunFrame[] = [];
+  let cursor: WallRunFrame | null = first;
+  while (cursor && !visited.has(cursor.id)) {
+    visited.add(cursor.id);
+    ordered.push(cursor);
+    const next: WallRunFrame | null = wallRunJoinAt(cursor, "end", room)?.frame ?? null;
+    cursor = next && !visited.has(next.id) ? next : null;
   }
-  const footprint = physicalFootprint;
-  const corners = [
-    { x: 0, y: 0 },
-    { x: Math.max(0, room.width - footprint.w), y: 0 },
-    { x: Math.max(0, room.width - footprint.w), y: Math.max(0, room.depth - footprint.d) },
-    { x: 0, y: Math.max(0, room.depth - footprint.d) },
-  ];
-  const orderByWall: Record<WallSide, number[]> = {
-    top: [0, 1, 2, 3],
-    right: [1, 2, 3, 0],
-    bottom: [3, 2, 1, 0],
-    left: [0, 3, 2, 1],
-  };
-  // A legacy polygon may expose a custom wall id before it is classified as a
-  // continuous-wall room. Keep its old rectangular fallback safe rather than
-  // indexing the cardinal-wall order with that id.
-  const standardActiveWall = activeWall === "top" || activeWall === "right" || activeWall === "bottom" || activeWall === "left"
-    ? activeWall
-    : "top";
-  const orderedCornerIndexes = nearPoint
-    ? [...orderByWall[standardActiveWall]].sort((left, right) => {
-        const leftCorner = corners[left];
-        const rightCorner = corners[right];
-        return Math.hypot(leftCorner.x - nearPoint.x, leftCorner.y - nearPoint.y)
-          - Math.hypot(rightCorner.x - nearPoint.x, rightCorner.y - nearPoint.y);
-      })
-    : orderByWall[standardActiveWall];
-  for (const index of orderedCornerIndexes) {
-    const corner = corners[index];
-    if (nearPoint && Math.hypot(corner.x - nearPoint.x, corner.y - nearPoint.y) > nearPointTolerance) continue;
-    const unrotated = { ...moving, ...corner };
-    const candidate = { ...unrotated, rotation: cornerRotationForPlaced(unrotated, room) };
-    if (!hasCollision(candidate, [...placed])) return { x: candidate.x, y: candidate.y, rotation: candidate.rotation };
+  for (const frame of perimeter) if (!visited.has(frame.id)) { visited.add(frame.id); ordered.push(frame); }
+  const seenVertices = new Set<string>();
+  const corners: Array<{ frame: WallRunFrame; at: "start" | "end"; vertex: { x: number; y: number } }> = [];
+  for (const frame of ordered) {
+    for (const at of ["start", "end"] as const) {
+      const vertex = at === "start" ? frame.start : frame.end;
+      const key = `${Math.round(vertex.x * 1000)}:${Math.round(vertex.y * 1000)}`;
+      if (seenVertices.has(key)) continue;
+      seenVertices.add(key);
+      corners.push({ frame, at, vertex });
+    }
+  }
+  const candidates = nearPoint
+    ? [...corners].sort((left, right) => (
+        Math.hypot(left.vertex.x - nearPoint.x, left.vertex.y - nearPoint.y)
+        - Math.hypot(right.vertex.x - nearPoint.x, right.vertex.y - nearPoint.y)
+      ))
+    : corners;
+  for (const corner of candidates) {
+    if (nearPoint && Math.hypot(corner.vertex.x - nearPoint.x, corner.vertex.y - nearPoint.y) > nearPointTolerance) continue;
+    const spot = wallRunCornerPlacement(moving, corner.frame, corner.at, room);
+    if (!spot) continue;
+    const candidate = { ...moving, ...spot };
+    // Include the shared corner reservation, so a B12 cannot occupy the
+    // adjoining ERB leg merely because their plan AABBs meet cleanly.
+    if (!cabinetPlacementCollisionDetail(candidate, [...placed], room)) return spot;
   }
   return null;
 }
@@ -8608,93 +8555,6 @@ export function wallPlacementAtUnbounded(
 
 export const CABINET_WALL_AUTO_SNAP_IN = STD.SNAP_THRESHOLD;
 
-/**
- * Seats a cabinet whose back edge is within the magnetic threshold of a room,
- * locked 45-degree, or peninsula wall. The result carries exact wall ownership
- * and rotation and is returned only when the whole run span is clear.
- */
-export function autoSnapCabinetToNearbyWall(
-  moving: PlacedCabinet,
-  room: RoomData,
-  others: PlacedCabinet[],
-  openings: WallOpening[],
-  maximumDistance = CABINET_WALL_AUTO_SNAP_IN,
-): PlacedCabinet | null {
-  if (moving.islandFace || maximumDistance < 0) return null;
-  if (!["base", "wall", "tall", "appliance"].includes(moving.placement)) return null;
-  const width = Math.max(0, Number(moving.width) || 0);
-  const depth = Math.max(0, Number(moving.depth) || 0);
-  if (width <= 0 || depth <= 0) return null;
-  const footprint = placedFootprint(moving);
-  const center = { x: moving.x + footprint.w / 2, y: moving.y + footprint.d / 2 };
-  const candidates: Array<{ side: WallSide; distance: number; alongCenter: number }> = [];
-
-  const addSegment = (
-    side: WallSide,
-    start: { x: number; y: number },
-    end: { x: number; y: number },
-  ) => {
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const length = Math.hypot(dx, dy);
-    if (length <= COLLISION_EPSILON_IN) return;
-    const tangent = { x: dx / length, y: dy / length };
-    const rawAlong = (center.x - start.x) * tangent.x + (center.y - start.y) * tangent.y;
-    const alongCenter = Math.max(0, Math.min(length, rawAlong));
-    const nearest = { x: start.x + tangent.x * alongCenter, y: start.y + tangent.y * alongCenter };
-    const centerlineDistance = Math.hypot(center.x - nearest.x, center.y - nearest.y);
-    const backEdgeDistance = Math.abs(centerlineDistance - depth / 2);
-    if (backEdgeDistance <= maximumDistance + COLLISION_EPSILON_IN) {
-      candidates.push({ side, distance: backEdgeDistance, alongCenter });
-    }
-  };
-
-  if (room.vertices && (room.customWalls?.length ?? 0) > 0) {
-    for (const wall of room.customWalls ?? []) {
-      const start = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
-      const end = room.vertices.find((vertex) => vertex.id === wall.endVertexId);
-      if (start && end) addSegment(wall.id as WallSide, start, end);
-    }
-  } else {
-    const topWall = cabinetWallRunSegment("top", room);
-    const bottomWall = cabinetWallRunSegment("bottom", room);
-    const leftWall = cabinetWallRunSegment("left", room);
-    const rightWall = cabinetWallRunSegment("right", room);
-    addSegment("top", { x: topWall.start, y: 0 }, { x: topWall.start + topWall.length, y: 0 });
-    addSegment("bottom", { x: bottomWall.start, y: room.depth }, { x: bottomWall.start + bottomWall.length, y: room.depth });
-    addSegment("left", { x: 0, y: leftWall.start }, { x: 0, y: leftWall.start + leftWall.length });
-    addSegment("right", { x: room.width, y: rightWall.start }, { x: room.width, y: rightWall.start + rightWall.length });
-  }
-  for (const run of room.peninsulaRuns ?? []) {
-    const endpoints = peninsulaRunEndpoints(run, room);
-    addSegment(run.id as WallSide, endpoints.start, endpoints.end);
-  }
-
-  for (const candidate of candidates.sort((left, right) => left.distance - right.distance)) {
-    const runStart = Math.round((candidate.alongCenter - width / 2) * 8) / 8;
-    const spot = wallPlacementAt(
-      runStart,
-      width,
-      depth,
-      candidate.side,
-      room,
-      peninsulaRunById(room, candidate.side)?.cabinetSide,
-    );
-    const snapped: PlacedCabinet = {
-      ...moving,
-      ...spot,
-      ...(spot.wallId
-        ? { wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide }
-        : { wallId: undefined, wallOffset: undefined, peninsulaSide: undefined }),
-    };
-    const start = wallRunOffset(snapped, candidate.side, room);
-    const clearSpan = freeSegmentsOnWall(candidate.side, room, others, openings, 0, 0, moving.placement, false, snapped)
-      .some((segment) => start >= segment.start - COLLISION_EPSILON_IN && start + width <= segment.start + segment.length + COLLISION_EPSILON_IN);
-    if (!clearSpan || cabinetPlacementCollisionDetail(snapped, others, room)) continue;
-    return snapped;
-  }
-  return null;
-}
 
 /** True when a custom wall has been explicitly locked to one of the v1 diagonals. */
 export function isLockedAngledCustomWall(room: RoomData, wallId?: string | null): boolean {
@@ -8802,6 +8662,42 @@ export function roomWallRunFrames(room: RoomData): WallRunFrame[] {
   return ids.map((id) => wallRunFrame(id, room)).filter((frame): frame is WallRunFrame => frame != null);
 }
 
+export interface WallRunJoin {
+  /** The adjoining perimeter run. */
+  frame: WallRunFrame;
+  /** Interior turn between the two runs in degrees (90 for a square corner, 45 for a diagonal join). */
+  turnDeg: number;
+  /** Which end of the queried run the join sits on. */
+  at: "start" | "end";
+}
+/**
+ * The perimeter run that meets `frame` at the given end, on every wall kind:
+ * a rectangle's four sides meet at its corners exactly like drawn walls meet
+ * at their shared vertices. Peninsulas are cabinet runs, not perimeter walls,
+ * and never form a room corner.
+ */
+export function wallRunJoinAt(frame: WallRunFrame, at: "start" | "end", room: RoomData): WallRunJoin | null {
+  if (frame.kind === "peninsula") return null;
+  const vertex = at === "start" ? frame.start : frame.end;
+  for (const other of roomWallRunFrames(room)) {
+    if (other.id === frame.id || other.kind === "peninsula") continue;
+    const touchesStart = Math.hypot(other.start.x - vertex.x, other.start.y - vertex.y) <= 0.01;
+    const touchesEnd = Math.hypot(other.end.x - vertex.x, other.end.y - vertex.y) <= 0.01;
+    if (!touchesStart && !touchesEnd) continue;
+    const raw = Math.abs(((frame.angle - other.angle + Math.PI) % (Math.PI * 2)) - Math.PI);
+    const interior = Math.min(raw, Math.abs(Math.PI - raw));
+    return { frame: other, turnDeg: Math.round((interior * 180) / Math.PI), at };
+  }
+  return null;
+}
+/**
+ * Installation hold reserved on each leg at an inside corner, by join angle.
+ * Two 24-inch faces meeting at a 45° turn need 11 inches so the fronts do not
+ * cross at the vertex; a 90° corner is flush and reserves nothing here.
+ */
+export function insideCornerHoldIn(turnDeg: number): number {
+  return Math.abs(turnDeg - 45) <= 0.5 ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
+}
 /** Unclamped along-wall inches of a plan point on a run frame. */
 export function wallRunAlongAtPoint(frame: WallRunFrame, point: { x: number; y: number }): number {
   return (point.x - frame.start.x) * frame.tangent.x + (point.y - frame.start.y) * frame.tangent.y;
@@ -8826,8 +8722,10 @@ export function nearestWallRunAtPoint(
 ): { frame: WallRunFrame; distance: number; along: number } | null {
   const scored = roomWallRunFrames(room).map((frame) => {
     const along = wallRunAlongAtPoint(frame, point);
+    // A point past either end of a run is not on that run: the same rule for
+    // every wall kind, so a drop beyond a wall's end lands on its neighbour.
     const outsideRun = along < frame.runStart - COLLISION_EPSILON_IN || along > frame.runEnd + COLLISION_EPSILON_IN;
-    const distance = frame.kind === "cardinal" && outsideRun ? Number.POSITIVE_INFINITY : wallRunDistanceToPoint(frame, point);
+    const distance = outsideRun ? Number.POSITIVE_INFINITY : wallRunDistanceToPoint(frame, point);
     return { frame, distance, along };
   });
   const peninsula = scored
@@ -8847,33 +8745,115 @@ export function placedPlanCenter(p: PlacedCabinet): { x: number; y: number } {
 }
 
 /**
- * True when a cabinet's saved run metadata (wallId + wallOffset) still describes
- * a run this room knows about. Standard walls are checked by the same two-inch
- * against-the-wall tolerance the Designer already uses, so legacy code that moves
- * x/y without refreshing wallOffset can never report a stale run position.
+ * True when a cabinet's saved run metadata (wallId + wallOffset) names a run
+ * this room knows about. The same answer on a standard side, a drawn wall or a
+ * peninsula: `wallOffset` is authoritative on every wall because every commit
+ * path refreshes it (see `syncWallRunOffsets`).
  */
 export function seatedWallRunFrame(p: PlacedCabinet, room: RoomData): WallRunFrame | null {
   if (!p.wallId || p.wallOffset == null || !Number.isFinite(Number(p.wallOffset))) return null;
   const frame = wallRunFrame(p.wallId, room);
   if (!frame) return null;
-  if (frame.kind !== "cardinal") return frame;
-  const along = frame.tangent.x !== 0 ? p.x : p.y;
-  return isAgainstWall(p, frame.id, room) && Math.abs(along - Number(p.wallOffset)) <= 0.5 ? frame : null;
+  // A rectangular body turned off its run's axis is not seated on that run (a
+  // stale or hand-edited record); consumers then fall back to plain geometry.
+  // Corner bodies encode their two-leg turn in `rotation`, so they are exempt.
+  const cornerKind = placedCornerGeometryKind(p);
+  if (cornerKind === "standard" || cornerKind === "blind-corner") {
+    const rotation = ((Math.round(Number(p.rotation) || 0) % 360) + 360) % 360;
+    if (((rotation - frame.facingRotation) % 180 + 180) % 180 !== 0) return null;
+  }
+  if (frame.kind !== "peninsula" || !p.peninsulaSide) return frame;
+  // A peninsula run has two usable faces. The run frame is built on the run's
+  // default face; a cabinet seated on the opposite face sees the same run with
+  // its inward normal (and therefore its facing) flipped.
+  const run = peninsulaRunById(room, frame.id);
+  const defaultSide = run?.cabinetSide ?? "left";
+  if (p.peninsulaSide === defaultSide) return frame;
+  return {
+    ...frame,
+    inward: { x: -frame.inward.x, y: -frame.inward.y },
+    facingRotation: (frame.facingRotation + 180) % 360,
+  };
+}
+
+/**
+ * Along-run size of a cabinet body: its catalog width (a blind corner reserves
+ * its nominal pull width). Never a rotated screen envelope.
+ */
+export function alongRunSpan(p: PlacedCabinet): number {
+  const width = isBlindCorner(p.masterCode, p.description) ? blindCornerNominalWidth(p) : Number(p.width);
+  return Math.max(0, width || 0);
 }
 
 /** Exact run offset of a cabinet on the given wall, in that wall's along-run inches. */
 export function wallRunOffset(p: PlacedCabinet, side: string, room: RoomData): number {
   const frame = p.wallId === side ? seatedWallRunFrame(p, room) : null;
-  if (frame && frame.kind !== "cardinal") return Math.max(0, Number(p.wallOffset) || 0);
+  if (frame) return Math.max(0, Number(p.wallOffset) || 0);
   return side === "top" || side === "bottom" ? p.x : p.y;
 }
 
-/** Along-run cabinet span. A seated rotated cabinet uses its true catalog width, never a screen envelope. */
+/** Along-run cabinet span. A seated cabinet uses its true catalog width, never a screen envelope. */
 export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): number {
   const frame = p.wallId === side ? seatedWallRunFrame(p, room) : null;
-  if (frame && frame.kind !== "cardinal") return Math.max(0, Number(p.width) || 0);
+  if (frame) return alongRunSpan(p);
   const size = rotatedSize(p);
   return side === "top" || side === "bottom" ? size.w : size.d;
+}
+
+/** Plan tolerance for "this body is still seated on its run" (same 2" the Designer uses against walls). */
+const WALL_RUN_SEAT_TOLERANCE_IN = 2;
+
+/**
+ * Re-derives a cabinet's run metadata from its plan body on ANY wall kind.
+ * - No wallId, island faces and true corner boxes (which own their vertex
+ *   snap) are returned unchanged.
+ * - A body turned off its wall's facing axis, or pulled more than the seat
+ *   tolerance away from it, is no longer on that run: its wallId/wallOffset
+ *   are cleared so nothing trusts a stale offset.
+ * - Otherwise the body is re-seated through `wallPlacementAt` at its projected
+ *   1/8-inch offset with its current width/depth, keeping the user's rotation.
+ * Resize, rotate and every other x/y-only edit stay correct because the commit
+ * boundary runs this for every cabinet (`syncWallRunOffsets`).
+ */
+export function reseatOnWallRun(p: PlacedCabinet, room: RoomData): PlacedCabinet {
+  if (!p.wallId || p.islandFace) return p;
+  const frame = wallRunFrame(p.wallId, room);
+  if (!frame) return p;
+  const cornerKind = placedCornerGeometryKind(p);
+  if (cornerKind !== "standard") return p;
+  const strip = (): PlacedCabinet => {
+    const { wallId: _wallId, wallOffset: _wallOffset, ...rest } = p;
+    return rest as PlacedCabinet;
+  };
+  const rotation = ((Math.round(p.rotation) % 360) + 360) % 360;
+  if (((rotation - frame.facingRotation) % 180 + 180) % 180 !== 0) return strip();
+  const span = alongRunSpan(p);
+  const depth = Number(p.depth) || (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+  const center = placedPlanCenter(p);
+  const projected = wallRunAlongAtPoint(frame, center) - span / 2;
+  const maxStart = Math.max(0, frame.length - span);
+  const offset = roundToEighth(Math.max(0, Math.min(maxStart, projected)));
+  const spot = wallPlacementAt(offset, span, depth, frame.id, room, p.peninsulaSide);
+  if (Math.abs(spot.x - p.x) > WALL_RUN_SEAT_TOLERANCE_IN || Math.abs(spot.y - p.y) > WALL_RUN_SEAT_TOLERANCE_IN) return strip();
+  const nextOffset = spot.wallOffset ?? offset;
+  const unchanged = Math.abs(spot.x - p.x) <= COLLISION_EPSILON_IN
+    && Math.abs(spot.y - p.y) <= COLLISION_EPSILON_IN
+    && p.wallOffset != null
+    && Math.abs(Number(p.wallOffset) - nextOffset) <= COLLISION_EPSILON_IN
+    && (spot.wallId ?? frame.id) === p.wallId;
+  if (unchanged) return p;
+  return { ...p, x: spot.x, y: spot.y, wallId: spot.wallId ?? frame.id, wallOffset: nextOffset };
+}
+
+/** Commit-boundary pass: every seated cabinet's wallOffset agrees with its body on every wall. */
+export function syncWallRunOffsets(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  let changed = false;
+  const next = placed.map((p) => {
+    const synced = reseatOnWallRun(p, room);
+    if (synced !== p) changed = true;
+    return synced;
+  });
+  return changed ? next : placed;
 }
 
 export type ContinuousWallApplianceSnapInfo = {
@@ -8966,9 +8946,63 @@ function restoredDrawnWallCornerPlacement(p: PlacedCabinet, room: RoomData) {
   return null;
 }
 
+/** Plan corners of a placed body's axis-aligned envelope (rotation-aware). */
+function placedEnvelopeCorners(p: PlacedCabinet): Array<{ x: number; y: number }> {
+  const { w, d } = placedFootprint(p);
+  return [
+    { x: p.x, y: p.y },
+    { x: p.x + w, y: p.y },
+    { x: p.x + w, y: p.y + d },
+    { x: p.x, y: p.y + d },
+  ];
+}
+/** Point-in-polygon that also accepts points lying on the shell itself. */
+function pointInsideOrOnRoomShell(px: number, py: number, vertices: NonNullable<RoomData["vertices"]>, epsilon = 1e-6): boolean {
+  if (pointInPolygon(px, py, vertices)) return true;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const ax = vertices[j].x, ay = vertices[j].y, bx = vertices[i].x, by = vertices[i].y;
+    const dx = bx - ax, dy = by - ay;
+    const lengthSq = dx * dx + dy * dy;
+    const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSq));
+    const cx = ax + t * dx, cy = ay + t * dy;
+    if (Math.hypot(px - cx, py - cy) <= epsilon) return true;
+  }
+  return false;
+}
+/** True when the whole placed envelope lies inside (or on) the drawn room shell. */
+export function placedInsideDrawnRoom(p: PlacedCabinet, room: RoomData): boolean {
+  const vertices = room.vertices ?? [];
+  const closedShell = !room.openWallPath && vertices.length >= 3 && (room.customWalls?.length ?? 0) >= vertices.length;
+  if (!closedShell) {
+    // An open wall path has no enclosed polygon; its shell is the room's
+    // bounding rectangle, exactly like a standard room.
+    const { w, d } = placedFootprint(p);
+    return p.x >= -1e-6 && p.y >= -1e-6 && p.x + w <= room.width + 1e-6 && p.y + d <= room.depth + 1e-6;
+  }
+  return placedEnvelopeCorners(p).every((corner) => pointInsideOrOnRoomShell(corner.x, corner.y, vertices));
+}
 export function containCabinetOnDrawnWalls(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.islandFace || !room.vertices?.length || !room.customWalls?.length) return p;
+  // ONE clamp rule for every room kind: a body that already sits inside the
+  // shell is left exactly where the user put it (a depth move off the wall is
+  // a legitimate position, just as in a standard room). Only a body that has
+  // left the shell is pulled back onto its wall run below.
   const cornerSpot = restoredDrawnWallCornerPlacement(p, room);
+  // A run-owned body inside the shell is left exactly where the user put it
+  // (a depth move off the wall is legitimate, as in a standard room). Legacy
+  // records without run metadata still get their wallId/wallOffset back-filled.
+  if (!cornerSpot && placedInsideDrawnRoom(p, room)) {
+    const hasRunMetadata = Boolean(p.wallId) && p.wallOffset != null && Number.isFinite(Number(p.wallOffset));
+    if (hasRunMetadata) return p;
+    // A run-less body is only re-homed when its back actually sits on a wall
+    // (a saved-before-metadata record). A body deliberately pulled off the
+    // wall keeps its position, exactly as the standard-room clamp leaves it.
+    const nearest = nearestWallRunAtPoint(room, placedPlanCenter(p));
+    if (nearest) {
+      const flush = wallPlacementAt(nearest.along - p.width / 2, p.width, p.depth, nearest.frame.id, room, p.peninsulaSide);
+      if (Math.abs(flush.x - p.x) > 0.125 || Math.abs(flush.y - p.y) > 0.125) return p;
+    }
+  }
   if (cornerSpot) {
     if (
       p.x === cornerSpot.x
@@ -9233,15 +9267,9 @@ export interface WallSpanMeasure {
 // offset; using their rotated screen-space AABB would inflate or redirect the
 // measured gap and suppress a valid post-placement filler prompt.
 function runSpan(p: PlacedCabinet, side: WallSide, room?: RoomData): { start: number; end: number } {
-	const explicitOffset = Number(p.wallOffset);
-	const linearWidth = Math.max(0, Number(p.width) || 0);
-	const explicitRun = room && (
-		Boolean(peninsulaRunById(room, side))
-		|| Boolean(room.customWalls?.some((wall) => wall.id === side))
-	);
-	if (explicitRun && p.wallId === side && Number.isFinite(explicitOffset)) {
-		const start = Math.max(0, Math.min(wallLength(side, room), explicitOffset));
-		return { start, end: start + linearWidth };
+	if (room && p.wallId === side && seatedWallRunFrame(p, room)) {
+		const start = Math.max(0, Math.min(wallLength(side, room), wallRunOffset(p, side, room)));
+		return { start, end: start + wallRunSpan(p, side, room) };
 	}
   const { w, d } = placedFootprint(p);
   const horizontal = side === "top" || side === "bottom";
@@ -11908,20 +11936,36 @@ export function cabinetWallDragPreview(
 ): CabinetWallDragPreview | null {
   if (!isWallRunDraggable(moving, room)) return null;
   const wall = cabinetWall(moving, room);
-  const footprint = placedFootprint(moving);
-	  const explicitWallRun = isCustomRoomWall(room, wall) || Boolean(peninsulaRunById(room, wall));
-  const horizontal = wall === "top" || wall === "bottom";
-	  // A measured wall stores the cabinet's catalog width along its own tangent.
-	  // Its screen-space AABB is wider/narrower after rotation and must never become
-	  // the required run span (for example, a 30×12 W3042 at 45° is not 29.7" wide).
-	  const requiredSpan = explicitWallRun ? Math.max(0, Number(moving.width) || 0) : horizontal ? footprint.w : footprint.d;
+  const frame = wallRunFrame(wall, room);
+  if (!frame) return null;
+  // ONE run model for every wall: the cabinet's along-run span is its catalog
+  // width (never a rotated screen envelope), the run is the frame's length, and
+  // peers are measured by projecting their plan bodies onto the same frame.
+  const requiredSpan = alongRunSpan(moving);
+  const wallSpan = frame.length;
+  const runProjection = (body: PlacedCabinet) => {
+    const size = placedFootprint(body);
+    const corners = [
+      { x: body.x, y: body.y },
+      { x: body.x + size.w, y: body.y },
+      { x: body.x, y: body.y + size.d },
+      { x: body.x + size.w, y: body.y + size.d },
+    ];
+    const along = corners.map((point) => wallRunAlongAtPoint(frame, point));
+    const across = corners.map((point) => (point.x - frame.start.x) * frame.inward.x + (point.y - frame.start.y) * frame.inward.y);
+    return { start: Math.min(...along), end: Math.max(...along), near: Math.min(...across), far: Math.max(...across) };
+  };
+  const crossOverlapOnRun = (a: PlacedCabinet, b: PlacedCabinet): number => {
+    const pa = runProjection(a);
+    const pb = runProjection(b);
+    return Math.min(pa.far, pb.far) - Math.max(pa.near, pb.near);
+  };
   const dragLayer: "base" | "wall" = moving.placement === "wall" || isRangeHoodPlacement(moving) ? "wall" : "base";
   const peers = others.filter((item) => item.uid !== moving.uid);
   const gaps = wallGaps(room, peers, openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
   const trueRoomCorner = requiresRoomCornerPlacement(moving);
   if (trueRoomCorner) {
-    const wallSpan = horizontal ? room.width : room.depth;
     const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;
     const pointerStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), roundedPointerStart));
     const cornerStarts = [0, Math.max(0, wallSpan - requiredSpan)];
@@ -11975,7 +12019,6 @@ export function cabinetWallDragPreview(
   }
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
-	  const wallSpan = explicitWallRun ? wallLength(wall, room) : horizontal ? room.width : room.depth;
   const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
   const candidateAtStart = (start: number): PlacedCabinet => {
     const spot = wallPlacementAt(start, requiredSpan, depth, wall, room);
@@ -11998,18 +12041,13 @@ export function cabinetWallDragPreview(
   // A corner item can be oriented to the perpendicular wall and therefore be
   // absent from this wall's free-segment list even though its physical footprint
   // occupies the corner. Its actual plan edges remain valid seam targets.
-	  const physicalEdgeCandidates = explicitWallRun ? [] : peers.flatMap((peer) => {
+	  const physicalEdgeCandidates = peers.flatMap((peer) => {
     if (!sharesPlanCollisionZone(moving, peer)) return [];
     const candidateCross = candidateAtStart(pointerStart);
-    const candidateSize = placedFootprint(candidateCross);
-    const peerSize = placedFootprint(peer);
-    const crossOverlap = horizontal
-      ? Math.min(candidateCross.y + candidateSize.d, peer.y + peerSize.d) - Math.max(candidateCross.y, peer.y)
-      : Math.min(candidateCross.x + candidateSize.w, peer.x + peerSize.w) - Math.max(candidateCross.x, peer.x);
-    if (crossOverlap <= COLLISION_EPSILON_IN) return [];
-    const peerStart = horizontal ? peer.x : peer.y;
-    const peerSpan = horizontal ? peerSize.w : peerSize.d;
-    const peerEnd = peerStart + peerSpan;
+    if (crossOverlapOnRun(candidateCross, peer) <= COLLISION_EPSILON_IN) return [];
+    const peerRun = runProjection(peer);
+    const peerStart = peerRun.start;
+    const peerEnd = peerRun.end;
     const currentGapEnd = initialFit.gap.start + initialFit.gap.length;
     const beforeGapEnd = Math.min(currentGapEnd, peerStart);
     const afterGapStart = Math.max(initialFit.gap.start, peerEnd);
@@ -12024,9 +12062,7 @@ export function cabinetWallDragPreview(
       },
     ].map((entry) => ({ ...entry, distance: Math.abs(pointerStart - entry.start) }));
 	  });
-	  const collidesOnThisRun = (candidate: PlacedCabinet): boolean => explicitWallRun
-	    ? cabinetPlacementCollisionDetail(candidate, peers, room) !== null
-	    : hasCollision(candidate, peers);
+	  const collidesOnThisRun = (candidate: PlacedCabinet): boolean => cabinetPlacementCollisionDetail(candidate, peers, room) !== null;
 		  const edgeCandidates = (options.disableSnapping ? [] : [...gapEdgeCandidates, ...physicalEdgeCandidates])
     .filter((entry) => entry.start >= -COLLISION_EPSILON_IN && entry.start + requiredSpan <= wallSpan + COLLISION_EPSILON_IN)
     .filter((entry) => entry.distance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN)
@@ -12037,20 +12073,15 @@ export function cabinetWallDragPreview(
   const ghostStart = snapStart ?? pointerStart;
   const snapEnd = ghostStart + requiredSpan;
   const ghostCandidate = candidateAtStart(ghostStart);
-  const ghostSize = placedFootprint(ghostCandidate);
   const baseGap = edgeSnap?.gap ?? pointerGap ?? initialFit.gap;
   let boundedStart = baseGap.start;
   let boundedEnd = baseGap.start + baseGap.length;
   for (const peer of peers) {
     if (!sharesPlanCollisionZone(moving, peer)) continue;
-    const peerSize = placedFootprint(peer);
-    const crossOverlap = horizontal
-      ? Math.min(ghostCandidate.y + ghostSize.d, peer.y + peerSize.d) - Math.max(ghostCandidate.y, peer.y)
-      : Math.min(ghostCandidate.x + ghostSize.w, peer.x + peerSize.w) - Math.max(ghostCandidate.x, peer.x);
-    if (crossOverlap <= COLLISION_EPSILON_IN) continue;
-    const peerStart = horizontal ? peer.x : peer.y;
-    const peerSpan = horizontal ? peerSize.w : peerSize.d;
-    const peerEnd = peerStart + peerSpan;
+    if (crossOverlapOnRun(ghostCandidate, peer) <= COLLISION_EPSILON_IN) continue;
+    const peerRun = runProjection(peer);
+    const peerStart = peerRun.start;
+    const peerEnd = peerRun.end;
     if (peerEnd <= ghostStart + COLLISION_EPSILON_IN) boundedStart = Math.max(boundedStart, peerEnd);
     if (peerStart >= snapEnd - COLLISION_EPSILON_IN) boundedEnd = Math.min(boundedEnd, peerStart);
   }

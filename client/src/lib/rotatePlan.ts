@@ -1,10 +1,13 @@
 import {
   FURNITURE_CATALOG,
   furnitureFootprint,
-  isCustomRoomWall,
-  peninsulaRunById,
   placedFootprint,
+  nearestWallRunAtPoint,
+  roomWallRunFrames,
+  seatedWallRunFrame,
   wallPlacementAt,
+  wallRunAlongAtPoint,
+  wallRunFrame,
   type IslandFace,
   type IslandZone,
   type PlacedCabinet,
@@ -16,7 +19,6 @@ import {
   type WallOpening,
   type WallSide,
 } from "./design";
-import { closestWall, positionAlongWall } from "./polygonRoom";
 
 export interface RotatablePlanState {
   room: RoomData;
@@ -66,9 +68,15 @@ const ISLAND_FACE_ROTATION: Record<IslandFace, IslandFace> = {
   left: "back",
 };
 
+/**
+ * A wall keeps its id through a quarter turn: a drawn wall or peninsula is a
+ * named run whose geometry rotates with the vertices, and a standard side
+ * becomes the next clockwise side. Both are the same run afterwards.
+ */
 function rotateWallId(side: string | null | undefined, room: RoomData): string | undefined {
   if (!side) return undefined;
-  if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return side;
+  const frame = wallRunFrame(side, room);
+  if (frame && frame.kind !== "cardinal") return side;
   return CARDINAL_ROTATION[side as keyof typeof CARDINAL_ROTATION] ?? side;
 }
 
@@ -99,28 +107,26 @@ function rotateRoomClockwise(room: RoomData): RoomData {
 
 function wallOwnedCabinetAfterRotation(cabinet: PlacedCabinet, oldRoom: RoomData, nextRoom: RoomData): PlacedCabinet | null {
   if (cabinet.islandFace) return null;
+  // The run the cabinet sits on (its own wallId, or the run its body is seated
+  // against) is the same run after the turn; its along-run offset is invariant.
   const oldFootprint = placedFootprint(cabinet);
   const center = { x: cabinet.x + oldFootprint.w / 2, y: cabinet.y + oldFootprint.d / 2 };
-  const explicitWall = isCustomRoomWall(oldRoom, cabinet.wallId) || peninsulaRunById(oldRoom, cabinet.wallId)
-    ? cabinet.wallId
-    : null;
-  const nearest = oldRoom.vertices?.length && oldRoom.customWalls?.length
-    ? closestWall(center.x, center.y, oldRoom.vertices, oldRoom.customWalls)
-    : null;
-  const wallId = (explicitWall ?? nearest?.id) as WallSide | undefined;
-  if (!wallId) return null;
-  const oldCustomWall = oldRoom.customWalls?.find((wall) => wall.id === wallId);
-  const along = Number.isFinite(cabinet.wallOffset)
+  const roomRuns = roomWallRunFrames(oldRoom);
+  const seated = seatedWallRunFrame(cabinet, oldRoom);
+  const oldFrame = seated && roomRuns.some((frame) => frame.id === seated.id)
+    ? seated
+    : nearestWallRunAtPoint(oldRoom, center)?.frame ?? null;
+  if (!oldFrame) return null;
+  const along = oldFrame === seated && Number.isFinite(cabinet.wallOffset)
     ? Number(cabinet.wallOffset)
-    : oldCustomWall && oldRoom.vertices
-      ? positionAlongWall(center.x, center.y, oldCustomWall, oldRoom.vertices)
-      : 0;
+    : Math.max(0, wallRunAlongAtPoint(oldFrame, center) - Math.max(0, Number(cabinet.width) || 0) / 2);
+  const wallId = (rotateWallId(oldFrame.id, oldRoom) ?? oldFrame.id) as WallSide;
   const spot = wallPlacementAt(along, cabinet.width, cabinet.depth, wallId, nextRoom, cabinet.peninsulaSide);
   return {
     ...cabinet,
     ...spot,
     wallId,
-    wallOffset: along,
+    wallOffset: spot.wallOffset ?? along,
   };
 }
 

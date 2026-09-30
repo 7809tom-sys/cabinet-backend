@@ -77,7 +77,9 @@ describe("custom drawing rotation", () => {
     expect(result.room.customWalls?.map((wall) => wall.id)).toEqual(["wall-1", "wall-2", "wall-3"]);
     expect(result.openings[0]).toMatchObject({ side: "wall-2", offset: 12, width: 36 });
     expect(result.cabinets[0].wallId).toBe("wall-1");
-    expect(result.cabinets[0].wallOffset).toBeCloseTo(9, 4);
+    // wallOffset is the run START on every wall (the shared engine's meaning):
+    // an 18" body at x 0..18 along wall-1 keeps start offset 0 through the turn.
+    expect(result.cabinets[0].wallOffset).toBeCloseTo(0, 4);
     expect(result.cabinets[0].rotation).toBe(90);
     const footprint = placedFootprint(result.cabinets[0]);
     expect(result.cabinets[0].x).toBeGreaterThanOrEqual(-0.001);

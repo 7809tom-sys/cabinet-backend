@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { appendWallBuilderSegment, wallBuilderRoomGeometry, type WallBuilderSegment } from "./polygonRoom";
 import {
   cabinetWallMovePreview,
+  clampCabinetToRoom,
   placedPlanCenter,
   roundToEighth,
   seatedWallRunFrame,
@@ -143,6 +144,20 @@ describe("Phase 1 one-engine parity: B12, B36, W3030 on a standard wall and a Wa
       const result = cabinetWallMovePreview(mover, point, room, [], [], { magnet: true });
       expect(result.candidate).toBeNull();
       expect(result.failure).toBe("no-wall");
+    }
+  });
+});
+
+describe("Phase 1 one-engine: depth move and clamp are the same rule in every room", () => {
+  it("leaves a base pulled 1 inch off its wall exactly where it was, in a standard room and a Wall Builder room", () => {
+    const standardRoom: RoomData = { width: 100, depth: 120, ceilingHeight: 96 };
+    const drawn = drawnRoom();
+    const wall = drawn.customWalls![0]!.id;
+    for (const [room, side] of [[standardRoom, "top"], [drawn, wall]] as const) {
+      const spot = wallPlacementAt(40, 12, 24, side as never, room);
+      const pulledIn = { uid: "b12", cabinetId: 1, masterCode: "B12", description: "12 inch Base", placement: "base", width: 12, depth: 24, height: 34.5, ...spot, y: roundToEighth(spot.y + 1), depthPositionAdjusted: true } as PlacedCabinet;
+      const clamped = clampCabinetToRoom(pulledIn, room);
+      expect([clamped.x, clamped.y]).toEqual([pulledIn.x, pulledIn.y]);
     }
   });
 });

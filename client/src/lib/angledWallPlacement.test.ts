@@ -1,9 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { RoomData, PlacedCabinet } from "./design";
-import { alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopPolygonSelfIntersects, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, DEFAULT_ROOM, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
+import { alternateWallPlacementRecommendation, cabinetWallMovePreview,
+  hasCollision, blindCornerSnapInfo, cabinetCollisionDetail, cabinetCornerPlacementInfo, cabinetPlacementCollisionDetail, cabinetWallRunLength, cabinetWallRunSegment, clampCabinetsToRoom, clampCabinetToRoom, collisionReason, containCabinetOnDrawnWalls, countertopArea, COUNTERTOP_DEPTH_IN, countertopPolygonSelfIntersects, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, customWallTrueCornerPlacement, DEFAULT_ROOM, firstCollisionFreePeninsulaPlacement, freeSegmentsOnWall, isCustomRoomWall, miteredPeninsulaCountertopSurfaces, nextAvailablePeninsulaCornerPlacement, nextAvailableRoomCornerPlacement, normalizeLegacyPeninsulaCabinets, paletteActiveWallPlacement, PENINSULA_INSIDE_CORNER_CLEARANCE_IN, peninsulaAutomaticStartOffset, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopSurface, peninsulaCountertopWaterfallEnd, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaRunEndpoints, peninsulaRunHitAtPoint, peninsulaRunMaxLength, peninsulaRunOffsetAtPoint, peninsulaRunStartOffsetAtPoint, placedFootprint, removePeninsulaRun, retainedWallSegmentForSplit, selectedCornerBaseWallPlacement, shouldBlockPlacementCollision, snapWallCabinetToOwningWall, STD, wallGapFitPreview, wallLength, wallPlacementAt } from "./design";
 import { buildDesignCabinetCartLines } from "./designCartLines";
 import { buildMaterialsListRows } from "./designMaterialsList";
 import { buildSurfaceCartLines } from "./surfaceCartLines";
+
+/** Shared engine magnet from the body's current position (same call the Designer's moveCabinet makes). */
+function magnetSnap(moving: PlacedCabinet, room: RoomData, peers: PlacedCabinet[], openings: WallOpening[]): PlacedCabinet | null {
+  const preview = cabinetWallMovePreview(moving, { x: moving.x, y: moving.y }, room, peers, openings, { magnet: true });
+  return preview.candidate ?? null;
+}
+
 
 const angledRoom: RoomData = {
   width: 240,
@@ -718,7 +726,7 @@ describe("continuous builder custom wall placement", () => {
       height: 34.5,
       rotation: 0,
     };
-    expect(autoSnapCabinetToNearbyWall(moving, builderRoom, [], [], 6)).toMatchObject({ wallId: "builder-top", rotation: 0 });
+    expect(magnetSnap(moving, builderRoom, [], [])).toMatchObject({ wallId: "builder-top", rotation: 0 });
   });
 
 	  it("recommends another user-drawn wall instead of an invisible graph boundary", () => {
@@ -1195,14 +1203,14 @@ describe("cabinet-supported peninsula runs", () => {
       wallId: undefined,
       wallOffset: undefined,
     };
-    expect(autoSnapCabinetToNearbyWall(nearby, peninsulaRoom, [], [])).toMatchObject({
+    expect(magnetSnap(nearby, peninsulaRoom, [], [])).toMatchObject({
       x: exact.x,
       y: exact.y,
       rotation: exact.rotation,
       wallId: run.id,
       wallOffset: 24,
     });
-    expect(autoSnapCabinetToNearbyWall({ ...nearby, x: exact.x - 7 }, peninsulaRoom, [], [])).toBeNull();
+    expect(magnetSnap({ ...nearby, x: exact.x - 7 }, peninsulaRoom, [], [])?.wallId).not.toBe(run.id);
   });
 
   it("auto-snaps a nearby cabinet flush to a selected-side 45-degree peninsula wall", () => {
@@ -1231,7 +1239,7 @@ describe("cabinet-supported peninsula runs", () => {
       wallOffset: undefined,
       peninsulaSide: undefined,
     };
-    expect(autoSnapCabinetToNearbyWall(nearby, room, [], [])).toMatchObject({
+    expect(magnetSnap(nearby, room, [], [])).toMatchObject({
       x: exact.x,
       y: exact.y,
       rotation: 315,
@@ -1257,9 +1265,15 @@ describe("cabinet-supported peninsula runs", () => {
       rotation: 0,
     };
     const door = { uid: "door", kind: "door", label: "Door", side: "top", offset: 24, width: 36, height: 80, sill: 0 } as const;
-    expect(autoSnapCabinetToNearbyWall(nearby, room, [], [door])).toBeNull();
+    // The shared magnet never seats a cabinet inside a door opening or on an
+    // occupied span; it lands on the nearest clear 1/8-inch position instead.
+    const throughDoor = magnetSnap(nearby, room, [], [door]);
+    expect(throughDoor).not.toBeNull();
+    expect(throughDoor!.x + 12 <= door.offset || throughDoor!.x >= door.offset + door.width).toBe(true);
     const occupied = { ...nearby, uid: "occupied", x: 30, y: 0 };
-    expect(autoSnapCabinetToNearbyWall(nearby, room, [occupied], [])).toBeNull();
+    const besideOccupied = magnetSnap(nearby, room, [occupied], []);
+    expect(besideOccupied).not.toBeNull();
+    expect(hasCollision(besideOccupied!, [occupied])).toBe(false);
   });
 
   it("fits a 24-inch cabinet on a 36-inch one-corner segment with one inch remaining, but not between two reserved corners", () => {

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearch, useLocation } from "wouter";
@@ -107,7 +107,7 @@ import {
 	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, refrigeratorBayRunMetrics, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
-		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, autoSnapCabinetToNearbyWall, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
+		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
@@ -122,7 +122,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, syncWallRunOffsets, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -600,8 +600,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
   const [polygonEditMode, setPolygonEditMode] = useState(false);
   const isPolygonRoom = Boolean(room.vertices?.length && room.vertices.length >= 2 && room.customWalls?.length);
-  const [placed, setPlaced] = useState<PlacedCabinet[]>([]);
+  const [placed, setPlacedState] = useState<PlacedCabinet[]>([]);
   const placedRef = useRef<PlacedCabinet[]>(placed);
+  const roomRef = useRef<RoomData>(room);
+  roomRef.current = room;
+  // ONE commit boundary for cabinet state: every seated cabinet's run offset is
+  // re-derived from its plan body on every wall kind, so resize, rotate and any
+  // x/y-only edit can never leave a stale wallOffset behind.
+  const setPlaced = useCallback((update: SetStateAction<PlacedCabinet[]>) => {
+    setPlacedState((prev) => {
+      const next = typeof update === "function" ? update(prev) : update;
+      return next === prev ? prev : syncWallRunOffsets(next, roomRef.current);
+    });
+  }, []);
   useEffect(() => {
     placedRef.current = placed;
   }, [placed]);

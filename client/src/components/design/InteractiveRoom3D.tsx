@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -5353,9 +5353,16 @@ export function threeDRoomFacingRotation(
 		    ? seatedWallRunFrame(cabinet, room as RoomData)
 		    : null;
 		  const seatedKind = placedCornerGeometryKind(cabinet);
-		  if (seatedRun && (seatedRun.kind !== "cardinal" || seatedKind === "standard" || seatedKind === "blind-corner")) {
-		    return threeDPlanRotation(seatedRun.kind === "cardinal" ? seatedRun.facingRotation * Math.PI / 180 : fallbackRotation);
+		  // Rectangular corner bodies (L, diagonal, triangle, corner-drawer) keep
+		  // their authored two-leg plan turn below; every other seated body faces
+		  // the room exactly as its run frame says, on every wall kind.
+		  if (seatedRun && (seatedKind === "standard" || seatedKind === "blind-corner")) {
+		    return threeDPlanRotation(seatedRun.facingRotation * Math.PI / 180);
 		  }
+		  // A record that names one of this room's runs but sits off that run's
+		  // axis keeps its authored plan turn rather than being re-homed onto
+		  // whichever perimeter wall its coordinates happen to be nearest.
+		  if (!seatedRun && cabinet.wallId && room && wallRunFrame(cabinet.wallId, room as RoomData)) return threeDPlanRotation(fallbackRotation);
 		  // A locked 45° polygon-wall cabinet already carries its exact scene-facing
 		  // angle. Do not infer a nearby rectangular wall and turn it back to 0°/90°.
 		  const explicitAngle = ((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360;
@@ -5442,13 +5449,12 @@ export function existingCabinetTransform(
   const savedRotation = Number(cabinet.rotation);
   const sharedKind = placedCornerGeometryKind(cabinet);
   const hasPlacedRoom = Number.isFinite(room?.width) && Number.isFinite(room?.depth);
-  // A measured custom wall owns the cabinet's exact angle. `cornerRotationForPlaced`
-  // only understands the four rectangular room bounds, so applying it to an
-  // ERB36 on a diagonal custom-wall corner overwrote its saved 135°/225° turn
-  // with a nearby fake rectangular corner and made the 3D body float away from
-  // the two real walls. Preserve the wallPlacementAt rotation in that case.
-  const onMeasuredCustomWall = hasPlacedRoom && seatedWallRunFrame(cabinet, room as RoomData)?.kind === "custom";
-  const cornerTurn = hasPlacedRoom && !onMeasuredCustomWall && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
+  // A corner body seated on a wall run (its wallId/wallOffset name a run of
+  // this room) already carries its exact two-leg rotation from the shared
+  // corner seating, on every wall kind. Only a run-less legacy corner record
+  // still infers its quarter turn from the nearest rectangular room corner.
+  const seatedOnRun = hasPlacedRoom && seatedWallRunFrame(cabinet, room as RoomData) != null;
+  const cornerTurn = hasPlacedRoom && !seatedOnRun && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : null;
   const planRotation = sharedKind === "diagonal" && cornerTurn != null
