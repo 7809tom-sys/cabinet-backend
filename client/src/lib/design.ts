@@ -8856,6 +8856,36 @@ export function syncWallRunOffsets(placed: PlacedCabinet[], room: RoomData): Pla
   return changed ? next : placed;
 }
 
+/**
+ * One-time restore normaliser for designs saved before every wall carried run
+ * metadata. A rectangular perimeter cabinet with no `wallId`/`wallOffset`
+ * whose back sits flush on a run (standard side, drawn wall or peninsula)
+ * gains that run's id and its projected 1/8-inch offset, so it takes the same
+ * engine path as a cabinet placed today. Bodies that are not flush, island
+ * parts, corner bodies and records that already name a run are untouched.
+ */
+export function backfillLegacyWallRuns(placed: PlacedCabinet[], room: RoomData): PlacedCabinet[] {
+  let changed = false;
+  const next = placed.map((p) => {
+    if (p.islandFace) return p;
+    if (p.wallId && p.wallOffset != null && Number.isFinite(Number(p.wallOffset)) && wallRunFrame(p.wallId, room)) return p;
+    if (placedCornerGeometryKind(p) !== "standard") return p;
+    const nearest = nearestWallRunAtPoint(room, placedPlanCenter(p));
+    if (!nearest) return p;
+    const rotation = ((Math.round(p.rotation) % 360) + 360) % 360;
+    if (((rotation - nearest.frame.facingRotation) % 180 + 180) % 180 !== 0) return p;
+    const span = alongRunSpan(p);
+    const maxStart = Math.max(0, nearest.frame.length - span);
+    const offset = roundToEighth(Math.max(0, Math.min(maxStart, nearest.along - span / 2)));
+    const depth = Number(p.depth) || (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+    const spot = wallPlacementAt(offset, span, depth, nearest.frame.id, room, p.peninsulaSide);
+    if (Math.abs(spot.x - p.x) > 0.125 || Math.abs(spot.y - p.y) > 0.125) return p;
+    changed = true;
+    return { ...p, wallId: spot.wallId ?? nearest.frame.id, wallOffset: spot.wallOffset ?? offset };
+  });
+  return changed ? next : placed;
+}
+
 export type ContinuousWallApplianceSnapInfo = {
   wallId: WallSide;
   /** Floor-run cabinet touching the appliance's start edge, if any. */

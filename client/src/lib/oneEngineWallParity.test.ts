@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { appendWallBuilderSegment, wallBuilderRoomGeometry, type WallBuilderSegment } from "./polygonRoom";
 import {
+  backfillLegacyWallRuns,
   cabinetWallMovePreview,
   clampCabinetToRoom,
   placedPlanCenter,
@@ -160,4 +161,85 @@ describe("Phase 1 one-engine: depth move and clamp are the same rule in every ro
       expect([clamped.x, clamped.y]).toEqual([pulledIn.x, pulledIn.y]);
     }
   });
+});
+
+describe("Phase 1 one-engine: legacy saved designs are back-filled onto the shared run path", () => {
+  const STANDARD: RoomData = { width: 100, depth: 120, ceilingHeight: 96 };
+  const DRAWN = drawnRoom();
+  const drawnWall = DRAWN.customWalls![0]!.id;
+  const SAMPLES = [
+    { code: "B12", placement: "base" as const, width: 12, depth: 24, height: 34.5, along: 10 },
+    { code: "B36", placement: "base" as const, width: 36, depth: 24, height: 34.5, along: 40 },
+    { code: "W3030", placement: "wall" as const, width: 30, depth: 12, height: 30, along: 22 },
+  ];
+  // A pre-Phase-1 record: flush body and correct rotation, but NO run metadata.
+  const legacyRecord = (sample: typeof SAMPLES[number], room: RoomData, wall: string): PlacedCabinet => {
+    const spot = wallPlacementAt(sample.along, sample.width, sample.depth, wall as never, room);
+    return {
+      uid: `legacy-${sample.code}`,
+      cabinetId: 1,
+      masterCode: sample.code,
+      description: sample.code,
+      placement: sample.placement,
+      x: spot.x,
+      y: spot.y,
+      width: sample.width,
+      depth: sample.depth,
+      height: sample.height,
+      rotation: spot.rotation,
+    };
+  };
+  for (const [label, room, wall] of [["standard room", STANDARD, "top"], ["Wall Builder room", DRAWN, drawnWall]] as const) {
+    it(`${label}: run-less flush records gain the run id and 1/8-inch offset without moving`, () => {
+      const legacy = SAMPLES.map((s) => legacyRecord(s, room, wall));
+      expect(legacy.every((p) => p.wallId === undefined && p.wallOffset === undefined)).toBe(true);
+      const filled = backfillLegacyWallRuns(legacy, room);
+      expect(filled).not.toBe(legacy);
+      filled.forEach((p, i) => {
+        expect(p.wallId).toBe(wall);
+        expect(p.wallOffset).toBe(SAMPLES[i]!.along);
+        expect(p.x).toBe(legacy[i]!.x);
+        expect(p.y).toBe(legacy[i]!.y);
+        expect(seatedWallRunFrame(p, room)?.id).toBe(wall);
+      });
+      // Idempotent: a second pass returns the same array.
+      expect(backfillLegacyWallRuns(filled, room)).toBe(filled);
+    });
+    it(`${label}: a run-less body pulled 3 inches off the wall is left alone`, () => {
+      const b36 = legacyRecord(SAMPLES[1]!, room, wall);
+      const frame = wallRunFrame(wall as never, room)!;
+      const off: PlacedCabinet = { ...b36, x: b36.x + frame.inward.x * 3, y: b36.y + frame.inward.y * 3 };
+      const result = backfillLegacyWallRuns([off], room);
+      expect(result[0]!.wallId).toBeUndefined();
+      expect(result[0]!.wallOffset).toBeUndefined();
+    });
+  }
+  it("standard and Wall Builder back-fills give the same offsets for the same cabinets", () => {
+    const std = backfillLegacyWallRuns(SAMPLES.map((s) => legacyRecord(s, STANDARD, "top")), STANDARD);
+    const drawn = backfillLegacyWallRuns(SAMPLES.map((s) => legacyRecord(s, DRAWN, drawnWall)), DRAWN);
+    expect(std.map((p) => p.wallOffset)).toEqual(drawn.map((p) => p.wallOffset));
+  });
+});
+
+describe("Phase 1 one-engine: palette drop of a wall cabinet over a base finds the lower on every wall kind", () => {
+  const STANDARD: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+  const DRAWN = drawnRoom();
+  const drawnWall = DRAWN.customWalls![0]!.id;
+  for (const [label, room, wall] of [["standard room", STANDARD, "top"], ["Wall Builder room", DRAWN, drawnWall]] as const) {
+    it(`${label}: a W3030 dropped over a B36 at run offset 60 targets that B36`, async () => {
+      const { targetedLowerCabinetForThreeDDrop } = await import("@/pages/designTool3DDropPlacement");
+      const spot = wallPlacementAt(60, 36, 24, wall as never, room);
+      const b36: PlacedCabinet = {
+        uid: "b36", cabinetId: 1, masterCode: "B36", description: "B36", placement: "base",
+        x: spot.x, y: spot.y, width: 36, depth: 24, height: 34.5, rotation: spot.rotation,
+        wallId: spot.wallId, wallOffset: spot.wallOffset,
+      };
+      const frame = wallRunFrame(wall as never, room)!;
+      const point = { x: frame.start.x + frame.tangent.x * 75 + frame.inward.x * 6, y: frame.start.y + frame.tangent.y * 75 + frame.inward.y * 6 };
+      const hit = targetedLowerCabinetForThreeDDrop([b36], { x: point.x, y: point.y, wall: wall as never }, room);
+      expect(hit?.uid).toBe("b36");
+      const miss = targetedLowerCabinetForThreeDDrop([b36], { x: frame.start.x + frame.tangent.x * 20, y: frame.start.y + frame.tangent.y * 20, wall: wall as never }, room);
+      expect(miss).toBeNull();
+    });
+  }
 });

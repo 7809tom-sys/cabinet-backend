@@ -122,7 +122,7 @@ import {
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, syncWallRunOffsets, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, cabinetWallMovePreview, firstCollisionFreeWallPlacement, roundToEighth, syncWallRunOffsets, backfillLegacyWallRuns, wallRunFrame, wallRunAlongAtPoint, nearestWallRunAtPoint, clampCabinetToRoom, wallPlacementAt, wallPlacementAtUnbounded, wallLength, wallRunOffset, wallRunSpan, cabinetWall, cabinetPlacementCollisionDetail, kneeDrawerWallPlacement, isCustomRoomWall, firstCollisionFreeCustomWallPlacement, continuousWallApplianceSnapInfo, peninsulaRunById, peninsulaRootRunId, peninsulaRunAssemblyLocked, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunOffsetAtPoint, peninsulaRunMaxLength, normalizeLegacyPeninsulaCabinets, firstCollisionFreePeninsulaPlacement, bestFitCatalogOption, removePeninsulaRun,
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
@@ -2992,10 +2992,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // persisted can have a visually seated cabinet but no wallId/wallOffset.
 	      // Repair that once while restoring so the drag preview and the final
 	      // collision check use the same physical run coordinates.
-	      const peninsulaNormalizedPlaced = normalizeLegacyPeninsulaCabinets(
+	      const peninsulaNormalizedPlaced = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
 	        clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom), restoredRoom),
 	        restoredRoom,
-	      );
+	      ), restoredRoom);
 	      const repairedPlaced = removeOverlappingPlacements(
 	        normalizeStandardWallMounts(
 	          normalizeWd18CountertopMounts(
@@ -9603,10 +9603,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            // Drafts survive refreshes independently of saved designs. Bring
 	            // every older custom-wall cabinet into the current measured wall
 	            // frame before the first preview or release can inspect it.
-	            const peninsulaNormalizedDraft = normalizeLegacyPeninsulaCabinets(
+	            const peninsulaNormalizedDraft = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
 	              clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom), draftRoom),
 	              draftRoom,
-	            );
+	            ), draftRoom);
 	            setPlaced(removeOverlappingPlacements(
 	              normalizeStandardWallMounts(
 	                normalizeWd18CountertopMounts(

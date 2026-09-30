@@ -1,4 +1,4 @@
-import { cabinetWall, elevationBox, isRangeOrOven, isRefrigerator, isSinkBaseCabinet, placedCornerGeometryKind, placedFootprint, type PlacedCabinet, type RoomData, type WallSide } from "@/lib/design";
+import { cabinetWall, elevationBox, isRangeOrOven, isRefrigerator, isSinkBaseCabinet, placedCornerGeometryKind, wallRunAlongAtPoint, wallRunFrame, wallRunOffset, wallRunSpan, type PlacedCabinet, type RoomData, type WallSide } from "@/lib/design";
 
 export type ThreeDWallDropTarget = { x: number; y: number; wall?: WallSide; placementUid?: string | null };
 
@@ -18,23 +18,21 @@ export function targetedSinkBaseForThreeDDrop(
     return hit?.placement === "base" && isSinkBaseCabinet(hit) ? hit : null;
   }
   if (!room || !target.wall) return null;
-  const horizontal = target.wall === "top" || target.wall === "bottom";
-  const targetAlong = horizontal ? target.x : target.y;
+  // One run-frame projection for every wall kind (standard, drawn, diagonal).
+  const frame = wallRunFrame(target.wall, room);
+  if (!frame) return null;
+  const targetAlong = wallRunAlongAtPoint(frame, { x: target.x, y: target.y });
   const candidates = placed.filter((cabinet) => {
     if (cabinet.placement !== "base" || !isSinkBaseCabinet(cabinet) || cabinetWall(cabinet, room) !== target.wall) return false;
-    const footprint = placedFootprint(cabinet);
-    const start = horizontal ? cabinet.x : cabinet.y;
-    const span = horizontal ? footprint.w : footprint.d;
+    const start = wallRunOffset(cabinet, target.wall!, room);
+    const span = wallRunSpan(cabinet, target.wall!, room);
     return targetAlong >= start - 0.01 && targetAlong <= start + span + 0.01;
   });
   if (candidates.length === 0) return null;
-  return candidates.reduce((nearest, cabinet) => {
-    const footprint = placedFootprint(cabinet);
-    const nearestFootprint = placedFootprint(nearest);
-    const center = (horizontal ? cabinet.x : cabinet.y) + (horizontal ? footprint.w : footprint.d) / 2;
-    const nearestCenter = (horizontal ? nearest.x : nearest.y) + (horizontal ? nearestFootprint.w : nearestFootprint.d) / 2;
-    return Math.abs(center - targetAlong) < Math.abs(nearestCenter - targetAlong) ? cabinet : nearest;
-  });
+  const runCenter = (cabinet: PlacedCabinet) => wallRunOffset(cabinet, target.wall!, room) + wallRunSpan(cabinet, target.wall!, room) / 2;
+  return candidates.reduce((nearest, cabinet) => (
+    Math.abs(runCenter(cabinet) - targetAlong) < Math.abs(runCenter(nearest) - targetAlong) ? cabinet : nearest
+  ));
 }
 
 /** A lower cabinet/appliance hit is an explicit request to align an upper to it. */
@@ -54,23 +52,22 @@ export function targetedLowerCabinetForThreeDDrop(
     return hit && eligible(hit) ? hit : null;
   }
   if (!target.wall) return null;
-  const horizontal = target.wall === "top" || target.wall === "bottom";
-  const targetAlong = horizontal ? target.x : target.y;
+  // One run-frame projection for every wall kind (standard, drawn, diagonal).
+  const frame = wallRunFrame(target.wall, room);
+  if (!frame) return null;
+  const wall = target.wall;
+  const targetAlong = wallRunAlongAtPoint(frame, { x: target.x, y: target.y });
   const candidates = placed.filter((cabinet) => {
-    if (!eligible(cabinet) || cabinetWall(cabinet, room) !== target.wall) return false;
-    const footprint = placedFootprint(cabinet);
-    const start = horizontal ? cabinet.x : cabinet.y;
-    const span = horizontal ? footprint.w : footprint.d;
+    if (!eligible(cabinet) || cabinetWall(cabinet, room) !== wall) return false;
+    const start = wallRunOffset(cabinet, wall, room);
+    const span = wallRunSpan(cabinet, wall, room);
     return targetAlong >= start - 0.01 && targetAlong <= start + span + 0.01;
   });
   if (candidates.length === 0) return null;
-  return candidates.reduce((nearest, cabinet) => {
-    const footprint = placedFootprint(cabinet);
-    const nearestFootprint = placedFootprint(nearest);
-    const center = (horizontal ? cabinet.x : cabinet.y) + (horizontal ? footprint.w : footprint.d) / 2;
-    const nearestCenter = (horizontal ? nearest.x : nearest.y) + (horizontal ? nearestFootprint.w : nearestFootprint.d) / 2;
-    return Math.abs(center - targetAlong) < Math.abs(nearestCenter - targetAlong) ? cabinet : nearest;
-  });
+  const runCenter = (cabinet: PlacedCabinet) => wallRunOffset(cabinet, wall, room) + wallRunSpan(cabinet, wall, room) / 2;
+  return candidates.reduce((nearest, cabinet) => (
+    Math.abs(runCenter(cabinet) - targetAlong) < Math.abs(runCenter(nearest) - targetAlong) ? cabinet : nearest
+  ));
 }
 
 /**

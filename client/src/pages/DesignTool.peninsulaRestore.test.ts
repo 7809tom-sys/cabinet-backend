@@ -13,7 +13,7 @@ describe("saved peninsula restore", () => {
     const draftStart = source.indexOf("// Restore once, after verification");
     const draftEnd = source.indexOf("// Persist draft after any design change", draftStart);
     const draftSource = source.slice(draftStart, draftEnd);
-    expect(draftSource).toContain("const peninsulaNormalizedDraft = normalizeLegacyPeninsulaCabinets(");
+    expect(draftSource).toContain("const peninsulaNormalizedDraft = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(");
     expect(draftSource.indexOf("normalizeLegacyPeninsulaCabinets(")).toBeLessThan(draftSource.indexOf("setPlaced("));
   });
 });
