@@ -95,6 +95,25 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     }));
   });
 
+  it("opens a new refrigerator on a cabinet-above size the selected style actually has", () => {
+    const deepCapOnly = { id: 9390061, masterCode: "W3624-24D", description: "36 inch Wall Cabinet 24 deep", width: "36", height: "24", depth: "24" };
+    const onApply = vi.fn();
+    render(
+      <RefrigeratorOptionsDialog
+        open
+        onOpenChange={vi.fn()}
+        fridgeWidthInches={36}
+        endPanels={[endPanel]}
+        deepAbove={[deepCapOnly]}
+        onApply={onApply}
+        onSkip={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/no 12″ × 12″ cabinet available/i)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ bridgeCabinetId: 9390061, bridgeHeight: 24, bridgeDepth: 24, panelHeight: 96 }));
+  });
+
   it("shows the required two-inch appliance clearance in the finished panel height", () => {
     renderDialog();
     fireEvent.click(screen.getByText("More enclosure options"));

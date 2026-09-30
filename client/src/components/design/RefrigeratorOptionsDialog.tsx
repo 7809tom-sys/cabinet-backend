@@ -358,6 +358,25 @@ export function RefrigeratorOptionsDialog({
     }
   }, [bridgeHeightChoice, above]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // A NEW refrigerator should not open on a blocked combination. Once the
+  // selected style's catalog has loaded, if the default cap size has no source
+  // cabinet, start on the first size that exists (height, then depth order).
+  // A reopened refrigerator keeps its saved choice so the user sees exactly
+  // what was built; the warning then tells them why it cannot be re-applied.
+  useEffect(() => {
+    if (!open || above !== "bridge" || !hasBridgeAbove) return;
+    if (initialChoice?.bridgeHeight != null || initialChoice?.bridgeDepth != null) return;
+    if (bridgeByDims[bridgeHeightChoice][bridgeDepthChoice]) return;
+    for (const h of BRIDGE_HEIGHT_OPTIONS) {
+      const d = BRIDGE_DEPTH_OPTIONS.find((depth) => bridgeByDims[h as BridgeHeight][depth as BridgeDepth] != null) as BridgeDepth | undefined;
+      if (d !== undefined) {
+        setBridgeHeightChoice(h as BridgeHeight);
+        setBridgeDepthChoice(d);
+        return;
+      }
+    }
+  }, [open, above, hasBridgeAbove, bridgeByDims]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleApply = () => {
     if (!canApply) return;
     // In the repair flow, declining a replacement must preserve the existing

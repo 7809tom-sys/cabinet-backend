@@ -11279,7 +11279,7 @@ function mergeContiguousBaseCountertopRuns(
   const tolerance = 1 / 16;
   const merged: CountertopSurface[] = [];
   const consumed = new Set<number>();
-  const groups = new Map<string, Array<{ index: number; surface: CountertopSurface; start: number; span: number }>>();
+  const groups = new Map<string, Array<{ index: number; surface: CountertopSurface; start: number; span: number; thickness: number }>>();
   const cardinalSideFor = (surface: CountertopSurface): WallSide | null => {
     if (surface.customWallId || surface.rotation) return null;
     if (Math.abs(surface.y) <= tolerance) return "top";
@@ -11300,9 +11300,13 @@ function mergeContiguousBaseCountertopRuns(
     const span = customWall
       ? Number(surface.linearInches ?? surface.width)
       : side === "top" || side === "bottom" ? surface.width : surface.depth;
-    if (!Number.isFinite(start) || !Number.isFinite(span) || span <= 0) return;
+    // Slab thickness (into the room). A left/right standard wall stores its
+    // along-wall span in `depth` and its thickness in `width`, so read the
+    // thickness by side rather than assuming `depth` everywhere.
+    const thickness = customWall || side === "top" || side === "bottom" ? surface.depth : surface.width;
+    if (!Number.isFinite(start) || !Number.isFinite(span) || span <= 0 || !Number.isFinite(thickness) || thickness <= 0) return;
     const entries = groups.get(key) ?? [];
-    entries.push({ index, surface, start, span });
+    entries.push({ index, surface, start, span, thickness });
     groups.set(key, entries);
   });
   groups.forEach((entries, key) => {
@@ -11312,12 +11316,12 @@ function mergeContiguousBaseCountertopRuns(
       const first = entries[cursor]!;
       const start = first.start;
       let end = first.start + first.span;
-      const depth = first.surface.depth;
+      const depth = first.thickness;
       const members = [first];
       cursor += 1;
       while (cursor < entries.length) {
         const next = entries[cursor]!;
-        if (next.start > end + tolerance || Math.abs(next.surface.depth - depth) > tolerance) break;
+        if (next.start > end + tolerance || Math.abs(next.thickness - depth) > tolerance) break;
         end = Math.max(end, next.start + next.span);
         members.push(next);
         cursor += 1;
