@@ -113,7 +113,7 @@ describe("refrigerator assembly reconciliation", () => {
 	   expect(normalized.find((entry) => entry.uid === filler.uid)).toMatchObject({ height: 12, mountBottom: 72 });
 	 });
 
-	 it("recovers both source-backed side panels when a standard full-width upper is installed at the 72-inch refrigerator datum", () => {
+	 it("does not invent panels when a standard full-width upper is installed at the 72-inch refrigerator datum", () => {
 	   const fridge = item({
 	     uid: "generic-cap-fridge",
 	     masterCode: "FRIDGE-36",
@@ -141,8 +141,8 @@ describe("refrigerator assembly reconciliation", () => {
 	   const normalizedFridge = normalized.find((entry) => entry.uid === fridge.uid)!;
 
 	   expect(refrigeratorAssemblyMemberRole(ordinaryLookingCap, fridge, room)).toBe("bridge");
-	   expect(normalizedFridge.refrigeratorPanelMode).toBe("both");
-	   expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual(["left-panel", "right-panel"]);
+	   expect(normalizedFridge.refrigeratorPanelMode).toBe("none");
+	   expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual([]);
 	 });
 
 	 it("does not treat an ordinary 54-inch wall cabinet as a refrigerator enclosure cap", () => {
@@ -153,22 +153,22 @@ describe("refrigerator assembly reconciliation", () => {
 	   expect(missingRefrigeratorPanelRoles([fridge, ordinaryUpper], fridge, room)).toEqual([]);
 	 });
 
-  it("identifies both missing source panels for a legacy built-in refrigerator while preserving an explicit no-panel choice", () => {
+	  it("keeps a legacy refrigerator's actually saved panel selection without upgrading it", () => {
     const legacyWithoutPanels = backWallLegacyAssembly().filter((entry) => entry.uid !== "right-panel");
     const legacyFridge = legacyWithoutPanels.find((entry) => entry.uid === "fridge")!;
     const normalized = normalizeRefrigeratorBayUppers(legacyWithoutPanels, room);
     const normalizedFridge = normalized.find((entry) => entry.uid === legacyFridge.uid)!;
 
-    expect(normalizedFridge.refrigeratorPanelMode).toBe("both");
-    expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual(["left-panel", "right-panel"]);
+	    expect(normalizedFridge.refrigeratorPanelMode).toBe("none");
+	    expect(missingRefrigeratorPanelRoles(normalized, normalizedFridge, room)).toEqual([]);
 
-    const staleRightOnly = legacyWithoutPanels.map((entry) => entry.uid === legacyFridge.uid
-      ? { ...entry, refrigeratorPanelMode: "right" as const }
-      : entry);
-    const repairedRightOnly = normalizeRefrigeratorBayUppers(staleRightOnly, room);
-    const repairedFridge = repairedRightOnly.find((entry) => entry.uid === legacyFridge.uid)!;
-    expect(repairedFridge.refrigeratorPanelMode).toBe("both");
-    expect(missingRefrigeratorPanelRoles(repairedRightOnly, repairedFridge, room)).toEqual(["left-panel", "right-panel"]);
+	    const explicitRightOnly = legacyWithoutPanels.map((entry) => entry.uid === legacyFridge.uid
+	      ? { ...entry, refrigeratorPanelMode: "right" as const }
+	      : entry);
+	    const preservedRightOnly = normalizeRefrigeratorBayUppers(explicitRightOnly, room);
+	    const preservedFridge = preservedRightOnly.find((entry) => entry.uid === legacyFridge.uid)!;
+	    expect(preservedFridge.refrigeratorPanelMode).toBe("right");
+	    expect(missingRefrigeratorPanelRoles(preservedRightOnly, preservedFridge, room)).toEqual(["right-panel"]);
 
     const explicitNone = normalized.map((entry) => entry.uid === normalizedFridge.uid
       ? { ...entry, refrigeratorPanelMode: "none" as const }
@@ -176,42 +176,37 @@ describe("refrigerator assembly reconciliation", () => {
     expect(missingRefrigeratorPanelRoles(explicitNone, explicitNone.find((entry) => entry.uid === normalizedFridge.uid)!, room)).toEqual([]);
   });
 
-  it("repairs a legacy missing left panel and centers the bridge over the exact refrigerator span", () => {
+	  it("keeps a saved right-only refrigerator panel and centers the bridge over the exact refrigerator span", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
     const fridge = normalized.find((entry) => entry.uid === "fridge")!;
     const bridge = normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")!;
-    const leftPanel = normalized.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")!;
-    const rightPanel = normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")!;
+	    const rightPanel = normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")!;
 
-    expect(fridge.refrigeratorPanelMode).toBe("both");
-    expect(bridge).toMatchObject({ x: 24, y: 0, width: 36, mountBottom: 72, refrigeratorAssemblyId: "fridge" });
-    expect(leftPanel).toMatchObject({ x: 22.75, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
-    expect(rightPanel).toMatchObject({ x: 60.5, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
-    expect(new Set([leftPanel.uid, rightPanel.uid]).size).toBe(2);
-    expect(hasCollision(bridge, normalized.filter((entry) => entry.uid !== bridge.uid))).toBe(false);
+	    expect(fridge.refrigeratorPanelMode).toBe("right");
+	    expect(bridge).toMatchObject({ x: 24, y: 0, width: 36, mountBottom: 72, refrigeratorAssemblyId: "fridge" });
+	    expect(rightPanel).toMatchObject({ x: 60.5, y: 0, width: 0.75, height: 96, refrigeratorAssemblyId: "fridge" });
+	    expect(hasCollision(bridge, normalized.filter((entry) => entry.uid !== bridge.uid))).toBe(false);
   });
 
-  it("treats each visible 3/4-inch refrigerator side strip as a finished end panel, not an enclosure gap or filler", () => {
+	  it("treats an explicitly saved refrigerator side strip as a finished end panel, not an enclosure gap or filler", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
     const panels = normalized.filter((entry) => entry.refrigeratorAssemblyId === "fridge" && /panel$/i.test(entry.refrigeratorAssemblyRole ?? ""));
     const fridge = normalized.find((entry) => entry.uid === "fridge")!;
 
-    expect(fridge).toMatchObject({ width: 36, refrigeratorPanelMode: "both" });
-    expect(panels).toHaveLength(2);
-    expect(panels.map((panel) => panel.width)).toEqual([0.75, 0.75]);
-    expect(panels.every((panel) => panel.customProfile === "refrigerator-end-panel" && panel.subCategory === "Refrigerator End Panel")).toBe(true);
-    // The intentional enclosure is 36" appliance + two 3/4" architectural
-    // skins, not a 42" appliance or an unexplained spacer at its front.
-    expect(fridge.width + panels.reduce((total, panel) => total + panel.width, 0)).toBeCloseTo(37.5);
+	    expect(fridge).toMatchObject({ width: 36, refrigeratorPanelMode: "right" });
+	    expect(panels).toHaveLength(1);
+	    expect(panels.map((panel) => panel.width)).toEqual([0.75]);
+	    expect(panels.every((panel) => panel.customProfile === "refrigerator-end-panel" && panel.subCategory === "Refrigerator End Panel")).toBe(true);
+	    expect(fridge.width + panels.reduce((total, panel) => total + panel.width, 0)).toBeCloseTo(36.75);
   });
 
-  it("shifts the complete enclosure together to retain the restored left panel without moving an earlier neighbor", () => {
+	  it("does not move a saved refrigerator to add an unselected left panel", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(true), room);
     expect(normalized.find((entry) => entry.uid === "neighbor")).toMatchObject({ x: 0, width: 24 });
-    expect(normalized.find((entry) => entry.uid === "fridge")).toMatchObject({ x: 25.25 });
-    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 25.25 });
-    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 24 });
-    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 61.75 });
+	    expect(normalized.find((entry) => entry.uid === "fridge")).toMatchObject({ x: 24 });
+	    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 24 });
+	    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toBeUndefined();
+    expect(normalized.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 60.5 });
   });
 
   it("creates panel space when a refrigerator is between touching cabinet columns", () => {
@@ -347,21 +342,20 @@ describe("refrigerator assembly reconciliation", () => {
   it("keeps assembly ownership and roles through saved-design JSON serialization", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
     const restored = JSON.parse(JSON.stringify(normalized)) as PlacedCabinet[];
-    expect(restored.find((entry) => entry.uid === "fridge")?.refrigeratorPanelMode).toBe("both");
-    expect(restored.filter((entry) => entry.refrigeratorAssemblyId === "fridge").map((entry) => entry.refrigeratorAssemblyRole).sort()).toEqual([
-      "bridge",
-      "left-panel",
-      "right-panel",
+	    expect(restored.find((entry) => entry.uid === "fridge")?.refrigeratorPanelMode).toBe("right");
+	    expect(restored.filter((entry) => entry.refrigeratorAssemblyId === "fridge").map((entry) => entry.refrigeratorAssemblyRole).sort()).toEqual([
+	      "bridge",
+	      "right-panel",
     ]);
   });
 
-  it("moves the refrigerator, centered bridge, and both panels together as one assembly", () => {
+	  it("moves the refrigerator, centered bridge, and explicitly selected panel together", () => {
     const normalized = normalizeRefrigeratorBayUppers(backWallLegacyAssembly(), room);
     const fridge = normalized.find((entry) => entry.uid === "fridge")!;
     const moved = commitRefrigeratorAssemblyCandidate(normalized, fridge.uid, { ...fridge, x: 40 }, room)!;
     expect(moved.find((entry) => entry.uid === fridge.uid)).toMatchObject({ x: 40 });
     expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "bridge")).toMatchObject({ x: 40 });
-    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toMatchObject({ x: 38.75 });
+	    expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "left-panel")).toBeUndefined();
     expect(moved.find((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toMatchObject({ x: 76.5 });
   });
 

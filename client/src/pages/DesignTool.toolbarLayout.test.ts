@@ -14,9 +14,24 @@ describe("designer toolbar layout", () => {
     expect(hook).toBeLessThan(verifiedGate);
   });
 
-  it("keeps one AI consultant control and one synchronized 3D toolbar control", () => {
+  it("keeps one AI consultant control and one labeled primary 3D switch", () => {
     expect(source.match(/<ConsultantRoomControl/g)).toHaveLength(1);
-    expect(source.match(/title="Show the synchronized 3D designer canvas"/g)).toHaveLength(1);
+    expect(source.match(/data-testid="switch-to-3d-view"/g)).toHaveLength(1);
+    expect(source).not.toContain('> 3D</Button>');
+    expect(source).not.toContain('title="Show the synchronized 3D designer canvas"');
+  });
+
+  it("uses the labeled Wall dropdown instead of duplicate wall tabs and an icon-only auto-fill button", () => {
+    expect(source.match(/data-testid="compact-workspace-wall-selector"/g)).toHaveLength(1);
+
+    const desktopToolbarStart = source.indexOf("{/* Wall selection lives in the labeled Wall dropdown above. */}");
+    const desktopToolbarEnd = source.indexOf("{/* Save Design", desktopToolbarStart);
+    const desktopToolbar = source.slice(desktopToolbarStart, desktopToolbarEnd);
+
+    expect(desktopToolbarStart).toBeGreaterThan(-1);
+    expect(desktopToolbarEnd).toBeGreaterThan(desktopToolbarStart);
+    expect(desktopToolbar).not.toContain("room.customWalls.map");
+    expect(desktopToolbar).not.toContain("onClick={autoFillActiveWall}");
   });
 
   it("removes the highlighted duplicate Hybrid, Corner, Save, and selected-delete desktop controls", () => {

@@ -6732,10 +6732,10 @@ export function refrigeratorBayVerificationMetrics(
 
 /**
  * Returns the finished end-panel sides still missing from a refrigerator
- * enclosure. New refrigerators explicitly persist their requested mode. Legacy
- * refrigerators that already have an over-fridge cabinet are treated as a
- * complete built-in enclosure and therefore require both side panels; a bare
- * refrigerator remains untouched so restore never invents an enclosure.
+ * enclosure. Panels are always an explicit refrigerator-attributes choice.
+ * Loading a saved over-fridge cabinet must never silently invent, move, or
+ * delete side panels: a customer may intentionally have selected only one side
+ * (or no panels) for a tight existing run.
  */
 export function missingRefrigeratorPanelRoles(
   placed: PlacedCabinet[],
@@ -6744,18 +6744,7 @@ export function missingRefrigeratorPanelRoles(
 ): Array<"left-panel" | "right-panel"> {
   if (!isRefrigerator(refrigerator)) return [];
   const members = refrigeratorAssemblyMembers(placed, refrigerator, room);
-  const hasBridge = members.some(({ role }) => role === "bridge");
-  const installedPanelCount = members.filter(({ role }) => role === "left-panel" || role === "right-panel").length;
-  // Older reconciliation builds could persist `left` or `right` after a panel
-  // was dropped, leaving a dedicated refrigerator upper above a completely
-  // unpaneled appliance. Treat that no-panel state as stale built-in metadata;
-  // an explicit `none` choice remains authoritative and is never upgraded.
-  const repairUnpaneledBuiltIn = hasBridge
-    && installedPanelCount === 0
-    && refrigerator.refrigeratorPanelMode !== "none";
-  const requestedMode = repairUnpaneledBuiltIn
-    ? "both"
-    : refrigerator.refrigeratorPanelMode ?? (hasBridge ? "both" : "none");
+  const requestedMode = refrigerator.refrigeratorPanelMode ?? "none";
   const requested = requestedMode === "both"
     ? (["left-panel", "right-panel"] as const)
     : requestedMode === "left"
@@ -6808,26 +6797,17 @@ export function reconcileRefrigeratorAssemblies(
     const bridge = members.find(({ role }) => role === "bridge")?.member;
     const bridgeFillers = members.filter(({ role }) => role === "bridge-left-filler" || role === "bridge-right-filler");
     const panels = members.filter(({ role }) => role === "left-panel" || role === "right-panel");
-	    // A legacy refrigerator with a dedicated upper was authored as a built-in
-	    // enclosure. Earlier saves could lose one or both panel placements while
-	    // leaving the upper intact. Preserve that intent as `both`; the Designer
-	    // can then restore the missing source-priced panel parts through its normal
-	    // availability-gated surround query. A bare refrigerator still defaults to
-	    // no panels and is never upgraded implicitly.
-    const repairLegacyBoth = Boolean(bridge) && (
-      refrigerator.refrigeratorPanelMode == null
-      || (panels.length === 0 && refrigerator.refrigeratorPanelMode !== "none")
-    );
-    const requestedMode: RefrigeratorPanelMode = repairLegacyBoth
-      ? "both"
-      : refrigerator.refrigeratorPanelMode
-        ?? (panels.length >= 2
-          ? "both"
-          : panels[0]?.role === "left-panel"
-            ? "left"
-            : panels[0]?.role === "right-panel"
-              ? "right"
-              : "none");
+    // Saved refrigerators are never converted into an enclosure on load. The
+    // selected panel parts are authoritative; when a pre-attributes save has
+    // no explicit mode, infer only the panels that actually exist.
+    const requestedMode: RefrigeratorPanelMode = refrigerator.refrigeratorPanelMode
+      ?? (panels.length >= 2
+        ? "both"
+        : panels[0]?.role === "left-panel"
+          ? "left"
+          : panels[0]?.role === "right-panel"
+            ? "right"
+            : "none");
     const desiredRoles = new Set<RefrigeratorAssemblyRole>([
       ...(bridge ? ["bridge" as const] : []),
       ...bridgeFillers.map(({ role }) => role),

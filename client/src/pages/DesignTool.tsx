@@ -10907,16 +10907,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </Button>
         <Button
           variant="outline"
-          size="sm"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-          onClick={() => setViewMode("threeD")}
-          disabled={!canLoadInteractive3d || interactive3dLoading}
-          title={canLoadInteractive3d ? "Preview selected layout with real eligible catalog SKUs" : "Choose a room layout and door style first"}
-        >
-          <Boxes className="mr-1.5 h-3.5 w-3.5" /> 3D
-        </Button>
-        <Button
-          variant="outline"
 	          size="sm"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
 	          onClick={shareCurrentDesign}
@@ -11065,125 +11055,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           />
         </div>
 
-        {/* Active wall selector: highlights a wall; new items drop on it and it
-            can be dragged on the canvas to resize the room on that side.
-            Desktop-only — on mobile these live in the "More" menu to save space. */}
-        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-1.5`}>
-          <span className="text-[10px] font-medium text-muted-foreground">{t("dt_sh_wall")}</span>
-          <div className="flex items-center rounded-md border border-border p-0.5 bg-muted/30 overflow-x-auto">
-            {isPolygonRoom && room.customWalls ? (
-              // Polygon mode: show custom wall segment tabs
-              room.customWalls.map((cw) => (
-                <button
-                  key={cw.id}
-	                  onClick={() => { setActiveWall(cw.id as any); setDrawMode(false); }}
-	                    className={`px-1.5 py-0.5 rounded text-[10px] font-medium transition-colors whitespace-nowrap ${
-	                    activeWall === cw.id ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-	                  }`}
-	                >
-	                  {cw.label || cw.id.slice(0, 6)}{cw.lockedAngle === 45 ? " · +45°" : cw.lockedAngle === -45 ? " · −45°" : ""}
-	                </button>
-              ))
-            ) : (
-              // Classic rectangle mode: 4 fixed walls
-              (["top", "left", "right", "bottom"] as WallSide[]).map((w) => {
-                const wLocked = layoutLocked || lockedWalls.has(w);
-                const DirectionIcon = wallDirectionIcon[w];
-                return (
-                  <div key={w} className="flex items-center">
-                    <button
-                      onClick={() => { setActiveWall(w); setDrawMode(false); }}
-                      title={t("dt_sh_wall_highlight", { wall: wallLabel[w] })}
-                      aria-label={wallLabel[w]}
-                      className={`inline-flex h-6 w-6 items-center justify-center rounded transition-colors ${
-                        activeWall === w ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      <DirectionIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                      <span className="sr-only">{wallLabel[w]}</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (layoutLocked) { toast.info(t("dt_sh_whole_locked")); return; }
-                        setLockedWalls((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(w)) next.delete(w); else next.add(w);
-                          return next;
-                        });
-                      }}
-                      title={wLocked ? t("dt_sh_wall_locked_unlock", { wall: wallLabel[w] }) : t("dt_sh_wall_lock", { wall: wallLabel[w] })}
-                      className={`ml-0.5 mr-0.5 rounded p-1 transition-colors ${
-                        wLocked ? "text-[#d4a75a]" : "text-muted-foreground/50 hover:text-foreground"
-                      }`}
-                    >
-                      {wLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
-                    </button>
-                  </div>
-                );
-              })
-	            )}
-	          </div>
-	          {(room.peninsulaRuns ?? []).map((run) => {
-	            const peninsulaLocked = peninsulaRunAssemblyLocked(run, room);
-	            return <div key={run.id} className="flex items-center gap-0.5">
-	              <button
-	                type="button"
-	                onClick={() => { setActiveWall(run.id as WallSide); setPlacementTarget("wall"); setDrawMode(false); }}
-	                className={`rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap ${activeWall === run.id ? "bg-[#d4a75a] text-[#1a2744]" : "border border-[#d4a75a] text-[#1a2744] hover:bg-[#fff4d8]"}`}
-	                title="Select this peninsula run for cabinet placement"
-	              >
-	                Peninsula · {run.turn}° {run.direction}
-	              </button>
-	              <button
-	                type="button"
-	                data-testid={`toggle-peninsula-lock-${run.id}`}
-	                onClick={() => togglePeninsulaAssemblyLock(run.id)}
-	                disabled={layoutLocked}
-	                aria-label={peninsulaLocked ? "Unlock peninsula assembly" : "Lock peninsula assembly"}
-	                title={peninsulaLocked ? "Unlock this peninsula and its connected returns" : "Lock this peninsula and its connected returns"}
-	                className={`rounded p-1 transition-colors disabled:opacity-45 ${peninsulaLocked ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
-	              >
-	                {peninsulaLocked ? <Lock className="h-3 w-3" /> : <LockOpen className="h-3 w-3" />}
-	              </button>
-	            </div>;
-	          })}
-	          <button
-            onClick={() => {
-              setLayoutLocked((v) => !v);
-              setDrawMode(false);
-              toast.success(!layoutLocked ? t("dt_sh_layout_locked_toast") : t("dt_sh_layout_unlocked_toast"));
-            }}
-            title={layoutLocked ? t("dt_sh_unlock_plan") : t("dt_sh_lock_plan")}
-            className={`inline-flex items-center justify-center h-7 w-7 rounded-md border transition-colors ${
-              layoutLocked ? "border-[#d4a75a] bg-[#d4a75a] text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {layoutLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
-          </button>
-          <button
-            onClick={autoFillActiveWall}
-            disabled={layoutLocked}
-            title={t("dt_sh_autofill_title", { wall: wallLabel[activeWall] })}
-            className="inline-flex items-center justify-center h-7 w-7 rounded-md border border-[#d4a75a]/60 bg-[#d4a75a]/10 text-[#1a2744] transition-colors hover:bg-[#d4a75a]/20 disabled:opacity-40"
-          >
-            <Wand2 className="h-3.5 w-3.5" />
-          </button>
-
-        </div>
-
-        <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} h-5 w-px bg-border`} />
-
-        {/* View toggle — grouped pill with subtle background */}
+        {/* Wall selection lives in the labeled Wall dropdown above. */}
+        {/* Elevation, split, and island-only precision views. */}
         <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center rounded-md border border-border bg-muted/30 p-0.5 gap-0.5`}>
-          <button
-            onClick={() => setViewMode("plan")}
-            title={t("dt_sh_birdseye")}
-            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
-              viewMode === "plan" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-            }`}
-          >
-            <LayoutGrid className="h-3.5 w-3.5" />
-          </button>
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
@@ -11193,14 +11067,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           >
             <Eye className="h-3.5 w-3.5" />
           </button>
-	          <button
-	            onClick={() => setViewMode("threeD")}
-	            disabled={!canLoadInteractive3d || interactive3dLoading}
-	            title="Show the synchronized 3D designer canvas"
-	            className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors disabled:opacity-40 ${viewMode === "threeD" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"}`}
-	          >
-	            <Boxes className="h-3.5 w-3.5" />
-	          </button>
 	          <button
 	            onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
