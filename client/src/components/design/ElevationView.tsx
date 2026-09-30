@@ -3,7 +3,7 @@ import {
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
   countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
-  wallCeiling, wallCeilingIsSloped,
+  wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
@@ -34,13 +34,13 @@ interface Props {
   /** Cabinet currently controlled by an open Attributes panel. */
   attributesTargetUid?: string | null;
   onSelect: (uid: string | null) => void;
-  // Which physical wall to view, in plan terms (top/bottom/left/right).
-  // Back-compat: "front" maps to bottom, "back" maps to top.
-  wall: WallSide | "front" | "back";
+  // Which physical wall run to view, in plan terms. A run may be a cardinal
+  // side or a drawn wall id. Back-compat: "front" maps to bottom, "back" to top.
+  wall: WallSide | string | "front" | "back";
   // Optional: lets the user flip the displayed wall straight from the elevation
   // panel (a compact Back/Front/Left/Right switcher) instead of going back to
   // the top toolbar. When omitted, the switcher is hidden.
-  onSelectWall?: (side: WallSide) => void;
+  onSelectWall?: (side: string) => void;
   // When set, draw a thin colored countertop band on top of the base run at the
   // 36" counter line, colored by the chosen material. null/undefined = no band.
   countertopMaterialId?: string | null;
@@ -281,9 +281,10 @@ export function ElevationView({
   const vDragStartBottom = useRef(0);
   const capturedPointerId = useRef<number | null>(null);
 
-  // Normalize legacy "front"/"back" to plan WallSide values.
-  const side: WallSide =
+  // Normalize legacy "front"/"back" to a shared room wall-run identity.
+  const side: string =
     wall === "front" ? "bottom" : wall === "back" ? "top" : (wall as WallSide);
+  const wallFrame = wallRunFrame(side, room);
 
   // Resolve this wall's ceiling (flat or sloped). The wall box is drawn to the
   // HIGH end so a sloped ceiling has room; the slope itself is drawn as an
@@ -291,8 +292,13 @@ export function ElevationView({
   // the visually LEFT and RIGHT ends of this elevation. `wallCeilingAt` works in
   // plan order (start->end); when this view is mirrored (CornerView left wall)
   // the on-screen left/right are swapped, so we flip them back for display.
-  const wc = wallCeiling(room, side);
-  const sloped = wallCeilingIsSloped(room, side);
+  // Drawn walls carry their own measured height. Cardinal walls retain their
+  // established ceiling lookup, including their existing slope overlay.
+  const customWall = room.customWalls?.find((candidate) => candidate.id === side);
+  const wc = customWall
+    ? { high: wallFrame?.height ?? roomCeiling(room), low: wallFrame?.height ?? roomCeiling(room) }
+    : wallCeiling(room, side as WallSide);
+  const sloped = !customWall && wallCeilingIsSloped(room, side as WallSide);
   const ceilHigh = wc.high;
   // Plan-order start/end heights.
   const startH = (wc.slopeFrom ?? "start") === "start" ? wc.high : wc.low;
@@ -305,8 +311,8 @@ export function ElevationView({
   const WALL_LABELS: Record<WallSide, string> = {
     top: t("plan_wall_back"), bottom: t("plan_wall_front"), left: t("plan_wall_left"), right: t("plan_wall_right"),
   };
-  const horizontal = side === "top" || side === "bottom";
-  const planSpan = horizontal ? room.width : room.depth;
+  const wallLabel = WALL_LABELS[side as WallSide] ?? customWall?.label?.trim() ?? `Wall ${(room.customWalls?.findIndex((candidate) => candidate.id === side) ?? -1) + 1}`;
+  const planSpan = wallLength(side as WallSide, room);
 
   // Normalize the refrigerator bay at render time too. A legacy plan can stay
   // live in local React state through an HMR refresh or a direct elevation view
@@ -342,10 +348,9 @@ export function ElevationView({
   });
   const crownRuns = mergedElevationTrimRuns(crownEligibleCabinets(sorted, room)
     .map((p) => {
-      const footprint = placedFootprint(p);
-      const start = horizontal ? p.x : p.y;
+      const start = wallRunOffset(p, side, room);
       const { bottom, height } = elevationBox(p, room);
-      return { start, end: start + (horizontal ? footprint.w : footprint.d), level: bottom + height, uid: p.uid };
+      return { start, end: start + wallRunSpan(p, side, room), level: bottom + height, uid: p.uid };
     }));
   const toeKickRuns = mergedElevationTrimRuns(sorted
     .filter((p) => {
@@ -353,9 +358,8 @@ export function ElevationView({
       return toeKickHeightForElevation(p.placement, bottom, TOE_KICK_HEIGHT_IN) > 0 && p.cabinetId !== 0;
     })
     .map((p) => {
-      const footprint = placedFootprint(p);
-      const start = horizontal ? p.x : p.y;
-      return { start, end: start + (horizontal ? footprint.w : footprint.d), level: 0, uid: p.uid };
+      const start = wallRunOffset(p, side, room);
+      return { start, end: start + wallRunSpan(p, side, room), level: 0, uid: p.uid };
     }));
 
   // Openings on the wall being viewed.
@@ -368,9 +372,8 @@ export function ElevationView({
   const renderCabinetBox = (p: PlacedCabinet, seam = false) => {
     // Blind corner cabinets: always use the full nominal width along the wall,
     // regardless of stored depth (which may be stale/wrong from old saves).
-    const fp = placedFootprint(p);
-    const sizeAlong = horizontal ? fp.w : fp.d;
-    const posAlong = seam ? 0 : (horizontal ? p.x : p.y);
+    const sizeAlong = wallRunSpan(p, side, room);
+    const posAlong = seam ? 0 : wallRunOffset(p, side, room);
     const { bottom: rawBottom, height: rawHeight } = elevationBox(p, room);
     const isWall = p.placement === "wall";
     const refrigeratorEndPanel = isRefrigeratorEndPanel(p);
@@ -493,7 +496,7 @@ export function ElevationView({
           onSelect(p.uid);
           setDragUid(p.uid);
           const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-          dragOffset.current = horizontal ? e.clientX - rect.left : e.clientY - rect.top;
+          dragOffset.current = e.clientX - rect.left;
           // Vertical-drag bookkeeping (only meaningful for wall cabinets): record
           // where the pointer started and the box's current bottom so a vertical
           // drag can adjust mount height. The gesture's dominant axis is decided
@@ -773,8 +776,8 @@ export function ElevationView({
     const canVertical = cabinet.placement === "wall" && !!onMoveVertical;
     if (dragAxis.current == null) {
       const dy = Math.abs(e.clientY - vDragStartY.current);
-      const alongClient = horizontal ? e.clientX : e.clientY;
-      const alongStart = horizontal ? wallRect.left + dragOffset.current : wallRect.top + dragOffset.current;
+      const alongClient = e.clientX;
+      const alongStart = wallRect.left + dragOffset.current;
       const dAlong = Math.abs(alongClient - alongStart);
       if (canVertical && dy > dAlong && dy > 3) dragAxis.current = "vertical";
       else if (dAlong > 3) dragAxis.current = "along";
@@ -797,11 +800,9 @@ export function ElevationView({
       return;
     }
     if (!onMove) return;
-    const sizeAlong = horizontal ? placedFootprint(cabinet).w : placedFootprint(cabinet).d;
-    const planSpanLen = horizontal ? room.width : room.depth;
-    const pxAlong = horizontal
-      ? e.clientX - wallRect.left - dragOffset.current
-      : e.clientY - wallRect.top - dragOffset.current;
+    const sizeAlong = wallRunSpan(cabinet, side, room);
+    const planSpanLen = wallLength(side as WallSide, room);
+    const pxAlong = e.clientX - wallRect.left - dragOffset.current;
     let newAlong = pxAlong / ppi;
     newAlong = Math.max(0, Math.min(newAlong, planSpanLen - sizeAlong));
 
@@ -839,8 +840,8 @@ export function ElevationView({
     let lo = 0;
     let hi = planSpanLen - sizeAlong;
     for (const o of others) {
-      const oAlong = horizontal ? o.x : o.y;
-      const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
+      const oAlong = wallRunOffset(o, side, room);
+      const oSize = wallRunSpan(o, side, room);
       const leftLimit = oAlong - sizeAlong; // start must be <= this to sit left of o
       const rightLimit = oAlong + oSize; // start must be >= this to sit right of o
       const center = newAlong + sizeAlong / 2;
@@ -858,15 +859,14 @@ export function ElevationView({
     }
     // Gentle magnet: if we're within SNAP of a neighbour edge, sit flush.
     for (const o of others) {
-      const oAlong = horizontal ? o.x : o.y;
-      const oSize = horizontal ? placedFootprint(o).w : placedFootprint(o).d;
+      const oAlong = wallRunOffset(o, side, room);
+      const oSize = wallRunSpan(o, side, room);
       if (Math.abs(newAlong + sizeAlong - oAlong) <= SNAP) newAlong = oAlong - sizeAlong;
       if (Math.abs(newAlong - (oAlong + oSize)) <= SNAP) newAlong = oAlong + oSize;
     }
     newAlong = Math.max(0, Math.min(newAlong, planSpanLen - sizeAlong));
-    const newX = horizontal ? newAlong : cabinet.x;
-    const newY = horizontal ? cabinet.y : newAlong;
-    onMove(dragUid, newX, newY);
+    const spot = wallPlacementAt(newAlong, cabinet.width, cabinet.depth, side as WallSide, room, cabinet.peninsulaSide);
+    onMove(dragUid, spot.x, spot.y);
   };
 
   const handleWallPointerUp = (e?: React.PointerEvent) => {
@@ -898,12 +898,12 @@ export function ElevationView({
         if (!onMove) return;
         e.preventDefault();
         const dir = e.key === "ArrowLeft" ? -1 : 1;
-        const sizeAlong = horizontal ? placedFootprint(cab).w : placedFootprint(cab).d;
-        const planSpanLen = horizontal ? room.width : room.depth;
-        const cur = horizontal ? cab.x : cab.y;
+        const sizeAlong = wallRunSpan(cab, side, room);
+        const planSpanLen = wallLength(side as WallSide, room);
+        const cur = wallRunOffset(cab, side, room);
         const next = Math.max(0, Math.min(planSpanLen - sizeAlong, cur + dir * step));
-        if (horizontal) onMove(cab.uid, next, cab.y);
-        else onMove(cab.uid, cab.x, next);
+        const spot = wallPlacementAt(next, cab.width, cab.depth, side as WallSide, room, cab.peninsulaSide);
+        onMove(cab.uid, spot.x, spot.y);
         return;
       }
       // Vertical (mount-height) nudge — wall cabinets only.
@@ -918,7 +918,7 @@ export function ElevationView({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [moveLocked, selectedUid, cabinets, room, side, horizontal, onMove, onMoveVertical, WALL_TOTAL_HEIGHT]);
+  }, [moveLocked, selectedUid, cabinets, room, side, onMove, onMoveVertical, WALL_TOTAL_HEIGHT]);
 
   return (
     <div
@@ -1121,8 +1121,8 @@ export function ElevationView({
           const spans = sorted
             .filter(isBridgeable)
             .map((p) => {
-              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-              const posAlong = horizontal ? p.x : p.y;
+              const sizeAlong = wallRunSpan(p, side, room);
+              const posAlong = wallRunOffset(p, side, room);
               return { start: posAlong, end: posAlong + sizeAlong };
             })
             .sort((a, b) => a.start - b.start);
@@ -1132,8 +1132,8 @@ export function ElevationView({
           const refrigeratorPanels = sorted
             .filter((p) => p.placement === "tall" && /(?:REPV|FRIDGE.*PANEL|REFRIGERATOR.*PANEL|END.*PANEL)/i.test(`${p.masterCode ?? ""} ${p.description ?? ""}`))
             .map((p) => {
-              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-              const posAlong = horizontal ? p.x : p.y;
+              const sizeAlong = wallRunSpan(p, side, room);
+              const posAlong = wallRunOffset(p, side, room);
               return { start: posAlong, end: posAlong + sizeAlong };
             });
           if (spans.length === 0) return null;
@@ -1194,9 +1194,8 @@ export function ElevationView({
           for (const p of sorted) {
             if (p.placement !== "base") continue;
             if (!p.waterfallLeft && !p.waterfallRight) continue;
-            const fp = placedFootprint(p);
-            const sizeAlong = horizontal ? fp.w : fp.d;
-            const posAlong = horizontal ? p.x : p.y;
+            const sizeAlong = wallRunSpan(p, side, room);
+            const posAlong = wallRunOffset(p, side, room);
             const panelStyle: React.CSSProperties = {
               position: "absolute",
               bottom: 0,
@@ -1254,8 +1253,8 @@ export function ElevationView({
           const cabinetRuns: { start: number; end: number }[] = sorted
             .filter((p) => (p.placement === "base" || p.placement === "appliance") && p.cabinetId !== 0)
             .map((p) => {
-              const sA = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-              const pA = horizontal ? p.x : p.y;
+              const sA = wallRunSpan(p, side, room);
+              const pA = wallRunOffset(p, side, room);
               return { start: pA, end: pA + sA };
             })
             .sort((a, b) => a.start - b.start);
@@ -1274,8 +1273,8 @@ export function ElevationView({
           const rangeSpans = sorted
             .filter((p) => isRangeOrOven(p.masterCode, p.description))
             .map((p) => {
-              const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-              const posAlong = horizontal ? p.x : p.y;
+              const sizeAlong = wallRunSpan(p, side, room);
+              const posAlong = wallRunOffset(p, side, room);
               return { start: posAlong, end: posAlong + sizeAlong };
             });
 
@@ -1448,8 +1447,8 @@ export function ElevationView({
         {sorted
           .filter((p) => (p.placement === "base" || p.placement === "tall" || p.placement === "appliance") && p.cabinetId !== 0)
           .map((p) => {
-            const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-            const posAlong = horizontal ? p.x : p.y;
+            const sizeAlong = wallRunSpan(p, side, room);
+            const posAlong = wallRunOffset(p, side, room);
             return (
               <div
                 key={`floorshadow-${p.uid}`}
@@ -1491,8 +1490,8 @@ export function ElevationView({
           // or when a faucet product was selected. Unassigned SB-* cabinets show no faucet.
           (p.sinkTopType === "sink" || p.faucetProductId != null || p.sinkTopProductId != null)
         ).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
+          const sizeAlong = wallRunSpan(p, side, room);
+          const posAlong = wallRunOffset(p, side, room);
           const centerX = (posAlong + sizeAlong / 2) * ppi;
           const riserH = 8 * ppi;          // 8" riser above countertop
           const spoutW = 4 * ppi;          // 4" horizontal spout arm
@@ -1550,8 +1549,8 @@ export function ElevationView({
         {/* Range Top / Cooktop: the burner surface is always 34½" above finished floor.
             Its visible face extends down into the base zone rather than above that line. */}
         {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
+          const sizeAlong = wallRunSpan(p, side, room);
+          const posAlong = wallRunOffset(p, side, room);
           // The top of this 3½-inch elevation face is the shared 34½" cooking
           // surface. Its body extends below that exact physical surface line.
           const COOKTOP_THICKNESS = 3.5; // inches — visible front face of cooktop
@@ -1633,8 +1632,8 @@ export function ElevationView({
             countertop with its apron visibly dropping over the upper cabinet face.
             The cabinet doors and recessed toe kick remain visible below. */}
         {sorted.filter((p) => isFarmerSinkBase(p)).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
+          const sizeAlong = wallRunSpan(p, side, room);
+          const posAlong = wallRunOffset(p, side, room);
           const geometry = farmhouseSinkElevationGeometry(sizeAlong);
           const apronPxH = geometry.apronHeightIn * ppi;
           const apronPxW = geometry.apronWidthIn * ppi;
@@ -1787,8 +1786,8 @@ export function ElevationView({
         {/* Light rail: slim valance strip under the bottom edge of each wall
             cabinet (hides under-cabinet lighting). */}
         {lightRail && sorted.filter((p) => isLightRailEligibleCabinet(p, room)).map((p) => {
-          const sizeAlong = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-          const posAlong = horizontal ? p.x : p.y;
+          const sizeAlong = wallRunSpan(p, side, room);
+          const posAlong = wallRunOffset(p, side, room);
           const { bottom } = elevationBox(p, room);
           const cabF = finishFor ? finishFor(p) : finish;
           return (
@@ -1850,9 +1849,9 @@ export function ElevationView({
           .map((p, i, arr) => {
             if (i === arr.length - 1) return null;
             const next = arr[i + 1];
-            const pAlong = horizontal ? p.x : p.y;
-            const pSize = horizontal ? placedFootprint(p).w : placedFootprint(p).d;
-            const nextAlong = horizontal ? next.x : next.y;
+            const pAlong = wallRunOffset(p, side, room);
+            const pSize = wallRunSpan(p, side, room);
+            const nextAlong = wallRunOffset(next, side, room);
             const pEnd = pAlong + pSize;
             // Only draw where the two cabinets actually touch (within 1.5").
             if (Math.abs(nextAlong - pEnd) > 1.5) return null;
@@ -1925,7 +1924,7 @@ export function ElevationView({
           panel. Falls back to a static label when no handler is provided. */}
       {hideSwitcher ? null : onSelectWall ? (
         <div
-          className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-white/85 px-1.5 py-1 rounded-full shadow-sm"
+          className="absolute top-3 left-1/2 -translate-x-1/2 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center justify-center gap-1 bg-white/85 px-1.5 py-1 rounded-full shadow-sm"
           onClick={(e) => e.stopPropagation()}
         >
           <span className="px-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{t("dt_ev_wall")}</span>
@@ -1943,17 +1942,31 @@ export function ElevationView({
               {WALL_LABELS[w]}
             </button>
           )))}
+          {(room.customWalls ?? []).map((custom, index) => (
+            <button
+              key={custom.id}
+              type="button"
+              onClick={() => onSelectWall(custom.id)}
+              className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors ${
+                custom.id === side
+                  ? "bg-[#1a2744] text-white"
+                  : "text-[#1a2744] hover:bg-[#1a2744]/10"
+              }`}
+            >
+              {custom.label?.trim() || `Wall ${index + 1}`}
+            </button>
+          ))}
         </div>
       ) : (
         <div className="absolute top-3 left-1/2 -translate-x-1/2 text-xs font-medium text-[#1a2744] bg-white/80 px-3 py-1 rounded-full">
-          {t("dt_ev_wall_elevation", { wall: WALL_LABELS[side] })}
+          {t("dt_ev_wall_elevation", { wall: wallLabel })}
         </div>
       )}
 
 
       {sorted.length === 0 && viewOpenings.length === 0 && seamCabinets.length === 0 && (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground text-sm text-center px-6" style={textFlip}>
-          {t("dt_ev_empty", { wall: WALL_LABELS[side].toLowerCase() })}
+          {t("dt_ev_empty", { wall: wallLabel.toLowerCase() })}
         </div>
       )}
     </div>

@@ -7163,11 +7163,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const wallNames: Record<WallSide, string> = {
       top: "Back wall", bottom: "Front wall", left: "Left wall", right: "Right wall",
     };
-    const wallCabs: Record<WallSide, PlacedCabinet[]> = { top: [], bottom: [], left: [], right: [] };
+    const wallLabel = (wallId: string): string => {
+      const cardinalLabel = wallNames[wallId as WallSide];
+      if (cardinalLabel) return cardinalLabel;
+      const customWall = room.customWalls?.find((candidate) => candidate.id === wallId);
+      return customWall?.label?.trim() || `Wall ${(room.customWalls?.findIndex((candidate) => candidate.id === wallId) ?? -1) + 1}`;
+    };
+    // A room run can be a cardinal side or any drawn wall id. Group by that
+    // shared identity rather than a four-key record so a measured room builds
+    // the same photoreal scene without a missing-array TypeError.
+    const wallCabs = new Map<string, PlacedCabinet[]>();
     const applianceList: string[] = [];
     for (const p of placed) {
       const w = cabinetWall(p, room);
-      wallCabs[w].push(p);
+      const cabs = wallCabs.get(w) ?? [];
+      cabs.push(p);
+      wallCabs.set(w, cabs);
       if (isApplianceCode(p.masterCode ?? "")) {
         const desc = (p.description ?? p.masterCode ?? "").replace(/\d+"?$/, "").trim().toLowerCase();
         if (desc && !applianceList.includes("a " + desc)) applianceList.push("a " + desc);
@@ -7177,13 +7188,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // EXACT layout, not a generic kitchen.
     const summaries: string[] = [];
     const cabWalls: string[] = [];
-    for (const side of ["top", "bottom", "left", "right"] as WallSide[]) {
-      const cabs = wallCabs[side];
-      if (cabs.length === 0) continue;
-      cabWalls.push(wallNames[side]);
+    wallCabs.forEach((cabs, side) => {
+      if (cabs.length === 0) return;
+      const name = wallLabel(side);
+      cabWalls.push(name);
       // Sort by position along the wall (left-to-right in the elevation)
-      const horizontal = side === "top" || side === "bottom";
-      const sorted = [...cabs].sort((a, b) => (horizontal ? a.x - b.x : a.y - b.y));
+      const sorted = [...cabs].sort((a, b) => wallRunOffset(a, side, room) - wallRunOffset(b, side, room));
       // Build a concise left-to-right sequence description
       const baseSeq = sorted.filter((c) => c.placement === "base" || c.placement === "appliance");
       const wallSeq = sorted.filter((c) => c.placement === "wall");
@@ -7214,14 +7224,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         : wallOpenings.some((o) => o.kind === "door" || o.kind === "opening")
         ? " (with a doorway)"
         : "";
-      let summary = `${wallNames[side]}${windowNote}: `;
+      let summary = `${name}${windowNote}: `;
       const parts: string[] = [];
       if (baseSeq.length > 0) parts.push(`Lower row (left to right): ${describeSeq(baseSeq)}`);
       if (wallSeq.length > 0) parts.push(`Upper row: ${describeSeq(wallSeq)}`);
       if (tallSeq.length > 0) parts.push(`Tall: ${describeSeq(tallSeq)}`);
       summary += parts.join(". ");
       summaries.push(summary);
-    }
+    });
     // Layout type
     let layoutType: PhotorealSceneInput["layoutType"] = "one-wall";
     if (cabWalls.length === 4) layoutType = "U-shaped";
@@ -13600,7 +13610,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              attributesTargetUid={attributesTargetUid}
 	              onSelect={selectCabinet}
 	              wall={activeWall}
-	              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
+	              onSelectWall={(wall) => { setActiveWall(wall as WallSide); setPlacementTarget("wall"); }}
               countertopMaterialId={countertop ? countertopMaterialId : null}
               backsplashMaterialId={backsplashMaterialId}
               flooringMaterialId={flooringMaterialId}
@@ -13778,7 +13788,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  attributesTargetUid={attributesTargetUid}
 	                  onSelect={selectCabinet}
                   wall={activeWall}
-                  onSelectWall={setActiveWall}
+                  onSelectWall={(wall) => setActiveWall(wall as WallSide)}
                   countertopMaterialId={countertop ? countertopMaterialId : null}
                   backsplashMaterialId={backsplashMaterialId}
                   flooringMaterialId={flooringMaterialId}

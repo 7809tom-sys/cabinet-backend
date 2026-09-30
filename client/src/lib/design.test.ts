@@ -1198,10 +1198,10 @@ describe("trim linear footage", () => {
     expect(inchesToLinearFeet(54)).toBe(4.5);
     expect(inchesToLinearFeet(13)).toBeCloseTo(1.1, 5);
   });
-  it("respects rotated width for crown", () => {
+  it("counts catalog width, not the rotated plan AABB, for crown", () => {
     const placed = [cab({ placement: "wall", width: 30, depth: 12, rotation: 90 })];
-    // rotated width 12 + 3in miter allowance = 15.
-    expect(crownLinearInches(placed)).toBe(15);
+    // catalog width 30 + 3in miter allowance = 33.
+    expect(crownLinearInches(placed)).toBe(33);
   });
   it("takes a standalone W1230 from its front and two exposed depth returns plus four inches", () => {
     const placed = [cab({ uid: "w1230", placement: "wall", masterCode: "W1230", description: "12 inch by 30 inch wall cabinet", width: 12, depth: 12, x: 36, y: 0, height: 30 })];
@@ -1527,11 +1527,11 @@ describe("trim: crown miter allowance per wall", () => {
 
   it("adds the allowance separately for cabinets on different walls", () => {
     // back wall: 30 along the wall (+3) = 33.
-    // right wall: cabinet rotated 90, so its 12in depth runs ALONG the wall
-    // (12 +3) = 15. Total = 48.
+    // right wall: the 30-inch catalog width runs along the wall (30 + 3).
+    // Combined with back wall 30 + 3, total = 66.
     const back = cab({ placement: "wall", width: 30, depth: 12, x: 0, y: 0, rotation: 0 });
     const right = cab({ placement: "wall", width: 30, depth: 12, x: 144 - 12, y: 40, rotation: 90 });
-    expect(crownLinearInches([back, right], ROOM_12x10)).toBe(48);
+    expect(crownLinearInches([back, right], ROOM_12x10)).toBe(66);
   });
 
   it("returns 0 with no wall cabinets", () => {

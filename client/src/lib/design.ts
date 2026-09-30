@@ -1943,7 +1943,7 @@ export function clampCeilingHeight(h: number | null | undefined): number {
 // global flat ceiling when the wall has no override, so legacy designs and
 // untouched walls behave exactly as before.
 export function wallCeiling(
-  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>>; customWalls?: RoomData["customWalls"] } | null | undefined,
   side: WallSide,
 ): WallCeiling {
   const override = room?.wallCeilings?.[side];
@@ -1952,13 +1952,16 @@ export function wallCeiling(
     const low = clampCeilingHeight(override.low);
     return { high: Math.max(high, low), low: Math.min(high, low), slopeFrom: override.slopeFrom ?? "start" };
   }
-  const flat = roomCeiling(room ?? undefined);
+  // The physical height of a drawn run is the ceiling over that run. Keep
+  // cardinal overrides above unchanged, then fall back to the global height.
+  const customHeight = room?.customWalls?.find((wall) => wall.id === side)?.height;
+  const flat = customHeight != null && Number.isFinite(customHeight) ? clampCeilingHeight(customHeight) : roomCeiling(room ?? undefined);
   return { high: flat, low: flat };
 }
 
 // True when the given wall has a sloped (angled) ceiling rather than a flat one.
 export function wallCeilingIsSloped(
-  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>>; customWalls?: RoomData["customWalls"] } | null | undefined,
   side: WallSide,
 ): boolean {
   const c = wallCeiling(room, side);
@@ -1969,7 +1972,7 @@ export function wallCeilingIsSloped(
 // can fit under it). For a flat wall this equals its height; for a slope it is
 // the low end.
 export function wallCeilingMin(
-  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>>; customWalls?: RoomData["customWalls"] } | null | undefined,
   side: WallSide,
 ): number {
   const c = wallCeiling(room, side);
@@ -1982,7 +1985,7 @@ export function wallCeilingMin(
 // the HIGH side is at fraction 0 (left), `"end"` means the high side is at
 // fraction 1 (right).
 export function wallCeilingAt(
-  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>> } | null | undefined,
+  room: { ceilingHeight?: number; wallCeilings?: Partial<Record<WallSide, WallCeiling>>; customWalls?: RoomData["customWalls"] } | null | undefined,
   side: WallSide,
   frac: number,
 ): number {
@@ -2003,11 +2006,9 @@ export function wallCeilingAt(
  */
 export function wallCabinetVerticalMoveLimit(cabinet: PlacedCabinet, room: RoomData) {
 	const side = cabinetWall(cabinet, room);
-	const horizontal = side === "top" || side === "bottom";
-	const footprint = placedFootprint(cabinet);
-	const wallLength = horizontal ? room.width : room.depth;
-	const runStart = horizontal ? cabinet.x : cabinet.y;
-	const runEnd = runStart + (horizontal ? footprint.w : footprint.d);
+	const wallLength = wallRunFrame(side, room)?.length ?? 0;
+	const runStart = wallRunOffset(cabinet, side, room);
+	const runEnd = runStart + wallRunSpan(cabinet, side, room);
 	const startFraction = wallLength > 0 ? Math.max(0, Math.min(1, runStart / wallLength)) : 0;
 	const endFraction = wallLength > 0 ? Math.max(0, Math.min(1, runEnd / wallLength)) : 1;
 	const ceiling = Math.min(
@@ -5606,15 +5607,28 @@ export function overRangeMicrowaveAttachment(
 // wall that actually has trim on it. `cabs` are the cabinets the trim runs over.
 export function miteredTrimInches(cabs: PlacedCabinet[], room: RoomData): number {
   if (cabs.length === 0) return 0;
-  const perWall: Record<WallSide, number> = { top: 0, bottom: 0, left: 0, right: 0 };
+  const perWall = new Map<string, number>();
   for (const p of cabs) {
-    perWall[cabinetWall(p, room)] += rotatedSize(p).w;
+    const wall = cabinetTakeoffWallId(p, room);
+    perWall.set(wall, (perWall.get(wall) ?? 0) + alongRunSpan(p));
   }
   let total = 0;
-  (Object.keys(perWall) as WallSide[]).forEach((side) => {
-    if (perWall[side] > 0) total += perWall[side] + MITER_ALLOWANCE_IN;
+  perWall.forEach((width) => {
+    if (width > 0) total += width + MITER_ALLOWANCE_IN;
   });
   return total;
+}
+
+/**
+ * Physical run nearest a cabinet body for trim takeoff. A cabinet deliberately
+ * turned or pulled off its wall is no longer *seated* there, so it correctly
+ * has no wallId/wallOffset. It still contributes its catalog width to the
+ * nearest run's material takeoff without inventing a cardinal wall in a drawn
+ * room. Measurement association is intentionally separate from wall seating.
+ */
+export function cabinetTakeoffWallId(p: PlacedCabinet, room: RoomData): string {
+  if (p.wallId && seatedWallRunFrame(p, room)) return p.wallId;
+  return nearestWallRunAtPoint(room, placedPlanCenter(p))?.frame.id ?? cabinetWall(p, room);
 }
 
 // Legacy width-only crown estimate for non-render callers. The live Designer
@@ -5677,7 +5691,7 @@ export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): num
   if (wallCabs.length === 0) return 0;
   if (!room) {
     // No room context: fall back to a single continuous run + one allowance.
-    const run = wallCabs.reduce((s, p) => s + rotatedSize(p).w, 0);
+    const run = wallCabs.reduce((s, p) => s + alongRunSpan(p), 0);
     return run + MITER_ALLOWANCE_IN;
   }
   return miteredTrimInches(wallCabs, room);
@@ -5686,7 +5700,7 @@ export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): num
 export function toeKickLinearInches(placed: PlacedCabinet[]): number {
   return placed
     .filter((p) => p.placement === "base" || p.placement === "tall")
-    .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+    .reduce((sum, p) => sum + alongRunSpan(p), 0);
 }
 
 export interface LightRailTakeoff {
@@ -5702,20 +5716,13 @@ export function isLightRailEligibleCabinet(p: PlacedCabinet, room?: RoomData): b
   return !room || elevationBox(p, room).bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;
 }
 
-type LightRailFootprint = { cabinet: PlacedCabinet; x: number; y: number; width: number; depth: number; wall: WallSide };
-
+/** Run-axis rectangle: back along the wall, front a catalog-depth normal away. */
+type LightRailFootprint = { cabinet: PlacedCabinet; wall: string; start: number; end: number; depth: number };
 function lightRailFootprint(p: PlacedCabinet, room?: RoomData): LightRailFootprint {
-  const size = rotatedSize(p);
-  // The Designer always supplies room context. This deterministic fallback is
-  // retained for legacy pure callers that only provide a placed cabinet list.
-  const wall = room ? cabinetWall(p, room) : ((Math.round(p.rotation) % 180 + 180) % 180 === 0 ? "top" : "left");
-  return { cabinet: p, x: p.x, y: p.y, width: size.w, depth: size.d, wall };
+  const wall = room ? cabinetTakeoffWallId(p, room) : ((Math.round(p.rotation) % 180 + 180) % 180 === 0 ? "top" : "left");
+  const start = room ? wallRunOffset(p, wall, room) : (wall === "top" ? p.x : p.y);
+  return { cabinet: p, wall, start, end: start + alongRunSpan(p), depth: Number(p.depth) || STD.WALL_DEPTH };
 }
-
-function overlappingLength(startA: number, endA: number, startB: number, endB: number): number {
-  return Math.min(endA, endB) - Math.max(startA, startB);
-}
-
 function lightRailAssemblies(footprints: LightRailFootprint[]): LightRailFootprint[][] {
   const remaining = [...footprints];
   const groups: LightRailFootprint[][] = [];
@@ -5725,9 +5732,7 @@ function lightRailAssemblies(footprints: LightRailFootprint[]): LightRailFootpri
       for (let candidate = remaining.length - 1; candidate >= 0; candidate--) {
         const a = group[index];
         const b = remaining[candidate];
-        const gapX = Math.max(a.x - (b.x + b.width), b.x - (a.x + a.width), 0);
-        const gapY = Math.max(a.y - (b.y + b.depth), b.y - (a.y + a.depth), 0);
-        if (gapX <= COLLISION_EPSILON_IN && gapY <= COLLISION_EPSILON_IN) {
+        if (a.wall === b.wall && a.start <= b.end + COLLISION_EPSILON_IN && b.start <= a.end + COLLISION_EPSILON_IN) {
           group.push(b);
           remaining.splice(candidate, 1);
         }
@@ -5737,28 +5742,19 @@ function lightRailAssemblies(footprints: LightRailFootprint[]): LightRailFootpri
   }
   return groups;
 }
-
 function lightRailExposedEdgeInches(footprint: LightRailFootprint, all: LightRailFootprint[]): number {
-  const shares = (edge: "top" | "bottom" | "left" | "right") => all.some((other) => {
-    if (other.cabinet.uid === footprint.cabinet.uid) return false;
-    if (edge === "top") return Math.abs(other.y + other.depth - footprint.y) <= COLLISION_EPSILON_IN && overlappingLength(footprint.x, footprint.x + footprint.width, other.x, other.x + other.width) > COLLISION_EPSILON_IN;
-    if (edge === "bottom") return Math.abs(footprint.y + footprint.depth - other.y) <= COLLISION_EPSILON_IN && overlappingLength(footprint.x, footprint.x + footprint.width, other.x, other.x + other.width) > COLLISION_EPSILON_IN;
-    if (edge === "left") return Math.abs(other.x + other.width - footprint.x) <= COLLISION_EPSILON_IN && overlappingLength(footprint.y, footprint.y + footprint.depth, other.y, other.y + other.depth) > COLLISION_EPSILON_IN;
-    return Math.abs(footprint.x + footprint.width - other.x) <= COLLISION_EPSILON_IN && overlappingLength(footprint.y, footprint.y + footprint.depth, other.y, other.y + other.depth) > COLLISION_EPSILON_IN;
-  });
-
-  const edges: Array<["top" | "bottom" | "left" | "right", number]> = [
-    ["top", footprint.width],
-    ["bottom", footprint.width],
-    ["left", footprint.depth],
-    ["right", footprint.depth],
-  ];
-  const backEdge: Record<WallSide, "top" | "bottom" | "left" | "right"> = { top: "top", bottom: "bottom", left: "left", right: "right" };
-  return edges.reduce((total, [edge, length]) => (
-    edge === backEdge[footprint.wall] || shares(edge) ? total : total + length
-  ), 0);
+  // The back edge is against its owning run, regardless of the wall's angle.
+  // Side returns are hidden only by a touching same-run upper at the same depth.
+  const joined = (end: "start" | "end") => all.some((other) => (
+    other.cabinet.uid !== footprint.cabinet.uid
+    && other.wall === footprint.wall
+    && Math.abs(other.depth - footprint.depth) <= COLLISION_EPSILON_IN
+    && (end === "start"
+      ? Math.abs(other.end - footprint.start) <= COLLISION_EPSILON_IN
+      : Math.abs(other.start - footprint.end) <= COLLISION_EPSILON_IN)
+  ));
+  return footprint.end - footprint.start + (joined("start") ? 0 : footprint.depth) + (joined("end") ? 0 : footprint.depth);
 }
-
 /**
  * Light rail follows the visible underside perimeter of upper cabinets: front
  * widths plus exposed depth returns, never hidden shared sides or wall backs.
@@ -8800,8 +8796,9 @@ export function wallRunSpan(p: PlacedCabinet, side: string, room: RoomData): num
   return side === "top" || side === "bottom" ? size.w : size.d;
 }
 
-/** Plan tolerance for "this body is still seated on its run" (same 2" the Designer uses against walls). */
-const WALL_RUN_SEAT_TOLERANCE_IN = 2;
+/** A body shifted more than one eighth off its wall is no longer seated.
+ * Keep this much smaller than an intentional one-inch depth move. */
+const WALL_RUN_SEAT_TOLERANCE_IN = 0.125;
 
 /**
  * Re-derives a cabinet's run metadata from its plan body on ANY wall kind.
