@@ -1163,6 +1163,13 @@
       "when": 1790783488974,
       "tag": "0166_left_skin",
       "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "5",
+      "when": 1790785460044,
+      "tag": "0167_smiling_puck",
+      "breakpoints": true
     }
   ]
 }

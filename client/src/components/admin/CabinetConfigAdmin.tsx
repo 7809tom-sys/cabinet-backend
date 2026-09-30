@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect, useRef, useMemo } from "react"
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { CabinetConfigHistoryPanel } from "./CabinetConfigHistoryPanel";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2495,6 +2496,9 @@ export function CabinetConfigAdmin() {
           </Button>
         </div>
       )}
+
+      {/* Configuration history (last 5 days, per-field, revertable) */}
+      <CabinetConfigHistoryPanel />
 
       {/* Progress summary */}
       {!unconfiguredOnly && rows.length > 0 && (

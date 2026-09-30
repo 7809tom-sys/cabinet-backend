@@ -9,20 +9,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CabinetVerificationControl } from "@/components/admin/CabinetVerificationControl";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -589,7 +580,8 @@ export default function CabinetDetail({ masterCode }: Props) {
   const [connectionDistributorId, setConnectionDistributorId] = useState<string>("");
   const [connectionStyleId, setConnectionStyleId] = useState<string>("");
   const [connectionSku, setConnectionSku] = useState<string>("");
-  const [confirmMasterSaveOpen, setConfirmMasterSaveOpen] = useState(false);
+  const [saveScopeOpen, setSaveScopeOpen] = useState(false);
+  const [saveScopeDistributorIds, setSaveScopeDistributorIds] = useState<number[]>([]);
 
   // The distributor override editor is deliberately within the same scrollable
   // form as the master fields. When a row is selected, take the editor into
@@ -721,6 +713,18 @@ export default function CabinetDetail({ masterCode }: Props) {
     },
     onError: (err) => toast.error(`Save failed: ${err.message}`),
   });
+  const setDistributorConfig = trpc.cabinetOverrides.setConfig.useMutation({
+    onSuccess: (_res, vars) => {
+      toast.success(
+        `Saved for ${vars.distributorIds.length} distributor${vars.distributorIds.length === 1 ? "" : "s"} only. The shared master was not changed.`,
+      );
+      utils.cabinets.byCode.invalidate({ masterCode });
+      void refetchOverrides();
+      setSaveScopeOpen(false);
+      setEditOpen(false);
+    },
+    onError: (err) => toast.error(`Save failed: ${err.message}`),
+  });
   const uploadImage = trpc.cabinets.adminUploadCatalogImage.useMutation({
     onError: (err) => toast.error(`Upload failed: ${err.message}`),
   });
@@ -815,20 +819,18 @@ export default function CabinetDetail({ masterCode }: Props) {
       toast.error(DISTRIBUTOR_CONNECTION_REQUIRED_MESSAGE);
       return;
     }
-    setConfirmMasterSaveOpen(true);
+    // A cabinet rule is never applied to every distributor at once from here:
+    // the admin ticks each distributor the rule applies to.
+    setSaveScopeDistributorIds([]);
+    setSaveScopeOpen(true);
   }
 
-  function submitMasterCabinetChanges() {
-    if (!cabinet?.id) return;
-    updateCabinet.mutate({
-      id: cabinet.id,
-      description: editDescription.trim() || undefined,
-      category: editCategory.trim() || undefined,
+  /** Rule fields stored per distributor (merged over the master at read time). */
+  function buildDistributorConfigRule() {
+    return {
+      description: editDescription.trim() || null,
+      category: editCategory.trim() || null,
       subCategory: editSubCategory.trim() || null,
-      catalogImageUrl: editImageUrl.trim() || null,
-      showInCatalog: editShowInCatalog,
-      showInDesigner: editShowInDesigner,
-      showIn2020: editShowIn2020,
       width: editWidth.trim() || null,
       height: editHeight.trim() || null,
       depth: (editDepth === "__custom__" || !editDepth.trim()) ? null : editDepth.trim(),
@@ -842,17 +844,17 @@ export default function CabinetDetail({ masterCode }: Props) {
       numberOfDrawers: parseInt(editNumDrawers) || 0,
       numberOfFixedShelves: parseInt(editNumFixedShelves) || 0,
       numberOfAdjShelves: parseInt(editNumAdjShelves) || 0,
-      isActive: editIsActive,
-      isNotCabinet: editIsNotCabinet,
-      doorOrientation: editDoorOrientation === "__none__" ? null : editDoorOrientation as "side-by-side" | "stacked",
-      cornerType: editCornerType === "__none__" ? null : editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape",
-      openingType: editOpeningType === "__none__" ? null : editOpeningType as "top" | "middle" | "bottom",
+      doorOrientation: editDoorOrientation === "__none__" ? null : (editDoorOrientation as "side-by-side" | "stacked"),
+      cornerType:
+        editCornerType === "__none__"
+          ? null
+          : (editCornerType as "lazy-susan" | "blind-corner" | "diagonal" | "pie-cut" | "l-shape"),
+      openingType: editOpeningType === "__none__" ? null : (editOpeningType as "top" | "middle" | "bottom"),
       doorHeight: editDoorHeight ? parseFloat(editDoorHeight) : null,
       drawerHeight: editDrawerHeight ? parseFloat(editDrawerHeight) : null,
-      drawerLayout: editDrawerLayout,
+      drawerLayout: editDrawerLayout || null,
       doorsPerRow: editDoorsPerRow === "__auto__" ? null : parseInt(editDoorsPerRow),
-      configVerified: editConfigVerified,
-      grainDirection: (editGrainDirection || null) as "vertical" | "horizontal" | null | undefined,
+      grainDirection: (editGrainDirection || null) as "vertical" | "horizontal" | null,
       isDecorativeDoor: editIsDecorativeDoor,
       minPull: editMinPull.trim() ? parseFloat(editMinPull) : null,
       maxPull: editMaxPull.trim() ? parseFloat(editMaxPull) : null,
@@ -862,12 +864,40 @@ export default function CabinetDetail({ masterCode }: Props) {
       cabinetSquare: editCabinetSquare.trim() ? parseFloat(editCabinetSquare) : null,
       faceWidth: editFaceWidth.trim() ? parseFloat(editFaceWidth) : null,
       legWidth: editLegWidth.trim() ? parseFloat(editLegWidth) : null,
-      layoutSpec: editLayoutSpec,
+      layoutSpec: editLayoutSpec || null,
       specImageUrl: editSpecImageUrl.trim() || null,
       specNotes: editSpecNotes.trim() || null,
       facePattern: (editFacePattern === "__none__" ? null : editFacePattern) as "slats" | "criss-cross" | "lattice" | "open" | null,
       graphicType: editGraphicType === "standard" ? null : editGraphicType,
-      masterCode: editMasterCode.trim() || undefined,
+    };
+  }
+
+  function submitForSelectedDistributors() {
+    if (!cabinet?.id) return;
+    if (saveScopeDistributorIds.length === 0) {
+      toast.error("Tick at least one distributor.");
+      return;
+    }
+    // Housekeeping flags (visibility, active, image, code) have no per-distributor
+    // form; they remain on the master row and are not cabinet rules.
+    updateCabinet.mutate(
+      {
+        id: cabinet.id,
+        catalogImageUrl: editImageUrl.trim() || null,
+        showInCatalog: editShowInCatalog,
+        showInDesigner: editShowInDesigner,
+        showIn2020: editShowIn2020,
+        isActive: editIsActive,
+        isNotCabinet: editIsNotCabinet,
+        configVerified: editConfigVerified,
+        masterCode: editMasterCode.trim() || undefined,
+      },
+      { onSuccess: () => undefined },
+    );
+    setDistributorConfig.mutate({
+      cabinetId: cabinet.id,
+      distributorIds: saveScopeDistributorIds,
+      config: buildDistributorConfigRule(),
     });
   }
 
@@ -2425,39 +2455,86 @@ export default function CabinetDetail({ masterCode }: Props) {
               </Button>
               <Button
                 onClick={handleSaveEdit}
-                disabled={updateCabinet.isPending || imageUploading}
+                disabled={updateCabinet.isPending || setDistributorConfig.isPending || imageUploading}
                 className="gap-1.5 bg-amber-600 hover:bg-amber-700 text-white"
+                data-testid="cabinet-detail-save"
               >
-                {updateCabinet.isPending ? (
+                {updateCabinet.isPending || setDistributorConfig.isPending ? (
                   <span className="inline-block animate-spin h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full" />
                 ) : (
                   <Check className="h-3.5 w-3.5" />
                 )}
-                Save Master Changes (All Distributors)
+                Save…
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <AlertDialog open={confirmMasterSaveOpen} onOpenChange={setConfirmMasterSaveOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Save master changes for all distributors?</AlertDialogTitle>
-              <AlertDialogDescription>
-                This updates the shared master cabinet record for {resolvedMasterCode}. These values are used across every linked distributor line unless a distributor has its own saved override. Use Save Override for one-distributor dimension exceptions.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={updateCabinet.isPending}>Cancel</AlertDialogCancel>
-              <AlertDialogAction
+        <Dialog open={saveScopeOpen} onOpenChange={(open) => { if (!open) setSaveScopeOpen(false); }}>
+          <DialogContent className="max-w-lg" data-testid="cabinet-config-save-scope">
+            <DialogHeader>
+              <DialogTitle>Who gets this rule for {resolvedMasterCode}?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Pick each distributor this configuration applies to. Only the lines you tick change; every
+                other distributor and the shared master keep their current values.
+              </p>
+              <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
+                {(distCoverage ?? []).length > 0 ? (
+                  (distCoverage ?? []).map((dist) => {
+                    const checked = saveScopeDistributorIds.includes(dist.distributorId);
+                    const hasRule = (existingOverrides ?? []).some(
+                      (o) => o.distributorId === dist.distributorId && Number(o.hasConfigRule) === 1,
+                    );
+                    return (
+                      <label
+                        key={dist.distributorId}
+                        className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-muted/60"
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) =>
+                            setSaveScopeDistributorIds((ids) =>
+                              v ? Array.from(new Set([...ids, dist.distributorId])) : ids.filter((id) => id !== dist.distributorId),
+                            )
+                          }
+                          aria-label={`Apply rule to ${dist.name}`}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{dist.name}</span>
+                        {hasRule && <Badge variant="outline" className="text-[10px]">has own rule</Badge>}
+                      </label>
+                    );
+                  })
+                ) : (
+                  <p className="px-1.5 py-1 text-xs text-muted-foreground">No distributor carries this cabinet yet.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Button type="button" size="sm" variant="ghost" onClick={() => setSaveScopeDistributorIds([])}>
+                  Clear
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Each distributor is chosen one at a time. The shared master is never changed from here.
+              </p>
+            </div>
+            <DialogFooter className="flex-row flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setSaveScopeOpen(false)} disabled={setDistributorConfig.isPending}>
+                Back
+              </Button>
+              <Button
+                onClick={submitForSelectedDistributors}
+                disabled={setDistributorConfig.isPending || saveScopeDistributorIds.length === 0}
+                data-testid="cabinet-config-save-distributors"
                 className="bg-amber-600 text-white hover:bg-amber-700"
-                disabled={updateCabinet.isPending}
-                onClick={submitMasterCabinetChanges}
               >
-                Confirm Master Save
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+                {setDistributorConfig.isPending
+                  ? "Saving…"
+                  : `Save for ${saveScopeDistributorIds.length || ""} selected distributor${saveScopeDistributorIds.length === 1 ? "" : "s"}`}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         </>
       )}
     </div>

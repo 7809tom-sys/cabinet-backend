@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, gte, desc, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
 import {
@@ -7,12 +7,19 @@ import {
   distributors,
   cabinets,
   distributorSkus,
+  cabinetConfigChangeLog,
 } from "../../drizzle/schema";
 import {
   DISTRIBUTOR_OVERRIDE_DIM_KEYS,
   distributorCabinetConfigSchema,
   parseDistributorCabinetConfig,
 } from "../lib/distributorCabinetConfig";
+import {
+  CONFIG_REVERT_WINDOW_DAYS,
+  logCabinetConfigChanges,
+  parseLoggedValue,
+  recentCabinetConfigChanges,
+} from "../lib/cabinetConfigHistory";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -54,7 +61,7 @@ export const cabinetOverridesRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       const [cab] = await db
-        .select({ id: cabinets.id })
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
         .from(cabinets)
         .where(eq(cabinets.id, input.cabinetId))
         .limit(1);
@@ -91,7 +98,8 @@ export const cabinetOverridesRouter = router({
         const current = existingByDistributor.get(distributorId);
         // Merge with the distributor's previous rule so a partial save does not
         // silently drop keys saved earlier for that same distributor.
-        const merged = { ...parseDistributorCabinetConfig(current?.configJson), ...input.config };
+        const previous = parseDistributorCabinetConfig(current?.configJson);
+        const merged = { ...previous, ...input.config };
         const payload = {
           distributorId,
           cabinetId: input.cabinetId,
@@ -109,6 +117,15 @@ export const cabinetOverridesRouter = router({
           await db.insert(distributorCabinetOverrides).values(payload);
           created += 1;
         }
+        await logCabinetConfigChanges(db, {
+          cabinetId: input.cabinetId,
+          masterCode: cab.masterCode ?? "",
+          scope: "distributor",
+          distributorId,
+          before: previous as Record<string, unknown>,
+          after: input.config as Record<string, unknown>,
+          actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
+        });
       }
       return { success: true, distributorIds, updated, created };
     }),
@@ -185,6 +202,7 @@ export const cabinetOverridesRouter = router({
           pkgWeight: distributorCabinetOverrides.pkgWeight,
           note: distributorCabinetOverrides.note,
           updatedAt: distributorCabinetOverrides.updatedAt,
+          hasConfigRule: sql<number>`IF(${distributorCabinetOverrides.configJson} IS NULL, 0, 1)`,
         })
         .from(distributorCabinetOverrides)
         .innerJoin(
@@ -459,5 +477,150 @@ export const cabinetOverridesRouter = router({
       }
 
       return { updated };
+    }),
+  /**
+   * Cabinet configuration history: every field an admin actually changed
+   * (master row or one distributor's rule) in the last N days, newest first.
+   * Also includes older saves that predate the per-field log (from
+   * cabinets.configuredAt / overrides.updatedAt) so the panel never hides real activity.
+   */
+  configHistory: adminProcedure
+    .input(
+      z
+        .object({
+          cabinetId: z.number().int().positive().optional(),
+          days: z.number().int().min(1).max(60).optional(),
+        })
+        .optional()
+    )
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const days = input?.days ?? CONFIG_REVERT_WINDOW_DAYS;
+      const changes = await recentCabinetConfigChanges(db, { cabinetId: input?.cabinetId, days, includeReverted: true });
+      const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      // Saves recorded before the per-field log existed: show them as "saved" rows.
+      const savedMaster = await db
+        .select({ id: cabinets.id, masterCode: cabinets.masterCode, at: cabinets.configuredAt, by: cabinets.configVerifiedByName })
+        .from(cabinets)
+        .where(input?.cabinetId ? and(gte(cabinets.configuredAt, since), eq(cabinets.id, input.cabinetId)) : gte(cabinets.configuredAt, since))
+        .orderBy(desc(cabinets.configuredAt))
+        .limit(300);
+      const savedOverrides = await db
+        .select({
+          cabinetId: distributorCabinetOverrides.cabinetId,
+          masterCode: cabinets.masterCode,
+          distributorId: distributorCabinetOverrides.distributorId,
+          distributorName: distributors.name,
+          at: distributorCabinetOverrides.updatedAt,
+        })
+        .from(distributorCabinetOverrides)
+        .innerJoin(cabinets, eq(cabinets.id, distributorCabinetOverrides.cabinetId))
+        .leftJoin(distributors, eq(distributors.id, distributorCabinetOverrides.distributorId))
+        .where(
+          input?.cabinetId
+            ? and(gte(distributorCabinetOverrides.updatedAt, since), eq(distributorCabinetOverrides.cabinetId, input.cabinetId))
+            : gte(distributorCabinetOverrides.updatedAt, since)
+        )
+        .orderBy(desc(distributorCabinetOverrides.updatedAt))
+        .limit(300);
+      const logged = new Set(changes.map((c) => `${c.scope}:${c.cabinetId}:${c.distributorId ?? ""}:${new Date(c.createdAt).getTime() / 60000 | 0}`));
+      const saves = [
+        ...savedMaster
+          .filter((r) => r.at && !logged.has(`master:${r.id}::${new Date(r.at).getTime() / 60000 | 0}`))
+          .map((r) => ({
+            scope: "master" as const,
+            cabinetId: r.id,
+            masterCode: r.masterCode,
+            distributorId: null as number | null,
+            distributorName: null as string | null,
+            at: r.at as Date,
+            byName: r.by,
+          })),
+        ...savedOverrides
+          .filter((r) => !logged.has(`distributor:${r.cabinetId}:${r.distributorId}:${new Date(r.at).getTime() / 60000 | 0}`))
+          .map((r) => ({
+            scope: "distributor" as const,
+            cabinetId: r.cabinetId,
+            masterCode: r.masterCode,
+            distributorId: r.distributorId,
+            distributorName: r.distributorName,
+            at: r.at,
+            byName: null as string | null,
+          })),
+      ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+      return { days, revertWindowDays: CONFIG_REVERT_WINDOW_DAYS, changes, saves };
+    }),
+
+  /** Revert one logged change (within the revert window): writes the old value back for that scope only. */
+  revertConfigChange: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const [row] = await db.select().from(cabinetConfigChangeLog).where(eq(cabinetConfigChangeLog.id, input.id)).limit(1);
+      if (!row) throw new Error("Change not found");
+      if (row.revertedAt) throw new Error("Already reverted");
+      const ageDays = (Date.now() - new Date(row.createdAt).getTime()) / 86400000;
+      if (ageDays > CONFIG_REVERT_WINDOW_DAYS) throw new Error(`Revert window is ${CONFIG_REVERT_WINDOW_DAYS} days`);
+      const oldValue = parseLoggedValue(row.oldValueJson);
+      const newValue = parseLoggedValue(row.newValueJson);
+      const actor = { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null };
+      if (row.scope === "master") {
+        if (!(row.field in cabinets)) throw new Error(`Unknown field ${row.field}`);
+        const col = (cabinets as unknown as Record<string, unknown>)[row.field];
+        if (!col) throw new Error(`Unknown field ${row.field}`);
+        const [before] = await db.select().from(cabinets).where(eq(cabinets.id, row.cabinetId)).limit(1);
+        if (!before) throw new Error("Cabinet not found");
+        const restore = row.field.endsWith("At") && typeof oldValue === "string" ? new Date(oldValue) : oldValue;
+        await db
+          .update(cabinets)
+          .set({ [row.field]: restore, configuredAt: new Date() } as Record<string, unknown>)
+          .where(eq(cabinets.id, row.cabinetId));
+        await logCabinetConfigChanges(db, {
+          cabinetId: row.cabinetId,
+          masterCode: row.masterCode,
+          scope: "master",
+          before: { [row.field]: (before as Record<string, unknown>)[row.field] },
+          after: { [row.field]: restore },
+          actor,
+        });
+      } else {
+        if (!row.distributorId) throw new Error("Distributor missing on change");
+        const [current] = await db
+          .select()
+          .from(distributorCabinetOverrides)
+          .where(and(eq(distributorCabinetOverrides.cabinetId, row.cabinetId), eq(distributorCabinetOverrides.distributorId, row.distributorId)))
+          .limit(1);
+        const previous = parseDistributorCabinetConfig(current?.configJson);
+        const merged: Record<string, unknown> = { ...previous };
+        if (oldValue === null || oldValue === undefined) delete merged[row.field];
+        else merged[row.field] = oldValue;
+        const configJson = Object.keys(merged).length > 0 ? JSON.stringify(merged) : null;
+        if (current) {
+          await db
+            .update(distributorCabinetOverrides)
+            .set({ configJson, updatedBy: ctx.user.id })
+            .where(eq(distributorCabinetOverrides.id, current.id));
+        } else if (configJson) {
+          await db
+            .insert(distributorCabinetOverrides)
+            .values({ cabinetId: row.cabinetId, distributorId: row.distributorId, configJson, updatedBy: ctx.user.id });
+        }
+        await logCabinetConfigChanges(db, {
+          cabinetId: row.cabinetId,
+          masterCode: row.masterCode,
+          scope: "distributor",
+          distributorId: row.distributorId,
+          before: { [row.field]: (previous as Record<string, unknown>)[row.field] ?? null },
+          after: { [row.field]: oldValue ?? null },
+          actor,
+        });
+      }
+      await db
+        .update(cabinetConfigChangeLog)
+        .set({ revertedAt: new Date(), revertedBy: ctx.user?.id ?? null })
+        .where(eq(cabinetConfigChangeLog.id, row.id));
+      return { ok: true, field: row.field, restored: oldValue, undone: newValue };
     }),
 });

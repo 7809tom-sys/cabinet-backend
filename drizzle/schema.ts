@@ -2425,6 +2425,28 @@ export type InsertPageContent = typeof pageContent.$inferInsert;
  * admin approves it on the Master Changes page. Approved requests keep the
  * previous values so they can be undone. Prices are never part of a request.
  */
+// ─── Cabinet configuration change log ───────────────────────────────
+// One row per field actually changed by an admin save, for the master row
+// (scope "master", distributorId null) or for one distributor's rule
+// (scope "distributor"). Old/new values are JSON-encoded so any field type
+// can be shown and reverted from the Cabinet Config history panel.
+export const cabinetConfigChangeLog = mysqlTable("cabinet_config_change_log", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  scope: mysqlEnum("scope", ["master", "distributor"]).notNull(),
+  distributorId: int("distributorId"),
+  field: varchar("field", { length: 64 }).notNull(),
+  oldValueJson: text("oldValueJson"),
+  newValueJson: text("newValueJson"),
+  changedBy: int("changedBy"),
+  changedByName: varchar("changedByName", { length: 128 }),
+  revertedAt: timestamp("revertedAt"),
+  revertedBy: int("revertedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CabinetConfigChangeLogRow = typeof cabinetConfigChangeLog.$inferSelect;
+
 export const cabinetMasterChangeRequests = mysqlTable("cabinet_master_change_requests", {
   id: int("id").autoincrement().primaryKey(),
   cabinetId: int("cabinetId").notNull(),

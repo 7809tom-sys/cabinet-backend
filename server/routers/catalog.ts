@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { logCabinetConfigChanges } from "../lib/cabinetConfigHistory";
 import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
@@ -2113,7 +2114,7 @@ export const cabinetsRouter = router({
         masterCode: z.string().min(1).max(64).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const patch: Record<string, unknown> = {};
@@ -2265,9 +2266,23 @@ export const cabinetsRouter = router({
         }
       }
       if (Object.keys(patch).length === 0) return { ok: true };
+      // Snapshot the row before writing so the Cabinet Config history shows
+      // exactly which fields changed (old → new) and can revert them.
+      const [beforeRow] = await db.select().from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
+      if (beforeRow) {
+        const { configuredAt: _skip, ...loggedPatch } = patch;
+        await logCabinetConfigChanges(db, {
+          cabinetId: input.id,
+          masterCode: (patch.masterCode as string | undefined) ?? beforeRow.masterCode,
+          scope: "master",
+          before: beforeRow as unknown as Record<string, unknown>,
+          after: loggedPatch,
+          actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
+        });
+      }
       // Aliases are purely informational cross-references.
       // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
       return { ok: true };
