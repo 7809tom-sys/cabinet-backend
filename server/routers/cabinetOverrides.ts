@@ -8,6 +8,11 @@ import {
   cabinets,
   distributorSkus,
 } from "../../drizzle/schema";
+import {
+  DISTRIBUTOR_OVERRIDE_DIM_KEYS,
+  distributorCabinetConfigSchema,
+  parseDistributorCabinetConfig,
+} from "../lib/distributorCabinetConfig";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -29,6 +34,130 @@ const overrideInput = z.object({
 // ─── Router ──────────────────────────────────────────────────────────────────
 
 export const cabinetOverridesRouter = router({
+  /**
+   * Save a cabinet configuration rule for the SELECTED distributors only.
+   * The master `cabinets` row is never touched here; each ticked distributor
+   * gets (or updates) its own distributor_cabinet_overrides row with the rule
+   * stored in configJson (dimension keys are mirrored into the real columns so
+   * freight/packaging readers keep working). Unticked distributors keep
+   * whatever they had before.
+   */
+  setConfig: adminProcedure
+    .input(
+      z.object({
+        cabinetId: z.number().int().positive(),
+        distributorIds: z.array(z.number().int().positive()).min(1),
+        config: distributorCabinetConfigSchema,
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      const [cab] = await db
+        .select({ id: cabinets.id })
+        .from(cabinets)
+        .where(eq(cabinets.id, input.cabinetId))
+        .limit(1);
+      if (!cab) throw new Error("Cabinet not found");
+      const distributorIds = Array.from(new Set(input.distributorIds));
+      const activeDistributors = await db
+        .select({ id: distributors.id })
+        .from(distributors)
+        .where(inArray(distributors.id, distributorIds));
+      const known = new Set(activeDistributors.map((d) => d.id));
+      const missing = distributorIds.filter((id) => !known.has(id));
+      if (missing.length > 0) throw new Error(`Unknown distributor id(s): ${missing.join(", ")}`);
+      const existing = await db
+        .select({
+          id: distributorCabinetOverrides.id,
+          distributorId: distributorCabinetOverrides.distributorId,
+          configJson: distributorCabinetOverrides.configJson,
+        })
+        .from(distributorCabinetOverrides)
+        .where(
+          and(
+            eq(distributorCabinetOverrides.cabinetId, input.cabinetId),
+            inArray(distributorCabinetOverrides.distributorId, distributorIds),
+          ),
+        );
+      const existingByDistributor = new Map(existing.map((row) => [row.distributorId, row]));
+      const dims: Record<string, string | null> = {};
+      for (const key of DISTRIBUTOR_OVERRIDE_DIM_KEYS) {
+        if (key in input.config && input.config[key] !== undefined) dims[key] = input.config[key] ?? null;
+      }
+      let updated = 0;
+      let created = 0;
+      for (const distributorId of distributorIds) {
+        const current = existingByDistributor.get(distributorId);
+        // Merge with the distributor's previous rule so a partial save does not
+        // silently drop keys saved earlier for that same distributor.
+        const merged = { ...parseDistributorCabinetConfig(current?.configJson), ...input.config };
+        const payload = {
+          distributorId,
+          cabinetId: input.cabinetId,
+          configJson: JSON.stringify(merged),
+          updatedBy: ctx.user.id,
+          ...dims,
+        };
+        if (current) {
+          await db
+            .update(distributorCabinetOverrides)
+            .set(payload)
+            .where(eq(distributorCabinetOverrides.id, current.id));
+          updated += 1;
+        } else {
+          await db.insert(distributorCabinetOverrides).values(payload);
+          created += 1;
+        }
+      }
+      return { success: true, distributorIds, updated, created };
+    }),
+  /**
+   * Per-distributor configuration rules stored for one cabinet (parsed).
+   */
+  configForCabinet: adminProcedure
+    .input(z.object({ cabinetId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const rows = await db
+        .select({
+          distributorId: distributorCabinetOverrides.distributorId,
+          distributorName: distributors.name,
+          configJson: distributorCabinetOverrides.configJson,
+          updatedAt: distributorCabinetOverrides.updatedAt,
+        })
+        .from(distributorCabinetOverrides)
+        .innerJoin(distributors, eq(distributors.id, distributorCabinetOverrides.distributorId))
+        .where(eq(distributorCabinetOverrides.cabinetId, input.cabinetId));
+      return rows
+        .filter((row) => row.configJson)
+        .map((row) => ({
+          distributorId: row.distributorId,
+          distributorName: row.distributorName,
+          config: parseDistributorCabinetConfig(row.configJson),
+          updatedAt: row.updatedAt,
+        }));
+    }),
+  /**
+   * Remove a distributor's configuration rule (keeps its dimension/image overrides).
+   */
+  clearConfig: adminProcedure
+    .input(z.object({ cabinetId: z.number().int().positive(), distributorId: z.number().int().positive() }))
+    .mutation(async ({ input, ctx }) => {
+      const db = await getDb();
+      if (!db) throw new Error("DB unavailable");
+      await db
+        .update(distributorCabinetOverrides)
+        .set({ configJson: null, updatedBy: ctx.user.id })
+        .where(
+          and(
+            eq(distributorCabinetOverrides.cabinetId, input.cabinetId),
+            eq(distributorCabinetOverrides.distributorId, input.distributorId),
+          ),
+        );
+      return { success: true };
+    }),
   /**
    * Get all overrides for a specific cabinet (across all distributors).
    * Used in the Generic Catalog admin panel to show per-distributor overrides.

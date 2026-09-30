@@ -881,6 +881,43 @@ function EditModal({
     onError: (e) => toast.error(`Save failed: ${e.message}`),
   });
 
+  // ── Save scope: per-distributor rule (immediate) or master change request (pending approval)
+  const [scopeOpen, setScopeOpen] = useState(false);
+  const [scopeDistributorIds, setScopeDistributorIds] = useState<number[]>([]);
+  const { data: existingDistributorRules } = trpc.cabinetOverrides.configForCabinet.useQuery(
+    { cabinetId: row.id },
+    { enabled: scopeOpen },
+  );
+  const setDistributorConfigMutation = trpc.cabinetOverrides.setConfig.useMutation({
+    onSuccess: (result) => {
+      utils.cabinetOverrides.configForCabinet.invalidate({ cabinetId: row.id });
+      utils.design.placeableCabinets.invalidate();
+      toast.success(
+        `Rule saved for ${result.distributorIds.length} distributor${result.distributorIds.length === 1 ? "" : "s"} only. Master unchanged.`,
+      );
+      setScopeOpen(false);
+      setDraft({});
+      onClose();
+    },
+    onError: (e) => toast.error(`Distributor save failed: ${e.message}`),
+  });
+  const submitMasterChangeMutation = trpc.masterChanges.submit.useMutation({
+    onSuccess: (result) => {
+      utils.masterChanges.list.invalidate();
+      utils.masterChanges.counts.invalidate();
+      if (result.requestId == null) {
+        toast.info(result.message ?? "No master field changed.");
+      } else {
+        toast.success(
+          `Master change request #${result.requestId} filed (${result.changes} field${result.changes === 1 ? "" : "s"}). The current master stays live until it is approved on the Master Changes tab.`,
+        );
+      }
+      setScopeOpen(false);
+      setDraft({});
+      onClose();
+    },
+    onError: (e) => toast.error(`Could not file master change: ${e.message}`),
+  });
   const removeDistributorMutation = trpc.cabinets.adminRemoveCabinetDistributor.useMutation({
     onSuccess: (result) => {
       utils.cabinets.getDistributorsForCabinet.invalidate({ cabinetId: row.id });
@@ -992,16 +1029,11 @@ function EditModal({
     e.target.value = "";
   };
 
-  const handleSave = () => {
-    if (Object.keys(draft).length === 0) { onClose(); return; }
+  // Helper: convert empty strings to null for decimal DB columns
+  const strOrNull = (v: string | null | undefined): string | null => (v && v.trim() ? v.trim() : null);
+  const buildMasterPayload = () => {
     const requestedMasterCode = (merged.masterCode ?? "").trim().toUpperCase();
-    if (!requestedMasterCode) {
-      toast.error("A master code is required. Add an alias instead if this is an alternate code.");
-      return;
-    }
-    // Helper: convert empty strings to null for decimal DB columns
-    const strOrNull = (v: string | null | undefined): string | null => (v && v.trim() ? v.trim() : null);
-    updateMutation.mutate({
+    return {
       id: row.id,
       masterCode: requestedMasterCode === (row.masterCode ?? "").trim().toUpperCase() ? undefined : requestedMasterCode,
       description: merged.description ?? undefined,
@@ -1051,10 +1083,77 @@ function EditModal({
       layoutSpec: merged.layoutSpec ?? null,
       specImageUrl: merged.specImageUrl ?? null,
       specNotes: merged.specNotes ?? null,
+    };
+  };
+  /** Configuration-only fields (no master code, visibility, alt SKUs or prices). */
+  const buildConfigRule = () => {
+    const full = buildMasterPayload() as Record<string, unknown>;
+    const keys = [
+      "description","category","subCategory","width","height","depth","physicalWidth","weight",
+      "pkgLength","pkgWidth","pkgHeight","pkgWeight","numberOfDoors","numberOfDrawers","numberOfFixedShelves",
+      "numberOfAdjShelves","minPull","maxPull","openingWidth","openingHeight","openingType","doorHeight","drawerHeight",
+      "cornerType","shelfRadius","shelfCount","cabinetSquare","faceWidth","legWidth","doorOrientation","doorsPerRow",
+      "drawerLayout","grainDirection","isDecorativeDoor","layoutSpec","specImageUrl","specNotes",
+    ] as const;
+    const rule: Record<string, unknown> = {};
+    for (const key of keys) {
+      // Only fields the admin actually touched in this session
+      if (!(key in draft)) continue;
+      const value = full[key];
+      if (value === undefined) continue;
+      rule[key] = value;
+    }
+    return rule;
+  };
+  const configTouched = Object.keys(buildConfigRule()).length > 0;
+  const nonConfigTouched = Object.keys(draft).some((k) =>
+    ["masterCode","altSku1","altSku2","altSku3","showInCatalog","showInDesigner","showIn2020","isActive","isNotCabinet","catalogImageUrl","configVerified"].includes(k),
+  );
+  const handleSave = () => {
+    if (Object.keys(draft).length === 0) { onClose(); return; }
+    const requestedMasterCode = (merged.masterCode ?? "").trim().toUpperCase();
+    if (!requestedMasterCode) {
+      toast.error("A master code is required. Add an alias instead if this is an alternate code.");
+      return;
+    }
+    if (!configTouched && nonConfigTouched) {
+      // Housekeeping-only edits (visibility, alt SKUs, image, verification, code rename)
+      // are not cabinet rules; they still save directly to the master row.
+      updateMutation.mutate(buildMasterPayload());
+      return;
+    }
+    setScopeDistributorIds([]);
+    setScopeOpen(true);
+  };
+  const handleSaveForDistributors = () => {
+    if (scopeDistributorIds.length === 0) {
+      toast.error("Tick at least one distributor, or request a master change.");
+      return;
+    }
+    if (nonConfigTouched) {
+      // Non-rule housekeeping still goes to the master row (it has no per-distributor form).
+      const full = buildMasterPayload() as Record<string, unknown>;
+      const housekeeping: Record<string, unknown> = { id: row.id };
+      for (const k of ["masterCode","altSku1","altSku2","altSku3","showInCatalog","showInDesigner","showIn2020","isActive","isNotCabinet","catalogImageUrl","configVerified"]) {
+        if (k in draft) housekeeping[k] = full[k];
+      }
+      updateMutation.mutate(housekeeping as never);
+    }
+    setDistributorConfigMutation.mutate({
+      cabinetId: row.id,
+      distributorIds: scopeDistributorIds,
+      config: buildConfigRule() as never,
+    });
+  };
+  const handleRequestMasterChange = () => {
+    submitMasterChangeMutation.mutate({
+      cabinetId: row.id,
+      sourceDistributorId: scopeDistributorIds.length === 1 ? scopeDistributorIds[0] : null,
+      proposed: buildConfigRule() as never,
     });
   };
 
-  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending || removeDistributorMutation.isPending;
+  const busy = uploading || generating || updateMutation.isPending || estimateMutation.isPending || removeDistributorMutation.isPending || setDistributorConfigMutation.isPending || submitMasterChangeMutation.isPending;
   const depthVal = merged.depth ? String(parseFloat(merged.depth)) : "";
   const isStandardDepth = STANDARD_DEPTHS.includes(depthVal);
 
@@ -2018,6 +2117,79 @@ function EditModal({
         </DialogFooter>
 
         <input ref={fileRef} type="file" accept="image/*" className="sr-only" onChange={handleFile} />
+        <Dialog open={scopeOpen} onOpenChange={(open) => { if (!open) setScopeOpen(false); }}>
+          <DialogContent className="max-w-lg" data-testid="cabinet-config-save-scope">
+            <DialogHeader>
+              <DialogTitle>Who gets this rule for {row.masterCode}?</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Tick the distributors this configuration applies to. Only those lines change; every other
+                distributor and the master keep their current values.
+              </p>
+              <div className="max-h-56 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
+                {distributorsForCabinet && distributorsForCabinet.length > 0 ? (
+                  distributorsForCabinet.map((dist) => {
+                    const checked = scopeDistributorIds.includes(dist.id);
+                    const hasRule = existingDistributorRules?.some((r) => r.distributorId === dist.id);
+                    return (
+                      <label key={dist.id} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-muted/60">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(v) =>
+                            setScopeDistributorIds((ids) => (v ? Array.from(new Set([...ids, dist.id])) : ids.filter((id) => id !== dist.id)))
+                          }
+                          aria-label={`Apply rule to ${dist.name}`}
+                        />
+                        <span className="min-w-0 flex-1 truncate">{dist.name}</span>
+                        {hasRule && <Badge variant="outline" className="text-[10px]">has own rule</Badge>}
+                      </label>
+                    );
+                  })
+                ) : (
+                  <p className="px-1.5 py-1 text-xs text-muted-foreground">No distributor carries this cabinet yet.</p>
+                )}
+              </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <Button type="button" size="sm" variant="ghost" onClick={() => setScopeDistributorIds((distributorsForCabinet ?? []).map((d) => d.id))}>
+                  Select all
+                </Button>
+                <Button type="button" size="sm" variant="ghost" onClick={() => setScopeDistributorIds([])}>
+                  Clear
+                </Button>
+              </div>
+              <div className="rounded-md border border-amber-300/60 bg-amber-50 p-2.5 text-xs text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                <strong>Master change?</strong> Changing the master affects every distributor, so it is not applied
+                right away. It files a request on the <em>Master Changes</em> tab for approval; the current master
+                stays live everywhere until then.
+              </div>
+            </div>
+            <DialogFooter className="flex-row flex-wrap justify-end gap-2">
+              <Button variant="outline" onClick={() => setScopeOpen(false)} disabled={busy}>
+                Back
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={handleRequestMasterChange}
+                disabled={busy}
+                data-testid="cabinet-config-request-master"
+              >
+                {submitMasterChangeMutation.isPending ? <Spinner className="h-4 w-4" /> : "Request master change"}
+              </Button>
+              <Button
+                onClick={handleSaveForDistributors}
+                disabled={busy || scopeDistributorIds.length === 0}
+                data-testid="cabinet-config-save-distributors"
+              >
+                {setDistributorConfigMutation.isPending ? (
+                  <Spinner className="h-4 w-4" />
+                ) : (
+                  `Save for ${scopeDistributorIds.length || ""} selected distributor${scopeDistributorIds.length === 1 ? "" : "s"}`
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </DialogContent>
     </Dialog>
 

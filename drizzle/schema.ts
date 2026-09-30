@@ -2418,6 +2418,39 @@ export type InsertPageContent = typeof pageContent.$inferInsert;
 // Per-distributor dimension/spec overrides on top of the master cabinet record.
 // e.g. Skyline's BBC36 has a different physical width than the master.
 // null fields = use master value; non-null = use this override for that distributor.
+/**
+ * Pending / reviewed requests to change a MASTER cabinet configuration.
+ * "Save as master" in Cabinet Config no longer edits `cabinets` directly; it
+ * files a request here. The old master value stays live everywhere until an
+ * admin approves it on the Master Changes page. Approved requests keep the
+ * previous values so they can be undone. Prices are never part of a request.
+ */
+export const cabinetMasterChangeRequests = mysqlTable("cabinet_master_change_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  // Distributor context the admin was working in when submitting (null = none)
+  sourceDistributorId: int("sourceDistributorId"),
+  submittedBy: int("submittedBy").notNull(),
+  submittedByName: varchar("submittedByName", { length: 191 }),
+  status: mysqlEnum("status", ["pending", "approved", "applied_to_distributor", "rejected", "undone"]).default("pending").notNull(),
+  // JSON array of { field, currentValue, proposedValue } captured at submission
+  changesJson: text("changesJson").notNull(),
+  // JSON object of the master values replaced at approval (for Undo)
+  previousValuesJson: text("previousValuesJson"),
+  // JSON object of the values actually applied (after optional edit)
+  appliedValuesJson: text("appliedValuesJson"),
+  appliedDistributorId: int("appliedDistributorId"),
+  reviewNote: text("reviewNote"),
+  reviewedBy: int("reviewedBy"),
+  reviewedByName: varchar("reviewedByName", { length: 191 }),
+  reviewedAt: timestamp("reviewedAt"),
+  undoneBy: int("undoneBy"),
+  undoneAt: timestamp("undoneAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export const distributorCabinetOverrides = mysqlTable(
   "distributor_cabinet_overrides",
   {
@@ -2435,6 +2468,10 @@ export const distributorCabinetOverrides = mysqlTable(
     pkgHeight: decimal("pkgHeight", { precision: 6, scale: 2 }),
     pkgWeight: decimal("pkgWeight", { precision: 8, scale: 2 }),
     imageUrl: varchar("imageUrl", { length: 1024 }),  // line-specific catalog image override
+    // Per-distributor cabinet configuration rule (doors/drawers/shelves, corner type,
+    // layout spec, opening, spec notes...). Saved from Cabinet Config "Save for
+    // selected distributors". null = use the master cabinet's configuration.
+    configJson: text("configJson"),
     note: text("note"),
     updatedBy: int("updatedBy"),
     updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

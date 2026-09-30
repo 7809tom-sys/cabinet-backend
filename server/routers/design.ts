@@ -4,7 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
-import { cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders } from "../../drizzle/schema";
+import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -22,6 +22,7 @@ import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacy
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
+import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import {
   relevantCategories,
@@ -301,6 +302,37 @@ export const designRouter = router({
       for (const { source, master } of resolveCanonicalCatalogSources(sourceRows, aliases, masterRows)) {
         if (!byCanonicalId.has(master.id)) {
           byCanonicalId.set(master.id, { ...master, glassIncluded: Boolean(source.glassIncluded) });
+        }
+      }
+      // Per-distributor configuration rules: when the palette is scoped to one
+      // supply line (directly or through the chosen door style), apply that
+      // distributor's saved Cabinet Config rule over the shared master row.
+      // Other distributors are untouched because their rows are not loaded.
+      let scopedDistributorId: number | null = input?.distributorId ?? null;
+      if (!scopedDistributorId && input?.styleId) {
+        const [style] = await db
+          .select({ distributorId: doorStyles.distributorId })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.styleId))
+          .limit(1);
+        scopedDistributorId = style?.distributorId ?? null;
+      }
+      if (scopedDistributorId && byCanonicalId.size > 0) {
+        const configRows = await db
+          .select({
+            cabinetId: distributorCabinetOverrides.cabinetId,
+            configJson: distributorCabinetOverrides.configJson,
+          })
+          .from(distributorCabinetOverrides)
+          .where(and(
+            eq(distributorCabinetOverrides.distributorId, scopedDistributorId),
+            inArray(distributorCabinetOverrides.cabinetId, Array.from(byCanonicalId.keys())),
+            sql`${distributorCabinetOverrides.configJson} IS NOT NULL`,
+          ));
+        for (const row of configRows) {
+          const master = byCanonicalId.get(row.cabinetId);
+          if (!master) continue;
+          byCanonicalId.set(row.cabinetId, applyDistributorCabinetConfig(master, parseDistributorCabinetConfig(row.configJson)));
         }
       }
       const availableRows = Array.from(byCanonicalId.values());

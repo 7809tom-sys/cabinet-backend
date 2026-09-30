@@ -1,0 +1,27 @@
+# Per-distributor Cabinet Config save (user 10:40, 2026-09-30)
+
+User: "on cabinet config, when you save, you get an option to save for each distributor, not as a total master. So you have to select each distributor you want to apply that rule for whatever cabinet that is. And only that."
+
+## Facts
+- Dialog: client/src/components/admin/CabinetConfigAdmin.tsx (2589 lines). Edit dialog component ~line 818 (`row`, `open`, `onClose`, `onSaved`), `draft` state, `handleSave` ~995 → `trpc.cabinets.adminUpdateCabinet` (server/routers/catalog.ts:2034, writes master `cabinets` row). Footer Save button ~2015. Existing per-distributor pattern: `trpc.cabinetOverrides.setImage` with scope "line"|"global" (~910).
+- `distributorsForCabinet` = `trpc.cabinets.getDistributorsForCabinet.useQuery({cabinetId: row.id})` (id, name) already in dialog.
+- Table `distributor_cabinet_overrides` (drizzle/schema.ts ~2421): unique(distributorId,cabinetId); dims width/height/depth/physicalWidth/weight/pkg*, imageUrl, note. **Added `configJson` text** (schema + drizzle/0165_curly_lethal_legion.sql, applied via webdev_execute_sql 10:45 ✔).
+- Router server/routers/cabinetOverrides.ts: `set` upserts dims (overrideInput zod ~line 12), `forCabinet`, `forDistributor`, `setImage`, `delete`, `bulkApply`.
+- Read side: server/routers/design.ts `placeableCabinets` (line 210) accepts `distributorId?`/`styleId?`; builds `masterRows` from `cabinets` (~257-297) then `byCanonicalId` (~299-305) → `availableRows`. Need: when distributorId (or styleId→doorStyles.distributorId) is known, left-join/merge `configJson` + dims override onto the master row before availableRows. doorStyles has `distributorId` column.
+- Only 3 active distributors: 180001 Skyline Cabinetry, 210001 Ashford, 210002 Madison. 683 cabinets, one row per masterCode (shared across distributors) → master edits hit all distributors today.
+
+## Plan
+1. cabinetOverrides router: `setConfig` mutation {cabinetId, distributorIds[], config: {...same config fields as adminUpdateCabinet minus id/masterCode/visibility flags}} → upsert configJson (+ dims columns width/height/depth/physicalWidth/weight/pkg* when present) for each selected distributor only. Also `configForCabinet` query returning per-distributor configJson.
+2. Shared helper server/lib/distributorCabinetConfig.ts: `applyDistributorCabinetConfig(masterRow, override)` merging parsed configJson keys over master (only defined non-null keys). Use in design.placeableCabinets (and catalog cabinet detail if distributor known).
+3. Dialog: Save button → popover/step "Save for which distributors?" listing distributorsForCabinet with checkboxes (none preselected) + "Apply to master (all distributors)" as explicit separate option. Selected-distributors path calls setConfig; master path calls existing adminUpdateCabinet.
+4. Tests: server test for setConfig upsert + placeableCabinets merge (per distributor only; other distributor untouched). UI test file exists: CabinetConfigAdmin.viewport.test.tsx.
+5. Validate: vitest focused, pnpm run check, build, diff --check; ledger append; checkpoint.
+
+## Item 6 (user 10:49): Master Changes approval page
+- Table `cabinet_master_change_requests` added (schema + drizzle/0166_left_skin.sql, applied 10:51 ✔). Fields: cabinetId, masterCode, sourceDistributorId, submittedBy/Name, status(pending|approved|applied_to_distributor|rejected|undone), changesJson [{field,currentValue,proposedValue}], previousValuesJson, appliedValuesJson, appliedDistributorId, reviewNote, reviewedBy/Name/At, undoneBy/At.
+- New router server/routers/masterChanges.ts: submit, list(status), approve(id, editedValues?), applyToDistributor(id, distributorId), reject(id,note), undo(id). approve/undo re-use cabinets.adminUpdateCabinet via createCaller (same validation), never price fields.
+- Fit warnings per affected distributor: glass (glassDoorAddonCode set / "glass" in description) on distributor.glassIncluded=false; distributor already has own configJson for the field (rule would be masked).
+- "5-day revert list from step 2": no such list exists in the codebase (grep found nothing) → history tab shows "Undo window: last 5 days" filter; flag assumption to user.
+- UI: client/src/components/admin/MasterChangesAdmin.tsx, tab "master-changes" in AdminGroupedTabs (Catalog group). CabinetConfig dialog Save → scope picker: distributors checkboxes (setConfig) OR "Request master change" (masterChanges.submit).
+- 10:59 state: router server/routers/masterChanges.ts registered as `masterChanges`; dialog patched via /tmp/patch_cc_dialog.py (Save → scope picker: "Save for N selected distributors" = cabinetOverrides.setConfig; "Request master change" = masterChanges.submit; housekeeping-only edits [visibility/altSku/image/code/verify] still save directly); page client/src/components/admin/MasterChangesAdmin.tsx, tab "master-changes" (label "✔ Master Changes") in AdminGroupedTabs Catalog group. User 10:53: master change is the priority. Remaining: tsc, tests (server/lib unit + router smoke), build, browser check on /admin tab, ledger, checkpoint.
+- 11:05: tsc clean, build OK, server/masterChanges.test.ts 7/7 pass (self-cleaning). Master Changes tab renders at /admin → Products & Catalog → "✔ Master Changes" (screenshot /tmp/mc-tab-empty.png). Browser check script /tmp/master_changes_check.py (local admin cookie app_session_id from /tmp/local-admin-session.txt, owner openId, 1h expiry, local only). Remaining: fix B12 row selector in script, run, ledger, checkpoint.
