@@ -3762,7 +3762,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
   });
 
-	  it("keeps a short WR3624 at the fixed 72-inch refrigerator datum beside an adjoining wall-cabinet run", () => {
+	  it("keeps a short WR3624 two inches above the selected refrigerator beside an adjoining wall-cabinet run", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const adjoining = cab({ uid: "left-wall", masterCode: "W-1242", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 42, mountBottom: 54 });
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 68 });
@@ -3772,8 +3772,8 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
     const upperBox = elevationBox(normalizedUpper, room);
 
-	    expect(normalizedUpper.mountBottom).toBe(72);
-	    expect(upperBox).toEqual({ bottom: 72, height: 24 });
+	    expect(normalizedUpper.mountBottom).toBe(70);
+	    expect(upperBox).toEqual({ bottom: 70, height: 24 });
   });
 
   it("does not pull a refrigerator upper above its 72-inch datum for a taller adjoining wall cabinet", () => {

@@ -127,23 +127,33 @@ describe("Design Tool refrigerator assembly transactions", () => {
 	    expect(source).not.toContain("refrigeratorPanelRepairAttemptedRef");
 	  });
 
-	  it("moves a refrigerator independently from separately selected attributes", () => {
+	  it("moves a refrigerator with its cabinet-above and selected panels on every shared interaction path", () => {
 	    const moveStart = source.indexOf("const moveCabinet = useCallback");
 	    const moveEnd = source.indexOf("const swingSelected", moveStart);
 	    const nudgeStart = source.indexOf("const nudgeSelected = useCallback");
 	    const nudgeEnd = source.indexOf("// Raise/lower the selected WALL cabinet", nudgeStart);
 	    const dpadStart = source.indexOf("const moveCabinetFrom3D = useCallback");
 	    const dpadEnd = source.indexOf("// Clear the override", dpadStart);
-	    expect(source.slice(moveStart, moveEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
-	    expect(source.slice(nudgeStart, nudgeEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
-	    expect(source.slice(dpadStart, dpadEnd)).not.toContain("commitRefrigeratorAssemblyCandidate");
+	    expect(source.slice(moveStart, moveEnd)).toContain("commitRefrigeratorAssemblyCandidate(workingPrev, uid, movedCabinet, room)");
+	    expect(source.slice(nudgeStart, nudgeEnd)).toContain("moveCabinet(");
+	    expect(source.slice(dpadStart, dpadEnd)).toContain("commitRefrigeratorAssemblyCandidate(placedWithoutLinkedFiller, uid, candidate, room)");
 	    expect(source.slice(dpadStart, dpadEnd)).toContain("commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate)");
 	  });
 
-	  it("deletes only the refrigerator without a grouped-bay dialog", () => {
+	  it("asks whether to delete only the refrigerator or the complete bay", () => {
 	    const deletion = sourceBetween("const requestCabinetDeletion = useCallback", "const unlockCornerSnap");
-	    expect(deletion).toContain("removeCabinetAndReleaseVoid(uid)");
-	    expect(source).not.toContain("refrigeratorBayDeletePrompt");
-	    expect(source).not.toContain("Delete the complete refrigerator bay?");
+	    expect(deletion).toContain("setRefrigeratorDeletePrompt({ refrigeratorUid: uid, memberUids })");
+	    expect(source).toContain('data-testid="refrigerator-delete-dialog"');
+	    expect(source).toContain("Remove refrigerator only");
+	    expect(source).toContain("Remove complete bay");
+	  });
+
+	  it("reopens the same refrigerator options dialog when a placed refrigerator is clicked", () => {
+	    const selection = sourceBetween("const selectCabinet = useCallback", "const selectSink = useCallback");
+	    const editor = sourceBetween("const openAttributes = useCallback", "const openMobileAttributes = useCallback");
+	    expect(selection).toContain("isRefrigerator(cabinet)");
+	    expect(selection).toContain("setFridgeDialog({ fridgeUid: cabinet.uid })");
+	    expect(editor).toContain("setFridgeDialog({ fridgeUid: uid })");
+	    expect(source).toContain("initialChoice={fridgeDialogInitialChoice}");
 	  });
 });

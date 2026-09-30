@@ -104,7 +104,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
-	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, refrigeratorBayRunMetrics, isMicrowaveOverRangePair,
+	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorAssemblyMemberRole, refrigeratorAssemblyMembers, refrigeratorBayRunMetrics, commitRefrigeratorAssemblyCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, fitRefrigeratorEnclosurePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -6478,6 +6478,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // an optional smooth refrigerator PANEL. Everything is placed flush to the
   // dropped fridge's footprint and is fully movable/deletable afterward.
 	  const [fridgeDialog, setFridgeDialog] = useState<{ fridgeUid: string; replaceCabinetUid?: string } | null>(null);
+	  const [refrigeratorDeletePrompt, setRefrigeratorDeletePrompt] = useState<{ refrigeratorUid: string; memberUids: string[] } | null>(null);
 	  // Refrigerator choices are explicit: the attributes dialog supplies optional
 	  // source-backed panels or an upper cabinet only after the user chooses them.
   // Oven type dialog: opens when an oven tall cabinet (O-code) is placed.
@@ -6577,10 +6578,35 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPotFillerDialog(null);
     toast.success(`${product.name} attached to ${potFillerRange.masterCode || "the range"}.`);
   }, [potFillerDialog, potFillerRange, room, setSelectedSurfaces]);
-  const fridgeForDialog = useMemo(
-    () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
-    [fridgeDialog, placed]
-  );
+	  const fridgeForDialog = useMemo(
+	    () => (fridgeDialog ? placed.find((p) => p.uid === fridgeDialog.fridgeUid) ?? null : null),
+	    [fridgeDialog, placed]
+	  );
+	  const fridgeDialogInitialChoice = useMemo(() => {
+	    if (!fridgeForDialog) return null;
+	    const members = refrigeratorAssemblyMembers(placed, fridgeForDialog, room);
+	    const bridge = members.find(({ role }) => role === "bridge")?.member ?? null;
+	    const panel = members.find(({ role }) => role === "left-panel" || role === "right-panel")?.member ?? null;
+	    const installedRoles = new Set(members.map(({ role }) => role));
+	    const panels = fridgeForDialog.refrigeratorPanelMode
+	      ?? (installedRoles.has("left-panel") && installedRoles.has("right-panel")
+	        ? "both"
+	        : installedRoles.has("left-panel") ? "left" : installedRoles.has("right-panel") ? "right" : "none");
+	    return {
+	      above: bridge ? "bridge" as const : "none" as const,
+	      bridgeCabinetId: bridge?.cabinetId ?? null,
+	      bridgeWidth: bridge ? wallRunSpan(bridge, cabinetWall(bridge, room), room) : null,
+	      bridgeHeight: bridge?.height ?? null,
+	      bridgeDepth: bridge?.depth ?? null,
+	      panels,
+	      endPanelId: panel?.cabinetId ?? null,
+	      panelDepth: panel?.depth ?? null,
+	      panelHeight: panel?.height ?? null,
+	      fridgeWidth: wallRunSpan(fridgeForDialog, cabinetWall(fridgeForDialog, room), room),
+	      fridgeHeight: fridgeForDialog.height,
+	      fridgeDepth: fridgeForDialog.depth,
+	    };
+	  }, [fridgeForDialog, placed, room]);
   const refrigeratorCabinetToReplace = useMemo(
     () => (fridgeDialog?.replaceCabinetUid ? placed.find((p) => p.uid === fridgeDialog.replaceCabinetUid) ?? null : null),
     [fridgeDialog?.replaceCabinetUid, placed],
@@ -7410,11 +7436,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Delete / Rotate controls act on. Without this, tapping a sink left the
   // cabinet selection (selectedUid) untouched and the Delete button — which was
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
-	  const selectCabinet = useCallback((uid: string | null) => {
-	    setSelectedUid(uid);
-		    if (uid) {
-		      const cabinet = placed.find((candidate) => candidate.uid === uid);
-		      if (cabinet && island && isOnIsland(cabinet, island)) {
+		  const selectCabinet = useCallback((uid: string | null) => {
+		    setSelectedUid(uid);
+			    if (uid) {
+			      const cabinet = placed.find((candidate) => candidate.uid === uid);
+			      if (cabinet && isRefrigerator(cabinet)) {
+			        setFridgeDialog({ fridgeUid: cabinet.uid });
+			      }
+			      if (cabinet && island && isOnIsland(cabinet, island)) {
 		        const face = inferredIslandFace(cabinet, island);
 		        setPlacementTarget("island", face);
 	      } else if (cabinet) {
@@ -7934,7 +7963,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        y,
 		        ...(rotation != null ? { rotation } : {}),
 		      };
-	      const peers = workingPrev.filter((p) => p.uid !== uid);
+		      const refrigeratorMemberUids = isRefrigerator(cabinet)
+		        ? new Set(refrigeratorAssemblyMembers(workingPrev, cabinet, room).map(({ member }) => member.uid))
+		        : new Set<string>();
+		      const peers = workingPrev.filter((p) => p.uid !== uid && !refrigeratorMemberUids.has(p.uid));
 	      const magnet = automaticSnapping && !customPlacementMode && !exactWallDrag;
 	      const wallMove = requestedBody.islandFace
 	        ? null
@@ -8002,7 +8034,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           }));
         }
       }
-		      let nextPlaced = workingPrev.map((p) => (p.uid === uid ? movedCabinet : p));
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitRefrigeratorAssemblyCandidate(workingPrev, uid, movedCabinet, room)
+		        : workingPrev.map((p) => (p.uid === uid ? movedCabinet : p));
+		      if (!nextPlaced) {
+		        const message = `${cabinet.masterCode} was not moved because its cabinet-above and selected panels would no longer fit as one enclosure.`;
+		        setPlacementWarning(message);
+		        toast.error(message);
+		        return prev;
+		      }
 	      if (isBlindCorner(movedCabinet.masterCode, movedCabinet.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          movedCabinet,
@@ -8032,7 +8072,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      placedRef.current = nextPlaced;
 	      return nextPlaced;
 	    });
-	  }, [catalogFillers, setSinks, room, island, openings, customPlacementMode, automaticSnapping]);
+			  }, [catalogFillers, setSinks, room, island, openings, customPlacementMode, automaticSnapping]);
 
 			  const moveCabinetToFrom3D = useCallback((uid: string, x: number, y: number, preview: CabinetWallDragPreview) => {
 		    const movingBlindCorner = placedRef.current.some((item) => item.uid === uid && isBlindCorner(item.masterCode, item.description));
@@ -8100,9 +8140,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     );
   };
 
-  const rotateSelected = () => {
-    if (!selectedUid) return;
-    setPlaced((prev) =>
+		  const rotateSelected = () => {
+		    if (!selectedUid) return;
+		    const selected = placedRef.current.find((cabinet) => cabinet.uid === selectedUid);
+		    if (selected && isRefrigerator(selected)) {
+		      toast.info("A refrigerator bay stays perpendicular to its wall. Use Move to reposition the refrigerator, cabinet above, and selected panels together.");
+		      return;
+		    }
+		    setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
         const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
@@ -8168,12 +8213,32 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    removeCabinetsAndReleaseVoid([uid]);
 	  }, [removeCabinetsAndReleaseVoid]);
 
-	  const requestCabinetDeletion = useCallback((uid: string) => {
-	    // A refrigerator and every option selected in its attributes dialog remain
-	    // separate design items. Deleting the appliance must not create a surprise
-	    // grouped action or remove the user's separately selected cabinet choices.
-	    removeCabinetAndReleaseVoid(uid);
-	  }, [removeCabinetAndReleaseVoid]);
+		  const requestCabinetDeletion = useCallback((uid: string) => {
+		    const refrigerator = placedRef.current.find((cabinet) => cabinet.uid === uid);
+		    if (refrigerator && isRefrigerator(refrigerator)) {
+		      const memberUids = refrigeratorAssemblyMembers(placedRef.current, refrigerator, room)
+		        .map(({ member }) => member.uid);
+		      if (memberUids.length > 0) {
+		        setRefrigeratorDeletePrompt({ refrigeratorUid: uid, memberUids });
+		        return;
+		      }
+		    }
+		    removeCabinetAndReleaseVoid(uid);
+		  }, [removeCabinetAndReleaseVoid, room]);
+
+		  const removeRefrigeratorOnly = useCallback(() => {
+		    const prompt = refrigeratorDeletePrompt;
+		    if (!prompt) return;
+		    setRefrigeratorDeletePrompt(null);
+		    removeCabinetAndReleaseVoid(prompt.refrigeratorUid);
+		  }, [refrigeratorDeletePrompt, removeCabinetAndReleaseVoid]);
+
+		  const removeCompleteRefrigeratorAssembly = useCallback(() => {
+		    const prompt = refrigeratorDeletePrompt;
+		    if (!prompt) return;
+		    setRefrigeratorDeletePrompt(null);
+		    removeCabinetsAndReleaseVoid([prompt.refrigeratorUid, ...prompt.memberUids]);
+		  }, [refrigeratorDeletePrompt, removeCabinetsAndReleaseVoid]);
 
   const unlockCornerSnap = useCallback((uid: string) => {
     if (cabinetsLocked) {
@@ -8300,16 +8365,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      return { status: "blocked", message };
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
-	    const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
-	    const placedWithoutLinkedFiller = prev.filter(
-	      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
-	    );
-	    const peersWithoutLinkedFiller = prev.filter(
-	      (item) => item.uid !== uid && item.fillerPieceGroupId !== requiredFillerGroupId,
-	    );
+		    const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
+		    const refrigeratorMemberUids = isRefrigerator(cabinet)
+		      ? new Set(refrigeratorAssemblyMembers(prev, cabinet, room).map(({ member }) => member.uid))
+		      : new Set<string>();
+		    const placedWithoutLinkedFiller = prev.filter(
+		      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
+		    );
+		    const peersWithoutLinkedFiller = prev.filter(
+		      (item) => item.uid !== uid && item.fillerPieceGroupId !== requiredFillerGroupId && !refrigeratorMemberUids.has(item.uid),
+		    );
 		    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
-		      let nextPlaced = commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
-	      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitRefrigeratorAssemblyCandidate(placedWithoutLinkedFiller, uid, candidate, room)
+		        : commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
+		      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
 	      if (isBlindCorner(candidate.masterCode, candidate.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          candidate,
@@ -8534,6 +8604,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    return true;
 	  }, [placed]);
 	  const openAttributes = useCallback((uid: string) => {
+	    const refrigerator = placedRef.current.find((cabinet) => cabinet.uid === uid);
+	    if (refrigerator && isRefrigerator(refrigerator)) {
+	      setSelectedUid(uid);
+	      setFridgeDialog({ fridgeUid: uid });
+	      return;
+	    }
 	    if (openFloatingShelfAttributes(uid)) return;
 	    if (openFillerAttributes(uid)) return;
     setSelectedUid(uid);
@@ -9247,8 +9323,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           toast.error(message);
           return prev;
         }
-        setPlacementWarning(null);
-        return prev.map((cabinet) => cabinet.uid === selectedUid ? candidate : cabinet);
+		        const nextPlaced = isRefrigerator(selected)
+		          ? commitRefrigeratorAssemblyCandidate(prev, selectedUid, candidate, room)
+		          : prev.map((cabinet) => cabinet.uid === selectedUid ? candidate : cabinet);
+		        if (!nextPlaced) {
+		          const message = `${selected.masterCode} cannot snap there because its cabinet-above and selected panels would no longer fit as one enclosure.`;
+		          setPlacementWarning(message);
+		          toast.error(message);
+		          return prev;
+		        }
+		        placedRef.current = nextPlaced;
+		        setPlacementWarning(null);
+		        return nextPlaced;
       });
     },
     [selectedUid, room, openings, customPlacementMode]
@@ -9263,8 +9349,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   // Rotate a specific cabinet by uid (used by the on-canvas rotate handle so a
   // touch user can turn any cabinet they tap, not just via the toolbar/keyboard).
-  const rotateCabinet = useCallback((uid: string) => {
-    setSelectedUid(uid);
+	  const rotateCabinet = useCallback((uid: string) => {
+	    const selected = placedRef.current.find((cabinet) => cabinet.uid === uid);
+	    if (selected && isRefrigerator(selected)) {
+	      toast.info("A refrigerator bay stays perpendicular to its wall. Use Move to reposition the refrigerator, cabinet above, and selected panels together.");
+	      return;
+	    }
+	    setSelectedUid(uid);
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== uid) return p;
@@ -15720,8 +15811,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           : undefined}
         deepAbove={(fridgeSurround as { deepAbove?: DesignCabinet[] } | undefined)?.deepAbove ?? []}
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
-        hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
-        replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}
+	        hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
+	        replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}
+	        initialChoice={fridgeDialogInitialChoice}
 		        errorMessage={placementWarning}
         onApply={applyFridgeSurround}
 	        onSkip={() => setFridgeDialog(null)}
@@ -16870,7 +16962,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </DialogContent>
 	      </Dialog>
 
-	      <DesignMaterialsListDialog
+		      <AlertDialog open={refrigeratorDeletePrompt != null} onOpenChange={(open) => { if (!open) setRefrigeratorDeletePrompt(null); }}>
+		        <AlertDialogContent className="max-w-md" data-testid="refrigerator-delete-dialog">
+		          <AlertDialogHeader>
+		            <AlertDialogTitle>Remove refrigerator bay?</AlertDialogTitle>
+		            <AlertDialogDescription>
+		              This refrigerator has {refrigeratorDeletePrompt?.memberUids.length ?? 0} linked selected part{(refrigeratorDeletePrompt?.memberUids.length ?? 0) === 1 ? "" : "s"}: its cabinet above and/or finished end panels. Choose whether to remove only the refrigerator or the complete bay.
+		            </AlertDialogDescription>
+		          </AlertDialogHeader>
+		          <AlertDialogFooter className="flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+		            <AlertDialogCancel>Keep refrigerator</AlertDialogCancel>
+		            <AlertDialogAction className="border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100" onClick={removeRefrigeratorOnly} data-testid="remove-refrigerator-only">
+		              Remove refrigerator only
+		            </AlertDialogAction>
+		            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={removeCompleteRefrigeratorAssembly} data-testid="remove-complete-refrigerator-bay">
+		              Remove complete bay
+		            </AlertDialogAction>
+		          </AlertDialogFooter>
+		        </AlertDialogContent>
+		      </AlertDialog>
+
+		      <DesignMaterialsListDialog
 	        open={materialsListOpen}
 	        onOpenChange={setMaterialsListOpen}
 	        rows={materialsListRows}

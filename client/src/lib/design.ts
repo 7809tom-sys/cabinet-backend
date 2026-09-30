@@ -6683,13 +6683,18 @@ export function refrigeratorAssemblyMemberRole(
   // A saved plan may use a correctly sized ordinary wall SKU above the appliance
   // rather than a source record whose name is explicitly "refrigerator wall".
   // It is still the refrigerator enclosure cap when it spans the appliance and
-  // uses the fixed 72-inch refrigerator datum. Treating that physical assembly
-  // as a bridge lets the normal source-backed side-panel repair run, while a
+  // uses the refrigerator-top-plus-two-inch installation datum. Treating that
+  // physical assembly as a bridge lets the normal source-backed side-panel repair run, while a
   // standard 54-inch wall cabinet remains an ordinary wall cabinet.
   const memberSpan = memberEnd - memberStart;
   const refrigeratorSpan = refrigeratorEnd - refrigeratorStart;
   const memberElevation = elevationBox(member, room);
-  const refrigeratorUpperDatum = refrigeratorSurroundElevation(room, 0, memberElevation.height).mountBottom;
+  const refrigeratorElevation = elevationBox(refrigerator, room);
+  const refrigeratorUpperDatum = refrigeratorSurroundElevation(
+    room,
+    refrigeratorElevation.bottom + refrigeratorElevation.height,
+    memberElevation.height,
+  ).mountBottom;
   if (
     member.placement === "wall"
     && footprintsOverlap(member, refrigerator)
@@ -6795,10 +6800,70 @@ export function commitRefrigeratorAssemblyCandidate(
 ): PlacedCabinet[] | null {
   const source = placed.find((item) => item.uid === refrigeratorUid);
   if (!source || !isRefrigerator(source)) return null;
-  const members = refrigeratorAssemblyMembers(placed, source, room);
+  const enclosure = room ?? DEFAULT_ROOM;
+  const members = refrigeratorAssemblyMembers(placed, source, enclosure);
   const memberUids = new Set(members.map(({ member }) => member.uid));
   const peers = placed.filter((item) => item.uid !== refrigeratorUid && !memberUids.has(item.uid));
-  return normalizeRefrigeratorBayUppers([...peers, candidate, ...members.map(({ member }) => member)], room);
+  const side = cabinetWall(candidate, enclosure);
+  const metrics = refrigeratorBayRunMetrics(candidate, enclosure);
+  const bridge = members.find(({ role }) => role === "bridge")?.member;
+  const bridgeHeight = bridge?.height ?? 24;
+  const surround = refrigeratorSurroundElevation(
+    enclosure,
+    elevationBox(candidate, enclosure).bottom + elevationBox(candidate, enclosure).height,
+    bridgeHeight,
+  );
+  const repositionedMembers = members.map(({ member, role }) => {
+    const span = wallRunSpan(member, cabinetWall(source, enclosure), enclosure);
+    const depth = Math.max(0, Number(member.depth) || 0);
+    const along = role === "bridge"
+      ? metrics.refrigeratorStart + (metrics.refrigeratorWidth - span) / 2
+      : role === "bridge-left-filler"
+        ? metrics.openingStart
+        : role === "bridge-right-filler"
+          ? metrics.refrigeratorEnd
+          : role === "left-panel"
+            ? metrics.openingStart - span
+            : role === "right-panel"
+              ? metrics.openingEnd
+              : wallRunOffset(member, cabinetWall(source, enclosure), enclosure);
+    const spot = wallPlacementAtUnbounded(along, span, depth, side, enclosure, candidate.peninsulaSide);
+    return {
+      ...member,
+      ...spot,
+      refrigeratorAssemblyId: candidate.uid,
+      refrigeratorAssemblyRole: role,
+      ...(role === "bridge"
+        ? { mountBottom: surround.mountBottom }
+        : role === "bridge-left-filler" || role === "bridge-right-filler"
+          ? { mountBottom: surround.mountBottom, height: bridgeHeight }
+          : role === "left-panel" || role === "right-panel"
+            ? { mountBottom: 0, height: surround.top }
+            : {}),
+    };
+  });
+  const runLength = wallLength(side, enclosure);
+  const isInsideRun = (items: readonly PlacedCabinet[]) => items.every((item) => {
+    const offset = item.wallId === side && Number.isFinite(Number(item.wallOffset))
+      ? Number(item.wallOffset)
+      : wallRunOffset(item, side, enclosure);
+    const span = wallRunSpan(item, side, enclosure);
+    if (offset < -COLLISION_EPSILON_IN || offset + span > runLength + COLLISION_EPSILON_IN) return false;
+    const clamped = clampCabinetToRoom(item, enclosure);
+    return Math.abs(clamped.x - item.x) <= COLLISION_EPSILON_IN
+      && Math.abs(clamped.y - item.y) <= COLLISION_EPSILON_IN;
+  });
+  // Do this before legacy normalization: the normalizer clamps a temporary
+  // negative panel offset to zero, which would otherwise mask a group member
+  // that has already escaped beyond a drawn wall endpoint.
+  if (!isInsideRun([candidate, ...repositionedMembers])) return null;
+  const moved = normalizeRefrigeratorBayUppers([...peers, candidate, ...repositionedMembers], enclosure);
+  const movedFridge = moved.find((item) => item.uid === candidate.uid);
+  if (!movedFridge) return null;
+  const movedMemberUids = new Set(refrigeratorAssemblyMembers(moved, movedFridge, enclosure).map(({ member }) => member.uid));
+  const group = moved.filter((item) => item.uid === candidate.uid || movedMemberUids.has(item.uid));
+  const unrelated = moved.filter((item) => item.uid !== candidate.uid && !movedMemberUids.has(item.uid));
+  return !isInsideRun(group) || group.some((item) => hasCollision(item, unrelated)) ? null : moved;
 }
 
 /**
@@ -6905,17 +6970,19 @@ export function reconcileRefrigeratorAssemblies(
 }
 
 /**
- * The cabinet above a refrigerator begins at the fixed 72-inch installation
- * datum, while it and the finished side panels terminate on one enclosure cap.
+ * The cabinet above a refrigerator begins two inches above the appliance,
+ * while it and the finished side panels terminate on one enclosure cap.
  * Returning the shared top lets the designer size every refrigerator surround
  * piece from the exact same physical elevation.
  */
+export const REFRIGERATOR_UPPER_CLEARANCE_IN = 2;
+
 export function refrigeratorSurroundElevation(_room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
-  // The Designer elevation rule is explicit: room-wall uppers start at 54",
-  // and refrigerator uppers start at 72". It must not vary with a neighboring
-  // upper, a ceiling height, or a legacy resized refrigerator record.
-  void fridgeTop;
-  const mountBottom = 72;
+  // A refrigerator upper always begins two inches above the *actual selected
+  // refrigerator height*. The normal 70-inch appliance therefore begins at the
+  // familiar 72-inch installation datum, while another source-sized appliance
+  // keeps the same verified clearance instead of intersecting its upper.
+  const mountBottom = Math.max(0, fridgeTop) + REFRIGERATOR_UPPER_CLEARANCE_IN;
   return { mountBottom, top: mountBottom + upperHeight };
 }
 
@@ -6926,9 +6993,9 @@ function refrigeratorUpperMountBottom(
   fridgeTop: number,
   upperHeight: number,
 ): number {
-  // A refrigerator upper is controlled by the fixed 72-inch refrigerator datum,
-  // never by a neighboring tall upper, a ceiling height, or a legacy appliance
-  // height. The surrounding panels follow this same cap.
+  // A refrigerator upper is controlled by its appliance top plus the shared
+  // two-inch clearance, never by a neighboring tall upper or the room ceiling.
+  // The surrounding panels follow this same cap.
   // `cabinet` and `_placed` remain part of this private contract so legacy
   // normalizers continue to call one resolver for every saved assembly.
   void cabinet;
@@ -6938,9 +7005,9 @@ function refrigeratorUpperMountBottom(
 /**
  * Re-seat a dedicated refrigerator wall cabinet on top of its matching
  * refrigerator. This repairs legacy plans that stored WR3624 as a normal upper
- * at the standard 54-inch wall mount, where it visibly ran into a 70-inch
- * refrigerator. A dedicated refrigerator cabinet starts at the fixed 72-inch
- * refrigerator datum and then tops out at the surrounding tall-cabinet cap.
+ * at the standard 54-inch wall mount, where it visibly ran into a refrigerator.
+ * A dedicated refrigerator cabinet starts two inches above its selected
+ * appliance height and then tops out at the surrounding tall-cabinet cap.
  * Ordinary wall cabinets deliberately remain unchanged and are still rejected
  * by the refrigerator collision rule.
  */

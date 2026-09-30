@@ -91,7 +91,33 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
       panels: "both",
       endPanelId: 9390059,
       panelDepth: 24,
+      panelHeight: 84,
     }));
+  });
+
+  it("shows the required two-inch appliance clearance in the finished panel height", () => {
+    renderDialog();
+    fireEvent.click(screen.getByText("More enclosure options"));
+    expect(screen.getByText(/panel height will be/i).textContent).toContain('84″');
+    expect(screen.getByText(/panel height will be/i).textContent).toContain('70″ fridge + 2″ clearance + 12″ cabinet');
+  });
+
+  it("reopens with the placed refrigerator's chosen panel and cabinet dimensions", () => {
+    render(
+      <RefrigeratorOptionsDialog
+        open
+        onOpenChange={vi.fn()}
+        fridgeWidthInches={36}
+        endPanels={[endPanel]}
+        deepAbove={[refrigeratorCap]}
+        initialChoice={{ fridgeWidth: 36, fridgeHeight: 70, fridgeDepth: 30, above: "bridge", bridgeWidth: 36, bridgeHeight: 12, bridgeDepth: 12, panels: "left", endPanelId: 9390059, panelDepth: 24 }}
+        onApply={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByText("More enclosure options"));
+    expect(screen.getByRole("button", { name: "Left" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText(/panel height will be/i).textContent).toContain('84″');
   });
 
   it("preserves an explicit one-side or no-panel choice", () => {

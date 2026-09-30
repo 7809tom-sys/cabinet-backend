@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { wallCabinetSkuDimensions } from "@/lib/design";
+import { REFRIGERATOR_UPPER_CLEARANCE_IN, wallCabinetSkuDimensions } from "@/lib/design";
 
 export type FridgeAbove = "bridge" | "none";
 export type FridgePanels = "left" | "right" | "both" | "none";
@@ -44,7 +44,7 @@ export interface FridgeSurroundChoice {
   panelDepth: number | null;
   /**
    * The auto-calculated panel height in inches.
-   * = 72 (standard fridge height) + bridgeHeight.
+   * = selected refrigerator height + 2" clearance + bridge height.
    * Null when panels === "none" or above === "none".
    */
   panelHeight: number | null;
@@ -74,6 +74,8 @@ export interface RefrigeratorOptionsDialogProps {
   replacementCabinetCode?: string | null;
   /** Exact reason a selected source component could not physically fit. */
   errorMessage?: string | null;
+  /** Existing refrigerator choices, used when reopening the same popup to edit a placed bay. */
+  initialChoice?: Partial<FridgeSurroundChoice> | null;
   /** Apply the chosen surround. */
   onApply: (choice: FridgeSurroundChoice) => void;
   /** Keep just the refrigerator (no surround). */
@@ -95,12 +97,9 @@ type BridgeDepth = typeof BRIDGE_DEPTH_OPTIONS[number];
 // Bridge cabinet widths — all distributors carry 30", 33", 36" fridge cabinets
 const BRIDGE_WIDTH_OPTIONS = [30, 33, 36];
 
-// Fridge height used for panel height calculation
-const FRIDGE_STANDARD_H = 72;
-
 // ─── Helper: panel height from bridge height ──────────────────────────────────
-function calcPanelHeight(bridgeH: BridgeHeight): number {
-  return FRIDGE_STANDARD_H + bridgeH;
+function calcPanelHeight(fridgeH: number, bridgeH: BridgeHeight): number {
+  return fridgeH + REFRIGERATOR_UPPER_CLEARANCE_IN + bridgeH;
 }
 
 // ─── Small reusable pill selector ────────────────────────────────────────────
@@ -204,6 +203,7 @@ export function RefrigeratorOptionsDialog({
   hasSmoothPanel = false,
   replacementCabinetCode = null,
   errorMessage = null,
+  initialChoice = null,
   onApply,
   onSkip,
 }: RefrigeratorOptionsDialogProps) {
@@ -290,9 +290,9 @@ export function RefrigeratorOptionsDialog({
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
 
-  // Auto-calculated panel height: use the actual fridgeH the user selected, not a hardcoded constant.
+  // A finished panel reaches the cap above the mandatory appliance clearance.
   const panelHeight = above === "bridge" && panels !== "none"
-    ? fridgeH + bridgeHeightChoice
+    ? calcPanelHeight(fridgeH, bridgeHeightChoice)
     : null;
 
   // Best-match end panel
@@ -315,22 +315,22 @@ export function RefrigeratorOptionsDialog({
   // ── Reset on open ──────────────────────────────────────────────────────────
   useEffect(() => {
     if (open) {
-      const w = fridgeWidthInches ?? 36;
+      const w = initialChoice?.fridgeWidth ?? fridgeWidthInches ?? 36;
       setFridgeW(w);
-      setFridgeH(70);
-      setFridgeD(30);
-      setBridgeHeightChoice(12);
-      setBridgeDepthChoice(12);
-      setBridgeWidthChoice(BRIDGE_WIDTH_OPTIONS.reduce((best, option) =>
+      setFridgeH(initialChoice?.fridgeHeight ?? 70);
+      setFridgeD(initialChoice?.fridgeDepth ?? 30);
+      setBridgeHeightChoice((initialChoice?.bridgeHeight as BridgeHeight | null | undefined) ?? 12);
+      setBridgeDepthChoice((initialChoice?.bridgeDepth as BridgeDepth | null | undefined) ?? 12);
+      setBridgeWidthChoice(initialChoice?.bridgeWidth ?? BRIDGE_WIDTH_OPTIONS.reduce((best, option) =>
         Math.abs(option - w) < Math.abs(best - w) ? option : best,
       BRIDGE_WIDTH_OPTIONS[0]));
-      // Offer the matching refrigerator cabinet by default; the customer can
-      // still choose No Cabinet before applying this optional enclosure.
-      setAbove("bridge");
-      setPanels("both");
-      setPanelDepth(sourcePanelDepth ?? 24);
-      setSelectedPanelId(bestPanel ? String(bestPanel.id) : "");
-      setSmooth(false);
+      // New refrigerators default to a complete bay. Reopened refrigerators
+      // show exactly the source-backed configuration already chosen.
+      setAbove(initialChoice?.above ?? "bridge");
+      setPanels(initialChoice?.panels ?? "both");
+      setPanelDepth(initialChoice?.panelDepth ?? sourcePanelDepth ?? 24);
+      setSelectedPanelId(initialChoice?.endPanelId != null ? String(initialChoice.endPanelId) : bestPanel ? String(bestPanel.id) : "");
+      setSmooth(initialChoice?.smooth ?? false);
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -583,7 +583,7 @@ export function RefrigeratorOptionsDialog({
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">
                   Panel height will be <span className="font-semibold text-foreground">{panelHeight}″</span>
-                  {" "}({fridgeH}″ fridge + {bridgeHeightChoice}″ cabinet)
+                  {" "}({fridgeH}″ fridge + {REFRIGERATOR_UPPER_CLEARANCE_IN}″ clearance + {bridgeHeightChoice}″ cabinet)
                 </p>
               )}
               {above === "none" && panels !== "none" && (

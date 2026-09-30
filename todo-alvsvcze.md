@@ -2905,3 +2905,12 @@
 - Root cause: six admin edit paths updated `cabinets` without stamping configuredAt or logging (Catalog-tab row editor genericCabinets.update, setMasterImage, generate/fix/bulk-fix catalog image, masterSku.propagateCabinetConfig). Those past edits left no timestamp and cannot be reconstructed.
 - Fix: shared `updateCabinetLogged()` (stamps configuredAt + field diff into cabinet_config_change_log) now used by all six paths; query caps 300→2000; panel header shows distinct cabinet count. Proof: genericCabinets.update weight on 2DB24 → history row master/weight 68→69 by Tom; restored + test rows removed.
 - Validation: tsc, vitest 10/10, build, diff-check.
+
+
+## 14:36 CT — Refrigerator bay + Continuous Wall Builder shared-engine correction
+- Audited the implementation: Continuous Wall Builder contributes only `RoomData` polygon geometry; refrigerator catalog lookup, popup, placement, collision, 1/8-inch wall movement, 3D scene, pricing, invoice, materials, and countertop runs are shared with the normal Designer. Audit: `docs/refrigerator-continuous-wall-engine-audit-2026-09-30.md`.
+- Corrected the shared refrigerator elevation contract: refrigerator upper bottom = actual appliance top + 2 in.  A 36 × 70 × 30 refrigerator with a 36 × 12 × 24 cabinet above now produces the required 72–84 in cap and 84 in finished panels (not the former 82 in popup math).
+- Wired `commitRefrigeratorAssemblyCandidate()` into plan drag, nudge, exact wall offset, Snap-to-wall, and 3D movement; it repositions the refrigerator, selected cap/cap-fillers/panels as one group using the same wall-run model and rejects group moves that collide or send a member outside a standard or drawn wall.
+- Clicking a placed refrigerator or opening Attributes reopens its options popup with the selected cap/panel choices; deletion now asks Remove refrigerator only vs Remove complete bay.
+- Added a 45-degree Continuous Wall Builder regression that proves all group members retain exact run offsets and stay inside the wall, plus popup/display and interaction guards.
+- Validation: TypeScript clean; 495 focused geometry/refrigerator/3D/UI tests pass; production build and `git diff --check` pass. Local browser proof covers standard + continuous rooms: 37 in opening, 0.5 in left/right gap, cap center offset 0, source parts and separate countertop runs visible; screenshots and measurements: `docs/proofs/refrigerator-bay-shared-engine-proof.md`.
