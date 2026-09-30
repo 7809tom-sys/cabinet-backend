@@ -490,3 +490,31 @@ describe("refrigerator assembly reconciliation", () => {
     expect(enclosure).toHaveLength(5);
   });
 });
+
+describe("refrigerator enclosure on a short drawn wall", () => {
+  it("rejects both requested panels instead of committing a partial bay when the right panel would leave the run", () => {
+    // 72-inch 45° Wall Builder wall: B24 at 11–35, fridge at 36–72 (flush to the run end).
+    const room: RoomData = {
+      width: 220, depth: 220, ceilingHeight: 96, openWallPath: true,
+      vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 72 * Math.SQRT1_2, y: 72 * Math.SQRT1_2 }],
+      customWalls: [{ id: "short45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 }],
+    };
+    const wall = "short45";
+    const b24 = item({ uid: "b24", masterCode: "B24", width: 24, depth: 24, ...wallPlacementAt(11, 24, 24, wall, room) });
+    const fridge = item({ uid: "fr", masterCode: "FRIDGE-36", placement: "appliance", width: 36, depth: 30, height: 70, refrigeratorPanelMode: "both", ...wallPlacementAt(36, 36, 30, wall, room) });
+    const cap = item({ uid: "cap", masterCode: "WR3612", placement: "wall", width: 36, depth: 24, height: 12, mountBottom: 72, refrigeratorAssemblyId: "fr", refrigeratorAssemblyRole: "bridge", ...wallPlacementAt(36, 36, 24, wall, room) });
+    const panel = (uid: string, role: "left-panel" | "right-panel", along: number) => item({
+      uid, masterCode: "REPV3096", placement: "tall", width: 0.75, depth: 24, height: 84, customProfile: "refrigerator-end-panel",
+      refrigeratorAssemblyId: "fr", refrigeratorAssemblyRole: role, ...wallPlacementAtUnbounded(along, 0.75, 24, wall, room),
+    });
+    const fitted = fitRefrigeratorEnclosurePlacements([b24, fridge], [cap, panel("lp", "left-panel", 34.75), panel("rp", "right-panel", 72.5)], "fr", room);
+    // No shift can satisfy both panels on a 72-inch run, so nothing is shifted…
+    expect(fitted.shiftIn).toBe(0);
+    expect(fitted.existing.find((entry) => entry.uid === "fr")?.wallOffset).toBe(36);
+    const result = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, "fr", room);
+    // …and BOTH panels are reported, not silently folded back onto the run.
+    expect(result.rejected.map((entry) => entry.uid).sort()).toEqual(["lp", "rp"]);
+    expect(result.placed.some((entry) => entry.refrigeratorAssemblyRole === "right-panel")).toBe(false);
+    expect(result.panelConflicts.map(({ panel: p, cabinet }) => `${p.uid}:${cabinet.masterCode}`)).toEqual(["lp:B24"]);
+  });
+});

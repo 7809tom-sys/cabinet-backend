@@ -647,6 +647,13 @@ export interface PlacedCabinet {
   refrigeratorAssemblyRole?: RefrigeratorAssemblyRole | null;
   /** Requested enclosure-panel mode persisted on the refrigerator appliance. */
   refrigeratorPanelMode?: RefrigeratorPanelMode | null;
+  /**
+   * True once the customer confirmed the Refrigerator options popup for this
+   * appliance. A freshly placed refrigerator is auto-stamped `refrigeratorPanelMode: "none"`
+   * by bay normalization, so the mode alone cannot tell "never configured" from
+   * "deliberately chose no panels"; this flag can.
+   */
+  refrigeratorOptionsChosen?: boolean | null;
   /** Explicit run on a wall-free island scene; retained through save/restore. */
   islandFace?: IslandFace | null;
   /** A shallow wall cabinet intentionally used as a counter-height island face. */
@@ -3619,18 +3626,22 @@ export function fitRefrigeratorEnclosurePlacements(
   const peers = existing.filter((item) => item.uid !== refrigeratorUid && !isRefrigeratorEndPanel(item));
 
   const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => {
-    const spot = wallPlacementAt(
+    // Unbounded on purpose: a candidate shift that pushes any member past the
+    // end of the run must be *seen* by `withinRoom` and rejected. The clamped
+    // helper would fold that member back inside the run (a right panel ending
+    // up inside the refrigerator footprint on a short drawn wall) and report a
+    // fit that never physically existed.
+    const spot = wallPlacementAtUnbounded(
       alongStart(item) + shiftIn,
       Math.max(0, Number(item.width) || 0),
       Math.max(0, Number(item.depth) || 0),
       side,
       room,
-      item.peninsulaSide,
     );
     return { ...item, ...spot, wallId: spot.wallId ?? item.wallId, wallOffset: spot.wallOffset ?? item.wallOffset };
   };
   const withinRoom = (item: PlacedCabinet): boolean => {
-    const offset = wallRunOffset(item, side, room);
+    const offset = alongStart(item);
     const span = wallRunSpan(item, side, room);
     if (offset < -COLLISION_EPSILON_IN || offset + span > wallRunLength + COLLISION_EPSILON_IN) return false;
     // Inside the drawn walls: the shared room clamp returns the body unchanged only when it already fits.
@@ -3720,9 +3731,25 @@ export function appendRefrigeratorEnclosurePlacements(
     return detail ? [detail] : [];
   });
   const blockedPanelUids = new Set(panelConflicts.map(({ panel }) => panel.uid));
-  const allowedAdditions = additions.filter((addition) => !blockedPanelUids.has(addition.uid));
+  // Every member must lie inside its wall run. A right panel whose offset runs
+  // past the end of a short drawn wall is not "placed"; it is rejected here so
+  // the caller reports it instead of committing a bay with a part off the wall.
+  const refrigerator = refrigeratorUid ? existing.find((item) => item.uid === refrigeratorUid) ?? null : null;
+  const offRun = new Set<string>();
+  if (room && refrigerator) {
+    const side = cabinetWall(refrigerator, room);
+    const runLength = wallLength(side, room);
+    for (const addition of additions) {
+      const start = addition.wallId === side && Number.isFinite(Number(addition.wallOffset))
+        ? Number(addition.wallOffset)
+        : wallRunOffset(addition, side, room);
+      const span = wallRunSpan(addition, side, room);
+      if (start < -COLLISION_EPSILON_IN || start + span > runLength + COLLISION_EPSILON_IN) offRun.add(addition.uid);
+    }
+  }
+  const allowedAdditions = additions.filter((addition) => !blockedPanelUids.has(addition.uid) && !offRun.has(addition.uid));
   const appended = appendCollisionFreePlacements(existing, allowedAdditions, room ?? undefined);
-  const blockedPanels = additions.filter((addition) => blockedPanelUids.has(addition.uid));
+  const blockedPanels = additions.filter((addition) => blockedPanelUids.has(addition.uid) || offRun.has(addition.uid));
   return {
     placed: appended.placed,
     rejected: [...blockedPanels, ...appended.rejected],

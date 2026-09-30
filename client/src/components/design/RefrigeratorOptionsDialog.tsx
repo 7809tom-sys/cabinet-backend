@@ -375,7 +375,10 @@ export function RefrigeratorOptionsDialog({
         return;
       }
     }
-  }, [open, above, hasBridgeAbove, bridgeByDims]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Depends on the current height/depth as well: the reset-on-open effect in
+    // the same commit sets 12x12 after this effect already read the previous
+    // (available) values, so it must run again once that reset has landed.
+  }, [open, above, hasBridgeAbove, bridgeByDims, bridgeHeightChoice, bridgeDepthChoice]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleApply = () => {
     if (!canApply) return;

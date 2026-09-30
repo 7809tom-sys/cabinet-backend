@@ -327,6 +327,18 @@ function resolvedDesignToolStoreScope(affiliateSlugProp: string | undefined, sea
   });
 }
 
+/**
+ * Human wall name for any wall kind. Standard walls use WALL_LABELS; a drawn
+ * (Wall Builder) wall uses its own label, else a generic name — never "undefined".
+ */
+function wallNameFor(side: string | null | undefined, room: RoomData): string {
+  if (!side) return "selected";
+  const standard = (WALL_LABELS as Record<string, string | undefined>)[side];
+  if (standard) return standard;
+  const custom = room.customWalls?.find((wall) => wall.id === side);
+  return custom?.label ?? "drawn";
+}
+
 export default function DesignTool(props: { affiliateSlug?: string }) {
   const search = useSearch();
   const scope = resolvedDesignToolStoreScope(props.affiliateSlug, search);
@@ -1150,7 +1162,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setViewMode("plan");
     setDrawMode(false);
     setMeasureMode(false);
-    toast.info(`Drag the gold 45° Compass on the selected ${WALL_LABELS[activeWall]} wall. No popup is needed.`);
+    toast.info(`Drag the gold 45° Compass on the selected ${wallNameFor(activeWall, room)} wall. No popup is needed.`);
   }, [activeWall, layoutLocked]);
   const openPeninsulaWizard = useCallback(() => {
     if (layoutLocked) return;
@@ -4560,7 +4572,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const segments = freeSegmentsOnWall(activeWall, room, prev, openings, width, WALL_OPENING_CLEARANCE_IN, "wall", false, candidate);
         const targetSegment = segments.find((segment) => segment.length + 0.01 >= width);
         if (!targetSegment) {
-          const message = `${c.masterCode} was not added because the selected ${WALL_LABELS[activeWall]} wall has no clear ${formatInches(width)} shelf span at the selected mounting height. The shelf was not moved to the island or room center.`;
+          const message = `${c.masterCode} was not added because the selected ${wallNameFor(activeWall, room)} wall has no clear ${formatInches(width)} shelf span at the selected mounting height. The shelf was not moved to the island or room center.`;
           setPlacementWarning(message);
           toast.error(message);
           return;
@@ -4575,7 +4587,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       } else if (accPlacement === "baseTop" && isKneeDrawerItem(c)) {
         const kneeSpaceSpot = kneeDrawerWallPlacement(activeWall, room, prev, openings, width, depth);
         if (!kneeSpaceSpot) {
-          const message = `${c.masterCode} needs a clear ${formatInches(width)} knee-space opening between base cabinets on the selected ${WALL_LABELS[activeWall]} wall. It was not placed over an existing cabinet.`;
+          const message = `${c.masterCode} needs a clear ${formatInches(width)} knee-space opening between base cabinets on the selected ${wallNameFor(activeWall, room)} wall. It was not placed over an existing cabinet.`;
           setPlacementWarning(message);
           toast.error(message);
           return;
@@ -4687,7 +4699,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                spot: alternate.spot,
 	                availableLength: alternate.availableLength,
 	              });
-	              const message = `${c.masterCode} does not fit on the selected ${WALL_LABELS[activeWall]} wall. A clear ${formatInches(alternate.availableLength)} opening is available on the ${WALL_LABELS[alternate.side]} wall.`;
+	              const message = `${c.masterCode} does not fit on the selected ${wallNameFor(activeWall, room)} wall. A clear ${formatInches(alternate.availableLength)} opening is available on the ${wallNameFor(alternate.side, room)} wall.`;
 	              setPlacementWarning(message);
 	              toast.info(message);
 	              return;
@@ -4706,7 +4718,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                ? ` ${c.masterCode} is a base cabinet. To add the ${formatInches(width)} upper, open the Wall tab and choose ${matchingUpper.masterCode}.`
 	                : ` ${c.masterCode} is a base cabinet. To add an upper cabinet, open the Wall tab and choose a W cabinet.`
 	              : "";
-	            const message = `${c.masterCode} was not added because there is no ${width}\" opening after the current ${runName} run on the selected ${WALL_LABELS[activeWall]} wall. The existing layout was not changed.${categoryHint}`;
+	            const message = `${c.masterCode} was not added because there is no ${width}\" opening after the current ${runName} run on the selected ${wallNameFor(activeWall, room)} wall. The existing layout was not changed.${categoryHint}`;
 	            setPlacementWarning(message);
 	            toast.error(message);
 	            return;
@@ -4757,7 +4769,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        if (!stackerPlacement.ok) {
 	          const message = stackerPlacement.reason === "ceiling"
 	            ? `${c.masterCode} cannot stack above ${stackerPlacement.parentCode ?? "the matching wall cabinet"}: the combined top would reach ${formatInches(stackerPlacement.requiredTop ?? 0)}, but the ceiling is ${formatInches(stackerPlacement.ceiling ?? 0)} at that cabinet.`
-	            : `${c.masterCode} must stack on a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family on the selected ${WALL_LABELS[activeWall]} wall. Select or add that wall cabinet first.`;
+	            : `${c.masterCode} must stack on a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family on the selected ${wallNameFor(activeWall, room)} wall. Select or add that wall cabinet first.`;
 	          setPlacementWarning(message);
 	          toast.error(message);
 	          return;
@@ -5022,7 +5034,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      if (!requestedIslandFace && overSinkWindowClearanceBlocked(finalCab, prev, openings, room)) {
         const vertical = overSinkWindowClearanceMeasure(finalCab, prev, openings, room);
         const message = vertical
-          ? `Cannot place ${finalCab.masterCode} above the ${vertical.openingLabel} on the ${WALL_LABELS[vertical.side]} wall: the opening top is ${formatEighthInches(vertical.openingTop)} and requires ${formatEighthInches(vertical.clearance)} clearance, so the ${formatEighthInches(vertical.cabinetHeight)} cabinet must start at ${formatEighthInches(vertical.requiredBottom)} and reach ${formatEighthInches(vertical.requiredTop)}. The ceiling is ${formatEighthInches(vertical.ceiling)}, leaving it ${formatEighthInches(vertical.shortage)} too tall. Choose a shorter cabinet or raise the ceiling.`
+          ? `Cannot place ${finalCab.masterCode} above the ${vertical.openingLabel} on the ${wallNameFor(vertical.side, room)} wall: the opening top is ${formatEighthInches(vertical.openingTop)} and requires ${formatEighthInches(vertical.clearance)} clearance, so the ${formatEighthInches(vertical.cabinetHeight)} cabinet must start at ${formatEighthInches(vertical.requiredBottom)} and reach ${formatEighthInches(vertical.requiredTop)}. The ceiling is ${formatEighthInches(vertical.ceiling)}, leaving it ${formatEighthInches(vertical.shortage)} too tall. Choose a shorter cabinet or raise the ceiling.`
           : `${finalCab.masterCode} cannot fit above this sink window because the required clearance exceeds the ceiling height.`;
         setPlacementWarning(message);
         toast.error(message);
@@ -5728,9 +5740,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
 	        const message = measured
 	          ? strictPointerPlacement && !measured.containsTarget
-	            ? `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the selected point is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}. Move the pointer into that opening and release again.`
-	            : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} from ${formatEighthInches(measured.gap.start)} to ${formatEighthInches(measured.gap.start + measured.gap.length)}. The opening is ${formatEighthInches(measured.shortage)} too small. Choose a smaller matching cabinet or select a wider opening.`
-          : `Cannot place ${cabinet.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but there is no clear opening at the selected point. Choose another measured opening or move a blocking item.`;
+	            ? `Cannot place ${cabinet.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: the selected point is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}. Move the pointer into that opening and release again.`
+	            : `Cannot place ${cabinet.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} from ${formatEighthInches(measured.gap.start)} to ${formatEighthInches(measured.gap.start + measured.gap.length)}. The opening is ${formatEighthInches(measured.shortage)} too small. Choose a smaller matching cabinet or select a wider opening.`
+          : `Cannot place ${cabinet.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: the cabinet uses ${formatEighthInches(width)}, but there is no clear opening at the selected point. Choose another measured opening or move a blocking item.`;
         setPlacementWarning(message);
         toast.error(message);
         return;
@@ -6585,6 +6597,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const fridgeDialogInitialChoice = useMemo(() => {
 	    if (!fridgeForDialog) return null;
 	    const members = refrigeratorAssemblyMembers(placed, fridgeForDialog, room);
+	    // A refrigerator that was just placed has no built enclosure and no saved
+	    // panel choice yet. Give the popup no "existing configuration" so it opens
+	    // on its recommended defaults (Add Cabinet + Both panels) instead of
+	    // mirroring the empty bay as "No Cabinet / None".
+	    if (members.length === 0 && !fridgeForDialog.refrigeratorOptionsChosen) return null;
 	    const bridge = members.find(({ role }) => role === "bridge")?.member ?? null;
 	    const panel = members.find(({ role }) => role === "left-panel" || role === "right-panel")?.member ?? null;
 	    const installedRoles = new Set(members.map(({ role }) => role));
@@ -6674,7 +6691,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         }
         configuredFridge = resizedFridge;
       }
-      configuredFridge = { ...configuredFridge, refrigeratorPanelMode: opts.panels };
+      configuredFridge = { ...configuredFridge, refrigeratorPanelMode: opts.panels, refrigeratorOptionsChosen: true };
       const bay = refrigeratorBayRunMetrics(configuredFridge, room);
       const side = bay.side;
       const fp = placedFootprint(configuredFridge);
@@ -7029,7 +7046,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      .join(" and ");
 	  const blockers = Array.from(new Set(previewResult.panelConflicts.map(({ cabinet }) => cabinet.masterCode)));
 	    const selectedPanelThickness = Math.max(...rejectedPanels.map((item) => Math.max(0, Number(item.width) || 0)));
-	    const message = `${panelSides[0]?.toUpperCase() ?? "Selected"}${panelSides.slice(1)} refrigerator end panel${rejectedPanels.length > 1 ? "s" : ""} need${rejectedPanels.length > 1 ? "" : "s"} ${formatEighthInches(selectedPanelThickness)} of clear run space outside the refrigerator${blockers.length ? `, but would overlap ${blockers.join(", ")}` : " or extend beyond the drawn wall"}. No refrigerator parts were changed. Move or shorten the blocking cabinet, or select only the side with a clear opening.`;
+	    const conflictedUids = new Set(previewResult.panelConflicts.map(({ panel }) => panel.uid));
+    const offWallSides = rejectedPanels
+      .filter((item) => !conflictedUids.has(item.uid))
+      .map((item) => item.refrigeratorAssemblyRole === "left-panel" ? "left" : "right");
+    const causes = [
+      ...(blockers.length ? [`would overlap ${blockers.join(", ")}`] : []),
+      ...(offWallSides.length ? [`the ${offWallSides.join(" and ")} panel would extend past the end of the ${wallNameFor(side, room)} wall`] : []),
+    ];
+    const message = `${panelSides[0]?.toUpperCase() ?? "Selected"}${panelSides.slice(1)} refrigerator end panel${rejectedPanels.length > 1 ? "s" : ""} need${rejectedPanels.length > 1 ? "" : "s"} ${formatEighthInches(selectedPanelThickness)} of clear run space outside the refrigerator${causes.length ? `, but ${causes.join(" and ")}` : ""}. No refrigerator parts were changed. Move the refrigerator or the blocking cabinet, or select only the side with a clear opening.`;
 	    setPlacementWarning(message);
 	    toast.error(message);
 	    return;
@@ -7891,7 +7916,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        const layerName = placement === "wall" ? "wall-cabinet layer" : "base-cabinet layer";
 	        const largestClearGap = gaps.reduce<WallGap | null>((largest, gap) => !largest || gap.length > largest.length ? gap : largest, null);
 	        const automaticGapFailure = useAutomaticSnapping && largestClearGap
-	          ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it requires ${formatEighthInches(width)}, but the largest clear opening is ${formatEighthInches(largestClearGap.length)} at ${formatEighthInches(largestClearGap.start)}–${formatEighthInches(largestClearGap.start + largestClearGap.length)} and is ${formatEighthInches(Math.max(0, width - largestClearGap.length))} too small.`
+	          ? `Cannot place ${data.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: it requires ${formatEighthInches(width)}, but the largest clear opening is ${formatEighthInches(largestClearGap.length)} at ${formatEighthInches(largestClearGap.start)}–${formatEighthInches(largestClearGap.start + largestClearGap.length)} and is ${formatEighthInches(Math.max(0, width - largestClearGap.length))} too small.`
 	          : null;
 	        const fittingPool = placement === "base"
 	          ? ((autoFillCabinets as DesignCabinet[] | undefined) ?? [])
@@ -7905,9 +7930,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          : null;
 	        const message = measured
 	          ? automaticGapFailure ?? (!measured.containsTarget
-	            ? `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
-	            : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`)
-	          : `Cannot place ${data.masterCode} on the ${WALL_LABELS[dropWall]} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
+	            ? `Cannot place ${data.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: the pointer is outside the nearest ${formatEighthInches(measured.availableSpan)} opening at ${formatEighthInches(measured.gap.start)}–${formatEighthInches(measured.gap.start + measured.gap.length)}.`
+	            : `Cannot place ${data.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: it uses ${formatEighthInches(width)}, but the selected opening is ${formatEighthInches(measured.availableSpan)} and is ${formatEighthInches(measured.shortage)} too small.`)
+	          : `Cannot place ${data.masterCode} on the ${wallNameFor(dropWall, room)} wall ${layerName}: there is no clear measured opening at this point.${freehand ? " Shift freehand still requires 0-inch physical overlap." : ""}`;
 	        if (recommendation && activePeninsulaRun) {
 	          setPeninsulaFitRecommendation({
 	            cabinet: recommendation.cabinet,
@@ -8578,7 +8603,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    const offset = usesExplicitOffset
 	      ? Math.max(0, Number(cabinet.wallOffset) || 0)
 	      : side === "top" || side === "bottom" ? cabinet.x : cabinet.y;
-	    const label = peninsula?.label ?? customWall?.label ?? WALL_LABELS[side as keyof typeof WALL_LABELS] ?? String(side);
+	    const label = peninsula?.label ?? customWall?.label ?? wallNameFor(side as keyof typeof WALL_LABELS, room) ?? String(side);
 	    return {
 	      wallLabel: label,
 	      wallLengthIn: length,
@@ -8599,7 +8624,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    const start = wallRunOffset(cabinet, side, room);
 	    const end = start + wallRunSpan(cabinet, side, room);
 	    return {
-	      wallLabel: peninsula?.label ?? customWall?.label ?? WALL_LABELS[side as keyof typeof WALL_LABELS] ?? String(side),
+	      wallLabel: peninsula?.label ?? customWall?.label ?? wallNameFor(side as keyof typeof WALL_LABELS, room) ?? String(side),
 	      angle: placement.angle,
 	      placement: placement.placement,
 	      requiredClearanceIn: placement.clearanceIn,
@@ -16356,13 +16381,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          </DialogHeader>
 	          {alternateWallRecommendation && (
 	            <div data-testid="alternate-wall-placement-recommendation" className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-950">
-	              <p className="font-semibold">{alternateWallRecommendation.cabinet.masterCode} fits on the {WALL_LABELS[alternateWallRecommendation.side]} wall</p>
+	              <p className="font-semibold">{alternateWallRecommendation.cabinet.masterCode} fits on the {wallNameFor(alternateWallRecommendation.side, room)} wall</p>
 	              <p className="mt-1 text-xs leading-relaxed">Place it in the measured {formatInches(alternateWallRecommendation.availableLength)} opening with zero overlap, or keep choosing a different cabinet.</p>
 	            </div>
 	          )}
 	          <DialogFooter className="gap-2 sm:gap-0">
 	            <Button variant="outline" onClick={() => setAlternateWallRecommendation(null)}>Keep current wall</Button>
-	            <Button onClick={placeOnRecommendedWall}>Place on {alternateWallRecommendation ? WALL_LABELS[alternateWallRecommendation.side] : "recommended"} wall</Button>
+	            <Button onClick={placeOnRecommendedWall}>Place on {alternateWallRecommendation ? wallNameFor(alternateWallRecommendation.side, room) : "recommended"} wall</Button>
 	          </DialogFooter>
 	        </DialogContent>
 	      </Dialog>
