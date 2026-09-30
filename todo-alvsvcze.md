@@ -2893,3 +2893,9 @@
 - User: "i dont see the master change tab" → restored the "Master Changes" entry in Products & Catalog (AdminGroupedTabs). Save flows still never write the master; the tab is the review/approve/history surface.
 - User-reported console errors on /admin (keys FLDL, DD-Q, CLDL, CBT): GenericCabinetsAdmin alias chips keyed by alias text collided when sku/vendorSku/altSku repeat the same code. Key now `${alias}-${index}`. Reproduced (8 warnings on cabinets/catalog tabs) → 0 after fix.
 - Validation: tsc, build, diff --check, Playwright (Master Changes tab visible + selected via ?tab=master-changes; 0 duplicate-key warnings across glass-policy/distributors/cabinets/catalog tabs).
+
+## 2026-09-30 12:19 CT — "pencil edit would not save anything": catalog page now shows the distributor's rule
+- Root cause: the save DID write the ticked distributor's rule (verified in distributor_cabinet_overrides.configJson + change log), but the catalog page only read the shared master row, so the pencil edit looked like it saved nothing.
+- Fix: new public `cabinetOverrides.configForDistributor`; CabinetDetail layers the selected door style's distributor rule over the master for display (badge "Showing <Distributor>'s own rule"; other distributors and master unchanged; pricing untouched). Queries invalidated after save.
+- History cleanup: bookkeeping fields (configVerifiedAt/By, updatedAt/By) no longer logged; first-time distributor rule diffs against master values so only real edits show (test save produced exactly 1 row: Madison · description).
+- Proof (local Playwright, W1512GD / Nova Blanc (Madison)): pencil → change description → Save… → tick Madison → title shows change immediately and after reload; history first row = Madison · description old→new · Revert; Revert restores master text. Test rows removed afterwards. tsc/build/diff-check OK; vitest history+masterChanges 10/10.

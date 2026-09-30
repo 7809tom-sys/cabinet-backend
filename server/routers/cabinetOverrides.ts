@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { eq, and, inArray, gte, desc, sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { adminProcedure, router } from "../_core/trpc";
+import { publicProcedure, adminProcedure, router } from "../_core/trpc";
 import {
   distributorCabinetOverrides,
   distributors,
@@ -61,11 +61,18 @@ export const cabinetOverridesRouter = router({
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       const [cab] = await db
-        .select({ id: cabinets.id, masterCode: cabinets.masterCode })
+        .select()
         .from(cabinets)
         .where(eq(cabinets.id, input.cabinetId))
         .limit(1);
       if (!cab) throw new Error("Cabinet not found");
+      // Baseline for the history log: whatever this distributor effectively had
+      // before (its previous rule layered over the master), so a first-time rule
+      // only records the fields the admin actually changed.
+      const masterBaseline: Record<string, unknown> = {};
+      for (const key of Object.keys(input.config)) {
+        if (key in cab) masterBaseline[key] = (cab as Record<string, unknown>)[key];
+      }
       const distributorIds = Array.from(new Set(input.distributorIds));
       const activeDistributors = await db
         .select({ id: distributors.id })
@@ -122,7 +129,7 @@ export const cabinetOverridesRouter = router({
           masterCode: cab.masterCode ?? "",
           scope: "distributor",
           distributorId,
-          before: previous as Record<string, unknown>,
+          before: { ...masterBaseline, ...(previous as Record<string, unknown>) },
           after: input.config as Record<string, unknown>,
           actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
         });
@@ -132,6 +139,26 @@ export const cabinetOverridesRouter = router({
   /**
    * Per-distributor configuration rules stored for one cabinet (parsed).
    */
+  /**
+   * The rule one distributor has for one cabinet (public: the catalog page
+   * shows a distributor's own description/spec values when a shopper is
+   * viewing that distributor's door style). Price/SKU fields are never here.
+   */
+  configForDistributor: publicProcedure
+    .input(z.object({ cabinetId: z.number().int().positive(), distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return null;
+      const [row] = await db
+        .select({ configJson: distributorCabinetOverrides.configJson, updatedAt: distributorCabinetOverrides.updatedAt })
+        .from(distributorCabinetOverrides)
+        .where(and(eq(distributorCabinetOverrides.cabinetId, input.cabinetId), eq(distributorCabinetOverrides.distributorId, input.distributorId)))
+        .limit(1);
+      if (!row?.configJson) return null;
+      const config = parseDistributorCabinetConfig(row.configJson);
+      return Object.keys(config).length > 0 ? { config, updatedAt: row.updatedAt } : null;
+    }),
+
   configForCabinet: adminProcedure
     .input(z.object({ cabinetId: z.number().int().positive() }))
     .query(async ({ input }) => {

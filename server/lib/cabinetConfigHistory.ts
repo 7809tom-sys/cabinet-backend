@@ -29,6 +29,9 @@ const normalize = (v: unknown): unknown => {
  * Values are compared after light normalization (numbers/decimals as strings,
  * empty string == null) so that a resave with no real edit writes nothing.
  */
+/** Timestamps and audit columns that change on every save are not configuration. */
+const BOOKKEEPING_FIELDS = new Set(["configVerifiedAt", "configVerifiedBy", "updatedAt", "updatedBy", "createdAt"]);
+
 export async function logCabinetConfigChanges(
   db: Db,
   args: {
@@ -46,6 +49,7 @@ export async function logCabinetConfigChanges(
   const rows: (typeof cabinetConfigChangeLog.$inferInsert)[] = [];
   for (const field of keys) {
     if (!(field in args.after)) continue;
+    if (BOOKKEEPING_FIELDS.has(field)) continue;
     const oldV = normalize(args.before[field]);
     const newV = normalize(args.after[field]);
     if (JSON.stringify(oldV) === JSON.stringify(newV)) continue;

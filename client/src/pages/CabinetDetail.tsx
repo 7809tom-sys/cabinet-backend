@@ -414,8 +414,45 @@ export default function CabinetDetail({ masterCode }: Props) {
   const { data: cabinetByCode, isLoading: cabinetByCodeLoading } = trpc.cabinets.byCode.useQuery({
     masterCode: canonicalMasterCode,
   }, { enabled: cabinetIdParam == null });
-  const cabinet = cabinetById ?? cabinetByCode;
+  const masterCabinet = cabinetById ?? cabinetByCode;
   const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;
+  const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(
+    { cabinetId: masterCabinet?.id ?? 0, affiliateSlug },
+    { enabled: !!masterCabinet?.id }
+  );
+
+  const styleRows = (styles ?? []) as StyleRow[];
+  const isAffiliateStorefront = Boolean(affiliateSlug);
+
+  // Auto-select: the family passed in ?style= if it's available for this
+  // cabinet, otherwise the explicit user choice, otherwise the first style.
+  const styleParamAvailable =
+    styleParam != null && styleRows.some((s) => s.styleId === styleParam);
+  const activeStyle =
+    selectedStyleId ??
+    (styleParamAvailable ? styleParam : null) ??
+    styleRows[0]?.styleId ??
+    null;
+  const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
+  // A distributor's own configuration rule (saved per distributor from the
+  // Edit Cabinet picker) is layered over the shared master for display only
+  // while that distributor's door style is selected. Never touches pricing.
+  const { data: distributorRule } = trpc.cabinetOverrides.configForDistributor.useQuery(
+    { cabinetId: masterCabinet?.id ?? 0, distributorId: selectedRow?.distributorId ?? 0 },
+    { enabled: Boolean(masterCabinet?.id && selectedRow?.distributorId) },
+  );
+  const cabinet = useMemo(() => {
+    if (!masterCabinet || !distributorRule?.config) return masterCabinet;
+    const next: Record<string, unknown> = { ...masterCabinet };
+    let changed = false;
+    for (const [key, value] of Object.entries(distributorRule.config)) {
+      if (value === undefined || !(key in next)) continue;
+      if (next[key] !== value) { next[key] = value; changed = true; }
+    }
+    return changed ? (next as typeof masterCabinet) : masterCabinet;
+  }, [masterCabinet, distributorRule]);
+  const hasDistributorRule = Boolean(distributorRule?.config) && cabinet !== masterCabinet;
+
   const resolvedMasterCode = cabinet?.masterCode ?? canonicalMasterCode;
 
   const seoName = cabinet?.description
@@ -449,24 +486,6 @@ export default function CabinetDetail({ masterCode }: Props) {
     ...(cabinetJsonLd ? { jsonLd: cabinetJsonLd } : {}),
   });
 
-  const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(
-    { cabinetId: cabinet?.id ?? 0, affiliateSlug },
-    { enabled: !!cabinet?.id }
-  );
-
-  const styleRows = (styles ?? []) as StyleRow[];
-  const isAffiliateStorefront = Boolean(affiliateSlug);
-
-  // Auto-select: the family passed in ?style= if it's available for this
-  // cabinet, otherwise the explicit user choice, otherwise the first style.
-  const styleParamAvailable =
-    styleParam != null && styleRows.some((s) => s.styleId === styleParam);
-  const activeStyle =
-    selectedStyleId ??
-    (styleParamAvailable ? styleParam : null) ??
-    styleRows[0]?.styleId ??
-    null;
-  const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
   // The server supplies raw `yourCost` only to Administration and the adjusted
   // `affiliateCost` only to an owner browsing their own storefront. No client
   // condition can create either value without server authorization.
@@ -719,6 +738,8 @@ export default function CabinetDetail({ masterCode }: Props) {
         `Saved for ${vars.distributorIds.length} distributor${vars.distributorIds.length === 1 ? "" : "s"} only. The shared master was not changed.`,
       );
       utils.cabinets.byCode.invalidate({ masterCode });
+      utils.cabinets.byId.invalidate();
+      utils.cabinetOverrides.configForDistributor.invalidate();
       void refetchOverrides();
       setSaveScopeOpen(false);
       setEditOpen(false);
@@ -1367,9 +1388,16 @@ export default function CabinetDetail({ masterCode }: Props) {
             )}
           </div>
           <div className="flex items-start justify-between gap-2 mt-2 mb-1">
-            <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-              {translateSpec(cabinet.description, lang)}
-            </h1>
+            <div className="min-w-0">
+              <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
+                {translateSpec(cabinet.description, lang)}
+              </h1>
+              {isOwner && hasDistributorRule && selectedRow && (
+                <Badge variant="outline" className="mt-1 text-[10px]" data-testid="cabinet-detail-distributor-rule">
+                  Showing {(distCoverage ?? []).find((d) => d.distributorId === selectedRow.distributorId)?.name ?? "this distributor"}'s own rule
+                </Badge>
+              )}
+            </div>
             {isOwner && (
               <button
                 onClick={() => setEditOpen(true)}
