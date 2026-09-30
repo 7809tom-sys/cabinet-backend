@@ -41,3 +41,7 @@ The Wall Builder elevation screenshot shows its measured wall selector and 108-i
 - `pnpm run check`: passed.
 - `pnpm run build`: passed.
 - `git diff --check`: passed.
+
+## Live verification (08:34 CDT, 2026-09-30)
+
+Checkpoint `fe1e747e1` published as `index-875vHPhP.js` / `DesignTool-Ckrno2O7.js`; both are byte-identical to the local checkpoint build once hashed chunk imports are normalized. On www.cabinetdealz.com: standard elevation (Back, crown 1 / toe 3 / rail 1 strips), Wall Builder elevation (Measured back run, same strips), both 3D canvases with zero console errors; the unchanged extended parity script returned MISMATCHES 0 and LEGACY_MISMATCHES 0 (`phase2-live-extended-parity-output.md`, `phase2-live-browser-check.txt`).
