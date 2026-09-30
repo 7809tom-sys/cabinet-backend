@@ -649,8 +649,8 @@ function CabinetTableRow({
       </td>
       <td className="px-3 py-2.5">
         <div className="flex flex-wrap gap-1 max-w-[160px]">
-          {aliases.slice(0, 2).map(a => (
-            <span key={a} className="text-xs font-mono bg-muted rounded px-1.5 py-0.5">{a}</span>
+          {aliases.slice(0, 2).map((a, i) => (
+            <span key={`${a}-${i}`} className="text-xs font-mono bg-muted rounded px-1.5 py-0.5">{a}</span>
           ))}
           {aliases.length > 2 && <span className="text-xs text-muted-foreground">+{aliases.length - 2}</span>}
           {aliases.length === 0 && <span className="text-xs text-muted-foreground italic">—</span>}
