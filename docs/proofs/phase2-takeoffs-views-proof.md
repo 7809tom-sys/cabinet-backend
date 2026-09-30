@@ -22,7 +22,7 @@ The unchanged extended Phase 1 browser script was rerun against this local Phase
 | Check | Standard room | Wall Builder room |
 |---|---|---|
 | Elevation wall label | Back | Measured back run |
-| Wall ceiling shown | 96 in | 108 in (drawn-wall height) |
+| Wall ceiling shown | 96 in | ~~108 in~~ → 96 in after the height correction below (a drawn wall can never show taller than the room ceiling) |
 | Continuous crown strip | 1 | 1 |
 | Toe-kick strips | 3 | 3 |
 | Light-rail strip | 1 | 1 |
@@ -45,3 +45,20 @@ The Wall Builder elevation screenshot shows its measured wall selector and 108-i
 ## Live verification (08:34 CDT, 2026-09-30)
 
 Checkpoint `fe1e747e1` published as `index-875vHPhP.js` / `DesignTool-Ckrno2O7.js`; both are byte-identical to the local checkpoint build once hashed chunk imports are normalized. On www.cabinetdealz.com: standard elevation (Back, crown 1 / toe 3 / rail 1 strips), Wall Builder elevation (Measured back run, same strips), both 3D canvases with zero console errors; the unchanged extended parity script returned MISMATCHES 0 and LEGACY_MISMATCHES 0 (`phase2-live-extended-parity-output.md`, `phase2-live-browser-check.txt`).
+
+
+## Height-rule correction (2026-09-30 08:49 brief)
+
+Rule: the room has ONE ceiling (84–144 in, set only in Room size, never by the Wall Builder). Each drawn wall has its own height from a knee wall (34.5 in floor) up to the ceiling, never taller. Uppers and crown on a full-height wall use the ceiling; on a short wall the wall's own top is the limit.
+
+Why "Measured back run 108 in" appeared: the earlier Phase 2 `wallCeiling()` read the drawn wall's saved `height` through `clampCeilingHeight` (84–144) and used it as the ceiling, so a 108 in wall saved in a 96 in room rendered and measured as 108 in — the wall height was being treated as the ceiling. That was the bug.
+
+Fix (shared `client/src/lib/design.ts`, consumed by the 3D renderer, the elevation view and the wall-settings dialog): a new `wallTopLimit(room, wall)` = min(room ceiling, max(34.5, wall height rounded to 1/8)). `wallCeiling()`, `wallRunFrame`, `wallCabinetVerticalMoveLimit`, `ceilingFitViolations`, the 3D measured-wall plane height, the elevation ceiling line and the wall-height input (max = room ceiling) all use it. Nothing clamps a wall to 84 in any more; only the room ceiling keeps the 84–144 range. When a wall top is below the ceiling the elevation label reads `Wall top 42" (ceiling 96")` and the conflict banner names the half wall instead of the ceiling.
+
+| Browser scenario (local build) | Wall saved | Room ceiling | Elevation label | Result |
+|---|---:|---:|---|---|
+| Standard room | — | 96 | Ceiling 96" | crown 1 / toe 3 / rail 1, 3D ok |
+| Wall Builder, wall saved taller than ceiling | 108 | 96 | Ceiling 96" | capped at the ceiling, crown 1 / toe 3 / rail 1, 3D ok |
+| Wall Builder half wall | 42 | 96 | Wall top 42" (ceiling 96") | W3030 hung at 54 in flagged CONFLICT ("stands above the top of its 3'6" half wall"), 3D wall plane 42 in |
+
+Unit coverage: `oneEngineTakeoffParity.test.ts` (108 in a 96 room → 96; 108/108 equals the standard room; 42 in wall caps the upper, violation flagged, maxBottom 12), `ElevationView.customWall.test.tsx`, `InteractiveRoom3D.roomShape.test.ts` (wall-2 saved 108 renders 96). Screenshots: `docs/proofs/phase2-heights-*.png`.

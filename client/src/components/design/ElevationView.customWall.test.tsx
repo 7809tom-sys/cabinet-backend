@@ -21,6 +21,7 @@ const room: RoomData = {
     startVertexId: "start",
     endVertexId: "end",
     label: "Measured back run",
+    // Taller than the room's one 96-inch ceiling: the wall must render at 96.
     height: 108,
   }],
 };
@@ -77,9 +78,11 @@ describe("ElevationView drawn wall runs", () => {
     const markup = renderCustomElevation();
 
     // The server render defaults to four pixels per inch: the 120" measured
-    // wall is 480px wide and its 108" wall height is 432px, not the room's 96".
-    expect(markup).toContain("width:480px;height:472px");
-    expect(markup).toContain("height:432px");
+    // wall is 480px wide. Its saved 108" height cannot exceed the room's one
+    // 96" ceiling, so the wall box is 384px tall, exactly like a standard wall.
+    expect(markup).toContain("width:480px;height:424px");
+    expect(markup).toContain("height:384px");
+    expect(markup).not.toContain("height:432px");
     // Base starts at 18" and is 24" wide; upper starts at 54" and is 30".
     expect(markup).toContain("left:72px;width:96px");
     expect(markup).toContain("left:216px;width:120px");

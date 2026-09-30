@@ -1952,11 +1952,28 @@ export function wallCeiling(
     const low = clampCeilingHeight(override.low);
     return { high: Math.max(high, low), low: Math.min(high, low), slopeFrom: override.slopeFrom ?? "start" };
   }
-  // The physical height of a drawn run is the ceiling over that run. Keep
-  // cardinal overrides above unchanged, then fall back to the global height.
-  const customHeight = room?.customWalls?.find((wall) => wall.id === side)?.height;
-  const flat = customHeight != null && Number.isFinite(customHeight) ? clampCeilingHeight(customHeight) : roomCeiling(room ?? undefined);
+  // One room ceiling. A drawn wall carries its own height (half wall, pony
+  // wall, full height) which can never exceed the ceiling; the usable top for
+  // uppers and crown on that wall is the lower of the two. Wall heights are NOT
+  // clamped to the ceiling range; only the ceiling itself uses 84-144 inches.
+  const flat = wallTopLimit(room, side);
   return { high: flat, low: flat };
+}
+/** Minimum wall height the model accepts (a knee-wall / pony-wall cap). */
+export const MIN_WALL_HEIGHT = 34.5;
+/**
+ * Highest point anything can reach on a wall: the room ceiling, or a drawn
+ * wall's own shorter height. Shared by placement limits, elevation, 3D and
+ * the wall-run frame so every tool agrees.
+ */
+export function wallTopLimit(
+  room: { ceilingHeight?: number; customWalls?: RoomData["customWalls"] } | null | undefined,
+  side: WallSide,
+): number {
+  const ceiling = roomCeiling(room ?? undefined);
+  const customHeight = Number(room?.customWalls?.find((wall) => wall.id === side)?.height);
+  if (!Number.isFinite(customHeight) || customHeight <= 0) return ceiling;
+  return Math.min(ceiling, Math.max(MIN_WALL_HEIGHT, Math.round(customHeight * 8) / 8));
 }
 
 // True when the given wall has a sloped (angled) ceiling rather than a flat one.
@@ -8634,8 +8651,7 @@ export function wallRunFrame(side: WallSide | string | null | undefined, room: R
     const end = room.vertices.find((vertex) => vertex.id === customWall.endVertexId);
     if (!start || !end) return null;
     const length = polygonWallSegmentLength(customWall, room.vertices);
-    const wallHeight = Number(customWall.height);
-    const height = Number.isFinite(wallHeight) && wallHeight > 0 ? wallHeight : roomCeiling(room);
+    const height = wallTopLimit(room, customWall.id as WallSide);
     return frameFromSegment(customWall.id as WallSide, "custom", { x: start.x, y: start.y }, { x: end.x, y: end.y }, customWallCabinetSide(room, customWall.id) === "left", 0, length, height);
   }
   if (side !== "top" && side !== "bottom" && side !== "left" && side !== "right") return null;

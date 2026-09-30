@@ -132,8 +132,7 @@ import {
   isApplianceCode, bearsCountertop, bearsIslandCountertop,
   type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
-		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities,
-	} from "@/lib/design";
+		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities, MIN_WALL_HEIGHT, wallTopLimit } from "@/lib/design";
 import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandAssemblyClearance, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   trimPriceForKind,
@@ -1235,7 +1234,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const draft = wallSettingsDraft;
     if (!draft) return;
     const length = Math.max(6, Math.round((Number(draft.length) || 6) * 8) / 8);
-    const height = Math.max(34.5, Math.min(144, Math.round((Number(draft.height) || 96) * 8) / 8));
+    // A wall can be as short as a knee wall but never taller than the room's one ceiling.
+    const height = Math.max(MIN_WALL_HEIGHT, Math.min(roomCeiling(room), Math.round((Number(draft.height) || roomCeiling(room)) * 8) / 8));
     const wallCabinets = placed.filter((cabinet) => cabinetWall(cabinet, room) === draft.wallId);
     const mountedCabinetAboveHeight = wallCabinets.find((cabinet) => cabinet.placement === "wall" && (Number(cabinet.mountBottom) || STD.WALL_MOUNT_BOTTOM) + placedHeight(cabinet) > height + 0.01);
     if (mountedCabinetAboveHeight) {
@@ -14096,7 +14096,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      <Input type="number" min="6" step="0.125" value={wallSettingsDraft.length} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, length: event.target.value === "" ? "" : Number(event.target.value) } : draft)} />
 	                    </label>
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Height (in)
-	                      <Input type="number" min="34.5" max="144" step="0.125" value={wallSettingsDraft.height} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, height: event.target.value === "" ? "" : Number(event.target.value) } : draft)} />
+	                      <Input type="number" min={MIN_WALL_HEIGHT} max={roomCeiling(room)} step="0.125" value={wallSettingsDraft.height} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, height: event.target.value === "" ? "" : Number(event.target.value) } : draft)} />
 	                    </label>
 	                  </div>
 	                  <p className="text-xs leading-5 text-muted-foreground">Changing a wall’s geometry is blocked while it has cabinets, and a wall cannot be shortened below a mounted cabinet. This keeps every placed cabinet supported and in its existing run.</p>
@@ -14862,7 +14862,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     ? `${blindOutOfRangeCount} blind corner cabinet${blindOutOfRangeCount > 1 ? "s" : ""} ${blindOutOfRangeCount > 1 ? "are" : "is"} pulled outside the manufacturer's min/max range. `
                     : ""}
                   {ceilingViolationUids.size > 0
-                    ? `${ceilingViolationUids.size} cabinet${ceilingViolationUids.size > 1 ? "s are" : " is"} taller than the ${(() => { const c = inchesToFeetInches(roomCeiling(room)); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; })()} ceiling — pick a shorter box or raise the ceiling height. `
+                    ? (() => {
+                      const fmt = (inches: number) => { const c = inchesToFeetInches(inches); return c.inches === 0 ? `${c.feet}'` : `${c.feet}'${c.inches}"`; };
+                      const count = ceilingViolationUids.size;
+                      // A short drawn wall (half / pony wall) caps its cabinets below the room ceiling.
+                      const shortWallTop = Array.from(ceilingViolationUids)
+                        .map((uid) => placed.find((cabinet) => cabinet.uid === uid))
+                        .map((cabinet) => (cabinet ? wallTopLimit(room, cabinetWall(cabinet, room)) : roomCeiling(room)))
+                        .find((top) => top < roomCeiling(room) - 0.001);
+                      return shortWallTop != null
+                        ? `${count} cabinet${count > 1 ? "s stand" : " stands"} above the top of its ${fmt(shortWallTop)} half wall — lower it, pick a shorter box, or raise that wall (up to the ${fmt(roomCeiling(room))} ceiling). `
+                        : `${count} cabinet${count > 1 ? "s are" : " is"} taller than the ${fmt(roomCeiling(room))} ceiling — pick a shorter box or raise the ceiling height. `;
+                    })()
                     : ""}
                   {cornerBaseViolationUids.size > 0
                     ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a doorway corner — select an ER36 or BER36 Easy Reach corner cabinet for that opening. `

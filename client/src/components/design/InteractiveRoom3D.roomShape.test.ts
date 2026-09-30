@@ -37,6 +37,7 @@ describe("active 2D room geometry in 3D", () => {
       ],
       customWalls: [
         { id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1", height: 96 },
+        // Saved taller than the room's one 96" ceiling: the wall renders at the ceiling, never above it.
         { id: "wall-2", startVertexId: "b", endVertexId: "c", label: "Wall 2", lockedAngle: 45, height: 108 },
       ],
     };
@@ -45,7 +46,7 @@ describe("active 2D room geometry in 3D", () => {
     expect(straight).toMatchObject({ id: "wall-1", length: expect.closeTo(101 / 12), rotationY: expect.closeTo(0), heightIn: 96 });
     expect(straight.start).toMatchObject({ x: expect.closeTo(0), y: expect.closeTo(0) });
     expect(straight.end).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
-    expect(diagonal).toMatchObject({ id: "wall-2", length: expect.closeTo(Math.hypot(55.154, 55.154) / 12), rotationY: expect.closeTo(Math.PI * 7 / 4), heightIn: 108 });
+    expect(diagonal).toMatchObject({ id: "wall-2", length: expect.closeTo(Math.hypot(55.154, 55.154) / 12), rotationY: expect.closeTo(Math.PI * 7 / 4), heightIn: 96 });
     expect(diagonal.start).toMatchObject({ x: expect.closeTo(101 / 12), y: expect.closeTo(0) });
     expect(diagonal.end).toMatchObject({ x: expect.closeTo(156.154 / 12), y: expect.closeTo(-55.154 / 12) });
 

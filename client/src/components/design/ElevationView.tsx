@@ -292,13 +292,11 @@ export function ElevationView({
   // the visually LEFT and RIGHT ends of this elevation. `wallCeilingAt` works in
   // plan order (start->end); when this view is mirrored (CornerView left wall)
   // the on-screen left/right are swapped, so we flip them back for display.
-  // Drawn walls carry their own measured height. Cardinal walls retain their
-  // established ceiling lookup, including their existing slope overlay.
+  // One shared lookup for every wall kind: the room ceiling, or a drawn
+  // wall's own shorter height (never taller than the ceiling).
   const customWall = room.customWalls?.find((candidate) => candidate.id === side);
-  const wc = customWall
-    ? { high: wallFrame?.height ?? roomCeiling(room), low: wallFrame?.height ?? roomCeiling(room) }
-    : wallCeiling(room, side as WallSide);
-  const sloped = !customWall && wallCeilingIsSloped(room, side as WallSide);
+  const wc = wallCeiling(room, side as WallSide);
+  const sloped = wallCeilingIsSloped(room, side as WallSide);
   const ceilHigh = wc.high;
   // Plan-order start/end heights.
   const startH = (wc.slopeFrom ?? "start") === "start" ? wc.high : wc.low;
@@ -1097,7 +1095,9 @@ export function ElevationView({
         <div className="absolute -top-[14px] right-0 text-[9px] font-medium text-[#1a2744]/70" style={textFlip}>
           {sloped
             ? t("dt_ev_ceiling_slope", { hi: Math.round(ceilHigh), lo: Math.round(Math.min(heightLeft, heightRight)) })
-            : t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
+            : WALL_TOTAL_HEIGHT < roomCeiling(room) - 0.001
+              ? t("dt_ev_wall_top", { n: Math.round(WALL_TOTAL_HEIGHT), c: Math.round(roomCeiling(room)) })
+              : t("dt_ev_ceiling", { n: Math.round(WALL_TOTAL_HEIGHT) })}
         </div>
         {/* Countertop band: a thin colored slab sitting on top of the base run,
             its top edge on the 36" counter line, colored by the chosen material.

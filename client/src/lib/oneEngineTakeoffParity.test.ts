@@ -5,8 +5,7 @@ import { crownTakeoffFromExposedSegments } from "./crownTakeoff";
 import {
   cabinetTakeoffWallId, crownLinearInches, lightRailTakeoff, syncWallRunOffsets,
   toeKickLinearInches, wallCabinetVerticalMoveLimit, wallCeiling, wallPlacementAt,
-  type PlacedCabinet, type RoomData,
-} from "./design";
+  type PlacedCabinet, type RoomData, wallTopLimit, wallRunFrame, ceilingFitViolations } from "./design";
 
 function drawnRoom(turn: "right90" | "right45" = "right90"): RoomData {
   let segments: WallBuilderSegment[] = [];
@@ -96,12 +95,41 @@ describe("Phase 2 shared takeoffs when wall seating metadata is cleared", () => 
     const b36 = cabinet(room, wall, "B36", "base", 36, 24, 11);
     expect(toeKickLinearInches([b36])).toBe(36);
   });
-  it("a drawn wall's own 108-inch height governs wall ceiling and upper vertical limit", () => {
+  it("one room ceiling: a drawn wall can never be taller than it, so a 108-inch wall in a 96-inch room tops out at 96", () => {
     const room = drawnRoom();
+    room.ceilingHeight = 96;
+    const wall = room.customWalls![0]!;
+    wall.height = 108;
+    const upper = cabinet(room, wall.id, "W3030", "wall", 30, 12);
+    expect(wallTopLimit(room, wall.id as never)).toBe(96);
+    expect(wallCeiling(room, wall.id as never)).toEqual({ high: 96, low: 96 });
+    expect(wallCabinetVerticalMoveLimit(upper, room).ceiling).toBe(96);
+    expect(wallRunFrame(wall.id as never, room)!.height).toBe(96);
+  });
+  it("a full-height drawn wall uses the room ceiling exactly like a standard wall", () => {
+    const room = drawnRoom();
+    room.ceilingHeight = 108;
     const wall = room.customWalls![0]!;
     wall.height = 108;
     const upper = cabinet(room, wall.id, "W3030", "wall", 30, 12);
     expect(wallCeiling(room, wall.id as never)).toEqual({ high: 108, low: 108 });
     expect(wallCabinetVerticalMoveLimit(upper, room).ceiling).toBe(108);
+    const standard: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
+    const stdUpper = cabinet(standard, "top", "W3030", "wall", 30, 12);
+    expect(wallCabinetVerticalMoveLimit(stdUpper, standard).ceiling).toBe(108);
+  });
+  it("a short drawn wall (half / pony wall) is not clamped to 84 and caps uppers at its own top", () => {
+    const room = drawnRoom();
+    room.ceilingHeight = 96;
+    const wall = room.customWalls![0]!;
+    wall.height = 42;
+    expect(wallTopLimit(room, wall.id as never)).toBe(42);
+    expect(wallCeiling(room, wall.id as never)).toEqual({ high: 42, low: 42 });
+    const upper = cabinet(room, wall.id, "W3030", "wall", 30, 12);
+    const limit = wallCabinetVerticalMoveLimit(upper, room);
+    expect(limit.ceiling).toBe(42);
+    // A 30-inch upper hung at the standard 54-inch line would stand above a 42-inch wall.
+    expect(ceilingFitViolations([upper], room).has(upper.uid)).toBe(true);
+    expect(limit.maxBottom).toBe(12);
   });
 });
