@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects, lCornerCountertopWorldPolygon,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
+		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -4349,6 +4349,67 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(snapped.x + snapped.width).toBe(wdc.x);
     expect(hasCollision(snapped, [wdc])).toBe(false);
   });
+
+	  it("right-drags W3042 into exact contact with the adjoining 24-inch leg of WDC2442 on two diagonal measured walls", () => {
+	    const room: RoomData = {
+	      width: 200,
+	      depth: 120,
+	      ceilingHeight: 96,
+	      openWallPath: true,
+	      vertices: [
+	        { id: "left", x: 0, y: 100 },
+	        { id: "turn", x: 100, y: 0 },
+	        { id: "right", x: 200, y: 100 },
+	      ],
+	      customWalls: [
+	        { id: "down-left", startVertexId: "left", endVertexId: "turn", label: "Wall 5", lockedAngle: -45 },
+	        { id: "down-right", startVertexId: "turn", endVertexId: "right", label: "Wall 6", lockedAngle: 45 },
+	      ],
+	    };
+	    const wdcSource = cab({
+	      uid: "measured-wdc2442",
+	      masterCode: "WDC2442",
+	      description: "24 inch Diagonal Corner Wall Cabinet",
+	      placement: "wall",
+	      width: 24,
+	      depth: 24,
+	      height: 42,
+	      mountBottom: 54,
+	      cornerType: "diagonal",
+	    });
+	    const cornerSpot = customWallTrueCornerPlacement(
+	      wdcSource,
+	      room.customWalls![0]!,
+	      room.customWalls![1]!,
+	      "turn",
+	      room,
+	    );
+	    expect(cornerSpot).not.toBeNull();
+	    const wdc2442 = { ...wdcSource, ...cornerSpot! };
+	    const moving = cab({
+	      uid: "measured-w3042",
+	      masterCode: "W-3042",
+	      description: "30 inch Wall Cabinet",
+	      placement: "wall",
+	      width: 30,
+	      depth: 12,
+	      height: 42,
+	      mountBottom: 54,
+	      rotation: 315,
+	      wallId: "down-left",
+	      wallOffset: 40,
+	    });
+	    const wallLengthIn = Math.hypot(100, 100);
+	    const expectedStart = wallLengthIn - 24 - 30;
+	    const preview = cabinetWallDragPreview(moving, room, [wdc2442, moving], [], expectedStart + 15);
+
+	    expect(preview?.candidate).not.toBeNull();
+	    expect(preview?.snapped).toBe(true);
+	    expect(preview?.candidate?.wallId).toBe("down-left");
+	    expect(preview?.candidate?.wallOffset).toBeCloseTo(expectedStart, 2);
+	    expect(wallRunOffset(preview!.candidate!, "down-left" as never, room) + 30).toBeCloseTo(wallLengthIn - 24, 2);
+	    expect(cabinetPlacementCollisionDetail(preview!.candidate!, [wdc2442], room)).toBeNull();
+	  });
 
   it("moves a straight wall cabinet past the physical clearance at an adjoining measured 45-degree run", () => {
     const room: RoomData = {

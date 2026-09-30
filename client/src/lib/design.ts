@@ -11596,8 +11596,12 @@ export function cabinetWallDragPreview(
   if (!isWallRunDraggable(moving, room)) return null;
   const wall = cabinetWall(moving, room);
   const footprint = placedFootprint(moving);
+	  const explicitWallRun = isCustomRoomWall(room, wall) || Boolean(peninsulaRunById(room, wall));
   const horizontal = wall === "top" || wall === "bottom";
-  const requiredSpan = horizontal ? footprint.w : footprint.d;
+	  // A measured wall stores the cabinet's catalog width along its own tangent.
+	  // Its screen-space AABB is wider/narrower after rotation and must never become
+	  // the required run span (for example, a 30×12 W3042 at 45° is not 29.7" wide).
+	  const requiredSpan = explicitWallRun ? Math.max(0, Number(moving.width) || 0) : horizontal ? footprint.w : footprint.d;
   const dragLayer: "base" | "wall" = moving.placement === "wall" || isRangeHoodPlacement(moving) ? "wall" : "base";
   const peers = others.filter((item) => item.uid !== moving.uid);
   const gaps = wallGaps(room, peers, openings, 0)
@@ -11658,11 +11662,14 @@ export function cabinetWallDragPreview(
   }
   const initialFit = wallGapFitPreview(gaps, targetAlong, requiredSpan);
   if (!initialFit) return null;
-  const wallSpan = horizontal ? room.width : room.depth;
+	  const wallSpan = explicitWallRun ? wallLength(wall, room) : horizontal ? room.width : room.depth;
   const depth = Number(moving.depth) || (moving.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
   const candidateAtStart = (start: number): PlacedCabinet => {
     const spot = wallPlacementAt(start, requiredSpan, depth, wall, room);
-    return { ...moving, x: spot.x, y: spot.y };
+	    // Carry the measured wall's rotation and authoritative run metadata into
+	    // the candidate. Keeping the stale pre-drag x/y-only transform makes a
+	    // visually valid W3042-to-WDC2442 seam fail collision after the snap.
+	    return { ...moving, ...spot };
   };
   const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;
   const pointerStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), roundedPointerStart));
@@ -11678,7 +11685,7 @@ export function cabinetWallDragPreview(
   // A corner item can be oriented to the perpendicular wall and therefore be
   // absent from this wall's free-segment list even though its physical footprint
   // occupies the corner. Its actual plan edges remain valid seam targets.
-  const physicalEdgeCandidates = peers.flatMap((peer) => {
+	  const physicalEdgeCandidates = explicitWallRun ? [] : peers.flatMap((peer) => {
     if (!sharesPlanCollisionZone(moving, peer)) return [];
     const candidateCross = candidateAtStart(pointerStart);
     const candidateSize = placedFootprint(candidateCross);
@@ -11703,11 +11710,14 @@ export function cabinetWallDragPreview(
         start: peerEnd,
       },
     ].map((entry) => ({ ...entry, distance: Math.abs(pointerStart - entry.start) }));
-  });
-	  const edgeCandidates = (options.disableSnapping ? [] : [...gapEdgeCandidates, ...physicalEdgeCandidates])
+	  });
+	  const collidesOnThisRun = (candidate: PlacedCabinet): boolean => explicitWallRun
+	    ? cabinetPlacementCollisionDetail(candidate, peers, room) !== null
+	    : hasCollision(candidate, peers);
+		  const edgeCandidates = (options.disableSnapping ? [] : [...gapEdgeCandidates, ...physicalEdgeCandidates])
     .filter((entry) => entry.start >= -COLLISION_EPSILON_IN && entry.start + requiredSpan <= wallSpan + COLLISION_EPSILON_IN)
     .filter((entry) => entry.distance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN)
-    .filter((entry) => !hasCollision(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers), peers))
+	    .filter((entry) => !collidesOnThisRun(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers)))
     .sort((left, right) => left.distance - right.distance || left.start - right.start);
   const edgeSnap = edgeCandidates[0] ?? null;
   const snapStart = edgeSnap ? edgeSnap.start : pointerGap ? pointerStart : null;
@@ -11751,8 +11761,8 @@ export function cabinetWallDragPreview(
   };
   if (snapStart == null) return { wall, fit, candidate: null, snapped: false, ghostCandidate };
 	  const candidate = options.disableSnapping ? ghostCandidate : snapCabinetSeamOverlap(ghostCandidate, peers);
-	  const validCandidate = hasCollision(candidate, peers) ? null : candidate;
-	  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate, freehand: options.disableSnapping === true };
+		  const validCandidate = collidesOnThisRun(candidate) ? null : candidate;
+		  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate, freehand: options.disableSnapping === true };
 }
 
 /**
