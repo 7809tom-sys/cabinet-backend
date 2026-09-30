@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
-import { cabinetConfigChangeLog, distributors } from "../../drizzle/schema";
+import { cabinetConfigChangeLog, cabinets, distributors } from "../../drizzle/schema";
 
 /** Number of days a configuration change stays revertable from the history panel. */
 export const CONFIG_REVERT_WINDOW_DAYS = 5;
@@ -97,7 +97,7 @@ export async function recentCabinetConfigChanges(
     .leftJoin(distributors, eq(distributors.id, cabinetConfigChangeLog.distributorId))
     .where(and(...conds))
     .orderBy(desc(cabinetConfigChangeLog.createdAt), desc(cabinetConfigChangeLog.id))
-    .limit(opts.limit ?? 500);
+    .limit(opts.limit ?? 2000);
   const cutoff = Date.now() - CONFIG_REVERT_WINDOW_DAYS * 24 * 60 * 60 * 1000;
   return rows.map(({ row, distributorName }) => ({
     id: row.id,
@@ -115,4 +115,31 @@ export async function recentCabinetConfigChanges(
     revertedAt: row.revertedAt,
     canRevert: row.revertedAt == null && new Date(row.createdAt).getTime() >= cutoff,
   }));
+}
+
+/**
+ * Update one master cabinet row from any admin edit surface, stamp
+ * configuredAt (so it counts as a recent save) and log the field-level diff.
+ * Every admin path that edits a cabinet should go through here so the
+ * Cabinet Config history is complete, not only the Cabinet Config editor.
+ */
+export async function updateCabinetLogged(
+  db: Db,
+  args: { cabinetId: number; patch: Record<string, unknown>; actor: ConfigChangeActor },
+): Promise<{ logged: number }> {
+  const [before] = await db.select().from(cabinets).where(eq(cabinets.id, args.cabinetId)).limit(1);
+  if (!before) return { logged: 0 };
+  await db
+    .update(cabinets)
+    .set({ ...(args.patch as Partial<typeof cabinets.$inferInsert>), configuredAt: new Date() })
+    .where(eq(cabinets.id, args.cabinetId));
+  const logged = await logCabinetConfigChanges(db, {
+    cabinetId: args.cabinetId,
+    masterCode: before.masterCode ?? "",
+    scope: "master",
+    before: before as unknown as Record<string, unknown>,
+    after: args.patch,
+    actor: args.actor,
+  });
+  return { logged };
 }

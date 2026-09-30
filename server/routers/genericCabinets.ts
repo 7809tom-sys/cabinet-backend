@@ -14,6 +14,7 @@ import { getDb, isCanonicalCabinetMaster } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
 import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles, skuMasterAliases } from "../../drizzle/schema";
 import { storagePut } from "../storage";
+import { logCabinetConfigChanges } from "../lib/cabinetConfigHistory";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import {
   catalogNomenclatureIssueMessage,
@@ -645,7 +646,7 @@ export const genericCabinetsRouter = router({
         isActive: z.boolean().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
 
@@ -742,7 +743,23 @@ export const genericCabinetsRouter = router({
           }
         }
       }
+      // Record what actually changed so the Cabinet Config history shows every
+      // edit surface, not only the Cabinet Config editor. Stamp configuredAt so
+      // the cabinet also counts as "saved" in the 5-day list.
+      const [beforeRow] = await db.select().from(cabinets).where(eq(cabinets.id, id)).limit(1);
+      update.configuredAt = new Date();
       await db.update(cabinets).set(update).where(eq(cabinets.id, id));
+      if (beforeRow) {
+        const { configuredAt: _skipStamp, ...loggedUpdate } = update;
+        await logCabinetConfigChanges(db, {
+          cabinetId: id,
+          masterCode: beforeRow.masterCode ?? "",
+          scope: "master",
+          before: beforeRow as unknown as Record<string, unknown>,
+          after: loggedUpdate,
+          actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
+        });
+      }
       // Aliases are purely informational cross-references.
       // Visibility is controlled exclusively by admin via showInCatalog/showInDesigner toggles.
       return { ok: true };

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { updateCabinetLogged } from "../lib/cabinetConfigHistory";
 import { logCabinetConfigChanges } from "../lib/cabinetConfigHistory";
 import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
@@ -2342,7 +2343,7 @@ export const cabinetsRouter = router({
         viewMode: z.enum(["3d", "2d"]).default("3d"),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
       const [cab] = await db
@@ -2425,7 +2426,7 @@ export const cabinetsRouter = router({
       const { url } = await storagePut(key, imgBuf, "image/png");
 
       // Persist on the cabinet record
-      await db.update(cabinets).set({ catalogImageUrl: url }).where(eq(cabinets.id, input.id));
+      await updateCabinetLogged(db, { cabinetId: input.id, patch: { catalogImageUrl: url }, actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null } });
 
       return { url };
     }),
@@ -3360,20 +3361,20 @@ export const cabinetsRouter = router({
 
   adminFixCabinetImage: adminProcedure
     .input(z.object({ id: z.number(), imageUrl: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      await db.update(cabinets).set({ catalogImageUrl: input.imageUrl }).where(eq(cabinets.id, input.id));
+      await updateCabinetLogged(db, { cabinetId: input.id, patch: { catalogImageUrl: input.imageUrl }, actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null } });
       return { ok: true, conflictCleared: false };
     }),
 
   adminBulkFixCabinetImages: adminProcedure
     .input(z.object({ ids: z.array(z.number()), imageUrl: z.string() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
       for (const id of input.ids) {
-        await db.update(cabinets).set({ catalogImageUrl: input.imageUrl }).where(eq(cabinets.id, id));
+        await updateCabinetLogged(db, { cabinetId: id, patch: { catalogImageUrl: input.imageUrl }, actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null } });
       }
       return { updated: input.ids.length, conflictsCleared: 0 };
     }),

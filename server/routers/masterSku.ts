@@ -17,6 +17,7 @@
  *  - triggerAiScan     — use LLM to compare catalog SKUs and generate new suggestions
  */
 import { and, asc, desc, eq, like, ne, or, sql } from "drizzle-orm";
+import { updateCabinetLogged } from "../lib/cabinetConfigHistory";
 import { z } from "zod";
 import { getDb } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
@@ -755,7 +756,7 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
       graphicType: z.string().min(1),
       specImageUrl: z.string().nullable(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) throw new Error("DB unavailable");
       const [source] = await db.select({ masterCode: cabinets.masterCode }).from(cabinets).where(eq(cabinets.id, input.cabinetId)).limit(1);
@@ -764,9 +765,15 @@ Return a JSON array with objects: { index: number, isDuplicate: boolean, reason:
       const canonicalCode = sourceAlias?.masterCode ?? source.masterCode;
       const aliases = await db.select({ aliasCode: skuMasterAliases.aliasCode }).from(skuMasterAliases).where(eq(skuMasterAliases.masterCode, canonicalCode));
       const linkedCodes = Array.from(new Set([canonicalCode, ...aliases.map((row) => row.aliasCode)]));
-      await db.update(cabinets)
-        .set({ category: input.category, subCategory: input.subCategory, graphicType: input.graphicType, specImageUrl: input.specImageUrl })
+      const linkedRows = await db.select({ id: cabinets.id }).from(cabinets)
         .where(or(...linkedCodes.map((code) => eq(cabinets.masterCode, code))));
+      for (const row of linkedRows) {
+        await updateCabinetLogged(db, {
+          cabinetId: row.id,
+          patch: { category: input.category, subCategory: input.subCategory, graphicType: input.graphicType, specImageUrl: input.specImageUrl },
+          actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
+        });
+      }
       return { canonicalCode, linkedCodes };
     }),
 

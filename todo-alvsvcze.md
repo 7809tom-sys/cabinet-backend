@@ -2899,3 +2899,9 @@
 - Fix: new public `cabinetOverrides.configForDistributor`; CabinetDetail layers the selected door style's distributor rule over the master for display (badge "Showing <Distributor>'s own rule"; other distributors and master unchanged; pricing untouched). Queries invalidated after save.
 - History cleanup: bookkeeping fields (configVerifiedAt/By, updatedAt/By) no longer logged; first-time distributor rule diffs against master values so only real edits show (test save produced exactly 1 row: Madison · description).
 - Proof (local Playwright, W1512GD / Nova Blanc (Madison)): pencil → change description → Save… → tick Madison → title shows change immediately and after reload; history first row = Madison · description old→new · Revert; Revert restores master text. Test rows removed afterwards. tsc/build/diff-check OK; vitest history+masterChanges 10/10.
+
+## 2026-09-30 12:56 CT — History: "80–100 cabinets missing" (user 12:41)
+- DB audit: 74 cabinets stamped configuredAt in last 6 days + 65 with distributor overrides = 75 distinct shown. Other tables with 6-day activity (cost_change_log, code_aliases, media_images) held no additional per-cabinet config edits.
+- Root cause: six admin edit paths updated `cabinets` without stamping configuredAt or logging (Catalog-tab row editor genericCabinets.update, setMasterImage, generate/fix/bulk-fix catalog image, masterSku.propagateCabinetConfig). Those past edits left no timestamp and cannot be reconstructed.
+- Fix: shared `updateCabinetLogged()` (stamps configuredAt + field diff into cabinet_config_change_log) now used by all six paths; query caps 300→2000; panel header shows distinct cabinet count. Proof: genericCabinets.update weight on 2DB24 → history row master/weight 68→69 by Tom; restored + test rows removed.
+- Validation: tsc, vitest 10/10, build, diff-check.

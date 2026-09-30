@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { updateCabinetLogged } from "../lib/cabinetConfigHistory";
 import { and, eq, inArray, like, or, sql } from "drizzle-orm";
 import { adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
@@ -252,15 +253,16 @@ export const skuImagesRouter = router({
         imageUrl: z.string().min(1),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return { updated: 0 };
 
       // Update the master cabinets record
-      await db
-        .update(cabinets)
-        .set({ catalogImageUrl: input.imageUrl })
-        .where(eq(cabinets.id, input.cabinetId));
+      await updateCabinetLogged(db, {
+        cabinetId: input.cabinetId,
+        patch: { catalogImageUrl: input.imageUrl },
+        actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null },
+      });
 
       // Propagate to all distributor SKUs
       const siblings = await db

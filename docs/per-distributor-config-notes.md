@@ -37,3 +37,10 @@ Fix in progress (uncommitted on top of 15c2f5f5):
 
 ## 11:33 user "not fixed" (screenshots): the PUBLIC catalog page Edit Cabinet dialog (client/src/pages/CabinetDetail.tsx, e.g. /catalog/W1512GD?style=330014) still has "Save Master Changes (All Distributors)" button + "Save master changes for all distributors?" AlertDialog (confirmMasterSaveOpen ~line 592, footer ~2436, AlertDialog ~2441, submitMasterCabinetChanges, handleSaveEdit). Must become the same per-distributor picker as CabinetConfigAdmin (tick distributors from distCoverage; cabinetOverrides.setConfig; no all-at-once). distCoverage = trpc.genericCabinets.distributorCoverage (items {distributorId,name}).
 History fix state: server/lib/cabinetConfigHistory.ts + cabinetOverrides.configHistory/revertConfigChange + client CabinetConfigHistoryPanel mounted in CabinetConfigAdmin; tsc clean; server/cabinetConfigHistory.test.ts passes (3). Still to do: browser check, build, ledger, checkpoint.
+
+## 12:53 CT — "80–100 cabinets missing from history" audit (DB facts)
+- cabinets.configuredAt >= 6d: 74 (same set as configVerifiedAt); `cabinets` has no updatedAt column.
+- distributor_cabinet_overrides.updatedAt >= 6d: 67 rows / 65 cabinets. Panel showed 75 distinct cabinets total.
+- Other 6-day activity: cost_change_log 80 rows (2 SKUs, price not config), code_aliases 23 (test ZQX codes on cabinet 9360006), media_images 144 uploads (all 67 cabinets with recent images already in history).
+- Root cause: admin edit paths that update `cabinets` WITHOUT stamping configuredAt or logging: genericCabinets.update (Catalog tab row editor), skuImages.setMasterImage, catalog.adminGenerateCatalogImage / adminFixCabinetImage / adminBulkFixCabinetImages, masterSku.propagateCabinetConfig. Those past edits left no timestamp, so they can't be reconstructed. From now on they go through `updateCabinetLogged()` (server/lib/cabinetConfigHistory.ts: stamps configuredAt + logs field diff). Limits 300→2000; panel header shows distinct cabinet count.
+- Not hooked (bulk/system): adminApplySpecsToAll, adminImport/importWithMapping, setConflict/clearConflict, mergeCabinets, bulkMoveCategory, bulkUpdateAliases.

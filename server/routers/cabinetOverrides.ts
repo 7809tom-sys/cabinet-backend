@@ -532,7 +532,7 @@ export const cabinetOverridesRouter = router({
         .from(cabinets)
         .where(input?.cabinetId ? and(gte(cabinets.configuredAt, since), eq(cabinets.id, input.cabinetId)) : gte(cabinets.configuredAt, since))
         .orderBy(desc(cabinets.configuredAt))
-        .limit(300);
+        .limit(2000);
       const savedOverrides = await db
         .select({
           cabinetId: distributorCabinetOverrides.cabinetId,
@@ -550,7 +550,7 @@ export const cabinetOverridesRouter = router({
             : gte(distributorCabinetOverrides.updatedAt, since)
         )
         .orderBy(desc(distributorCabinetOverrides.updatedAt))
-        .limit(300);
+        .limit(2000);
       const logged = new Set(changes.map((c) => `${c.scope}:${c.cabinetId}:${c.distributorId ?? ""}:${new Date(c.createdAt).getTime() / 60000 | 0}`));
       const saves = [
         ...savedMaster

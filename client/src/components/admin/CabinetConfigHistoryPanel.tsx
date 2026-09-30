@@ -44,6 +44,7 @@ export function CabinetConfigHistoryPanel({ cabinetId }: { cabinetId?: number })
   const changes = data?.changes ?? [];
   const saves = data?.saves ?? [];
   const days = data?.days ?? 5;
+  const cabinetCount = new Set([...changes.map((c) => c.cabinetId), ...saves.map((s) => s.cabinetId)]).size;
 
   return (
     <div className="rounded-lg border border-border bg-muted/20" data-testid="cabinet-config-history">
@@ -57,7 +58,7 @@ export function CabinetConfigHistoryPanel({ cabinetId }: { cabinetId?: number })
           Configuration history · last {days} days
           {data && (
             <Badge variant="secondary" className="text-[10px]">
-              {changes.length} field change{changes.length === 1 ? "" : "s"} · {saves.length} earlier save{saves.length === 1 ? "" : "s"}
+              {cabinetCount} cabinet{cabinetCount === 1 ? "" : "s"} · {changes.length} field change{changes.length === 1 ? "" : "s"} · {saves.length} earlier save{saves.length === 1 ? "" : "s"}
             </Badge>
           )}
         </span>
