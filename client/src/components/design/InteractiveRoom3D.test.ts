@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
-import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, diagonalCornerRoomRotation, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
+import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
@@ -1909,9 +1909,6 @@ describe("interactive 3D room scene helpers", () => {
     expect(filteredThreeDCatalogItems(items, "All", "pantry")).toEqual([items[2]]);
   });
 
-  it("mirrors diagonal corner turns so the angled wall-cabinet face points into every room corner", () => {
-    expect([0, 90, 180, 270].map(diagonalCornerRoomRotation)).toEqual([0, 270, 180, 90]);
-  });
 
   it("requires a 96-inch wall behind upper runs on the Back and Right walls", () => {
     const room = { width: 144, depth: 120 } as any;
@@ -3223,7 +3220,9 @@ describe("interactive 3D room scene helpers", () => {
       0,
       Math.PI,
       Math.PI,
-      Math.PI * 1.5,
+      // CDB36 shares the L-corner carcass with LSB, so its bottom-left plan
+      // turn (270) mirrors into 3D exactly like every other corner body.
+      Math.PI / 2,
       0,
     ]);
     const root = new THREE.Group();

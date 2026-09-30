@@ -5361,6 +5361,16 @@ export function threeDRoomFacingRotation(
 		  if (seatedRun && (seatedKind === "standard" || seatedKind === "blind-corner")) {
 		    return threeDPlanRotation(seatedRun.facingRotation * Math.PI / 180);
 		  }
+  // A seated true-corner body keeps its two-leg plan turn, but a plan
+  // rotation only names an axis (0 and 180 draw the same footprint). The run
+  // it is seated on says which way that axis faces, on every wall kind, so a
+  // corner upper on a drawn wall can never face the wall.
+  if (seatedRun) {
+    const savedTurn = ((Math.round(fallbackRotation * 180 / Math.PI) % 360) + 360) % 360;
+    const facing = ((Math.round(seatedRun.facingRotation) % 360) + 360) % 360;
+    const sameAxis = (((savedTurn - facing) % 180) + 180) % 180 === 0;
+    return threeDPlanRotation((sameAxis ? facing : savedTurn) * Math.PI / 180);
+  }
 		  // A record that names one of this room's runs but sits off that run's
 		  // axis keeps its authored plan turn rather than being re-homed onto
 		  // whichever perimeter wall its coordinates happen to be nearest.
@@ -5371,18 +5381,14 @@ export function threeDRoomFacingRotation(
 			  if (explicitAngle === 45 || explicitAngle === 135 || explicitAngle === 225 || explicitAngle === 315) return threeDPlanRotation(fallbackRotation);
 	  if (!room || !Number.isFinite(room.width) || !Number.isFinite(room.depth)) return fallbackRotation;
   const kind = placedCornerGeometryKind(cabinet);
-  // L-corner carcasses use a local notch/front convention opposite the clockwise
-  // 2D corner turn. Mirror every shared L-corner classification so lazy-Susan
-  // and both base and wall easy-reach families (including WER) keep their
-  // fronts toward the room at left- and right-hand corners while their backs
-  // stay against the two adjoining walls.
-  if (kind === "l-shape") return (-fallbackRotation + Math.PI * 2) % (Math.PI * 2);
-	  // Non-standard corner bodies retain their saved 2D quarter-turn so their
-	  // authored specialty fronts and physical footprints stay on the same walls.
-	  // A blind corner is the exception: its carcass is rectangular, so the saved
-	  // plan quarter-turn identifies the run axis but not which side faces the room.
-	  // Resolve its front from the actual wall exactly like a standard cabinet.
-	  if (kind !== "standard" && kind !== "blind-corner") return fallbackRotation;
+  // Every true corner body (L / lazy-Susan / easy-reach, diagonal, triangle,
+  // corner-drawer) is authored with the wall corner at its local back-left and
+  // its front toward the room, exactly like plan rotation 0 in the top-left
+  // corner. Three.js turns the opposite way from the plan, so the ONE rule for
+  // every corner kind on every wall (standard side, drawn 90° or 45° join) is
+  // the same mirror a standard cabinet uses: threeDPlanRotation(plan turn).
+  // A blind corner is rectangular; its front resolves from the wall below.
+  if (kind !== "standard" && kind !== "blind-corner") return threeDPlanRotation(fallbackRotation);
   const facing: Record<ThreeDPlacedWall, number> = {
     back: 0,
     front: Math.PI,
@@ -5409,16 +5415,6 @@ export function threeDRoomFacingRotation(
   const intendedWallDistance = usesVerticalRun ? Math.min(leftDistance, rightDistance) : Math.min(backDistance, frontDistance);
   const wall = intendedWallDistance <= 6 ? intendedWall : defaultWall;
   return wall ? facing[wall] : fallbackRotation;
-}
-
-/**
- * The local diagonal-corner face is authored for the back-left corner. Three.js
- * group rotation has the opposite handedness from the 2D corner-turn value, so
- * mirror the turn to point the diagonal doors into the room at every corner.
- */
-export function diagonalCornerRoomRotation(cornerTurn: number): number {
-  const normalized = ((cornerTurn % 360) + 360) % 360;
-  return (360 - normalized) % 360;
 }
 
 export function threeDBlindCornerFrontLayout(bodyWidth: number, doorSide: "left" | "right", openingWidthIn?: number | null) {
@@ -5459,9 +5455,10 @@ export function existingCabinetTransform(
   const cornerTurn = hasPlacedRoom && !seatedOnRun && (sharedKind === "diagonal" || sharedKind === "triangle" || sharedKind === "l-shape" || sharedKind === "corner-drawer")
     ? cornerRotationForPlaced(cabinet, room as RoomData)
     : null;
-  const planRotation = sharedKind === "diagonal" && cornerTurn != null
-    ? diagonalCornerRoomRotation(cornerTurn)
-    : cornerTurn ?? savedRotation;
+  // The plan turn (seated rotation, or the inferred rectangle corner for a
+  // legacy record) is mirrored once, for every corner kind, inside
+  // threeDRoomFacingRotation. No per-kind pre-rotation here.
+  const planRotation = cornerTurn ?? savedRotation;
   // 2D horizontal walls share a 0° rotation and vertical walls share 90°, which
   // is sufficient for a plan footprint but cannot distinguish back/front or
   // left/right in a 3D room. Resolve orientation from the placed wall so every

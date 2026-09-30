@@ -5136,6 +5136,21 @@ export function cornerRotationForPlaced(
   room: RoomData,
   tol = 2
 ): number {
+  // ONE rule for every wall kind: a corner body seated on a run (standard
+  // side, drawn wall) whose plan position matches the shared corner seat at
+  // either end of that run takes that seat's turn. A drawn room's bounding
+  // rectangle says nothing about which way a 90° join between two Wall
+  // Builder walls opens, so the rectangle inference below is only the
+  // fallback for run-less legacy records.
+  const seatedRun = p.wallId ? wallRunFrame(p.wallId, room) : null;
+  if (seatedRun) {
+    for (const at of ["start", "end"] as const) {
+      const seat = wallRunCornerPlacement(p, seatedRun, at, room);
+      if (seat && Math.abs(seat.x - p.x) <= tol && Math.abs(seat.y - p.y) <= tol) {
+        return ((Math.round(seat.rotation) % 360) + 360) % 360;
+      }
+    }
+  }
   const { w, d } = placedFootprint(p);
   // Prefer a tight snap: if the box is within `tol` of two perpendicular walls,
   // that corner is unambiguous.
