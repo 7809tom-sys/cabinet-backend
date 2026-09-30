@@ -6924,7 +6924,11 @@ export function reconcileRefrigeratorAssemblies(
         member = { ...sourcePanel, uid: `refrigerator-${refrigerator.uid}-${role}` };
       }
       if (!member) continue;
-      const memberSpan = wallRunSpan(member, side, enclosure);
+      // A member is a rectangular body whose catalog width runs along the wall.
+      // Never fall back to a rotated screen box: on a drawn (Wall Builder) wall
+      // that fallback read a 3/4" x 24" end panel as a 24" span and re-seated
+      // it 23 1/4" away from the refrigerator opening.
+      const memberSpan = alongRunSpan(member);
       const memberDepth = Math.max(0, Number(member.depth) || 0);
       const along = role === "bridge"
         ? refrigeratorStart + (refrigeratorSpan - memberSpan) / 2

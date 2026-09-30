@@ -6640,7 +6640,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const surround = fridgeSurround as
         | { deepAbove: DesignCabinet[]; bridgeAbove: DesignCabinet[]; endPanels: DesignCabinet[]; smoothPanels: DesignCabinet[] }
         | undefined;
-      if (!fridge || !surround) { setFridgeDialog(null); return; }
+      if (!fridge || !surround) {
+        const message = !fridge
+          ? "The refrigerator for this popup is no longer in the plan, so nothing was added."
+          : "The refrigerator source catalog (cabinets above, end panels) has not finished loading. Try Accept again in a moment.";
+        setPlacementWarning(message);
+        toast.error(message);
+        if (!fridge) setFridgeDialog(null);
+        return;
+      }
       let configuredFridge = fridge;
       if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
         const newW = opts.fridgeWidth ?? fridge.width;
@@ -6816,6 +6824,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             depth: aDepth,
             height: aHeight,
             rotation: spot.rotation,
+            // Every enclosure member is seated on the refrigerator's run. Without
+            // wallId/wallOffset a drawn (Wall Builder) wall measured the member by
+            // its rotated screen box from x/y, which mis-seated it or rejected it.
+            wallId: spot.wallId,
+            wallOffset: spot.wallOffset,
             numberOfDoors: chosen.numberOfDoors ?? undefined,
             numberOfDrawers: chosen.numberOfDrawers ?? undefined,
             catalogImageUrl: chosen.catalogImageUrl ?? null,
@@ -6852,6 +6865,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 depth: aDepth,
                 height: aHeight,
                 rotation: fillerSpot.rotation,
+                wallId: fillerSpot.wallId,
+                wallOffset: fillerSpot.wallOffset,
                 numberOfDoors: 0,
                 numberOfDrawers: 0,
                 catalogImageUrl: filler.catalogImageUrl ?? null,
@@ -6877,6 +6892,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         toast.error(message);
         return;
       }
+      let panelBuildError: string | null = null;
       const placePanel = (leftEdge: boolean) => {
         // Use the verified panel sheet depth. Some supplier rows put the 24"
         // sheet depth in `width`; other rows use `depth`. Do not use a rendered
@@ -6885,9 +6901,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const rawPanelDepth = dim(panelRow!.depth, 0);
         const sourcePanelDepth = rawPanelDepth > 3 ? rawPanelDepth : rawPanelWidth > 3 ? rawPanelWidth : 0;
         if (sourcePanelDepth <= 0) {
-          const message = `${panelRow!.masterCode} has no verified refrigerator-panel depth, so the refrigerator bay was not completed.`;
-          setPlacementWarning(message);
-          toast.error(message);
+          panelBuildError = `${panelRow!.masterCode} has no verified refrigerator-panel depth, so the refrigerator bay was not completed.`;
           return;
         }
         // An end panel stays at its verified source depth. Do not turn a UI
@@ -6937,6 +6951,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           depth: pDepth,
           height: pHeight,
           rotation: spot.rotation,
+          wallId: spot.wallId,
+          wallOffset: spot.wallOffset,
           numberOfDoors: 0,
           numberOfDrawers: 0,
           customProfile: "refrigerator-end-panel",
@@ -6951,6 +6967,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       };
       if (opts.panels === "left" || opts.panels === "both") placePanel(true);
       if (opts.panels === "right" || opts.panels === "both") placePanel(false);
+      if (panelBuildError) {
+        setPlacementWarning(panelBuildError);
+        toast.error(panelBuildError);
+        return;
+      }
 
       // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
       // flat-stock item flush to the fridge face; carried as a thin wall panel.
@@ -6972,6 +6993,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             depth: 0.75,
             height: parseFloat(String(skin.height ?? 15)) || 15,
             rotation: spot.rotation,
+            wallId: spot.wallId,
+            wallOffset: spot.wallOffset,
             catalogImageUrl: skin.catalogImageUrl ?? null,
             styleId: styleIdRef.current ?? null,
             mountBottom: STD.WALL_MOUNT_BOTTOM,
@@ -7011,7 +7034,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    toast.error(message);
 	    return;
 	  }
-      const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room);
+  const rejectedOthers = previewResult.rejected.filter((item) => !rejectedPanels.includes(item));
+  if (rejectedOthers.length > 0) {
+    const names = Array.from(new Set(rejectedOthers.map((item) => item.masterCode))).join(", ");
+    const reasons = rejectedOthers
+      .map((item) => collisionReason(item, configuredPlaced.filter((peer) => peer.uid !== item.uid && peer.uid !== fridge.uid)))
+      .filter((reason): reason is string => Boolean(reason));
+    const message = `${names} could not be placed on this wall${reasons.length ? `: ${reasons[0]}` : " (it would overlap a cabinet or extend beyond the drawn wall)"}. No refrigerator parts were changed.`;
+    setPlacementWarning(message);
+    toast.error(message);
+    return;
+  }
+  // Wall Builder and standard rooms both verify the accepted parts actually
+  // landed. A member that vanished during normalization is a bug, not a quiet no-op.
+  const committedPreview = normalizeRefrigeratorBayUppers(previewResult.placed, room);
+  const missingMembers = toPlace.filter((item) => !committedPreview.some((placedItem) => placedItem.uid === item.uid));
+  if (missingMembers.length > 0) {
+    const message = `${Array.from(new Set(missingMembers.map((item) => item.masterCode))).join(", ")} could not be seated on ${wallRunFrame(side, room)?.kind === "custom" ? "this drawn wall" : "this wall"}. No refrigerator parts were changed.`;
+    setPlacementWarning(message);
+    toast.error(message);
+    return;
+  }
       placedRef.current = committedPreview;
       setPlaced(() => committedPreview);
       if (toPlace.length > 0) {
