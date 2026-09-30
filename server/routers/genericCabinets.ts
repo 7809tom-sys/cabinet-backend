@@ -14,7 +14,7 @@ import { getDb, isCanonicalCabinetMaster } from "../db";
 import { adminProcedure, router } from "../_core/trpc";
 import { cabinets, cabinetAliases, distributors, distributorSkus, distributorCabinetOverrides, doorStyles, skuMasterAliases } from "../../drizzle/schema";
 import { storagePut } from "../storage";
-import { logCabinetConfigChanges } from "../lib/cabinetConfigHistory";
+import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabinetConfigHistory";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import {
   catalogNomenclatureIssueMessage,
@@ -747,6 +747,9 @@ export const genericCabinetsRouter = router({
       // edit surface, not only the Cabinet Config editor. Stamp configuredAt so
       // the cabinet also counts as "saved" in the 5-day list.
       const [beforeRow] = await db.select().from(cabinets).where(eq(cabinets.id, id)).limit(1);
+      if (beforeRow) {
+        await snapshotCabinetBeforeEdit(db, { cabinetId: id, reason: "before-edit", actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null } });
+      }
       update.configuredAt = new Date();
       await db.update(cabinets).set(update).where(eq(cabinets.id, id));
       if (beforeRow) {

@@ -2447,6 +2447,25 @@ export const cabinetConfigChangeLog = mysqlTable("cabinet_config_change_log", {
 });
 export type CabinetConfigChangeLogRow = typeof cabinetConfigChangeLog.$inferSelect;
 
+// ─── Cabinet recovery snapshots ─────────────────────────────────────────────
+// Full copy of one master cabinet row (and its distributor rules) taken before
+// an admin edit or on demand from Admin → Data Recovery, so any cabinet can be
+// restored to a known-good state later. Never holds prices.
+export const cabinetRecoverySnapshots = mysqlTable("cabinet_recovery_snapshots", {
+  id: int("id").autoincrement().primaryKey(),
+  cabinetId: int("cabinetId").notNull(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  reason: varchar("reason", { length: 64 }).notNull(), // before-edit | manual | before-restore
+  rowJson: text("rowJson").notNull(),
+  overridesJson: text("overridesJson"),
+  takenBy: int("takenBy"),
+  takenByName: varchar("takenByName", { length: 128 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  cabinetIdx: index("cabinet_recovery_snapshots_cabinet_idx").on(t.cabinetId, t.createdAt),
+}));
+export type CabinetRecoverySnapshotRow = typeof cabinetRecoverySnapshots.$inferSelect;
+
 export const cabinetMasterChangeRequests = mysqlTable("cabinet_master_change_requests", {
   id: int("id").autoincrement().primaryKey(),
   cabinetId: int("cabinetId").notNull(),

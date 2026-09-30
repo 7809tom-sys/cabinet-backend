@@ -1,5 +1,5 @@
 import { and, desc, eq, gte, isNull } from "drizzle-orm";
-import { cabinetConfigChangeLog, cabinets, distributors } from "../../drizzle/schema";
+import { cabinetConfigChangeLog, cabinetRecoverySnapshots, cabinets, distributorCabinetOverrides, distributors } from "../../drizzle/schema";
 
 /** Number of days a configuration change stays revertable from the history panel. */
 export const CONFIG_REVERT_WINDOW_DAYS = 5;
@@ -123,12 +123,39 @@ export async function recentCabinetConfigChanges(
  * Every admin path that edits a cabinet should go through here so the
  * Cabinet Config history is complete, not only the Cabinet Config editor.
  */
+/**
+ * Store a full copy of the master row (and its distributor rules) so the
+ * cabinet can be restored from Admin → Data Recovery. Lives here (not in
+ * cabinetRecovery.ts) so every logged edit can call it without a cycle.
+ */
+export async function snapshotCabinetBeforeEdit(
+  db: Db,
+  args: { cabinetId: number; reason: string; actor: ConfigChangeActor },
+): Promise<void> {
+  const [row] = await db.select().from(cabinets).where(eq(cabinets.id, args.cabinetId)).limit(1);
+  if (!row) return;
+  const overrides = await db
+    .select()
+    .from(distributorCabinetOverrides)
+    .where(eq(distributorCabinetOverrides.cabinetId, args.cabinetId));
+  await db.insert(cabinetRecoverySnapshots).values({
+    cabinetId: row.id,
+    masterCode: row.masterCode ?? "",
+    reason: args.reason,
+    rowJson: JSON.stringify(row),
+    overridesJson: JSON.stringify(overrides),
+    takenBy: args.actor.id ?? null,
+    takenByName: args.actor.name ?? null,
+  });
+}
+
 export async function updateCabinetLogged(
   db: Db,
   args: { cabinetId: number; patch: Record<string, unknown>; actor: ConfigChangeActor },
 ): Promise<{ logged: number }> {
   const [before] = await db.select().from(cabinets).where(eq(cabinets.id, args.cabinetId)).limit(1);
   if (!before) return { logged: 0 };
+  await snapshotCabinetBeforeEdit(db, { cabinetId: args.cabinetId, reason: "before-edit", actor: args.actor });
   await db
     .update(cabinets)
     .set({ ...(args.patch as Partial<typeof cabinets.$inferInsert>), configuredAt: new Date() })

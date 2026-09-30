@@ -69,6 +69,7 @@ import CatalogImporterTab from "@/components/admin/CatalogImporterTab";
 import { CabinetConfigAdmin } from "@/components/admin/CabinetConfigAdmin";
 import CabinetConfigReviewQueueAdmin from "@/components/admin/CabinetConfigReviewQueueAdmin";
 import MasterChangesAdmin from "@/components/admin/MasterChangesAdmin";
+import DataRecoveryAdmin from "@/components/admin/DataRecoveryAdmin";
 import UnpricedCabinetsAdmin from "@/components/admin/UnpricedCabinetsAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 import { BannerAdmin } from "@/components/admin/BannerAdmin";
@@ -137,6 +138,7 @@ const GROUPS = [
       { value: "master-sku", label: "Master SKU Aliases" },
       { value: "cabinet-config", label: "Cabinet Config" },
       { value: "master-changes", label: "Master Changes" },
+      { value: "data-recovery", label: "🛟 Data Recovery" },
       { value: "package-data", label: "📦 Package Data & Parcel" },
       { value: "cabinet-attention", label: "⚠ Cabinet Attention" },
       { value: "unpriced-items", label: "⚠ Unpriced Items" },
@@ -517,6 +519,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="master-sku" className="mt-6"><MasterSkuAdmin /></TabsContent>
         <TabsContent value="cabinet-config" className="mt-6"><CabinetConfigAdmin /></TabsContent>
         <TabsContent value="master-changes" className="mt-6"><MasterChangesAdmin /></TabsContent>
+        <TabsContent value="data-recovery" className="mt-6"><DataRecoveryAdmin /></TabsContent>
         <TabsContent value="package-data" className="mt-6"><BulkDimensionsAdmin /></TabsContent>
         <TabsContent value="cabinet-attention" className="mt-6"><CabinetConfigReviewQueueAdmin /></TabsContent>
         <TabsContent value="unpriced-items" className="mt-6"><UnpricedCabinetsAdmin /></TabsContent>

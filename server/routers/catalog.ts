@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { updateCabinetLogged } from "../lib/cabinetConfigHistory";
-import { logCabinetConfigChanges } from "../lib/cabinetConfigHistory";
+import { logCabinetConfigChanges, snapshotCabinetBeforeEdit } from "../lib/cabinetConfigHistory";
 import { eq, and, or, like, inArray, isNotNull, sql, desc, asc, ne, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
@@ -2270,6 +2270,9 @@ export const cabinetsRouter = router({
       // Snapshot the row before writing so the Cabinet Config history shows
       // exactly which fields changed (old → new) and can revert them.
       const [beforeRow] = await db.select().from(cabinets).where(eq(cabinets.id, input.id)).limit(1);
+      if (beforeRow) {
+        await snapshotCabinetBeforeEdit(db, { cabinetId: input.id, reason: "before-edit", actor: { id: ctx.user?.id ?? null, name: ctx.user?.name ?? null } });
+      }
       // Always stamp configuredAt so the admin list shows when this cabinet was last saved.
       patch.configuredAt = new Date();
       await db.update(cabinets).set(patch).where(eq(cabinets.id, input.id));
