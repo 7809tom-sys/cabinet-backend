@@ -620,7 +620,8 @@ export const designRouter = router({
       // Refrigerator end panels + smooth skin panels.
       // Patterns by distributor:
       //  - Skyline (GR-): REPV-* end panels, WSV* smooth skin panels
-      //  - Clark and Sons: REP2496 end panel (no smooth panel equivalent)
+      //  - Clark and Sons: REP2496 end panel (the prior REP9624 label; no
+      //    smooth panel equivalent)
       //  - USCD: REPV30* end panels, WSV* smooth skin panels
       // Note: WS1542 (Clark and Sons wall skin) is NOT a refrigerator smooth panel — excluded.
       // REP2496 is the Clark & Sons fridge end panel (renamed from REP9624: REP=fridge panel, 24=depth, 96=height).
@@ -628,22 +629,40 @@ export const designRouter = router({
         .select(cols)
         .from(cabinets)
         .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
-        .where(and(gate, sql`(
-          ${cabinets.masterCode} LIKE 'REPV%'
-          OR ${cabinets.masterCode} LIKE 'REP9%'
-          OR ${cabinets.masterCode} = 'REP2496'
-          OR ${cabinets.masterCode} LIKE 'WSV%'
-          OR ${cabinets.masterCode} = 'PLYEB42'
-        )`));
+        .where(and(
+          eq(cabinets.isActive, true),
+          eq(distributorSkus.styleId, input.styleId),
+          eq(distributorSkus.isAvailable, true),
+          eq(distributorSkus.isPublished, true),
+          or(
+            // REP2496 is an approved, source-priced Clark & Sons panel for
+            // this line. It has an authorized cross-line alias to REPV2496,
+            // but may not be suppressed in its own source line when REPV is
+            // unavailable for the chosen style.
+            eq(cabinets.masterCode, "REP2496"),
+            and(
+              notInConflict(),
+              sql`(
+                ${cabinets.masterCode} LIKE 'REPV%'
+                OR ${cabinets.masterCode} LIKE 'REP9%'
+                OR ${cabinets.masterCode} LIKE 'WSV%'
+              )`,
+            ),
+          )!,
+        ));
       // Sort end panels: REP2496 (Clark & Sons) first, then REPV* (Skyline/USCD), then PLY panels.
       // REPVKIT is excluded from the display — only standard panels are shown.
-      const endPanelsRaw = panelRows.filter((r) => (/^REPV/.test(r.masterCode) && r.masterCode !== 'REPVKIT') || /^REP9/.test(r.masterCode) || r.masterCode === 'REP2496' || r.masterCode === 'PLYEB42');
+      const endPanelsRaw = panelRows.filter((r) => (
+        (/^REPV/.test(r.masterCode) && r.masterCode !== 'REPVKIT')
+        || /^REP9/.test(r.masterCode)
+        || r.masterCode === 'REP2496'
+      ));
       const endPanels = endPanelsRaw.sort((a, b) => {
         const rank = (code: string) => {
           if (code === 'REP2496') return 0;          // Clark & Sons — always first
           if (/^REPV/.test(code)) return 1;          // Skyline/USCD standard panels
           if (/^REP9/.test(code)) return 2;          // legacy REP9* panels
-          return 3;                                  // PLY panels
+          return 3;                                  // any remaining verified panel
         };
         const diff = rank(a.masterCode) - rank(b.masterCode);
         if (diff !== 0) return diff;
@@ -730,11 +749,11 @@ export const designRouter = router({
         ...(await run(like(cabinets.masterCode, "W-%-24"))),
         ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`))),
       ];
-      // End panels: REPV-* (Skyline/USCD), REP9* (Clark and Sons), PLYEB42 (Clark and Sons plywood panel)
+      // End panels: REPV-* (Skyline/USCD) and REP9*/REP2496 (Clark and Sons).
+      // PLYEB42 is a 42-inch pantry/tall cabinet, not a refrigerator end panel.
       const panelRows = [
         ...(await run(like(cabinets.masterCode, "REPV%"))),
         ...(await run(like(cabinets.masterCode, "REP9%"))),
-        ...(await run(eq(cabinets.masterCode, "PLYEB42"))),
       ];
       // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box and WR cabinets.
       const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(

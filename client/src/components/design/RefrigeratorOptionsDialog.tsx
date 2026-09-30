@@ -205,6 +205,12 @@ export function RefrigeratorOptionsDialog({
   onSkip,
 }: RefrigeratorOptionsDialogProps) {
   const { t } = useLanguage();
+  // Clark & Sons' current source SKU is REP2496. The prior catalog/document
+  // label was REP9624, so retain that familiar label in the picker without
+  // inventing a second source item or changing the invoiceable code.
+  const panelSourceLabel = (code: string) => code === "REP2496"
+    ? "REP2496 · prior REP9624"
+    : code;
 
   // ── Fridge size ────────────────────────────────────────────────────────────
   const [fridgeW, setFridgeW] = useState<number>(fridgeWidthInches ?? 36);
@@ -591,7 +597,7 @@ export function RefrigeratorOptionsDialog({
               <div className="space-y-3 pt-1">
                 <p className="text-xs text-muted-foreground">
                   Panel depth: <span className="font-semibold text-foreground">{sourcePanelDepth ?? "—"}{sourcePanelDepth != null ? "″" : ""}</span>
-                  {selectedPanel ? <> from source SKU <span className="font-semibold text-foreground">{selectedPanel.masterCode}</span></> : null}
+                  {selectedPanel ? <> from source SKU <span className="font-semibold text-foreground">{panelSourceLabel(selectedPanel.masterCode)}</span></> : null}
                 </p>
 
                 {/* Panel style selector */}
@@ -613,7 +619,7 @@ export function RefrigeratorOptionsDialog({
                               : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
                           )}
                         >
-                          {c.masterCode}
+                          {panelSourceLabel(c.masterCode)}
                         </button>
                       ))}
                     </div>

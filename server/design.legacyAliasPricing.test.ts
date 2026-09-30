@@ -71,6 +71,25 @@ describe("Designer legacy alias price resolution", () => {
     })]);
   });
 
+  it("keeps Clark & Sons REP2496 available as the refrigerator end panel in its own source style", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const surround = await caller.design.surroundForFridge({ styleId: 330005, fridgeWidth: 36 });
+
+    expect(surround.endPanels).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 9390059,
+        masterCode: "REP2496",
+        description: expect.stringMatching(/panel/i),
+        width: "0.75",
+        height: "96.00",
+        depth: "24.00",
+      }),
+    ]));
+    expect(surround.endPanels).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "PLYEB42" }),
+    ]));
+  });
+
   it("prices the explicit WR3624 catalog alias through its verified current refrigerator-wall source", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({
