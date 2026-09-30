@@ -72,6 +72,8 @@ export interface RefrigeratorOptionsDialogProps {
   hasSmoothPanel?: boolean;
   /** Existing ordinary upper offered for customer-approved replacement. */
   replacementCabinetCode?: string | null;
+  /** Exact reason a selected source component could not physically fit. */
+  errorMessage?: string | null;
   /** Apply the chosen surround. */
   onApply: (choice: FridgeSurroundChoice) => void;
   /** Keep just the refrigerator (no surround). */
@@ -201,6 +203,7 @@ export function RefrigeratorOptionsDialog({
   endPanels = [],
   hasSmoothPanel = false,
   replacementCabinetCode = null,
+  errorMessage = null,
   onApply,
   onSkip,
 }: RefrigeratorOptionsDialogProps) {
@@ -391,6 +394,13 @@ export function RefrigeratorOptionsDialog({
         {replacementCabinetCode && (
           <p role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs leading-relaxed text-amber-900">
             <span className="font-semibold">{replacementCabinetCode}</span> overlaps the refrigerator span but is not a dedicated over-refrigerator cabinet. It stays in place unless you select <span className="font-semibold">Apply</span>, which replaces it with the compatible cabinet chosen below.
+          </p>
+        )}
+
+        {errorMessage && (
+          <p role="alert" className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-900">
+            <span className="font-semibold">The selected refrigerator parts were not added.</span>{" "}
+            {errorMessage}
           </p>
         )}
 

@@ -15850,6 +15850,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         endPanels={(fridgeSurround as { endPanels?: DesignCabinet[] } | undefined)?.endPanels ?? []}
         hasSmoothPanel={((fridgeSurround as { smoothPanels?: unknown[] } | undefined)?.smoothPanels?.length ?? 0) > 0}
         replacementCabinetCode={refrigeratorCabinetToReplace?.masterCode ?? null}
+		        errorMessage={placementWarning}
         onApply={applyFridgeSurround}
 	        onSkip={() => setFridgeDialog(null)}
 	      />

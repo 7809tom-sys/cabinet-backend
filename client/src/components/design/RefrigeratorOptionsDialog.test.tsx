@@ -110,6 +110,24 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     }));
   });
 
+  it("keeps selected attributes visible with the exact panel-fit blocker", () => {
+    render(
+      <RefrigeratorOptionsDialog
+        open
+        onOpenChange={vi.fn()}
+        fridgeWidthInches={36}
+        endPanels={[endPanel]}
+        deepAbove={[refrigeratorCap]}
+        errorMessage="Both refrigerator end panels need clear run space, but would overlap B27 and extend beyond the drawn wall. No refrigerator parts were changed."
+        onApply={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("alert").textContent).toContain("B27");
+    expect(screen.getByRole("button", { name: "Both" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {
     const onApply = renderUnpricedDialog();
     const apply = screen.getByRole("button", { name: "dt_fridge_apply" });
