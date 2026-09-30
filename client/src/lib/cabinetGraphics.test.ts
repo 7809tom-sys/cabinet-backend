@@ -54,6 +54,20 @@ describe("three-drawer base family", () => {
 });
 
 describe("cabinetDrawingType", () => {
+
+  it("renders the verified PLYEB42 plywood edge-banded board as a flat panel, not a tall cabinet", () => {
+    expect(cabinetDrawingType({
+      masterCode: "PLYEB42",
+      description: "Designer Natural 42 in. Plywood Edge-Banded Board — 42 in. W × 96 in. H",
+      category: "Panels",
+      subCategory: "Plywood Edge-Banded Board",
+      width: 42,
+      height: 96,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    })).toBe("panel");
+  });
+
 	  it("labels every AW height as an angled wall end cabinet rather than a diagonal corner", () => {
 	    for (const masterCode of ["AW1230", "AW1236", "AW1242"]) {
 	      const cabinet = {

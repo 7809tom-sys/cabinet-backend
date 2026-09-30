@@ -620,8 +620,9 @@ export const designRouter = router({
       // Refrigerator end panels + smooth skin panels.
       // Patterns by distributor:
       //  - Skyline (GR-): REPV-* end panels, WSV* smooth skin panels
-      //  - Clark and Sons: REP2496 end panel (the prior REP9624 label; no
-      //    smooth panel equivalent)
+      //  - Clark and Sons: REP2496 end panel (the prior REP9624 label). Its
+      //    PLYEB42 edge-banded plywood board remains a separately classified
+      //    42 × 96 raw panel, not an automatically sized refrigerator end.
       //  - USCD: REPV30* end panels, WSV* smooth skin panels
       // Note: WS1542 (Clark and Sons wall skin) is NOT a refrigerator smooth panel — excluded.
       // REP2496 is the Clark & Sons fridge end panel (renamed from REP9624: REP=fridge panel, 24=depth, 96=height).
@@ -750,7 +751,8 @@ export const designRouter = router({
         ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`))),
       ];
       // End panels: REPV-* (Skyline/USCD) and REP9*/REP2496 (Clark and Sons).
-      // PLYEB42 is a 42-inch pantry/tall cabinet, not a refrigerator end panel.
+      // PLYEB42 is a separately sold 42 × 96 plywood edge-banded board, not
+      // an automatically cut refrigerator end panel.
       const panelRows = [
         ...(await run(like(cabinets.masterCode, "REPV%"))),
         ...(await run(like(cabinets.masterCode, "REP9%"))),

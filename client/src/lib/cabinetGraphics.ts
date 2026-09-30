@@ -358,7 +358,7 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // Detected by subCategory/description keywords. Must be checked BEFORE accessory-strip.
   if (
     !isRealCabinetFamily &&
-    /^(?:wsv)[-_]?\d|skin(?:\s*\/\s*scribe)?\s*(?:veneer\s*)?panel|end panel|plywood panel|refrigerator panel|\bpanel\s*\d|\bwsp\b|\brsp\b|\brw\b|\bdep\b|\bbep\b/.test(hay)
+    /^(?:wsv|plyeb)[-_]?\d|skin(?:\s*\/\s*scribe)?\s*(?:veneer\s*)?panel|end panel|plywood(?:\s+edge-banded)?\s+(?:board|panel)|refrigerator panel|\bpanel\s*\d|\bwsp\b|\brsp\b|\brw\b|\bdep\b|\bbep\b/.test(hay)
   ) {
     // Check if it's a decorative door panel (has door style) vs flat plywood panel
     if (cab.isDecorativeDoor || /decorative|door panel|dec\s*end|dep-|bep-/.test(hay)) {
