@@ -34,10 +34,19 @@
 
 Both renders show the cap centered above the refrigerator, panels on both sides, base cabinets butting the panels, one countertop on each base run, and the source-priced parts in the visible materials/price panel.
 
+## Live-site verification
+
+Checkpoint **51a8b852** was observed on `www.cabinetdealz.com`. The deployed `DesignTool-FqBVcyKA.js` contains the grouped refrigerator-move and complete-bay-delete code markers, and the same persisted fixture rendered successfully in both live room types:
+
+| Live room model | Floor plan | 3D proof |
+|---|---|---|
+| Standard rectangular room | [Floor plan](refrigerator-live-standard-top.png) | [3D render](refrigerator-live-standard-front.png) |
+| Continuous Wall Builder room | [Floor plan](refrigerator-live-continuous-top.png) | [3D render](refrigerator-live-continuous-front.png) |
+
+The live browser run reported the same **37″ opening**, **½″ left/right gaps**, and **0″ cap-center offset**. It found the two `REPV3096` panels, `WR3612(W361224)` cap, source-priced `F342` cap fillers, B24 bases, and countertop in both rooms.
+
 ## Automated validation
 
 - **495 focused tests passed**: refrigerator assembly geometry, Continuous Wall Builder 45° group movement and endpoint containment, popup behavior, DesignTool actions, 3D movement, and shared geometry.
 - TypeScript check passed.
 - Production build and `git diff --check` passed.
-
-> Live-site validation is recorded after the checkpoint deploy is served.
