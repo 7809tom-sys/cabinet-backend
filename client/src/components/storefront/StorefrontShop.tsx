@@ -32,6 +32,7 @@ import {
 import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { affiliateCabinetDetailHref } from "@/lib/affiliateCabinetDetailRoute";
+import { sortStorefrontCategoryTabs, storefrontCategoryTabLabel } from "@/lib/storefrontCategoryTabs";
 
 type Brand = { primary: string; accent: string };
 
@@ -535,6 +536,7 @@ function LockedCatalog({
   }, [category]);
 
   const { data: cats } = trpc.storefront.familyCategories.useQuery({ styleId: family.styleId });
+  const orderedCategories = useMemo(() => sortStorefrontCategoryTabs(cats ?? []), [cats]);
 
   // Accessory has clean display sub-groups (Trim & Molding / Accessories) so the
   // tab never shows a sprawl of micro-categories.
@@ -650,6 +652,20 @@ function LockedCatalog({
         {/* Category tabs + search */}
         <div className="mt-8 mb-5 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2">
+            {orderedCategories.map((c) => (
+              <button
+                key={c}
+                onClick={() => setCategory(c)}
+                className="rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors"
+                style={
+                  category === c
+                    ? { backgroundColor: brand.primary, color: "#fff", borderColor: brand.primary }
+                  : { borderColor: "var(--border)" }
+                }
+              >
+                {storefrontCategoryTabLabel(c)}
+              </button>
+            ))}
             <button
               onClick={() => setCategory(null)}
               className="rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors"
@@ -661,20 +677,6 @@ function LockedCatalog({
             >
               {t(lang, "shop_view_all")}
             </button>
-            {(cats ?? []).map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className="rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors"
-                style={
-                  category === c
-                    ? { backgroundColor: brand.primary, color: "#fff", borderColor: brand.primary }
-                    : { borderColor: "var(--border)" }
-                }
-              >
-                {c}
-              </button>
-            ))}
           </div>
           <div className="relative w-full lg:w-64">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

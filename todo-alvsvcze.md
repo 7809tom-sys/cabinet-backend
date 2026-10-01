@@ -2972,3 +2972,8 @@
 - Added a shared `normalizeDesignPricingTier()` guard. Legacy `retail` now restores as Homeowner before any price query; current Homeowner/Contractor/Wholesale values remain unchanged. No distributor SKU, cost, list price, margin, or catalog price was edited.
 - Source-backed Madison / Haven Dune / W-3042 verification: a legacy retail draft now visibly restores as Homeowner at $395.44; a Contractor draft visibly stays Contractor at $322.86. Browser proof screenshots and details: `docs/proofs/w3042-pricing-tier-proof.md`.
 - Validation: TypeScript clean; tier normalizer 3/3; Catalog grouping 5/5; production build and diff integrity pass.
+
+## 09:44 CT — Sales Demo storefront category button order
+- Reordered the locked storefront catalog filter buttons exactly as requested: Base, Wall, Corner, Tall, Filler, Panels, Wall Skins, Molding, Accessories, Vanity, then View all.
+- The display labels `Wall Skins` and `Accessories` continue filtering their exact source categories (`Wall Skin / Scribe Veneer` and `Accessory`); no products, prices, or category data changed. Any unexpected imported category is retained after the intentional sequence rather than disappearing.
+- Validation: local Sales Demo browser DOM order exactly matched all 11 labels with zero console errors; category-order regressions 2/2, existing storefront safeguard 1/1, TypeScript, production build, and diff integrity passed. Proof: `docs/proofs/storefront-category-button-order-proof.md`.
