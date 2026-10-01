@@ -3035,3 +3035,4 @@
 - Distinct cuts of the same source-priced filler SKU remain separate cart lines, so a 5/8-inch cut cannot be collapsed into a 2-inch cut. Quantity, delete, and increment/decrement actions use the same stock-and-cut identity.
 - Local browser proof: a price-locked F342 at $18.66 rendered the explicit 3-inch purchased stock and 5/8-inch installed cut labels with no application errors. Evidence: `docs/proofs/cart-filler-stock-and-cut-local.png` and `.json`.
 - Validation: `pnpm run check`, focused cart/design filler suites, production build, and `git diff --check` passed.
+- 19:26 CT live verification: cache-busted www.cabinetdealz.com served the published Cart-DT6eJx-V bundle. A live price-locked F342 cart line showed `Purchased stock 3" wide` and `Installed cut 5/8" wide` with no application errors. Live evidence saved in `docs/proofs/cart-filler-stock-and-cut-live.png` and `.json`.
