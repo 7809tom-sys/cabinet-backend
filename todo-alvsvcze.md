@@ -3043,3 +3043,4 @@
 - Added 3D regressions for the reported straight F342 case and for 45-degree base filler boards: both assert 4½–34½ inch face bounds and zero filler toe-kick meshes.
 - Local Designer proof: a source-priced 3-inch F342 beside B36 rendered in 3D with its face held above the toe-kick zone and no application errors. Evidence: `docs/proofs/base-filler-face-local.png` and `.json`.
 - Validation: TypeScript passed; 850 shared 3D/base-filler/geometry tests passed (2 pre-existing skips); 29 responsive release tests, production build, and diff integrity passed.
+- 19:40 CT live verification: cache-busted www.cabinetdealz.com served InteractiveRoom3D-B1aHdBJU. A live Designer fixture with B36 and source-priced F342 opened in 3D with F342 assigned the 4½–34½ inch cabinet-face range and no application errors. Live screenshot and JSON evidence saved in `docs/proofs/base-filler-face-live.png` and `.json`.
