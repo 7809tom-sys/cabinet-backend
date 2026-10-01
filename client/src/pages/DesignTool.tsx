@@ -163,6 +163,7 @@ import {
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
+import { normalizeDesignPricingTier, type DesignPricingTier } from "@/lib/designPricingTier";
 import { AIChatBox, type Message as AIMessage } from "@/components/AIChatBox";
 import { PlanCanvas } from "@/components/design/PlanCanvas";
 import { PolygonRoomEditor } from "@/components/design/PolygonRoomEditor";
@@ -245,7 +246,7 @@ type ConsultPlanWall = {
 };
 
 type ViewMode = "plan" | "threeD" | "hybrid" | "elevation" | "split" | "corner" | "island";
-type PricingTier = "Wholesale" | "Contractor" | "Homeowner";
+type PricingTier = DesignPricingTier;
 
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
 // used across the storefront, so the same resolution + fallbacks apply here.
@@ -735,13 +736,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!user) return; // guest stays at Homeowner
     const dbTier = (user as any).pricingTier as string | undefined;
     if (!dbTier) return;
-    const tierMap: Record<string, PricingTier> = {
-      homeowner: "Homeowner",
-      contractor: "Contractor",
-      wholesale: "Wholesale",
-    };
-    const resolved = tierMap[dbTier.toLowerCase()];
-    if (resolved) setTier(resolved);
+    setTier(normalizeDesignPricingTier(dbTier));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.pricingTier, (user as any)?.id]);
 
@@ -9832,7 +9827,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           setStyleId(d.styleId ?? null);
           if (typeof d.styleB === "number") setStyleB(d.styleB);
           if (d.activeSlot === "A" || d.activeSlot === "B") setActiveSlot(d.activeSlot);
-          if (d.tier) setTier(d.tier);
+          // The legacy draft value `retail` is the public/Homeowner price tier.
+          // Normalize before state reaches the price resolver so the visible tier
+          // label and the exact price always use the same source column.
+          if (d.tier) setTier(normalizeDesignPricingTier(d.tier));
           // Current snapshots separately preserve which trim switches were a
           // deliberate customer choice. Older snapshots did not carry that
           // provenance, so only their physical auto-trims retain the former

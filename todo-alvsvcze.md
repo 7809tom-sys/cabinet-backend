@@ -2966,3 +2966,9 @@
 - Regression: `client/src/lib/design.test.ts` proves both WDC2442 exposed legs, including the reported Floor Plan/catalog leg W3042 → Wall 6 offset 24. `DesignTool.universalCabinetAdjacency.test.ts` confirms catalog action routing.
 - Validation: TypeScript clean; focused shared geometry/one-engine/Designer adjacency suite 478/478; production build; `git diff --check` clean. Local browser: dragging W3042 toward the WDC2442 on Wall 6 persisted wallId `down-right`, wallOffset 24.000 in, gap 0, collision 0, with snap confirmation. Proof: `docs/proofs/wdc2442-w3042-shared-seam-proof.md`.
 - 07:53 CT live verification after checkpoint d227932d: cache-busted www.cabinetdealz.com served `DesignTool-KVRfetxe.js`. The exact Floor Plan W3042 drag on the WDC2442 Wall 6 leg persisted `wallId=down-right`, `wallOffset=24`, rotation 45°, difference 0, with the snap confirmation visible. Live screenshot and measurement table: `docs/proofs/wdc2442-w3042-shared-seam-proof.md`.
+
+## 09:18 CT — W3042 Designer price-tier correction
+- Root cause: older Designer drafts stored `tier: "retail"`; the UI fell through to the Contractor label while the shared resolver defaulted it to the Homeowner price. This produced a misleading Contractor label next to the higher homeowner amount.
+- Added a shared `normalizeDesignPricingTier()` guard. Legacy `retail` now restores as Homeowner before any price query; current Homeowner/Contractor/Wholesale values remain unchanged. No distributor SKU, cost, list price, margin, or catalog price was edited.
+- Source-backed Madison / Haven Dune / W-3042 verification: a legacy retail draft now visibly restores as Homeowner at $395.44; a Contractor draft visibly stays Contractor at $322.86. Browser proof screenshots and details: `docs/proofs/w3042-pricing-tier-proof.md`.
+- Validation: TypeScript clean; tier normalizer 3/3; Catalog grouping 5/5; production build and diff integrity pass.
