@@ -47,3 +47,9 @@ The browser placed `FRIDGE-36` at a tight wall end with the new default choices 
 - Focused suite: **76 tests passed across 9 files**
 - Production build: passed
 - Diff integrity: passed
+
+## Live verification — www.cabinetdealz.com
+
+The live Designer served the updated `DesignTool-6tCOu0N_.js` chunk, including the standalone refrigerator default. A real browser interaction placed `FRIDGE-36` at the tight wall end, opened the options dialog with **No Cabinet** and **None** panels, and submitted **Add to plan**. Its position remained at the original `36 in` wall offset; no panels appeared, no clearance blocker appeared, and the browser recorded no console errors.
+
+![Live standalone FRIDGE-36 at a wall end](/docs/proofs/refrigerator-independent-wall-end-live.png)
