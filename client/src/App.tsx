@@ -347,6 +347,19 @@ export default function App() {
             </Suspense>
           )}
         </Route>
+        {/* A branded subdomain rewrites /signin to /store/:slug/signin. Keep
+            that route in the same storefront scope instead of falling through
+            to the platform 404, then return the customer to their saved-plan
+            destination after authentication. */}
+        <Route path="/store/:slug/signin">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <SignIn />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
         {/* The family-locked storefront owns the catalog at #shop. Preserve
             older catalog-root links inside the same affiliate scope rather
             than falling through to the platform 404. */}

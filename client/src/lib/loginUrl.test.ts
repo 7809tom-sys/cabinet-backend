@@ -49,6 +49,21 @@ describe("getLoginUrl", () => {
     }
   });
 
+  it("preserves the original Designer destination when a connected sign-in starts from /signin", async () => {
+    vi.stubGlobal("window", {
+      location: {
+        origin: ORIGIN,
+        pathname: "/store/sales-demo/signin",
+        search: "?returnTo=%2Fstore%2Fsales-demo%2Fdesign",
+        hash: "",
+      },
+    });
+    const getLoginUrl = await load();
+    const url = new URL(getLoginUrl("google"));
+    const state = JSON.parse(Buffer.from(url.searchParams.get("state") ?? "", "base64").toString("utf8"));
+    expect(state.returnTo).toBe("/store/sales-demo/design");
+  });
+
   it("rejects external and recursive return destinations", async () => {
     const mod = await import("@/const");
     expect(mod.isSafeSiteReturnPath("https://manus.im/login")).toBe(false);

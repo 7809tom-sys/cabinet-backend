@@ -31,6 +31,17 @@ export function getSiteSignInUrl(returnTo?: string): string {
   return `${url.pathname}${url.search}`;
 }
 
+/**
+ * A social sign-in may begin from the site sign-in page, which already carries
+ * the real Designer/storefront destination in `returnTo`. Preserve that value
+ * rather than sending the OAuth callback back to the intermediate sign-in page.
+ */
+function currentAuthReturnPath(): string {
+  const requestedReturn = new URLSearchParams(window.location.search).get("returnTo");
+  if (isSafeSiteReturnPath(requestedReturn)) return requestedReturn;
+  return `${window.location.pathname}${window.location.search}${window.location.hash}`;
+}
+
 // Ordinary sign-in always stays on CabinetDealz. Explicit social-provider
 // buttons remain opt-in and use the hosted OAuth broker because those providers
 // require that secure exchange.
@@ -43,7 +54,7 @@ export const getLoginUrl = (provider?: LoginProvider) => {
   // Preserve the page that initiated sign-in. This is especially important for
   // white-label affiliate storefront footers: an authenticated visitor returns
   // to that affiliate store rather than the generic platform home.
-  const returnTo = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+  const returnTo = currentAuthReturnPath();
   const state = btoa(JSON.stringify({ redirectUri, returnTo }));
 
   const url = new URL(`${oauthPortalUrl}/app-auth`);

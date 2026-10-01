@@ -51,7 +51,13 @@ describe("public navigation and update notification", () => {
 	    expect(appSource).toContain('<Route path="/store/:slug/admin">');
 	  });
 
-  it("keeps the affiliate shell's catalog, designer, quote, and cart links scoped", () => {
+  it("renders the branded subdomain sign-in rewrite instead of a 404", () => {
+    expect(appSource).toContain('<Route path="/store/:slug/signin">');
+    expect(appSource).toContain("<AffiliateShell slug={params.slug}>");
+    expect(appSource).toContain("<SignIn />");
+  });
+
+	  it("keeps the affiliate shell's catalog, designer, quote, and cart links scoped", () => {
     expect(appSource).toContain("affiliateCatalogPath(slug)");
     expect(appSource).toContain("affiliateDesignerPath(slug)");
     expect(appSource).toContain("affiliateOrderPath(slug)");

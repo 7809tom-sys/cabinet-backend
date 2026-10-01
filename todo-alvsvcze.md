@@ -2986,3 +2986,9 @@
 - Local browser proof: at a tight wall end, `FRIDGE-36` placed at its original 36-in wall offset with default choices, no panel-clearance blocker, no optional parts, and no console errors. Proof: `docs/proofs/refrigerator-independent-parts-proof.md`.
 - Validation: TypeScript clean; 76 focused refrigerator/standard/Wall-Builder/parity/pricing tests pass; production build and `git diff --check` pass.
 - 12:07 CT live verification: `www.cabinetdealz.com` serves the updated `DesignTool-6tCOu0N_.js` chunk. Browser placed `FRIDGE-36` alone at a tight wall end with default **No Cabinet** / **None** choices; its original 36-in wall offset was unchanged, no panel-clearance blocker appeared, and no console errors occurred. Saved `docs/proofs/refrigerator-independent-wall-end-live.png`.
+
+## 13:20 CT — Designer “Sign in to save” 404 on Sales Demo subdomain
+- Root cause: the subdomain server rewrite correctly changed `/signin` to `/store/sales-demo/signin`, but the client had no route for the scoped sign-in address and rendered the application 404.
+- Added `/store/:slug/signin` inside the branded `AffiliateShell`; kept the original scoped Designer `returnTo` value through password and connected social sign-in so a visitor returns to their exact Designer page after authentication.
+- Local browser proof loaded `/store/sales-demo/signin?returnTo=/store/sales-demo/design`: the Sales Demo sign-in form rendered, 404 did not render, and `returnTo` remained exact. Proof: `docs/proofs/designer-scoped-signin-save-proof.md`.
+- Validation: TypeScript clean; 18 navigation/login/save-auth tests passed; production build and `git diff --check` passed.
