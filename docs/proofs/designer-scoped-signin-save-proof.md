@@ -28,3 +28,9 @@ A browser loaded `/store/sales-demo/signin?returnTo=/store/sales-demo/design` an
 - Tests: **18 passed** — app navigation, login URL, and saved-design authentication suites
 - Production build: passed
 - Diff integrity: passed
+
+## Live verification — Sales Demo subdomain
+
+The live branded address redirected `/signin` to the correct scoped page, then rendered the **Welcome to Cabinet Dealz** sign-in form—not the 404 page. The exact return target remained `/store/sales-demo/design`, so a successful login returns to the same Designer session.
+
+![Live Sales Demo scoped sign-in form](/docs/proofs/designer-scoped-signin-live.png)
