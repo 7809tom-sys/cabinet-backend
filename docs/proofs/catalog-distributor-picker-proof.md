@@ -27,3 +27,6 @@ Screenshots: `catalog-distributor-picker-mobile-selected.png` and `catalog-distr
 - Catalog + toolbar regressions: 17/17 passed.
 - Browser run: passed, no console errors.
 - Production build and whitespace check: passed.
+
+## Live publication verification
+At **2026-10-01 06:28:42 UTC**, cache-busted `www.cabinetdealz.com` served `assets/index-DhLcNW7a.js` and `DesignTool-oaDYBGeX.js`. The deployed Designer chunk contains the unique **"Choose catalog distributor"** selector marker, confirming the checkpoint code is live. The interactive mobile run remains locally authenticated because the production browser does not share the local-only admin session cookie; the same 412×915 click flow passed locally without console errors.

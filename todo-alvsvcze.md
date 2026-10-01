@@ -2951,3 +2951,4 @@
 - Existing placed-plan warehouse lock remains authoritative; switching source line with cabinets follows the existing confirmation instead of silently mixing warehouses.
 - Mobile Catalog CTA now directly opens Door Style & Color. Browser proof: 412×915, chose Preston from Catalog, then opened Style sheet; zero console errors. Proof docs/screenshots in docs/proofs/catalog-distributor-picker-*. 
 - Validation: tsc, Catalog + toolbar tests 17/17, production build, diff --check.
+- 01:29 CT LIVE verification: cache-busted www.cabinetdealz.com served index-DhLcNW7a / DesignTool-oaDYBGeX and the deployed Designer chunk contains the unique `Choose catalog distributor` marker. Local authenticated 412×915 click proof remains the interactive evidence (Preston selection + Door Style handoff, zero console errors); production browser cannot reuse the local-only admin cookie.
