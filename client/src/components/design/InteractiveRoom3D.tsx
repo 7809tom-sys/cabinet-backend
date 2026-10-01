@@ -3270,16 +3270,20 @@ export function addCabinet(
     && sku.fillerMiterAngle === 45
     && (sku.fillerMiteredEnd === "start" || sku.fillerMiteredEnd === "end");
   const isFrontFlushFillerBoard = isFrontMiterPair || (!isAngledTransitionFiller && (isBaseFillerPiece || isMiteredWallFiller));
-  const isFullHeightBaseFrontFiller = isBaseFillerPiece && isFrontMiterPair;
+  // A base filler is a cabinet-face board, not a cabinet support. Its stored
+  // catalog height includes the 4½-inch base toe kick so its top agrees with
+  // the adjoining cabinet, but its visible board starts above that kick. This
+  // applies equally to straight, split, and 45-degree miter filler pieces.
+  const usesBaseFillerFaceElevation = isBaseFillerPiece;
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
-    && !isFullHeightBaseFrontFiller
+    && !usesBaseFillerFaceElevation
     && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
   // toe kick. Build only the upper carcass over that kick so every floor run
   // keeps its measured top while exposing the proper floor recess in 3D.
-  const heightIn = isFullHeightBaseFrontFiller
-    ? resolvedHeightIn
+  const heightIn = usesBaseFillerFaceElevation
+    ? Math.max(0.1, resolvedHeightIn - THREE_D_TOE_KICK)
     : isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
     ? Math.max(0.1, resolvedHeightIn - THREE_D_TOE_KICK)
     : isFloorDishwasher
@@ -3312,13 +3316,14 @@ export function addCabinet(
 	  const bodyWidth = widthIn * INCH;
 	  const bodyDepth = depthIn * INCH;
   const bodyHeight = heightIn * INCH;
-  // A front-only miter filler already carries its exact 3/4-inch front
-  // footprint. Do not add the generic 24-inch-deep toe-kick behind it.
-	  const suppressInstalledFillerToeKick = isBaseFillerPiece && (isAngledTransitionFiller || Boolean(surfaceTextures?.suppressFittedFillerToeKick));
+  // A base filler is a finished face above the shared run's toe-kick opening;
+  // it must never manufacture a narrow toe-kick block of its own.
+  const suppressInstalledFillerToeKick = usesBaseFillerFaceElevation
+    || Boolean(surfaceTextures?.suppressFittedFillerToeKick);
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
-  const bottom = isFullHeightBaseFrontFiller
-    ? 0
+  const bottom = usesBaseFillerFaceElevation
+    ? THREE_D_TOE_KICK
     : isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
       ? THREE_D_TOE_KICK
       : requestedMountBottom;
@@ -3333,6 +3338,7 @@ export function addCabinet(
     label: sku.description ?? sku.masterCode,
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
     ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK, islandWallCabinetBaseTreatment: isCounterHeightIslandWallCabinet ? (hasFurnitureBaseMolding ? "base-molding" : "toe-kick") : null } : {}),
+    ...(usesBaseFillerFaceElevation ? { baseFillerFace: true, fillerFaceBottomIn: THREE_D_TOE_KICK, fillerFaceHeightIn: heightIn } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,
@@ -3746,7 +3752,8 @@ export function addCabinet(
         ? { refrigeratorNeutralShell: true, neutralApplianceSidesAndTop: true }
         : { selectedStyleSideSkin: true }),
 	      ...(specialty.kind === "blind-corner" ? { specialtyProfile: "blind-corner", blindCornerBody: true } : {}),
-		      ...(isFrontFlushFillerBoard ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
+      ...(isFrontFlushFillerBoard ? { installedFillerFrontAligned: true, installedFillerVisibleDepthIn: installedFillerBoardDepth / INCH, fullDepthReservedForCountertop: true } : {}),
+      ...(usesBaseFillerFaceElevation ? { baseFillerFace: true, fillerFaceBottomIn: THREE_D_TOE_KICK, fillerFaceHeightIn: heightIn } : {}),
 		      ...(isMiteredWallFiller ? { angledWallMiteredFiller: true, miterAngle: 45, miteredEnd: sku.fillerMiteredEnd } : {}),
 		      ...(isAngledTransitionFiller ? {
 		        angledWallTransitionFiller: true,

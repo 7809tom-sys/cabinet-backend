@@ -3036,3 +3036,10 @@
 - Local browser proof: a price-locked F342 at $18.66 rendered the explicit 3-inch purchased stock and 5/8-inch installed cut labels with no application errors. Evidence: `docs/proofs/cart-filler-stock-and-cut-local.png` and `.json`.
 - Validation: `pnpm run check`, focused cart/design filler suites, production build, and `git diff --check` passed.
 - 19:26 CT live verification: cache-busted www.cabinetdealz.com served the published Cart-DT6eJx-V bundle. A live price-locked F342 cart line showed `Purchased stock 3" wide` and `Installed cut 5/8" wide` with no application errors. Live evidence saved in `docs/proofs/cart-filler-stock-and-cut-live.png` and `.json`.
+
+## 19:34 CT — base filler face elevation
+- Corrected shared 3D base-filler rendering. Every base filler—straight, split, or 45-degree miter—now uses the adjacent base cabinet's face elevation only: visible from 4½ inches above the floor through the 34½-inch cabinet top. The stored catalog height and pricing stay unchanged.
+- Base fillers no longer create a narrow, recessed toe-kick mesh. The existing continuous run toe kick remains the sole toe-kick treatment behind the cabinet faces.
+- Added 3D regressions for the reported straight F342 case and for 45-degree base filler boards: both assert 4½–34½ inch face bounds and zero filler toe-kick meshes.
+- Local Designer proof: a source-priced 3-inch F342 beside B36 rendered in 3D with its face held above the toe-kick zone and no application errors. Evidence: `docs/proofs/base-filler-face-local.png` and `.json`.
+- Validation: TypeScript passed; 850 shared 3D/base-filler/geometry tests passed (2 pre-existing skips); 29 responsive release tests, production build, and diff integrity passed.

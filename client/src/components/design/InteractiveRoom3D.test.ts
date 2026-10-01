@@ -198,7 +198,7 @@ describe("3D fallback appliance run seams", () => {
     expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(12, 6);
   });
 
-  it("renders a 45-degree base filler as a narrow front board from the floor to the cabinet top", () => {
+  it("renders a 45-degree base filler as a narrow cabinet-face board above the toe kick", () => {
     const root = new THREE.Group();
     addCabinet(root, {
       distributorSkuId: 3,
@@ -228,10 +228,11 @@ describe("3D fallback appliance run seams", () => {
       if (node.userData.baseToeKick) toeKickCount += 1;
     });
     expect(filler.userData.floorStandingCabinet).toBeUndefined();
+    expect(filler.userData).toMatchObject({ baseFillerFace: true, fillerFaceBottomIn: 4.5, fillerFaceHeightIn: 30 });
     expect(toeKickCount).toBe(0);
     expect(fillerBody).not.toBeNull();
     const bounds = new THREE.Box3().setFromObject(fillerBody!);
-    expect(bounds.min.y * 12).toBeCloseTo(0, 6);
+    expect(bounds.min.y * 12).toBeCloseTo(4.5, 6);
     expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
     expect(fillerBody!.userData.visibleDepthIn).toBe(0.75);
     // The persisted quadrilateral already sits at the cabinet front (23¼–24").
@@ -239,6 +240,39 @@ describe("3D fallback appliance run seams", () => {
     // detached vertical leg reported in the 3D view.
     expect(bounds.min.z * 12).toBeCloseTo(23.25, 6);
     expect(bounds.max.z * 12).toBeCloseTo(24, 6);
+  });
+
+  it("renders a straight installed base filler at the adjoining cabinet face height without a toe-kick block", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: 342,
+      cabinetId: 342,
+      masterCode: "F342",
+      description: '3" Base Filler — cut to ⅝"',
+      placementType: "base",
+      width: 0.625,
+      height: 34.5,
+      depth: 24,
+      fillerPieceGroupId: "straight-base-filler-test",
+      fillerPlacementMode: "left",
+      fillerTotalWidth: 0.625,
+    }, null, {}, 120, 96, "#b99a6b", "#f8f8f6", undefined, { x: 0, z: 0, rotation: 0 });
+
+    root.updateMatrixWorld(true);
+    const filler = root.children[0]!;
+    const toeKicks: THREE.Object3D[] = [];
+    let fillerBody: THREE.Mesh | null = null;
+    filler.traverse((node) => {
+      if (node.userData.baseToeKick) toeKicks.push(node);
+      if (node instanceof THREE.Mesh && node.userData.baseFillerFace) fillerBody = node;
+    });
+    expect(filler.userData.floorStandingCabinet).toBeUndefined();
+    expect(filler.userData).toMatchObject({ baseFillerFace: true, fillerFaceBottomIn: 4.5, fillerFaceHeightIn: 30 });
+    expect(toeKicks).toHaveLength(0);
+    expect(fillerBody).not.toBeNull();
+    const bounds = new THREE.Box3().setFromObject(fillerBody!);
+    expect(bounds.min.y * 12).toBeCloseTo(4.5, 6);
+    expect(bounds.max.y * 12).toBeCloseTo(34.5, 6);
   });
 
   it("keeps each front-miter filler at its assigned cabinet face on every wall rotation", () => {
