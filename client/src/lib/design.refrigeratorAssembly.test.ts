@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   appendRefrigeratorEnclosurePlacements,
+  cabinetWallDragPreview,
+  cabinetWallMovePreview,
   commitConfiguredRefrigeratorCandidate,
   normalizeRefrigeratorBayUppers,
+  refrigeratorMagneticSnapEnvelope,
   refrigeratorBayRunMetrics,
   refrigeratorBayVerificationMetrics,
   type PlacedCabinet,
@@ -108,6 +111,76 @@ describe("independent refrigerator catalog parts", () => {
     expect(result!.find((part) => part.uid === cap.uid)?.x).toBe(48);
     expect(result!.find((part) => part.uid === leftFiller.uid)?.x).toBe(47.5);
     expect(result!.find((part) => part.uid === ordinaryWallCabinet.uid)).toBe(ordinaryWallCabinet);
+  });
+
+  it.each([
+    {
+      label: "a standard wall",
+      room,
+      wallId: "bottom",
+    },
+    {
+      label: "a 45-degree Wall Builder wall",
+      room: {
+        width: 220,
+        depth: 220,
+        ceilingHeight: 96,
+        openWallPath: true,
+        vertices: [{ id: "a", x: 0, y: 0 }, { id: "b", x: 144 * Math.SQRT1_2, y: 144 * Math.SQRT1_2 }],
+        customWalls: [{ id: "drawn-45", startVertexId: "a", endVertexId: "b", lockedAngle: 45 }],
+      } satisfies RoomData,
+      wallId: "drawn-45",
+    },
+  ])("magnetically butts a refrigerator's selected left end panel to a B36 on $label", ({ room: runRoom, wallId }) => {
+    const baseSpot = wallPlacementAt(0, 36, 24, wallId as any, runRoom);
+    const base = item({
+      uid: "b36", masterCode: "B36", description: "36 inch base cabinet", placement: "base",
+      ...baseSpot, width: 36, depth: 24, wallId, wallOffset: 0,
+    });
+    const fridgeSpot = wallPlacementAt(40, 36, 30, wallId as any, runRoom);
+    const fridge = item({
+      uid: "snap-fridge", masterCode: "FRIDGE-36", description: "36 inch refrigerator", placement: "appliance",
+      ...fridgeSpot, width: 36, depth: 30, height: 70, wallId, wallOffset: 40,
+      refrigeratorPanelMode: "left", refrigeratorOptionsChosen: true,
+    });
+    // Panel is source-sized at 3/4 in and keeps the required 1/2 in appliance
+    // clearance before the refrigerator.  Its exposed face is the snap edge.
+    const leftPanelSpot = wallPlacementAt(38.75, 0.75, 24, wallId as any, runRoom);
+    const leftPanel = item({
+      uid: "snap-left-panel", masterCode: "REP2496", description: "Refrigerator end panel", placement: "tall",
+      ...leftPanelSpot, width: 0.75, depth: 24, height: 96, wallId, wallOffset: 38.75,
+      customProfile: "refrigerator-end-panel", refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "left-panel",
+    });
+    const requested = wallPlacementAt(39.5, 36, 30, wallId as any, runRoom);
+    const preview = cabinetWallMovePreview(
+      fridge,
+      { x: requested.x, y: requested.y },
+      runRoom,
+      [base],
+      [],
+      {
+        magnet: true,
+        wallId,
+        seamToleranceIn: 6,
+        magneticEnvelope: refrigeratorMagneticSnapEnvelope(fridge, [base, fridge, leftPanel], runRoom),
+      },
+    );
+
+    expect(preview.failure).toBeNull();
+    // B36 ends at 36. The physical selected panel starts there; refrigerator
+    // itself starts 1.25 in later (3/4 panel + 1/2 appliance clearance).
+    expect(preview.candidate?.wallOffset).toBe(37.25);
+    expect(preview.candidate?.wallOffset).not.toBe(36);
+
+    const threeDPreview = cabinetWallDragPreview(
+      fridge,
+      runRoom,
+      [base, fridge, leftPanel],
+      [],
+      57.5,
+    );
+    expect(threeDPreview?.candidate?.wallOffset).toBe(37.25);
+    expect(threeDPreview?.snapped).toBe(true);
   });
 
   it("rejects an explicitly selected end panel that extends beyond a drawn wall without moving the refrigerator", () => {

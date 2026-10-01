@@ -104,7 +104,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
-	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
+		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -8030,12 +8030,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      const magnet = automaticSnapping && !customPlacementMode && !exactWallDrag;
 	      const wallMove = requestedBody.islandFace
 	        ? null
-	        : cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {
-	            magnet,
-	            exact: exactWallDrag,
-	            target: target ?? null,
-	            seamToleranceIn: automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
-	          });
+		        : cabinetWallMovePreview(requestedBody, { x, y }, room, peers, openings, {
+		            magnet,
+		            exact: exactWallDrag,
+		            target: target ?? null,
+		            // A refrigerator's selected end panels are physical source parts.
+		            // Pull their outside edge flush to an adjacent base cabinet, not
+		            // the appliance box through the panel.
+		            magneticEnvelope: isRefrigerator(cabinet)
+		              ? refrigeratorMagneticSnapEnvelope(cabinet, workingPrev, room)
+		              : null,
+		            seamToleranceIn: automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+		          });
 	      if (wallMove && wallMove.failure && wallMove.failure !== "no-wall") {
 	        const wallLabel = room.customWalls?.find((wall) => wall.id === wallMove.wall)?.label
 	          ?? (peninsulaRunById(room, wallMove.wall) ? "peninsula" : `${wallMove.wall} wall`);

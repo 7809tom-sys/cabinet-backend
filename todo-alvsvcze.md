@@ -3000,3 +3000,9 @@
 - Restored safe transport of only the owner-selected refrigerator parts: selected cabinet above, end panels, and cap fillers follow the refrigerator during drag, nudge, Snap-to-wall, and 3D move. They are removed from its own collision peers, preventing the false “FRIDGE overlaps F342” block. Unrelated cabinets and loose panels never move.
 - Local browser proof: single click did not open the popup; a 18 in drag changed FRIDGE-36 wall offset 54 in → 36 in without a popup; double click opened the popup. Screenshot: `docs/proofs/refrigerator-single-click-drag-local.png`.
 - Validation: TypeScript clean; 51 focused refrigerator/interaction/PlanCanvas tests pass; production build and `git diff --check` pass.
+
+## 15:38 CT — Refrigerator magnetic snap to adjacent base cabinets
+- Added a shared panel-aware refrigerator magnetic envelope. When a configured refrigerator carries a selected left/right `REP2496` end panel, the exposed panel edge—not the refrigerator box—becomes the magnetic contact edge.
+- Floor Plan now excludes that refrigerator's selected source parts from its own preview blockers and gives the shared `cabinetWallMovePreview()` the panel envelope. The 3D right-drag preview delegates the same case to that shared resolver. Existing bases, manually placed panels, and unrelated cabinets remain collision blockers.
+- Verified local Floor Plan drag: `B36` ends at **36 in**; moving `FRIDGE-36` into its snap capture results in left panel at **36 in**, **0 in** panel-to-base gap, refrigerator box at **37.25 in**, and its required **0.5 in** appliance-to-panel clearance. Browser had no console errors; proof assets `docs/proofs/refrigerator-magnetic-snap-local.{png,json}`.
+- Regression coverage: standard room and 45° drawn Wall Builder run for Floor Plan and 3D preview, plus PlanCanvas source wiring. TypeScript, 853 focused tests across 5 files, production build, and diff integrity pass.

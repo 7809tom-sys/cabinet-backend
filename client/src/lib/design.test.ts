@@ -3750,7 +3750,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     expect(conflictingUids([dishwasher, wall])).toEqual(new Set());
   });
 
-  it("mounts a refrigerator wall cabinet directly above its matching refrigerator", () => {
+  it("preserves a refrigerator wall cabinet's stored mounting choice", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 0, y: 0, width: 36, depth: 24, height: 70 });
     const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 0, y: 0, width: 36, depth: 24, height: 24 });
@@ -3758,8 +3758,10 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalized = normalizeRefrigeratorBayUppers([fridge, fridgeWall], room);
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr");
 
-    expect(normalizedUpper?.mountBottom).toBe(72);
-    expect(elevationBox(normalizedUpper!, room)).toEqual({ bottom: 72, height: 24 });
+    // A refrigerator upper is an explicit catalog choice. Loading a design must
+    // never move it just because a refrigerator happens to sit below it.
+    expect(normalizedUpper).toBe(fridgeWall);
+    expect(normalizedUpper?.mountBottom).toBeUndefined();
   });
 
 	  it("keeps a short WR3624 two inches above the selected refrigerator beside an adjoining wall-cabinet run", () => {
@@ -3776,7 +3778,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 	    expect(upperBox).toEqual({ bottom: 70, height: 24 });
   });
 
-  it("does not pull a refrigerator upper above its 72-inch datum for a taller adjoining wall cabinet", () => {
+  it("does not infer a refrigerator upper mount from a taller adjoining wall cabinet", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
     const adjoining = cab({ uid: "left-tall-wall", masterCode: "W-1248", description: "12 inch Wall Cabinet", placement: "wall", x: 0, y: 0, width: 12, depth: 12, height: 48, mountBottom: 54 });
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 12, y: 0, width: 36, depth: 24, height: 70 });
@@ -3786,11 +3788,11 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalizedUpper = normalized.find((cabinet) => cabinet.uid === "wr")!;
 
     expect(elevationBox(adjoining, room)).toEqual({ bottom: 54, height: 48 });
-    expect(normalizedUpper.mountBottom).toBe(72);
-    expect(elevationBox(normalizedUpper, room)).toEqual({ bottom: 72, height: 24 });
+    expect(normalizedUpper).toBe(fridgeWall);
+    expect(normalizedUpper.mountBottom).toBeUndefined();
   });
 
-  it("raises legacy refrigerator end panels to the same 96-inch cap as the refrigerator cabinet", () => {
+  it("preserves a refrigerator end panel's selected source height", () => {
     const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const fridge = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", x: 24, y: 0, width: 36, depth: 24, height: 70 });
     const fridgeWall = cab({ uid: "wr", masterCode: "WR3624", description: "Refrigerator Wall 36", placement: "wall", x: 24, y: 0, width: 36, depth: 24, height: 24 });
@@ -3799,8 +3801,9 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     const normalized = normalizeRefrigeratorBayUppers([fridge, fridgeWall, sidePanel], room);
     const normalizedPanel = normalized.find((cabinet) => cabinet.uid === "panel");
 
-    expect(normalizedPanel?.height).toBe(96);
-    expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 96 });
+    expect(normalizedPanel).toBe(sidePanel);
+    expect(normalizedPanel?.height).toBe(94);
+    expect(elevationBox(normalizedPanel!, room)).toEqual({ bottom: 0, height: 94 });
   });
 
   it("keeps each refrigerator end panel on the floor at its selected source height", () => {
@@ -3822,7 +3825,7 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
     }
   });
 
-  it("re-centers a refrigerator upper and both end panels by measured offset on a diagonal continuous wall", () => {
+  it("preserves stored refrigerator source-part offsets on a diagonal continuous wall", () => {
     const room: RoomData = {
       width: 180,
       depth: 180,
@@ -3855,10 +3858,10 @@ describe("sink base + sink fixture handling (Design Tool fixes)", () => {
 
     const normalized = normalizeRefrigeratorBayUppers([fridge, bridge, left, right], room);
     const byUid = new Map(normalized.map((item) => [item.uid, item]));
-    expect(wallRunOffset(byUid.get("bridge")!, "diag", room)).toBeCloseTo(48, 8);
-    expect(wallRunOffset(byUid.get("left-panel")!, "diag", room)).toBeCloseTo(46.75, 8);
-    expect(wallRunOffset(byUid.get("right-panel")!, "diag", room)).toBeCloseTo(84.5, 8);
-    expect(byUid.get("bridge")?.mountBottom).toBe(72);
+    expect(wallRunOffset(byUid.get("bridge")!, "diag", room)).toBeCloseTo(0, 8);
+    expect(wallRunOffset(byUid.get("left-panel")!, "diag", room)).toBeCloseTo(0, 8);
+    expect(wallRunOffset(byUid.get("right-panel")!, "diag", room)).toBeCloseTo(0, 8);
+    expect(byUid.get("bridge")?.mountBottom).toBeUndefined();
   });
 });
 

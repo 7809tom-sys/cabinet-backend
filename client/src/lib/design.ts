@@ -6813,6 +6813,50 @@ export function refrigeratorBayVerificationMetrics(
   };
 }
 
+/**
+ * The refrigerator box is not always the physical edge that should meet the
+ * next base cabinet.  When the owner explicitly selected refrigerator end
+ * panels, the exposed panel edge is the run boundary; the box itself sits
+ * behind that source-sized panel plus the required appliance clearance.
+ *
+ * This returns only the actual, already-selected panel extension.  It never
+ * invents a panel or treats a loose/tall cabinet as part of the refrigerator.
+ * The common wall-run magnet consumes this envelope so a refrigerator snaps to
+ * a B36 (or any other floor cabinet) without driving its selected panel into
+ * the base cabinet.
+ */
+export function refrigeratorMagneticSnapEnvelope(
+  refrigerator: PlacedCabinet,
+  placed: PlacedCabinet[],
+  room?: RoomData | null,
+): { startExtensionIn: number; endExtensionIn: number } {
+  const enclosure = room ?? DEFAULT_ROOM;
+  if (!isRefrigerator(refrigerator)) return { startExtensionIn: 0, endExtensionIn: 0 };
+  const side = cabinetWall(refrigerator, enclosure);
+  const refrigeratorStart = wallRunOffset(refrigerator, side, enclosure);
+  const refrigeratorEnd = refrigeratorStart + wallRunSpan(refrigerator, side, enclosure);
+  let startExtensionIn = 0;
+  let endExtensionIn = 0;
+  for (const member of placed) {
+    if (member.refrigeratorAssemblyId !== refrigerator.uid) continue;
+    if (member.refrigeratorAssemblyRole !== "left-panel" && member.refrigeratorAssemblyRole !== "right-panel") continue;
+    // A configured part must remain on the refrigerator's own wall run.  This
+    // excludes stale legacy metadata from influencing a live drag.
+    if (cabinetWall(member, enclosure) !== side) continue;
+    const memberStart = wallRunOffset(member, side, enclosure);
+    const memberEnd = memberStart + wallRunSpan(member, side, enclosure);
+    if (member.refrigeratorAssemblyRole === "left-panel") {
+      startExtensionIn = Math.max(startExtensionIn, refrigeratorStart - memberStart);
+    } else {
+      endExtensionIn = Math.max(endExtensionIn, memberEnd - refrigeratorEnd);
+    }
+  }
+  return {
+    startExtensionIn: roundToEighth(Math.max(0, startExtensionIn)),
+    endExtensionIn: roundToEighth(Math.max(0, endExtensionIn)),
+  };
+}
+
 export const REFRIGERATOR_UPPER_CLEARANCE_IN = 2;
 
 export function refrigeratorSurroundElevation(_room: RoomData | null | undefined, fridgeTop: number, upperHeight: number) {
@@ -7655,6 +7699,12 @@ export const firstCollisionFreeCustomWallPlacement = firstCollisionFreeWallPlace
 export interface CabinetWallMoveOptions {
   /** Magnet on: resolve to the nearest clear span and pull near edges into exact seams. */
   magnet: boolean;
+  /**
+   * Optional physical run extensions for a selected cabinet.  Refrigerator end
+   * panels use this so their outside face, rather than the appliance box, is
+   * what magnetically contacts the neighboring base cabinet.
+   */
+  magneticEnvelope?: { startExtensionIn?: number; endExtensionIn?: number } | null;
   /** The pointer/keyboard requested this exact along-run start; no magnet, only clamping. */
   exact?: boolean;
   /** An explicit run target (corner snap, typed offset) wins over the projected point. */
@@ -7723,6 +7773,9 @@ export function cabinetWallMovePreview(
   const maxStart = Math.max(frame.runStart, frame.runEnd - width);
   const clampedStart = Math.max(minStart, Math.min(maxStart, requestedStart));
   const magnet = options.magnet && !options.exact && explicitOffset == null;
+  const startExtension = Math.max(0, Number(options.magneticEnvelope?.startExtensionIn) || 0);
+  const endExtension = Math.max(0, Number(options.magneticEnvelope?.endExtensionIn) || 0);
+  const magneticWidth = width + startExtension + endExtension;
   // A saved same-axis half turn is the same seating on any wall; keep the
   // user's turn instead of rewriting the plan graphic.
   const keepRotation = (spot: { rotation: number }) => ((Math.round(cabinet.rotation) % 180) + 180) % 180 === ((spot.rotation % 180) + 180) % 180
@@ -7736,16 +7789,25 @@ export function cabinetWallMovePreview(
     return { candidate: seat(clampedStart), wall: frame.id, frame, requestedStart, snapped: false, failure: null };
   }
   const segments = freeSegmentsOnWall(frame.id, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
-  const magnetStart = magneticAvailableWallStart(segments, clampedStart, width);
-  if (magnetStart == null) {
+  // Work in exposed-envelope coordinates.  For a refrigerator with a selected
+  // left end panel, a base cabinet ending at 36 in pulls the panel's outside
+  // edge to 36 in, which means the refrigerator itself seats at 37.25 in.
+  const envelopeRequestedStart = clampedStart - startExtension;
+  const envelopeSegments = segments.map((segment) => ({
+    start: segment.start,
+    length: segment.length,
+  }));
+  const magneticEnvelopeStart = magneticAvailableWallStart(envelopeSegments, envelopeRequestedStart, magneticWidth);
+  if (magneticEnvelopeStart == null) {
     return { candidate: null, wall: frame.id, frame, requestedStart, snapped: false, failure: "no-opening" };
   }
-  const containing = segments.find((segment) => (
-    magnetStart >= segment.start - COLLISION_EPSILON_IN
-    && magnetStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
+  const magnetStart = magneticEnvelopeStart + startExtension;
+  const containing = envelopeSegments.find((segment) => (
+    magneticEnvelopeStart >= segment.start - COLLISION_EPSILON_IN
+    && magneticEnvelopeStart + magneticWidth <= segment.start + segment.length + COLLISION_EPSILON_IN
   ));
   const spot = containing
-    ? firstCollisionFreeWallPlacement(frame.id, room, peers, width, depth, cabinet.placement, magnetStart, containing.start, containing.start + containing.length - width)
+    ? firstCollisionFreeWallPlacement(frame.id, room, peers, width, depth, cabinet.placement, magnetStart, containing.start + startExtension, containing.start + containing.length - width - endExtension)
     : wallPlacementAt(magnetStart, width, depth, frame.id, room, cabinet.peninsulaSide);
   if (!spot) return { candidate: null, wall: frame.id, frame, requestedStart, snapped: false, failure: "no-clear-position" };
   const seated: PlacedCabinet = { ...cabinet, ...spot, rotation: keepRotation(spot), wallId: spot.wallId ?? frame.id, wallOffset: spot.wallOffset ?? magnetStart };
@@ -11953,6 +12015,70 @@ export function cabinetWallDragPreview(
   const peers = others.filter((item) => item.uid !== moving.uid);
   const gaps = wallGaps(room, peers, openings, 0)
     .filter((gap) => gap.side === wall && gap.layer === dragLayer);
+  const refrigeratorEnvelope = refrigeratorMagneticSnapEnvelope(moving, others, room);
+  if (refrigeratorEnvelope.startExtensionIn > COLLISION_EPSILON_IN || refrigeratorEnvelope.endExtensionIn > COLLISION_EPSILON_IN) {
+    // A right-drag preview has its own rich ghost/highlight behaviour, but a
+    // refrigerator with selected panels must resolve against the exact same
+    // exposed-panel edge as a Floor Plan drag.  Delegate this special physical
+    // envelope to the one shared wall-move engine rather than letting the 3D
+    // preview snap the refrigerator box through its panel.
+    const memberUids = new Set(others
+      .filter((item) => item.refrigeratorAssemblyId === moving.uid && item.refrigeratorAssemblyRole)
+      .map((item) => item.uid));
+    const refrigeratorPeers = others.filter((item) => item.uid !== moving.uid && !memberUids.has(item.uid));
+    const requestedStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), Math.round((targetAlong - requiredSpan / 2) * 8) / 8));
+    const requestedSpot = wallPlacementAt(requestedStart, requiredSpan, Number(moving.depth) || STD.BASE_DEPTH, wall, room);
+    const resolved = cabinetWallMovePreview(
+      { ...moving, ...requestedSpot, wallId: requestedSpot.wallId ?? wall, wallOffset: requestedSpot.wallOffset ?? requestedStart },
+      { x: requestedSpot.x, y: requestedSpot.y },
+      room,
+      refrigeratorPeers,
+      openings,
+      {
+        magnet: !options.disableSnapping,
+        exact: options.disableSnapping === true,
+        wallId: wall,
+        seamToleranceIn: RIGHT_DRAG_SNAP_THRESHOLD_IN,
+        magneticEnvelope: refrigeratorEnvelope,
+      },
+    );
+    const candidate = resolved.candidate;
+    const bodyStart = candidate ? wallRunOffset(candidate, wall, room) : requestedStart;
+    const envelopeStart = bodyStart - refrigeratorEnvelope.startExtensionIn;
+    const envelopeSpan = requiredSpan + refrigeratorEnvelope.startExtensionIn + refrigeratorEnvelope.endExtensionIn;
+    const matchingGap = gaps.find((gap) => (
+      envelopeStart >= gap.start - COLLISION_EPSILON_IN
+      && envelopeStart + envelopeSpan <= gap.start + gap.length + COLLISION_EPSILON_IN
+    )) ?? wallGapFitPreview(gaps, targetAlong - refrigeratorEnvelope.startExtensionIn, envelopeSpan)?.gap ?? {
+      side: wall,
+      layer: dragLayer,
+      start: envelopeStart,
+      length: 0,
+      center: envelopeStart,
+      isStandardSize: false,
+      isFillerSize: false,
+    };
+    const fit: WallGapFitPreview = {
+      gap: matchingGap,
+      containsTarget: candidate != null,
+      requiredSpan: envelopeSpan,
+      availableSpan: matchingGap.length,
+      shortage: Math.max(0, envelopeSpan - matchingGap.length),
+      snapStart: bodyStart,
+      snapEnd: bodyStart + requiredSpan,
+      before: Math.max(0, envelopeStart - matchingGap.start),
+      after: Math.max(0, matchingGap.start + matchingGap.length - envelopeStart - envelopeSpan),
+      status: candidate ? "valid" : "invalid",
+    };
+    return {
+      wall,
+      fit,
+      candidate,
+      snapped: resolved.snapped,
+      ghostCandidate: candidate,
+      freehand: options.disableSnapping === true,
+    };
+  }
   const trueRoomCorner = requiresRoomCornerPlacement(moving);
   if (trueRoomCorner) {
     const roundedPointerStart = Math.round((targetAlong - requiredSpan / 2) * 8) / 8;

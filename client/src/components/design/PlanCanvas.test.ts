@@ -349,6 +349,17 @@ describe("cabinet attribute gestures", () => {
   });
 });
 
+describe("refrigerator magnetic preview wiring", () => {
+  it("keeps selected refrigerator source parts out of their own drag blockers and uses the shared panel envelope", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("refrigeratorMagneticSnapEnvelope(cabinet, cabinets, room)");
+    expect(source).toContain("item.refrigeratorAssemblyId === cabinet.uid && item.refrigeratorAssemblyRole");
+    expect(source).toContain("!refrigeratorMemberUids.has(c.uid)");
+    expect(source).toContain("magneticEnvelope: refrigeratorEnvelope");
+  });
+});
+
 describe("plan placement assistance wiring", () => {
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {
 	    const db24 = {

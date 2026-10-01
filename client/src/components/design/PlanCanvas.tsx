@@ -8,7 +8,7 @@ import {
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
   cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
-	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -986,12 +986,21 @@ export function PlanCanvas({
       // with the same 1/8-inch placement, magnet and seam rules moveCabinet
       // commits with. Only a floor cabinet dragged beyond the wall magnet keeps
       // the free-floating rectangular snap (islands, open-floor pieces).
-      const peers = cabinets.filter((c) => c.uid !== cabinet.uid);
+      // The panel/cap/filler choices belong to this selected refrigerator's
+      // configured source-part set.  They must travel with it, not block its
+      // own preview.  The shared envelope exposes an end panel as the magnetic
+      // contact edge so the refrigerator snaps flush to the adjacent base.
+      const refrigeratorEnvelope = refrigeratorMagneticSnapEnvelope(cabinet, cabinets, room);
+      const refrigeratorMemberUids = new Set(cabinets
+        .filter((item) => item.refrigeratorAssemblyId === cabinet.uid && item.refrigeratorAssemblyRole)
+        .map((item) => item.uid));
+      const peers = cabinets.filter((c) => c.uid !== cabinet.uid && !refrigeratorMemberUids.has(c.uid));
       const wallMove = cabinet.islandFace
         ? null
         : cabinetWallMovePreview(candidate, { x: rawX, y: rawY }, room, peers, openings, {
             magnet: automaticSnapping,
             seamToleranceIn: automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+	          magneticEnvelope: refrigeratorEnvelope,
           });
       if (wallMove?.candidate) {
         setHoverSnap(true);

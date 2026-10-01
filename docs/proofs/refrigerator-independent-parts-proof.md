@@ -68,3 +68,19 @@ A local Designer browser check verified the corrected interaction contract:
 ![Double-click opens Refrigerator Options after drag](/docs/proofs/refrigerator-single-click-drag-local.png)
 
 The same Playwright click / drag / double-click script then ran against **www.cabinetdealz.com**: single click and drag left the popup closed, the saved refrigerator changed from **54 in** to **36 in** along its wall run, and double-click opened Refrigerator Options. The site serves the dynamic `DesignTool-Dtm72XhF.js` module; dynamic module hashes are deployment-generated and need not match the local build filename.
+
+## Local magnetic snap verification — selected end panel
+
+Dragging a configured `FRIDGE-36` (with its explicitly selected left `REP2496` refrigerator end panel) into the magnetic capture range of a `B36` now resolves against the **panel**, not the refrigerator box:
+
+| Measurement | Verified value |
+|---|---:|
+| B36 run end | 36 in |
+| REP2496 left-panel start after snap | 36 in |
+| Panel-to-B36 gap | 0 in |
+| Refrigerator box wall offset after snap | 37.25 in |
+| Refrigerator-to-panel clearance | 0.5 in |
+
+The same shared envelope is used by Floor Plan dragging and 3D right-drag preview; both the standard room and a 45° Wall Builder run have unit coverage. No console errors occurred in the Floor Plan browser proof.
+
+![Panel-aware refrigerator magnetic snap](/docs/proofs/refrigerator-magnetic-snap-local.png)
