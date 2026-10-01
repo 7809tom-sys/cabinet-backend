@@ -28,5 +28,6 @@ The catalog source depicts a **wood cabinet hood front**, with a shallow cabinet
 - Focused Vitest: `cabinetGraphics`, `ElevationView.mixedCabinetRules`, and `InteractiveRoom3D` — **444 passed, 2 intentionally skipped**.
 - `pnpm run build` — passed.
 - Local Designer browser proof — RHF30 persisted as `placement: wall`, `30 × 23.5 × 9 in`, no browser console errors.
+- **Live verification — 05:04 CT:** `www.cabinetdealz.com` served `InteractiveRoom3D-CqhFiXuI.js` containing the unique RHF catalog-form marker. A live browser proof placed RHF30 as `placement: wall`, `30 × 23.5 × 9 in`, with no browser console errors and the corrected sloped double-door / lower-fascia elevation.
 
-> The elevation proof shows the corrected RHF30 sloped double-door front and lower fascia: `rhf30-catalog-form-elevation.png`.
+> The live elevation proof shows the corrected RHF30 sloped double-door front and lower fascia: `rhf30-catalog-form-live-elevation.png`.
