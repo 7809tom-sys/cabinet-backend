@@ -32,6 +32,22 @@ No catalog, pricing, invoice, or cabinet dimensions were changed.
 
 ![Local WDC2442–W3042 exact shared seam](wdc2442-w3042-right-leg-local.png)
 
+## Live Verification
+
+At **07:53 CT**, cache-busted `www.cabinetdealz.com` served the published
+`DesignTool-KVRfetxe.js` bundle. The exact same Floor Plan drag was run against
+the live Designer and persisted the following result:
+
+| Check | Live result |
+|---|---:|
+| WDC2442 Wall 6 leg | 24 in |
+| W3042 Wall 6 offset after drag | 24 in |
+| Difference | 0 in |
+| Wall/run identity | `down-right` / 45° |
+| Snap confirmation | Visible |
+
+![Live WDC2442–W3042 exact shared seam](wdc2442-w3042-right-leg-live.png)
+
 ## Regression Coverage
 
 - `client/src/lib/design.test.ts` now proves both exposed WDC2442 legs: the prior right-drag leg and the reported Floor Plan/catalog leg at offset 24 in.
