@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { appendWallBuilderSegment, wallBuilderRoomGeometry, type WallBuilderSegment } from "./polygonRoom";
 import {
-  containCabinetOnDrawnWalls,
-	 countertopSurfacePlanPolygon,
-	 countertopSurfaces,
-	 commitRefrigeratorAssemblyCandidate,
+	  containCabinetOnDrawnWalls,
+		 countertopSurfacePlanPolygon,
+		 countertopSurfaces,
+		 commitIndependentCabinetCandidate,
 	 customWallCabinetSide,
   paletteActiveWallPlacement,
   wallPlacementAt,
@@ -128,7 +128,7 @@ describe("Continuous Wall Builder placement parity", () => {
 	    ]);
 	  });
 
-	  it("moves the refrigerator, its source cap, and both panels together on the selected measured wall", () => {
+	  it("moves only the selected refrigerator on the measured wall", () => {
 	    const room = drawnRoom("right90");
 	    const wall = room.customWalls![0]!;
 	    const place = (uid: string, masterCode: string, placement: PlacedCabinet["placement"], start: number, width: number, depth: number, role?: PlacedCabinet["refrigeratorAssemblyRole"]): PlacedCabinet => {
@@ -150,16 +150,14 @@ describe("Continuous Wall Builder placement parity", () => {
 	    const right = place("right", "REPV3096", "tall", 60.5, 0.75, 24, "right-panel");
 	    const movedSpot = wallPlacementAt(48, 36, 30, wall.id as never, room);
 
-	    const moved = commitRefrigeratorAssemblyCandidate(
+	    const moved = commitIndependentCabinetCandidate(
 	      [fridge, cap, left, right],
-	      fridge.uid,
 	      { ...fridge, ...movedSpot, wallOffset: 48 },
-	      room,
-	    )!;
+	    );
 
 	    expect(moved.find((item) => item.uid === "fridge")?.wallOffset).toBeCloseTo(48);
-	    expect(moved.find((item) => item.uid === "cap")?.wallOffset).toBeCloseTo(51);
-	    expect(moved.find((item) => item.uid === "left")?.wallOffset).toBeCloseTo(46.75);
-	    expect(moved.find((item) => item.uid === "right")?.wallOffset).toBeCloseTo(84.5);
+	    expect(moved.find((item) => item.uid === "cap")).toBe(cap);
+	    expect(moved.find((item) => item.uid === "left")).toBe(left);
+	    expect(moved.find((item) => item.uid === "right")).toBe(right);
 	  });
 });

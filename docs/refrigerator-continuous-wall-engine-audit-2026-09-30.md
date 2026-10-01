@@ -127,3 +127,7 @@ Focused validation passed locally after the change: **486 refrigerator/geometry/
 3. Wire all selection/move/delete actions in **one** `DesignTool` path so standard and drawn rooms necessarily behave identically.
 4. Correct the panel-height UI to the 72″ refrigerator-cap datum.
 5. Add the parity guard, then prove it locally and on live CabinetDealz before claiming completion.
+
+## 2026-10-01 status update — independent refrigerator parts
+
+This audit's former group-move recommendation is **superseded by the owner's explicit correction**: a refrigerator is an independent appliance and all panels, cap fillers, and cabinet-above parts are individual opt-in source SKUs. The automatic enclosure fitter, group move transaction, and restore reconciliation have been removed from the active shared engine. A selected optional part is validated independently; if it cannot fit, the refrigerator and every existing cabinet stay unchanged. See `docs/proofs/refrigerator-independent-parts-proof.md`.

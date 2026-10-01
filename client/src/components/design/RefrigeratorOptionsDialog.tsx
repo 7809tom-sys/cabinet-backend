@@ -221,7 +221,7 @@ export function RefrigeratorOptionsDialog({
   const [fridgeD, setFridgeD] = useState<number>(30);
 
   // ── Over-fridge cabinet ────────────────────────────────────────────────────
-  const [above, setAbove] = useState<FridgeAbove>("bridge");
+  const [above, setAbove] = useState<FridgeAbove>("none");
   const [bridgeHeightChoice, setBridgeHeightChoice] = useState<BridgeHeight>(12);
   const [bridgeDepthChoice, setBridgeDepthChoice] = useState<BridgeDepth>(12);
   // Bridge width is independent of fridge width — always 30/33/36
@@ -231,7 +231,7 @@ export function RefrigeratorOptionsDialog({
   // A finished refrigerator enclosure uses both structural end panels by
   // default. Customers can still explicitly choose Left, Right, or None, but a
   // new refrigerator must not silently start without its wall-side panel.
-  const [panels, setPanels] = useState<FridgePanels>("both");
+  const [panels, setPanels] = useState<FridgePanels>("none");
   const [panelDepth, setPanelDepth] = useState<number>(24);
   const [selectedPanelId, setSelectedPanelId] = useState<string>("");
 
@@ -324,10 +324,12 @@ export function RefrigeratorOptionsDialog({
       setBridgeWidthChoice(initialChoice?.bridgeWidth ?? BRIDGE_WIDTH_OPTIONS.reduce((best, option) =>
         Math.abs(option - w) < Math.abs(best - w) ? option : best,
       BRIDGE_WIDTH_OPTIONS[0]));
-      // New refrigerators default to a complete bay. Reopened refrigerators
-      // show exactly the source-backed configuration already chosen.
-      setAbove(initialChoice?.above ?? "bridge");
-      setPanels(initialChoice?.panels ?? "both");
+	      // A refrigerator's own source dimensions are enough to place it. The
+	      // cabinet above and panels are independent, source-priced choices—not
+	      // required additions. Reopened refrigerators retain exactly what was
+	      // explicitly selected.
+	      setAbove(initialChoice?.above ?? "none");
+	      setPanels(initialChoice?.panels ?? "none");
       setPanelDepth(initialChoice?.panelDepth ?? sourcePanelDepth ?? 24);
       setSelectedPanelId(initialChoice?.endPanelId != null ? String(initialChoice.endPanelId) : bestPanel ? String(bestPanel.id) : "");
       setSmooth(initialChoice?.smooth ?? false);
@@ -600,7 +602,7 @@ export function RefrigeratorOptionsDialog({
           <Section title="Fridge End Panels">
             <div className="space-y-1.5">
               <p className="text-xs text-muted-foreground">
-                Both enclosure panels are selected by default. Choose one side or None only when the design intentionally requires it.
+                No enclosure panels are selected by default. Choose the sides you want only when this refrigerator needs them.
               </p>
               {above === "bridge" && panels !== "none" && panelHeight && (
                 <p className="text-xs text-muted-foreground">

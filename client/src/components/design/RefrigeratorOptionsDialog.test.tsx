@@ -65,35 +65,37 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     expect(options.open).toBe(false);
 		expect(screen.getByLabelText("Open optional refrigerator enclosure settings")).toBeTruthy();
 
-    fireEvent.click(screen.getByText("More enclosure options"));
-    expect(options.open).toBe(true);
-    expect(screen.getByRole("button", { name: "Add Cabinet" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Both" })).toBeTruthy();
+	  fireEvent.click(screen.getByText("More enclosure options"));
+	  expect(options.open).toBe(true);
+	  expect(screen.getByRole("button", { name: "Add Cabinet" })).toBeTruthy();
+	  expect(screen.getByRole("button", { name: "Both" })).toBeTruthy();
+	  fireEvent.click(screen.getByRole("button", { name: "Both" }));
 	  expect(screen.getByText(/panel depth:/i).textContent).toContain('24″');
     expect(screen.getByText(/source SKU/i).textContent).toContain("REP2496");
   });
 
-  it("recommends a matching cabinet above the refrigerator without removing the No Cabinet choice", () => {
-    renderDialog();
-    expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText(/recommended: add a matching cabinet above the refrigerator/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: "No Cabinet" })).toBeTruthy();
-  });
+	it("recommends a matching cabinet above the refrigerator while keeping it opt-in", () => {
+	  renderDialog();
+	  expect(screen.getByRole("button", { name: "No Cabinet" }).getAttribute("aria-pressed")).toBe("true");
+	  expect(screen.getByText(/recommended: add a matching cabinet above the refrigerator/i)).toBeTruthy();
+	  expect(screen.getByRole("button", { name: "Add Cabinet" })).toBeTruthy();
+	});
 
-  it("submits both structural end panels by default for a new refrigerator enclosure", () => {
-    const onApply = renderDialog();
-    expect(screen.getByRole("button", { name: "Both" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText(/both enclosure panels are selected by default/i)).toBeTruthy();
+	it("submits only the refrigerator by default; panels remain explicit choices", () => {
+	  const onApply = renderDialog();
+	  expect(screen.getByRole("button", { name: "None" }).getAttribute("aria-pressed")).toBe("true");
+	  expect(screen.getByText(/no enclosure panels are selected by default/i)).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
+	  fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
 
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
-      panels: "both",
-      endPanelId: 9390059,
-      panelDepth: 24,
-      panelHeight: 84,
-    }));
-  });
+	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({
+	    above: "none",
+	    panels: "none",
+	    endPanelId: null,
+	    panelDepth: null,
+	    panelHeight: null,
+	  }));
+	});
 
   it("opens a new refrigerator on a cabinet-above size the selected style actually has", () => {
     const deepCapOnly = { id: 9390061, masterCode: "W3624-24D", description: "36 inch Wall Cabinet 24 deep", width: "36", height: "24", depth: "24" };
@@ -109,14 +111,18 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
         onSkip={vi.fn()}
       />,
     );
-    expect(screen.queryByText(/no 12″ × 12″ cabinet available/i)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ bridgeCabinetId: 9390061, bridgeHeight: 24, bridgeDepth: 24, panelHeight: 96 }));
+	  fireEvent.click(screen.getByRole("button", { name: "Add Cabinet" }));
+	  fireEvent.click(screen.getByRole("button", { name: "24″ Deep" }));
+	  expect(screen.queryByText(/no 12″ × 12″ cabinet available/i)).toBeNull();
+	  fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
+	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ bridgeCabinetId: 9390061, bridgeHeight: 24, bridgeDepth: 24, panels: "none", panelHeight: null }));
   });
 
   it("shows the required two-inch appliance clearance in the finished panel height", () => {
-    renderDialog();
-    fireEvent.click(screen.getByText("More enclosure options"));
+	  renderDialog();
+	  fireEvent.click(screen.getByText("More enclosure options"));
+	  fireEvent.click(screen.getByRole("button", { name: "Add Cabinet" }));
+	  fireEvent.click(screen.getByRole("button", { name: "Both" }));
     expect(screen.getByText(/panel height will be/i).textContent).toContain('84″');
     expect(screen.getByText(/panel height will be/i).textContent).toContain('70″ fridge + 2″ clearance + 12″ cabinet');
   });
@@ -161,9 +167,10 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
         open
         onOpenChange={vi.fn()}
         fridgeWidthInches={36}
-        endPanels={[endPanel]}
-        deepAbove={[refrigeratorCap]}
-        errorMessage="Both refrigerator end panels need clear run space, but would overlap B27 and extend beyond the drawn wall. No refrigerator parts were changed."
+	        endPanels={[endPanel]}
+	        deepAbove={[refrigeratorCap]}
+	        errorMessage="Both refrigerator end panels need clear run space, but would overlap B27 and extend beyond the drawn wall. No refrigerator parts were changed."
+	        initialChoice={{ fridgeWidth: 36, fridgeHeight: 70, fridgeDepth: 30, above: "bridge", bridgeWidth: 36, bridgeHeight: 12, bridgeDepth: 12, panels: "both", endPanelId: 9390059, panelDepth: 24 }}
         onApply={vi.fn()}
         onSkip={vi.fn()}
       />,
@@ -174,13 +181,11 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
   });
 
   it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {
-    const onApply = renderUnpricedDialog();
-    const apply = screen.getByRole("button", { name: "dt_fridge_apply" });
-    expect(apply.getAttribute("disabled")).not.toBeNull();
-    expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("disabled")).not.toBeNull();
-    fireEvent.click(screen.getByText("More enclosure options"));
-    expect(screen.getByText(/no source-priced refrigerator end panel is available/i)).toBeTruthy();
-    fireEvent.click(apply);
-    expect(onApply).not.toHaveBeenCalled();
+	  const onApply = renderUnpricedDialog();
+	  const apply = screen.getByRole("button", { name: "dt_fridge_apply" });
+	  expect(apply.getAttribute("disabled")).toBeNull();
+	  expect(screen.getByRole("button", { name: "Add Cabinet" }).getAttribute("disabled")).not.toBeNull();
+	  fireEvent.click(apply);
+	  expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ above: "none", panels: "none" }));
   });
 });

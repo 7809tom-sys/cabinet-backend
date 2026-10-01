@@ -40,19 +40,18 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(threeDPath).not.toContain("customPlacementMode ? movedCandidate : snapCabinetSeamOverlap");
   });
 
-  it("preserves existing cabinets while configuring a refrigerator and its panels", () => {
-    const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
-    expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
-    expect(refrigeratorPath).toContain("fitRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room)");
-    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(fittedPreview.existing, fittedPreview.additions, fridge.uid, room)");
-    expect(refrigeratorPath).toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");
-    expect(refrigeratorPath).toContain("placedRef.current = committedPreview");
-    expect(refrigeratorPath).toContain("retain both end panels and preserve the neighboring cabinet");
-    expect(refrigeratorPath).toContain("formatEighthInches(overlapIn)");
-    expect(refrigeratorPath).toContain("The existing cabinet was preserved in its exact position.");
-    expect(refrigeratorPath).not.toContain("setPlaced((previous) => previous.map((candidate)");
-    expect(refrigeratorPath).not.toContain("refrigeratorEndPanelConflict(piece, placed, fridge.uid)");
-  });
+	  it("preserves every existing cabinet while independently configuring refrigerator options", () => {
+	    const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
+	    expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
+	    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room)");
+	    expect(refrigeratorPath).toContain("const existingOptionUids = new Set(");
+	    expect(refrigeratorPath).toContain("The refrigerator and every existing cabinet remain exactly where they are.");
+	    expect(refrigeratorPath).not.toContain("fitRefrigeratorEnclosurePlacements(");
+	    expect(refrigeratorPath).not.toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");
+	    expect(refrigeratorPath).toContain("placedRef.current = committedPreview");
+	    expect(refrigeratorPath).not.toContain("setPlaced((previous) => previous.map((candidate)");
+	    expect(refrigeratorPath).not.toContain("refrigeratorEndPanelConflict(piece, placed, fridge.uid)");
+	  });
 
   it("uses authoritative wall-SKU dimensions for normal add, direct 3D drop, and Smart Gap preview paths", () => {
     expect(sourceBetween("const addCabinet = useCallback", "const addManualFiller")).toContain("resolvedDesignCabinetDimensions(c)");

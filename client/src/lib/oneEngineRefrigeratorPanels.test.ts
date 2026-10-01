@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   appendRefrigeratorEnclosurePlacements,
-  fitRefrigeratorEnclosurePlacements,
-  normalizeRefrigeratorBayUppers,
   refrigeratorBayRunMetrics,
   wallPlacementAtUnbounded,
   wallRunOffset,
@@ -50,7 +48,7 @@ function fridge(wallId: string, room: RoomData = standardRoom): PlacedCabinet {
   } as PlacedCabinet;
 }
 
-function panels(f: PlacedCabinet, room: RoomData, withRunMetadata: boolean): PlacedCabinet[] {
+function panels(f: PlacedCabinet, room: RoomData): PlacedCabinet[] {
   const bay = refrigeratorBayRunMetrics(f, room);
   const mk = (left: boolean): PlacedCabinet => {
     const along = left ? bay.openingStart - 0.75 : bay.openingEnd;
@@ -58,7 +56,7 @@ function panels(f: PlacedCabinet, room: RoomData, withRunMetadata: boolean): Pla
     return {
       uid: left ? "pl" : "pr", cabinetId: 1, masterCode: "REPV3096", description: "Refrigerator End Panel", placement: "tall",
       x: spot.x, y: spot.y, width: 0.75, depth: 24, height: 84, rotation: spot.rotation,
-      ...(withRunMetadata ? { wallId: spot.wallId, wallOffset: spot.wallOffset } : {}),
+      wallId: spot.wallId, wallOffset: spot.wallOffset,
       customProfile: "refrigerator-end-panel", subCategory: "Refrigerator End Panel", mountBottom: 0,
       refrigeratorAssemblyId: "fridge", refrigeratorAssemblyRole: left ? "left-panel" : "right-panel",
     } as PlacedCabinet;
@@ -66,12 +64,11 @@ function panels(f: PlacedCabinet, room: RoomData, withRunMetadata: boolean): Pla
   return [mk(true), mk(false)];
 }
 
-function accept(room: RoomData, wallId: string, withRunMetadata: boolean) {
+function accept(room: RoomData, wallId: string) {
   const f = fridge(wallId, room);
-  const adds = panels(f, room, withRunMetadata);
-  const fitted = fitRefrigeratorEnclosurePlacements([f], adds, "fridge", room);
-  const res = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, "fridge", room);
-  const committed = normalizeRefrigeratorBayUppers(res.placed, room);
+  const adds = panels(f, room);
+  const res = appendRefrigeratorEnclosurePlacements([f], adds, "fridge", room);
+  const committed = res.placed;
   const left = committed.find((p) => p.uid === "pl");
   const right = committed.find((p) => p.uid === "pr");
   return {
@@ -82,10 +79,9 @@ function accept(room: RoomData, wallId: string, withRunMetadata: boolean) {
 }
 
 describe("one engine: refrigerator end panels accepted on a drawn wall", () => {
-  for (const withRunMetadata of [true, false]) {
-    it(`Both panels land at the same run offsets on a standard wall and a Wall Builder wall (members ${withRunMetadata ? "with" : "without"} run metadata)`, () => {
-      const standard = accept(standardRoom, "top", withRunMetadata);
-      const drawn = accept(drawnRoom, "w1", withRunMetadata);
+    it("Both explicitly placed panels land at the same run offsets on a standard wall and a Wall Builder wall", () => {
+      const standard = accept(standardRoom, "top");
+      const drawn = accept(drawnRoom, "w1");
       expect(standard.rejected).toEqual([]);
       expect(drawn.rejected).toEqual([]);
       expect(standard.left).toBeTruthy();
@@ -101,8 +97,8 @@ describe("one engine: refrigerator end panels accepted on a drawn wall", () => {
       expect(drawn.left!.wallId).toBe("w1");
       expect(drawn.right!.wallId).toBe("w1");
     });
-    it(`Both panels seat on a 45° Wall Builder wall at the same offsets (members ${withRunMetadata ? "with" : "without"} run metadata)`, () => {
-      const angled = accept(angledRoom, "diag", withRunMetadata);
+    it("Both explicitly placed panels seat on a 45° Wall Builder wall at the same offsets", () => {
+      const angled = accept(angledRoom, "diag");
       expect(angled.rejected).toEqual([]);
       expect(angled.left!.off).toBeCloseTo(28.75, 3);
       expect(angled.right!.off).toBeCloseTo(66.5, 3);
@@ -110,5 +106,4 @@ describe("one engine: refrigerator end panels accepted on a drawn wall", () => {
       expect(angled.left!.wallId).toBe("diag");
       expect(angled.right!.wallId).toBe("diag");
     });
-  }
 });

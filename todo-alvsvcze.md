@@ -2977,3 +2977,11 @@
 - Reordered the locked storefront catalog filter buttons exactly as requested: Base, Wall, Corner, Tall, Filler, Panels, Wall Skins, Molding, Accessories, Vanity, then View all.
 - The display labels `Wall Skins` and `Accessories` continue filtering their exact source categories (`Wall Skin / Scribe Veneer` and `Accessory`); no products, prices, or category data changed. Any unexpected imported category is retained after the intentional sequence rather than disappearing.
 - Validation: local Sales Demo browser DOM order exactly matched all 11 labels with zero console errors; category-order regressions 2/2, existing storefront safeguard 1/1, TypeScript, production build, and diff integrity passed. Proof: `docs/proofs/storefront-category-button-order-proof.md`.
+
+
+## 11:07 CT — Refrigerator corrected to independent, opt-in catalog parts
+- User correction accepted: a refrigerator is an independent appliance, not a grouped refrigerator bay. The old automatic enclosure fitter, group-move transaction, and restore reconciliation are removed from the active shared engine.
+- New refrigerator popup defaults to **No Cabinet** and **None** panels. Cabinet-above, each panel side, smooth panel, and cap/filler choices are source-priced opt-ins. A refrigerator now fits wherever its own selected catalog width and footprint fit.
+- Selecting an optional panel/cabinet that cannot fit rejects only those selected additions and keeps the refrigerator plus every existing cabinet exactly in place. Plan drag, nudge, Snap-to-wall, 3D move, rotation, deletion, and restore operate on the selected refrigerator alone; existing optional source parts retain their own coordinates.
+- Local browser proof: at a tight wall end, `FRIDGE-36` placed at its original 36-in wall offset with default choices, no panel-clearance blocker, no optional parts, and no console errors. Proof: `docs/proofs/refrigerator-independent-parts-proof.md`.
+- Validation: TypeScript clean; 76 focused refrigerator/standard/Wall-Builder/parity/pricing tests pass; production build and `git diff --check` pass.
