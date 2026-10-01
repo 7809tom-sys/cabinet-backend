@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
 	appendRefrigeratorEnclosurePlacements,
   commitIndependentCabinetCandidate,
+	fitExplicitRefrigeratorOptionPlacements,
   normalizeRefrigeratorBayUppers,
   type PlacedCabinet,
   type RoomData,
   wallPlacementAt,
+	wallPlacementAtUnbounded,
+	wallRunOffset,
 } from "./design";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
@@ -123,5 +126,92 @@ describe("independent refrigerator parts", () => {
     expect(result.placed).toEqual([fridge]);
     expect(result.rejected).toEqual([rightPanel]);
     expect(result.placed[0].wallOffset).toBe(36);
+  });
+
+  it("moves only a newly configured refrigerator and its selected parts inward at a wall edge", () => {
+    const refrigerator = placed("fridge", "FRIDGE-36", 36, 30, "appliance", 0, {
+      refrigeratorPanelMode: "both",
+      refrigeratorOptionsChosen: true,
+    });
+    const cap = placed("cap", "WR3612", 36, 24, "wall", 0, {
+      mountBottom: 72,
+      refrigeratorAssemblyId: refrigerator.uid,
+      refrigeratorAssemblyRole: "bridge",
+    });
+    const panel = (uid: string, along: number, role: "left-panel" | "right-panel") => {
+      const spot = wallPlacementAtUnbounded(along, 0.75, 24, "bottom", room);
+      return {
+        ...placed(uid, "REPV3096", 0.75, 24, "tall", 0, {
+          refrigeratorAssemblyId: refrigerator.uid,
+          refrigeratorAssemblyRole: role,
+          mountBottom: 0,
+        }),
+        ...spot,
+        wallOffset: along,
+      };
+    };
+    // The left panel begins 1.25" beyond the wall because it sits outside the
+    // 1/2" finished opening.  B21 is an already placed neighbor and must not move.
+    const left = panel("left", -1.25, "left-panel");
+    const right = panel("right", 36.5, "right-panel");
+    const fixedB21 = placed("fixed-b21", "B21", 21, 24, "base", 43);
+
+    const fitted = fitExplicitRefrigeratorOptionPlacements(
+      [refrigerator, fixedB21],
+      [cap, left, right],
+      refrigerator.uid,
+      room,
+    );
+    const committed = appendRefrigeratorEnclosurePlacements(
+      fitted.existing,
+      fitted.additions,
+      refrigerator.uid,
+      room,
+    );
+
+    expect(fitted.shiftIn).toBe(1.25);
+    expect(wallRunOffset(fitted.existing.find((item) => item.uid === refrigerator.uid)!, "bottom", room)).toBe(1.25);
+    expect(wallRunOffset(fitted.existing.find((item) => item.uid === fixedB21.uid)!, "bottom", room)).toBe(43);
+    expect(wallRunOffset(fitted.additions.find((item) => item.uid === "left")!, "bottom", room)).toBe(0);
+    expect(wallRunOffset(fitted.additions.find((item) => item.uid === "right")!, "bottom", room)).toBe(37.75);
+    expect(committed.rejected).toEqual([]);
+  });
+
+  it("clears a fixed base cabinet by shifting only the refrigerator and newly selected options", () => {
+    const fixedBase = placed("fixed-b24", "B24", 24, 24, "base", 0);
+    const refrigerator = placed("fridge-after-base", "FRIDGE-36", 36, 30, "appliance", 24, {
+      refrigeratorPanelMode: "both",
+      refrigeratorOptionsChosen: true,
+    });
+    const cap = placed("cap-after-base", "WR3612", 36, 24, "wall", 24, {
+      mountBottom: 72,
+      refrigeratorAssemblyId: refrigerator.uid,
+      refrigeratorAssemblyRole: "bridge",
+    });
+    const panel = (uid: string, along: number, role: "left-panel" | "right-panel") => {
+      const spot = wallPlacementAtUnbounded(along, 0.75, 24, "bottom", room);
+      return {
+        ...placed(uid, "REPV3096", 0.75, 24, "tall", 0, {
+          refrigeratorAssemblyId: refrigerator.uid,
+          refrigeratorAssemblyRole: role,
+          mountBottom: 0,
+        }),
+        ...spot,
+        wallOffset: along,
+      };
+    };
+    const fitted = fitExplicitRefrigeratorOptionPlacements(
+      [fixedBase, refrigerator],
+      [cap, panel("left-after-base", 22.75, "left-panel"), panel("right-after-base", 60.5, "right-panel")],
+      refrigerator.uid,
+      room,
+    );
+    const committed = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, refrigerator.uid, room);
+
+    expect(fitted.shiftIn).toBe(1.25);
+    expect(wallRunOffset(fitted.existing.find((item) => item.uid === fixedBase.uid)!, "bottom", room)).toBe(0);
+    expect(wallRunOffset(fitted.existing.find((item) => item.uid === refrigerator.uid)!, "bottom", room)).toBe(25.25);
+    expect(wallRunOffset(fitted.additions.find((item) => item.uid === "left-after-base")!, "bottom", room)).toBe(24);
+    expect(committed.rejected).toEqual([]);
   });
 });

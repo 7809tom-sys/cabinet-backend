@@ -46,26 +46,30 @@ describe("Design Tool independent refrigerator options", () => {
     expect(transaction).toContain("leftEdge ? bay.openingStart - pThick : bay.openingEnd");
   });
 
-  it("uses source cabinet and panel dimensions with bounded wall placement", () => {
+  it("uses source cabinet and panel dimensions while preserving an off-run panel for the shared fitter", () => {
     const transaction = refrigeratorTransaction();
     expect(transaction).toContain("const sourceDimensions = wallCabinetSkuDimensions(chosen.masterCode)");
     expect(transaction).toContain("const aWidth = sourceDimensions?.width");
-    expect(transaction).toContain("wallPlacementAt(along, pThick, pDepth, side, room)");
+    expect(transaction).toContain("wallPlacementAtUnbounded(along, pThick, pDepth, side, room)");
     expect(transaction).toContain("wallPlacementAt(along, eachFillerWidth, aDepth, side, room)");
-    expect(transaction).not.toContain("wallPlacementAtUnbounded(along, pThick, pDepth, side, room)");
     expect(transaction).not.toContain("? opts.bridgeWidth : fp.w");
   });
 
-  it("rejects all selected new parts rather than moving a refrigerator or neighbor", () => {
+  it("fits only the refrigerator and the options selected in this accept action", () => {
     const transaction = refrigeratorTransaction();
+    const fit = transaction.indexOf("const fittedOptions = fitExplicitRefrigeratorOptionPlacements(");
     const rejected = transaction.indexOf("if (requiredRejected.length > 0)");
     const commit = transaction.indexOf("const committedPreview = previewResult.placed");
+    expect(fit).toBeGreaterThan(-1);
+    expect(fit).toBeLessThan(rejected);
     expect(rejected).toBeGreaterThan(-1);
     expect(commit).toBeGreaterThan(rejected);
     expect(transaction.slice(rejected, commit)).toContain("The refrigerator and every existing cabinet remain exactly where they are.");
     expect(transaction.slice(rejected, commit)).toContain("return;");
     expect(transaction).toContain("const optionalCapFillerUids = new Set(");
     expect(transaction).toContain("The selected refrigerator end panel needs clear space at this corner or wall end.");
+    expect(transaction).toContain("Refrigerator and selected parts moved");
+    expect(transaction).toContain("Existing cabinets stayed in place.");
   });
 
   it("keeps refrigerator panel choices in the insertion attributes dialog", () => {
@@ -95,14 +99,14 @@ describe("Design Tool independent refrigerator options", () => {
     expect(source).not.toContain("refrigeratorPanelRepairAttemptedRef");
   });
 
-  it("moves only the selected refrigerator on plan, nudge, and 3D paths", () => {
+  it("moves a refrigerator with only its explicitly configured source parts on plan, nudge, and 3D paths", () => {
     const move = sourceBetween("const moveCabinet = useCallback", "const swingSelected");
     const nudge = sourceBetween("const nudgeSelected = useCallback", "// Raise/lower the selected WALL cabinet");
     const dpad = sourceBetween("const moveCabinetFrom3D = useCallback", "const resetMountHeight");
-    expect(move).toContain("commitIndependentCabinetCandidate(workingPrev, movedCabinet)");
+    expect(move).toContain("commitConfiguredRefrigeratorCandidate(workingPrev, uid, movedCabinet, room)");
     expect(move).not.toContain("commitRefrigeratorAssemblyCandidate");
     expect(nudge).toContain("moveCabinet(");
-    expect(dpad).toContain("commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate)");
+    expect(dpad).toContain("commitConfiguredRefrigeratorCandidate(prev, uid, candidate, room)");
     expect(dpad).not.toContain("commitRefrigeratorAssemblyCandidate");
   });
 
@@ -113,11 +117,11 @@ describe("Design Tool independent refrigerator options", () => {
     expect(source).not.toContain("Remove complete bay");
   });
 
-  it("reopens the same refrigerator options dialog when a placed refrigerator is clicked", () => {
+  it("selects a refrigerator on one click and opens its options only through explicit Attributes editing", () => {
     const selection = sourceBetween("const selectCabinet = useCallback", "const selectSink = useCallback");
     const editor = sourceBetween("const openAttributes = useCallback", "const openMobileAttributes = useCallback");
-    expect(selection).toContain("isRefrigerator(cabinet)");
-    expect(selection).toContain("setFridgeDialog({ fridgeUid: cabinet.uid })");
+    expect(selection).toContain("setSelectedUid(uid)");
+    expect(selection).not.toContain("setFridgeDialog(");
     expect(editor).toContain("setFridgeDialog({ fridgeUid: uid })");
     expect(source).toContain("initialChoice={fridgeDialogInitialChoice}");
   });

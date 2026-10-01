@@ -2993,3 +2993,10 @@
 - Local browser proof loaded `/store/sales-demo/signin?returnTo=/store/sales-demo/design`: the Sales Demo sign-in form rendered, 404 did not render, and `returnTo` remained exact. Proof: `docs/proofs/designer-scoped-signin-save-proof.md`.
 - Validation: TypeScript clean; 18 navigation/login/save-auth tests passed; production build and `git diff --check` passed.
 - 13:48 CT live verification: on `sales-demo.cabinetdealz.com`, `/signin?returnTo=/store/sales-demo/design` redirected to `/store/sales-demo/signin`, rendered the real sign-in form (not 404), and preserved the exact Designer return target. Saved `docs/proofs/designer-scoped-signin-live.png`.
+
+## 14:26 CT — Refrigerator drag-first interaction and configured-part movement
+- A single click on a placed refrigerator now **only selects it**, so it can drag exactly like a stove. It no longer opens Refrigerator Options on click.
+- The options popup opens only through the existing explicit **Attributes** control, **right-click**, or **double-click**. Floor Plan already supported right/double; the 3D Designer now supports double-click as well as right-click.
+- Restored safe transport of only the owner-selected refrigerator parts: selected cabinet above, end panels, and cap fillers follow the refrigerator during drag, nudge, Snap-to-wall, and 3D move. They are removed from its own collision peers, preventing the false “FRIDGE overlaps F342” block. Unrelated cabinets and loose panels never move.
+- Local browser proof: single click did not open the popup; a 18 in drag changed FRIDGE-36 wall offset 54 in → 36 in without a popup; double click opened the popup. Screenshot: `docs/proofs/refrigerator-single-click-drag-local.png`.
+- Validation: TypeScript clean; 51 focused refrigerator/interaction/PlanCanvas tests pass; production build and `git diff --check` pass.

@@ -3592,6 +3592,151 @@ export interface RefrigeratorEnclosurePlacementResult extends CollisionResolutio
   panelConflicts: RefrigeratorEndPanelConflictDetail[];
 }
 
+export interface ExplicitRefrigeratorOptionFitResult {
+  /** The refrigerator may move with the newly selected option parts. Existing cabinets never move. */
+  existing: PlacedCabinet[];
+  /** Newly selected cap, panels, and optional fillers at their fitted coordinates. */
+  additions: PlacedCabinet[];
+  /** Signed along-run displacement applied to the refrigerator and its selected options. */
+  shiftIn: number;
+}
+
+/**
+ * Fits a refrigerator and the cap/panels explicitly selected in its attributes
+ * popup into the same wall run.  This is deliberately a *configuration-time*
+ * operation, not an assembly ownership rule: later drag, nudge, delete, and
+ * restore actions keep every catalog part independent.
+ *
+ * At a wall edge or beside a base cabinet, the temporary panel coordinate can
+ * start outside the run or overlap the existing neighbor.  Translate only the
+ * refrigerator and the options currently being accepted by the exact measured
+ * amount that clears the conflict.  Never shift, replace, or delete an already
+ * placed cabinet.  If neither direction has a safe space, return the original
+ * positions so the normal rejection path explains the blocker.
+ */
+export function fitExplicitRefrigeratorOptionPlacements(
+  existing: PlacedCabinet[],
+  additions: PlacedCabinet[],
+  refrigeratorUid: string,
+  room: RoomData,
+): ExplicitRefrigeratorOptionFitResult {
+  const refrigerator = existing.find((item) => item.uid === refrigeratorUid);
+  if (!refrigerator) return { existing, additions, shiftIn: 0 };
+
+  const side = cabinetWall(refrigerator, room);
+  const runLength = wallLength(side, room);
+  const alongStart = (item: PlacedCabinet) => (
+    item.wallId === side && Number.isFinite(Number(item.wallOffset))
+      ? Number(item.wallOffset)
+      : wallRunOffset(item, side, room)
+  );
+  const alongLength = (item: PlacedCabinet) => wallRunSpan(item, side, room);
+  const refrigeratorStart = alongStart(refrigerator);
+  const members = [refrigerator, ...additions];
+  const enclosureStart = Math.min(...members.map(alongStart));
+  const enclosureEnd = Math.max(...members.map((item) => alongStart(item) + alongLength(item)));
+  const peers = existing.filter((item) => item.uid !== refrigeratorUid && !isRefrigeratorEndPanel(item));
+  const panelConflicts = additions
+    .filter(isRefrigeratorEndPanel)
+    .flatMap((panel) => {
+      const conflict = refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid, room);
+      return conflict ? [conflict] : [];
+    });
+
+  const candidateShifts = [
+    Math.max(0, -enclosureStart),
+    Math.min(0, runLength - enclosureEnd),
+    Math.max(0, ...panelConflicts
+      .filter(({ panel }) => alongStart(panel) < refrigeratorStart)
+      .map(({ overlapIn }) => overlapIn)),
+    -Math.max(0, ...panelConflicts
+      .filter(({ panel }) => alongStart(panel) >= refrigeratorStart)
+      .map(({ overlapIn }) => overlapIn)),
+  ].filter((shift, index, all) => Math.abs(shift) > COLLISION_EPSILON_IN && all.indexOf(shift) === index);
+
+  const shifted = (item: PlacedCabinet, shiftIn: number): PlacedCabinet => {
+    // Preserve a temporary negative or end-overrun panel while testing.  The
+    // normal clamped placement helper would fold that panel back onto the
+    // refrigerator and hide the exact displacement that needs to be applied.
+    const spot = wallPlacementAtUnbounded(
+      alongStart(item) + shiftIn,
+      alongLength(item),
+      Math.max(0, Number(item.depth) || 0),
+      side,
+      room,
+      item.peninsulaSide,
+    );
+    return {
+      ...item,
+      ...spot,
+      wallId: spot.wallId ?? item.wallId,
+      wallOffset: spot.wallOffset ?? item.wallOffset,
+    };
+  };
+  const withinRunAndRoom = (item: PlacedCabinet): boolean => {
+    const start = alongStart(item);
+    const end = start + alongLength(item);
+    if (start < -COLLISION_EPSILON_IN || end > runLength + COLLISION_EPSILON_IN) return false;
+    // A run-owned body is valid inside a drawn or peninsula wall when its
+    // measured offset fits.  Cardinal walls also need their full footprint in
+    // the rectangular room bounds.
+    if (isCustomRoomWall(room, side) || peninsulaRunById(room, side)) return true;
+    const size = placedFootprint(item);
+    return item.x >= -COLLISION_EPSILON_IN
+      && item.y >= -COLLISION_EPSILON_IN
+      && item.x + size.w <= room.width + COLLISION_EPSILON_IN
+      && item.y + size.d <= room.depth + COLLISION_EPSILON_IN;
+  };
+
+  const fittedAt = (shiftIn: number): ExplicitRefrigeratorOptionFitResult | null => {
+    const shiftedRefrigerator = shifted(refrigerator, shiftIn);
+    const shiftedAdditions = additions.map((item) => shifted(item, shiftIn));
+    if (!withinRunAndRoom(shiftedRefrigerator) || shiftedAdditions.some((item) => !withinRunAndRoom(item))) return null;
+    if (cabinetPlacementCollisionDetail(shiftedRefrigerator, peers, room)) return null;
+    if (shiftedAdditions.some((item) => cabinetPlacementCollisionDetail(item, peers, room))) return null;
+    if (shiftedAdditions
+      .filter(isRefrigeratorEndPanel)
+      .some((panel) => refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid, room))) return null;
+    return {
+      existing: existing.map((item) => item.uid === refrigeratorUid ? shiftedRefrigerator : item),
+      additions: shiftedAdditions,
+      shiftIn,
+    };
+  };
+
+  // Preserve an already valid placement exactly; fitting is only corrective.
+  const unchanged = fittedAt(0);
+  if (unchanged) return unchanged;
+
+  // First attempt exact known boundary/panel-overlap displacements. This is the
+  // common case and preserves the source geometry without an arbitrary nudge.
+  for (const shiftIn of candidateShifts) {
+    const result = fittedAt(shiftIn);
+    if (result) return result;
+  }
+
+  // A normal base/tall cabinet can create a real collision that is not a
+  // refrigerator-panel-specific conflict (for example B24 ends exactly at the
+  // appliance but overlaps the panel's 3/4-in thickness). Walk the same 1/8-in
+  // grid used by Designer drag placement to find the nearest safe displacement.
+  // Only the newly configured refrigerator/options move; `peers` are immutable.
+  const maximumPositive = Math.max(0, runLength - enclosureEnd);
+  const maximumNegative = Math.max(0, enclosureStart);
+  const maxSteps = Math.ceil(Math.max(maximumPositive, maximumNegative) * 8 - COLLISION_EPSILON_IN);
+  for (let step = 1; step <= maxSteps; step += 1) {
+    const distance = step / 8;
+    if (distance <= maximumPositive + COLLISION_EPSILON_IN) {
+      const result = fittedAt(distance);
+      if (result) return result;
+    }
+    if (distance <= maximumNegative + COLLISION_EPSILON_IN) {
+      const result = fittedAt(-distance);
+      if (result) return result;
+    }
+  }
+  return { existing, additions, shiftIn: 0 };
+}
+
 export function appendRefrigeratorEnclosurePlacements(
   existing: PlacedCabinet[],
   additions: PlacedCabinet[],
@@ -6701,6 +6846,94 @@ export function commitIndependentCabinetCandidate(
   candidate: PlacedCabinet,
 ): PlacedCabinet[] {
   return placed.map((item) => item.uid === candidate.uid ? candidate : item);
+}
+
+/**
+ * Moves a refrigerator with only the cap, cap fillers, and end panels that were
+ * explicitly selected in its own options dialog.  These source-priced members
+ * are a physical surround, not unrelated cabinets: treating them as external
+ * collision peers prevents the refrigerator from moving at all (for example it
+ * reports an overlap with its own F342 filler).  Manual W1842s, loose panels,
+ * and every other cabinet remain peers and are never moved or absorbed.
+ */
+export function commitConfiguredRefrigeratorCandidate(
+  placed: PlacedCabinet[],
+  refrigeratorUid: string,
+  candidate: PlacedCabinet,
+  room?: RoomData | null,
+): PlacedCabinet[] | null {
+  const source = placed.find((item) => item.uid === refrigeratorUid);
+  if (!source || !isRefrigerator(source)) return null;
+  const enclosure = room ?? DEFAULT_ROOM;
+  const members = placed.filter((item) => (
+    item.refrigeratorAssemblyId === refrigeratorUid
+    && item.refrigeratorAssemblyRole
+  ));
+  if (members.length === 0) return commitIndependentCabinetCandidate(placed, candidate);
+
+  const memberUids = new Set(members.map((item) => item.uid));
+  const peers = placed.filter((item) => item.uid !== refrigeratorUid && !memberUids.has(item.uid));
+  const side = cabinetWall(candidate, enclosure);
+  const metrics = refrigeratorBayRunMetrics(candidate, enclosure);
+  const bridge = members.find((item) => item.refrigeratorAssemblyRole === "bridge");
+  const bridgeHeight = Math.max(0, Number(bridge?.height) || 0);
+  const surround = bridgeHeight > 0
+    ? refrigeratorSurroundElevation(
+      enclosure,
+      elevationBox(candidate, enclosure).bottom + elevationBox(candidate, enclosure).height,
+      bridgeHeight,
+    )
+    : null;
+
+  const repositioned = members.map((member) => {
+    const role = member.refrigeratorAssemblyRole!;
+    const span = wallRunSpan(member, cabinetWall(member, enclosure), enclosure);
+    const depth = Math.max(0, Number(member.depth) || 0);
+    const along = role === "bridge"
+      ? metrics.refrigeratorStart + (metrics.refrigeratorWidth - span) / 2
+      : role === "bridge-left-filler"
+        ? metrics.openingStart
+        : role === "bridge-right-filler"
+          ? metrics.refrigeratorEnd
+          : role === "left-panel"
+            ? metrics.openingStart - span
+            : role === "right-panel"
+              ? metrics.openingEnd
+              : wallRunOffset(member, cabinetWall(member, enclosure), enclosure);
+    const spot = wallPlacementAtUnbounded(along, span, depth, side, enclosure, candidate.peninsulaSide);
+    return {
+      ...member,
+      ...spot,
+      refrigeratorAssemblyId: candidate.uid,
+      refrigeratorAssemblyRole: role,
+      ...(role === "bridge" && surround ? { mountBottom: surround.mountBottom } : {}),
+      ...((role === "bridge-left-filler" || role === "bridge-right-filler") && surround
+        ? { mountBottom: surround.mountBottom, height: bridgeHeight }
+        : {}),
+      ...(role === "left-panel" || role === "right-panel"
+        ? { mountBottom: 0, height: surround?.top ?? member.height }
+        : {}),
+    };
+  });
+
+  const runLength = wallLength(side, enclosure);
+  const insideRun = (item: PlacedCabinet) => {
+    const start = wallRunOffset(item, side, enclosure);
+    const span = wallRunSpan(item, side, enclosure);
+    if (start < -COLLISION_EPSILON_IN || start + span > runLength + COLLISION_EPSILON_IN) return false;
+    const clamped = clampCabinetToRoom(item, enclosure);
+    return Math.abs(clamped.x - item.x) <= COLLISION_EPSILON_IN
+      && Math.abs(clamped.y - item.y) <= COLLISION_EPSILON_IN;
+  };
+  const group = [candidate, ...repositioned];
+  if (group.some((item) => !insideRun(item))) return null;
+  if (group.some((item) => cabinetPlacementCollisionDetail(item, peers, enclosure))) return null;
+
+  const replacements = new Map<string, PlacedCabinet>([
+    [candidate.uid, candidate],
+    ...repositioned.map((item) => [item.uid, item] as const),
+  ]);
+  return placed.map((item) => replacements.get(item.uid) ?? item);
 }
 
 /**

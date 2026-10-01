@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendRefrigeratorEnclosurePlacements,
-  commitIndependentCabinetCandidate,
+  commitConfiguredRefrigeratorCandidate,
   normalizeRefrigeratorBayUppers,
   refrigeratorBayRunMetrics,
   refrigeratorBayVerificationMetrics,
@@ -86,14 +86,28 @@ describe("independent refrigerator catalog parts", () => {
     expect(normalizeRefrigeratorBayUppers(saved, room)).toEqual(saved);
   });
 
-  it("moves only the refrigerator selected by the user", () => {
+  it("moves only the refrigerator and source parts explicitly selected in its own options", () => {
     const { fridge, left, right, cap } = selectedParts();
+    const leftFiller = item({
+      uid: "left-filler", masterCode: "F342", placement: "wall", x: 23.5,
+      width: 0.5, depth: 24, height: 12, mountBottom: 72,
+      refrigeratorAssemblyId: fridge.uid, refrigeratorAssemblyRole: "bridge-left-filler",
+    });
+    const ordinaryWallCabinet = item({ uid: "ordinary", masterCode: "W3030", placement: "wall", x: 96, width: 30, height: 30, mountBottom: 54 });
     const moved = { ...fridge, x: 48, wallOffset: 48 };
-    const result = commitIndependentCabinetCandidate([fridge, left, right, cap], moved);
-    expect(result.find((part) => part.uid === fridge.uid)).toEqual(moved);
-    expect(result.find((part) => part.uid === left.uid)).toBe(left);
-    expect(result.find((part) => part.uid === right.uid)).toBe(right);
-    expect(result.find((part) => part.uid === cap.uid)).toBe(cap);
+    const result = commitConfiguredRefrigeratorCandidate(
+      [fridge, left, right, cap, leftFiller, ordinaryWallCabinet],
+      fridge.uid,
+      moved,
+      room,
+    );
+    expect(result).not.toBeNull();
+    expect(result!.find((part) => part.uid === fridge.uid)?.x).toBe(48);
+    expect(result!.find((part) => part.uid === left.uid)?.x).toBe(46.75);
+    expect(result!.find((part) => part.uid === right.uid)?.x).toBe(84.5);
+    expect(result!.find((part) => part.uid === cap.uid)?.x).toBe(48);
+    expect(result!.find((part) => part.uid === leftFiller.uid)?.x).toBe(47.5);
+    expect(result!.find((part) => part.uid === ordinaryWallCabinet.uid)).toBe(ordinaryWallCabinet);
   });
 
   it("rejects an explicitly selected end panel that extends beyond a drawn wall without moving the refrigerator", () => {

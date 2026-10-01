@@ -13,7 +13,9 @@ A refrigerator is placed from **its own catalog width and footprint**. It does *
 | Left / Right / Both end panels | No | Added only after that exact panel choice is selected |
 | Smooth panel | No | Remains an explicit selection |
 
-If a selected optional panel cannot fit at a wall end or beside an existing cabinet, the system rejects **only the selected additions** and leaves the refrigerator and all existing cabinets in their original positions. It never shifts a refrigerator, base, cabinet-above, filler, or panel to make a group fit.
+If selected optional parts cannot fit at a wall end or beside an existing cabinet, the system rejects **only the selected additions** and leaves the refrigerator and all existing cabinets in their original positions. It never moves an existing base or unrelated cabinet to make the refrigerator fit.
+
+After an owner explicitly adds a cabinet above, end panels, or cap fillers, those source-priced parts are persisted with that refrigerator's unique configuration. Dragging, nudging, snapping, or moving that refrigerator in 3D moves only its selected cabinet-above / panels / cap fillers with it. Loose panels, manually added wall cabinets, and every other cabinet remain in place.
 
 ## Browser proof — local Designer
 
@@ -33,13 +35,11 @@ The browser placed `FRIDGE-36` at a tight wall end with the new default choices 
   - cap and panels stay explicit opt-in choices;
   - selected panel/cap measurements still use real source SKUs.
 - `client/src/lib/design.refrigeratorIndependent.test.ts`
-  - movement, restore normalization, and wall-end behavior never reconstruct or move other parts.
+  - movement, restore normalization, and wall-end behavior never reconstruct or move unselected parts.
 - `client/src/lib/oneEngineRefrigeratorBayParity.test.ts`
   - explicit optional parts retain matching positions and pricing in a standard room and a 45° Wall Builder room.
-- `client/src/lib/continuousWallPlacementParity.test.ts`
-  - a move on a measured wall moves only the refrigerator.
-- `client/src/lib/designCartLines.test.ts`
-  - independently selected source parts remain invoiceable and source-priced without moving the appliance or base cabinet.
+- `client/src/lib/design.refrigeratorAssembly.test.ts`
+  - source-part cap, filler, and panel transport follows only the configured refrigerator, never an unrelated cabinet.
 
 ## Validation
 
@@ -53,3 +53,16 @@ The browser placed `FRIDGE-36` at a tight wall end with the new default choices 
 The live Designer served the updated `DesignTool-6tCOu0N_.js` chunk, including the standalone refrigerator default. A real browser interaction placed `FRIDGE-36` at the tight wall end, opened the options dialog with **No Cabinet** and **None** panels, and submitted **Add to plan**. Its position remained at the original `36 in` wall offset; no panels appeared, no clearance blocker appeared, and the browser recorded no console errors.
 
 ![Live standalone FRIDGE-36 at a wall end](/docs/proofs/refrigerator-independent-wall-end-live.png)
+
+## Local interaction verification — configured refrigerator
+
+A local Designer browser check verified the corrected interaction contract:
+
+| Action | Result |
+|---|---|
+| Single click | Selects `FRIDGE-36`; **does not** open Refrigerator Options |
+| Drag | Changes the refrigerator wall offset from **54 in** to **36 in**; **does not** open Refrigerator Options |
+| Double click | Opens Refrigerator Options |
+| Right click / Attributes | Opens Refrigerator Options in both the Floor Plan and 3D Designer |
+
+![Double-click opens Refrigerator Options after drag](/docs/proofs/refrigerator-single-click-drag-local.png)

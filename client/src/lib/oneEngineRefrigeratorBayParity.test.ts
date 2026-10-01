@@ -1,12 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { appendWallBuilderSegment, wallBuilderRoomGeometry, type WallBuilderSegment } from "./polygonRoom";
 import {
-  appendRefrigeratorEnclosurePlacements,
-  commitIndependentCabinetCandidate,
-  refrigeratorBayRunMetrics,
-  refrigeratorBayVerificationMetrics,
-  wallPlacementAt,
-  wallRunOffset,
+	appendRefrigeratorEnclosurePlacements,
+	commitIndependentCabinetCandidate,
+	fitExplicitRefrigeratorOptionPlacements,
+	refrigeratorBayRunMetrics,
+	refrigeratorBayVerificationMetrics,
+	wallPlacementAt,
+	wallPlacementAtUnbounded,
+	wallRunOffset,
   wallRunSpan,
   type PlacedCabinet,
   type RoomData,
@@ -47,6 +49,40 @@ function independentLayout(room: RoomData, wallId: string, fridgeAlong: number, 
   return result.placed;
 }
 
+/** New refrigerator options may start just outside a run; fit only those selected parts, never a neighbor. */
+function fittedEdgeLayout(room: RoomData, wallId: string) {
+  const fridge = {
+    ...body("fridge", "FRIDGE-36", "appliance", 0, 36, 30, 70, wallId, room),
+    cabinetId: 0,
+    refrigeratorPanelMode: "both" as const,
+    refrigeratorOptionsChosen: true,
+  };
+  const cap = {
+    ...body("cap", "WR3612", "wall", 0, 36, 24, 12, wallId, room),
+    mountBottom: 72,
+    refrigeratorAssemblyId: fridge.uid,
+    refrigeratorAssemblyRole: "bridge" as const,
+  };
+  const panel = (side: "left" | "right") => {
+    const along = side === "left" ? -1.25 : 36.5;
+    const spot = wallPlacementAtUnbounded(along, 0.75, 24, wallId, room);
+    return {
+      ...body(`${side}-panel`, "REP2496", "tall", 0, 0.75, 24, 84, wallId, room),
+      ...spot,
+      wallOffset: along,
+      mountBottom: 0,
+      refrigeratorAssemblyId: fridge.uid,
+      refrigeratorAssemblyRole: `${side}-panel` as const,
+      customProfile: "refrigerator-end-panel",
+    };
+  };
+  const fitted = fitExplicitRefrigeratorOptionPlacements([fridge], [cap, panel("left"), panel("right")], fridge.uid, room);
+  const committed = appendRefrigeratorEnclosurePlacements(fitted.existing, fitted.additions, fridge.uid, room);
+  expect(fitted.shiftIn).toBe(1.25);
+  expect(committed.rejected).toEqual([]);
+  return committed.placed;
+}
+
 function runReport(placed: PlacedCabinet[], room: RoomData, wallId: string) {
   const fridge = placed.find((item) => item.masterCode === "FRIDGE-36")!;
   return {
@@ -76,6 +112,18 @@ describe("one engine: independent refrigerator parts in standard and Wall Builde
     const angled = independentLayout(drawn, angledWall, 40);
     expect(runReport(angled, drawn, angledWall)).toEqual(runReport(standard, standardRoom, "top"));
     expect(cart(angled)).toEqual(cart(standard));
+  });
+
+  it("fits explicitly selected panels at a wall start identically on standard and 45° Wall Builder walls", () => {
+    const standard = fittedEdgeLayout(standardRoom, "top");
+    const angled = fittedEdgeLayout(drawn, angledWall);
+    expect(runReport(angled, drawn, angledWall)).toEqual(runReport(standard, standardRoom, "top"));
+    expect(runReport(angled, drawn, angledWall).parts).toEqual([
+      expect.objectContaining({ code: "REP2496", role: "left-panel", start: 0 }),
+      expect.objectContaining({ code: "FRIDGE-36", role: null, start: 1.25 }),
+      expect.objectContaining({ code: "WR3612", role: "bridge", start: 1.25 }),
+      expect.objectContaining({ code: "REP2496", role: "right-panel", start: 37.75 }),
+    ]);
   });
 
   it("accepts an explicit panel at an inside corner only when its measured span fits", () => {

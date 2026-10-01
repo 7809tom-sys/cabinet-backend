@@ -336,6 +336,19 @@ describe("window attributes gestures", () => {
   });
 });
 
+describe("cabinet attribute gestures", () => {
+  it("keeps one cabinet click available for selection and drag while right-click and double-click edit", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("// Double-tap / double-click → open the attributes editor.");
+    expect(source).toContain("onOpenAttributes(p.uid);");
+    expect(source).toContain("onContextMenu={(event) => {");
+    expect(source).toContain("onOpenAttributes(p.uid);");
+    expect(source).toContain("onDoubleClick={");
+    expect(source).toContain("setDragUid(p.uid);");
+  });
+});
+
 describe("plan placement assistance wiring", () => {
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {
 	    const db24 = {

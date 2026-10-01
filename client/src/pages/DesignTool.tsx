@@ -104,7 +104,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
-	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, commitIndependentCabinetCandidate, isMicrowaveOverRangePair,
+	  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -6952,17 +6952,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           : (opts.panelHeight && opts.panelHeight > 0
             ? opts.panelHeight
             : (parseFloat(String(panelRow.height ?? "")) || inferredHeight));
-        // Along-wall position: just outside the fridge edge on the chosen side.
-	        // Validate the requested position before wall placement can clamp it
-	        // back onto the appliance. At an end/corner every selected panel must
-	        // have its own clear span; nothing else is moved to make room.
+        // Along-wall position: just outside the finished refrigerator opening.
+        // Keep the exact coordinate even when it begins beyond a wall endpoint.
+        // The shared configuration-time fitter below can shift only this
+        // refrigerator and the options being accepted into an available run;
+        // clamping this panel here would hide the needed shift by folding it
+        // onto the refrigerator.
 	        const along = leftEdge ? bay.openingStart - pThick : bay.openingEnd;
-	        const runLength = wallLength(side, room);
-	        if (along < -COLLISION_EPSILON_IN || along + pThick > runLength + COLLISION_EPSILON_IN) {
-	          panelBuildError = `${panelRow!.masterCode} cannot be added: the selected refrigerator end panel needs clear space at this corner or wall end.`;
-	          return;
-	        }
-        const spot = wallPlacementAt(along, pThick, pDepth, side, room);
+	        const spot = wallPlacementAtUnbounded(along, pThick, pDepth, side, room);
         toPlace.push({
           uid: makeUid(),
           cabinetId: panelRow!.id,
@@ -7038,7 +7035,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const configuredPlaced = placed
         .filter((item) => !existingOptionUids.has(item.uid) && item.uid !== refrigeratorCabinetToReplace?.uid)
         .map((item) => item.uid === fridge.uid ? configuredFridge : item);
-      const previewResult = appendRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room);
+	      const fittedOptions = fitExplicitRefrigeratorOptionPlacements(configuredPlaced, toPlace, fridge.uid, room);
+	      const previewResult = appendRefrigeratorEnclosurePlacements(
+	        fittedOptions.existing,
+	        fittedOptions.additions,
+	        fridge.uid,
+	        room,
+	      );
       // Auto-cut cap fillers close an aesthetic gap only. They are never allowed
       // to block the refrigerator or a selected end panel at a wall end/corner.
       const optionalCapFillerUids = new Set(
@@ -7071,6 +7074,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const committedPreview = previewResult.placed;
       placedRef.current = committedPreview;
       setPlaced(() => committedPreview);
+	      if (Math.abs(fittedOptions.shiftIn) > COLLISION_EPSILON_IN) {
+	        toast.info(
+	          `Refrigerator and selected parts moved ${formatEighthInches(Math.abs(fittedOptions.shiftIn))} along the wall to fit the selected panels. Existing cabinets stayed in place.`,
+	        );
+	      }
       if (omittedCapFillerCodes.length > 0) {
         toast.info(`${omittedCapFillerCodes.join(", ")} was not auto-added at this wall end. The selected refrigerator and panel options were kept.`);
       }
@@ -7495,9 +7503,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		    setSelectedUid(uid);
 			    if (uid) {
 			      const cabinet = placed.find((candidate) => candidate.uid === uid);
-			      if (cabinet && isRefrigerator(cabinet)) {
-			        setFridgeDialog({ fridgeUid: cabinet.uid });
-			      }
 			      if (cabinet && island && isOnIsland(cabinet, island)) {
 		        const face = inferredIslandFace(cabinet, island);
 		        setPlacementTarget("island", face);
@@ -8018,7 +8023,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        y,
 		        ...(rotation != null ? { rotation } : {}),
 		      };
-		      const peers = workingPrev.filter((p) => p.uid !== uid);
+		      const peers = workingPrev.filter((p) => (
+		        p.uid !== uid
+		        && (!isRefrigerator(cabinet) || p.refrigeratorAssemblyId !== uid)
+		      ));
 	      const magnet = automaticSnapping && !customPlacementMode && !exactWallDrag;
 	      const wallMove = requestedBody.islandFace
 	        ? null
@@ -8087,7 +8095,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           }));
         }
       }
-		      let nextPlaced = commitIndependentCabinetCandidate(workingPrev, movedCabinet);
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitConfiguredRefrigeratorCandidate(workingPrev, uid, movedCabinet, room)
+		        : commitIndependentCabinetCandidate(workingPrev, movedCabinet);
+		      if (!nextPlaced) {
+		        const message = `${cabinet.masterCode} was not moved because its selected refrigerator cabinet, panels, or cap fillers would leave the wall or overlap another cabinet.`;
+		        setPlacementWarning(message);
+		        toast.error(message);
+		        return prev;
+		      }
 	      if (isBlindCorner(movedCabinet.masterCode, movedCabinet.description)) {
 	        const required = buildRequiredBlindCornerFiller(
 	          movedCabinet,
@@ -8389,10 +8405,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
 		    );
 		    const peersWithoutLinkedFiller = prev.filter(
-		      (item) => item.uid !== uid && item.fillerPieceGroupId !== requiredFillerGroupId,
+		      (item) => item.uid !== uid
+		        && item.fillerPieceGroupId !== requiredFillerGroupId
+		        && (!isRefrigerator(cabinet) || item.refrigeratorAssemblyId !== uid),
 		    );
 		    const commit = (candidate: PlacedCabinet, delta?: { x: number; y: number }): ThreeDCabinetMoveResult => {
-		      let nextPlaced = commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
+		      let nextPlaced = isRefrigerator(cabinet)
+		        ? commitConfiguredRefrigeratorCandidate(prev, uid, candidate, room)
+		        : commitThreeDCabinetCandidate(placedWithoutLinkedFiller, uid, candidate);
 		      if (!nextPlaced) return { status: "blocked", message: `${cabinet.masterCode} could not be matched to the selected design record.` };
 	      if (isBlindCorner(candidate.masterCode, candidate.description)) {
 	        const required = buildRequiredBlindCornerFiller(
@@ -9314,7 +9334,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        const peninsula = peninsulaRunById(room, side);
 	        const customWall = room.customWalls?.find((wall) => wall.id === side);
 	        const wallLabel = peninsula ? "peninsula" : customWall?.label ?? `${side} wall`;
-        const peers = prev.filter((cabinet) => cabinet.uid !== selectedUid);
+	        const peers = prev.filter((cabinet) => (
+	          cabinet.uid !== selectedUid
+	          && (!isRefrigerator(selected) || cabinet.refrigeratorAssemblyId !== selectedUid)
+	        ));
 	        // Snap to wall is the same magnet move as a drag, aimed at the chosen run:
 	        // project the current body onto that wall, take the nearest clear span and
 	        // seat it through the shared 1/8-inch search.
@@ -9341,7 +9364,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           toast.error(message);
           return prev;
         }
-		        const nextPlaced = commitIndependentCabinetCandidate(prev, candidate);
+		        const nextPlaced = isRefrigerator(selected)
+		          ? commitConfiguredRefrigeratorCandidate(prev, selectedUid, candidate, room)
+		          : commitIndependentCabinetCandidate(prev, candidate);
+		        if (!nextPlaced) {
+		          const message = `${selected.masterCode} cannot snap there because its selected refrigerator cabinet, panels, or cap fillers would leave the wall or overlap another cabinet.`;
+		          setPlacementWarning(message);
+		          toast.error(message);
+		          return prev;
+		        }
 		        placedRef.current = nextPlaced;
 		        setPlacementWarning(null);
 		        return nextPlaced;
