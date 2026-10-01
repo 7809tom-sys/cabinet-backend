@@ -3205,6 +3205,7 @@ export function snapCabinetSeamOverlap(
   moving: PlacedCabinet,
   others: PlacedCabinet[],
   toleranceIn = CABINET_SEAM_SNAP_IN,
+  room?: RoomData,
 ): PlacedCabinet {
   let next = moving;
   for (let pass = 0; pass < 4; pass++) {
@@ -3212,6 +3213,29 @@ export function snapCabinetSeamOverlap(
     for (const other of others) {
       if (other.uid === next.uid || other.placement !== next.placement) continue;
       if (next.placement !== "base" && next.placement !== "wall") continue;
+      // A corner cabinet on a drawn wall reserves its exact catalog leg through
+      // the shared wall-run model.  When the moving cabinet is already seated
+      // flush against that leg, its rotated screen-space bounding box can still
+      // appear one inch deep inside the diagonal corner.  Do not apply a second
+      // axis-aligned seam correction: it would turn an exact 0" run seam into a
+      // physical overlap.  A real overlap still goes through the normal snap /
+      // collision path below.
+      const sharedCustomRun = room
+        && next.wallId
+        && next.wallId === other.wallId
+        && isCustomRoomWall(room, next.wallId)
+        && wallRunFrame(next.wallId, room);
+      if (sharedCustomRun) {
+        const nextStart = wallRunOffset(next, next.wallId!, room!);
+        const nextEnd = nextStart + wallRunSpan(next, next.wallId!, room!);
+        const otherStart = wallRunOffset(other, other.wallId!, room!);
+        const otherEnd = otherStart + wallRunSpan(other, other.wallId!, room!);
+        const exactRunSeam = Math.min(
+          Math.abs(nextEnd - otherStart),
+          Math.abs(otherEnd - nextStart),
+        ) <= COLLISION_EPSILON_IN;
+        if (exactRunSeam && !cabinetPlacementCollisionDetail(next, [other], room)) continue;
+      }
       const size = placedFootprint(next);
       const otherSize = placedFootprint(other);
       const overlapX = Math.min(next.x + size.w, other.x + otherSize.w) - Math.max(next.x, other.x);
@@ -7927,7 +7951,7 @@ export function cabinetWallMovePreview(
   // Final edge-contact resolution: a near seam within the caller's tolerance
   // becomes exact zero-gap contact. The same rectangular seam rule applies on
   // every wall; it never approves an overlap.
-  const seamed = snapCabinetSeamOverlap(seated, peers, options.seamToleranceIn);
+  const seamed = snapCabinetSeamOverlap(seated, peers, options.seamToleranceIn, room);
   const candidate = seamed === seated
     ? seated
     : { ...seamed, wallOffset: roundToEighth(wallRunAlongAtPoint(frame, placedPlanCenter(seamed)) - width / 2) };
@@ -12230,7 +12254,7 @@ export function cabinetWallDragPreview(
 		  const edgeCandidates = (options.disableSnapping ? [] : [...gapEdgeCandidates, ...physicalEdgeCandidates])
     .filter((entry) => entry.start >= -COLLISION_EPSILON_IN && entry.start + requiredSpan <= wallSpan + COLLISION_EPSILON_IN)
     .filter((entry) => entry.distance <= RIGHT_DRAG_SNAP_THRESHOLD_IN + COLLISION_EPSILON_IN)
-	    .filter((entry) => !collidesOnThisRun(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers)))
+    .filter((entry) => !collidesOnThisRun(snapCabinetSeamOverlap(candidateAtStart(entry.start), peers, undefined, room)))
     .sort((left, right) => left.distance - right.distance || left.start - right.start);
   const edgeSnap = edgeCandidates[0] ?? null;
   const snapStart = edgeSnap ? edgeSnap.start : pointerGap ? pointerStart : null;
@@ -12268,7 +12292,7 @@ export function cabinetWallDragPreview(
     status: snapStart == null ? "invalid" : "valid",
   };
   if (snapStart == null) return { wall, fit, candidate: null, snapped: false, ghostCandidate };
-	  const candidate = options.disableSnapping ? ghostCandidate : snapCabinetSeamOverlap(ghostCandidate, peers);
+  const candidate = options.disableSnapping ? ghostCandidate : snapCabinetSeamOverlap(ghostCandidate, peers, undefined, room);
 		  const validCandidate = collidesOnThisRun(candidate) ? null : candidate;
 		  return { wall, fit, candidate: validCandidate, snapped: edgeSnap != null, ghostCandidate: candidate, freehand: options.disableSnapping === true };
 }

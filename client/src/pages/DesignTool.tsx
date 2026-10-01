@@ -5107,7 +5107,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // A 2D or 3D resolver may already have seated this cabinet in a verified
 	      // full wall opening. Do not run the generic seam snap again: it can pull
 	      // the cabinet from that opening into a neighboring narrow sub-gap.
-	      if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !peninsulaRunById(room, finalCab.wallId)) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious);
+	      if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !peninsulaRunById(room, finalCab.wallId)) finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious, undefined, room);
 	      normalizedRun = requestedIslandFace ? [...islandPlacementPrevious, finalCab] : normalizeRefrigeratorBayUppers([...prev, finalCab], room);
 	      const validMountedMicrowavePair = mountedRange ? isMicrowaveOverRangePair(finalCab, mountedRange) : false;
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
@@ -8102,6 +8102,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            { ...freeBody, x: snappedPosition.x, y: snappedPosition.y },
 	            peers,
 	            automaticSnapping ? CABINET_CONFLICT_LOCK_IN : undefined,
+	            room,
 	          )
 	          : freeBody;
 	      }
@@ -8260,10 +8261,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           rotated,
           room,
           prev.filter((c) => c.uid !== p.uid && (c.placement === p.placement || c.placement === "appliance" || p.placement === "appliance"))
-        );
-        const peers = prev.filter((c) => c.uid !== p.uid);
-        const seated = snapCabinetSeamOverlap({ ...rotated, x: snapped.x, y: snapped.y }, peers);
-        if (hasCollision(seated, peers)) {
+	        );
+	        const peers = prev.filter((c) => c.uid !== p.uid);
+	        const seated = snapCabinetSeamOverlap({ ...rotated, x: snapped.x, y: snapped.y }, peers, undefined, room);
+	        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not rotated because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);
@@ -9041,10 +9042,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           resized,
           room,
           prev.filter((c) => c.uid !== p.uid)
-        );
-        const peers = prev.filter((c) => c.uid !== p.uid);
-        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers);
-        if (hasCollision(seated, peers)) {
+	        );
+	        const peers = prev.filter((c) => c.uid !== p.uid);
+	        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers, undefined, room);
+	        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);
@@ -9104,11 +9105,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
         const next = Math.max(MIN_D, Math.min(MAX_D, Math.round(nextRaw * 10) / 10));
-        const resized = { ...p, depth: next };
-        const peers = prev.filter((c) => c.uid !== p.uid);
-        const snapped = snapPosition(resized, room, peers);
-        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers);
-        if (hasCollision(seated, peers)) {
+	        const resized = { ...p, depth: next };
+	        const peers = prev.filter((c) => c.uid !== p.uid);
+	        const snapped = snapPosition(resized, room, peers);
+	        const seated = snapCabinetSeamOverlap({ ...resized, x: snapped.x, y: snapped.y }, peers, undefined, room);
+	        if (hasCollision(seated, peers)) {
           const message = `${p.masterCode} was not resized because it would overlap an existing item.`;
           setPlacementWarning(message);
           toast.error(message);

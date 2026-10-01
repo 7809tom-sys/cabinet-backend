@@ -83,7 +83,7 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(addPath).toContain('accPlacement === "appliance"');
     expect(addPath).toContain("preserveResolvedPlacement = true");
     expect(addPath).toContain("ordinaryWallMountBottom({ ...c, placement: accPlacement, height })");
-    expect(addPath).toContain("finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious)");
+    expect(addPath).toContain("finalCab = snapCabinetSeamOverlap(finalCab, normalizedPrevious, undefined, room)");
     expect(addPath).not.toContain("resolveWallCabinetTargetPlacement");
     expect(addPath).not.toContain("overSinkWindowStart");
     const threeDAddPath = sourceBetween("const addFromInteractive3d = useCallback", "const addRangeHoodFromInteractive3d");

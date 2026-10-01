@@ -29,7 +29,7 @@ import {
   snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
-	  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
+		  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, cabinetWallMovePreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
 	  type PlacedCabinet, type RoomData, type WallOpening, isFillerItem, fillerWidthRange, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, isPlaceableAccessory, accessoryPlacement, kitchenCrestGenericOpenEndShelfCount,
 } from "./design";
 
@@ -4350,7 +4350,7 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(hasCollision(snapped, [wdc])).toBe(false);
   });
 
-	  it("right-drags W3042 into exact contact with the adjoining 24-inch leg of WDC2442 on two diagonal measured walls", () => {
+	  it("seats W3042 against both exposed 24-inch legs of WDC2442 on diagonal measured walls", () => {
 	    const room: RoomData = {
 	      width: 200,
 	      depth: 120,
@@ -4409,6 +4409,36 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
 	    expect(preview?.candidate?.wallOffset).toBeCloseTo(expectedStart, 2);
 	    expect(wallRunOffset(preview!.candidate!, "down-left" as never, room) + 30).toBeCloseTo(wallLengthIn - 24, 2);
 	    expect(cabinetPlacementCollisionDetail(preview!.candidate!, [wdc2442], room)).toBeNull();
+
+	    // The Floor Plan / catalog drag path uses cabinetWallMovePreview. The
+	    // corner is owned by down-right at offset 0, so the straight W3042 must
+	    // seat at offset 24 — never the old false one-inch AABB correction that
+	    // pushed it back into the WDC body and rejected the move.
+	    const rightSpot = wallPlacementAt(25, 30, 12, "down-right" as never, room);
+	    const rightMoving = {
+	      ...moving,
+	      ...rightSpot,
+	      rotation: rightSpot.rotation,
+	      wallId: rightSpot.wallId,
+	      wallOffset: rightSpot.wallOffset,
+	    };
+	    const rightPreview = cabinetWallMovePreview(
+	      rightMoving,
+	      { x: rightMoving.x, y: rightMoving.y },
+	      room,
+	      [wdc2442],
+	      [],
+	      { magnet: true, wallId: "down-right", seamToleranceIn: CABINET_CONFLICT_LOCK_IN },
+	    );
+	    expect(rightPreview.failure).toBeNull();
+	    expect(rightPreview.candidate?.wallId).toBe("down-right");
+	    expect(rightPreview.candidate?.wallOffset).toBe(24);
+	    expect(cabinetPlacementCollisionDetail(rightPreview.candidate!, [wdc2442], room)).toBeNull();
+	    // Catalog drops use the same final seam normalizer after their shared
+	    // wall-run placement. It must retain the verified 24" run edge too.
+	    const catalogSeam = snapCabinetSeamOverlap(rightPreview.candidate!, [wdc2442], CABINET_CONFLICT_LOCK_IN, room);
+	    expect(catalogSeam.wallOffset).toBe(24);
+	    expect(cabinetPlacementCollisionDetail(catalogSeam, [wdc2442], room)).toBeNull();
 	  });
 
   it("moves a straight wall cabinet past the physical clearance at an adjoining measured 45-degree run", () => {
