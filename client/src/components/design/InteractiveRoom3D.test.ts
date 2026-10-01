@@ -18,7 +18,8 @@ import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { lCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { addThreeDMeasuredWallMiterCountertops } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
-import { COUNTERTOP_DEPTH_IN, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
+import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
+import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
@@ -55,6 +56,71 @@ const baseScene: InteractiveRoomScene = {
   suggestions: [],
   materials: { cabinet: { publicName: null, name: "Sample", color: null, finish: null, doorStyle: null, doorPanelType: null }, defaults: { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" } },
 };
+
+describe("continuous base toe-kick boards", () => {
+  const base = (uid: string, offset: number, width: number, masterCode = "B36"): PlacedCabinet => ({
+    uid,
+    cabinetId: 1,
+    masterCode,
+    description: masterCode.startsWith("F") ? "Base Filler" : "Base Cabinet",
+    placement: "base",
+    x: offset,
+    y: 0,
+    width,
+    depth: 24,
+    height: 34.5,
+    mountBottom: 0,
+    rotation: 0,
+    wallId: "top",
+    wallOffset: offset,
+  });
+
+  it("merges a connected base-and-filler run into one recessed board without crossing a true gap", () => {
+    const cabinets = [base("b36", 0, 36), base("f342", 36, 3, "F342"), base("b24", 45, 24, "B24")];
+    const segments = threeDContinuousToeKickSegments(cabinets, DEFAULT_ROOM);
+
+    expect(segments).toEqual([
+      expect.objectContaining({
+        wallId: "top",
+        start: 0,
+        end: 39,
+        depth: 24,
+        memberUids: ["b36", "f342"],
+        includesInstalledFiller: true,
+      }),
+      expect.objectContaining({ start: 45, end: 69, memberUids: ["b24"], includesInstalledFiller: false }),
+    ]);
+
+    const root = new THREE.Group();
+    addThreeDContinuousToeKicks(root, segments, DEFAULT_ROOM, undefined, "#7e8d72");
+    const rails = root.children.filter((node) => node.userData.continuousToeKick === true);
+    expect(rails).toHaveLength(2);
+    expect(rails[0]?.userData).toMatchObject({ runLengthIn: 39, toeKickHeightIn: 4.5, toeKickRecessIn: 3, includesInstalledFiller: true });
+  });
+
+  it("starts an installed base filler at the standard visible face bottom above the shared toe kick", () => {
+    const root = new THREE.Group();
+    addCabinet(root, {
+      placementUid: "raised-f342",
+      distributorSkuId: 1,
+      cabinetId: 1,
+      masterCode: "F342",
+      description: "3 inch Base Filler",
+      placementType: "base",
+      width: 3,
+      height: 34.5,
+      depth: 24,
+      mountBottom: 0,
+      fillerPieceGroupId: "gap",
+      fillerTotalWidth: 3,
+      fillerPlacementMode: "left",
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    }, null, {}, 144, 120, "#7e8d72", "#f8f8f6");
+    const filler = root.children.find((node) => node.userData.placedUid === "raised-f342");
+    expect(filler?.userData).toMatchObject({ baseFillerFace: true, fillerFaceBottomIn: 4.5, fillerFaceHeightIn: 30 });
+  });
+});
 
 describe("3D fallback appliance run seams", () => {
   it("shows a 24-inch base/tall or 12-inch wall datum only for a complete supported 45-degree front-miter pair", () => {

@@ -11691,12 +11691,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     </div>
                     {crown && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
                   </button>
-                  <button onClick={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ toeKick ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
-                    <Columns3 className={`h-5 w-5 shrink-0 ${toeKick ? "text-[#1a2744]" : "text-muted-foreground"}`} />
-                    <div className="flex-1">
-                      <div className={`text-sm font-semibold ${toeKick ? "text-[#1a2744]" : "text-foreground"}`}>{t("dt_sh_toe_kick")}</div>
-                      <div className="text-[11px] text-muted-foreground">Applied to base of base cabinets</div>
-                    </div>
+				  <button onClick={() => { trimOverride.current.toeKick = true; setToeKick((tk) => !tk); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ toeKick ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>
+				    <Columns3 className={`h-5 w-5 shrink-0 ${toeKick ? "text-[#1a2744]" : "text-muted-foreground"}`} />
+				    <div className="flex-1">
+				      <div className={`text-sm font-semibold ${toeKick ? "text-[#1a2744]" : "text-foreground"}`}>Continuous Toe Kick</div>
+				      <div className="text-[11px] text-muted-foreground">One recessed board across each connected base cabinet and filler run</div>
+				    </div>
                     {toeKick && <Check className="h-4 w-4 shrink-0 text-[#1a2744]" />}
                   </button>
                   <button onClick={() => { trimOverride.current.batten = true; setBatten((b) => !b); }} className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${ batten ? "border-[#1a2744] bg-[#1a2744]/8" : "border-border hover:border-[#1a2744]/40 hover:bg-muted/40" }`}>

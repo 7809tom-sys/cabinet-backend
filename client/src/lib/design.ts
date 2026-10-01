@@ -307,9 +307,31 @@ export function normalizeInstalledFillersToAdjacentCabinets(
 ): PlacedCabinet[] {
   let changed = false;
   const next = placements.map((item) => {
-    if (!isFillerItem(item) || item.integratedWallBlindFiller === true || item.fillerTransitionKind) return item;
+    if (!isFillerItem(item) || item.integratedWallBlindFiller === true) return item;
     const owner = adjacentCabinetForFiller(item, placements, room);
     if (!owner) return item;
+    // Front-miter pairs retain their deliberately shallow physical board and
+    // measured plan footprint. Their vertical band still belongs exactly to
+    // the cabinet face they butt, including raised uppers and tall cabinets.
+    if (item.fillerTransitionKind) {
+      const ownerElevation = elevationBox(owner, room);
+      const placement: Placement = owner.placement === "wall"
+        ? "wall"
+        : owner.placement === "tall" ? "tall" : "base";
+      const differs = item.placement !== placement
+        || Math.abs(Number(item.height) - ownerElevation.height) > 0.001
+        || Math.abs(Number(item.mountBottom ?? 0) - ownerElevation.bottom) > 0.001
+        || item.fillerForCabinetUid !== owner.uid;
+      if (!differs) return item;
+      changed = true;
+      return {
+        ...item,
+        placement,
+        height: ownerElevation.height,
+        mountBottom: ownerElevation.bottom,
+        fillerForCabinetUid: owner.uid,
+      };
+    }
     const matched = matchInstalledFillerToCabinet(item, owner, room);
     const itemBottom = item.mountBottom == null ? null : Number(item.mountBottom);
     const matchedBottom = matched.mountBottom == null ? null : Number(matched.mountBottom);

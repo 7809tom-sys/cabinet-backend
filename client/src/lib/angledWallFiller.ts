@@ -497,12 +497,16 @@ export function automaticAngledWallFiller(
       depth,
       nominalDepth: depth,
       height: vertical.storedHeight,
-      nominalHeight: numberValue(source.height),
-      rotation: spot.rotation,
-      numberOfDoors: 0,
-      numberOfDrawers: 0,
-      catalogImageUrl: source.catalogImageUrl ?? null,
-      mountBottom: cabinet.placement === "wall" ? currentElevation.bottom : 0,
+	      nominalHeight: numberValue(source.height),
+	      rotation: spot.rotation,
+	      numberOfDoors: 0,
+	      numberOfDrawers: 0,
+	      catalogImageUrl: source.catalogImageUrl ?? null,
+	      // A front-miter filler is field-cut to its owning cabinet's full face
+	      // envelope. This includes a raised base/tall datum as well as an upper
+	      // mounted above the normal 54-inch line; the source stock size remains
+	      // only its purchasing identity.
+	      mountBottom: currentElevation.bottom,
       styleId,
       wallId: spot.wallId ?? wallId,
       wallOffset: spot.wallOffset ?? Math.min(cabinetFaceOffset, miterOffset),

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -3198,7 +3198,7 @@ export function addCabinet(
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null; suppressCountertop?: boolean; suppressFittedFillerToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressCountertop?: boolean; suppressFittedFillerToeKick?: boolean; suppressContinuousBaseToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -3278,7 +3278,8 @@ export function addCabinet(
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
     && !usesBaseFillerFaceElevation
-    && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet || (isWall && requestedMountBottom <= 0.001));
+    && (isBaseCabinet || isTall || isCounterHeightIslandWallCabinet
+      || (isWall && requestedMountBottom <= 0.001));
   // The saved 2D base height is 34½ inches inclusive of the 4½-inch recessed
   // toe kick. Build only the upper carcass over that kick so every floor run
   // keeps its measured top while exposing the proper floor recess in 3D.
@@ -3323,6 +3324,9 @@ export function addCabinet(
 	  const installedFillerBoardDepth = Math.min(bodyDepth, 0.75 * INCH);
   const installedFillerFrontOffset = isFrontFlushFillerBoard ? bodyDepth / 2 - installedFillerBoardDepth / 2 : 0;
   const bottom = usesBaseFillerFaceElevation
+    // Base cabinet catalog records can preserve either 0 or the historical
+    // 4½-inch toe datum as mountBottom; in both cases their visible face begins
+    // above the shared recessed kick. Match that physical face—not stock height.
     ? THREE_D_TOE_KICK
     : isFloorStandingCabinet && !isCounterHeightIslandWallCabinet
       ? THREE_D_TOE_KICK
@@ -3338,7 +3342,7 @@ export function addCabinet(
     label: sku.description ?? sku.masterCode,
     cornerGeometryKind: sku.cornerGeometryKind ?? "standard",
     ...(isFloorStandingCabinet ? { floorStandingCabinet: true, toeKickHeightIn: THREE_D_TOE_KICK, islandWallCabinetBaseTreatment: isCounterHeightIslandWallCabinet ? (hasFurnitureBaseMolding ? "base-molding" : "toe-kick") : null } : {}),
-    ...(usesBaseFillerFaceElevation ? { baseFillerFace: true, fillerFaceBottomIn: THREE_D_TOE_KICK, fillerFaceHeightIn: heightIn } : {}),
+    ...(usesBaseFillerFaceElevation ? { baseFillerFace: true, fillerFaceBottomIn: bottom, fillerFaceHeightIn: heightIn } : {}),
     ...(placement === "appliance" ? {
       catalogApplianceEnvelope: {
         widthIn,
@@ -3481,7 +3485,7 @@ export function addCabinet(
         cabinet.add(toeKick);
         bodyMeshes.push(toeKick);
       }
-    } else if (!suppressInstalledFillerToeKick) {
+    } else if (!suppressInstalledFillerToeKick && !surfaceTextures?.suppressContinuousBaseToeKick) {
       const toeKick = new THREE.Mesh(
 		        new THREE.BoxGeometry(bodyWidth + 0.02, toeKickHeight, isFrontFlushFillerBoard ? installedFillerBoardDepth : Math.max(0.12, bodyDepth - 0.25)),
 	        toeKickMaterial,
@@ -6251,6 +6255,112 @@ export function addThreeDCrownMolding(
   }
 }
 
+export type ThreeDContinuousToeKickSegment = {
+  wallId: string;
+  start: number;
+  end: number;
+  depth: number;
+  memberUids: string[];
+  includesInstalledFiller: boolean;
+  anchorUid: string;
+};
+
+/**
+ * Merges touching base cabinets and their installed fillers into one recessed
+ * toe-kick board. It uses the same wallId/wallOffset path on standard rooms,
+ * measured walls, and peninsulas; a true gap or a change in cabinet depth
+ * remains a physical break rather than an invented bridge.
+ */
+export function threeDContinuousToeKickSegments(placed: PlacedCabinet[], room: RoomData): ThreeDContinuousToeKickSegment[] {
+  const candidates = placed.flatMap((cabinet) => {
+    if (cabinet.placement !== "base" || placedCornerGeometryKind(cabinet) !== "standard") return [];
+    const wallId = cabinetWall(cabinet, room);
+    if (!wallRunFrame(wallId, room)) return [];
+    const start = wallRunOffset(cabinet, wallId, room);
+    const end = start + wallRunSpan(cabinet, wallId, room);
+    const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);
+    return end > start + 0.001 ? [{ cabinet, wallId, start, end, depth, isFiller: isFillerItem(cabinet) }] : [];
+  }).sort((left, right) => left.wallId.localeCompare(right.wallId) || left.depth - right.depth || left.start - right.start);
+
+  const runs: ThreeDContinuousToeKickSegment[] = [];
+  for (const candidate of candidates) {
+    const last = runs.at(-1);
+    const sameRun = last
+      && last.wallId === candidate.wallId
+      && Math.abs(last.depth - candidate.depth) <= 0.125
+      && candidate.start <= last.end + 0.125;
+    if (sameRun) {
+      last.end = Math.max(last.end, candidate.end);
+      last.memberUids.push(candidate.cabinet.uid);
+      last.includesInstalledFiller ||= candidate.isFiller;
+      continue;
+    }
+    runs.push({
+      wallId: candidate.wallId,
+      start: candidate.start,
+      end: candidate.end,
+      depth: candidate.depth,
+      memberUids: [candidate.cabinet.uid],
+      includesInstalledFiller: candidate.isFiller,
+      anchorUid: candidate.cabinet.uid,
+    });
+  }
+  return runs;
+}
+
+/** Renders the selected continuous toe-kick trim without altering cabinet or filler purchase data. */
+export function addThreeDContinuousToeKicks(
+  root: THREE.Group,
+  segments: ThreeDContinuousToeKickSegment[],
+  room: RoomData,
+  finishOverrides: Record<string, string> | undefined,
+  fallbackColor: string,
+) {
+  for (const segment of segments) {
+    const frame = wallRunFrame(segment.wallId, room);
+    if (!frame || segment.end <= segment.start + 0.001) continue;
+    const length = segment.end - segment.start;
+    const midpoint = segment.start + length / 2;
+    // The board is recessed three inches from the cabinet face on its own run.
+    const inset = Math.max(0, segment.depth - 3);
+    const center = {
+      x: frame.start.x + frame.tangent.x * midpoint + frame.inward.x * inset,
+      y: frame.start.y + frame.tangent.y * midpoint + frame.inward.y * inset,
+    };
+    const ownerGroup = root.children.find((node) => node.userData.placedUid === segment.anchorUid);
+    let ownerFinishMaterial: THREE.MeshStandardMaterial | null = null;
+    ownerGroup?.traverse((node) => {
+      if (ownerFinishMaterial || !(node instanceof THREE.Mesh)) return;
+      const candidate = Array.isArray(node.material) ? node.material[0] : node.material;
+      if (candidate instanceof THREE.MeshStandardMaterial && candidate.userData.selectedFinishSideSkin === true) ownerFinishMaterial = candidate;
+    });
+    const material = ownerFinishMaterial
+      ?? new THREE.MeshStandardMaterial({ color: finishOverrides?.[segment.anchorUid] ?? fallbackColor, roughness: 0.48, metalness: 0.01 });
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(length * INCH + 0.01, STD.TOE_KICK * INCH, 0.055),
+      material,
+    );
+    board.position.set(center.x * INCH, STD.TOE_KICK * INCH / 2, center.y * INCH);
+    board.rotation.y = threeDPlanRotation(frame.facingRotation * Math.PI / 180);
+    board.userData = {
+      continuousToeKick: true,
+      continuousCabinetTrim: true,
+      placementUid: segment.anchorUid,
+      memberUids: [...segment.memberUids],
+      wallId: segment.wallId,
+      runStartIn: segment.start,
+      runEndIn: segment.end,
+      runLengthIn: length,
+      toeKickHeightIn: STD.TOE_KICK,
+      toeKickRecessIn: 3,
+      includesInstalledFiller: segment.includesInstalledFiller,
+      selectedFinishStructuralSurface: true,
+      sharesOwnerCabinetFinishMaterial: Boolean(ownerFinishMaterial),
+    };
+    root.add(board);
+  }
+}
+
 export type ThreeDGlassStackerRearSupportSpec = {
   stackerUid: string;
   parentUid: string;
@@ -8662,6 +8772,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    const fittedFillerToeKickSuppressions = renderExistingDesign
 	      ? threeDFittedFillerToeKickSuppressionUids(placed)
 	      : new Set<string>();
+	    const continuousToeKickSegments = renderExistingDesign && toeKick
+	      ? threeDContinuousToeKickSegments(placed, room)
+	      : [];
+	    const continuousToeKickMemberUids = new Set(continuousToeKickSegments.flatMap((segment) => segment.memberUids));
     const hasAnyDoorSample = Boolean(activeDoorTexture || Object.values(cabinetDoorSampleUrls ?? {}).some(Boolean));
     setDoorTextureState(hasAnyDoorSample ? "loading" : "not-requested");
     catalogRoot.userData.sceneInput = threeDSceneInputDiagnostics(placed, activeDoorTexture, catalogRoomSceneUrl);
@@ -8711,15 +8825,19 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        // definition below. That preserves a real 45° miter seam instead of
 	        // stacking an ordinary rectangular cabinet top over the cut slab.
 	        const sharedMeasuredWallCounter = Boolean(roomOverride?.customWalls?.some((wall) => cabinetWall(cabinet, roomOverride) === wall.id && bearsCountertop(cabinet)));
-	        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
-	          countertop: countertopTexture,
-	          suppressCountertop: sharedPeninsulaCounter || sharedMeasuredWallCounter,
-	          selectedToeKick: toeKick,
-	          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
-	          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
-	        });
-	      }
-	      if (roomOverride) {
+		        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
+		          countertop: countertopTexture,
+		          suppressCountertop: sharedPeninsulaCounter || sharedMeasuredWallCounter,
+		          selectedToeKick: toeKick,
+		          suppressContinuousBaseToeKick: continuousToeKickMemberUids.has(cabinet.uid),
+		          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
+		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
+		        });
+		      }
+		      if (toeKick && continuousToeKickSegments.length > 0) {
+		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
+		      }
+		      if (roomOverride) {
 	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 	      }

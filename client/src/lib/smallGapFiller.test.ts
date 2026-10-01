@@ -222,21 +222,61 @@ const cabinet: PlacedCabinet = {
 	    });
 	  });
 
-	  it("does not overwrite dedicated front-miter filler geometry", () => {
-	    const special: PlacedCabinet = {
-	      ...cabinet,
+		  it("keeps a front-miter board shallow while matching its base cabinet face elevation", () => {
+		    const special: PlacedCabinet = {
+		      ...cabinet,
 	      uid: "miter-filler",
 	      masterCode: "F342",
 	      description: "Filler transition",
 	      category: "Filler",
 	      width: 2,
 	      depth: 0.75,
-	      height: 30,
-	      fillerTransitionKind: "front-miter-pair",
-	      fillerForCabinetUid: cabinet.uid,
-	    };
-	    expect(normalizeInstalledFillersToAdjacentCabinets([cabinet, special], DEFAULT_ROOM)[1]).toEqual(special);
-	  });
+		      height: 30,
+		      fillerTransitionKind: "front-miter-pair",
+		      fillerForCabinetUid: cabinet.uid,
+		    };
+		    expect(normalizeInstalledFillersToAdjacentCabinets([cabinet, special], DEFAULT_ROOM)[1]).toMatchObject({
+		      placement: "base",
+		      depth: 0.75,
+		      height: 34.5,
+		      mountBottom: 0,
+		      fillerForCabinetUid: cabinet.uid,
+		      fillerTransitionKind: "front-miter-pair",
+		    });
+		  });
+
+		  it("matches a tall filler exactly to a raised tall cabinet face", () => {
+		    const owner: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "raised-tall",
+		      masterCode: "TP2484",
+		      description: "84 inch Tall Pantry",
+		      placement: "tall",
+		      width: 24,
+		      depth: 24,
+		      height: 84,
+		      mountBottom: 5,
+		    };
+		    const filler: PlacedCabinet = {
+		      ...cabinet,
+		      uid: "tall-filler",
+		      masterCode: "TF342",
+		      description: "Tall filler",
+		      placement: "tall",
+		      x: 24,
+		      width: 3,
+		      depth: 24,
+		      height: 96,
+		      mountBottom: 0,
+		    };
+		    expect(normalizeInstalledFillersToAdjacentCabinets([owner, filler], DEFAULT_ROOM)[1]).toMatchObject({
+		      placement: "tall",
+		      height: 84,
+		      mountBottom: 5,
+		      depth: 24,
+		      fillerForCabinetUid: owner.uid,
+		    });
+		  });
 
 	  it("detects a six-inch-or-smaller trailing opening after placement", () => {
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 20.5 }, [cabinet], [], cabinet.uid);
