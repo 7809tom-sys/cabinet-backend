@@ -66,3 +66,5 @@ A local Designer browser check verified the corrected interaction contract:
 | Right click / Attributes | Opens Refrigerator Options in both the Floor Plan and 3D Designer |
 
 ![Double-click opens Refrigerator Options after drag](/docs/proofs/refrigerator-single-click-drag-local.png)
+
+The same Playwright click / drag / double-click script then ran against **www.cabinetdealz.com**: single click and drag left the popup closed, the saved refrigerator changed from **54 in** to **36 in** along its wall run, and double-click opened Refrigerator Options. The site serves the dynamic `DesignTool-Dtm72XhF.js` module; dynamic module hashes are deployment-generated and need not match the local build filename.

@@ -1246,10 +1246,12 @@ describe("interactive 3D room scene helpers", () => {
 	    expect(rendererSource).toContain("onOpenWindowEditor(openingSelection.uid)");
 	  });
 
-  it("opens Cabinet Attributes with the exact raycast placement UID on 3D right-click", () => {
+  it("opens Cabinet Attributes with the exact raycast placement UID on 3D right-click and double-click", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("if (selection?.uid && onOpenCabinetEditor)");
     expect(rendererSource).toContain("onOpenCabinetEditor(selection.uid)");
+    expect(rendererSource).toContain("onDoubleClick={(event) => {");
+    expect(rendererSource).toContain("const selection = inspectCabinetAtPoint(event.clientX, event.clientY);");
   });
 
   it("opens Window Attributes with the exact saved opening UID before cabinet context handling", () => {
