@@ -56,4 +56,15 @@ describe("DesignTool cabinet catalog organization", () => {
     expect(itemBlock).toContain("formatCatalogInchValue(dimensions.height)");
     expect(itemBlock).toContain('{widthVal}"W × {hVal}');
   });
+
+  it("lets a shopper choose a distributor in Catalog before choosing a door style", () => {
+    expect(source).toContain('const [catalogDistributorId, setCatalogDistributorId] = useState<number | null>(null);');
+    expect(source).toContain('const catalogDistributorScopeId = lockedDistributorId ?? catalogDistributorId;');
+    expect(source).toContain('data-testid="catalog-distributor-picker"');
+    expect(source).toContain('aria-label="Choose catalog distributor"');
+    expect(source).toContain('All distributors');
+    expect(source).toContain('onValueChange={(value) => chooseCatalogDistributor(value === "all" ? null : Number(value))}');
+    expect(source).toContain('styles={displayUniqueDoorStyles}');
+    expect(source).toContain('if (panelDrawerMode) {\n\t                        setMobilePanel("style");');
+  });
 });

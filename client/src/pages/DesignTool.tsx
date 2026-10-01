@@ -1643,6 +1643,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // to door styles within the same supply line (member can still change color,
   // but not jump to another distributor) unless they Unlock to override.
   const [lockedDistributorId, setLockedDistributorId] = useState<number | null>(null);
+  // The catalog can be narrowed to a distributor *before* a door style or a
+  // cabinet is selected. This is a browsing preference, not the order lock:
+  // the one-line lock remains automatic only after a real cabinet is placed.
+  const [catalogDistributorId, setCatalogDistributorId] = useState<number | null>(null);
   const currentSavedPlanPayload = useMemo(() => JSON.stringify({
     roomData: roomWithPersistedEntities(room, { openings, sinks, potFillers, island, furniture, ponyWalls }),
     placedCabinets: placed,
@@ -1735,6 +1739,37 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     ) as { distributorId?: number } | undefined;
     return s?.distributorId ?? null;
   }, [doorStyles, styleId]);
+  // A placed plan's one-line lock is authoritative. Before placement, the
+  // Catalog distributor picker is simply the line the shopper wants to browse.
+  const catalogDistributorScopeId = lockedDistributorId ?? catalogDistributorId;
+  const chooseCatalogDistributor = useCallback((nextDistributorId: number | null) => {
+    if (nextDistributorId === catalogDistributorScopeId) return;
+    const switchingPlacedPlan = placed.length > 0
+      && selectedStyleDistributorId != null
+      && nextDistributorId !== selectedStyleDistributorId;
+    if (switchingPlacedPlan) {
+      const ok = window.confirm(t("dt_dist_override_body"));
+      if (!ok) return;
+      setMixedWarehouseOverride(true);
+      setLockedDistributorId(null);
+    }
+
+    setCatalogDistributorId(nextDistributorId);
+    const currentStyleDistributorId = styleId == null
+      ? null
+      : styleDistributorIdById.get(styleId) ?? null;
+    // Selecting a new supplier starts its own door-style lineup. Do not leave
+    // an old supplier's finish silently controlling the catalog.
+    if (nextDistributorId == null || currentStyleDistributorId == null || currentStyleDistributorId === nextDistributorId) {
+      return;
+    }
+    setStyleId(null);
+    setStyleA(null);
+    setStyleB(null);
+    setActiveSlot("A");
+    const label = distributorNameById.get(nextDistributorId) ?? "that distributor";
+    toast.info(`Showing ${label} — choose a door style for this line.`);
+  }, [catalogDistributorScopeId, distributorNameById, placed.length, selectedStyleDistributorId, styleDistributorIdById, styleId, t]);
   const activeSceneLayoutPresetId = selectedLayoutPresetId ?? "kitchen_l_standard";
   const hasPersistedRoomLayout = hasDesignedRoomGeometry(room);
   const hasPersistedTwoDPlan = hasPersistedRoomLayout || placed.length > 0 || openings.length > 0 || sinks.length > 0 || island != null || furniture.length > 0 || ponyWalls.length > 0;
@@ -1796,8 +1831,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       styleCode?: string | null;
     }>;
     const scoped =
-      lockedDistributorId != null
-        ? source.filter((s) => s.distributorId === lockedDistributorId)
+      catalogDistributorScopeId != null
+        ? source.filter((s) => s.distributorId === catalogDistributorScopeId)
         : source;
     // De-dup by name WITHIN each distributor (key includes distributorId), so two
     // supply lines that happen to share a style name (e.g. both have "Air White")
@@ -1807,7 +1842,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (!map.has(key)) map.set(key, s);
     }
     return Array.from(map.values()).sort((a, b) => affiliateStyleName(a).localeCompare(affiliateStyleName(b)));
-  }, [affiliateStyleName, doorStyles, lockedDistributorId]);
+  }, [affiliateStyleName, catalogDistributorScopeId, doorStyles]);
 
   // Color 2 (slot B) must come from the same distributor as Color 1 (slot A).
   // Build a filtered list scoped to that distributor so the picker only shows
@@ -1862,7 +1897,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         styleId: styleId ?? undefined,
         // When the design is locked to a supply line, every added cabinet must
         // come from that distributor (member can still change color within it).
-        distributorId: lockedDistributorId ?? undefined,
+        distributorId: catalogDistributorScopeId ?? undefined,
       },
       { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
     );
@@ -1874,7 +1909,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const { data: liveMasterCabinets } = trpc.design.placeableCabinets.useQuery(
     {
       styleId: styleId ?? undefined,
-      distributorId: lockedDistributorId ?? undefined,
+      distributorId: catalogDistributorScopeId ?? undefined,
     },
     { enabled: styleId != null },
   );
@@ -9213,6 +9248,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const commitPlanStyleSwitch = useCallback((slot: "A" | "B", newStyleId: number, requiresDistributorOverride: boolean) => {
     const source = (doorStyles ?? []) as Array<{ id: number; distributorId?: number }>;
     const distNew = source.find((d) => d.id === newStyleId)?.distributorId ?? null;
+    // Choosing a style confirms which source line its catalog belongs to. This
+    // updates the visible Catalog picker but does not lock the order until a
+    // cabinet is actually placed.
+    if (distNew != null) setCatalogDistributorId(distNew);
     if (requiresDistributorOverride) {
       setLockedDistributorId(null);
       setMixedWarehouseOverride(true);
@@ -12989,52 +13028,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </button>
               )}
             </div>
-	            {/* Distributor selector and relocated desktop More menu share one compact row. */}
+	            {/* Distributor selector and relocated desktop More menu share one
+	                compact row. Choose the supplier before a door style, including
+	                from the phone Catalog drawer rather than only in Estimate. */}
 	            <div className="mt-2 flex items-center gap-1.5">
-	              {styleId && (distributorLabels ?? []).length > 1 ? (
-	              <div className="min-w-0 flex-1">
-	                <Select
-                  value={lockedDistributorId != null ? String(lockedDistributorId) : "all"}
-                  onValueChange={(val) => {
-                    if (val === "all") {
-                      if (placed.length > 0 && lockedDistributorId != null) {
-                        const ok = window.confirm(t("dt_dist_override_body"));
-                        if (!ok) return;
-                        setMixedWarehouseOverride(true);
-                      }
-                      setLockedDistributorId(null);
-                      // Clear style filter so catalog shows all cabinets
-                      setStyleId(null);
-                    } else {
-                      const newDist = Number(val);
-                      if (placed.length > 0 && lockedDistributorId != null && newDist !== lockedDistributorId) {
-                        const ok = window.confirm(t("dt_dist_override_body"));
-                        if (!ok) return;
-                        setMixedWarehouseOverride(true);
-                      }
-                      setLockedDistributorId(newDist);
-                      // If the current styleId belongs to a different distributor,
-                      // clear it so the catalog shows all cabinets for the new line.
-                      const currentStyleDist = (doorStyles as Array<{id: number; distributorId: number}> | undefined)?.find((d) => d.id === styleId)?.distributorId;
-                      if (currentStyleDist != null && currentStyleDist !== newDist) {
-                        setStyleId(null);
-                      }
-                    }
-                  }}
-                >
-                  <SelectTrigger className="h-8 text-xs">
-                    <SelectValue placeholder="All Collections" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Collections</SelectItem>
-                    {(distributorLabels ?? []).map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name}
-                      </SelectItem>
-	                    ))}
-	                  </SelectContent>
-	                </Select>
-	              </div>
+	              {(distributorLabels ?? []).length > 1 ? (
+	                <div className="min-w-0 flex-1" data-testid="catalog-distributor-picker">
+	                  <Select
+	                    value={catalogDistributorScopeId != null ? String(catalogDistributorScopeId) : "all"}
+	                    onValueChange={(value) => chooseCatalogDistributor(value === "all" ? null : Number(value))}
+	                  >
+	                    <SelectTrigger className="h-9 text-xs" aria-label="Choose catalog distributor">
+	                      <Building2 className="mr-1 h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
+	                      <SelectValue placeholder="All distributors" />
+	                    </SelectTrigger>
+	                    <SelectContent>
+	                      <SelectItem value="all">All distributors</SelectItem>
+	                      {(distributorLabels ?? []).map((distributor) => (
+	                        <SelectItem key={distributor.id} value={String(distributor.id)}>
+	                          {distributor.name}
+	                        </SelectItem>
+	                      ))}
+	                    </SelectContent>
+	                  </Select>
+	                </div>
 	              ) : <div className="min-w-0 flex-1" />}
 	              {!isCompactWorkspace && <div ref={setMoreToolsPortalElement} data-testid="catalog-more-tools-slot" className="hidden shrink-0 lg:block" />}
 	            </div>
@@ -13045,24 +13062,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 is picked (catalog + pricing key off it). Make that obvious with a
                 clear call-out + a jump to the picker, instead of leaving users
                 staring at an empty list. */}
-            {!styleId &&
-              paletteType !== "opening" &&
-              paletteType !== "closetparts" &&
-              paletteType !== "surfaces" &&
-              paletteType !== "accessory" && (
-                <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
-                  <p className="text-xs font-semibold text-foreground">
-                    {t("dt_pl_need_style_title")}
-                  </p>
-                  <p className="text-[11px] leading-snug text-muted-foreground">
-                    {t("dt_pl_need_style_body")}
-                  </p>
-                  <Button
-                    size="sm"
-                    className="h-7 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 text-[11px]"
-                    onClick={() => {
-                      const el = document.getElementById("door-style-picker-card");
-                      if (el) {
+	            {!styleId &&
+	              paletteType !== "opening" &&
+	              paletteType !== "closetparts" &&
+	              paletteType !== "surfaces" &&
+	              paletteType !== "accessory" && (
+	                <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
+	                  <p className="text-xs font-semibold text-foreground">
+	                    {catalogDistributorScopeId == null ? "Pick a distributor, then a door style" : t("dt_pl_need_style_title")}
+	                  </p>
+	                  <p className="text-[11px] leading-snug text-muted-foreground">
+	                    {catalogDistributorScopeId == null
+	                      ? "Use the distributor picker above to narrow the line, then choose a door style for its cabinets and pricing."
+	                      : t("dt_pl_need_style_body")}
+	                  </p>
+	                  <Button
+	                    size="sm"
+	                    className="h-7 bg-[#a87f33] text-white hover:bg-[#a87f33]/90 text-[11px]"
+	                    onClick={() => {
+	                      if (panelDrawerMode) {
+	                        setMobilePanel("style");
+	                        return;
+	                      }
+	                      const el = document.getElementById("door-style-picker-card");
+	                      if (el) {
                         el.scrollIntoView({ behavior: "smooth", block: "center" });
                         el.classList.add("ring-2", "ring-[#a87f33]", "rounded-lg");
                         window.setTimeout(() => {
@@ -14438,7 +14461,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             ) : (
               <span className="text-xs text-muted-foreground">{t("dt_bs_select_finish_preview")}</span>
             )}
-            {/* Cabinet company selector — pick one of the 3 supply lines */}
+	            {/* Mirrors the Catalog supplier picker so the current lineup is
+	                unambiguous wherever the Designer is viewed. */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
@@ -14447,8 +14471,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 >
                   <Building2 className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline truncate max-w-[72px]">
-                    {lockedDistributorId
-                      ? (distributorLabels?.find((d) => d.id === lockedDistributorId)?.name ?? "Company")
+	                    {catalogDistributorScopeId
+	                      ? (distributorLabels?.find((d) => d.id === catalogDistributorScopeId)?.name ?? "Company")
                       : "All"}
                   </span>
                   <ChevronDown className="h-3 w-3 opacity-60" />
@@ -14458,29 +14482,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <div className="text-[10px] uppercase tracking-wider text-muted-foreground px-2 py-1">Cabinet Company</div>
                 <button
                   className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent flex items-center gap-2 ${lockedDistributorId == null ? "bg-accent font-semibold" : ""}`}
-                  onClick={() => { setLockedDistributorId(null); setMixedWarehouseOverride(true); }}
+	                  onClick={() => chooseCatalogDistributor(null)}
                 >
                   <span className="h-5 w-5 rounded bg-muted flex items-center justify-center text-[9px] font-bold">All</span>
                   <span>All Companies</span>
-                  {lockedDistributorId == null && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
+	                  {catalogDistributorScopeId == null && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
                 </button>
                 {(distributorLabels ?? []).map((d) => (
                   <button
                     key={d.id}
-                    className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent flex items-center gap-2 ${lockedDistributorId === d.id ? "bg-accent font-semibold" : ""}`}
-                    onClick={() => {
-                      setLockedDistributorId(d.id);
-                      setMixedWarehouseOverride(false);
-                      // If current style doesn't belong to this distributor, clear it
-                      if (selectedStyleDistributorId != null && selectedStyleDistributorId !== d.id) {
-                        setStyleId(null); setStyleA(null); setStyleB(null);
-                        toast.info(`Switched to ${d.name} — please choose a door style`);
-                      }
-                    }}
+	                    className={`w-full text-left px-2 py-1.5 rounded text-xs hover:bg-accent flex items-center gap-2 ${catalogDistributorScopeId === d.id ? "bg-accent font-semibold" : ""}`}
+	                    onClick={() => {
+	                      chooseCatalogDistributor(d.id);
+	                    }}
                   >
                     <span className="h-5 w-5 rounded bg-primary/10 text-primary flex items-center justify-center text-[9px] font-bold">{d.initials}</span>
                     <span className="truncate">{d.name}</span>
-                    {lockedDistributorId === d.id && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
+	                    {catalogDistributorScopeId === d.id && <Check className="h-3.5 w-3.5 ml-auto text-primary" />}
                   </button>
                 ))}
               </PopoverContent>

@@ -2944,3 +2944,10 @@
 - Tests: new "short drawn wall" regression in design.refrigeratorAssembly.test.ts; 8 focused files 534/534; broad client sweep 32 failures = committed baseline 32 (0 new). tsc clean, build OK, diff --check OK.
 - Local real-click proof (/tmp/fridge_live_proof2.py): standard + 120" 45° Wall Builder wall identical: popup opens Add Cabinet+Both, cap WR3612 centered (offset 0), 2" clearance, panels 84" h, 0.5"/0.5" gaps, opening 37", B24/B36 butt 0/0, materials REP/B24/B36/FRIDGE/COUNTERTOP. Short 72" 45° wall: Accept refuses with visible blocker ("Left and right end panels need ¾" … would overlap B24 …"), NO partial bay, fridge unchanged.
 - 19:13 CT LIVE verified (www.cabinetdealz.com serving index-CZkRMRm3 / DesignTool-CAyG0zSJ with both 5396f401 markers): real-click proof standard wall and 120" 45° Wall Builder wall — popup opens Add Cabinet + Both; cap WR3612(W361224) 12×24×36 at mountBottom 72 (2" above 70" fridge), center offset 0.0; panels REPV3096 0.75×84 at 0.5"/0.5" gaps; opening 37.0"; B24/B36 butt panels at 0/0; materials list carries REPV3096 ×2, WR3612, B24, B36, FRIDGE-36, countertop; no console errors. Screenshots docs/proofs/fridge-live-5396f401-*.png.
+
+## 01:22 CT — Catalog distributor picker (uncommitted → checkpoint next)
+- User requested distributors be selectable in the **Catalog** drawer shown on mobile, rather than having to first navigate to the Estimate / Door Style area.
+- Added a single-line Catalog distributor picker above the no-style prompt, always visible before style selection: All distributors, Preston, Ashford, Madison. It scopes both the style chooser and `design.placeableCabinets`; selected style keeps the picker aligned.
+- Existing placed-plan warehouse lock remains authoritative; switching source line with cabinets follows the existing confirmation instead of silently mixing warehouses.
+- Mobile Catalog CTA now directly opens Door Style & Color. Browser proof: 412×915, chose Preston from Catalog, then opened Style sheet; zero console errors. Proof docs/screenshots in docs/proofs/catalog-distributor-picker-*. 
+- Validation: tsc, Catalog + toolbar tests 17/17, production build, diff --check.
