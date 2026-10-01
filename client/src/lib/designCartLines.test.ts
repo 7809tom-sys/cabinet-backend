@@ -150,6 +150,36 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(731.9);
   });
 
+  it("keeps each short filler’s three-inch stock board and exact installed cut distinct in the cart", () => {
+    const shortFiller = {
+      ...bec,
+      uid: "f342-five-eighths",
+      cabinetId: 342,
+      masterCode: "F342",
+      description: '3" Stock Wall Filler',
+      placement: "wall",
+      width: 0.625,
+      nominalWidth: 3,
+      fillerTotalWidth: 0.625,
+      fillerBillingRole: "primary",
+    } as PlacedCabinet;
+    const widerCut = { ...shortFiller, uid: "f342-two-inch", width: 2, fillerTotalWidth: 2 } as PlacedCabinet;
+    const lines = buildDesignCabinetCartLines({
+      placed: [shortFiller, widerCut],
+      styleId: 330001,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330001, "Ashford Style"]]),
+      unitPriceFor: () => 18.66,
+    });
+
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "F342", qty: 1, fillerStockWidthIn: 3, fillerInstalledCutWidthIn: 0.625 }),
+      expect.objectContaining({ masterCode: "F342", qty: 1, fillerStockWidthIn: 3, fillerInstalledCutWidthIn: 2 }),
+    ]));
+    expect(lines).toHaveLength(2);
+  });
+
   it.each(["wholesale", "contractor", "homeowner"] as const)("marks every %s design line as price-locked at the designer-to-cart handoff", (tier) => {
     const lines = buildDesignCabinetCartLines({
       placed: [bec],

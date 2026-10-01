@@ -28,6 +28,7 @@ import {
 } from "@/lib/affiliateContext";
 import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
 import { separateGlassPurchaseItems } from "@/lib/cartGlassPolicy";
+import { formatEighthInches } from "@/lib/design";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 import { FreightCalculatingStatus } from "@/components/order/FreightCalculatingStatus";
 
@@ -388,10 +389,13 @@ export default function Cart() {
             const renderRow = (item: (typeof items)[number], inBundle: boolean) => {
             const a = itemAvailability(item.distributorId);
             const unitPrice = liveUnitPrice(item);
-              const lineTotal = calculateCartLineTotal(unitPrice, item.qty);
+            const lineTotal = calculateCartLineTotal(unitPrice, item.qty);
+            const fillerDimensions = item.fillerStockWidthIn != null && item.fillerInstalledCutWidthIn != null
+              ? { stock: formatEighthInches(item.fillerStockWidthIn), cut: formatEighthInches(item.fillerInstalledCutWidthIn) }
+              : null;
             return (
               <div
-                key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}`}
+                key={`${item.masterCode}-${item.styleId}-${item.tier}-${item.bundleId ?? ""}-${item.fillerStockWidthIn ?? ""}-${item.fillerInstalledCutWidthIn ?? ""}`}
                 className={inBundle
                   ? "flex flex-col gap-2 p-3"
                   : "flex flex-col gap-2 rounded-xl border border-border bg-card p-4"}
@@ -419,6 +423,12 @@ export default function Cart() {
                   </div>
                   <p className="mt-0.5 text-sm text-foreground leading-snug">{item.name}</p>
                   <p className="text-xs text-muted-foreground">{item.styleLabel}</p>
+                  {fillerDimensions && (
+                    <dl data-testid="cart-filler-stock-and-cut" className="mt-2 grid grid-cols-2 gap-x-3 rounded-md border border-amber-200 bg-amber-50/70 px-2 py-1.5 text-xs text-amber-950">
+                      <div><dt className="uppercase tracking-wide text-[10px] font-semibold text-amber-800">Purchased stock</dt><dd className="font-semibold">{fillerDimensions.stock} wide</dd></div>
+                      <div><dt className="uppercase tracking-wide text-[10px] font-semibold text-amber-800">Installed cut</dt><dd className="font-semibold">{fillerDimensions.cut} wide</dd></div>
+                    </dl>
+                  )}
                   {separateGlassItems.some((glassItem) => glassItem === item) && (
                     <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-700 dark:text-amber-300">
                       <AlertTriangle className="h-3.5 w-3.5" /> Glass purchased separately
@@ -456,7 +466,7 @@ export default function Cart() {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 bg-background"
-                    onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty - 1)}
+                    onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty - 1, item.fillerStockWidthIn, item.fillerInstalledCutWidthIn)}
                     aria-label={t("crt_decrease_qty")}
                   >
                     <Minus className="h-3.5 w-3.5" />
@@ -466,7 +476,7 @@ export default function Cart() {
                     variant="outline"
                     size="icon"
                     className="h-8 w-8 bg-background"
-                    onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty + 1)}
+                    onClick={() => setQty(item.masterCode, item.styleId, item.tier, item.qty + 1, item.fillerStockWidthIn, item.fillerInstalledCutWidthIn)}
                     aria-label={t("crt_increase_qty")}
                   >
                     <Plus className="h-3.5 w-3.5" />
@@ -475,7 +485,7 @@ export default function Cart() {
                     variant="ghost"
                     size="icon"
                     className="ml-auto h-8 w-8 text-muted-foreground hover:text-destructive"
-                    onClick={() => removeItem(item.masterCode, item.styleId, item.tier)}
+                    onClick={() => removeItem(item.masterCode, item.styleId, item.tier, item.fillerStockWidthIn, item.fillerInstalledCutWidthIn)}
                     aria-label={t("crt_remove_item")}
                   >
                     <Trash2 className="h-4 w-4" />

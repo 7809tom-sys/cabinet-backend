@@ -11,4 +11,12 @@ describe("Cart separate glass purchase warning", () => {
     expect(source).toContain("Glass insert purchased separately");
     expect(source).toContain("Glass purchased separately");
   });
+
+  it("shows purchased filler stock width separately from its installed cut width", () => {
+    expect(source).toContain('data-testid="cart-filler-stock-and-cut"');
+    expect(source).toContain("Purchased stock");
+    expect(source).toContain("Installed cut");
+    expect(source).toContain("formatEighthInches(item.fillerStockWidthIn)");
+    expect(source).toContain("formatEighthInches(item.fillerInstalledCutWidthIn)");
+  });
 });

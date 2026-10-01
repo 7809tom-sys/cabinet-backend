@@ -1,5 +1,5 @@
 import type { CartItem } from "@/contexts/CartContext";
-import { customSizeFee, effectiveStyleId, isGlassPolicyNomenclature, type PlacedCabinet } from "@/lib/design";
+import { customSizeFee, effectiveStyleId, isFillerItem, isGlassPolicyNomenclature, type PlacedCabinet } from "@/lib/design";
 import { isClosetPart } from "@/lib/closet";
 import { calculateCartSubtotal } from "@/lib/cartTotals";
 
@@ -43,6 +43,21 @@ function glassPolicyCartSuffix(cabinet: Pick<PlacedCabinet, "masterCode" | "glas
   return isGlassItem && cabinet.glassIncluded !== true ? " — glass purchased separately" : "";
 }
 
+function fillerCartDimensions(cabinet: PlacedCabinet): Pick<CartItem, "fillerStockWidthIn" | "fillerInstalledCutWidthIn"> {
+  if (!isFillerItem(cabinet)) return {};
+  const stock = Number(cabinet.nominalWidth ?? cabinet.width);
+  const installed = Number(cabinet.fillerTotalWidth ?? cabinet.width);
+  if (!Number.isFinite(stock) || stock <= 0 || !Number.isFinite(installed) || installed <= 0) return {};
+  return { fillerStockWidthIn: stock, fillerInstalledCutWidthIn: installed };
+}
+
+function fillerCartIdentity(cabinet: PlacedCabinet): string {
+  const dimensions = fillerCartDimensions(cabinet);
+  return dimensions.fillerStockWidthIn != null && dimensions.fillerInstalledCutWidthIn != null
+    ? `${dimensions.fillerStockWidthIn}:${dimensions.fillerInstalledCutWidthIn}`
+    : "";
+}
+
 /** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
 export function buildDesignCabinetCartLines({
   placed,
@@ -77,7 +92,7 @@ export function buildDesignCabinetCartLines({
       : cabinet.masterCode;
     // Different discounts or custom-size fees must remain separate locked
     // lines; combining them would assign one cabinet's adjusted price to both.
-    const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}`;
+    const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
@@ -93,6 +108,7 @@ export function buildDesignCabinetCartLines({
         priceLocked: true,
         qty: 1,
         catalogImageUrl: cabinet.catalogImageUrl ?? null,
+        ...fillerCartDimensions(cabinet),
       });
     }
 
@@ -209,7 +225,7 @@ export function buildDesignPreviewPricingLines({
       ? `${cabinet.masterCode}GD`
       : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
-    const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice == null ? "pending" : adjustedUnitPrice.toFixed(4)}`;
+    const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice == null ? "pending" : adjustedUnitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
@@ -225,6 +241,7 @@ export function buildDesignPreviewPricingLines({
         unitPrice: adjustedUnitPrice,
         qty: 1,
         catalogImageUrl: cabinet.catalogImageUrl ?? null,
+        ...fillerCartDimensions(cabinet),
         placementUids: [cabinet.uid],
       });
     }
@@ -278,7 +295,9 @@ export function completeDesignPricingLines(
       candidate.masterCode === line.masterCode &&
       candidate.styleId === line.styleId &&
       Math.abs(Number(candidate.unitPrice) - Number(line.unitPrice)) < 0.0001 &&
-      candidate.qty === line.qty
+      candidate.qty === line.qty &&
+      candidate.fillerStockWidthIn === line.fillerStockWidthIn &&
+      candidate.fillerInstalledCutWidthIn === line.fillerInstalledCutWidthIn
     );
     if (matchIndex >= 0) matchedCabinetLines.add(matchIndex);
     const match = matchIndex >= 0 ? cabinetPreviewLines[matchIndex] : null;
@@ -302,6 +321,8 @@ export function mergeDesignCartLines(lines: readonly CartItem[]): CartItem[] {
       line.distributorId ?? "none",
       line.tier,
       line.unitPrice ?? "pending",
+      line.fillerStockWidthIn ?? "",
+      line.fillerInstalledCutWidthIn ?? "",
     ].join("::");
     const existing = merged.get(key);
     if (existing) existing.qty += line.qty;

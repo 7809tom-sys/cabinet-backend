@@ -3029,3 +3029,9 @@
 - Validation: TypeScript passed; focused catalog filler, small-gap, cart, and Designer filler suites passed (81 tests); release responsive suites passed (29 tests); production build and diff integrity passed.
 - 18:45 CT follow-up: verified the live F342 response arrives after the initial catalog-scope hydration. The dialog now shows “Loading active catalog filler options…” during that short fetch instead of falsely saying that no active filler exists; it then resolves the real F342 option. TypeScript, 81 focused tests, 29 release-responsive tests, production build, and diff integrity passed.
 - 18:50 CT live verification: cache-busted www.cabinetdealz.com served the new loading-state bundle. A production B36 in a 36-5/8 inch run resolved F342, placed a 5/8 inch left cut with B36 wallOffset 0.625 and F342 wallOffset 0.000, and listed exactly one $18.66 F342 source-priced 3-inch stock filler in Materials & Parts. Only expected browser/WebGL performance warnings occurred; no application errors.
+
+## 19:20 CT — cart filler stock and installed-cut clarity
+- Cart lines now retain the purchased catalog filler stock width separately from the exact installed field cut. The cart presents both labels side by side, e.g. `Purchased stock 3" wide` and `Installed cut 5/8" wide` for F342.
+- Distinct cuts of the same source-priced filler SKU remain separate cart lines, so a 5/8-inch cut cannot be collapsed into a 2-inch cut. Quantity, delete, and increment/decrement actions use the same stock-and-cut identity.
+- Local browser proof: a price-locked F342 at $18.66 rendered the explicit 3-inch purchased stock and 5/8-inch installed cut labels with no application errors. Evidence: `docs/proofs/cart-filler-stock-and-cut-local.png` and `.json`.
+- Validation: `pnpm run check`, focused cart/design filler suites, production build, and `git diff --check` passed.

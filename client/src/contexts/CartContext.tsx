@@ -41,6 +41,10 @@ export type CartItem = {
   catalogImageUrl?: string | null;
   /** Product category (e.g. "Sinks & Faucets", "Flooring") — used for display grouping */
   category?: string | null;
+  /** Purchased catalog filler board width; separate from its field-cut installed width. */
+  fillerStockWidthIn?: number | null;
+  /** Exact installed filler width represented by this cart line. */
+  fillerInstalledCutWidthIn?: number | null;
   /** Selected distributor's policy for a PG/GD/terminal-G glass cabinet. */
   glassIncluded?: boolean | null;
   /** Non-cabinet catalog product identity used by checkout and freight filtering. */
@@ -90,8 +94,8 @@ type CartState = {
   addItem: (item: CartItem) => AddItemResult;
   /** Replaces the cart only after an explicit user-requested design synchronization. */
   replaceWithDesignItems: (items: readonly CartItem[], sourceDesignId?: number | null) => void;
-  removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"]) => void;
-  setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number) => void;
+  removeItem: (masterCode: string, styleId: number, tier: CartItem["tier"], fillerStockWidthIn?: number | null, fillerInstalledCutWidthIn?: number | null) => void;
+  setQty: (masterCode: string, styleId: number, tier: CartItem["tier"], qty: number, fillerStockWidthIn?: number | null, fillerInstalledCutWidthIn?: number | null) => void;
   clear: () => void;
   setZip: (zip: string | null) => void;
   count: number;
@@ -117,11 +121,11 @@ export function cartStorageKeys(scope: StoreScope) {
 }
 
 function lineKey(
-  i: Pick<CartItem, "masterCode" | "styleId" | "tier"> & { bundleId?: string },
+  i: Pick<CartItem, "masterCode" | "styleId" | "tier" | "fillerStockWidthIn" | "fillerInstalledCutWidthIn"> & { bundleId?: string },
 ) {
   // Bundle parts are keyed with their bundleId so two different Split Pantries
   // (or a loose part vs a bundled part) never collapse into one line.
-  return `${i.masterCode}::${i.styleId}::${i.tier}::${i.bundleId ?? ""}`;
+  return `${i.masterCode}::${i.styleId}::${i.tier}::${i.bundleId ?? ""}::${i.fillerStockWidthIn ?? ""}::${i.fillerInstalledCutWidthIn ?? ""}`;
 }
 
 function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: StoreScope }) {
@@ -272,26 +276,33 @@ function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: S
       setItems(synchronizedDesignCartItems(designItems));
       setSourceDesignId(Number.isInteger(designId) && designId! > 0 ? designId : null);
     };
-    const removeItem: CartState["removeItem"] = (masterCode, styleId, tier) => {
+    const removeItem: CartState["removeItem"] = (masterCode, styleId, tier, fillerStockWidthIn = null, fillerInstalledCutWidthIn = null) => {
       setSourceDesignId(null);
       setItems((prev) => {
         const target = prev.find(
-          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
+          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier
+            && (p.fillerStockWidthIn ?? null) === fillerStockWidthIn
+            && (p.fillerInstalledCutWidthIn ?? null) === fillerInstalledCutWidthIn,
         );
         // Removing one part of a Split Pantry removes the whole bundle group.
         if (target?.bundleId) {
           return prev.filter((p) => p.bundleId !== target.bundleId);
         }
         return prev.filter(
-          (p) => !(p.masterCode === masterCode && p.styleId === styleId && p.tier === tier && !p.bundleId),
+          (p) => !(p.masterCode === masterCode && p.styleId === styleId && p.tier === tier
+            && (p.fillerStockWidthIn ?? null) === fillerStockWidthIn
+            && (p.fillerInstalledCutWidthIn ?? null) === fillerInstalledCutWidthIn
+            && !p.bundleId),
         );
       });
     };
-    const setQty: CartState["setQty"] = (masterCode, styleId, tier, qty) => {
+    const setQty: CartState["setQty"] = (masterCode, styleId, tier, qty, fillerStockWidthIn = null, fillerInstalledCutWidthIn = null) => {
       setSourceDesignId(null);
       setItems((prev) => {
         const target = prev.find(
-          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier,
+          (p) => p.masterCode === masterCode && p.styleId === styleId && p.tier === tier
+            && (p.fillerStockWidthIn ?? null) === fillerStockWidthIn
+            && (p.fillerInstalledCutWidthIn ?? null) === fillerInstalledCutWidthIn,
         );
         const next = Math.max(0, qty);
         // A Split Pantry's two parts move together (1 pantry = 1 top + 1 bottom).
@@ -302,7 +313,10 @@ function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: S
         }
         return prev
           .map((p) =>
-            p.masterCode === masterCode && p.styleId === styleId && p.tier === tier && !p.bundleId
+            p.masterCode === masterCode && p.styleId === styleId && p.tier === tier
+              && (p.fillerStockWidthIn ?? null) === fillerStockWidthIn
+              && (p.fillerInstalledCutWidthIn ?? null) === fillerInstalledCutWidthIn
+              && !p.bundleId
               ? { ...p, qty: next }
               : p,
           )
