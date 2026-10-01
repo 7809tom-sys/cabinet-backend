@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
-import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
+import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
@@ -6090,6 +6090,46 @@ describe("interactive 3D room scene helpers", () => {
       rearPlaneUsesSavedWallFootprint: true,
       physicalCanopyRearFlush: true,
     });
+  });
+
+  it("renders RHF30 as the cataloged shallow sloped wood hood front, not a HOOD-* appliance or rectangular wall box", () => {
+    const root = new THREE.Group();
+    const rhf = {
+      uid: "rhf30",
+      cabinetId: 930030,
+      masterCode: "RHF30",
+      description: "Range Hood Front",
+      placement: "wall" as const,
+      x: 42,
+      y: 0,
+      width: 30,
+      depth: 9,
+      height: 23.5,
+      mountBottom: 66,
+      rotation: 0,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    };
+    expect(resolvedThreeDSpecialtyProfile(rhf)).toMatchObject({ kind: "range-hood-front" });
+    const geometry = rangeHoodFrontGeometry(30, 23.5, 9);
+    expect(geometry.fasciaHeight * 12).toBeGreaterThan(3);
+    expect(geometry.doorTiltRadians).toBeLessThan(0);
+    addCabinet(root, existingCabinetSku(rhf), null, {}, 144, 120, "#48515d", "#f8f8f6", undefined, existingCabinetTransform(rhf, { width: 144, depth: 120, ceilingHeight: 96 }));
+
+    const slopedDoors: THREE.Group[] = [];
+    const fascia: THREE.Object3D[] = [];
+    const canopies: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.rangeHoodFrontSlopedDoor) slopedDoors.push(node as THREE.Group);
+      if (node.userData.rangeHoodFrontLowerFascia) fascia.push(node);
+      if (node.userData.rangeHoodCanopy) canopies.push(node);
+    });
+    expect(slopedDoors).toHaveLength(2);
+    expect(slopedDoors.map((door) => door.userData.rangeHoodFrontSlopedDoor).sort()).toEqual(["left", "right"]);
+    for (const door of slopedDoors) expect(door.rotation.x).toBeCloseTo(geometry.doorTiltRadians, 8);
+    expect(fascia).toHaveLength(1);
+    expect(canopies).toHaveLength(0);
+    expect(root.children[0]?.userData.wallMountedAppliance).not.toBe(true);
   });
 
   it("keeps the saved range-hood rear plane on top, bottom, left, and right walls", () => {

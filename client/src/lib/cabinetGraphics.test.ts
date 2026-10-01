@@ -68,6 +68,25 @@ describe("cabinetDrawingType", () => {
     })).toBe("panel");
   });
 
+  it("classifies RHF30 and RHF36 as catalog range hood fronts rather than appliance hoods or rectangular wall boxes", () => {
+    for (const [masterCode, width, depth] of [["RHF30", 30, 9], ["RHF36", 36, 12]] as const) {
+      const cabinet = {
+        masterCode,
+        description: "Range Hood Front",
+        category: "Wall",
+        subCategory: "Bridge / Stacker",
+        width,
+        height: 23.5,
+        depth,
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+      } satisfies CabinetLike;
+      expect(cabinetDrawingType(cabinet)).toBe("range-hood-front");
+      expect(cabinetTypeLabel(cabinet)).toBe("Range Hood Front");
+      expect(cabinetAltText(cabinet)).toContain("shallow sloped two-door range hood front");
+    }
+  });
+
 	  it("labels every AW height as an angled wall end cabinet rather than a diagonal corner", () => {
 	    for (const masterCode of ["AW1230", "AW1236", "AW1242"]) {
 	      const cabinet = {

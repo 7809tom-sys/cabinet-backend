@@ -2952,3 +2952,9 @@
 - Mobile Catalog CTA now directly opens Door Style & Color. Browser proof: 412×915, chose Preston from Catalog, then opened Style sheet; zero console errors. Proof docs/screenshots in docs/proofs/catalog-distributor-picker-*. 
 - Validation: tsc, Catalog + toolbar tests 17/17, production build, diff --check.
 - 01:29 CT LIVE verification: cache-busted www.cabinetdealz.com served index-DhLcNW7a / DesignTool-oaDYBGeX and the deployed Designer chunk contains the unique `Choose catalog distributor` marker. Local authenticated 412×915 click proof remains the interactive evidence (Preston selection + Door Style handoff, zero console errors); production browser cannot reuse the local-only admin cookie.
+
+## 04:22 CT — RHF catalog-form correction
+- User correctly reported that the rendered range hood did **not** resemble the catalog `RHF` / `Range Hood Front` drawing. Source row audit confirmed `RHF30 = 30 × 23.5 × 9 in` and `RHF36 = 36 × 23.5 × 12 in`, both Wall / Bridge-Stacker items.
+- Added one shared `range-hood-front` profile for RHF codes and description (not a `HOOD-*` appliance): catalog line drawing, elevation, and Three.js all render a shallow wood front with a sloped two-door pair and lower fascia / rail. RHF now remains a wall cabinet; it cannot inherit appliance range/oven rules.
+- No cabinet data, pricing, or SKU values changed.
+- Validation: `pnpm run check`, focused cabinetGraphics + elevation + InteractiveRoom3D suite (444 passed, 2 skipped), production build, diff check, and local browser proof (RHF30 persisted at 30 × 23.5 × 9, wall placement, zero browser console errors). Proof: `docs/proofs/rhf-catalog-form-proof.md`, `docs/proofs/rhf30-catalog-form-elevation.png`.

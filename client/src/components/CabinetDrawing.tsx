@@ -111,6 +111,8 @@ function FrontByType({ type, x, y, w, h, fill, cabinet }: FrontProps) {
       return <WallMicrowaveShelfFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "shelf-insert":
       return <ShelfInsertFront x={x} y={y} w={w} h={h} fill={fill} />;
+    case "range-hood-front":
+      return <RangeHoodFront x={x} y={y} w={w} h={h} fill={fill} />;
     case "accessory-strip":
       return <AccessoryStrip x={x} y={y} w={w} h={h} fill={fill} />;
     case "panel":
@@ -143,6 +145,35 @@ function Box({ x, y, w, h, fill }: { x: number; y: number; w: number; h: number;
       stroke={STROKE}
       strokeWidth={1.6}
     />
+  );
+}
+
+/**
+ * RHF30/RHF36 use the supplied catalog form: a shallow wood hood front with a
+ * lower fascia and two doors that lean back toward the wall. It is deliberately
+ * not the freestanding stainless `HOOD-*` appliance silhouette.
+ */
+function RangeHoodFront({ x, y, w, h, fill }: Omit<FrontProps, "type" | "cabinet">) {
+  const inset = Math.max(3, Math.min(6, w * 0.08));
+  const fasciaTop = y + h * 0.72;
+  const topInset = Math.max(inset + 2, w * 0.15);
+  const upperY = y + h * 0.06;
+  const lowerY = fasciaTop - 2;
+  const center = x + w / 2;
+  const leftTop = x + topInset;
+  const rightTop = x + w - topInset;
+  const leftBottom = x + inset;
+  const rightBottom = x + w - inset;
+  return (
+    <g data-cabinet-drawing="range-hood-front">
+      <Box x={x} y={y} w={w} h={h} fill={fill} />
+      <rect x={x + inset} y={fasciaTop} width={w - inset * 2} height={Math.max(2, y + h - fasciaTop - inset)} fill={fill} stroke={STROKE} strokeWidth={1.3} />
+      <polygon points={`${leftTop},${upperY} ${center - 1},${upperY} ${center - 1},${lowerY} ${leftBottom},${lowerY}`} fill={fill} stroke={STROKE} strokeWidth={1.3} />
+      <polygon points={`${center + 1},${upperY} ${rightTop},${upperY} ${rightBottom},${lowerY} ${center + 1},${lowerY}`} fill={fill} stroke={STROKE} strokeWidth={1.3} />
+      <line x1={x + inset} y1={fasciaTop} x2={x + w - inset} y2={fasciaTop} stroke={STROKE} strokeWidth={1.5} />
+      <line x1={center} y1={upperY} x2={center} y2={lowerY} stroke={STROKE} strokeWidth={1.2} />
+      <line x1={x + inset / 2} y1={y + 2} x2={x + w - inset / 2} y2={y + 2} stroke={STROKE} strokeWidth={1.4} />
+    </g>
   );
 }
 

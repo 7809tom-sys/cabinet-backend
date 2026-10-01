@@ -184,6 +184,40 @@ describe("mixed Cabinet Config elevation rules", () => {
     expect(markup.match(/data-diagonal-corner-door="true"/g)).toHaveLength(2);
   });
 
+  it("renders RHF30 as the catalog sloped wood hood front with two doors and a lower fascia", () => {
+    const rhf = baseCabinet({
+      uid: "rhf30",
+      cabinetId: 9390060,
+      masterCode: "RHF30",
+      description: "Range Hood Front",
+      category: "Wall",
+      subCategory: "Bridge / Stacker",
+      placement: "wall",
+      width: 30,
+      height: 23.5,
+      depth: 9,
+      mountBottom: 66,
+      numberOfDoors: 0,
+      numberOfDrawers: 0,
+    });
+    expect(resolveElevationFacePresentation(rhf).cabinetType).toBe("range-hood-front");
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(ElevationView, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [rhf],
+        selectedUid: null,
+        onSelect: () => undefined,
+        wall: "back",
+        doorSampleUrlFor: () => "https://example.com/door-finish.webp",
+      })),
+    );
+    expect(markup).toContain('data-range-hood-front="true"');
+    expect(markup).toContain('data-range-hood-front-doors="sloped-pair"');
+    expect(markup).toContain('data-range-hood-front-lower-fascia="true"');
+    expect(markup).toContain('polygon(13% 0, 87% 0, 98% 100%, 2% 100%)');
+    expect(markup).not.toContain('data-cabinet-hardware="door-pull"');
+  });
+
   it("renders the saved LS36 host elevation as one exposed 12-inch L-corner return face", () => {
     const ls36 = baseCabinet({
       uid: "ls3612",

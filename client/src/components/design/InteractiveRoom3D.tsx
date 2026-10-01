@@ -16,7 +16,7 @@ import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITUR
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
-import { isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
+import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -2349,6 +2349,32 @@ export function rangeHoodGeometry(widthIn: number, heightIn: number, depthIn: nu
   };
 }
 
+/**
+ * RHF30/RHF36 are wood cabinet hood fronts, as shown in the source catalog—not
+ * appliance hoods. Their shallow cabinet box ends in a lower fascia; the two
+ * decorative doors rake backward from that front rail toward the wall.
+ */
+export function rangeHoodFrontGeometry(widthIn: number, heightIn: number, depthIn: number) {
+  const width = widthIn * INCH;
+  const height = heightIn * INCH;
+  const depth = depthIn * INCH;
+  const fasciaHeight = Math.max(0.16, Math.min(height * 0.28, 0.32));
+  const doorHeight = Math.max(0.12, height - fasciaHeight - 0.08);
+  // Keep the top door rail visibly inside the shallow 9- or 12-inch cabinet
+  // depth while leaving the lower rail flush at the physical cabinet face.
+  const rakeDepth = Math.min(Math.max(0.13, depth * 0.42), Math.max(0.13, depth - 0.11));
+  return {
+    width,
+    height,
+    depth,
+    fasciaHeight,
+    doorHeight,
+    rakeDepth,
+    doorTiltRadians: -Math.atan2(rakeDepth, doorHeight),
+    doorWidth: Math.max(0.08, (width - 0.1) / 2),
+  };
+}
+
 function taperedRangeHoodCanopyGeometry(
   lowerWidth: number,
   lowerDepth: number,
@@ -3011,6 +3037,11 @@ export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType"
   // two-face return profile was an imported error, so never let stale Config
   // metadata turn this exact code back into the retired diamond/end-return mesh.
   if (normalizedCode === "BEC24") return { kind: "standard" as const, pattern: null };
+  if (cabinetDrawingType({
+    masterCode: sku.masterCode,
+    description: sku.description,
+    graphicType: sku.graphicType ?? sku.customProfile ?? null,
+  }) === "range-hood-front") return { kind: "range-hood-front" as const, pattern: null };
   if (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? "")) return { kind: "farmhouse-sink" as const, pattern: null };
   // AW1230, AW1236, and AW1242 are one angled wall-END family. They are not
   // room-corner cabinets, but all three use the same true triangular end mesh,
@@ -3876,7 +3907,7 @@ export function addCabinet(
   const usesConstructedFaceFrame = placement !== "appliance"
     && !isRefrigeratorEndPanel
     && !isWallOpenShelf
-    && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner"].includes(specialty.kind);
+    && !["diagonal-corner", "triangle-corner", "l-corner", "corner-drawer", "end-return", "blind-corner", "range-hood-front"].includes(specialty.kind);
   if (usesConstructedFaceFrame) {
     const frameMaterial = new THREE.MeshStandardMaterial({ color: plainStructuralColor, roughness: 0.46, metalness: 0.01 });
     structuralFinishMaterials.push(frameMaterial);
@@ -4061,7 +4092,62 @@ export function addCabinet(
   };
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
   const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
-  if (isWallOpenShelf) {
+  if (specialty.kind === "range-hood-front") {
+    const hoodFront = rangeHoodFrontGeometry(widthIn, heightIn, depthIn);
+    frontGroup.userData = {
+      ...frontGroup.userData,
+      specialtyProfile: "range-hood-front",
+      sourceCatalogConstruction: "RHF sloped double door + lower fascia",
+      noGenericRectangularWallDoors: true,
+    };
+    const fasciaMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
+    textureMaterials.push(fasciaMaterial);
+    const fascia = new THREE.Mesh(new THREE.BoxGeometry(hoodFront.width - 0.06, hoodFront.fasciaHeight, 0.06), fasciaMaterial);
+    fascia.position.set(0, -bodyHeight / 2 + hoodFront.fasciaHeight / 2, 0.006);
+    fascia.userData = { specialtyProfile: "range-hood-front", rangeHoodFrontLowerFascia: true, cabinetFront: true, flushPhysicalFace: true };
+    frontGroup.add(fascia);
+    const fasciaRail = new THREE.Mesh(new THREE.BoxGeometry(hoodFront.width + 0.02, 0.045, 0.075), trimMaterial);
+    fasciaRail.position.set(0, -bodyHeight / 2 + hoodFront.fasciaHeight + 0.022, 0.038);
+    fasciaRail.userData = { specialtyProfile: "range-hood-front", rangeHoodFrontFasciaRail: true, selectedFinishFace: true };
+    frontGroup.add(fasciaRail);
+    const cornice = new THREE.Mesh(new THREE.BoxGeometry(hoodFront.width + 0.055, 0.05, 0.075), trimMaterial);
+    cornice.position.set(0, bodyHeight / 2 - 0.025, -hoodFront.rakeDepth + 0.038);
+    cornice.userData = { specialtyProfile: "range-hood-front", rangeHoodFrontTopCornice: true, selectedFinishFace: true };
+    frontGroup.add(cornice);
+    for (const side of [-1, 1] as const) {
+      const doorGroup = new THREE.Group();
+      const doorX = side * (hoodFront.doorWidth / 2 + 0.012);
+      doorGroup.position.set(doorX, -bodyHeight / 2 + hoodFront.fasciaHeight + hoodFront.doorHeight / 2, -hoodFront.rakeDepth / 2);
+      doorGroup.rotation.x = hoodFront.doorTiltRadians;
+      doorGroup.userData = {
+        specialtyProfile: "range-hood-front",
+        rangeHoodFrontSlopedDoor: side === -1 ? "left" : "right",
+        cabinetFront: true,
+        physicalSlopedDoor: true,
+      };
+      const door = new THREE.Mesh(new THREE.BoxGeometry(hoodFront.doorWidth - 0.028, hoodFront.doorHeight - 0.028, 0.052), faceMaterial);
+      door.userData = { specialtyProfile: "range-hood-front", rangeHoodFrontDoorPanel: side === -1 ? "left" : "right", cabinetFront: true, flushPhysicalFace: true };
+      doorGroup.add(door);
+      const rail = threeDShakerRailThickness(hoodFront.doorWidth, hoodFront.doorHeight, doorProfile?.railWidth);
+      const stile = threeDShakerRailThickness(hoodFront.doorWidth, hoodFront.doorHeight, doorProfile?.stileWidth);
+      if (rail && stile && threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) {
+        const frameMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
+        textureMaterials.push(frameMaterial);
+        for (const [frameWidth, frameHeight, x, y] of [
+          [hoodFront.doorWidth - 0.035, rail, 0, hoodFront.doorHeight / 2 - rail / 2],
+          [hoodFront.doorWidth - 0.035, rail, 0, -hoodFront.doorHeight / 2 + rail / 2],
+          [stile, hoodFront.doorHeight - rail * 2, -hoodFront.doorWidth / 2 + stile / 2, 0],
+          [stile, hoodFront.doorHeight - rail * 2, hoodFront.doorWidth / 2 - stile / 2, 0],
+        ] as const) {
+          const frame = new THREE.Mesh(new THREE.BoxGeometry(frameWidth, Math.max(0.02, frameHeight), 0.058), frameMaterial);
+          frame.position.set(x, y, 0.032);
+          frame.userData = { specialtyProfile: "range-hood-front", rangeHoodFrontDoorFrame: true, selectedStyleFace: "shaker", physicalRails: true };
+          doorGroup.add(frame);
+        }
+      }
+      frontGroup.add(doorGroup);
+    }
+  } else if (isWallOpenShelf) {
     frontGroup.userData = {
       ...frontGroup.userData,
       wallOpenShelf: true,

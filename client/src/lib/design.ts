@@ -6563,8 +6563,12 @@ export const RANGE_CLEARANCE_FILLER_IN = 3;
 
 export function isRangeOrOven(masterCode?: string | null, description?: string | null): boolean {
   const code = (masterCode || "").toUpperCase();
-  if (/^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)[\s_-]*\d/.test(code) || /^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)$/.test(code)) return true;
   const desc = (description || "").toLowerCase();
+  // RHF is a wood wall-cabinet range-hood FRONT. It must never acquire range
+  // appliance collision, countertop, or mounting behavior just because its
+  // source description includes the words “Range Hood Front”.
+  if (/^RHF[\s_-]*\d/.test(code) || /range\s*hood\s*front/.test(desc)) return false;
+  if (/^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)[\s_-]*\d/.test(code) || /^(RANGE|OVEN|RNG|OV|STOVE|STV|COOKTOP|CT)$/.test(code)) return true;
   return /\brange\b|\boven\b|\bstove\b|\bcooktop\b/.test(desc);
 }
 

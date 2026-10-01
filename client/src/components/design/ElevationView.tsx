@@ -605,7 +605,7 @@ export function ElevationView({
               style={{ zIndex: 3 }}
             />
           )}
-          {!isAppliance && hw.id !== "none" && (
+          {!isAppliance && cabType !== "range-hood-front" && hw.id !== "none" && (
             <HardwareOverlay
               doors={displayCounts.doors}
               drawers={displayCounts.drawers}
@@ -2344,6 +2344,35 @@ export function DoorFront({ kind, edge, face, doors, drawers, isWall, doorSample
       </ShakerFaceMetricsContext.Provider>
     </div>
   );
+
+  // ─── SPECIALTY TYPE: RANGE HOOD FRONT (RHF30/RHF36) ───────────────────
+  // The supplier's catalog image is a shallow wood cabinet front: a lower
+  // fascia beneath two doors that slope back toward the wall. It is NOT a
+  // stainless hood appliance and it is not a rectangular two-door wall box.
+  if (cabinetType === "range-hood-front") {
+    const doorHeight = 63;
+    return withFace(
+      <div data-range-hood-front="true" className="absolute inset-0 overflow-hidden">
+        <div
+          data-range-hood-front-doors="sloped-pair"
+          className="absolute left-[3%] right-[3%] top-[4%] overflow-hidden"
+          style={{ height: `${doorHeight}%`, clipPath: "polygon(13% 0, 87% 0, 98% 100%, 2% 100%)" }}
+        >
+          <div className="absolute inset-0 flex">
+            <div className="relative h-full w-1/2">
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall frameInsetPx={frameInsetPx} faceWidthIn={faceWidth / 2} faceHeightIn={faceHeight * (doorHeight / 100)} />
+            </div>
+            <div className="relative h-full w-1/2 border-l" style={{ borderColor: stroke }}>
+              <SingleDoorPanel kind={kind} edge={edge} face={face} stroke={stroke} doorSampleUrl={doorSampleUrl} isWall frameInsetPx={frameInsetPx} faceWidthIn={faceWidth / 2} faceHeightIn={faceHeight * (doorHeight / 100)} />
+            </div>
+          </div>
+        </div>
+        <div data-range-hood-front-lower-fascia="true" className="absolute bottom-[4%] left-[5%] right-[5%] h-[24%]" style={{ border: `2px solid ${stroke}`, background: face }} />
+        <div data-range-hood-front-fascia-rail="true" className="absolute left-[3%] right-[3%] top-[69%] h-[2px]" style={{ background: edge, boxShadow: "0 1px 1px rgba(255,255,255,.42)" }} />
+        <div data-range-hood-front-top-cornice="true" className="absolute left-[2%] right-[2%] top-[1%] h-[3px]" style={{ background: edge, boxShadow: "0 2px 0 color-mix(in srgb, var(--background, #fff) 60%, transparent)" }} />
+      </div>,
+    );
+  }
 
   // ─── SPECIALTY TYPE: FACE PATTERN ────────────────────────────────────
   // Specialty open-front cabinets (wine racks, plate racks, etc.).

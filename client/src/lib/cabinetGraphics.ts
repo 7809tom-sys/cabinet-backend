@@ -27,6 +27,7 @@ export type CabinetDrawingType =
   | "triangle-corner" // right-triangle corner cabinet (WTC/BTC): single door on hypotenuse face
   | "end-angle" // end-of-run cabinet with an angled outer face, not a room corner
   | "end-return" // 24x24 base end-corner with two 12-inch return faces, not a room corner
+  | "range-hood-front" // RHF: shallow sloped two-door cabinet hood front, not a metal appliance
   | "face-pattern"; // specialty open-front cabinet with slats / criss-cross / lattice / open pattern
 
 export interface CabinetLike {
@@ -312,6 +313,14 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   // open frame and lower shelf platform.
   if (/^wms\d+$/.test(code.replace(/[^a-z0-9]/g, "")) || /wall microwave cabinet kit/.test(hay)) {
     return "wall-microwave-kit";
+  }
+
+  // RHF30/RHF36 are cataloged wall-cabinet hood fronts, not an appliance hood.
+  // The supplied Ashford drawing defines their shallow 9/12-inch cabinet box,
+  // sloped pair of wood doors, and lower fascia. Keep this distinct from a
+  // stainless HOOD-* appliance and from an ordinary rectangular wall cabinet.
+  if (/^rhf[-_]?\d+$/.test(code) || /range\s*hood\s*front/.test(hay)) {
+    return "range-hood-front";
   }
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
@@ -639,6 +648,7 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   if (type === "microwave-base") return "Microwave Base Cabinet";
   if (type === "wall-microwave-kit") return "Wall Microwave Cabinet Kit";
   if (type === "shelf-insert") return "Microwave Cabinet Shelf Insert";
+  if (type === "range-hood-front") return "Range Hood Front";
   if (type === "sink-base") return `Sink ${placement === "Vanity" ? "Vanity" : "Base"}`;
   if (type === "blind-corner") return `Blind Corner ${placement}`;
   if (type === "wall-end-angle") return "Angled Wall End Cabinet";
@@ -730,6 +740,7 @@ export function cabinetAltText(cab: CabinetLike): string {
     "lazy-susan-tray": "shelf-mounted chrome tray insert for an easy-reach corner cabinet",
     "wall-microwave-kit": "open wall microwave cabinet kit with shelf insert",
     "shelf-insert": "individual shelf insert for a wall microwave cabinet kit",
+    "range-hood-front": "shallow sloped two-door range hood front with lower fascia",
     "accessory-strip": "accessory / trim",
     "panel": "flat panel (skin panel / end panel)",
     "decorative-door": "decorative door panel",
