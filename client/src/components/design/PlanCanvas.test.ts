@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, nearestIslandFaceInRect, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { PlanCanvas, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -193,9 +193,18 @@ describe("user measured open wall paths", () => {
 
     expect(markup).toContain('aria-label="User measured walls"');
     expect(markup).toContain('data-testid="custom-wall-context-target"');
+    expect(markup).toContain('data-testid="custom-wall-length-bubble"');
+    expect(markup).toContain('rotate(45)');
     expect(markup).toContain('Right-click Wall 1 for Attributes');
     expect(markup).not.toContain('data-testid="room-wall-top"');
     expect(markup).not.toContain('data-testid="room-wall-right"');
+  });
+
+  it("keeps wall-size bubbles parallel to a run without turning their text upside down", () => {
+    expect(parallelWallLabelAngleDeg(60, 60)).toBe(45);
+    expect(parallelWallLabelAngleDeg(0, 72)).toBe(90);
+    expect(parallelWallLabelAngleDeg(-60, 60)).toBe(-45);
+    expect(parallelWallLabelAngleDeg(-72, 0)).toBe(0);
   });
 
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
@@ -354,7 +363,7 @@ describe("refrigerator magnetic preview wiring", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 
     expect(source).toContain("refrigeratorMagneticSnapEnvelope(cabinet, cabinets, room)");
-    expect(source).toContain("item.refrigeratorAssemblyId === cabinet.uid && item.refrigeratorAssemblyRole");
+    expect(source).toContain("configuredRefrigeratorAssemblyMembers(cabinets, cabinet, room)");
     expect(source).toContain("!refrigeratorMemberUids.has(c.uid)");
     expect(source).toContain("magneticEnvelope: refrigeratorEnvelope");
   });

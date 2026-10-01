@@ -51,7 +51,7 @@ const cabinet: PlacedCabinet = {
 		  });
 		});
 
-		it("selects the correct one-click layout for split and one-sided sub-three-inch gaps", () => {
+		it("selects the correct one-click layout for split and one-sided small gaps", () => {
 	  const baseOpportunity = {
 	    cabinetUid: "cabinet-1",
 	    wall: "top" as const,
@@ -63,14 +63,28 @@ const cabinet: PlacedCabinet = {
 	    remaining: 2,
 	  };
 	  expect(automaticSmallGapFillerMode(baseOpportunity)).toBe("split");
-		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("left");
-		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("right");
+		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0.75, openingLength: 18.75, remaining: 0.75 })).toBe("split");
+		expect(automaticSmallGapFillerMode({ ...baseOpportunity, cabinetStart: 0, openingLength: 18.75, remaining: 0.75 })).toBe("split");
 		});
 
 		it("recommends the full measured seam as the optimal filler cut", () => {
 		  expect(optimalSmallGapFillerCut({ remaining: 6 })).toBe(6);
 		  expect(optimalSmallGapFillerCut({ remaining: 2.375 })).toBe(2.375);
+		  expect(optimalSmallGapFillerCut({ remaining: 0.125 })).toBe(0.125);
+		  expect(optimalSmallGapFillerCut({ remaining: 0.625 })).toBe(0.625);
 		  expect(optimalSmallGapFillerCut({ remaining: 6.125 })).toBeNull();
+		});
+
+		it("offers left or right placement for a source-backed sub-inch seam and only splits even eighth-inch halves", () => {
+		  const subInchRoom = { ...DEFAULT_ROOM, width: 18.625 };
+		  const subInchCabinet = { ...cabinet, uid: "sub-inch-right", width: 18 };
+		  expect(findSmallGapFillerOpportunity(subInchRoom, [subInchCabinet], [], subInchCabinet.uid)).toMatchObject({
+		    remaining: 0.625,
+		    preferredMode: "right",
+		  });
+		  expect(canSplitSmallGapFiller({ remaining: 0.125 })).toBe(false);
+		  expect(canSplitSmallGapFiller({ remaining: 0.25 })).toBe(true);
+		  expect(canSplitSmallGapFiller({ remaining: 0.625 })).toBe(false);
 		});
 
 		it("places a start-corner WBC-27-42 filler on the blind side, to the left of its door", () => {
@@ -493,7 +507,7 @@ const cabinet: PlacedCabinet = {
     expect(findSmallGapFillerOpportunity(room, placed, [], w3642.uid)).toBeNull();
   });
 
-  it("does not offer an automatic filler for the reported quarter-inch W-36-42 remainder", () => {
+	 it("offers an automatic source-backed filler for the reported quarter-inch W-36-42 remainder", () => {
     const w3642: PlacedCabinet = {
       ...cabinet,
       uid: "reported-quarter-inch-w3642",
@@ -513,7 +527,10 @@ const cabinet: PlacedCabinet = {
       before: 0,
       after: 0.25,
     });
-    expect(findSmallGapFillerOpportunity(room, [w3642], [], w3642.uid)).toBeNull();
+	    expect(findSmallGapFillerOpportunity(room, [w3642], [], w3642.uid)).toMatchObject({
+	      remaining: 0.25,
+	      preferredMode: "right",
+	    });
   });
 
   it("prompts for the real one-sided W2442 seam even when the opposite side remains open for more cabinets", () => {

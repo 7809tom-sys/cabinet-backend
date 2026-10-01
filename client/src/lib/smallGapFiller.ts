@@ -20,10 +20,12 @@ import { islandFaceFitMeasure, islandOffsetForPlaced } from "@/lib/islandScene";
 import { isWallBlindCornerCabinet } from "@/lib/cabinetGraphics";
 
 const EDGE_EPSILON_IN = 0.001;
-export const SMALL_GAP_FILLER_MIN_IN = 0.5;
+/** Cuttable source filler can close any physical seam at the shared 1/8-inch precision. */
+export const SMALL_GAP_FILLER_MIN_IN = 0.125;
 /** A cabinet-to-cabinet seam up to six inches can be intentionally filled. */
 export const SMALL_GAP_FILLER_MAX_IN = 6;
-export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.5;
+/** Two pieces are available only when each half is an exact 1/8-inch cut. */
+export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.125;
 
 export type SmallGapFillerPlacementMode = "left" | "right" | "split";
 
@@ -101,7 +103,7 @@ function near(left: number, right: number) {
   return Math.abs(left - right) <= EDGE_EPSILON_IN;
 }
 
-/** Gap prompts use installable 1/8-inch measurements and never sub-1/2-inch shims. */
+/** Gap prompts use installable 1/8-inch source-filler cuts. */
 export function installableSmallGapRemainder(value: number): number | null {
   if (!Number.isFinite(value) || value < SMALL_GAP_FILLER_MIN_IN - EDGE_EPSILON_IN || value > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
   const rounded = Math.round(value * 8) / 8;
@@ -233,7 +235,7 @@ export function findSmallGapFillerOpportunity(
 
 	  // Do not decide an ERB36 filler at the moment the corner cabinet is seated:
 	  // the neighboring runs are not known yet. Once the user places a cabinet
-  // beside either leg, however, a real 1/2–6" seam needs immediate filler
+	  // beside either leg, however, a real 1/8–6" seam needs immediate filler
 	  // guidance even if the cabinet's other side remains open for more cabinets.
 	  // Pick the left seam first for a deterministic prompt; after it is resolved,
 	  // the next cabinet placement/recheck can offer the independent right seam.
@@ -320,7 +322,9 @@ export function smallGapFillerOpportunityFromDragPreview(
 }
 
 export function canSplitSmallGapFiller(opportunity: Pick<SmallGapFillerOpportunity, "remaining">) {
-  return opportunity.remaining + EDGE_EPSILON_IN >= SMALL_GAP_SPLIT_PIECE_MIN_IN * 2;
+  const half = opportunity.remaining / 2;
+  return half + EDGE_EPSILON_IN >= SMALL_GAP_SPLIT_PIECE_MIN_IN
+    && Math.abs(half * 8 - Math.round(half * 8)) <= EDGE_EPSILON_IN;
 }
 
 /** Chooses the safest one-click layout while reusing the existing priced filler transaction. */

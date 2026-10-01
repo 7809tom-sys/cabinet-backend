@@ -1,0 +1,124 @@
+{
+  "membersBefore": [
+    {
+      "uid": "cmuq1g2xa_2",
+      "code": "FRIDGE-36",
+      "role": null,
+      "wall": "top",
+      "offset": 25.25,
+      "x": 25.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_3",
+      "code": "WR3612(W361224)",
+      "role": "bridge",
+      "wall": "top",
+      "offset": 25.25,
+      "x": 25.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_4",
+      "code": "F342",
+      "role": "bridge-left-filler",
+      "wall": "top",
+      "offset": 24.75,
+      "x": 24.75,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_5",
+      "code": "F342",
+      "role": "bridge-right-filler",
+      "wall": "top",
+      "offset": 61.25,
+      "x": 61.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_6",
+      "code": "REPV3096",
+      "role": "left-panel",
+      "wall": "top",
+      "offset": 24,
+      "x": 24,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g8_7",
+      "code": "REPV3096",
+      "role": "right-panel",
+      "wall": "top",
+      "offset": 61.75,
+      "x": 61.75,
+      "y": 0
+    }
+  ],
+  "uniformMoveDeltaByRole": {
+    "null": 18.0,
+    "bridge": 18.0,
+    "bridge-left-filler": 18.0,
+    "bridge-right-filler": 18.0,
+    "left-panel": 18,
+    "right-panel": 18.0
+  },
+  "membersAfter": [
+    {
+      "uid": "cmuq1g2xa_2",
+      "code": "FRIDGE-36",
+      "role": null,
+      "wall": "top",
+      "offset": 25.25,
+      "x": 25.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_3",
+      "code": "WR3612(W361224)",
+      "role": "bridge",
+      "wall": "top",
+      "offset": 25.25,
+      "x": 25.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_4",
+      "code": "F342",
+      "role": "bridge-left-filler",
+      "wall": "top",
+      "offset": 24.75,
+      "x": 24.75,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_5",
+      "code": "F342",
+      "role": "bridge-right-filler",
+      "wall": "top",
+      "offset": 61.25,
+      "x": 61.25,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g7_6",
+      "code": "REPV3096",
+      "role": "left-panel",
+      "wall": "top",
+      "offset": 24,
+      "x": 24,
+      "y": 0
+    },
+    {
+      "uid": "cmuq1g5g8_7",
+      "code": "REPV3096",
+      "role": "right-panel",
+      "wall": "top",
+      "offset": 61.75,
+      "x": 61.75,
+      "y": 0
+    }
+  ],
+  "panelToAdjacentBaseGap": 0,
+  "consoleErrors": []
+}

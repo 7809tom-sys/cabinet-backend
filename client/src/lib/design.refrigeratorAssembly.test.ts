@@ -113,6 +113,32 @@ describe("independent refrigerator catalog parts", () => {
     expect(result!.find((part) => part.uid === ordinaryWallCabinet.uid)).toBe(ordinaryWallCabinet);
   });
 
+  it("moves an explicitly linked legacy refrigerator assembly and restores its durable roles", () => {
+    const { fridge, left, right, cap } = selectedParts();
+    const legacyMembers = [left, right, cap].map(({ refrigeratorAssemblyRole: _role, ...member }) => member);
+    const result = commitConfiguredRefrigeratorCandidate(
+      [fridge, ...legacyMembers],
+      fridge.uid,
+      { ...fridge, x: 48, wallOffset: 48 },
+      room,
+    );
+
+    expect(result).not.toBeNull();
+    expect(result!.find((part) => part.uid === left.uid)).toMatchObject({
+      x: 46.75,
+      refrigeratorAssemblyId: fridge.uid,
+      refrigeratorAssemblyRole: "left-panel",
+    });
+    expect(result!.find((part) => part.uid === right.uid)).toMatchObject({
+      x: 84.5,
+      refrigeratorAssemblyRole: "right-panel",
+    });
+    expect(result!.find((part) => part.uid === cap.uid)).toMatchObject({
+      x: 48,
+      refrigeratorAssemblyRole: "bridge",
+    });
+  });
+
   it.each([
     {
       label: "a standard wall",

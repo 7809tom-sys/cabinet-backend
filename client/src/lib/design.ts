@@ -6769,6 +6769,32 @@ export function refrigeratorAssemblyMembers(
 }
 
 /**
+ * Returns only source parts that were expressly selected in this refrigerator's
+ * Attributes dialog. This is intentionally narrower than
+ * `refrigeratorAssemblyMembers`: that inspection helper can identify an old,
+ * correctly seated enclosure by physical geometry, while a move may never
+ * silently absorb a nearby manually placed cabinet or panel.
+ *
+ * Some saved designs predate the durable role field but retain the explicit
+ * refrigeratorAssemblyId written by the Attributes transaction. Their source
+ * parts remain an intentional assembly, so recover only their missing role
+ * from already-linked geometry and persist it after a successful move.
+ */
+export function configuredRefrigeratorAssemblyMembers(
+  placed: PlacedCabinet[],
+  refrigerator: PlacedCabinet,
+  room?: RoomData | null,
+) {
+  const enclosure = room ?? DEFAULT_ROOM;
+  return placed.flatMap((member) => {
+    if (member.uid === refrigerator.uid || member.refrigeratorAssemblyId !== refrigerator.uid) return [];
+    const role = member.refrigeratorAssemblyRole
+      ?? refrigeratorAssemblyMemberRole(member, refrigerator, enclosure);
+    return role ? [{ member, role }] : [];
+  });
+}
+
+/**
  * Measured, source-geometry proof for a completed refrigerator bay. The same
  * values drive the 3D inspector and regression fixtures: they deliberately use
  * the catalog appliance span and persisted member locations, never a rendered
@@ -6837,15 +6863,14 @@ export function refrigeratorMagneticSnapEnvelope(
   const refrigeratorEnd = refrigeratorStart + wallRunSpan(refrigerator, side, enclosure);
   let startExtensionIn = 0;
   let endExtensionIn = 0;
-  for (const member of placed) {
-    if (member.refrigeratorAssemblyId !== refrigerator.uid) continue;
-    if (member.refrigeratorAssemblyRole !== "left-panel" && member.refrigeratorAssemblyRole !== "right-panel") continue;
+  for (const { member, role } of configuredRefrigeratorAssemblyMembers(placed, refrigerator, enclosure)) {
+    if (role !== "left-panel" && role !== "right-panel") continue;
     // A configured part must remain on the refrigerator's own wall run.  This
     // excludes stale legacy metadata from influencing a live drag.
     if (cabinetWall(member, enclosure) !== side) continue;
     const memberStart = wallRunOffset(member, side, enclosure);
     const memberEnd = memberStart + wallRunSpan(member, side, enclosure);
-    if (member.refrigeratorAssemblyRole === "left-panel") {
+    if (role === "left-panel") {
       startExtensionIn = Math.max(startExtensionIn, refrigeratorStart - memberStart);
     } else {
       endExtensionIn = Math.max(endExtensionIn, memberEnd - refrigeratorEnd);
@@ -6909,10 +6934,8 @@ export function commitConfiguredRefrigeratorCandidate(
   const source = placed.find((item) => item.uid === refrigeratorUid);
   if (!source || !isRefrigerator(source)) return null;
   const enclosure = room ?? DEFAULT_ROOM;
-  const members = placed.filter((item) => (
-    item.refrigeratorAssemblyId === refrigeratorUid
-    && item.refrigeratorAssemblyRole
-  ));
+  const members = configuredRefrigeratorAssemblyMembers(placed, source, enclosure)
+    .map(({ member, role }) => ({ ...member, refrigeratorAssemblyRole: role }));
   if (members.length === 0) return commitIndependentCabinetCandidate(placed, candidate);
 
   const memberUids = new Set(members.map((item) => item.uid));
@@ -12035,9 +12058,8 @@ export function cabinetWallDragPreview(
     // exposed-panel edge as a Floor Plan drag.  Delegate this special physical
     // envelope to the one shared wall-move engine rather than letting the 3D
     // preview snap the refrigerator box through its panel.
-    const memberUids = new Set(others
-      .filter((item) => item.refrigeratorAssemblyId === moving.uid && item.refrigeratorAssemblyRole)
-      .map((item) => item.uid));
+    const memberUids = new Set(configuredRefrigeratorAssemblyMembers(others, moving, room)
+      .map(({ member }) => member.uid));
     const refrigeratorPeers = others.filter((item) => item.uid !== moving.uid && !memberUids.has(item.uid));
     const requestedStart = Math.max(0, Math.min(Math.max(0, wallSpan - requiredSpan), Math.round((targetAlong - requiredSpan / 2) * 8) / 8));
     const requestedSpot = wallPlacementAt(requestedStart, requiredSpan, Number(moving.depth) || STD.BASE_DEPTH, wall, room);

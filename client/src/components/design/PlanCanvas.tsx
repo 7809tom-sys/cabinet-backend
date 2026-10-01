@@ -6,7 +6,7 @@ import {
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
-  cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo,
+	  cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
@@ -80,6 +80,14 @@ export function planTapeMeasure(a: PlanMeasurePoint, b: PlanMeasurePoint) {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   return { dx, dy, distance: Math.hypot(dx, dy) };
+}
+
+/** Rotate a wall-size bubble with its run while keeping the text right-side up. */
+export function parallelWallLabelAngleDeg(dx: number, dy: number): number {
+  let angle = Math.atan2(dy, dx) * 180 / Math.PI;
+  if (angle > 90) angle -= 180;
+  if (angle <= -90) angle += 180;
+  return Math.round(angle * 1000) / 1000;
 }
 
 export type PlanOpeningWallFrame = {
@@ -991,9 +999,8 @@ export function PlanCanvas({
       // own preview.  The shared envelope exposes an end panel as the magnetic
       // contact edge so the refrigerator snaps flush to the adjacent base.
       const refrigeratorEnvelope = refrigeratorMagneticSnapEnvelope(cabinet, cabinets, room);
-      const refrigeratorMemberUids = new Set(cabinets
-        .filter((item) => item.refrigeratorAssemblyId === cabinet.uid && item.refrigeratorAssemblyRole)
-        .map((item) => item.uid));
+      const refrigeratorMemberUids = new Set(configuredRefrigeratorAssemblyMembers(cabinets, cabinet, room)
+        .map(({ member }) => member.uid));
       const peers = cabinets.filter((c) => c.uid !== cabinet.uid && !refrigeratorMemberUids.has(c.uid));
       const wallMove = cabinet.islandFace
         ? null
@@ -1316,6 +1323,7 @@ export function PlanCanvas({
               const midX = (x1 + x2) / 2;
               const midY = (y1 + y2) / 2;
               const length = Math.hypot(end.x - start.x, end.y - start.y);
+              const labelAngle = parallelWallLabelAngleDeg(end.x - start.x, end.y - start.y);
               const active = activeWall === wall.id;
               return <g key={wall.id}>
                 <line
@@ -1336,7 +1344,7 @@ export function PlanCanvas({
                   <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
                 </line>
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
-                <g className="pointer-events-none" transform={`translate(${midX} ${midY})`}>
+                <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
                   <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatEighthInches(length)}</text>
                 </g>

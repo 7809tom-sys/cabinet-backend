@@ -12,6 +12,7 @@ describe("catalogFillerForGap", () => {
 	it("uses the narrowest real catalog filler that can be cut to the measured gap", () => {
 	  expect(catalogFillerForGap(fillers, 2.25, "base")?.masterCode).toBe("BF-3");
 	  expect(catalogFillerForGap(fillers, 4.5, "base")?.masterCode).toBe("BF-6");
+	  expect(catalogFillerForGap(fillers, 0.125, "base")?.masterCode).toBe("BF-3");
 	});
 
 	it("never treats refrigerator or other end panels as fillers, even when an imported accessory category is wrong", () => {

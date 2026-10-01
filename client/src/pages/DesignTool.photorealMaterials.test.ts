@@ -54,6 +54,10 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
 	    expect(designToolSource).toContain("activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}");
 	    expect(designToolSource).toContain("onSetActiveThreeDBacksplash={setActiveBacksplashSurface}");
+	    expect(designToolSource).toContain("const removeFlooring = useCallback(() => {");
+	    expect(designToolSource).toContain('surfaceRole(surface) !== "flooring"');
+	    expect(designToolSource).toContain('data-testid="remove-flooring-control"');
+	    expect(designToolSource).toContain("Flooring removed from this design");
 	    expect(surfacesPickerSource).toContain('data-testid={`surface-use-in-3d-${p.id}`}');
 	    expect(surfacesPickerSource).toContain('"Use in 3D wall"');
 	    expect(designToolSource).toContain("savedDesignId={currentSavedDesignId ?? null}");

@@ -37,6 +37,13 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source).toContain("Leave space open");
 	  });
 
+  it("distinguishes an invalid custom cut from a missing catalog filler and hides unusable actions", () => {
+    expect(source).toContain("{optimalSmallGapFillerDefinition ? <>");
+    expect(source).toContain("No source-priced filler is available for this opening.");
+    expect(source).toContain('data-testid="small-gap-filler-unavailable"');
+    expect(source).toContain("Filler placement stays unavailable until the selected distributor and door style provide an active catalog filler");
+  });
+
 	  it("allows a bounded custom cut and sends inserted filler UIDs to the 3D transition", () => {
 	    expect(source).toContain('data-testid="small-gap-filler-custom-width"');
 	    expect(source).toContain("Custom cut width");
@@ -86,12 +93,13 @@ describe("Design Tool small-gap filler workflow", () => {
   });
 
 	  it("preserves exact placement and one purchased filler identity", () => {
-	  expect(source).toContain("smallGapFillerLayout(cutOpportunity, mode)");
-	  expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
-		  expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
-		  expect(source).toContain("fillerForCabinetUid: cutOpportunity.boundedCabinetUids");
+		  expect(source).toContain("smallGapFillerLayout(cutOpportunity, mode)");
+		  expect(source).toContain('fillerBillingRole: index === 0 ? "primary" : "secondary"');
+			  expect(source).toContain("appendSmallGapFillerPlacement(workingPlaced, movedCabinet, pieces)");
+		  expect(source).toContain("fillerForCabinetUid: owner.uid");
 		  expect(source).toContain("piece.side === \"left\" ? cutOpportunity.boundedCabinetUids[0] : cutOpportunity.boundedCabinetUids[1]");
 		  expect(source).toContain("cutOpportunity.replacingFillerGroupId ?? `filler-group-${makeUid()}`");
-		    expect(source).toContain("removeCabinetAndReleaseVoid(selectedUid)");
+		    expect(source).toContain("const removeCabinetAndReleaseVoid = useCallback((uid: string) => {");
+		    expect(source).toContain("removeCabinetsAndReleaseVoid([uid]);");
 		  });
 });

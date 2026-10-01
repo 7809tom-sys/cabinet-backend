@@ -1043,6 +1043,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     toast.success(`${item.name} added`);
   };
+  // Clear both saved layers: the source product used by Cart/3D and the plan's
+  // representative material. Clearing only one left the flooring pattern visible.
+  const removeFlooring = useCallback(() => {
+    setSelectedSurfaces((prev) => prev.filter((surface) => surfaceRole(surface) !== "flooring"));
+    setFlooringMaterialId(null);
+    setFlooringPattern("random-stagger");
+    toast.success("Flooring removed from this design");
+  }, []);
   // Re-derive the built-in 2D-render material ids (flooring / backsplash /
   // countertop) from a set of Pelican surface picks. Used when RESTORING a
   // design (saved-design load or draft restore) so the plan/elevation fill
@@ -2141,7 +2149,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       } else if (remaining > SMALL_GAP_FILLER_MAX_IN) {
         toast.info(`The measured opening has ${formatEighthInches(remaining)} remaining. Add another cabinet or use the gap tools before fitting a filler.`);
       } else {
-        toast.info("No eligible ½-inch to 6-inch cabinet seam was found beside this cabinet.");
+        toast.info("No eligible 1/8-inch to 6-inch cabinet seam was found beside this cabinet.");
       }
       return;
     }
@@ -13070,14 +13078,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <span>{t("dt_pl_avail_lineup_note")}</span>
                 </div>
               )}
-            {paletteType === "surfaces" ? (
-              <>
-              <RecommendedSurfaces
-                selected={selectedSurfaces}
-                onToggle={addRecommendedSurface}
-                onBrowseAll={() => setSurfacesOpen(true)}
-              />
-              {/* Flooring Layout Pattern Picker */}
+	            {paletteType === "surfaces" ? (
+	              <>
+	              {(flooringMaterialId || activeFlooringSurface) && (
+	                <div data-testid="remove-flooring-control" className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-[#d8c7a1] bg-[#fffaf0] px-3 py-2">
+	                  <div className="min-w-0">
+	                    <p className="truncate text-xs font-semibold text-[#1a2744]">{activeFlooringSurface?.name ?? flooringMaterial(flooringMaterialId!).name}</p>
+	                    <p className="text-[10px] text-muted-foreground">Applied flooring</p>
+	                  </div>
+	                  <Button type="button" variant="outline" size="sm" onClick={removeFlooring} className="h-7 shrink-0 border-rose-300 px-2 text-[10px] font-semibold text-rose-700 hover:bg-rose-50 hover:text-rose-800">
+	                    <X className="mr-1 h-3.5 w-3.5" /> Remove flooring
+	                  </Button>
+	                </div>
+	              )}
+	              <RecommendedSurfaces
+	                selected={selectedSurfaces}
+	                onToggle={addRecommendedSurface}
+	                onBrowseAll={() => setSurfacesOpen(true)}
+	              />
+	              {/* Flooring Layout Pattern Picker */}
               {flooringMaterialId && (() => {
                 const fm = flooringMaterial(flooringMaterialId);
                 if (fm.pattern !== "hardwood" && fm.pattern !== "plank") return null;
@@ -16655,17 +16674,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       >
 	        <DialogContent className="max-w-lg">
 	        <DialogHeader>
-	          <DialogTitle>Choose filler placement — {formatInches(smallGapFillerPrompt?.remaining ?? 0)}</DialogTitle>
+		          <DialogTitle>Choose filler placement — {formatEighthInches(smallGapFillerPrompt?.remaining ?? 0)}</DialogTitle>
 	        <DialogDescription>
-	          {smallGapFillerDefinition
-	            ? `${smallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. Choose the left edge, right edge, or an even split below; CabinetDealz cuts and inserts the selected size at that exact zero-overlap seam.`
+	          {optimalSmallGapFillerDefinition
+	            ? `${optimalSmallGapFillerDefinition.masterCode} is the narrowest active catalog filler that covers this opening. Choose the left edge, right edge, or an even split below; CabinetDealz cuts and inserts the selected size at that exact zero-overlap seam.`
 	            : "No active catalog filler is available for this opening."}
 	        </DialogDescription>
 	      </DialogHeader>
+	      {optimalSmallGapFillerDefinition ? <>
 	      {optimalSmallGapFillerWidth != null && optimalSmallGapFillerDefinition && (
 	        <div data-testid="small-gap-filler-optimal-suggestion" className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-950">
 	          <div className="flex flex-wrap items-center justify-between gap-2">
-	            <div><span className="font-semibold">Recommended: </span>{optimalSmallGapFillerDefinition.masterCode} cut to {formatInches(optimalSmallGapFillerWidth)} closes the full measured wall seam.</div>
+		            <div><span className="font-semibold">Recommended: </span>{optimalSmallGapFillerDefinition.masterCode} cut to {formatEighthInches(optimalSmallGapFillerWidth)} closes the full measured wall seam.</div>
 	            <Button size="sm" variant="outline" className="border-emerald-500 bg-white text-emerald-800 hover:bg-emerald-100" onClick={() => {
 	              setSmallGapFillerCustomWidth(optimalSmallGapFillerWidth);
 	              setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt!));
@@ -16693,7 +16713,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          />
 	          <span className="text-sm text-muted-foreground">inches</span>
 	        </div>
-	        <p className="mt-1 text-xs text-muted-foreground">Choose any cut from {formatInches(SMALL_GAP_FILLER_MIN_IN)} through {formatInches(smallGapFillerPrompt?.remaining ?? 0)} in 1/8-inch increments. A smaller cut leaves the balance open.</p>
+		        <p className="mt-1 text-xs text-muted-foreground">Choose any cut from {formatEighthInches(SMALL_GAP_FILLER_MIN_IN)} through {formatEighthInches(smallGapFillerPrompt?.remaining ?? 0)} in 1/8-inch increments. A smaller cut leaves the balance open.</p>
 	        {!selectedSmallGapFillerCutIsValid && <p className="mt-1 text-xs font-medium text-destructive">Enter a cut inside the measured seam before choosing a placement.</p>}
 	      </div>
 	      <Button
@@ -16704,10 +16724,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut); }}
 	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
 	      >
-	        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatInches(selectedSmallGapFillerCut)}
+		        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatEighthInches(selectedSmallGapFillerCut)}
 	      </Button>
 	      <div className="rounded-lg border border-[#d9c196] bg-[#fffaf0] p-3">
-	        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatInches(selectedSmallGapFillerCut)} filler go?</p>
+		        <p className="mb-2 text-sm font-semibold text-[#1a2744]">Where should this {formatEighthInches(selectedSmallGapFillerCut)} filler go?</p>
 	        <p className="mb-2 text-xs text-[#765416]">The gold highlighted gap on the plan shows the current choice before anything is inserted.</p>
 	        <div className="grid gap-2 sm:grid-cols-3">
 	            <Button
@@ -16719,12 +16739,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              data-testid="small-gap-filler-split"
 	              className="h-auto min-h-14 whitespace-normal"
 	            >
-	              Split evenly<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut / 2)} each side</span>
+		              Split evenly<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut / 2)} each side</span>
 	            </Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("left")} onFocus={() => setSmallGapFillerPreviewMode("left")} onClick={() => { setSmallGapFillerPreviewMode("left"); applySmallGapFiller("left", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
-	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("right")} onFocus={() => setSmallGapFillerPreviewMode("right")} onClick={() => { setSmallGapFillerPreviewMode("right"); applySmallGapFiller("right", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatInches(selectedSmallGapFillerCut)} filler</span></Button>
+		            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("left")} onFocus={() => setSmallGapFillerPreviewMode("left")} onClick={() => { setSmallGapFillerPreviewMode("left"); applySmallGapFiller("left", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
+		            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("right")} onFocus={() => setSmallGapFillerPreviewMode("right")} onClick={() => { setSmallGapFillerPreviewMode("right"); applySmallGapFiller("right", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
 	        </div>
 	      </div>
+	      </> : (
+	        <div data-testid="small-gap-filler-unavailable" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+	          <p className="font-semibold">No source-priced filler is available for this opening.</p>
+	          <p className="mt-1 text-xs leading-5">Filler placement stays unavailable until the selected distributor and door style provide an active catalog filler that can cover this exact cut. Leave the space open or choose a different cabinet fit.</p>
+	        </div>
+	      )}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setSmallGapFillerPrompt(null)}>Leave space open</Button>
           </DialogFooter>
