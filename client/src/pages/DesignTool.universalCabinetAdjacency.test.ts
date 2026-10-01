@@ -40,11 +40,12 @@ describe("universal exact-zero cabinet adjacency routing", () => {
     expect(threeDPath).not.toContain("customPlacementMode ? movedCandidate : snapCabinetSeamOverlap");
   });
 
-	  it("preserves every existing cabinet while independently configuring refrigerator options", () => {
-	    const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
-	    expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
-	    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(configuredPlaced, toPlace, fridge.uid, room)");
-	    expect(refrigeratorPath).toContain("const existingOptionUids = new Set(");
+		  it("preserves every existing cabinet while independently configuring refrigerator options", () => {
+		    const refrigeratorPath = sourceBetween("const applyFridgeSurround = useCallback", "const [builtinRunArmed");
+		    expect(refrigeratorPath).toContain("hasCollision(resizedFridge, peers)");
+		    expect(refrigeratorPath).toContain("fitExplicitRefrigeratorOptionPlacements(configuredPlaced, toPlace, fridge.uid, room)");
+		    expect(refrigeratorPath).toContain("appendRefrigeratorEnclosurePlacements(\n\t        fittedOptions.existing,\n\t        fittedOptions.additions,\n\t        fridge.uid,\n\t        room,\n\t      )");
+		    expect(refrigeratorPath).toContain("const existingOptionUids = new Set(");
 	    expect(refrigeratorPath).toContain("The refrigerator and every existing cabinet remain exactly where they are.");
 	    expect(refrigeratorPath).not.toContain("fitRefrigeratorEnclosurePlacements(");
 	    expect(refrigeratorPath).not.toContain("normalizeRefrigeratorBayUppers(previewResult.placed, room)");

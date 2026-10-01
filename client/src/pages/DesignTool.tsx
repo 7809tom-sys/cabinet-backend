@@ -5788,14 +5788,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            wallRunPlaced,
 	            width,
 	            depth,
-	            placement,
-	            along,
-	            containingSegment.start,
-	            containingSegment.start + containingSegment.length - width,
+			            placement,
+			            along,
+			            containingSegment.start,
+			            containingSegment.start + containingSegment.length - width,
+			            {
+			              cabinetId: Number(cabinet.id) || 0,
+			              masterCode: cabinet.masterCode,
+			              description: cabinet.description,
+			              height: dimensions.height,
+			              mountBottom: (cabinet as any).mountBottom ?? undefined,
+			              cornerType: cabinet.cornerType ?? undefined,
+			            },
 	          )
 	        : wallPlacementAt(along, width, depth, dropWall, room);
 	      if (!spot) {
-	        const message = `Cannot place ${cabinet.masterCode} on this measured wall: the 45° corner clearance leaves no collision-free ${formatEighthInches(width)} position in the selected opening.`;
+	        const message = `Cannot place ${cabinet.masterCode} on this measured wall: the on-canvas tape is point-to-point, not a cabinet opening. The selected usable opening has no collision-free ${formatEighthInches(width)} position after the shared 45° corner hold and final cabinet-body check.`;
 	        setPlacementWarning(message);
 	        toast.error(message);
 	        return;
@@ -7947,14 +7955,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            wallRunPlaced,
 	            width,
 	            depth,
-	            placement,
-	            measured.snapStart,
-	            containingSegment.start,
-	            containingSegment.start + containingSegment.length - width,
+		            placement,
+		            measured.snapStart,
+		            containingSegment.start,
+		            containingSegment.start + containingSegment.length - width,
+		            {
+		              cabinetId: Number(data.id) || 0,
+		              masterCode: data.masterCode,
+		              description: data.description,
+		              height: dimensions.height,
+		              mountBottom: (data as any).mountBottom ?? undefined,
+		              cornerType: data.cornerType ?? undefined,
+		            },
 	          )
 	        : wallPlacementAt(measured.snapStart, width, depth, dropWall, room, activePeninsulaRun?.cabinetSide);
 	      if (!spot) {
-	        const message = `Cannot place ${data.masterCode} on this measured wall: the 45° corner clearance leaves no collision-free ${formatEighthInches(width)} position in the selected opening.`;
+	        const message = `Cannot place ${data.masterCode} on this measured wall: the on-canvas tape is point-to-point, not a cabinet opening. The selected usable opening has no collision-free ${formatEighthInches(width)} position after the shared 45° corner hold and final cabinet-body check.`;
 	        setPlacementWarning(message);
 	        toast.error(message);
 	        dragDataRef.current = null;

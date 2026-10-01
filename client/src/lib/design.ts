@@ -7656,6 +7656,14 @@ export function firstCollisionFreeWallPlacement(
   desiredStart: number,
   minStart = 0,
   maxStart = Math.max(0, wallLength(side, room) - width),
+  /**
+   * Palette drops must be previewed as the actual catalog cabinet, not a
+   * generic rectangle.  Several catalog types carry collision/elevation
+   * semantics (corner bodies, appliance companions, a stored mount height).
+   * Keeping those fields here makes the preflight search agree with the final
+   * add transaction on standard and measured wall runs.
+   */
+  candidateTemplate?: Partial<Pick<PlacedCabinet, "cabinetId" | "masterCode" | "description" | "height" | "mountBottom" | "mountBottomAdjusted" | "cornerType" | "customProfile">>,
 ): { x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; peninsulaSide?: PeninsulaCabinetSide } | null {
   const lower = Math.max(0, Math.min(maxStart, minStart));
   const upper = Math.max(lower, maxStart);
@@ -7664,9 +7672,9 @@ export function firstCollisionFreeWallPlacement(
     const spot = wallPlacementAt(start, width, depth, side, room);
     const candidate: PlacedCabinet = {
       uid: "wall-placement-preview",
-      cabinetId: 0,
-      masterCode: "WALL-PLACEMENT",
-      description: "Wall placement preview",
+      cabinetId: candidateTemplate?.cabinetId ?? 0,
+      masterCode: candidateTemplate?.masterCode ?? "WALL-PLACEMENT",
+      description: candidateTemplate?.description ?? "Wall placement preview",
       placement,
       x: spot.x,
       y: spot.y,
@@ -7675,6 +7683,11 @@ export function firstCollisionFreeWallPlacement(
       rotation: spot.rotation,
       wallId: spot.wallId,
       wallOffset: spot.wallOffset,
+      ...(candidateTemplate?.height != null ? { height: candidateTemplate.height } : {}),
+      ...(candidateTemplate?.mountBottom != null ? { mountBottom: candidateTemplate.mountBottom } : {}),
+      ...(candidateTemplate?.mountBottomAdjusted != null ? { mountBottomAdjusted: candidateTemplate.mountBottomAdjusted } : {}),
+      ...(candidateTemplate?.cornerType != null ? { cornerType: candidateTemplate.cornerType } : {}),
+      ...(candidateTemplate?.customProfile != null ? { customProfile: candidateTemplate.customProfile } : {}),
     };
     return cabinetPlacementCollisionDetail(candidate, placed, room) ? null : spot;
   };

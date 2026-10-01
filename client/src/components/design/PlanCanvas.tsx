@@ -2835,8 +2835,9 @@ export function PlanCanvas({
             className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a]/70 bg-[#1a2744] px-2 py-1 text-center text-[10px] font-semibold text-white shadow-lg whitespace-nowrap"
             style={{ left: measure.midX, top: measure.midY }}
           >
-            <span className="block text-[11px] text-[#f8d889]">{formatInches(measure.distIn)}</span>
-            <span className="block text-[9px] text-white/80">X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}</span>
+            <span className="block text-[11px] text-[#f8d889]">Tape {formatInches(measure.distIn)}</span>
+            <span className="block text-[9px] text-white/80">Point-to-point · X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}</span>
+            <span className="block text-[8px] text-white/65">Use the catalog fit banner for usable cabinet clearance</span>
           </div>
         )}
 

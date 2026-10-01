@@ -407,8 +407,11 @@ describe("plan placement assistance wiring", () => {
 	    expect(source).toContain('data-testid="automatic-filler-size-suggestion"');
 	    expect(source).toContain("catalogFillerSuggestion(catalogFillerCandidates, recommendation.remaining, activeGap.layer)");
 	    expect(source).toContain("automaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width)");
-    expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
-	    expect(source).toContain("hold Shift for freehand");
+	    expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
+		    expect(source).toContain("hold Shift for freehand");
+		    expect(source).toContain("Tape {formatInches(measure.distIn)}");
+		    expect(source).toContain("Point-to-point · X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}");
+		    expect(source).toContain("Use the catalog fit banner for usable cabinet clearance");
 	  });
 });
 

@@ -17,7 +17,7 @@ import {
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects, lCornerCountertopWorldPolygon,
   wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
-		  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
+	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, firstCollisionFreeWallPlacement, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
   blindCornerSpecViolations, blindPullRange,
@@ -4439,10 +4439,34 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
 	    expect(cabinetPlacementCollisionDetail(rightPreview.candidate!, [wdc2442], room)).toBeNull();
 	    // Catalog drops use the same final seam normalizer after their shared
 	    // wall-run placement. It must retain the verified 24" run edge too.
-	    const catalogSeam = snapCabinetSeamOverlap(rightPreview.candidate!, [wdc2442], CABINET_CONFLICT_LOCK_IN, room);
-	    expect(catalogSeam.wallOffset).toBe(24);
-	    expect(cabinetPlacementCollisionDetail(catalogSeam, [wdc2442], room)).toBeNull();
-	  });
+		    const catalogSeam = snapCabinetSeamOverlap(rightPreview.candidate!, [wdc2442], CABINET_CONFLICT_LOCK_IN, room);
+		    expect(catalogSeam.wallOffset).toBe(24);
+		    expect(cabinetPlacementCollisionDetail(catalogSeam, [wdc2442], room)).toBeNull();
+
+		    // A catalog drop first searches a collision-free run position before it
+		    // commits the exact same W3042. Its preview must keep the real catalog
+		    // dimensions/elevation and preserve this exposed WDC leg seam.
+		    const catalogDrop = firstCollisionFreeWallPlacement(
+		      "down-right" as never,
+		      room,
+		      [wdc2442],
+		      30,
+		      12,
+		      "wall",
+		      24,
+		      24,
+		      24,
+		      {
+		        cabinetId: 2,
+		        masterCode: "W-3042",
+		        description: "30 inch Wall Cabinet",
+		        height: 42,
+		        mountBottom: 54,
+		      },
+		    );
+		    expect(catalogDrop?.wallId).toBe("down-right");
+		    expect(catalogDrop?.wallOffset).toBe(24);
+		  });
 
   it("moves a straight wall cabinet past the physical clearance at an adjoining measured 45-degree run", () => {
     const room: RoomData = {
