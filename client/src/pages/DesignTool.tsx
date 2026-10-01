@@ -1972,7 +1972,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     styleId: styleId ?? undefined,
     distributorId: lockedDistributorId ?? undefined,
   });
-  const { data: threeDAccessoryCatalog } = trpc.design.placeableCabinets.useQuery({
+  const { data: threeDAccessoryCatalog, isLoading: catalogFillersLoading } = trpc.design.placeableCabinets.useQuery({
     placement: "accessory",
     styleId: styleId ?? undefined,
     // Match the catalog picker scope used by cabinet placement. A pre-placement
@@ -16697,7 +16697,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            : "No active catalog filler is available for this opening."}
 	        </DialogDescription>
 	      </DialogHeader>
-	      {optimalSmallGapFillerDefinition ? <>
+	      {catalogFillersLoading ? <div data-testid="small-gap-filler-loading" className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+	        Loading active catalog filler options for the selected distributor and door style.
+	      </div> : optimalSmallGapFillerDefinition ? <>
 	      {optimalSmallGapFillerWidth != null && optimalSmallGapFillerDefinition && (
 	        <div data-testid="small-gap-filler-optimal-suggestion" className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-950">
 	          <div className="flex flex-wrap items-center justify-between gap-2">

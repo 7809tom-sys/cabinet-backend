@@ -38,7 +38,10 @@ describe("Design Tool small-gap filler workflow", () => {
 	  });
 
   it("distinguishes an invalid custom cut from a missing catalog filler and hides unusable actions", () => {
-    expect(source).toContain("{optimalSmallGapFillerDefinition ? <>");
+	    expect(source).toContain('data-testid="small-gap-filler-loading"');
+	    expect(source).toContain("Loading active catalog filler options for the selected distributor and door style.");
+	    expect(source).toContain("catalogFillersLoading ? <div");
+	    expect(source).toContain("optimalSmallGapFillerDefinition ? <>");
     expect(source).toContain("No source-priced filler is available for this opening.");
     expect(source).toContain('data-testid="small-gap-filler-unavailable"');
     expect(source).toContain("Filler placement stays unavailable until the selected distributor and door style provide an active catalog filler");
