@@ -26,7 +26,7 @@ describe("Design Tool small-gap filler workflow", () => {
 
 	  it("offers leave-open, split, left, and right outcomes", () => {
 	  expect(source).toContain('data-testid="small-gap-filler-auto"');
-	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut)");
+	  expect(source).toContain("applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), smallGapFillerPrompt, selectedSmallGapFillerCut)");
 	  expect(source).toContain("Use suggested placement · {smallGapFillerDefinition?.masterCode");
 	    expect(source).toContain("Choose filler placement");
 	    expect(source).toContain("Where should this");
@@ -44,12 +44,17 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("Filler placement stays unavailable until the selected distributor and door style provide an active catalog filler");
   });
 
+  it("loads the selected catalog distributor's source-priced three-inch filler for every cut through three inches", () => {
+    expect(source).toContain("distributorId: catalogDistributorScopeId ?? undefined");
+    expect(source).toContain("const catalogFillers = useMemo");
+  });
+
 	  it("allows a bounded custom cut and sends inserted filler UIDs to the 3D transition", () => {
 	    expect(source).toContain('data-testid="small-gap-filler-custom-width"');
 	    expect(source).toContain("Custom cut width");
 	    expect(source).toContain("selectedSmallGapFillerCut >= SMALL_GAP_FILLER_MIN_IN");
 	    expect(source).toContain("selectedSmallGapFillerCut <= smallGapFillerPrompt.remaining");
-	    expect(source).toContain("applySmallGapFiller(\"left\", undefined, selectedSmallGapFillerCut)");
+	    expect(source).toContain("applySmallGapFiller(\"left\", smallGapFillerPrompt, selectedSmallGapFillerCut)");
 	    expect(source).toContain("setFillerInsertionTransition({ uids: pieces.map((piece) => piece.uid), key: Date.now() })");
 	    expect(source.match(/fillerInsertionTransition=\{fillerInsertionTransition\}/g)).toHaveLength(2);
 	  });
@@ -72,6 +77,7 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(applySource).toContain("const committedPlaced = placedRef.current");
 	    expect(applySource).toContain("findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
 	    expect(applySource).toContain("Choose an installable filler cut from");
+	    expect(applySource).toContain("wallOffset: cabinetSpot.wallOffset");
 	    expect(applySource).toContain("placedRef.current = result.placed");
 	  });
 

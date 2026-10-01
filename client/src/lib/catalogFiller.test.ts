@@ -3,16 +3,19 @@ import { catalogFillerForGap, catalogFillerPricingId, catalogFillerSuggestion, f
 import { CUSTOM_SIZE_FEE, customSizeFee } from "./design";
 
 const fillers = [
+  { id: 4, masterCode: "BF-1.5", description: '1.5" x 34.5" Base Filler', category: "Filler", subCategory: "Filler", width: 1.5, depth: 24, height: 34.5, catalogImageUrl: null },
   { id: 1, masterCode: "BF-3", description: '3" x 34.5" Base Filler', category: "Filler", subCategory: "Filler", width: 3, depth: 24, height: 34.5, catalogImageUrl: null },
   { id: 2, masterCode: "BF-6", description: '6" x 34.5" Base Filler', category: "Filler", subCategory: "Filler", width: 6, depth: 24, height: 34.5, catalogImageUrl: null },
   { id: 3, masterCode: "WF342", description: '3" x 30" Wall Filler', category: "Filler", subCategory: "Filler", width: 3, depth: 12, height: 30, catalogImageUrl: null },
 ] as const;
 
 describe("catalogFillerForGap", () => {
-	it("uses the narrowest real catalog filler that can be cut to the measured gap", () => {
+	it("uses one real 3-inch stock filler for every installed cut through 3 inches", () => {
 	  expect(catalogFillerForGap(fillers, 2.25, "base")?.masterCode).toBe("BF-3");
 	  expect(catalogFillerForGap(fillers, 4.5, "base")?.masterCode).toBe("BF-6");
 	  expect(catalogFillerForGap(fillers, 0.125, "base")?.masterCode).toBe("BF-3");
+	  expect(catalogFillerForGap(fillers, 0.625, "base")?.masterCode).toBe("BF-3");
+	  expect(catalogFillerForGap(fillers, 1.5, "base")?.masterCode).toBe("BF-3");
 	});
 
 	it("never treats refrigerator or other end panels as fillers, even when an imported accessory category is wrong", () => {
@@ -87,8 +90,12 @@ describe("catalogFillerForGap", () => {
     expect(catalogFillerPricingId({ id: 24, masterCode: "B24", description: "Base", category: "Base", subCategory: "Base", width: 24, placement: "base" }, fillers)).toBe(24);
   });
 
-  it("rebases a stale positive filler id to the active cuttable catalog filler before pricing", () => {
-    expect(catalogFillerPricingId({ id: 9999, cabinetId: 9999, masterCode: "BF-3", description: '3" x 34.5" Base Filler — cut to 2.25"', category: "Filler", subCategory: "Filler", width: 2.25, placement: "base" }, fillers)).toBe(1);
-    expect(catalogFillerPricingId({ id: 2, cabinetId: 2, masterCode: "BF-6", description: '6" x 34.5" Base Filler — cut to 4.5"', category: "Filler", subCategory: "Filler", width: 4.5, placement: "base" }, fillers)).toBe(2);
-  });
+	it("rebases a stale positive filler id to the active cuttable catalog filler before pricing", () => {
+	  expect(catalogFillerPricingId({ id: 9999, cabinetId: 9999, masterCode: "BF-3", description: '3" x 34.5" Base Filler — cut to 2.25"', category: "Filler", subCategory: "Filler", width: 2.25, placement: "base" }, fillers)).toBe(1);
+	  expect(catalogFillerPricingId({ id: 2, cabinetId: 2, masterCode: "BF-6", description: '6" x 34.5" Base Filler — cut to 4.5"', category: "Filler", subCategory: "Filler", width: 4.5, placement: "base" }, fillers)).toBe(2);
+	});
+
+	it("rebases a prior smaller-stock 5/8-inch filler to the 3-inch cart SKU", () => {
+	  expect(catalogFillerPricingId({ id: 4, cabinetId: 4, masterCode: "BF-1.5", description: '1.5" Base Filler — cut to 0.625"', category: "Filler", subCategory: "Filler", width: 0.625, placement: "base" }, fillers)).toBe(1);
+	});
 });

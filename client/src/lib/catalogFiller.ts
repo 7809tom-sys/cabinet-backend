@@ -53,10 +53,12 @@ export function isCatalogFiller(candidate: Pick<CatalogFillerCandidate, "masterC
 }
 
 /**
- * Picks the narrowest sellable filler that covers the exact measured gap. The
- * installer trims this catalog item to `gapWidth`; no generic filler SKU or
- * inferred price is created. Placement ranking favors a 24-in deep base/tall
- * filler or a 12-in deep wall filler, then the closest cuttable height.
+ * Picks the source-priced stock filler used to cover a measured gap. Physical
+ * installation always keeps the exact `gapWidth`, but every cut of 3 inches or
+ * less consumes one 3-inch catalog filler in the cart, estimate, invoice, and
+ * materials list. Never create a generic short-filler SKU or infer its price.
+ * Placement ranking favors a 24-in deep base/tall filler or a 12-in deep wall
+ * filler, then the closest cuttable height.
  */
 export function catalogFillerForGap(
   candidates: readonly CatalogFillerCandidate[],
@@ -66,10 +68,15 @@ export function catalogFillerForGap(
   if (!Number.isFinite(gapWidth) || gapWidth <= 0) return null;
   const desiredDepth = placement === "wall" ? 12 : 24;
   const desiredHeight = placement === "wall" ? 30 : placement === "tall" ? 96 : 34.5;
+  const requiresThreeInchStock = gapWidth <= 3 + 0.001;
 
   return candidates
     .filter(isCatalogFiller)
     .filter((candidate) => numberValue(candidate.width) + 0.001 >= gapWidth)
+    // A 5/8-inch, 1-1/2-inch, or 3-inch installed seam is cut from and billed
+    // as one real 3-inch stock filler. Do not silently substitute a smaller
+    // accessory code or a wider filler when the line has no orderable 3-inch SKU.
+    .filter((candidate) => !requiresThreeInchStock || Math.abs(numberValue(candidate.width) - 3) <= 0.001)
     .sort((left, right) => {
       const widthDelta = numberValue(left.width) - numberValue(right.width);
       if (Math.abs(widthDelta) > 0.001) return widthDelta;
@@ -134,9 +141,14 @@ export function catalogFillerPricingId(
     ? "wall"
     : cabinet.placement === "tall" ? "tall" : "base";
   const installedWidth = numberValue(cabinet.width);
+  const requiredStock = catalogFillerForGap(candidates, installedWidth, placement);
+  // Rebase prior generic or smaller-stock short fillers as well: a physical
+  // cut at or below 3 inches is one 3-inch catalog filler in every commerce
+  // surface, even when an old saved design retained a smaller filler ID.
+  if (installedWidth <= 3 + 0.001 && requiredStock) return requiredStock.id;
   const activePersisted = candidates.find((candidate) => candidate.id === persistedId);
   if (activePersisted && isCatalogFiller(activePersisted) && numberValue(activePersisted.width) + 0.001 >= installedWidth) {
     return persistedId;
   }
-  return catalogFillerForGap(candidates, installedWidth, placement)?.id ?? null;
+  return requiredStock?.id ?? null;
 }

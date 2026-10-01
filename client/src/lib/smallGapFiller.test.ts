@@ -569,8 +569,8 @@ const cabinet: PlacedCabinet = {
     expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 24.125 }, [cabinet], [], cabinet.uid)).toBeNull();
   });
 
-  it("places full-left, full-right, and split fillers with exact zero-overlap seams", () => {
-    const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 21 }, [cabinet], [], cabinet.uid)!;
+	  it("places full-left, full-right, and split fillers with exact zero-overlap seams", () => {
+	    const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 21 }, [cabinet], [], cabinet.uid)!;
     const left = smallGapFillerLayout(opportunity, "left");
     const right = smallGapFillerLayout(opportunity, "right");
     const split = smallGapFillerLayout(opportunity, "split");
@@ -579,10 +579,50 @@ const cabinet: PlacedCabinet = {
     expect(split).toMatchObject({ cabinetStart: 1.5, leftWidth: 1.5, rightWidth: 1.5 });
     expect(split.pieces[0]!.start + split.pieces[0]!.width).toBe(split.cabinetStart);
     expect(split.cabinetStart + opportunity.cabinetSpan).toBe(split.pieces[1]!.start);
-    expect(split.pieces[1]!.start + split.pieces[1]!.width).toBe(opportunity.openingStart + opportunity.openingLength);
-  });
+	    expect(split.pieces[1]!.start + split.pieces[1]!.width).toBe(opportunity.openingStart + opportunity.openingLength);
+	  });
 
-  it("removes both physical halves as one purchased filler group", () => {
+	  it("commits a five-eighths filler when the moved cabinet refreshes its shared wall offset", () => {
+	    const room: RoomData = { width: 36.625, depth: 120, ceilingHeight: 96 };
+	    const original = { ...cabinet, uid: "sub-inch-b36", masterCode: "B36", width: 36, wallId: "top" as const, wallOffset: 0 };
+	    const opportunity = findSmallGapFillerOpportunity(room, [original], [], original.uid)!;
+	    const layout = smallGapFillerLayout(opportunity, "left");
+	    const cabinetSpot = wallPlacementAt(layout.cabinetStart, opportunity.cabinetSpan, original.depth, opportunity.wall, room);
+	    const moved = {
+	      ...original,
+	      x: cabinetSpot.x,
+	      y: cabinetSpot.y,
+	      rotation: cabinetSpot.rotation,
+	      wallId: cabinetSpot.wallId,
+	      wallOffset: cabinetSpot.wallOffset,
+	    };
+	    const fillerSpot = wallPlacementAt(layout.pieces[0]!.start, layout.pieces[0]!.width, original.depth, opportunity.wall, room);
+	    const filler = {
+	      ...original,
+	      uid: "sub-inch-f342",
+	      cabinetId: 9360195,
+	      masterCode: "F342",
+	      description: '3" Filler — cut to 5/8"',
+	      category: "Filler",
+	      subCategory: "Filler",
+	      x: fillerSpot.x,
+	      y: fillerSpot.y,
+	      width: layout.pieces[0]!.width,
+	      nominalWidth: 3,
+	      rotation: fillerSpot.rotation,
+	      wallId: fillerSpot.wallId,
+	      wallOffset: fillerSpot.wallOffset,
+	      fillerBillingRole: "primary" as const,
+	      fillerPieceGroupId: "sub-inch-filler-group",
+	    };
+
+	    const result = appendSmallGapFillerPlacement([original], moved, [filler]);
+	    expect(moved.wallOffset).toBe(0.625);
+	    expect(result.rejected).toEqual([]);
+	    expect(result.placed.map((item) => item.uid)).toEqual([moved.uid, filler.uid]);
+	  });
+
+	  it("removes both physical halves as one purchased filler group", () => {
     const pieces: PlacedCabinet[] = [
       cabinet,
       { ...cabinet, uid: "fill-left", masterCode: "BF3", fillerPieceGroupId: "fill-group", fillerBillingRole: "primary" },

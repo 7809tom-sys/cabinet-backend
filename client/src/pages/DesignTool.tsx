@@ -1975,7 +1975,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const { data: threeDAccessoryCatalog } = trpc.design.placeableCabinets.useQuery({
     placement: "accessory",
     styleId: styleId ?? undefined,
-    distributorId: lockedDistributorId ?? undefined,
+    // Match the catalog picker scope used by cabinet placement. A pre-placement
+    // distributor selection must not make its own active 3-inch filler vanish
+    // from a measured seam simply because the plan lock has not been written.
+    distributorId: catalogDistributorScopeId ?? undefined,
   }, { enabled: styleId != null });
   const catalogFillers = useMemo(
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
@@ -6371,8 +6374,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    ? islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)
 	    : (() => {
 	        const cabinetSpot = wallPlacementAt(layout.cabinetStart, cutOpportunity.cabinetSpan, cabinet.depth, cutOpportunity.wall, room);
-          return { ...cabinet, x: cabinetSpot.x, y: cabinetSpot.y, rotation: cabinetSpot.rotation };
-        })();
+	        // The visible x/y position and the shared run coordinate must move
+	        // together. Retaining the old wallOffset made the collision engine
+	        // reject a physically flush sub-inch filler at the new screen position.
+          return {
+	          ...cabinet,
+	          x: cabinetSpot.x,
+	          y: cabinetSpot.y,
+	          rotation: cabinetSpot.rotation,
+	          ...(cabinetSpot.wallId ? {
+	            wallId: cabinetSpot.wallId,
+	            wallOffset: cabinetSpot.wallOffset,
+	            peninsulaSide: cabinetSpot.peninsulaSide,
+	          } : {}),
+	        };
+	      })();
     const peers = workingPlaced.filter((item) => item.uid !== cabinet.uid);
     if (hasCollision(movedCabinet, peers)) {
       toast.error("The cabinet cannot move to that filler position without overlapping another item.");
@@ -16721,7 +16737,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid}
 	        onMouseEnter={() => { if (smallGapFillerPrompt) setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
 	        onFocus={() => { if (smallGapFillerPrompt) setSmallGapFillerPreviewMode(automaticSmallGapFillerMode(smallGapFillerPrompt)); }}
-	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), undefined, selectedSmallGapFillerCut); }}
+	        onClick={() => { if (smallGapFillerPrompt) applySmallGapFiller(automaticSmallGapFillerMode(smallGapFillerPrompt), smallGapFillerPrompt, selectedSmallGapFillerCut); }}
 	        className="w-full bg-[#1a2744] text-white hover:bg-[#1a2744]/90"
 	      >
 		        <Wand2 className="mr-1.5 h-4 w-4" /> Use suggested placement · {smallGapFillerDefinition?.masterCode ?? "filler"} cut {formatEighthInches(selectedSmallGapFillerCut)}
@@ -16735,14 +16751,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              disabled={!smallGapFillerPrompt || !smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid || !canSplitSmallGapFiller({ remaining: selectedSmallGapFillerCut })}
 	              onMouseEnter={() => setSmallGapFillerPreviewMode("split")}
 	              onFocus={() => setSmallGapFillerPreviewMode("split")}
-	              onClick={() => { setSmallGapFillerPreviewMode("split"); applySmallGapFiller("split", undefined, selectedSmallGapFillerCut); }}
+	              onClick={() => { if (smallGapFillerPrompt) { setSmallGapFillerPreviewMode("split"); applySmallGapFiller("split", smallGapFillerPrompt, selectedSmallGapFillerCut); } }}
 	              data-testid="small-gap-filler-split"
 	              className="h-auto min-h-14 whitespace-normal"
 	            >
 		              Split evenly<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut / 2)} each side</span>
 	            </Button>
-		            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("left")} onFocus={() => setSmallGapFillerPreviewMode("left")} onClick={() => { setSmallGapFillerPreviewMode("left"); applySmallGapFiller("left", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
-		            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("right")} onFocus={() => setSmallGapFillerPreviewMode("right")} onClick={() => { setSmallGapFillerPreviewMode("right"); applySmallGapFiller("right", undefined, selectedSmallGapFillerCut); }} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("left")} onFocus={() => setSmallGapFillerPreviewMode("left")} onClick={() => { if (smallGapFillerPrompt) { setSmallGapFillerPreviewMode("left"); applySmallGapFiller("left", smallGapFillerPrompt, selectedSmallGapFillerCut); } }} data-testid="small-gap-filler-left" className="h-auto min-h-14 whitespace-normal">Place on left<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
+	            <Button variant="outline" disabled={!smallGapFillerDefinition || !selectedSmallGapFillerCutIsValid} onMouseEnter={() => setSmallGapFillerPreviewMode("right")} onFocus={() => setSmallGapFillerPreviewMode("right")} onClick={() => { if (smallGapFillerPrompt) { setSmallGapFillerPreviewMode("right"); applySmallGapFiller("right", smallGapFillerPrompt, selectedSmallGapFillerCut); } }} data-testid="small-gap-filler-right" className="h-auto min-h-14 whitespace-normal">Place on right<br /><span className="text-xs font-normal">{formatEighthInches(selectedSmallGapFillerCut)} filler</span></Button>
 	        </div>
 	      </div>
 	      </> : (
