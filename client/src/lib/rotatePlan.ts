@@ -3,9 +3,6 @@ import {
   furnitureFootprint,
   placedFootprint,
   nearestWallRunAtPoint,
-  roomWallRunFrames,
-  seatedWallRunFrame,
-  wallPlacementAt,
   wallRunAlongAtPoint,
   wallRunFrame,
   type IslandFace,
@@ -107,26 +104,39 @@ function rotateRoomClockwise(room: RoomData): RoomData {
 
 function wallOwnedCabinetAfterRotation(cabinet: PlacedCabinet, oldRoom: RoomData, nextRoom: RoomData): PlacedCabinet | null {
   if (cabinet.islandFace) return null;
-  // The run the cabinet sits on (its own wallId, or the run its body is seated
-  // against) is the same run after the turn; its along-run offset is invariant.
+  // Rotate the *body* first. Saved wallId/wallOffset metadata can lag after a
+  // resize or an older drag, but it must never be allowed to pull a cabinet to
+  // a different location when the user rotates the drawing. The on-canvas
+  // geometry is authoritative for this operation.
   const oldFootprint = placedFootprint(cabinet);
+  const rotated = rotatePlanRectClockwise(
+    { x: cabinet.x, y: cabinet.y, width: oldFootprint.w, depth: oldFootprint.d },
+    oldRoom.depth,
+  );
   const center = { x: cabinet.x + oldFootprint.w / 2, y: cabinet.y + oldFootprint.d / 2 };
-  const roomRuns = roomWallRunFrames(oldRoom);
-  const seated = seatedWallRunFrame(cabinet, oldRoom);
-  const oldFrame = seated && roomRuns.some((frame) => frame.id === seated.id)
-    ? seated
-    : nearestWallRunAtPoint(oldRoom, center)?.frame ?? null;
+  const oldFrame = nearestWallRunAtPoint(oldRoom, center)?.frame ?? null;
   if (!oldFrame) return null;
-  const along = oldFrame === seated && Number.isFinite(cabinet.wallOffset)
-    ? Number(cabinet.wallOffset)
-    : Math.max(0, wallRunAlongAtPoint(oldFrame, center) - Math.max(0, Number(cabinet.width) || 0) / 2);
   const wallId = (rotateWallId(oldFrame.id, oldRoom) ?? oldFrame.id) as WallSide;
-  const spot = wallPlacementAt(along, cabinet.width, cabinet.depth, wallId, nextRoom, cabinet.peninsulaSide);
+  const nextFrame = wallRunFrame(wallId, nextRoom);
+  if (!nextFrame) return null;
+  const rotatedCenter = { x: rotated.x + rotated.width / 2, y: rotated.y + rotated.depth / 2 };
+  const span = Math.max(0, Number(cabinet.width) || 0);
+  const along = Math.max(0, Math.min(
+    Math.max(0, nextFrame.length - span),
+    wallRunAlongAtPoint(nextFrame, rotatedCenter) - span / 2,
+ ));
   return {
     ...cabinet,
-    ...spot,
+    // x/y are the plan-body origin. The catalog's width/depth remain the
+    // cabinet's physical source dimensions; changing them here makes every
+    // additional turn reinterpret the cabinet as a different-size product.
+    x: rotated.x,
+    y: rotated.y,
+    rotation: rotateAngle(cabinet.rotation),
     wallId,
-    wallOffset: spot.wallOffset ?? along,
+    // Refresh the saved offset from the visible cabinet body. The shared commit
+    // boundary validates this against the rotated room without changing x/y.
+    wallOffset: along,
   };
 }
 

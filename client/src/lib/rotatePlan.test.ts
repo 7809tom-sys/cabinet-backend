@@ -88,6 +88,38 @@ describe("custom drawing rotation", () => {
     expect(result.cabinets[0].y + footprint.d).toBeLessThanOrEqual(result.room.depth + 0.001);
   });
 
+  it("rotates the visible cabinet body instead of trusting a stale saved wall offset", () => {
+    const visibleBodyAt24 = {
+      ...invalidGraphCabinet,
+      uid: "visible-body-at-24",
+      width: 30,
+      depth: 24,
+      x: 24,
+      y: 0,
+      rotation: 0,
+      wallId: "wall-1",
+      // This intentionally stale metadata recreates the failure mode: the
+      // body visibly starts 24 inches into the run, but an old save says zero.
+      wallOffset: 0,
+    };
+
+    const result = rotateCustomPlanClockwise({
+      room,
+      cabinets: [visibleBodyAt24],
+      openings: [],
+      ...emptyExtras,
+    });
+    const expected = rotatePlanRectClockwise({ x: 24, y: 0, width: 30, depth: 24 }, room.depth);
+
+    expect(result.cabinets[0]).toMatchObject({
+      x: expected.x,
+      y: expected.y,
+      rotation: 90,
+      wallId: "wall-1",
+      wallOffset: 24,
+    });
+  });
+
   it("returns the custom wall vertices and cabinet to their starting geometry after four rotations", () => {
     let state = {
       room,

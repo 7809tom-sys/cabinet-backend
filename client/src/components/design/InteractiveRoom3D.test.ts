@@ -4434,6 +4434,27 @@ describe("interactive 3D room scene helpers", () => {
     expect(drain!.position.y).toBeLessThan(sinkFixtureTransform({ x: 24, y: 48, width: 30, depth: 22 } as never).countertopTop - 0.7);
   });
 
+  it("keeps a faucet handle beside its base when the saved sink is rotated", () => {
+    const root = new THREE.Group();
+    addSinkFixture(root, {
+      uid: "rotated-handle", type: "single", x: 96, y: 48, width: 30, depth: 22, planRotation: 90,
+      faucet: true, wallSide: "right", pelicanFaucetProfileId: "pelican-pl-8237-fountain-standard-arc-matte-black",
+      faucetOverallHeight: 12.8125, faucetSpoutLength: 7.0625, faucetSpoutHeight: 8.375, faucetFinish: "matte-black", faucetForm: "standard-arc",
+    } as never);
+    root.updateMatrixWorld(true);
+    let handleBase: THREE.Object3D | null = null;
+    let handle: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.sinkFaucetHandleBase) handleBase = node;
+      if (node.userData.sinkFaucetHandle) handle = node;
+    });
+    expect(handleBase).not.toBeNull();
+    expect(handle).not.toBeNull();
+    const baseWorld = handleBase!.getWorldPosition(new THREE.Vector3());
+    const handleWorld = handle!.getWorldPosition(new THREE.Vector3());
+    expect(handleWorld.distanceTo(baseWorld)).toBeLessThan(0.32);
+  });
+
   it("uses a verified Pelican farmhouse profile’s measured bowl and apron geometry", () => {
     const root = new THREE.Group();
     addSinkFixture(root, {

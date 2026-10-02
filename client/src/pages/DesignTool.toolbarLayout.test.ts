@@ -130,6 +130,9 @@ describe("designer toolbar layout", () => {
 	    expect(source).toContain("onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}");
 	    expect(source).toContain("drawingRotationDisabled={layoutLocked}");
 	    expect(source).toContain("rotateCustomPlanClockwise({");
+	    const rotationHandler = source.slice(source.indexOf("const rotateDrawingClockwise"), source.indexOf("// Backsplash material"));
+	    expect(rotationHandler).toContain("roomRef.current = rotated.room;");
+	    expect(rotationHandler.indexOf("roomRef.current = rotated.room;")).toBeLessThan(rotationHandler.indexOf("setPlaced(rotated.cabinets);"));
 	  });
 
   it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {

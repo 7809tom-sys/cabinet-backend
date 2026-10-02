@@ -7028,9 +7028,15 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const handleBase = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 0.18, 16), faucetMaterial);
   handleBase.position.set(faucet.x + side.x * 0.12, countertopTop + 0.14, faucet.z + side.z * 0.12);
   handleBase.userData = { sinkFaucetHandleBase: true, fixtureDetail: true };
+  // `addFixtureNode` converts a rotated sink's world-space part into the
+  // fixture group's local coordinates in place. Capture the intended handle
+  // position before attaching the base so a 90°/270° sink cannot reuse its
+  // already-local coordinates as though they were world coordinates.
+  const handleWorldX = faucet.x + side.x * 0.145;
+  const handleWorldZ = faucet.z + side.z * 0.145;
   addFixtureNode(handleBase);
   const handle = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.24, 0.035), faucetMaterial);
-  handle.position.set(handleBase.position.x + side.x * 0.025, countertopTop + 0.29, handleBase.position.z + side.z * 0.025);
+  handle.position.set(handleWorldX, countertopTop + 0.29, handleWorldZ);
   handle.rotation.z = side.x * -0.32;
   handle.rotation.x = side.z * 0.32;
   handle.userData = { sinkFaucetHandle: true, fixtureDetail: true };

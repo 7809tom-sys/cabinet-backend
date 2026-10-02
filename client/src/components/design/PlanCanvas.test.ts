@@ -505,6 +505,12 @@ describe("refrigerator magnetic preview wiring", () => {
 describe("plan placement assistance wiring", () => {
 	 it("keeps canvas measurement bubbles light and puts measured-plan rotation on the drawing surface", () => {
 	   const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+	   expect(source).toContain('data-testid="floor-plan-action-rail"');
+	   expect(source).toContain('flex max-w-[calc(100%-1.5rem)] flex-nowrap items-center justify-end gap-1 whitespace-nowrap');
+	   expect(source).toContain('max-w-[calc(100%-1.5rem)]');
+	   expect(source).toContain('flex shrink-0 flex-nowrap items-center gap-1');
+	   expect(source).toContain('className="h-1.5 w-12 accent-[#1a2744] disabled:cursor-not-allowed"');
+	   expect(source).toContain('<RotateCw className="h-4 w-4" /> Rotate');
 	   expect(source).toContain('data-testid="rotate-custom-drawing"');
 	   expect(source).toContain('aria-label="Rotate the complete measured drawing 90 degrees clockwise"');
 	   expect(source).toContain('bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950');
@@ -527,6 +533,10 @@ describe("plan placement assistance wiring", () => {
 	   expect(source).toContain('measurementBubblesVisible && xTicks.map');
 	   expect(source).toContain('measurementBubblesVisible && yTicks.map');
 	   expect(source).toContain('style={measurementBubbleStyle}');
+	   expect(source).toContain('data-testid={`live-gap-dimension-bubble-${segment.side}`}');
+	   expect(source).toContain('const clearanceFontSize');
+	   expect(source).toContain('fillOpacity={0.98}');
+	   expect(source).toContain('const label = formatDisplayDimension(segment.value);');
 	 });
 
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {

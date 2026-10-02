@@ -1668,6 +1668,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    annotations,
 	    ponyWalls,
 	  });
+	  // `setPlaced` revalidates each cabinet against roomRef at its shared commit
+	  // boundary. Point it at the rotated wall graph before committing the rotated
+	  // bodies; otherwise React's asynchronous setRoom leaves it validating the
+	  // new cabinet coordinates against the pre-rotation walls and scatters them.
+	  roomRef.current = rotated.room;
 	  setRoom(rotated.room);
 	  setPlaced(rotated.cabinets);
 	  placedRef.current = rotated.cabinets;

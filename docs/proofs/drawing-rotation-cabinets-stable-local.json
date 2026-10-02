@@ -1,0 +1,67 @@
+{
+  "errors": [],
+  "expected": {
+    "b12": {
+      "x": 108.0,
+      "y": 18.0,
+      "rotation": 90
+    },
+    "b30": {
+      "x": 108.0,
+      "y": 42.0,
+      "rotation": 90
+    },
+    "b27-1": {
+      "x": 55.0,
+      "y": 104.0,
+      "rotation": 180
+    },
+    "b27-2": {
+      "x": 28.0,
+      "y": 104.0,
+      "rotation": 180
+    },
+    "b36": {
+      "x": 16.0,
+      "y": 62.0,
+      "rotation": 270
+    }
+  },
+  "after": {
+    "b12": {
+      "x": 108,
+      "y": 18,
+      "rotation": 90,
+      "wallId": "top",
+      "wallOffset": 18
+    },
+    "b30": {
+      "x": 108,
+      "y": 42,
+      "rotation": 90,
+      "wallId": "top",
+      "wallOffset": 42
+    },
+    "b27-1": {
+      "x": 55,
+      "y": 104,
+      "rotation": 180,
+      "wallId": "right",
+      "wallOffset": 0
+    },
+    "b27-2": {
+      "x": 28,
+      "y": 104,
+      "rotation": 180,
+      "wallId": "right",
+      "wallOffset": 27
+    },
+    "b36": {
+      "x": 16,
+      "y": 62,
+      "rotation": 270,
+      "wallId": "bottom",
+      "wallOffset": 30
+    }
+  }
+}

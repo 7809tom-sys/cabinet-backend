@@ -2902,9 +2902,16 @@ export function PlanCanvas({
           const { m, frame, pointAt } = dragTape;
           const tick = { x: -frame.tangent.y * 5, y: frame.tangent.x * 5 };
           const labelAngle = parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
+          // Use the same high-contrast white drafting chip as the exterior
+          // dimension rails. During a cabinet drag the old arrow glyphs were
+          // too small to distinguish from the dimension itself, especially on
+          // a diagonal wall. The end ticks and extension lines already show
+          // which side is being measured, so the bubble states the actual
+          // clearance only.
+          const clearanceFontSize = Math.max(10, Math.min(16, Number(room.dimensionLabelStyle?.fontSizePx) || 11));
           const segs = [
-            { start: m.start - m.before, end: m.start, value: m.before, arrow: "←" },
-            { start: m.end, end: m.end + m.after, value: m.after, arrow: "→" },
+            { start: m.start - m.before, end: m.start, value: m.before, side: "before" as const },
+            { start: m.end, end: m.end + m.after, value: m.after, side: "after" as const },
           ];
           return (
             <svg data-testid="live-cabinet-gap-dimensions" className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH} style={measurementBubbleStyle}>
@@ -2912,13 +2919,27 @@ export function PlanCanvas({
                 const start = pointAt(segment.start);
                 const end = pointAt(segment.end);
                 const middle = pointAt((segment.start + segment.end) / 2);
+                const label = formatDisplayDimension(segment.value);
+                const labelWidth = Math.max(46, Math.round(label.length * clearanceFontSize * 0.76 + 18));
+                const labelHeight = Math.max(20, clearanceFontSize + 9);
                 return <g key={index} stroke="#1a2744" strokeWidth={1.25}>
                   <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
                   <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} />
                   <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} />
                   <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle})`}>
-                    <rect x={-27} y={-9} width={54} height={18} rx={4} fill="white" stroke="#334155" strokeWidth={1} />
-                    <text x={0} y={4} textAnchor="middle" fontSize={10} fontWeight={800} fill="#0f172a">{segment.arrow === "←" ? `${segment.arrow} ${formatDisplayDimension(segment.value)}` : `${formatDisplayDimension(segment.value)} ${segment.arrow}`}</text>
+                    <rect
+                      data-testid={`live-gap-dimension-bubble-${segment.side}`}
+                      x={-labelWidth / 2}
+                      y={-labelHeight / 2}
+                      width={labelWidth}
+                      height={labelHeight}
+                      rx={4}
+                      fill="white"
+                      fillOpacity={0.98}
+                      stroke="#a8b5cf"
+                      strokeWidth={1.2}
+                    />
+                    <text x={0} y={clearanceFontSize * 0.34} textAnchor="middle" fontSize={clearanceFontSize} fontWeight={800} fill={room.dimensionLabelStyle?.color || "#1a2744"}>{label}</text>
                   </g>
                 </g>;
               })}
@@ -3360,13 +3381,13 @@ export function PlanCanvas({
           return t("dt_pc_room_size", { w: formatDisplayDimension(room.width), h: formatDisplayDimension(room.depth) });
         })()}
       </div>
-      {!drawMode && (
-        <div className="absolute right-3 top-3 z-50 flex flex-col items-end gap-2">
-          <div className="flex items-center gap-1.5">
-            <label
-              data-testid="floor-plan-measurement-opacity-control"
-              title="Dim visible Floor Plan measurement bubbles without hiding them"
-              className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold shadow-md transition ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744]" : "border-slate-200 bg-slate-50/95 text-slate-400"}`}
+	      {!drawMode && (
+	        <div data-testid="floor-plan-action-rail" className="absolute right-3 top-3 z-50 flex max-w-[calc(100%-1.5rem)] flex-nowrap items-center justify-end gap-1 whitespace-nowrap">
+	          <div className="flex shrink-0 flex-nowrap items-center gap-1">
+	            <label
+	              data-testid="floor-plan-measurement-opacity-control"
+	              title="Dim visible Floor Plan measurement bubbles without hiding them"
+	              className={`flex h-9 shrink-0 items-center gap-1 rounded-lg border px-1.5 text-[11px] font-bold shadow-md transition ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744]" : "border-slate-200 bg-slate-50/95 text-slate-400"}`}
             >
               <span className="sr-only">Measurement bubble opacity</span>
               <input
@@ -3379,9 +3400,9 @@ export function PlanCanvas({
                 value={Math.round(measurementBubbleOpacity * 100)}
                 disabled={!measurementBubblesVisible}
                 onChange={(event) => setMeasurementBubbleOpacity(Math.max(0.25, Math.min(1, Number(event.target.value) / 100)))}
-                className="h-1.5 w-20 accent-[#1a2744] disabled:cursor-not-allowed"
-              />
-              <output data-testid="floor-plan-measurement-opacity-value" className="w-8 text-right tabular-nums" aria-live="polite">
+	                className="h-1.5 w-12 accent-[#1a2744] disabled:cursor-not-allowed"
+	              />
+	              <output data-testid="floor-plan-measurement-opacity-value" className="w-7 text-right tabular-nums" aria-live="polite">
                 {Math.round(measurementBubbleOpacity * 100)}%
               </output>
             </label>
@@ -3392,12 +3413,11 @@ export function PlanCanvas({
               aria-pressed={measurementBubblesVisible}
               title={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles for a cleaner drawing" : "Show all Floor Plan measurement bubbles"}
               onClick={() => setMeasurementBubblesVisible((visible) => !visible)}
-              className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
+	              className={`inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
             >
               {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               Measurements
             </button>
-          </div>
           {!measureMode && onRotateDrawing && (
             <button
               type="button"
@@ -3406,11 +3426,12 @@ export function PlanCanvas({
               title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
               onClick={onRotateDrawing}
               disabled={drawingRotationDisabled}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-3 text-xs font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
-            >
-              <RotateCw className="h-4 w-4" /> Rotate drawing
+	              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#d4a75a] bg-white/95 px-2 text-[11px] font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
+	            >
+	              <RotateCw className="h-4 w-4" /> Rotate
             </button>
           )}
+          </div>
         </div>
       )}
       {!drawMode && !measureMode && (
