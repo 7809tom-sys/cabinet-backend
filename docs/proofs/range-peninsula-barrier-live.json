@@ -1,0 +1,24 @@
+{
+  "fixture": "top-wall peninsula with 45 degree right return",
+  "rangeBoxBefore": {
+    "x": 539.40625,
+    "y": 422.796875,
+    "width": 140.828125,
+    "height": 169
+  },
+  "rangeBoxAfter": {
+    "x": 556.5546875,
+    "y": 457.09375,
+    "width": 130.625,
+    "height": 156.75
+  },
+  "peninsulaRunBox": {
+    "x": 550.5546875,
+    "y": 269,
+    "width": 12,
+    "height": 438.890625
+  },
+  "dragTargetExteriorX": 525.40625,
+  "rangeStayedOnInteriorFace": true,
+  "applicationErrors": []
+}
