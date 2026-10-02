@@ -5224,7 +5224,11 @@ export function addCabinet(
 		    };
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counter = new THREE.Mesh(
-        lCornerCountertopWedgeGeometry(bodyWidth, bodyDepth, 1.5 * INCH, lCornerLegRatio),
+        // A standard room's LSB/ERB or corner-drawer cabinet gets one complete
+        // top over the cabinet envelope. The access notch belongs below the
+        // counter, not in it. Measured 45° walls suppress this per-cabinet slab
+        // and render their explicit shared polygon in addThreeDMeasuredWallMiterCountertops.
+        new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, bodyDepth),
         counterMaterial,
       );
       counter.position.copy(cabinet.position);
@@ -5233,10 +5237,10 @@ export function addCabinet(
       counter.userData = {
         specialtyProfile: specialty.kind,
         lCornerCountertop: true,
-        exactLCornerCountertopGeometry: true,
-        frontOverhangIn: COUNTERTOP_FRONT_OVERHANG / INCH,
-        bothRoomFacingLegsAligned: true,
-        interiorNotchPreserved: true,
+        completeLCornerCabinetTop: true,
+        exactLCornerCountertopGeometry: false,
+        coversCompleteCabinetTop: true,
+        interiorNotchPreserved: false,
       };
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);

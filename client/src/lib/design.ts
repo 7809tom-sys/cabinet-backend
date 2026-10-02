@@ -2808,10 +2808,14 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 }
 
 /**
- * Countertop polygon for a real L-corner base. Both room-facing cabinet legs
- * project the same 1½-inch finished edge; the wall-side returns remain flush
- * and the interior cabinet notch remains open. This is the Plan-space twin of
- * the exact L-shaped 3D countertop extrusion.
+ * Countertop polygon for an easy-reach / Lazy-Susan corner base.
+ *
+ * A cardinal (ordinary 90-degree room) corner gets one complete square top:
+ * the case's open access below the top is not a countertop cut-out. That keeps
+ * the slab seated over every part of an LSB/ERB cabinet rather than leaving the
+ * visible missing corner shown by an L-outline. A non-cardinal measured-wall
+ * placement retains the established 45-degree front-edge treatment; the wall
+ * engine owns that distinct physical exception.
  */
 export function lCornerCountertopWorldPolygon(
   cabinet: PlacedCabinet,
@@ -2852,10 +2856,17 @@ export function lCornerCountertopWorldPolygon(
       y: clean(center.y + tangent.y * along + normal.y * inward),
     };
   };
-  // This canonical path is the LSB36's real cabinet-supported footprint: two
-  // 24-inch legs with the interior notch kept open and the 1.5-inch finished
-  // front edge carried on both exposed legs. Applying one transform avoids the
-  // former custom-wall fallback that reduced an angled LSB36 to one rectangle.
+  if (!rotatedMeasuredPlacement) {
+    return [
+      { x: 0, y: 0 },
+      { x: bounds.w, y: 0 },
+      { x: bounds.w, y: bounds.d },
+      { x: 0, y: bounds.d },
+    ].map(worldPoint);
+  }
+  // A 45-degree measured wall remains the intentional exception: retain the
+  // two cabinet-leg front overhangs while its shared corner/miter rules resolve
+  // the adjoining slab and any fill.
   return [
     { x: 0, y: 0 },
     { x: bounds.w, y: 0 },

@@ -1920,19 +1920,18 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([cabinet], ROOM_12x10)).toMatchObject([{ kind: "base" }]);
   });
 
-  it("keeps both exposed L-corner fronts aligned with the 1.5-inch standard base overhang", () => {
+  it("covers the complete LSB36 cabinet top in an ordinary 90-degree room", () => {
     const corner = cab({
       uid: "counter-lsb36", masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
       placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation: 0, cornerType: "lazy-susan",
     });
     const expected = [
-      { x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 },
-      { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 },
+      { x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 36 }, { x: 0, y: 36 },
     ];
     expect(lCornerCountertopWorldPolygon(corner)).toEqual(expected);
     const [surface] = countertopSurfaces([corner], ROOM_12x10);
     expect(countertopSurfacePlanPolygon(surface!)).toEqual(expected);
-    expect(surface!.areaInches).toBeCloseTo(1185.75, 6);
+    expect(surface!.areaInches).toBeCloseTo(1296, 6);
     expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
   });
 
@@ -1958,7 +1957,7 @@ describe("countertopSurfaces", () => {
     const [surface] = countertopSurfaces([corner], drawnRoom);
     const outline = countertopSurfacePlanPolygon(surface!);
     expect(outline).toEqual(lCornerCountertopWorldPolygon(corner));
-    expect(outline).toHaveLength(6);
+    expect(outline).toHaveLength(4);
     expect(outline.every((point) => point.x >= 0 && point.y >= 0 && point.x <= 36 && point.y <= 36)).toBe(true);
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
@@ -1994,19 +1993,17 @@ describe("countertopSurfaces", () => {
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 
-  it.each([
-    [0, [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 }, { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 }]],
-    [90, [{ x: 36, y: 0 }, { x: 36, y: 36 }, { x: 10.5, y: 36 }, { x: 10.5, y: 25.5 }, { x: 0, y: 25.5 }, { x: 0, y: 0 }]],
-    [180, [{ x: 36, y: 36 }, { x: 0, y: 36 }, { x: 0, y: 10.5 }, { x: 10.5, y: 10.5 }, { x: 10.5, y: 0 }, { x: 36, y: 0 }]],
-    [270, [{ x: 0, y: 36 }, { x: 0, y: 0 }, { x: 25.5, y: 0 }, { x: 25.5, y: 10.5 }, { x: 36, y: 10.5 }, { x: 36, y: 36 }]],
-  ] as const)("mirrors the aligned L-corner countertop correctly at %s degrees", (rotation, expected) => {
+  it.each([0, 90, 180, 270] as const)("keeps the complete L-corner countertop aligned at %s degrees", (rotation) => {
     const corner = cab({
       uid: `counter-lsb36-${rotation}`, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
       placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation, cornerType: "lazy-susan",
     });
-    const [surface] = countertopSurfaces([corner], ROOM_12x10);
-    expect(countertopSurfacePlanPolygon(surface!)).toEqual(expected);
-    expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
+    const outline = countertopSurfacePlanPolygon(countertopSurfaces([corner], ROOM_12x10)[0]!);
+    expect(outline).toHaveLength(4);
+    expect([...outline].sort((left, right) => left.x - right.x || left.y - right.y)).toEqual([
+      { x: 0, y: 0 }, { x: 0, y: 36 }, { x: 36, y: 0 }, { x: 36, y: 36 },
+    ]);
+    expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 
   it("does NOT cover a base-zone decorative end panel or refrigerator panel", () => {

@@ -3231,7 +3231,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(Object.values(lCornerCarcassParts(3, 3)).filter((part) => typeof part === "object" && part !== null && "width" in part)).toHaveLength(2);
   });
 
-  it("gives both exposed L-corner cabinet legs the same 1.5-inch finished countertop overhang", () => {
+  it("uses a complete standard-room countertop over an L-corner cabinet while retaining the 45-degree edge helper", () => {
     const countertop = lCornerCountertopFootprintVertices(3, 3);
     // The 24-inch base legs keep their wall-side edges seated. The back-leg
     // front and side-leg front both project 1½ inches (0.125 ft), which is the
@@ -3263,11 +3263,14 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(tops).toHaveLength(1);
     expect(tops[0]!.userData).toMatchObject({
-      exactLCornerCountertopGeometry: true,
-      frontOverhangIn: 1.5,
-      bothRoomFacingLegsAligned: true,
-      interiorNotchPreserved: true,
+      completeLCornerCabinetTop: true,
+      coversCompleteCabinetTop: true,
+      interiorNotchPreserved: false,
     });
+    expect((tops[0] as THREE.Mesh).geometry.type).toBe("BoxGeometry");
+    const bounds = new THREE.Box3().setFromObject(tops[0]!);
+    expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(36, 6);
+    expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(36, 6);
   });
 
   it("normalizes an older CDB36 accessible-leg save to the shared 36-inch square 2D corner footprint", () => {
@@ -3366,7 +3369,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(0);
     const lCornerCountertops = nodes.filter((node) => node.userData.lCornerCountertop);
     expect(lCornerCountertops).toHaveLength(2);
-    expect(lCornerCountertops.every((node) => node.userData.exactLCornerCountertopGeometry)).toBe(true);
+    expect(lCornerCountertops.every((node) => node.userData.completeLCornerCabinetTop && node.userData.coversCompleteCabinetTop)).toBe(true);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });
