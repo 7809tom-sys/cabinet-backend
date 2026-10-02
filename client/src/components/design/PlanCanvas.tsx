@@ -655,7 +655,10 @@ export function PlanCanvas({
     annDrag.current = null;
   };
 
-  const PADDING = 48;
+  // Dimensioned plans reserve a true exterior drafting gutter. This keeps all
+  // dimension rails outside the wall/cabinet footprint rather than squeezing
+  // labels through the room as an overlay.
+  const PADDING = autoDimensions ? 104 : 48;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -670,7 +673,7 @@ export function PlanCanvas({
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [room.width, room.depth]);
+  }, [room.width, room.depth, autoDimensions]);
 
   // Reset the temporary tape whenever measure mode toggles off.
   useEffect(() => {
@@ -2835,16 +2838,21 @@ export function PlanCanvas({
           const chains = floorPlanWallDimensionChains(room, cabinets)
             .filter((chain) => chain.layer === "base" || showWallLayer);
           const activeLayers = showWallLayer ? ["base", "wall"] as const : ["base"] as const;
-          // Keep the exterior chain clear of the room edge but inside the
-          // Floor Plan workspace header, where the top-wall label remains
-          // readable instead of hiding underneath the toolbar.
-          const outerOffsetIn = 2;
-          const labelOffsetIn = 1.5;
+          // 2020-style exterior drafting rails: every wall dimension lives
+          // outside the drawing, with the detail chain nearest the wall and
+          // the overall wall length farthest out. The canvas reserves a
+          // matching gutter above, so nothing sits on cabinet faces.
+          const baseRailOffsetIn = 3;
+          const wallRailOffsetIn = 6;
+          const openingRailOffsetIn = 8.5;
+          const outerRailOffsetIn = 11;
+          const labelOffsetIn = 1.4;
           const tickPx = 4;
           const pointAt = (frame: typeof wallFrames[number], along: number, inwardIn: number) => ({
             x: (frame.start.x + frame.tangent.x * along + frame.inward.x * inwardIn) * ppi,
             y: (frame.start.y + frame.tangent.y * along + frame.inward.y * inwardIn) * ppi,
           });
+          const wallPoint = (frame: typeof wallFrames[number], along: number) => pointAt(frame, along, 0);
           const labelAngle = (frame: typeof wallFrames[number]) => parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
           const tickVector = (frame: typeof wallFrames[number]) => ({ x: -frame.tangent.y * tickPx, y: frame.tangent.x * tickPx });
           const openingDimensions = openings.flatMap((opening) => {
@@ -2886,11 +2894,15 @@ export function PlanCanvas({
             <svg data-testid="floor-plan-live-dimensions" className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH} aria-label="Live Floor Plan dimensions">
               {/* Outer physical-wall lines: corner-to-corner, including measured 45° walls. */}
               {wallFrames.map((frame) => {
-                const start = pointAt(frame, 0, -outerOffsetIn);
-                const end = pointAt(frame, frame.length, -outerOffsetIn);
-                const middle = pointAt(frame, frame.length / 2, -outerOffsetIn - labelOffsetIn);
+                const start = pointAt(frame, 0, -outerRailOffsetIn);
+                const end = pointAt(frame, frame.length, -outerRailOffsetIn);
+                const middle = pointAt(frame, frame.length / 2, -outerRailOffsetIn - labelOffsetIn);
+                const wallStart = wallPoint(frame, 0);
+                const wallEnd = wallPoint(frame, frame.length);
                 const tick = tickVector(frame);
                 return <g key={`floor-dimension-wall-${frame.id}`} data-testid={`floor-dimension-wall-${frame.id}`}>
+                  <line x1={wallStart.x} y1={wallStart.y} x2={start.x} y2={start.y} stroke="#64748b" strokeWidth={0.8} />
+                  <line x1={wallEnd.x} y1={wallEnd.y} x2={end.x} y2={end.y} stroke="#64748b" strokeWidth={0.8} />
                   <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#273b6b" strokeWidth={1} />
                   <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke="#273b6b" strokeWidth={1} />
                   <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke="#273b6b" strokeWidth={1} />
@@ -2901,21 +2913,24 @@ export function PlanCanvas({
                 </g>;
               })}
 
-              {/* Inner run lines: catalog cabinet widths and every leftover gap. */}
+              {/* Exterior run lines: catalog cabinet widths and every leftover gap. */}
               {chains.flatMap((chain) => {
                 const frame = wallFrames.find((candidate) => candidate.id === chain.wallId);
                 if (!frame) return [];
-                const inwardIn = chain.layer === "wall" ? 6 : 12;
-                const layerNudgeIn = chain.layer === "wall" ? 3 : 0;
+                const railOffsetIn = chain.layer === "wall" ? wallRailOffsetIn : baseRailOffsetIn;
                 const tick = tickVector(frame);
                 return chain.segments.map((segment, index) => {
-                  const start = pointAt(frame, segment.start, inwardIn + layerNudgeIn);
-                  const end = pointAt(frame, segment.start + segment.length, inwardIn + layerNudgeIn);
-                  const middle = pointAt(frame, segment.start + segment.length / 2, inwardIn + layerNudgeIn - labelOffsetIn);
+                  const start = pointAt(frame, segment.start, -railOffsetIn);
+                  const end = pointAt(frame, segment.start + segment.length, -railOffsetIn);
+                  const middle = pointAt(frame, segment.start + segment.length / 2, -railOffsetIn - labelOffsetIn);
+                  const wallStart = wallPoint(frame, segment.start);
+                  const wallEnd = wallPoint(frame, segment.start + segment.length);
                   const short = segment.length * ppi < 30;
-                  const labelPoint = short ? pointAt(frame, segment.start + segment.length / 2, inwardIn + layerNudgeIn + 6) : middle;
+                  const labelPoint = short ? pointAt(frame, segment.start + segment.length / 2, -railOffsetIn - 4.5) : middle;
                   const color = segment.kind === "gap" ? "#b45309" : "#1a2744";
                   return <g key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`} data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}>
+                    <line x1={wallStart.x} y1={wallStart.y} x2={start.x} y2={start.y} stroke={color} strokeOpacity={0.55} strokeWidth={0.75} />
+                    <line x1={wallEnd.x} y1={wallEnd.y} x2={end.x} y2={end.y} stroke={color} strokeOpacity={0.55} strokeWidth={0.75} />
                     <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={color} strokeWidth={1} />
                     <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke={color} strokeWidth={1} />
                     <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke={color} strokeWidth={1} />
@@ -2930,11 +2945,14 @@ export function PlanCanvas({
 
               {/* Window and door width plus nearest-corner distance on their owning run. */}
               {openingDimensions.map(({ opening, frame, start, width, nearest }) => {
-                const lineIn = 2;
-                const a = pointAt(frame, start, lineIn);
-                const b = pointAt(frame, start + width, lineIn);
-                const m = pointAt(frame, start + width / 2, lineIn - labelOffsetIn);
+                const a = pointAt(frame, start, -openingRailOffsetIn);
+                const b = pointAt(frame, start + width, -openingRailOffsetIn);
+                const m = pointAt(frame, start + width / 2, -openingRailOffsetIn - labelOffsetIn);
+                const wallStart = wallPoint(frame, start);
+                const wallEnd = wallPoint(frame, start + width);
                 return <g key={`floor-dimension-opening-${opening.uid}`} data-testid={`floor-dimension-opening-${opening.uid}`}>
+                  <line x1={wallStart.x} y1={wallStart.y} x2={a.x} y2={a.y} stroke="#0f766e" strokeOpacity={0.55} strokeWidth={0.75} />
+                  <line x1={wallEnd.x} y1={wallEnd.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeOpacity={0.55} strokeWidth={0.75} />
                   <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeWidth={1} strokeDasharray="2 2" />
                   <g transform={`translate(${m.x} ${m.y}) rotate(${labelAngle(frame)})`}>
                     <rect x={-39} y={-7} width={78} height={14} rx={3} fill="white" fillOpacity={0.94} />

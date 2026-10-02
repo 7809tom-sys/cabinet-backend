@@ -248,6 +248,18 @@ describe("user measured open wall paths", () => {
     expect(markup).not.toContain('data-testid="custom-wall-length-bubble"');
   });
 
+  it("keeps live cabinet, opening, and wall dimensions on exterior drafting rails", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain("const baseRailOffsetIn = 3;");
+    expect(source).toContain("const wallRailOffsetIn = 6;");
+    expect(source).toContain("const openingRailOffsetIn = 8.5;");
+    expect(source).toContain("const outerRailOffsetIn = 11;");
+    expect(source).toContain("const wallStart = wallPoint(frame, segment.start);");
+    expect(source).toContain("const wallEnd = wallPoint(frame, segment.start + segment.length);");
+    expect(source).toContain("const PADDING = autoDimensions ? 104 : 48;");
+  });
+
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 
