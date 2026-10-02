@@ -3128,3 +3128,4 @@
 - Regression coverage verifies the standard LSB36 has a four-point 1296 sq in complete top across all quarter-turns, its 3D top is a 36 × 36 BoxGeometry marked `coversCompleteCabinetTop`, and drawn 45° LSB36 geometry remains six-point / 1185.75 sq in.
 - Local 3D browser proof placed one LSB36 in a standard room and showed the complete supported top with no browser errors. Evidence: `docs/proofs/lsb36-complete-top-local.{png,json}`.
 - Validation passed: `pnpm run check`; 818 focused shared countertop / 3D / measured-wall tests (2 existing skips); production build; and `git diff --check`.
+- 13:54 CT live verification: cache-busted `www.cabinetdealz.com` served `index-Dswjib2A.js` and `InteractiveRoom3D-Cw9hKHhx.js` containing `coversCompleteCabinetTop`. The published LSB36 fixture opened in 3D with its 36 × 36 in saved cabinet envelope and no application errors. Evidence: `docs/proofs/lsb36-complete-top-live.{png,json}`.
