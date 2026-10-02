@@ -1,0 +1,25 @@
+{
+  "viewport": {
+    "width": 333,
+    "height": 727
+  },
+  "visibleBefore": true,
+  "dimmedOpacity": "0.45",
+  "dimmedValue": "45%",
+  "visibleAfterHide": false,
+  "visibleAfterShow": true,
+  "pressedHidden": true,
+  "pressedShown": true,
+  "labelBefore": "Measurements",
+  "labelHidden": "Measurements",
+  "controlsShareRow": true,
+  "controlsDoNotOverlap": true,
+  "railMetrics": {
+    "clientWidth": 297,
+    "scrollWidth": 297,
+    "scrollHeight": 36,
+    "startScrollLeft": 0
+  },
+  "rotateReachableAfterScroll": true,
+  "applicationErrors": []
+}
