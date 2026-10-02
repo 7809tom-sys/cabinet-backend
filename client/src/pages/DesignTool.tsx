@@ -808,7 +808,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   } | null>(null);
   const [showWallLayer, setShowWallLayer] = useState(true);
   const [measureMode, setMeasureMode] = useState(false);
-  const [autoDimensions, setAutoDimensions] = useState(false);
+  // Dimensions read the shared placement engine only and start enabled for a
+  // new Floor Plan. The toolbar switch still gives a clean drawing view.
+  const [autoDimensions, setAutoDimensions] = useState(true);
 	  // Island zone: an optional rectangular guide (inches) marking where island
 	  // cabinets go. Null when disabled.
 	  const [island, setIsland] = useState<IslandZone | null>(null);
@@ -10517,7 +10519,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  setAutomaticSnapping(true);
     setShowWallLayer(true);
     setMeasureMode(false);
-    setAutoDimensions(false);
+    setAutoDimensions(true);
     setDrawMode(false);
     setConsultMessages([]);
     setConsultOpen(false);

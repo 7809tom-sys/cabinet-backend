@@ -207,6 +207,47 @@ describe("user measured open wall paths", () => {
     expect(parallelWallLabelAngleDeg(-72, 0)).toBe(0);
   });
 
+  it("renders display-only outer and run dimension lines on a measured 45-degree wall", () => {
+    const room: RoomData = {
+      width: 156.154,
+      depth: 55.154,
+      ceilingHeight: 96,
+      openWallPath: true,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 101, y: 0 },
+        { id: "c", x: 156.154, y: 55.154 },
+      ],
+      customWalls: [
+        { id: "wall-1", startVertexId: "a", endVertexId: "b", label: "Wall 1" },
+        { id: "wall-2", startVertexId: "b", endVertexId: "c", label: "Wall 2", lockedAngle: 45 },
+      ],
+    };
+    const cabinet = {
+      ...base,
+      uid: "dimension-b36",
+      masterCode: "B36",
+      description: "36 inch Base Cabinet",
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      x: 0,
+      y: 0,
+      wallId: "wall-1",
+      wallOffset: 0,
+    } as PlacedCabinet;
+    const markup = renderToStaticMarkup(createElement(LanguageProvider, null, createElement(PlanCanvas, {
+      room, cabinets: [cabinet], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+      showWallLayer: true, autoDimensions: true,
+    })));
+
+    expect(markup).toContain('data-testid="floor-plan-live-dimensions"');
+    expect(markup).toContain('data-testid="floor-dimension-wall-wall-1"');
+    expect(markup).toContain('data-testid="floor-dimension-wall-wall-2"');
+    expect(markup).toContain('data-testid="floor-dimension-run-wall-1-base-0"');
+    expect(markup).not.toContain('data-testid="custom-wall-length-bubble"');
+  });
+
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 

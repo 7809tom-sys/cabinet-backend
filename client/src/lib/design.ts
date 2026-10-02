@@ -8417,6 +8417,100 @@ export interface DimensionSeg {
   label: string; // display label (e.g. "B15" or gap width)
 }
 
+/**
+ * Display-only Floor Plan dimension segments.  Unlike the legacy cardinal
+ * `wallDimensions` helper below, these chains read the one wall-run model used
+ * by both the Designer and Continuous Wall Builder.  They deliberately never
+ * snap, reseat, or otherwise write to a cabinet or wall.
+ */
+export interface FloorPlanDimensionSegment {
+  start: number;
+  length: number;
+  kind: "cabinet" | "gap";
+  /** Source record only; the visual layer intentionally displays the dimension, not a SKU. */
+  cabinetUid?: string;
+  masterCode?: string;
+}
+
+export interface FloorPlanWallDimensionChain {
+  wallId: string;
+  layer: "base" | "wall";
+  /** Physical wall corner-to-corner span, in inches. */
+  length: number;
+  /** The usable wall-run bounds are retained for split cardinal walls. */
+  runStart: number;
+  runEnd: number;
+  segments: FloorPlanDimensionSegment[];
+}
+
+function floorPlanDimensionLayer(cabinet: PlacedCabinet): "base" | "wall" | null {
+  if (cabinet.placement === "wall") return "wall";
+  if (cabinet.placement === "base" || cabinet.placement === "appliance" || cabinet.placement === "tall") return "base";
+  return null;
+}
+
+/**
+ * Returns a gap-and-piece dimension chain for every explicitly seated wall run.
+ * Segments use `wallRunSpan`, so a 45° cabinet reports its catalog width rather
+ * than its rotated screen envelope.  A chain is only returned where it has a
+ * cabinet on that layer; this keeps otherwise empty walls visually quiet.
+ */
+export function floorPlanWallDimensionChains(
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+): FloorPlanWallDimensionChain[] {
+  const chains: FloorPlanWallDimensionChain[] = [];
+  for (const frame of roomWallRunFrames(room)) {
+    for (const layer of ["base", "wall"] as const) {
+      const members = placed
+        .filter((cabinet) => floorPlanDimensionLayer(cabinet) === layer && cabinetWall(cabinet, room) === frame.id)
+        .map((cabinet) => ({
+          cabinet,
+          start: Math.max(0, Math.min(frame.length, wallRunOffset(cabinet, frame.id, room))),
+          span: Math.max(0, wallRunSpan(cabinet, frame.id, room)),
+        }))
+        .filter((member) => member.start < frame.length - COLLISION_EPSILON_IN && member.start + member.span > COLLISION_EPSILON_IN)
+        .sort((left, right) => left.start - right.start || left.cabinet.uid.localeCompare(right.cabinet.uid));
+      if (members.length === 0) continue;
+
+      const segments: FloorPlanDimensionSegment[] = [];
+      let cursor = 0;
+      for (const member of members) {
+        const start = Math.max(cursor, member.start);
+        const end = Math.min(frame.length, member.start + member.span);
+        if (start > cursor + COLLISION_EPSILON_IN) {
+          segments.push({ start: cursor, length: start - cursor, kind: "gap" });
+        }
+        // Physical overlap is not hidden or reinterpreted by the display layer.
+        // The visible chain stops at the non-overlapping span so its total always
+        // equals the actual usable wall run while collision remains authoritative.
+        if (end > start + COLLISION_EPSILON_IN) {
+          segments.push({
+            start,
+            length: end - start,
+            kind: "cabinet",
+            cabinetUid: member.cabinet.uid,
+            masterCode: member.cabinet.masterCode,
+          });
+          cursor = Math.max(cursor, end);
+        }
+      }
+      if (cursor < frame.length - COLLISION_EPSILON_IN) {
+        segments.push({ start: cursor, length: frame.length - cursor, kind: "gap" });
+      }
+      chains.push({
+        wallId: frame.id,
+        layer,
+        length: frame.length,
+        runStart: frame.runStart,
+        runEnd: frame.runEnd,
+        segments,
+      });
+    }
+  }
+  return chains;
+}
+
 export function wallDimensions(
   side: WallSide,
   room: RoomData,
@@ -9392,15 +9486,22 @@ export function wallSpanMeasure(
   others: PlacedCabinet[],
   side: WallSide
 ): WallSpanMeasure {
-  const horizontal = side === "top" || side === "bottom";
   const wallLen = wallLength(side, room);
   const me = runSpan(moving, side, room);
+  const movingLayer = floorPlanDimensionLayer(moving);
 
-  // Neighbors on the same wall + same layer, excluding the moving item itself.
+  // Neighbors on the same shared wall run + same display layer, excluding the
+  // moving item. This is deliberately a read-only measurement: base cabinets,
+  // appliances, tall units, panels and fillers share the lower run; uppers use
+  // their own wall layer. It works on cardinal and measured/45° walls alike.
   const neighbors = others
     .filter((o) => o.uid !== moving.uid)
-    .filter((o) => o.placement === moving.placement)
-    .filter((o) => isAgainstWall(o, side, room))
+    .filter((o) => floorPlanDimensionLayer(o) === movingLayer)
+    // A true corner body can physically occupy the adjoining standard-wall
+    // seam while its durable wallId belongs to the perpendicular run. Preserve
+    // that established cardinal-room measurement; measured walls continue to
+    // use their explicit common run identity.
+    .filter((o) => cabinetWall(o, room) === side || isAgainstWall(o, side, room))
     .map((o) => runSpan(o, side, room));
 
   // Previous obstacle: the closest neighbor that ends at/below our start.

@@ -6,14 +6,14 @@ import {
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
-	  cabinetWall, wallSpanMeasure, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
+	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-	  wallDimensions, cabinetWallRunSegment, retainedWallSegmentForSplit, type DimensionSeg,
+	  cabinetWallRunSegment, retainedWallSegmentForSplit, floorPlanWallDimensionChains, roomWallRunFrames,
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -1084,17 +1084,16 @@ export function PlanCanvas({
     if (!p) return null;
     const side = cabinetWall(p, room);
     const m = wallSpanMeasure(p, room, cabinets, side);
-    const horizontal = side === "top" || side === "bottom";
-    const { w, d } = rotatedSize(p);
-    // The fixed cross-axis line where we draw the dimension (just outside the
-    // cabinet face, toward the room interior).
-    const band = 14; // px offset from the wall edge for the dimension line
-    let crossPx: number;
-    if (side === "top") crossPx = (p.y + d) * ppi + band;
-    else if (side === "bottom") crossPx = p.y * ppi - band;
-    else if (side === "left") crossPx = (p.x + w) * ppi + band;
-    else crossPx = p.x * ppi - band;
-	    return { side, m, horizontal, crossPx, startPx: m.start * ppi, endPx: m.end * ppi };
+	    const frame = wallRunFrame(side, room);
+	    if (!frame) return null;
+	    // Draw just beyond the cabinet front using the same inward normal that
+	    // seats the cabinet. The readout stays parallel to a 45° measured run.
+	    const lineIn = Math.max(0, Number(p.depth) || 0) + 3;
+	    const pointAt = (along: number) => ({
+	      x: (frame.start.x + frame.tangent.x * along + frame.inward.x * lineIn) * ppi,
+	      y: (frame.start.y + frame.tangent.y * along + frame.inward.y * lineIn) * ppi,
+	    });
+	    return { m, frame, pointAt };
 	  })();
 
 	  const activeIslandFaceCapacityWarning = (() => {
@@ -1344,10 +1343,10 @@ export function PlanCanvas({
                   <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
                 </line>
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
-                <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
+                {!autoDimensions && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
                   <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatEighthInches(length)}</text>
-                </g>
+                </g>}
               </g>;
             })}
           </svg>
@@ -2771,52 +2770,30 @@ export function PlanCanvas({
 
         {/* Live drag tape-measure: two-sided clearance along the wall */}
         {dragTape && (() => {
-          const { m, horizontal, crossPx, startPx, endPx } = dragTape;
-          const beforePx = m.before * ppi;
-          const afterPx = m.after * ppi;
-          // Endpoints of the two dimension segments along the run axis.
-          const beforeFrom = startPx - beforePx;
-          const afterTo = endPx + afterPx;
-          const tick = 5; // half-length of the end ticks
-          const segs: { a: number; b: number; mid: number; val: number; show: boolean }[] = [
-            { a: beforeFrom, b: startPx, mid: (beforeFrom + startPx) / 2, val: m.before, show: m.before > 0.5 },
-            { a: endPx, b: afterTo, mid: (endPx + afterTo) / 2, val: m.after, show: m.after > 0.5 },
+          const { m, frame, pointAt } = dragTape;
+          const tick = { x: -frame.tangent.y * 5, y: frame.tangent.x * 5 };
+          const labelAngle = parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
+          const segs = [
+            { start: m.start - m.before, end: m.start, value: m.before, arrow: "←" },
+            { start: m.end, end: m.end + m.after, value: m.after, arrow: "→" },
           ];
           return (
-            <>
-              <svg className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH}>
-                {segs.map((s, i) => {
-                  if (!s.show) return null;
-                  if (horizontal) {
-                    return (
-                      <g key={i} stroke="#1a2744" strokeWidth={1.25}>
-                        <line x1={s.a} y1={crossPx} x2={s.b} y2={crossPx} />
-                        <line x1={s.a} y1={crossPx - tick} x2={s.a} y2={crossPx + tick} />
-                        <line x1={s.b} y1={crossPx - tick} x2={s.b} y2={crossPx + tick} />
-                      </g>
-                    );
-                  }
-                  return (
-                    <g key={i} stroke="#1a2744" strokeWidth={1.25}>
-                      <line x1={crossPx} y1={s.a} x2={crossPx} y2={s.b} />
-                      <line x1={crossPx - tick} y1={s.a} x2={crossPx + tick} y2={s.a} />
-                      <line x1={crossPx - tick} y1={s.b} x2={crossPx + tick} y2={s.b} />
-                    </g>
-                  );
-                })}
-              </svg>
-              {segs.map((s, i) =>
-                s.show ? (
-                  <div
-                    key={i}
-                    className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-semibold text-white shadow whitespace-nowrap"
-                    style={horizontal ? { left: s.mid, top: crossPx } : { left: crossPx, top: s.mid }}
-                  >
-                    {formatInches(s.val)}
-                  </div>
-                ) : null
-              )}
-            </>
+            <svg data-testid="live-cabinet-gap-dimensions" className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH}>
+              {segs.map((segment, index) => {
+                const start = pointAt(segment.start);
+                const end = pointAt(segment.end);
+                const middle = pointAt((segment.start + segment.end) / 2);
+                return <g key={index} stroke="#1a2744" strokeWidth={1.25}>
+                  <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} />
+                  <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} />
+                  <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} />
+                  <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle})`}>
+                    <rect x={-23} y={-8} width={46} height={16} rx={3} fill="#1a2744" stroke="none" />
+                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">{segment.arrow === "←" ? `${segment.arrow} ${formatSixteenthInches(segment.value)}` : `${formatSixteenthInches(segment.value)} ${segment.arrow}`}</text>
+                  </g>
+                </g>;
+              })}
+            </svg>
           );
         })()}
 
@@ -2849,54 +2826,144 @@ export function PlanCanvas({
           </div>
         )}
 
-        {/* ─── Auto-dimensions (all walls at once) ───────────────────── */}
-	        {autoDimensions && !hasCustomWallShell && !dragUid && (() => {
-          const sides: WallSide[] = ["top", "bottom", "left", "right"];
-          const BASE_OFFSET = 22;
-          const WALL_OFFSET = 38; // second row for wall cabinets
-          const layers: ("base" | "wall")[] = showWallLayer ? ["base", "wall"] : ["base"];
+
+        {/* ─── Live Floor Plan dimensions (display-only) ───────────────── */}
+        {autoDimensions && (() => {
+          const wallFrames = roomWallRunFrames(room).filter((frame) => frame.kind !== "peninsula");
+          const chains = floorPlanWallDimensionChains(room, cabinets)
+            .filter((chain) => chain.layer === "base" || showWallLayer);
+          const activeLayers = showWallLayer ? ["base", "wall"] as const : ["base"] as const;
+          // Keep the exterior chain clear of the room edge but inside the
+          // Floor Plan workspace header, where the top-wall label remains
+          // readable instead of hiding underneath the toolbar.
+          const outerOffsetIn = 2;
+          const labelOffsetIn = 1.5;
+          const tickPx = 4;
+          const pointAt = (frame: typeof wallFrames[number], along: number, inwardIn: number) => ({
+            x: (frame.start.x + frame.tangent.x * along + frame.inward.x * inwardIn) * ppi,
+            y: (frame.start.y + frame.tangent.y * along + frame.inward.y * inwardIn) * ppi,
+          });
+          const labelAngle = (frame: typeof wallFrames[number]) => parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
+          const tickVector = (frame: typeof wallFrames[number]) => ({ x: -frame.tangent.y * tickPx, y: frame.tangent.x * tickPx });
+          const openingDimensions = openings.flatMap((opening) => {
+            const frame = wallFrames.find((candidate) => candidate.id === opening.side);
+            if (!frame) return [];
+            const start = Math.max(0, Math.min(frame.length, opening.offset));
+            const width = Math.max(0, Math.min(frame.length - start, opening.width));
+            if (width <= 0) return [];
+            const nearest = Math.min(start, Math.max(0, frame.length - start - width));
+            return [{ opening, frame, start, width, nearest }];
+          });
+          const islandAisle = island ? (() => {
+            const box = { left: island.x, top: island.y, right: island.x + island.width, bottom: island.y + island.depth };
+            const distances = cabinets.map((cabinet) => {
+              const footprint = placedFootprint(cabinet);
+              const other = { left: cabinet.x, top: cabinet.y, right: cabinet.x + footprint.w, bottom: cabinet.y + footprint.d };
+              const dx = Math.max(0, box.left - other.right, other.left - box.right);
+              const dy = Math.max(0, box.top - other.bottom, other.top - box.bottom);
+              return Math.hypot(dx, dy);
+            }).filter((value) => value > 0.001);
+            return distances.length ? Math.min(...distances) : null;
+          })() : null;
+	          const peninsulaDimensions = roomWallRunFrames(room)
+	            .filter((frame) => frame.kind === "peninsula")
+	            .map((frame) => {
+	              const ownCabinets = cabinets.filter((cabinet) => cabinetWall(cabinet, room) === frame.id);
+	              const depth = Math.max(24, ...ownCabinets.map((cabinet) => Math.max(0, Number(cabinet.depth) || 0)));
+	              const midpoint = {
+	                x: frame.start.x + frame.tangent.x * frame.length / 2,
+	                y: frame.start.y + frame.tangent.y * frame.length / 2,
+	              };
+	              const aisle = roomWallRunFrames(room)
+	                .filter((other) => other.id !== frame.id && cabinets.some((cabinet) => cabinetWall(cabinet, room) === other.id))
+	                .map((other) => Math.max(0, wallRunDistanceToPoint(other, midpoint) - depth / 2))
+	                .sort((left, right) => left - right)[0] ?? null;
+	              return { frame, depth, aisle };
+	            });
           return (
-            <svg className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH}>
-              {layers.flatMap((layer) => sides.flatMap((side) => {
-                const segs = wallDimensions(side, room, cabinets, layer);
-                if (segs.length === 0) return [];
-                const horizontal = side === "top" || side === "bottom";
-                const offset = layer === "wall" ? WALL_OFFSET : BASE_OFFSET;
-                const cross = side === "top" ? -offset
-                  : side === "bottom" ? roomPxH + offset
-                  : side === "left" ? -offset
-                  : roomPxW + offset;
-                const tick = 4;
-                return segs.map((seg, i) => {
-                  const aPx = seg.start * ppi;
-                  const bPx = (seg.start + seg.length) * ppi;
-                  const midPx = (aPx + bPx) / 2;
-                  const color = seg.kind === "cabinet" ? "#1a2744" : "#e07b39";
-                  if (seg.length < 1) return null;
-                  if (horizontal) {
-                    return (
-                      <g key={`${side}-${i}`}>
-                        <line x1={aPx} y1={cross} x2={bPx} y2={cross} stroke={color} strokeWidth={1} />
-                        <line x1={aPx} y1={cross - tick} x2={aPx} y2={cross + tick} stroke={color} strokeWidth={1} />
-                        <line x1={bPx} y1={cross - tick} x2={bPx} y2={cross + tick} stroke={color} strokeWidth={1} />
-                        <text x={midPx} y={cross + (side === "top" ? -6 : 10)} textAnchor="middle" fontSize={8} fill={color} fontWeight={seg.kind === "gap" ? 700 : 500}>
-                          {seg.label}
-                        </text>
-                      </g>
-                    );
-                  }
-                  return (
-                    <g key={`${side}-${i}`}>
-                      <line x1={cross} y1={aPx} x2={cross} y2={bPx} stroke={color} strokeWidth={1} />
-                      <line x1={cross - tick} y1={aPx} x2={cross + tick} y2={aPx} stroke={color} strokeWidth={1} />
-                      <line x1={cross - tick} y1={bPx} x2={cross + tick} y2={bPx} stroke={color} strokeWidth={1} />
-                      <text x={cross + (side === "left" ? -6 : 6)} y={midPx + 3} textAnchor={side === "left" ? "end" : "start"} fontSize={8} fill={color} fontWeight={seg.kind === "gap" ? 700 : 500}>
-                        {seg.label}
-                      </text>
+            <svg data-testid="floor-plan-live-dimensions" className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH} aria-label="Live Floor Plan dimensions">
+              {/* Outer physical-wall lines: corner-to-corner, including measured 45° walls. */}
+              {wallFrames.map((frame) => {
+                const start = pointAt(frame, 0, -outerOffsetIn);
+                const end = pointAt(frame, frame.length, -outerOffsetIn);
+                const middle = pointAt(frame, frame.length / 2, -outerOffsetIn - labelOffsetIn);
+                const tick = tickVector(frame);
+                return <g key={`floor-dimension-wall-${frame.id}`} data-testid={`floor-dimension-wall-${frame.id}`}>
+                  <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#273b6b" strokeWidth={1} />
+                  <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke="#273b6b" strokeWidth={1} />
+                  <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke="#273b6b" strokeWidth={1} />
+                  <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle(frame)})`}>
+                    <rect x={-22} y={-8} width={44} height={16} rx={4} fill="white" fillOpacity={0.94} stroke="#a8b5cf" />
+                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="#1a2744">{formatSixteenthInches(frame.length)}</text>
+                  </g>
+                </g>;
+              })}
+
+              {/* Inner run lines: catalog cabinet widths and every leftover gap. */}
+              {chains.flatMap((chain) => {
+                const frame = wallFrames.find((candidate) => candidate.id === chain.wallId);
+                if (!frame) return [];
+                const inwardIn = chain.layer === "wall" ? 6 : 12;
+                const layerNudgeIn = chain.layer === "wall" ? 3 : 0;
+                const tick = tickVector(frame);
+                return chain.segments.map((segment, index) => {
+                  const start = pointAt(frame, segment.start, inwardIn + layerNudgeIn);
+                  const end = pointAt(frame, segment.start + segment.length, inwardIn + layerNudgeIn);
+                  const middle = pointAt(frame, segment.start + segment.length / 2, inwardIn + layerNudgeIn - labelOffsetIn);
+                  const short = segment.length * ppi < 30;
+                  const labelPoint = short ? pointAt(frame, segment.start + segment.length / 2, inwardIn + layerNudgeIn + 6) : middle;
+                  const color = segment.kind === "gap" ? "#b45309" : "#1a2744";
+                  return <g key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`} data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}>
+                    <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={color} strokeWidth={1} />
+                    <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke={color} strokeWidth={1} />
+                    <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke={color} strokeWidth={1} />
+                    {short && <line x1={(start.x + end.x) / 2} y1={(start.y + end.y) / 2} x2={labelPoint.x} y2={labelPoint.y} stroke={color} strokeWidth={1} />}
+                    <g transform={`translate(${labelPoint.x} ${labelPoint.y}) rotate(${labelAngle(frame)})`}>
+                      <rect x={-19} y={-7} width={38} height={14} rx={3} fill="white" fillOpacity={0.92} />
+                      <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={segment.kind === "gap" ? 700 : 500} fill={color}>{formatSixteenthInches(segment.length)}</text>
                     </g>
-                  );
+                  </g>;
                 });
-              }))}
+              })}
+
+              {/* Window and door width plus nearest-corner distance on their owning run. */}
+              {openingDimensions.map(({ opening, frame, start, width, nearest }) => {
+                const lineIn = 2;
+                const a = pointAt(frame, start, lineIn);
+                const b = pointAt(frame, start + width, lineIn);
+                const m = pointAt(frame, start + width / 2, lineIn - labelOffsetIn);
+                return <g key={`floor-dimension-opening-${opening.uid}`} data-testid={`floor-dimension-opening-${opening.uid}`}>
+                  <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeWidth={1} strokeDasharray="2 2" />
+                  <g transform={`translate(${m.x} ${m.y}) rotate(${labelAngle(frame)})`}>
+                    <rect x={-39} y={-7} width={78} height={14} rx={3} fill="white" fillOpacity={0.94} />
+                    <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill="#0f766e">{formatSixteenthInches(width)} · {formatSixteenthInches(nearest)} to corner</text>
+                  </g>
+                </g>;
+              })}
+
+              {/* Freestanding island/peninsula size and nearest clear aisle. */}
+              {island && <g data-testid="floor-dimension-island">
+                <line x1={island.x * ppi} y1={(island.y - 8) * ppi} x2={(island.x + island.width) * ppi} y2={(island.y - 8) * ppi} stroke="#6d28d9" strokeWidth={1} />
+                <text x={(island.x + island.width / 2) * ppi} y={(island.y - 10) * ppi} textAnchor="middle" fontSize={9} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(island.width)}</text>
+                <line x1={(island.x - 8) * ppi} y1={island.y * ppi} x2={(island.x - 8) * ppi} y2={(island.y + island.depth) * ppi} stroke="#6d28d9" strokeWidth={1} />
+                <text x={(island.x - 10) * ppi} y={(island.y + island.depth / 2) * ppi} textAnchor="end" fontSize={9} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(island.depth)}{islandAisle != null ? ` · aisle ${formatSixteenthInches(islandAisle)}` : ""}</text>
+              </g>}
+	              {peninsulaDimensions.map(({ frame, depth, aisle }) => {
+	                const start = pointAt(frame, 0, depth / 2 + 8);
+	                const end = pointAt(frame, frame.length, depth / 2 + 8);
+	                const middle = pointAt(frame, frame.length / 2, depth / 2 + 11);
+	                const tick = tickVector(frame);
+	                return <g key={`floor-dimension-peninsula-${frame.id}`} data-testid={`floor-dimension-peninsula-${frame.id}`}>
+	                  <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#6d28d9" strokeWidth={1} />
+	                  <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke="#6d28d9" strokeWidth={1} />
+	                  <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke="#6d28d9" strokeWidth={1} />
+	                  <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle(frame)})`}>
+	                    <rect x={-52} y={-8} width={104} height={16} rx={4} fill="white" fillOpacity={0.94} stroke="#c4b5fd" />
+	                    <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(frame.length)} × {formatSixteenthInches(depth)}{aisle != null ? ` · aisle ${formatSixteenthInches(aisle)}` : ""}</text>
+	                  </g>
+	                </g>;
+	              })}
+              <title>{`Live dimensions · ${activeLayers.join(" + ")} cabinet layers`}</title>
             </svg>
           );
         })()}
