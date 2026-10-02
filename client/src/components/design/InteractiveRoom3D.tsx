@@ -1587,9 +1587,18 @@ const COUNTERTOP_FINISHES = [
 export const THREE_D_EXPORT_SIZE = { width: 2000, height: 1400 } as const;
 
 /** Keeps the selected 3D cabinet card informative even for sparse legacy records. */
-export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "masterCode"> & { description?: string | null }): string {
+export function threeDSelectedCabinetDescription(cabinet: Pick<PlacedCabinet, "masterCode" | "fillerPieceGroupId" | "fillerPlacementMode"> & { description?: string | null }): string {
   const description = cabinet.description?.trim();
-  if (description) return description;
+  if (description) {
+    // Preserve legacy SCR source rows and their SKU for ordering, but call an
+    // installed, linked cut what it is in the design: a cabinet filler.
+    if (cabinet.fillerPieceGroupId && cabinet.fillerPlacementMode && /\bscribe\b/i.test(description)) {
+      const cut = description.match(/(?:[AB]\s+front\s+)?filler\s+cut\s+to\s+.+$/i)?.[0]
+        ?? description.match(/cut\s+to\s+.+$/i)?.[0];
+      return cut ? `Filler — ${cut}` : "Filler";
+    }
+    return description;
+  }
 
   const code = cabinet.masterCode?.trim();
   return code ? `${code} cabinet` : "Catalog cabinet";

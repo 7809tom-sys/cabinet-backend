@@ -11200,6 +11200,11 @@ function customWallJoinTurnsNinety(
   return Math.abs(interiorTurn - Math.PI / 2) <= 1e-6;
 }
 
+// A fitted 45°-corner filler is source stock cut to at most the 3-inch face
+// width. It moves the cabinet body's endpoint slightly beyond the mandatory
+// 11-inch hold, but it must not re-open the finished countertop pocket.
+const FITTED_FORTY_FIVE_CORNER_FILLER_MAX_IN = 3;
+
 function measuredWallCountertopEndpointCabinet(
   wallId: string,
   at: "start" | "end",
@@ -11218,10 +11223,14 @@ function measuredWallCountertopEndpointCabinet(
     })
     .filter(({ distance }) => (
       distance <= COLLISION_EPSILON_IN
-      // A true 45° join keeps both cabinet faces at this exact measured hold.
-      // Its miter-cut counter slabs remain cabinet-supported; this is not a
-      // general allowance for a free gap or a normal 90° room corner.
-      || (allowRequiredFortyFiveHold && Math.abs(distance - PENINSULA_INSIDE_CORNER_CLEARANCE_IN) <= COLLISION_EPSILON_IN)
+      // A true 45° join keeps cabinet faces at the 11-inch hold. A confirmed
+      // fitted filler can move the body endpoint up to its source 3-inch face
+      // width beyond that datum; its countertop must still close continuously
+      // from the mitered cabinet fronts back to the wall. This remains tightly
+      // bounded and never applies to a normal 90° corner or a free large gap.
+      || (allowRequiredFortyFiveHold
+        && distance >= PENINSULA_INSIDE_CORNER_CLEARANCE_IN - COLLISION_EPSILON_IN
+        && distance <= PENINSULA_INSIDE_CORNER_CLEARANCE_IN + FITTED_FORTY_FIVE_CORNER_FILLER_MAX_IN + COLLISION_EPSILON_IN)
     ))
     .sort((left, right) => left.distance - right.distance)[0]?.cabinet ?? null;
 }
@@ -11390,6 +11399,16 @@ function measuredWallCornerInfillSurface(
   vertexId: string,
 ): CountertopSurface | null {
   const worldPolygon = [vertex, firstInner, miterPoint, secondInner];
+  // Three.js extrudes the authored polygon's back face upward after the plan →
+  // 3D rotation. Keep this fill counter-clockwise like every cabinet slab so
+  // its finished top—not its underside—is visible from the room. A clockwise
+  // infill was mathematically present but could be culled/appear transparent
+  // from the camera, leaving the exact triangular visual void in the report.
+  const signedArea = worldPolygon.reduce((sum, point, index) => {
+    const next = worldPolygon[(index + 1) % worldPolygon.length]!;
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0);
+  if (signedArea < 0) worldPolygon.reverse();
   const area = countertopPolygonArea(worldPolygon);
   if (area <= COLLISION_EPSILON_IN) return null;
   const minX = Math.min(...worldPolygon.map((point) => point.x));
@@ -11455,7 +11474,8 @@ export function miteredMeasuredWallCountertopSurfaces(
         const end = start + (surface.linearInches ?? surface.width);
         const distance = at === "start" ? Math.abs(start) : Math.abs(length - end);
         return distance <= COLLISION_EPSILON_IN
-          || Math.abs(distance - PENINSULA_INSIDE_CORNER_CLEARANCE_IN) <= COLLISION_EPSILON_IN;
+          || (distance >= PENINSULA_INSIDE_CORNER_CLEARANCE_IN - COLLISION_EPSILON_IN
+            && distance <= PENINSULA_INSIDE_CORNER_CLEARANCE_IN + FITTED_FORTY_FIVE_CORNER_FILLER_MAX_IN + COLLISION_EPSILON_IN);
       });
     const firstIndex = endpointSurfaceIndex(firstId, shared.firstAt, firstLength);
     const secondIndex = endpointSurfaceIndex(secondId, shared.secondAt, secondLength);

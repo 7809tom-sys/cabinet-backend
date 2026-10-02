@@ -58,6 +58,15 @@ function fillerCartIdentity(cabinet: PlacedCabinet): string {
     : "";
 }
 
+/** Preserve an imported SCR SKU while naming the installed physical role clearly. */
+export function installedFillerCartName(cabinet: Pick<PlacedCabinet, "masterCode" | "description" | "category" | "subCategory" | "width">): string {
+  const description = cabinet.description?.trim() || cabinet.masterCode;
+  if (!isFillerItem(cabinet) || !/\bscribe\b/i.test(description)) return description;
+  const cut = description.match(/(?:[AB]\s+front\s+)?filler\s+cut\s+to\s+.+$/i)?.[0]
+    ?? description.match(/cut\s+to\s+.+$/i)?.[0];
+  return cut ? `Filler — ${cut}` : "Filler";
+}
+
 /** Turns the priced cabinets in a design into the exact cart lines submitted by Design Tool. */
 export function buildDesignCabinetCartLines({
   placed,
@@ -99,7 +108,7 @@ export function buildDesignCabinetCartLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: `${cabinet.description ?? cabinet.masterCode}${glassPolicyCartSuffix(cabinet)}`,
+        name: `${installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,
@@ -233,7 +242,7 @@ export function buildDesignPreviewPricingLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: `${cabinet.description ?? cabinet.masterCode}${glassPolicyCartSuffix(cabinet)}`,
+        name: `${installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,

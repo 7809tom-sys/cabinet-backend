@@ -92,6 +92,24 @@ describe("addThreeDMeasuredWallMiterCountertops", () => {
     expect(cornerFills[0]?.geometry.type).toBe("ExtrudeGeometry");
   });
 
+  it("keeps the visible countertop closure when fitted corner fillers move bodies beyond the 11-inch hold", () => {
+    const diagonalLength = Math.hypot(60, 60);
+    const root = new THREE.Group();
+    addThreeDMeasuredWallMiterCountertops(root, room, [
+      baseCabinet("diagonal-fitted-base", "diagonal", diagonalLength - 24 - 12),
+      baseCabinet("straight-fitted-base", "straight", 12),
+    ], "#ffffff");
+
+    const cornerFill = root.children.find((child) => (
+      (child as THREE.Mesh).userData.measuredWallCornerInfillCountertop === true
+    )) as THREE.Mesh | undefined;
+    expect(cornerFill).toBeDefined();
+    const normals = Array.from((cornerFill!.geometry as THREE.BufferGeometry).getAttribute("normal").array as Float32Array);
+    // The counter-clockwise plan fill produces a finished upward-facing surface
+    // after the shared plan-to-3D extrusion.
+    expect(normals.some((normal, index) => index % 3 === 1 && normal > 0.99)).toBe(true);
+  });
+
   it("renders a flush square seam where two diagonal measured walls turn 90 degrees", () => {
     const squareRoom = {
       ...DEFAULT_ROOM,

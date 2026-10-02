@@ -19,7 +19,7 @@ const bec = {
 } as PlacedCabinet;
 
 describe("designer cabinet cart lines", () => {
-	  it("uses W-24-42's verified $265.06 tier price for legacy WFR2442 in both preview and locked cart", () => {
+		  it("uses W-24-42's verified $265.06 tier price for legacy WFR2442 in both preview and locked cart", () => {
 	    const legacyWfr = {
 	      ...bec,
 	      uid: "legacy-wfr2442",
@@ -52,7 +52,29 @@ describe("designer cabinet cart lines", () => {
 	    expect(buildDesignCabinetCartLines(common)).toEqual([
 	      expect.objectContaining({ masterCode: "WFR2442", unitPrice: 265.06, qty: 1, priceLocked: true }),
 	    ]);
-	  });
+		  });
+
+	  it("keeps a legacy SCR SKU priced while showing its installed role as Filler", () => {
+	    const installedScribe = {
+	      ...bec,
+	      uid: "scribe-filler",
+	      cabinetId: 42,
+	      masterCode: "SCR",
+	      description: 'Scribe Molding - 96" — A front filler cut to 2¾" with 22.5° miter (forms 45° turn)',
+	      category: "Filler",
+	      subCategory: "Filler",
+	      width: 2.75,
+	      nominalWidth: 3,
+	      fillerPieceGroupId: "turn-1",
+	      fillerPlacementMode: "left",
+	    } as PlacedCabinet;
+	    const common = {
+	      placed: [installedScribe], styleId: 330002, distributorId: 210001, tier: "homeowner" as const,
+	      styleNameById: new Map([[330002, "Aero Blanc (Preston)"]]), unitPriceFor: () => 18.25,
+	    };
+	    expect(buildDesignCabinetCartLines(common)[0]).toMatchObject({ masterCode: "SCR", name: 'Filler — A front filler cut to 2¾" with 22.5° miter (forms 45° turn)' });
+	    expect(buildDesignPreviewPricingLines(common)[0]).toMatchObject({ masterCode: "SCR", name: 'Filler — A front filler cut to 2¾" with 22.5° miter (forms 45° turn)' });
+  });
 
   it("keeps cart and preview identity on the active supplier style for a stale foreign saved finish", () => {
     const foreignFinishCabinet = { ...bec, uid: "foreign-finish", styleId: 330003 } as PlacedCabinet;

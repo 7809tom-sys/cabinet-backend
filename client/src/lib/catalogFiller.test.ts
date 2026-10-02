@@ -80,6 +80,12 @@ describe("catalogFillerForGap", () => {
     expect(fittedCatalogFillerDescription(wallFiller!, 2.5)).toBe('3" x 30" Wall Filler — cut to 2.5"');
   });
 
+  it("calls fitted scribe stock a filler while preserving its source SKU for ordering", () => {
+    const scribeStock = { id: 41, masterCode: "SCR", description: 'Scribe Molding - 96"', category: "Filler", subCategory: "Filler", width: 3, depth: 0.75, height: 96, catalogImageUrl: null } as const;
+    expect(isCatalogFiller(scribeStock)).toBe(true);
+    expect(fittedCatalogFillerDescription(scribeStock, 2.75)).toBe('Filler — cut to 2.75"');
+  });
+
   it("keeps a trimmed catalog filler at its approved SKU price rather than applying a generic cabinet resize fee", () => {
     expect(customSizeFee({ width: 2.5, nominalWidth: 3, depth: 24, nominalDepth: 24, masterCode: "BF-3", subCategory: "Filler" })).toBe(0);
     expect(customSizeFee({ width: 25, nominalWidth: 24, depth: 24, nominalDepth: 24, masterCode: "B24", subCategory: "Base" })).toBe(CUSTOM_SIZE_FEE);

@@ -132,12 +132,43 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     // and share both cabinet-facing miter edges exactly, so no countertop void
     // remains at the inside 45-degree corner.
     expect(containsPoint(infillPolygon, { x: 60, y: 60 })).toBe(true);
+	    const signedInfillArea = infillPolygon.reduce((sum, point, index) => {
+	      const next = infillPolygon[(index + 1) % infillPolygon.length]!;
+	      return sum + point.x * next.y - next.x * point.y;
+	    }, 0);
+	    // Counter-clockwise plan winding becomes the visible top face after the
+	    // shared polygon extrusion rotates it into Three.js room coordinates.
+	    expect(signedInfillArea).toBeGreaterThan(0);
     const diagonalPolygon = countertopSurfacePlanPolygon(surfaces.find((surface) => surface.customWallId === "diagonal")!);
     const straightPolygon = countertopSurfacePlanPolygon(surfaces.find((surface) => surface.customWallId === "straight")!);
     const sharedWithDiagonal = infillPolygon.filter((point) => containsPoint(diagonalPolygon, point));
     const sharedWithStraight = infillPolygon.filter((point) => containsPoint(straightPolygon, point));
     expect(sharedWithDiagonal).toHaveLength(2);
     expect(sharedWithStraight).toHaveLength(2);
+  });
+
+  it("closes the same true 45-degree pocket when fitted fillers move cabinet bodies up to three inches beyond the hold", () => {
+    const diagonalLength = Math.hypot(60, 60);
+    // These 12-inch endpoints model a one-inch filler fitted at each required
+    // 11-inch hold. The finished top must still span from the cabinet fronts to
+    // the wall; leaving the added fitted width untreated creates the visible
+    // triangular void reported in the Wall Builder.
+    const diagonalBase = baseCabinet("diagonal-fitted-base", "diagonal", diagonalLength - 24 - 12);
+    const straightBase = baseCabinet("straight-fitted-base", "straight", 12);
+    const surfaces = countertopSurfaces([diagonalBase, straightBase], room);
+    const infill = surfaces.find((surface) => surface.customWallCornerInfill);
+    expect(infill).toMatchObject({ customWallMiterVertexId: "v2" });
+    expect(countertopSurfacePlanPolygon(infill!)).toEqual(expect.arrayContaining([
+      expect.objectContaining({ x: 60, y: 60 }),
+    ]));
+  });
+
+  it("does not bridge an arbitrary free gap beyond the fitted three-inch filler allowance", () => {
+    const diagonalLength = Math.hypot(60, 60);
+    const diagonalBase = baseCabinet("diagonal-free-gap", "diagonal", diagonalLength - 24 - 15);
+    const straightBase = baseCabinet("straight-free-gap", "straight", 15);
+    const surfaces = countertopSurfaces([diagonalBase, straightBase], room);
+    expect(surfaces.some((surface) => surface.customWallCornerInfill)).toBe(false);
   });
 
   it("does not invent a countertop miter at the same join when the explicit 45-degree wall is removed", () => {

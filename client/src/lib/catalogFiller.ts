@@ -92,8 +92,13 @@ export function catalogFillerForGap(
 
 export function fittedCatalogFillerDescription(candidate: Pick<CatalogFillerCandidate, "description" | "masterCode">, gapWidth: number): string {
   const source = candidate.description ?? candidate.masterCode;
+  // A few vendor imports call a cuttable stock board a "scribe molding". Its
+  // purchase code and price remain authoritative, but once it is fitted beside
+  // a cabinet the designer must describe the installed part by its job: filler.
+  // That avoids presenting an ordinary cabinet filler as decorative molding.
+  const installedName = /\bscribe\b/i.test(source) ? "Filler" : source;
   const rounded = Math.round(gapWidth * 100) / 100;
-  return `${source} — cut to ${rounded}"`;
+  return `${installedName} — cut to ${rounded}"`;
 }
 
 /**

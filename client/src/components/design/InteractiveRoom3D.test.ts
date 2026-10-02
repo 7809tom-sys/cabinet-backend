@@ -1775,6 +1775,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDSelectedCabinetDescription({ masterCode: "B-30", description: null } as any)).toBe("B-30 cabinet");
   });
 
+  it("describes installed scribe stock as a cabinet filler in the selected 3D card", () => {
+    expect(threeDSelectedCabinetDescription({
+      masterCode: "SCR",
+      description: 'Scribe Molding - 96" — A front filler cut to 2¾" with 22.5° miter (forms 45° turn)',
+      fillerPieceGroupId: "turn-1",
+      fillerPlacementMode: "left",
+    } as any)).toBe('Filler — A front filler cut to 2¾" with 22.5° miter (forms 45° turn)');
+  });
+
   it("labels refrigerator measurements as optional selected parts rather than a grouped bay", () => {
     const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(rendererSource).toContain("Refrigerator dimensions · selected parts");

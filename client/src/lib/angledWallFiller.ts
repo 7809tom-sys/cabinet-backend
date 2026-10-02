@@ -482,11 +482,15 @@ export function automaticAngledWallFiller(
     // the plan/toast helpers, while stock selection rounds up separately.
     const exactCutWidth = Math.abs(miterOffset - cabinetFaceOffset);
     const miteredEnd = miterOffset >= cabinetFaceOffset ? "end" : "start";
+    const sourceDescription = source.description ?? source.masterCode;
+    // SCR and similar source rows are orderable stock, but their fitted role at
+    // this corner is a cabinet filler—not decorative scribe molding.
+    const installedName = /\bscribe\b/i.test(sourceDescription) ? "Filler" : sourceDescription;
     return {
       uid: makeUid(),
       cabinetId: source.id,
       masterCode: source.masterCode,
-	      description: `${source.description ?? source.masterCode} — ${piece === "owner" ? "A" : "B"} front filler cut to ${roundedEighth(exactCutWidth)}\" with 22.5° miter (forms 45° turn)`,
+	      description: `${installedName} — ${piece === "owner" ? "A" : "B"} front filler cut to ${roundedEighth(exactCutWidth)}\" with 22.5° miter (forms 45° turn)`,
       category: source.category,
       subCategory: source.subCategory,
 	      placement: transitionPlacement,

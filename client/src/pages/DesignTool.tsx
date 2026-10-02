@@ -249,6 +249,23 @@ type ConsultPlanWall = {
 type ViewMode = "plan" | "threeD" | "hybrid" | "elevation" | "split" | "corner" | "island";
 type PricingTier = DesignPricingTier;
 
+/**
+ * One user-visible design mutation. Wall edits can move or delete attached
+ * cabinets, openings, or fixtures, so history restores the complete physical
+ * plan rather than a cabinet list in isolation.
+ */
+type DesignerHistorySnapshot = {
+  room: RoomData;
+  placed: PlacedCabinet[];
+	  activeWall: WallSide;
+  openings: WallOpening[];
+  sinks: SinkFixture[];
+  island: IslandZone | null;
+  furniture: PlacedFurniture[];
+  annotations: PlanAnnotation[];
+  ponyWalls: PonyWall[];
+};
+
 // Map the Design Tool's title-case tier onto the shared lowercase pricing tier
 // used across the storefront, so the same resolution + fallbacks apply here.
 const DESIGN_TIER_TO_SHARED: Record<PricingTier, "wholesale" | "contractor" | "homeowner"> = {
@@ -727,10 +744,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       window.sessionStorage.removeItem("cabinetdealz_room_layout_handoff_v1");
     }
   }, []);
-  // ── Undo / Redo for placed cabinets ──────────────────────────────────────
-  const undoRedo = useUndoRedo<PlacedCabinet[]>();
-  const undoRedoRef = useRef(undoRedo);
-  undoRedoRef.current = undoRedo;
+	  // ── Undo / Redo for cabinet and room-layout snapshots ─────────────────────
+	  const undoRedo = useUndoRedo<DesignerHistorySnapshot>();
+	  const undoRedoRef = useRef(undoRedo);
+	  undoRedoRef.current = undoRedo;
   // Sync pricing tier from the logged-in user's pricingTier field.
   // Admins keep the dropdown to switch tiers; non-admins get their tier automatically.
   useEffect(() => {
@@ -741,37 +758,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [(user as any)?.pricingTier, (user as any)?.id]);
 
-  // Push a snapshot whenever `placed` changes (debounced to coalesce rapid updates).
-  const lastPushedRef = useRef<PlacedCabinet[] | null>(null);
-  useEffect(() => {
-    // Skip the initial empty array push if we haven't placed anything yet.
-    if (placed === lastPushedRef.current) return;
-    lastPushedRef.current = placed;
-    undoRedoRef.current.push(placed);
-  }, [placed]);
-  const handleUndo = useCallback(() => {
-    const prev = undoRedoRef.current.undo();
-    if (prev) { lastPushedRef.current = prev; setPlaced(prev); }
-  }, []);
-  const handleRedo = useCallback(() => {
-    const next = undoRedoRef.current.redo();
-    if (next) { lastPushedRef.current = next; setPlaced(next); }
-  }, []);
-  // Keyboard shortcut: Ctrl+Z / Ctrl+Y (or Cmd on Mac)
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      // Don't intercept when focus is inside a form field.
-      const tag = (e.target as HTMLElement)?.tagName;
-      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
-      if ((e.target as HTMLElement)?.isContentEditable) return;
-      const mod = e.ctrlKey || e.metaKey;
-      if (!mod) return;
-      if (e.key === "z" && !e.shiftKey) { e.preventDefault(); handleUndo(); }
-      else if (e.key === "y" || (e.key === "z" && e.shiftKey)) { e.preventDefault(); handleRedo(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [handleUndo, handleRedo]);
+	  const lastPushedRef = useRef<DesignerHistorySnapshot | null>(null);
+	  const historyRestoringRef = useRef(false);
+	  const historyRebaseRequestedRef = useRef(false);
+	  const [historyRevision, setHistoryRevision] = useState(0);
   // Manual ordering override for the BOM shopping list. Maps group key → position
   // index within its section. Populated when the user clicks move-up/move-down.
   const [bomOrder, setBomOrder] = useState<Record<string, number>>({});
@@ -1584,6 +1574,84 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  useEffect(() => {
 	    ponyWallsRef.current = ponyWalls;
 	  }, [ponyWalls]);
+	  const historySnapshot = useMemo<DesignerHistorySnapshot>(() => ({
+	    room,
+	    placed,
+	    activeWall,
+	    openings,
+	    sinks,
+	    island,
+	    furniture,
+	    annotations,
+	    ponyWalls,
+	  // Active-wall selection is retained with a physical mutation, but choosing a
+	  // different wall by itself must not consume an undo step.
+	  }), [annotations, furniture, island, openings, placed, ponyWalls, room, sinks]);
+	  const applyHistorySnapshot = useCallback((snapshot: DesignerHistorySnapshot) => {
+	    historyRestoringRef.current = true;
+	    roomRef.current = snapshot.room;
+	    placedRef.current = snapshot.placed;
+	    setRoom(snapshot.room);
+	    setPlaced(snapshot.placed);
+	    setActiveWall(snapshot.activeWall);
+	    setOpenings(snapshot.openings);
+	    setSinks(snapshot.sinks);
+	    setIsland(snapshot.island);
+	    setFurniture(snapshot.furniture);
+	    setAnnotations(snapshot.annotations);
+	    setPonyWalls(snapshot.ponyWalls);
+	    setSelectedUid(null);
+	    setSelectedOpeningUid(null);
+	    setSelectedSinkUid(null);
+	    setSelectedFurnUid(null);
+	    setSelectedAnnotationUid(null);
+	    setSelectedPonyWallUid(null);
+	    setPlacementWarning(null);
+	  }, [setPlaced]);
+	  useEffect(() => {
+	    if (historyRestoringRef.current) {
+	      historyRestoringRef.current = false;
+	      lastPushedRef.current = historySnapshot;
+	      setHistoryRevision((revision) => revision + 1);
+	      return;
+	    }
+	    if (historyRebaseRequestedRef.current) {
+	      historyRebaseRequestedRef.current = false;
+	      undoRedoRef.current.clear();
+	    }
+	    if (lastPushedRef.current === historySnapshot) return;
+	    lastPushedRef.current = historySnapshot;
+	    undoRedoRef.current.push(historySnapshot);
+	    setHistoryRevision((revision) => revision + 1);
+	  }, [historySnapshot]);
+	  const handleUndo = useCallback(() => {
+	    const previous = undoRedoRef.current.undo();
+	    if (!previous) return;
+	    applyHistorySnapshot(previous);
+	    setHistoryRevision((revision) => revision + 1);
+	  }, [applyHistorySnapshot]);
+	  const handleRedo = useCallback(() => {
+	    const next = undoRedoRef.current.redo();
+	    if (!next) return;
+	    applyHistorySnapshot(next);
+	    setHistoryRevision((revision) => revision + 1);
+	  }, [applyHistorySnapshot]);
+	  const canUndo = historyRevision >= 0 && undoRedo.canUndo();
+	  const canRedo = historyRevision >= 0 && undoRedo.canRedo();
+	  // Keyboard shortcut: Ctrl+Z / Ctrl+Y (or Cmd on Mac)
+	  useEffect(() => {
+	    const handler = (event: KeyboardEvent) => {
+	      const tag = (event.target as HTMLElement)?.tagName;
+	      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+	      if ((event.target as HTMLElement)?.isContentEditable) return;
+	      const mod = event.ctrlKey || event.metaKey;
+	      if (!mod) return;
+	      if (event.key === "z" && !event.shiftKey) { event.preventDefault(); handleUndo(); }
+	      else if (event.key === "y" || (event.key === "z" && event.shiftKey)) { event.preventDefault(); handleRedo(); }
+	    };
+	    window.addEventListener("keydown", handler);
+	    return () => window.removeEventListener("keydown", handler);
+	  }, [handleRedo, handleUndo]);
 		const rotateDrawingClockwise = useCallback(() => {
 	  if (layoutLocked) {
 	    toast.info("Unlock the layout before rotating the drawing.");
@@ -3093,6 +3161,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       selectedDistributorId?: number | null;
       selectedSurfaces?: SelectedSurface[] | null;
     }) => {
+	    historyRebaseRequestedRef.current = true;
+	    lastPushedRef.current = null;
       setRoom(d.room ?? DEFAULT_ROOM);
       const persisted = d.room?.persistedEntities;
 	      const restoredOpenings = Array.isArray(persisted?.openings) ? persisted.openings : [];
@@ -9860,6 +9930,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (raw) {
         const d = JSON.parse(raw);
         if (d && typeof d === "object" && d.v === 2 && d.originScope === storeScope) {
+	          historyRebaseRequestedRef.current = true;
+	          lastPushedRef.current = null;
           localStorage.setItem(activeDraftKey, draftKey);
           if (d.room) setRoom(d.room);
           if (Array.isArray(d.placed)) {
@@ -10240,6 +10312,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [appliancePalette, autoFillCabinets, clearDraft, layoutLocked, room, t, tallCabPool, wallCabPool]);
 
 		  const selectedCab = placed.find((p) => p.uid === selectedUid);
+		  const selectedCabDisplayDescription = (() => {
+		    if (!selectedCab) return "";
+		    const description = selectedCab.description ?? "";
+		    if (!(selectedCab.fillerPieceGroupId && selectedCab.fillerPlacementMode && /\bscribe\b/i.test(description))) return description;
+		    const cut = description.match(/(?:[AB]\s+front\s+)?filler\s+cut\s+to\s+.+$/i)?.[0]
+		      ?? description.match(/cut\s+to\s+.+$/i)?.[0];
+		    return cut ? `Filler — ${cut}` : "Filler";
+		  })();
 		  const selectedGlassFrontSnap = useMemo(
 		    () => selectedCab ? glassStackerFrontSnapTarget(selectedCab, placed, room) : null,
 		    [placed, room, selectedCab],
@@ -10508,8 +10588,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const emptyPlaced: PlacedCabinet[] = [];
     const emptyRoom: RoomData = { ...DEFAULT_ROOM };
     smartGapPreviewSessionRef.current = null;
-    undoRedoRef.current.clear();
-    lastPushedRef.current = emptyPlaced;
+    historyRebaseRequestedRef.current = true;
+    lastPushedRef.current = null;
     placedRef.current = emptyPlaced;
     styleIdRef.current = null;
     styleBRef.current = null;
@@ -11839,11 +11919,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         {/* Desktop action cluster */}
 	        <div className="hidden lg:flex items-center gap-1">
 	          {/* Undo / Redo */}
-          <Button variant="outline" size="icon" onClick={handleUndo} className="h-7 w-7" title={t("dt_sh_undo")}>
+	          <Button variant="outline" size="icon" data-testid="designer-undo" aria-label="Undo cabinet or wall change" onClick={handleUndo} disabled={!canUndo} className="h-7 w-7" title={canUndo ? `${t("dt_sh_undo")} cabinet or wall change` : "Nothing to undo"}>
             <Undo2 className="h-3.5 w-3.5" />
           </Button>
-	          <Button variant="outline" size="icon" onClick={handleRedo} className="h-7 w-7" title={t("dt_sh_redo")}>
-	            <Redo2 className="h-3.5 w-3.5" />
+	          <Button variant="outline" size="icon" data-testid="designer-redo" aria-label="Redo cabinet or wall change" onClick={handleRedo} disabled={!canRedo} className="h-7 w-7" title={canRedo ? `${t("dt_sh_redo")} cabinet or wall change` : "Nothing to redo"}>
+            <Redo2 className="h-3.5 w-3.5" />
 	          </Button>
 	          {compassSplitUndo && (
 	            <Button
@@ -12313,7 +12393,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               )}
 	              <span className="text-[11px] text-muted-foreground">
 	                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
-	                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCab.description}</span>
+		                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCabDisplayDescription}</span>
 	              </span>
 		              {selectedIslandTransfer && (
 	                <div data-testid="selected-island-face-transfer" className="flex shrink-0 items-center gap-1 rounded-md border border-[#d4a75a]/60 bg-[#fffaf1] px-1.5 py-1">
@@ -12663,7 +12743,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         </a>
                       )}
                     </div>
-                    <div className="text-xs text-muted-foreground">{selectedCab.description}</div>
+		                    <div className="text-xs text-muted-foreground">{selectedCabDisplayDescription}</div>
                   </div>
                   {(paletteFinishSwatch || styleId) && (
                     <div
@@ -15608,6 +15688,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            <MobileBarButton
 	              icon={<Undo2 className="h-5 w-5" />}
               label="Undo"
+	              disabled={!canUndo}
               onClick={handleUndo}
             />
 	            {compassSplitUndo && (
@@ -15617,9 +15698,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onClick={undoCompassWallSplit}
 	              />
 	            )}
-            <MobileBarButton
-              icon={<Redo2 className="h-5 w-5" />}
+	            <MobileBarButton
+	              icon={<Redo2 className="h-5 w-5" />}
               label="Redo"
+	              disabled={!canRedo}
               onClick={handleRedo}
             />
 	            <MobileBarButton
