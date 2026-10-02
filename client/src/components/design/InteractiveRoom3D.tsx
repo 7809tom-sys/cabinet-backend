@@ -5736,9 +5736,10 @@ export function addThreeDPeninsulaCountertops(
 /**
  * Draws the authoritative continuous-wall countertop surfaces. At a verified
  * 45-degree return, `countertopSurfaces` has already cut the two base-supported
- * slabs to one shared fabricated seam—the same strategy used for a peninsula.
- * Rendering the surfaces here keeps 3D, Plan, materials, and pricing on the
- * identical geometry while avoiding a third bridge slab at the corner.
+ * slabs to one shared fabricated seam and added the one physical wall-side
+ * infill polygon required by the 11-inch corner holds. Rendering the surfaces
+ * here keeps 3D, Plan, materials, and pricing on identical geometry without a
+ * wall-side void or a free-gap countertop bridge.
  */
 export function addThreeDMeasuredWallMiterCountertops(
   root: THREE.Group,
@@ -5784,6 +5785,7 @@ export function addThreeDMeasuredWallMiterCountertops(
     bridge.userData = {
       measuredWallContinuousCountertop: true,
       measuredWallMiterCountertop: Boolean(surface.customWallMiterWallIds?.length),
+      measuredWallCornerInfillCountertop: Boolean(surface.customWallCornerInfill),
       measuredWallSquareCornerCountertop: Boolean(surface.customWallSquareCornerWallIds?.length),
       customWallId: surface.customWallId,
       customWallMiterWallIds: surface.customWallMiterWallIds,

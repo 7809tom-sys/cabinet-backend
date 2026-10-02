@@ -9875,6 +9875,8 @@ export interface CountertopSurface {
   customWallMiterWallIds?: [string, string];
   /** The shared measured wall vertex that owns this 45-degree miter bridge. */
   customWallMiterVertexId?: string;
+  /** Cabinet-supported fill that closes the wall-side void at a true 45-degree inside turn. */
+  customWallCornerInfill?: boolean;
   /** Exact continuous-wall IDs joined by a physical flush 90-degree countertop seam. */
   customWallSquareCornerWallIds?: [string, string];
   /** Shared measured wall vertex that owns this flush 90-degree countertop seam. */
@@ -11214,11 +11216,11 @@ function measuredWallCountertopEndpointCabinet(
 }
 
 /**
- * Returns the small physical countertop triangle that closes a cabinet-supported
- * continuous-wall turn containing an explicit 45-degree segment. The ordinary
- * cabinet slabs retain their own catalog runs; this bridge fills only the real
- * outer-edge opening between two bases that already meet the same measured
- * vertex. It never turns a 90-degree join or a free gap into invented stone.
+ * Returns the verified true-45 join envelope used as the evidence gate before
+ * cutting and filling a measured-wall countertop turn. The final surface pass
+ * uses that evidence to add the wall-side corner fill only where two equal
+ * elevation base runs have the required 11-inch holds; it never creates stone
+ * across a normal 90-degree join or a free gap.
  */
 export function measuredWallCountertopMiterSurfaces(
   placed: readonly PlacedCabinet[],
@@ -11362,12 +11364,55 @@ function measuredWallCountertopSurfaceEndEdge(
 }
 
 /**
+ * Builds the single, cabinet-supported polygon that closes the wall-side void
+ * created by the required 11-inch holds at a true 45-degree inside turn. Its
+ * two cabinet-facing edges share the two miter-cut slab edges exactly, while
+ * its rear corner reaches the actual wall vertex. This is physical countertop
+ * support, not a decorative overlap or a countertop bridge over a free gap.
+ */
+function measuredWallCornerInfillSurface(
+  vertex: CountertopPlanPoint,
+  firstInner: CountertopPlanPoint,
+  miterPoint: CountertopPlanPoint,
+  secondInner: CountertopPlanPoint,
+  wallIds: [string, string],
+  vertexId: string,
+): CountertopSurface | null {
+  const worldPolygon = [vertex, firstInner, miterPoint, secondInner];
+  const area = countertopPolygonArea(worldPolygon);
+  if (area <= COLLISION_EPSILON_IN) return null;
+  const minX = Math.min(...worldPolygon.map((point) => point.x));
+  const maxX = Math.max(...worldPolygon.map((point) => point.x));
+  const minY = Math.min(...worldPolygon.map((point) => point.y));
+  const maxY = Math.max(...worldPolygon.map((point) => point.y));
+  return {
+    x: minX,
+    y: minY,
+    width: Math.max(0.1, maxX - minX),
+    depth: Math.max(0.1, maxY - minY),
+    kind: "base",
+    polygon: worldPolygon.map((point) => ({ x: point.x - minX, y: point.y - minY })),
+    areaInches: area,
+    miteredStart: true,
+    miteredEnd: true,
+    // The renderer uses this to include the polygon in the same measured-wall
+    // countertop pass. It deliberately has no run span: its area is part of
+    // the physical corner closure, not a third cabinet run.
+    customWallId: wallIds[0],
+    customWallMiterWallIds: wallIds,
+    customWallMiterVertexId: vertexId,
+    customWallCornerInfill: true,
+  };
+}
+
+/**
  * Turns the two cabinet-supported slabs at a true continuous-wall 45-degree
  * join into the same single-fabrication geometry used by a peninsula: one
- * precise diagonal seam and no rectangular overlap or separate filler wedge.
+ * precise diagonal seam, no rectangular overlap, and an exact wall-side fill
+ * where the mandatory 11-inch holds would otherwise leave an exposed void.
  * `measuredWallCountertopMiterSurfaces` remains the evidence gate—it verifies
  * both endpoint bases, their shared elevation, and the explicit 45-degree wall
- * before any slab is cut.
+ * before any slab is cut or corner fill is added.
  */
 export function miteredMeasuredWallCountertopSurfaces(
   surfaces: CountertopSurface[],
@@ -11406,6 +11451,19 @@ export function miteredMeasuredWallCountertopSurfaces(
     if (firstIndex < 0 || secondIndex < 0) continue;
     const firstSurface = resolved[firstIndex]!;
     const secondSurface = resolved[secondIndex]!;
+    const firstEndEdge = measuredWallCountertopSurfaceEndEdge(
+      firstSurface,
+      firstWall,
+      room,
+      shared.firstAt === "start",
+    );
+    const secondEndEdge = measuredWallCountertopSurfaceEndEdge(
+      secondSurface,
+      secondWall,
+      room,
+      shared.secondAt === "start",
+    );
+    if (!firstEndEdge || !secondEndEdge) continue;
     const firstRadians = polygonWallAngle(firstWall, room.vertices);
     const secondRadians = polygonWallAngle(secondWall, room.vertices);
     const miterPoint = countertopOffsetEdgeMiterPoint(
@@ -11435,6 +11493,15 @@ export function miteredMeasuredWallCountertopSurfaces(
       wallIds,
       vertexId,
     );
+    const cornerInfill = measuredWallCornerInfillSurface(
+      vertex,
+      firstEndEdge.innerPoint,
+      miterPoint,
+      secondEndEdge.innerPoint,
+      wallIds,
+      vertexId,
+    );
+    if (cornerInfill) resolved.push(cornerInfill);
   }
 
   // The Wall Builder may have two 45-degree wall segments that turn 90 degrees

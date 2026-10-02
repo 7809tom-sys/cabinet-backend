@@ -93,6 +93,7 @@ describe("measuredWallCountertopMiterSurfaces", () => {
       expect.objectContaining({ customWallId: "diagonal", customWallMiterVertexId: "v2", miteredEnd: true }),
       expect.objectContaining({ customWallId: "straight", customWallMiterVertexId: "v2", miteredStart: true }),
     ]));
+    expect(surfaces.find((surface) => surface.customWallCornerInfill)).toBeUndefined();
     expect(surfaces.every((surface) => surface.polygon && surface.polygon.length === 4)).toBe(true);
     expect(surfaces.filter((surface) => surface.rotation === 45 || surface.rotation === 90)).toHaveLength(2);
   });
@@ -112,10 +113,31 @@ describe("measuredWallCountertopMiterSurfaces", () => {
       }),
     ]);
     const surfaces = countertopSurfaces([diagonalBase, straightBase], room);
+    expect(surfaces).toHaveLength(3);
     expect(surfaces).toEqual(expect.arrayContaining([
       expect.objectContaining({ customWallId: "diagonal", miteredEnd: true, customWallMiterVertexId: "v2" }),
       expect.objectContaining({ customWallId: "straight", miteredStart: true, customWallMiterVertexId: "v2" }),
+      expect.objectContaining({ customWallCornerInfill: true, customWallMiterVertexId: "v2" }),
     ]));
+    const infill = surfaces.find((surface) => surface.customWallCornerInfill);
+    expect(infill?.polygon).toHaveLength(4);
+    expect(infill?.areaInches).toBeGreaterThan(0);
+
+    const containsPoint = (points: { x: number; y: number }[], target: { x: number; y: number }) => points.some((point) => (
+      Math.hypot(point.x - target.x, point.y - target.y) < 1e-6
+    ));
+    const infillPolygon = countertopSurfacePlanPolygon(infill!);
+    // The explicit 11-inch cabinet holds leave this back corner uncovered by
+    // cabinet boxes. The physical fill polygon must reach the true wall vertex
+    // and share both cabinet-facing miter edges exactly, so no countertop void
+    // remains at the inside 45-degree corner.
+    expect(containsPoint(infillPolygon, { x: 60, y: 60 })).toBe(true);
+    const diagonalPolygon = countertopSurfacePlanPolygon(surfaces.find((surface) => surface.customWallId === "diagonal")!);
+    const straightPolygon = countertopSurfacePlanPolygon(surfaces.find((surface) => surface.customWallId === "straight")!);
+    const sharedWithDiagonal = infillPolygon.filter((point) => containsPoint(diagonalPolygon, point));
+    const sharedWithStraight = infillPolygon.filter((point) => containsPoint(straightPolygon, point));
+    expect(sharedWithDiagonal).toHaveLength(2);
+    expect(sharedWithStraight).toHaveLength(2);
   });
 
   it("does not invent a countertop miter at the same join when the explicit 45-degree wall is removed", () => {

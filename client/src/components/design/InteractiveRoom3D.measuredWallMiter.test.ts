@@ -65,6 +65,31 @@ describe("addThreeDMeasuredWallMiterCountertops", () => {
       physicalMiterSeam: true,
     });
     expect(miteredSlabs.every((slab) => slab.geometry.type === "ExtrudeGeometry")).toBe(true);
+    expect(root.children.some((child) => (
+      (child as THREE.Mesh).userData.measuredWallCornerInfillCountertop === true
+    ))).toBe(false);
+  });
+
+  it("renders the wall-side infill that closes an 11-inch held 45-degree corner", () => {
+    const diagonalLength = Math.hypot(60, 60);
+    const root = new THREE.Group();
+    addThreeDMeasuredWallMiterCountertops(root, room, [
+      baseCabinet("diagonal-held-base", "diagonal", diagonalLength - 24 - 11),
+      baseCabinet("straight-held-base", "straight", 11),
+    ], "#ffffff");
+
+    expect(root.children).toHaveLength(3);
+    const cornerFills = root.children.filter((child) => (
+      (child as THREE.Mesh).userData.measuredWallCornerInfillCountertop === true
+    )) as THREE.Mesh[];
+    expect(cornerFills).toHaveLength(1);
+    expect(cornerFills[0]?.userData).toMatchObject({
+      measuredWallContinuousCountertop: true,
+      measuredWallMiterCountertop: true,
+      customWallMiterWallIds: ["diagonal", "straight"],
+      customWallMiterVertexId: "v2",
+    });
+    expect(cornerFills[0]?.geometry.type).toBe("ExtrudeGeometry");
   });
 
   it("renders a flush square seam where two diagonal measured walls turn 90 degrees", () => {

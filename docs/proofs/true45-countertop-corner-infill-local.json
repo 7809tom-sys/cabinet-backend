@@ -1,0 +1,28 @@
+{
+  "fixture": "locked 45-degree measured-wall return with exact 11-inch cabinet holds",
+  "countertopExpected": "two mitered cabinet slabs and a wall-side infill polygon close the 11-inch held 45-degree corner with no void",
+  "savedWallOffsets": [
+    {
+      "uid": "diagonal-base",
+      "wallId": "diagonal",
+      "wallOffset": 49.875
+    },
+    {
+      "uid": "straight-base",
+      "wallId": "straight",
+      "wallOffset": 11
+    },
+    {
+      "uid": "cmur672xa_1",
+      "wallId": "diagonal",
+      "wallOffset": 73.875
+    },
+    {
+      "uid": "cmur672xa_2",
+      "wallId": "straight",
+      "wallOffset": 10
+    }
+  ],
+  "threeDOpen": true,
+  "applicationErrors": []
+}
