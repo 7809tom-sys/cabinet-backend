@@ -5784,11 +5784,15 @@ export function addThreeDMeasuredWallMiterCountertops(
     bridge.userData = {
       measuredWallContinuousCountertop: true,
       measuredWallMiterCountertop: Boolean(surface.customWallMiterWallIds?.length),
+      measuredWallSquareCornerCountertop: Boolean(surface.customWallSquareCornerWallIds?.length),
       customWallId: surface.customWallId,
       customWallMiterWallIds: surface.customWallMiterWallIds,
       customWallMiterVertexId: surface.customWallMiterVertexId,
+      customWallSquareCornerWallIds: surface.customWallSquareCornerWallIds,
+      customWallSquareCornerVertexId: surface.customWallSquareCornerVertexId,
       miterAngleDegrees: surface.customWallMiterWallIds?.length ? 45 : undefined,
       physicalMiterSeam: Boolean(surface.customWallMiterWallIds?.length),
+      physicalSquareCornerSeam: Boolean(surface.customWallSquareCornerWallIds?.length),
       miteredStart: surface.miteredStart ?? false,
       miteredEnd: surface.miteredEnd ?? false,
     };

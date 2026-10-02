@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ROOM,
   countertopSurfaces,
+  countertopSurfacePlanPolygon,
   measuredWallCountertopMiterSurfaces,
   type PlacedCabinet,
   wallPlacementAt,
@@ -127,5 +128,70 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     const straightBase = baseCabinet("straight-base", "straight", 0);
 
     expect(measuredWallCountertopMiterSurfaces([diagonalBase, straightBase], rightAngleRoom)).toEqual([]);
+  });
+
+  it("uses one flush square seam where two diagonal measured walls turn 90 degrees", () => {
+    const squareRoom = {
+      ...DEFAULT_ROOM,
+      width: 180,
+      depth: 180,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 60, y: 60 },
+        { id: "c", x: 0, y: 120 },
+        { id: "d", x: 0, y: 180 },
+      ],
+      customWalls: [
+        { id: "first", startVertexId: "a", endVertexId: "b", lockedAngle: 45 as const },
+        { id: "second", startVertexId: "b", endVertexId: "c", lockedAngle: 45 as const },
+        { id: "close", startVertexId: "c", endVertexId: "d" },
+        { id: "left", startVertexId: "d", endVertexId: "a" },
+      ],
+    };
+    const base = (uid: string, wallId: string, offset: number): PlacedCabinet => {
+      const spot = wallPlacementAt(offset, 36, 24, wallId as any, squareRoom);
+      return {
+        uid,
+        cabinetId: 11,
+        masterCode: "B-36",
+        description: '36" Base Cabinet',
+        placement: "base",
+        x: spot.x,
+        y: spot.y,
+        width: 36,
+        depth: 24,
+        height: 34.5,
+        rotation: spot.rotation,
+        wallId,
+        wallOffset: spot.wallOffset,
+        numberOfDoors: 2,
+        numberOfDrawers: 1,
+      };
+    };
+    const diagonalLength = Math.hypot(60, 60);
+    const surfaces = countertopSurfaces([
+      base("first-base", "first", diagonalLength - 36),
+      base("second-base", "second", 0),
+    ], squareRoom);
+
+    expect(surfaces).toHaveLength(2);
+    expect(surfaces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ customWallId: "first", customWallSquareCornerWallIds: ["first", "second"], customWallSquareCornerVertexId: "b" }),
+      expect.objectContaining({ customWallId: "second", customWallSquareCornerWallIds: ["first", "second"], customWallSquareCornerVertexId: "b" }),
+    ]));
+    expect(surfaces.every((surface) => !surface.customWallMiterWallIds)).toBe(true);
+
+    const [first, second] = surfaces.map(countertopSurfacePlanPolygon);
+    const matchingEdge = first.some((start, index) => {
+      const end = first[(index + 1) % first.length]!;
+      return second.some((otherStart, otherIndex) => {
+        const otherEnd = second[(otherIndex + 1) % second.length]!;
+        return Math.hypot(start.x - otherEnd.x, start.y - otherEnd.y) < 1e-6
+          && Math.hypot(end.x - otherStart.x, end.y - otherStart.y) < 1e-6;
+      });
+    });
+    // A full common edge proves this is a physical flush square seam, not two
+    // untrimmed rotated rectangles that overlap or leave a triangular void.
+    expect(matchingEdge).toBe(true);
   });
 });

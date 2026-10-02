@@ -9875,6 +9875,10 @@ export interface CountertopSurface {
   customWallMiterWallIds?: [string, string];
   /** The shared measured wall vertex that owns this 45-degree miter bridge. */
   customWallMiterVertexId?: string;
+  /** Exact continuous-wall IDs joined by a physical flush 90-degree countertop seam. */
+  customWallSquareCornerWallIds?: [string, string];
+  /** Shared measured wall vertex that owns this flush 90-degree countertop seam. */
+  customWallSquareCornerVertexId?: string;
   /**
    * The exterior leg of a real L-corner cabinet that projects beyond the
    * ordinary peninsula run depth. It is a cabinet-supported portion of the
@@ -11164,6 +11168,25 @@ export function customWallJoinTurnsFortyFive(
   return Math.abs(interiorTurn - Math.PI / 4) <= 1e-6;
 }
 
+/**
+ * A 90-degree measured-wall turn is a flush cabinet and countertop corner.
+ * Unlike a true 45-degree return it has no 11-inch hold and its two slab edges
+ * meet at a square shared seam. This applies equally to two diagonal walls or
+ * to one diagonal and one cardinal measured wall.
+ */
+function customWallJoinTurnsNinety(
+  first: NonNullable<RoomData["customWalls"]>[number],
+  second: NonNullable<RoomData["customWalls"]>[number],
+  room: Pick<RoomData, "vertices">,
+): boolean {
+  if (!room.vertices?.length) return false;
+  const firstAngle = polygonWallAngle(first, room.vertices);
+  const secondAngle = polygonWallAngle(second, room.vertices);
+  const raw = Math.abs(((firstAngle - secondAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
+  const interiorTurn = Math.min(raw, Math.abs(Math.PI - raw));
+  return Math.abs(interiorTurn - Math.PI / 2) <= 1e-6;
+}
+
 function measuredWallCountertopEndpointCabinet(
   wallId: string,
   at: "start" | "end",
@@ -11302,6 +11325,42 @@ function measuredWallSurfaceWithMiterPoint(
   };
 }
 
+/** Finds the cabinet-side and room-side slab vertices at a measured wall endpoint. */
+function measuredWallCountertopSurfaceEndEdge(
+  surface: CountertopSurface,
+  wall: NonNullable<RoomData["customWalls"]>[number],
+  room: RoomData,
+  atStart: boolean,
+): CountertopRunEndEdge | null {
+  if (!room.vertices?.length) return null;
+  const wallStart = room.vertices.find((vertex) => vertex.id === wall.startVertexId);
+  if (!wallStart) return null;
+  const world = countertopSurfacePlanPolygon(surface);
+  if (world.length < 3) return null;
+  const radians = polygonWallAngle(wall, room.vertices);
+  const tangent = { x: Math.cos(radians), y: Math.sin(radians) };
+  const inward = countertopRunFaceNormal(radians, customWallCabinetSide(room, wall.id));
+  const runStart = surface.customWallRunStartIn ?? 0;
+  const targetAlong = atStart ? runStart : runStart + (surface.linearInches ?? surface.width);
+  const endpoints = world
+    .map((point, index) => ({
+      index,
+      point,
+      along: (point.x - wallStart.x) * tangent.x + (point.y - wallStart.y) * tangent.y,
+      inwardDistance: (point.x - wallStart.x) * inward.x + (point.y - wallStart.y) * inward.y,
+    }))
+    .sort((left, right) => Math.abs(left.along - targetAlong) - Math.abs(right.along - targetAlong))
+    .slice(0, 2)
+    .sort((left, right) => left.inwardDistance - right.inwardDistance);
+  if (endpoints.length !== 2) return null;
+  return {
+    innerIndex: endpoints[0]!.index,
+    outerIndex: endpoints[1]!.index,
+    innerPoint: endpoints[0]!.point,
+    outerPoint: endpoints[1]!.point,
+  };
+}
+
 /**
  * Turns the two cabinet-supported slabs at a true continuous-wall 45-degree
  * join into the same single-fabrication geometry used by a peninsula: one
@@ -11376,6 +11435,85 @@ export function miteredMeasuredWallCountertopSurfaces(
       wallIds,
       vertexId,
     );
+  }
+
+  // The Wall Builder may have two 45-degree wall segments that turn 90 degrees
+  // at their shared vertex. That is still a normal flush corner: bases sit to
+  // the vertex and the finished tops meet along a square seam. Leaving the two
+  // rotated rectangles untrimmed creates the visible spike/overlap from the
+  // reported plan. Use the same cabinet-supported square-corner treatment as
+  // the standard-room and peninsula paths—never an invented bridge slab.
+  for (let firstWallIndex = 0; firstWallIndex < room.customWalls.length; firstWallIndex += 1) {
+    const firstWall = room.customWalls[firstWallIndex]!;
+    for (let secondWallIndex = firstWallIndex + 1; secondWallIndex < room.customWalls.length; secondWallIndex += 1) {
+      const secondWall = room.customWalls[secondWallIndex]!;
+      if (!customWallJoinTurnsNinety(firstWall, secondWall, room)) continue;
+      const shared = sharedCustomWallVertex(firstWall, secondWall);
+      if (!shared) continue;
+      const firstCabinet = measuredWallCountertopEndpointCabinet(firstWall.id, shared.firstAt, room, placed);
+      const secondCabinet = measuredWallCountertopEndpointCabinet(secondWall.id, shared.secondAt, room, placed);
+      if (!firstCabinet || !secondCabinet) continue;
+      const firstBox = elevationBox(firstCabinet, room);
+      const secondBox = elevationBox(secondCabinet, room);
+      if (Math.abs(firstBox.bottom - secondBox.bottom) > COLLISION_EPSILON_IN || Math.abs(firstBox.height - secondBox.height) > COLLISION_EPSILON_IN) continue;
+
+      const endpointSurfaceIndex = (wallId: string, at: "start" | "end") => resolved.findIndex((surface) => {
+        if (surface.customWallId !== wallId) return false;
+        const start = surface.customWallRunStartIn ?? 0;
+        const end = start + (surface.linearInches ?? surface.width);
+        const length = wallLength(wallId as WallSide, room);
+        return at === "start"
+          ? Math.abs(start) <= COLLISION_EPSILON_IN
+          : Math.abs(length - end) <= COLLISION_EPSILON_IN;
+      });
+      const firstIndex = endpointSurfaceIndex(firstWall.id, shared.firstAt);
+      const secondIndex = endpointSurfaceIndex(secondWall.id, shared.secondAt);
+      if (firstIndex < 0 || secondIndex < 0) continue;
+      const firstSurface = resolved[firstIndex]!;
+      const secondSurface = resolved[secondIndex]!;
+      const firstEdge = measuredWallCountertopSurfaceEndEdge(firstSurface, firstWall, room, shared.firstAt === "start");
+      const secondEdge = measuredWallCountertopSurfaceEndEdge(secondSurface, secondWall, room, shared.secondAt === "start");
+      if (!firstEdge || !secondEdge) continue;
+      const firstRadians = polygonWallAngle(firstWall, room.vertices);
+      const secondRadians = polygonWallAngle(secondWall, room.vertices);
+      const squareCorner = countertopLineIntersection(
+        firstEdge.outerPoint,
+        { x: Math.cos(firstRadians), y: Math.sin(firstRadians) },
+        secondEdge.outerPoint,
+        { x: Math.cos(secondRadians), y: Math.sin(secondRadians) },
+      );
+      if (!squareCorner) continue;
+      const wallIds: [string, string] = [firstWall.id, secondWall.id];
+      const trimFirst = countertopSurfaceWithSquareCornerMiter(
+        firstSurface,
+        firstEdge,
+        squareCorner,
+        shared.firstAt === "start",
+      );
+      const trimSecond = countertopSurfaceWithSquareCornerMiter(
+        secondSurface,
+        secondEdge,
+        squareCorner,
+        shared.secondAt === "start",
+        firstEdge.innerPoint,
+      );
+      resolved[firstIndex] = {
+        ...trimFirst,
+        // A square seam is not a fabricated 45-degree miter. Preserve any
+        // prior true-miter state without making the 90-degree join a new one.
+        miteredStart: firstSurface.miteredStart,
+        miteredEnd: firstSurface.miteredEnd,
+        customWallSquareCornerWallIds: wallIds,
+        customWallSquareCornerVertexId: shared.vertexId,
+      };
+      resolved[secondIndex] = {
+        ...trimSecond,
+        miteredStart: secondSurface.miteredStart,
+        miteredEnd: secondSurface.miteredEnd,
+        customWallSquareCornerWallIds: wallIds,
+        customWallSquareCornerVertexId: shared.vertexId,
+      };
+    }
   }
   return resolved;
 }
