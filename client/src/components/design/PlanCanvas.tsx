@@ -2,6 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, blindCornerSnapInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
+  type FloorPlanDimensionAdjustment,
 	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -267,6 +268,8 @@ interface Props {
   measureMode?: boolean;
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
   autoDimensions?: boolean;
+  /** Saves a display-only manual position for an exterior dimension rail. */
+  onDimensionAdjustmentChange?: (key: string, adjustment: FloorPlanDimensionAdjustment) => void;
   /** User preference for the non-structural 90-degree peninsula snap glow and badge. */
   showPeninsulaCornerSnapFeedback?: boolean;
   island?: IslandZone | null;
@@ -399,7 +402,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, autoDimensions = false, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
+  showWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
@@ -583,6 +586,48 @@ export function PlanCanvas({
   const [ppi, setPpi] = useState(4);
   const ppiRef = useRef(4);
   useEffect(() => { ppiRef.current = ppi; }, [ppi]);
+  const dimensionLeaderDrag = useRef<{
+    key: string;
+    startX: number;
+    startY: number;
+    tangent: { x: number; y: number };
+    inward: { x: number; y: number };
+    origin: FloorPlanDimensionAdjustment;
+  } | null>(null);
+  const beginDimensionLeaderDrag = useCallback((event: React.PointerEvent<SVGGElement>, key: string, frame: { tangent: { x: number; y: number }; inward: { x: number; y: number } }) => {
+    if (!onDimensionAdjustmentChange) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dimensionLeaderDrag.current = {
+      key,
+      startX: event.clientX,
+      startY: event.clientY,
+      tangent: frame.tangent,
+      inward: frame.inward,
+      origin: room.dimensionAdjustments?.[key] ?? {},
+    };
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* ignore */ }
+  }, [onDimensionAdjustmentChange, room.dimensionAdjustments]);
+  const moveDimensionLeaderDrag = useCallback((event: React.PointerEvent<SVGGElement>) => {
+    const drag = dimensionLeaderDrag.current;
+    if (!drag || !onDimensionAdjustmentChange) return;
+    const dxIn = (event.clientX - drag.startX) / ppiRef.current;
+    const dyIn = (event.clientY - drag.startY) / ppiRef.current;
+    const alongIn = (drag.origin.alongIn ?? 0) + dxIn * drag.tangent.x + dyIn * drag.tangent.y;
+    // Exterior is opposite the room's inward normal. Keep the rail outside the
+    // wall so a manual correction cannot cover cabinet faces again.
+    const outsideIn = (drag.origin.outsideIn ?? 0) - dxIn * drag.inward.x - dyIn * drag.inward.y;
+    onDimensionAdjustmentChange(drag.key, {
+      alongIn: Math.round(Math.max(-36, Math.min(36, alongIn)) * 8) / 8,
+      outsideIn: Math.round(Math.max(0, Math.min(36, outsideIn)) * 8) / 8,
+    });
+  }, [onDimensionAdjustmentChange]);
+  const endDimensionLeaderDrag = useCallback((event: React.PointerEvent<SVGGElement>) => {
+    if (!dimensionLeaderDrag.current) return;
+    moveDimensionLeaderDrag(event);
+    try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+    dimensionLeaderDrag.current = null;
+  }, [moveDimensionLeaderDrag]);
   const [dragUid, setDragUid] = useState<string | null>(null);
   const dragOffset = useRef({ x: 0, y: 0 });
   const [hoverSnap, setHoverSnap] = useState(false);
@@ -2848,9 +2893,18 @@ export function PlanCanvas({
           const outerRailOffsetIn = 11;
           const labelOffsetIn = 1.4;
           const tickPx = 4;
+          const dimensionFontSize = Math.max(8, Math.min(18, Number(room.dimensionLabelStyle?.fontSizePx) || 9));
+          const dimensionColor = room.dimensionLabelStyle?.color || "#1a2744";
           const pointAt = (frame: typeof wallFrames[number], along: number, inwardIn: number) => ({
             x: (frame.start.x + frame.tangent.x * along + frame.inward.x * inwardIn) * ppi,
             y: (frame.start.y + frame.tangent.y * along + frame.inward.y * inwardIn) * ppi,
+          });
+          const adjustmentFor = (key: string): FloorPlanDimensionAdjustment => room.dimensionAdjustments?.[key] ?? {};
+          const railPoint = (frame: typeof wallFrames[number], along: number, railOffsetIn: number, adjustment: FloorPlanDimensionAdjustment) =>
+            pointAt(frame, along + (adjustment.alongIn ?? 0), -(railOffsetIn + (adjustment.outsideIn ?? 0)));
+          const labelMetrics = (characters: number) => ({
+            width: Math.max(38, Math.round(dimensionFontSize * Math.max(4.4, characters * 0.64))),
+            height: Math.max(14, Math.round(dimensionFontSize + 7)),
           });
           const wallPoint = (frame: typeof wallFrames[number], along: number) => pointAt(frame, along, 0);
           const labelAngle = (frame: typeof wallFrames[number]) => parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
@@ -2894,21 +2948,34 @@ export function PlanCanvas({
             <svg data-testid="floor-plan-live-dimensions" className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH} aria-label="Live Floor Plan dimensions">
               {/* Outer physical-wall lines: corner-to-corner, including measured 45° walls. */}
               {wallFrames.map((frame) => {
-                const start = pointAt(frame, 0, -outerRailOffsetIn);
-                const end = pointAt(frame, frame.length, -outerRailOffsetIn);
-                const middle = pointAt(frame, frame.length / 2, -outerRailOffsetIn - labelOffsetIn);
+                const dimensionKey = `wall:${frame.id}`;
+                const adjustment = adjustmentFor(dimensionKey);
+                const label = formatSixteenthInches(frame.length);
+                const metrics = labelMetrics(label.length);
+                const start = railPoint(frame, 0, outerRailOffsetIn, adjustment);
+                const end = railPoint(frame, frame.length, outerRailOffsetIn, adjustment);
+                const middle = railPoint(frame, frame.length / 2, outerRailOffsetIn + labelOffsetIn, adjustment);
                 const wallStart = wallPoint(frame, 0);
                 const wallEnd = wallPoint(frame, frame.length);
                 const tick = tickVector(frame);
-                return <g key={`floor-dimension-wall-${frame.id}`} data-testid={`floor-dimension-wall-${frame.id}`}>
+                return <g
+                  key={`floor-dimension-wall-${frame.id}`}
+                  data-testid={`floor-dimension-wall-${frame.id}`}
+                  data-dimension-key={dimensionKey}
+                  className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
+                  onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
+                  onPointerMove={moveDimensionLeaderDrag}
+                  onPointerUp={endDimensionLeaderDrag}
+                  onPointerCancel={endDimensionLeaderDrag}
+                >
                   <line x1={wallStart.x} y1={wallStart.y} x2={start.x} y2={start.y} stroke="#64748b" strokeWidth={0.8} />
                   <line x1={wallEnd.x} y1={wallEnd.y} x2={end.x} y2={end.y} stroke="#64748b" strokeWidth={0.8} />
                   <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke="#273b6b" strokeWidth={1} />
                   <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} stroke="#273b6b" strokeWidth={1} />
                   <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke="#273b6b" strokeWidth={1} />
                   <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle(frame)})`}>
-                    <rect x={-22} y={-8} width={44} height={16} rx={4} fill="white" fillOpacity={0.94} stroke="#a8b5cf" />
-                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="#1a2744">{formatSixteenthInches(frame.length)}</text>
+                    <rect x={-metrics.width / 2} y={-metrics.height / 2} width={metrics.width} height={metrics.height} rx={4} fill="white" fillOpacity={0.96} stroke="#a8b5cf" />
+                    <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={dimensionFontSize} fontWeight={700} fill={dimensionColor}>{label}</text>
                   </g>
                 </g>;
               })}
@@ -2920,15 +2987,28 @@ export function PlanCanvas({
                 const railOffsetIn = chain.layer === "wall" ? wallRailOffsetIn : baseRailOffsetIn;
                 const tick = tickVector(frame);
                 return chain.segments.map((segment, index) => {
-                  const start = pointAt(frame, segment.start, -railOffsetIn);
-                  const end = pointAt(frame, segment.start + segment.length, -railOffsetIn);
-                  const middle = pointAt(frame, segment.start + segment.length / 2, -railOffsetIn - labelOffsetIn);
+                  const dimensionKey = `run:${chain.wallId}:${chain.layer}:${index}`;
+                  const adjustment = adjustmentFor(dimensionKey);
+                  const label = formatSixteenthInches(segment.length);
+                  const metrics = labelMetrics(label.length);
+                  const start = railPoint(frame, segment.start, railOffsetIn, adjustment);
+                  const end = railPoint(frame, segment.start + segment.length, railOffsetIn, adjustment);
+                  const middle = railPoint(frame, segment.start + segment.length / 2, railOffsetIn + labelOffsetIn, adjustment);
                   const wallStart = wallPoint(frame, segment.start);
                   const wallEnd = wallPoint(frame, segment.start + segment.length);
                   const short = segment.length * ppi < 30;
-                  const labelPoint = short ? pointAt(frame, segment.start + segment.length / 2, -railOffsetIn - 4.5) : middle;
+                  const labelPoint = short ? railPoint(frame, segment.start + segment.length / 2, railOffsetIn + 4.5, adjustment) : middle;
                   const color = segment.kind === "gap" ? "#b45309" : "#1a2744";
-                  return <g key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`} data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}>
+                  return <g
+                    key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
+                    data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
+                    data-dimension-key={dimensionKey}
+                    className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
+                    onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
+                    onPointerMove={moveDimensionLeaderDrag}
+                    onPointerUp={endDimensionLeaderDrag}
+                    onPointerCancel={endDimensionLeaderDrag}
+                  >
                     <line x1={wallStart.x} y1={wallStart.y} x2={start.x} y2={start.y} stroke={color} strokeOpacity={0.55} strokeWidth={0.75} />
                     <line x1={wallEnd.x} y1={wallEnd.y} x2={end.x} y2={end.y} stroke={color} strokeOpacity={0.55} strokeWidth={0.75} />
                     <line x1={start.x} y1={start.y} x2={end.x} y2={end.y} stroke={color} strokeWidth={1} />
@@ -2936,8 +3016,8 @@ export function PlanCanvas({
                     <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke={color} strokeWidth={1} />
                     {short && <line x1={(start.x + end.x) / 2} y1={(start.y + end.y) / 2} x2={labelPoint.x} y2={labelPoint.y} stroke={color} strokeWidth={1} />}
                     <g transform={`translate(${labelPoint.x} ${labelPoint.y}) rotate(${labelAngle(frame)})`}>
-                      <rect x={-19} y={-7} width={38} height={14} rx={3} fill="white" fillOpacity={0.92} />
-                      <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={segment.kind === "gap" ? 700 : 500} fill={color}>{formatSixteenthInches(segment.length)}</text>
+                      <rect x={-metrics.width / 2} y={-metrics.height / 2} width={metrics.width} height={metrics.height} rx={3} fill="white" fillOpacity={0.94} />
+                      <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={Math.max(8, dimensionFontSize - 1)} fontWeight={segment.kind === "gap" ? 700 : 500} fill={dimensionColor}>{label}</text>
                     </g>
                   </g>;
                 });
@@ -2945,18 +3025,31 @@ export function PlanCanvas({
 
               {/* Window and door width plus nearest-corner distance on their owning run. */}
               {openingDimensions.map(({ opening, frame, start, width, nearest }) => {
-                const a = pointAt(frame, start, -openingRailOffsetIn);
-                const b = pointAt(frame, start + width, -openingRailOffsetIn);
-                const m = pointAt(frame, start + width / 2, -openingRailOffsetIn - labelOffsetIn);
+                const dimensionKey = `opening:${opening.uid}`;
+                const adjustment = adjustmentFor(dimensionKey);
+                const label = `${formatSixteenthInches(width)} · ${formatSixteenthInches(nearest)} to corner`;
+                const metrics = labelMetrics(label.length);
+                const a = railPoint(frame, start, openingRailOffsetIn, adjustment);
+                const b = railPoint(frame, start + width, openingRailOffsetIn, adjustment);
+                const m = railPoint(frame, start + width / 2, openingRailOffsetIn + labelOffsetIn, adjustment);
                 const wallStart = wallPoint(frame, start);
                 const wallEnd = wallPoint(frame, start + width);
-                return <g key={`floor-dimension-opening-${opening.uid}`} data-testid={`floor-dimension-opening-${opening.uid}`}>
+                return <g
+                  key={`floor-dimension-opening-${opening.uid}`}
+                  data-testid={`floor-dimension-opening-${opening.uid}`}
+                  data-dimension-key={dimensionKey}
+                  className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
+                  onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
+                  onPointerMove={moveDimensionLeaderDrag}
+                  onPointerUp={endDimensionLeaderDrag}
+                  onPointerCancel={endDimensionLeaderDrag}
+                >
                   <line x1={wallStart.x} y1={wallStart.y} x2={a.x} y2={a.y} stroke="#0f766e" strokeOpacity={0.55} strokeWidth={0.75} />
                   <line x1={wallEnd.x} y1={wallEnd.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeOpacity={0.55} strokeWidth={0.75} />
                   <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#0f766e" strokeWidth={1} strokeDasharray="2 2" />
                   <g transform={`translate(${m.x} ${m.y}) rotate(${labelAngle(frame)})`}>
-                    <rect x={-39} y={-7} width={78} height={14} rx={3} fill="white" fillOpacity={0.94} />
-                    <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill="#0f766e">{formatSixteenthInches(width)} · {formatSixteenthInches(nearest)} to corner</text>
+                    <rect x={-metrics.width / 2} y={-metrics.height / 2} width={metrics.width} height={metrics.height} rx={3} fill="white" fillOpacity={0.96} />
+                    <text x={0} y={dimensionFontSize * 0.34} textAnchor="middle" fontSize={Math.max(8, dimensionFontSize - 1)} fontWeight={700} fill={dimensionColor}>{label}</text>
                   </g>
                 </g>;
               })}

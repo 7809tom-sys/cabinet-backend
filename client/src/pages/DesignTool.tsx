@@ -872,6 +872,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Dimensions read the shared placement engine only and start enabled for a
   // new Floor Plan. The toolbar switch still gives a clean drawing view.
   const [autoDimensions, setAutoDimensions] = useState(true);
+  const dimensionLabelFontSize = Math.max(8, Math.min(18, Number(room.dimensionLabelStyle?.fontSizePx) || 9));
+  const dimensionLabelColor = room.dimensionLabelStyle?.color || "#1a2744";
+  const updateDimensionLabelStyle = useCallback((patch: { fontSizePx?: number; color?: string }) => {
+    setRoom((previous) => ({
+      ...previous,
+      dimensionLabelStyle: { ...previous.dimensionLabelStyle, ...patch },
+    }));
+  }, []);
+  const resetDimensionPresentation = useCallback(() => {
+    setRoom((previous) => ({ ...previous, dimensionLabelStyle: undefined, dimensionAdjustments: undefined }));
+    toast.success("Dimension label style and manual leader positions reset.");
+  }, []);
 	  // Island zone: an optional rectangular guide (inches) marking where island
 	  // cabinets go. Null when disabled.
 	  const [island, setIsland] = useState<IslandZone | null>(null);
@@ -11868,6 +11880,54 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          >
 	            <Ruler className="h-3.5 w-3.5" />
 	          </Button>
+	          <Popover>
+	            <PopoverTrigger asChild>
+	              <Button
+	                variant="outline"
+	                size="icon"
+	                data-testid="floor-plan-dimension-style-toggle"
+	                title="Dimension label style and leader positions"
+	                className="h-7 w-7"
+	              >
+	                <Palette className="h-3.5 w-3.5" />
+	                <span className="sr-only">Dimension label style</span>
+	              </Button>
+	            </PopoverTrigger>
+	            <PopoverContent align="start" className="w-72 space-y-3 p-3" data-testid="floor-plan-dimension-style-panel">
+	              <div>
+	                <p className="text-sm font-semibold text-foreground">Dimension labels</p>
+	                <p className="mt-0.5 text-xs text-muted-foreground">Set a readable label size and color. Drag any exterior dimension line to move its leaders without changing the wall.</p>
+	              </div>
+	              <div className="flex items-center justify-between gap-3">
+	                <Label htmlFor="floor-plan-dimension-font-size" className="text-xs font-medium">Font size</Label>
+	                <Select value={String(dimensionLabelFontSize)} onValueChange={(value) => updateDimensionLabelStyle({ fontSizePx: Number(value) })}>
+	                  <SelectTrigger id="floor-plan-dimension-font-size" className="h-8 w-28 text-xs" data-testid="floor-plan-dimension-font-size">
+	                    <SelectValue />
+	                  </SelectTrigger>
+	                  <SelectContent>
+	                    {[8, 9, 10, 11, 12, 14, 16, 18].map((size) => <SelectItem key={size} value={String(size)}>{size}px</SelectItem>)}
+	                  </SelectContent>
+	                </Select>
+	              </div>
+	              <div className="flex items-center justify-between gap-3">
+	                <Label htmlFor="floor-plan-dimension-label-color" className="text-xs font-medium">Label color</Label>
+	                <div className="flex items-center gap-2">
+	                  <input
+	                    id="floor-plan-dimension-label-color"
+	                    data-testid="floor-plan-dimension-label-color"
+	                    type="color"
+	                    value={dimensionLabelColor}
+	                    onChange={(event) => updateDimensionLabelStyle({ color: event.target.value })}
+	                    className="h-8 w-10 cursor-pointer rounded border border-border bg-background p-0.5"
+	                  />
+	                  <code className="w-16 text-right text-[11px] text-muted-foreground">{dimensionLabelColor.toUpperCase()}</code>
+	                </div>
+	              </div>
+	              <Button variant="outline" size="sm" className="h-8 w-full text-xs" onClick={resetDimensionPresentation} data-testid="floor-plan-dimension-reset">
+	                Reset label style &amp; leader positions
+	              </Button>
+	            </PopoverContent>
+	          </Popover>
 	          {isPolygonRoom && (
 	            <Button
 	              variant="outline"
@@ -13715,6 +13775,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               showWallLayer={showWallLayer}
               measureMode={measureMode}
               autoDimensions={autoDimensions}
+              onDimensionAdjustmentChange={(key, adjustment) => setRoom((previous) => ({
+                ...previous,
+                dimensionAdjustments: { ...previous.dimensionAdjustments, [key]: adjustment },
+              }))}
               showPeninsulaCornerSnapFeedback={showPeninsulaCornerSnapFeedback}
               island={island}
 	              islandDepthTransition={islandDepthTransition}
@@ -13951,6 +14015,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  showWallLayer={showWallLayer}
 	                  measureMode={measureMode}
 	              autoDimensions={autoDimensions}
+              onDimensionAdjustmentChange={(key, adjustment) => setRoom((previous) => ({
+                ...previous,
+                dimensionAdjustments: { ...previous.dimensionAdjustments, [key]: adjustment },
+              }))}
 	                  showPeninsulaCornerSnapFeedback={showPeninsulaCornerSnapFeedback}
 	                  island={island}
 	                  islandDepthTransition={islandDepthTransition}

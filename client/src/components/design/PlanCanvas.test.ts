@@ -260,6 +260,25 @@ describe("user measured open wall paths", () => {
     expect(source).toContain("const PADDING = autoDimensions ? 104 : 48;");
   });
 
+  it("uses saved label appearance and marks exterior rails as manually draggable", () => {
+    const room: RoomData = {
+      width: 120,
+      depth: 96,
+      ceilingHeight: 96,
+      dimensionLabelStyle: { fontSizePx: 14, color: "#c026d3" },
+      dimensionAdjustments: { "wall:top": { alongIn: 4, outsideIn: 3 } },
+    };
+    const markup = renderToStaticMarkup(createElement(LanguageProvider, null, createElement(PlanCanvas, {
+      room, cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+      showWallLayer: true, autoDimensions: true, onDimensionAdjustmentChange: () => undefined,
+    })));
+
+    expect(markup).toContain('data-dimension-key="wall:top"');
+    expect(markup).toContain('font-size="14"');
+    expect(markup).toContain('fill="#c026d3"');
+    expect(markup).toContain("cursor-grab");
+  });
+
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 

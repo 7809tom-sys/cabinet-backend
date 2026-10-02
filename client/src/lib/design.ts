@@ -1454,6 +1454,24 @@ export interface RoomWallAppearance {
   texture?: DrywallPonyWallTexture;
 }
 
+/** Saved user appearance preferences for dimension labels in a Floor Plan. */
+export interface FloorPlanDimensionLabelStyle {
+  /** SVG/CSS pixel size for labels. Kept separate from room scale in inches. */
+  fontSizePx?: number;
+  /** CSS color value used for every readable dimension label. */
+  color?: string;
+}
+
+/**
+ * A display-only manual offset for one exterior dimension chain. `alongIn`
+ * moves the chain parallel to its wall; `outsideIn` moves it farther into the
+ * exterior drafting gutter. Neither value changes wall geometry or placement.
+ */
+export interface FloorPlanDimensionAdjustment {
+  alongIn?: number;
+  outsideIn?: number;
+}
+
 export interface RoomData {
   width: number;
   depth: number;
@@ -1468,6 +1486,10 @@ export interface RoomData {
   wallCeilings?: Partial<Record<WallSide, WallCeiling>>;
   /** Optional painted finish shared by every physical perimeter/custom room wall. */
   wallAppearance?: RoomWallAppearance;
+  /** Saved presentation preferences for the Floor Plan's display-only dimensions. */
+  dimensionLabelStyle?: FloorPlanDimensionLabelStyle;
+  /** Per-chain manual positions for exterior Floor Plan leaders and labels. */
+  dimensionAdjustments?: Record<string, FloorPlanDimensionAdjustment>;
   /** Polygon room: ordered vertices defining the room shape. When present,
    *  the room is a polygon; when absent, it's the classic rectangle. */
   vertices?: import("@/lib/polygonRoom").RoomVertex[];
