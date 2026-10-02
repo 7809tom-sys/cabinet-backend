@@ -11256,6 +11256,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           <button
             onClick={() => setViewMode("elevation")}
             title={t("dt_sh_front_view")}
+            aria-label={t("dt_sh_front_view")}
             className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
               viewMode === "elevation" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
@@ -11265,6 +11266,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          <button
 	            onClick={() => setViewMode("split")}
             title={t("dt_sh_split")}
+	            aria-label={t("dt_sh_split")}
             className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
               viewMode === "split" ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
             }`}
@@ -11272,9 +11274,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <Columns3 className="h-3.5 w-3.5" />
           </button>
           {island && (
-            <button
-              onClick={() => setViewMode("island")}
-              title="Island elevation preview"
+	            <button
+	              onClick={() => setViewMode("island")}
+	              title="Island elevation preview"
+	              aria-label="Island elevation preview"
               className={`inline-flex items-center justify-center h-6 w-7 rounded transition-colors ${
                 viewMode === "island" ? "bg-[#d4a75a] text-[#1a2744]" : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               }`}
@@ -11285,48 +11288,53 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </div>
                 <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:block"} h-5 w-px bg-border`} />
         {/* Save Design — desktop only */}
-        <button
-          type="button"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
-          title="Save design"
+	        <button
+	          type="button"
+	          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
+	          title="Save design"
+	          aria-label="Save design"
           onClick={() => setSaveSignal((n) => n + 1)}
         >
           <Save className="h-3.5 w-3.5" />
         </button>
         {/* Start New / Clear Design — desktop only */}
-        <button
-          type="button"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10`}
-          title="Start new design (clears all cabinets)"
+	        <button
+	          type="button"
+	          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-destructive/40 text-destructive transition-colors hover:bg-destructive/10`}
+	          title="Start new design (clears all cabinets)"
+	          aria-label="Start new design and clear all cabinets"
           onClick={clearCurrentDesign}
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
 
         {/* Printable graph-paper worksheet */}
-        <a
-          href="/plan-sheet"
-          target="_blank"
-          rel="noopener noreferrer"
-          title={t("dt_sh_print_title")}
+	        <a
+	          href="/plan-sheet"
+	          target="_blank"
+	          rel="noopener noreferrer"
+	          title={t("dt_sh_print_title")}
+	          aria-label={t("dt_sh_print_title")}
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
         >
           <Printer className="h-3.5 w-3.5" />
         </a>
         {/* High-resolution, dimensioned Floor Plan exports */}
-        <button
-          type="button"
-          data-testid="floor-plan-export-image"
-          title="Export high-resolution Floor Plan image"
+	        <button
+	          type="button"
+	          data-testid="floor-plan-export-image"
+	          title="Export high-resolution Floor Plan image"
+	          aria-label="Export high-resolution Floor Plan image"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
           onClick={exportFloorPlanImage}
         >
           <Download className="h-3.5 w-3.5" />
         </button>
-        <button
-          type="button"
-          data-testid="floor-plan-export-pdf"
-          title="Export dimensioned Floor Plan as PDF"
+	        <button
+	          type="button"
+	          data-testid="floor-plan-export-pdf"
+	          title="Export dimensioned Floor Plan as PDF"
+	          aria-label="Export dimensioned Floor Plan as PDF"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
           onClick={exportFloorPlanPdf}
         >

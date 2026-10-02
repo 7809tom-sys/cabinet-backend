@@ -18,7 +18,7 @@ import {
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
-import { CheckCircle2, Compass, Maximize2, Minus, Plus, RotateCw, X } from "lucide-react";
+import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, Plus, RotateCw, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -458,6 +458,9 @@ export function PlanCanvas({
   const { t } = useLanguage();
   const dimensionUnitSystem: FloorPlanDimensionUnit = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";
   const formatDisplayDimension = (inches: number) => formatFloorPlanDimension(inches, dimensionUnitSystem);
+  // View-only preference: hide annotations without changing saved geometry or
+  // the user's Auto dimensions setting.
+  const [measurementBubblesVisible, setMeasurementBubblesVisible] = useState(true);
   const [islandDepthTransitionVisible, setIslandDepthTransitionVisible] = useState(false);
   useEffect(() => {
     if (!islandDepthTransition) {
@@ -735,7 +738,7 @@ export function PlanCanvas({
   // Dimensioned plans reserve a true exterior drafting gutter. This keeps all
   // dimension rails outside the wall/cabinet footprint rather than squeezing
   // labels through the room as an overlay.
-  const PADDING = autoDimensions ? 104 : 48;
+  const PADDING = autoDimensions && measurementBubblesVisible ? 104 : 48;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -1467,7 +1470,7 @@ export function PlanCanvas({
                   <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
                 </line>
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
-                {!autoDimensions && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
+                {!autoDimensions && measurementBubblesVisible && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
                   <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatDisplayDimension(length)}</text>
                 </g>}
@@ -1622,7 +1625,7 @@ export function PlanCanvas({
                 };
           return (
             <Fragment key={run.id}>
-              {primaryAttachmentMeasure != null && <span
+            {measurementBubblesVisible && primaryAttachmentMeasure != null && <span
                 data-testid="peninsula-attachment-measurement"
                 title="Measured parent-wall segment from the wall start corner to this peninsula attachment; displayed outside the room so it does not cover cabinets"
                 className="pointer-events-none absolute z-20 whitespace-nowrap rounded border border-slate-300 bg-white/95 px-1.5 py-0.5 text-[10px] font-bold leading-none text-slate-950 shadow-sm"
@@ -2893,7 +2896,7 @@ export function PlanCanvas({
         })()}
 
         {/* Live drag tape-measure: two-sided clearance along the wall */}
-        {dragTape && (() => {
+        {measurementBubblesVisible && dragTape && (() => {
           const { m, frame, pointAt } = dragTape;
           const tick = { x: -frame.tangent.y * 5, y: frame.tangent.x * 5 };
           const labelAngle = parallelWallLabelAngleDeg(frame.tangent.x, frame.tangent.y);
@@ -2923,7 +2926,7 @@ export function PlanCanvas({
 
         {/* Google-style point-to-point tape measure. The start point remains
             visible after the first tap; a second tap completes the distance. */}
-        {measurePoints.length > 0 && (
+        {measurementBubblesVisible && measurePoints.length > 0 && (
           <svg
             className="pointer-events-none absolute inset-0 z-40 overflow-visible"
             width={roomPxW}
@@ -2939,7 +2942,7 @@ export function PlanCanvas({
             {measure && <circle cx={measure.bx} cy={measure.by} r={5} fill="#d4a75a" stroke="#1a2744" strokeWidth={1.5} />}
           </svg>
         )}
-        {measure && (
+        {measurementBubblesVisible && measure && (
           <div
             className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a] bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950 shadow-lg whitespace-nowrap"
             style={{ left: measure.midX, top: measure.midY }}
@@ -2952,7 +2955,7 @@ export function PlanCanvas({
 
 
         {/* ─── Live Floor Plan dimensions (display-only) ───────────────── */}
-        {autoDimensions && (() => {
+        {measurementBubblesVisible && autoDimensions && (() => {
           const wallFrames = roomWallRunFrames(room).filter((frame) => frame.kind !== "peninsula");
           const chains = floorPlanWallDimensionChains(room, cabinets)
             .filter((chain) => chain.layer === "base" || showWallLayer);
@@ -3258,7 +3261,7 @@ export function PlanCanvas({
           );
         })}
 
-        {xTicks.map((t) => (
+        {measurementBubblesVisible && xTicks.map((t) => (
           <div
             key={`x${t}`}
             className="absolute top-0 text-[8px] text-muted-foreground/60"
@@ -3267,7 +3270,7 @@ export function PlanCanvas({
             {t / 12}'
           </div>
         ))}
-        {yTicks.map((t) => (
+        {measurementBubblesVisible && yTicks.map((t) => (
           <div
             key={`y${t}`}
             className="absolute text-[8px] text-muted-foreground/60"
@@ -3354,20 +3357,34 @@ export function PlanCanvas({
           return t("dt_pc_room_size", { w: formatDisplayDimension(room.width), h: formatDisplayDimension(room.depth) });
         })()}
       </div>
-      {!drawMode && !measureMode && (
-        onRotateDrawing && (
+      {!drawMode && (
+        <div className="absolute right-3 top-3 z-50 flex flex-col items-end gap-2">
           <button
             type="button"
-            data-testid="rotate-custom-drawing"
-            aria-label="Rotate the complete measured drawing 90 degrees clockwise"
-            title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
-            onClick={onRotateDrawing}
-            disabled={drawingRotationDisabled}
-            className="absolute right-3 top-3 z-50 inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-3 text-xs font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
+            data-testid="floor-plan-measurement-bubbles-toggle"
+            aria-label={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles" : "Show all Floor Plan measurement bubbles"}
+            aria-pressed={measurementBubblesVisible}
+            title={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles for a cleaner drawing" : "Show all Floor Plan measurement bubbles"}
+            onClick={() => setMeasurementBubblesVisible((visible) => !visible)}
+            className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
           >
-            <RotateCw className="h-4 w-4" /> Rotate drawing
+            {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            Measurements
           </button>
-        )
+          {!measureMode && onRotateDrawing && (
+            <button
+              type="button"
+              data-testid="rotate-custom-drawing"
+              aria-label="Rotate the complete measured drawing 90 degrees clockwise"
+              title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
+              onClick={onRotateDrawing}
+              disabled={drawingRotationDisabled}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-3 text-xs font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
+            >
+              <RotateCw className="h-4 w-4" /> Rotate drawing
+            </button>
+          )}
+        </div>
       )}
       {!drawMode && !measureMode && (
         <div data-testid="floor-plan-zoom-controls" className="absolute bottom-3 right-3 z-50 flex items-center overflow-hidden rounded-lg border border-[#1a2744]/25 bg-white/95 shadow-md backdrop-blur">

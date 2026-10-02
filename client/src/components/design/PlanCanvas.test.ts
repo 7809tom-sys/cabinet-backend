@@ -288,7 +288,7 @@ describe("user measured open wall paths", () => {
     expect(source).toContain("const outerRailOffsetIn = 11;");
     expect(source).toContain("const wallStart = wallPoint(frame, segment.start);");
     expect(source).toContain("const wallEnd = wallPoint(frame, segment.start + segment.length);");
-    expect(source).toContain("const PADDING = autoDimensions ? 104 : 48;");
+    expect(source).toContain("const PADDING = autoDimensions && measurementBubblesVisible ? 104 : 48;");
   });
 
   it("uses saved label appearance and marks exterior rails as manually draggable", () => {
@@ -509,6 +509,17 @@ describe("plan placement assistance wiring", () => {
 	   expect(source).toContain('aria-label="Rotate the complete measured drawing 90 degrees clockwise"');
 	   expect(source).toContain('bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950');
 	   expect(source).toContain('font-extrabold text-slate-950 shadow-sm whitespace-nowrap');
+	 });
+
+	 it("offers one upper-right control that hides every Floor Plan measurement layer without changing the room", () => {
+	   const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+	   expect(source).toContain('data-testid="floor-plan-measurement-bubbles-toggle"');
+	   expect(source).toContain('Hide all Floor Plan measurement bubbles for a cleaner drawing');
+	   expect(source).toContain('measurementBubblesVisible && autoDimensions');
+	   expect(source).toContain('measurementBubblesVisible && dragTape');
+	   expect(source).toContain('measurementBubblesVisible && measure');
+	   expect(source).toContain('measurementBubblesVisible && xTicks.map');
+	   expect(source).toContain('measurementBubblesVisible && yTicks.map');
 	 });
 
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {

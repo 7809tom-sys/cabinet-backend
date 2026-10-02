@@ -100,12 +100,31 @@ describe("designer toolbar layout", () => {
     expect(source).not.toContain('sm:left-1/2 sm:right-auto sm:-translate-x-1/2');
   });
 
-  it("keeps Room Size visible in compact desktop workspace and reachable on mobile", () => {
-    expect(source).toContain('className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
-    expect(roomSizeSource).toContain('aria-label="Open room size"');
-    expect(roomSizeSource).toContain("<span>Room size</span>");
-    expect(source).toContain("<RoomSizeControl");
-  });
+	it("keeps Room Size visible in compact desktop workspace and reachable on mobile", () => {
+	  expect(source).toContain('className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
+	  expect(roomSizeSource).toContain('aria-label="Open room size"');
+	  expect(roomSizeSource).toContain("<span>Room size</span>");
+	  expect(source).toContain("<RoomSizeControl");
+	});
+
+	it("gives every compact top-toolbar icon a hover label and accessible name", () => {
+	  const iconControlsStart = source.indexOf("{/* Elevation, split, and island-only precision views. */}");
+	  const iconControlsEnd = source.indexOf("{/* Mobile: icon-only compact buttons in top bar */}", iconControlsStart);
+	  const iconControls = source.slice(iconControlsStart, iconControlsEnd);
+
+	  expect(iconControls).toContain('title={t("dt_sh_front_view")}');
+	  expect(iconControls).toContain('aria-label={t("dt_sh_front_view")}');
+	  expect(iconControls).toContain('title={t("dt_sh_split")}');
+	  expect(iconControls).toContain('aria-label={t("dt_sh_split")}');
+	  expect(iconControls).toContain('title="Save design"');
+	  expect(iconControls).toContain('aria-label="Save design"');
+	  expect(iconControls).toContain('title="Start new design (clears all cabinets)"');
+	  expect(iconControls).toContain('aria-label="Start new design and clear all cabinets"');
+	  expect(iconControls).toContain('title="Export high-resolution Floor Plan image"');
+	  expect(iconControls).toContain('aria-label="Export high-resolution Floor Plan image"');
+	  expect(iconControls).toContain('title="Export dimensioned Floor Plan as PDF"');
+	  expect(iconControls).toContain('aria-label="Export dimensioned Floor Plan as PDF"');
+	});
 
 	  it("offers one-click whole-drawing rotation in the Floor Plan canvas for explicit custom wall rooms", () => {
 	    expect(source).toContain("onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}");
