@@ -1,0 +1,20 @@
+{
+  "dialog": "Choose filler placement \u2014 1\"\n\nF342 is the narrowest active catalog filler that covers this opening. Choose the left edge, right edge, or an even split below; CabinetDealz cuts and inserts the selected size at that exact zero-overlap seam.\n\nRecommended: F342 cut to 1\" closes the full measured wall seam.\nUse optimal size\nCustom cut width\ninches\n\nChoose any cut from \u215b\" through 1\" in 1/8-inch increments. A smaller cut leaves the balance open.\n\nUse suggested placement \u00b7 F342 cut 1\"\n\nWhere should this 1\" filler go?\n\nThe gold highlighted gap on the plan shows the current choice before anything is inserted.\n\nSplit evenly\n\n\u00bd\" each side\nPlace on left\n\n1\" filler\nPlace on right\n\n1\" filler\nLeave space open\nClose",
+  "hasDialog": true,
+  "hasOneInch": true,
+  "draftPlaced": [
+    [
+      "B27FH",
+      null
+    ]
+  ],
+  "consoleErrors": [
+    "warning:THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.",
+    "warning:THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead.",
+    "warning:[.WebGL-0x5b40017da00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "warning:[.WebGL-0x5b40017da00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "warning:[.WebGL-0x5b40017da00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels",
+    "warning:[.WebGL-0x5b40017da00]GL Driver Message (OpenGL, Performance, GL_CLOSE_PATH_NV, High): GPU stall due to ReadPixels (this message will no longer repeat)",
+    "warning:THREE.WebGLShadowMap: PCFSoftShadowMap has been deprecated. Using PCFShadowMap instead."
+  ]
+}
