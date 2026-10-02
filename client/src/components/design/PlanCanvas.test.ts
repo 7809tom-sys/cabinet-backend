@@ -216,11 +216,13 @@ describe("user measured open wall paths", () => {
       ),
     );
 
-    expect(markup).toContain('aria-label="User measured walls"');
-    expect(markup).toContain('data-testid="custom-wall-context-target"');
-    expect(markup).toContain('data-testid="custom-wall-length-bubble"');
-    expect(markup).toContain('rotate(45)');
-    expect(markup).toContain('Right-click Wall 1 for Attributes');
+	    expect(markup).toContain('aria-label="User measured walls"');
+	    expect(markup).toContain('data-testid="custom-wall-mitered-outline"');
+	    expect(markup).toContain('data-testid="custom-wall-context-target"');
+	    expect(markup).toContain('data-testid="custom-wall-length-bubble"');
+	    expect(markup).toContain('rotate(45)');
+	    expect(markup).toContain('Right-click Wall 1 for Attributes');
+	    expect(markup).toMatch(/data-testid="custom-wall-context-target"[^>]*stroke-linecap="butt"/);
     expect(markup).not.toContain('data-testid="room-wall-top"');
     expect(markup).not.toContain('data-testid="room-wall-right"');
   });

@@ -24,6 +24,7 @@ import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
+import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -789,6 +790,21 @@ export function PlanCanvas({
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
   const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
+  // Both classic rectangles and Continuous Wall Builder rooms resolve the
+  // physical wall footprint through the shared miter routine. Individual
+  // rounded SVG lines previously made diagonal/outside corners look like
+  // overlapping independent pieces instead of one connected wall outline.
+  const customWallShellOutlines = hasCustomWallShell
+    ? miteredWallOutlines(
+        room.customWalls!.flatMap((wall) => {
+          const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
+          const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId);
+          return start && end ? [{ id: wall.id, start, end }] : [];
+        }),
+        ROOM_WALL_THICKNESS_IN,
+        !room.openWallPath,
+      )
+    : [];
   // The position editor stores every distance against a wall endpoint. Resolve
   // that endpoint here rather than using the graph rectangle: a Continuous Wall
   // Builder room may be diagonal or open, and its real start/end must be visible.
@@ -1442,10 +1458,12 @@ export function PlanCanvas({
         )}
         {hasCustomWallShell ? (
           <svg className="pointer-events-none absolute inset-0 z-[2] overflow-visible" width={roomPxW} height={roomPxH} aria-label="User measured walls">
-            {room.customWalls!.map((wall) => {
-              const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
-              const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId);
-              if (!start || !end) return null;
+	          {customWallShellOutlines.map((outline) => {
+	              const wall = room.customWalls!.find((candidate) => candidate.id === outline.id);
+	              if (!wall) return null;
+	              const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
+	              const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId);
+	              if (!start || !end) return null;
               const x1 = start.x * ppi;
               const y1 = start.y * ppi;
               const x2 = end.x * ppi;
@@ -1455,16 +1473,27 @@ export function PlanCanvas({
               const length = Math.hypot(end.x - start.x, end.y - start.y);
               const labelAngle = parallelWallLabelAngleDeg(end.x - start.x, end.y - start.y);
               const active = activeWall === wall.id;
-              return <g key={wall.id}>
-                <line
-                  data-testid="custom-wall-context-target"
+	              const outlinePoints = outline.corners.map((corner) => `${corner.x * ppi},${corner.y * ppi}`).join(" ");
+	              return <g key={wall.id}>
+	                <polygon
+	                  data-testid="custom-wall-mitered-outline"
+	                  points={outlinePoints}
+	                  fill={active ? "#d4a75a" : "#1a2744"}
+	                  fillOpacity={active ? 0.9 : 0.78}
+	                  stroke={active ? "#b98632" : "#1a2744"}
+	                  strokeWidth={1}
+	                  strokeLinejoin="miter"
+	                  className="pointer-events-none"
+	                />
+	                <line
+	                  data-testid="custom-wall-context-target"
                   x1={x1}
                   y1={y1}
                   x2={x2}
                   y2={y2}
                   stroke="transparent"
                   strokeWidth={32}
-                  strokeLinecap="round"
+	                  strokeLinecap="butt"
                   className="pointer-events-auto cursor-pointer"
                   aria-label={`Right-click ${wall.label ?? "wall"} for Attributes`}
                   onPointerDown={(event) => onWallPointerDown(event, wall.id as WallSide)}
@@ -1473,8 +1502,7 @@ export function PlanCanvas({
                 >
                   <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
                 </line>
-                <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
-                {!autoDimensions && measurementBubblesVisible && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`} style={measurementBubbleStyle}>
+	                {!autoDimensions && measurementBubblesVisible && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`} style={measurementBubbleStyle}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
                   <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatDisplayDimension(length)}</text>
                 </g>}

@@ -17,6 +17,7 @@ import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { lCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { addThreeDMeasuredWallMiterCountertops } from "./InteractiveRoom3D";
+import { threeDMiteredRoomWallGeometry, threeDMiteredRoomWallOutlines } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
 import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
@@ -56,6 +57,45 @@ const baseScene: InteractiveRoomScene = {
   suggestions: [],
   materials: { cabinet: { publicName: null, name: "Sample", color: null, finish: null, doorStyle: null, doorPanelType: null }, defaults: { floor: "#b89778", countertop: "#e9e7e2", backsplash: "#d9d5cc", wall: "#efece6" } },
 };
+
+describe("shared mitered room walls", () => {
+  it("builds sharp 45° and 135° corner solids from the same wall outline", () => {
+    const outlines = threeDMiteredRoomWallOutlines([
+      { id: "straight", start: new THREE.Vector2(0, 0), end: new THREE.Vector2(8, 0) },
+      { id: "wall-45", start: new THREE.Vector2(8, 0), end: new THREE.Vector2(12, -4) },
+      { id: "wall-135", start: new THREE.Vector2(12, -4), end: new THREE.Vector2(8, -8) },
+    ], false);
+
+    expect(outlines).toHaveLength(3);
+    expect(outlines[0]!.miteredEnd).toBe(true);
+    expect(outlines[1]!.miteredStart).toBe(true);
+    expect(outlines[1]!.miteredEnd).toBe(true);
+    expect(outlines[2]!.miteredStart).toBe(true);
+    expect(outlines[0]!.corners[1]).toEqual(outlines[1]!.corners[0]);
+    expect(outlines[0]!.corners[2]).toEqual(outlines[1]!.corners[3]);
+    expect(outlines[1]!.corners[1]).toEqual(outlines[2]!.corners[0]);
+    expect(outlines[1]!.corners[2]).toEqual(outlines[2]!.corners[3]);
+
+    const geometry = threeDMiteredRoomWallGeometry(outlines[1]!.corners, 8);
+    geometry.computeBoundingBox();
+    expect(geometry.getAttribute("position").count).toBe(8);
+    expect(geometry.boundingBox?.max.y).toBeCloseTo(8);
+    expect(geometry.boundingBox?.min.y).toBeCloseTo(0);
+  });
+
+  it("keeps the unconnected ends of an open wall run square", () => {
+    const outlines = threeDMiteredRoomWallOutlines([
+      { id: "first", start: new THREE.Vector2(0, 0), end: new THREE.Vector2(6, 0) },
+      { id: "second", start: new THREE.Vector2(6, 0), end: new THREE.Vector2(9, -3) },
+    ], false);
+
+    expect(outlines[0]!.miteredStart).toBe(false);
+    expect(outlines[1]!.miteredEnd).toBe(false);
+    expect(outlines[0]!.corners[0].x).toBeCloseTo(outlines[0]!.corners[3].x);
+    expect((outlines[1]!.corners[1].x + outlines[1]!.corners[2].x) / 2).toBeCloseTo(9);
+    expect((outlines[1]!.corners[1].y + outlines[1]!.corners[2].y) / 2).toBeCloseTo(3);
+  });
+});
 
 describe("continuous base toe-kick boards", () => {
   const base = (uid: string, offset: number, width: number, masterCode = "B36"): PlacedCabinet => ({
@@ -1429,6 +1469,13 @@ describe("interactive 3D room scene helpers", () => {
   it("wraps the embedded 3D action controls instead of allowing them to overlap", () => {
     expect(THREE_D_EMBEDDED_TOOLBAR_CLASS).toContain("flex-wrap");
     expect(THREE_D_EMBEDDED_TOOLBAR_CLASS).toContain("max-w-[calc(100%-1.5rem)]");
+  });
+
+  it("keeps the finished wall shell available from the embedded 3D toolbar", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-room-context-toggle"');
+    expect(source).toContain("Show the finished-thickness room walls and mitered corners");
+    expect(source).toContain('aria-pressed={showRoomContext}');
   });
 
   it("builds the hybrid 2D reference from every saved item using the authoritative rotated footprint and opening geometry", () => {

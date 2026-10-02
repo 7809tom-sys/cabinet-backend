@@ -24,9 +24,53 @@ import {
   wallBuilderGeometry,
   wallBuilderMetrics,
   wallBuilderRoomGeometry,
+  miteredWallOutlines,
+  ROOM_WALL_THICKNESS_IN,
 } from "./polygonRoom";
 
 describe("polygonRoom", () => {
+
+  describe("mitered wall outlines", () => {
+    it("shares exact 45° and 135° offset-line corners without separate wall caps", () => {
+      const outlines = miteredWallOutlines([
+        { id: "straight", start: { x: 0, y: 0 }, end: { x: 96, y: 0 } },
+        { id: "wall-45", start: { x: 96, y: 0 }, end: { x: 144, y: 48 } },
+        { id: "wall-135", start: { x: 144, y: 48 }, end: { x: 96, y: 96 } },
+      ], ROOM_WALL_THICKNESS_IN, false);
+
+      expect(outlines).toHaveLength(3);
+      expect(outlines[0]!.miteredEnd).toBe(true);
+      expect(outlines[1]!.miteredStart).toBe(true);
+      expect(outlines[1]!.miteredEnd).toBe(true);
+      expect(outlines[2]!.miteredStart).toBe(true);
+      // The two physical faces meet at the same calculated miter vertices;
+      // no rounded cap or rectangular overlap is left at either corner.
+      expect(outlines[0]!.corners[1]).toEqual(outlines[1]!.corners[0]);
+      expect(outlines[0]!.corners[2]).toEqual(outlines[1]!.corners[3]);
+      expect(outlines[1]!.corners[1]).toEqual(outlines[2]!.corners[0]);
+      expect(outlines[1]!.corners[2]).toEqual(outlines[2]!.corners[3]);
+    });
+
+    it("keeps intentional open-wall ends square while mitering their connected joint", () => {
+      const outlines = miteredWallOutlines([
+        { id: "first", start: { x: 0, y: 0 }, end: { x: 72, y: 0 } },
+        { id: "second", start: { x: 72, y: 0 }, end: { x: 108, y: 36 } },
+      ], ROOM_WALL_THICKNESS_IN, false);
+
+      expect(outlines[0]!.miteredStart).toBe(false);
+      expect(outlines[1]!.miteredEnd).toBe(false);
+      expect(outlines[0]!.corners[0].x).toBeCloseTo(0);
+      expect(outlines[0]!.corners[3].x).toBeCloseTo(0);
+      const [endLeft, endRight] = [outlines[1]!.corners[1], outlines[1]!.corners[2]];
+      expect((endLeft.x + endRight.x) / 2).toBeCloseTo(108);
+      expect((endLeft.y + endRight.y) / 2).toBeCloseTo(36);
+      // The free cap is perpendicular to the 45° centre line: no rounded end.
+      expect((endLeft.x - endRight.x) * 36 + (endLeft.y - endRight.y) * 36).toBeCloseTo(0);
+      expect(outlines[0]!.corners[1]).toEqual(outlines[1]!.corners[0]);
+      expect(outlines[0]!.corners[2]).toEqual(outlines[1]!.corners[3]);
+    });
+  });
+
   describe("rectToPolygon", () => {
     it("creates 4 vertices and 4 walls for a rectangle", () => {
       const { vertices, customWalls } = rectToPolygon(120, 96);

@@ -114,6 +114,119 @@ export function dist(a: { x: number; y: number }, b: { x: number; y: number }): 
   return Math.sqrt((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
 }
 
+/** Finished framed/drywall wall thickness used by both standard and measured room shells. */
+export const ROOM_WALL_THICKNESS_IN = 4.5;
+
+export type WallOutlinePoint = { x: number; y: number };
+
+/** A centre-line segment supplied by either the classic room or Continuous Wall Builder. */
+export type WallOutlineCenterLine = {
+  id: string;
+  start: WallOutlinePoint;
+  end: WallOutlinePoint;
+};
+
+/**
+ * A finite-thickness wall segment. Corners are clockwise around its footprint:
+ * start-left, end-left, end-right, start-right. Adjacent mitered segments
+ * share their corresponding vertices exactly.
+ */
+export type MiteredWallOutline = WallOutlineCenterLine & {
+  corners: [WallOutlinePoint, WallOutlinePoint, WallOutlinePoint, WallOutlinePoint];
+  miteredStart: boolean;
+  miteredEnd: boolean;
+};
+
+const WALL_OUTLINE_EPSILON = 1e-7;
+
+function sameWallOutlinePoint(a: WallOutlinePoint, b: WallOutlinePoint, epsilon = WALL_OUTLINE_EPSILON) {
+  return Math.abs(a.x - b.x) <= epsilon && Math.abs(a.y - b.y) <= epsilon;
+}
+
+function wallOutlineNormal(segment: WallOutlineCenterLine): WallOutlinePoint | null {
+  const dx = segment.end.x - segment.start.x;
+  const dy = segment.end.y - segment.start.y;
+  const length = Math.hypot(dx, dy);
+  if (length <= WALL_OUTLINE_EPSILON) return null;
+  return { x: -dy / length, y: dx / length };
+}
+
+function offsetWallOutlinePoint(point: WallOutlinePoint, normal: WallOutlinePoint, amount: number): WallOutlinePoint {
+  return { x: point.x + normal.x * amount, y: point.y + normal.y * amount };
+}
+
+function intersectWallOutlineLines(
+  firstPoint: WallOutlinePoint,
+  firstDirection: WallOutlinePoint,
+  secondPoint: WallOutlinePoint,
+  secondDirection: WallOutlinePoint,
+): WallOutlinePoint | null {
+  const determinant = firstDirection.x * secondDirection.y - firstDirection.y * secondDirection.x;
+  if (Math.abs(determinant) <= WALL_OUTLINE_EPSILON) return null;
+  const deltaX = secondPoint.x - firstPoint.x;
+  const deltaY = secondPoint.y - firstPoint.y;
+  const distance = (deltaX * secondDirection.y - deltaY * secondDirection.x) / determinant;
+  return {
+    x: firstPoint.x + firstDirection.x * distance,
+    y: firstPoint.y + firstDirection.y * distance,
+  };
+}
+
+/**
+ * Produces a single mitered wall outline from ordered centre lines. The classic
+ * room and Continuous Wall Builder intentionally call this same routine. A
+ * connected joint intersects matching left/right offset lines; an intentional
+ * free end keeps a square cap at its original centre-line endpoint.
+ */
+export function miteredWallOutlines(
+  segments: WallOutlineCenterLine[],
+  thickness: number = ROOM_WALL_THICKNESS_IN,
+  closed = false,
+): MiteredWallOutline[] {
+  const halfThickness = Math.max(0, Number(thickness) || 0) / 2;
+  if (segments.length === 0) return [];
+
+  const normals = segments.map(wallOutlineNormal);
+  const cornersFor = (index: number, side: 1 | -1, endpoint: "start" | "end") => {
+    const segment = segments[index]!;
+    const normal = normals[index];
+    const anchor = endpoint === "start" ? segment.start : segment.end;
+    if (!normal || halfThickness <= WALL_OUTLINE_EPSILON) return { point: { ...anchor }, mitered: false };
+
+    const neighborIndex = endpoint === "start"
+      ? (index > 0 ? index - 1 : closed ? segments.length - 1 : -1)
+      : (index < segments.length - 1 ? index + 1 : closed ? 0 : -1);
+    const neighbor = neighborIndex >= 0 ? segments[neighborIndex] : null;
+    const neighborNormal = neighborIndex >= 0 ? normals[neighborIndex] : null;
+    const expectedNeighborPoint = endpoint === "start" ? neighbor?.end : neighbor?.start;
+    if (!neighbor || !neighborNormal || !expectedNeighborPoint || !sameWallOutlinePoint(anchor, expectedNeighborPoint)) {
+      return { point: offsetWallOutlinePoint(anchor, normal, side * halfThickness), mitered: false };
+    }
+
+    const offsetAnchor = offsetWallOutlinePoint(anchor, normal, side * halfThickness);
+    const neighborOffsetAnchor = offsetWallOutlinePoint(anchor, neighborNormal, side * halfThickness);
+    const direction = { x: segment.end.x - segment.start.x, y: segment.end.y - segment.start.y };
+    const neighborDirection = { x: neighbor.end.x - neighbor.start.x, y: neighbor.end.y - neighbor.start.y };
+    const intersection = intersectWallOutlineLines(offsetAnchor, direction, neighborOffsetAnchor, neighborDirection);
+    return { point: intersection ?? offsetAnchor, mitered: Boolean(intersection) };
+  };
+
+  return segments.flatMap((segment, index) => {
+    const normal = normals[index];
+    if (!normal) return [];
+    const startLeft = cornersFor(index, 1, "start");
+    const endLeft = cornersFor(index, 1, "end");
+    const endRight = cornersFor(index, -1, "end");
+    const startRight = cornersFor(index, -1, "start");
+    return [{
+      ...segment,
+      corners: [startLeft.point, endLeft.point, endRight.point, startRight.point],
+      miteredStart: startLeft.mitered && startRight.mitered,
+      miteredEnd: endLeft.mitered && endRight.mitered,
+    }];
+  });
+}
+
 /** Length of a wall segment in inches. */
 export function wallSegmentLength(wall: CustomWall, vertices: RoomVertex[]): number {
   const start = vertices.find((v) => v.id === wall.startVertexId);
