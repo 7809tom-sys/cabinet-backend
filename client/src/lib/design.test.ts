@@ -398,6 +398,52 @@ describe("3D same-wall cabinet drag", () => {
     expect(neighbor.y - (preview.candidate!.y + placedFootprint(preview.candidate!).d)).toBe(0);
   });
 
+  it("keeps a range on its selected peninsula face instead of crossing to a nearer exterior wall", () => {
+    const room: RoomData = {
+      width: 144,
+      depth: 120,
+      peninsulaRuns: [{
+        id: "range-peninsula",
+        parentWall: "top",
+        startOffset: 30,
+        turn: 90,
+        direction: "right",
+        length: 84,
+        height: 34.5,
+        cabinetSide: "right",
+      }],
+    };
+    const seated = wallPlacementAt(36, 30, 25, "range-peninsula" as any, room, "right");
+    const range: PlacedCabinet = {
+      uid: "range-on-peninsula", cabinetId: 9004, masterCode: "RANGE-30", description: "30 inch Range",
+      placement: "appliance", x: seated.x, y: seated.y, width: 30, depth: 25, height: 36,
+      mountBottom: 0, rotation: seated.rotation, wallId: seated.wallId, wallOffset: seated.wallOffset,
+      peninsulaSide: seated.peninsulaSide, numberOfDoors: 0, numberOfDrawers: 0,
+    };
+
+    // This body is still within the 18½-inch (range half-depth + magnet) reach
+    // of the peninsula but is seven inches closer to the left exterior wall.
+    // The old resolver ignored the peninsula and therefore crossed the wall.
+    const preview = cabinetWallMovePreview(
+      { ...range, x: -0.75, y: 36 },
+      { x: -0.75, y: 36 },
+      room,
+      [],
+      [],
+      { magnet: true },
+    );
+
+    expect(preview.failure).toBeNull();
+    expect(preview.wall).toBe("range-peninsula");
+    expect(preview.candidate).toMatchObject({
+      wallId: "range-peninsula",
+      peninsulaSide: "right",
+      rotation: seated.rotation,
+      x: seated.x,
+      y: seated.y,
+    });
+  });
+
   it("allows floor appliances and mounted range hoods while excluding unrelated raised appliances from wall-run dragging", () => {
     const appliance = (uid: string, masterCode: string, width: number, depth: number, height: number, mountBottom: number): PlacedCabinet => ({
       uid,

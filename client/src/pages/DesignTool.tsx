@@ -16117,10 +16117,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      />
 
 	      {/* Sink Base Top Dialog: opens when a sink base cabinet is placed */}
-      {sinkBaseDialog && (() => {
-        const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
-          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
-        }>;
+	      {sinkBaseDialog && (() => {
+	        const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
+	          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+	        }>;
+	        // These are Designer-only type visuals, intentionally separate from the
+	        // Stone Creek product query. A visual selects the correct cooktop form
+	        // for the drawing but never creates a cart line, SKU, or price.
+	        const layoutCooktopVisuals: Record<"gas" | "electric" | "smooth-top", { label: string; detail: string; imageUrl: string }> = {
+	          gas: {
+	            label: "Gas cooktop layout visual",
+	            detail: "Open burners · product and price pending",
+	            imageUrl: "/manus-storage/layout-visual-gas-cooktop_ab66b595.jpg",
+	          },
+	          electric: {
+	            label: "Electric-coil cooktop layout visual",
+	            detail: "Coil burners · product and price pending",
+	            imageUrl: "/manus-storage/layout-visual-electric-coil-cooktop_642f511d.jpg",
+	          },
+	          "smooth-top": {
+	            label: "Smooth-glass cooktop layout visual",
+	            detail: "Glass-ceramic surface · product and price pending",
+	            imageUrl: "/manus-storage/layout-visual-smooth-glass-cooktop_216fe453.jpg",
+	          },
+	        };
         const allRecommendedSinks = (sinkBaseProducts ?? []) as Array<{
           id: number; pelicanCode?: string | null; name: string; description?: string | null; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
@@ -16134,8 +16154,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             return Boolean(profile && verifiedPelicanSinkFitsCabinet(profile, sinkBaseOpeningWidth));
           })
           .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
-        const applyRangeTop = (type: "gas" | "electric" | "smooth-top", product?: typeof filteredRangeTops[0]) => {
-          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? null });
+	        const applyRangeTop = (
+	          type: "gas" | "electric" | "smooth-top",
+	          product?: typeof filteredRangeTops[0],
+	          layoutVisual?: typeof layoutCooktopVisuals["gas"],
+	        ) => {
+	          setCabAttr(sinkBaseDialog.cabinetUid, {
+	            sinkTopType: type,
+	            sinkTopProductId: product?.id ?? null,
+	            rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
+	          });
           if (product) {
             addRecommendedSurface(
               { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
@@ -16384,22 +16412,33 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       <p className="text-sm text-muted-foreground">Stone Creek Collection</p>
                     </div>
                   </div>
-                  {(() => {
-                    const typeProducts = filteredRangeTops.filter(p => {
-                      if (effectiveType === "gas") return p.subCategory === "Gas";
-                      if (effectiveType === "electric") return p.subCategory === "Electric";
-                      return p.subCategory === "Smooth Top";
-                    });
-                    return typeProducts.length === 0 ? (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-sm text-muted-foreground text-center py-4">No {effectiveType} range tops in catalog yet.</p>
-                        <button
-                          className="w-full rounded-lg border border-dashed border-[#a87f33] py-3 text-sm text-[#a87f33] font-medium hover:bg-[#a87f33]/5 transition-colors"
-                          onClick={(e) => { e.stopPropagation(); applyRangeTop(effectiveType); }}
-                        >
-                          Add {effectiveType} range top (no product)
-                        </button>
-                      </div>
+	                  {(() => {
+	                    const typeProducts = filteredRangeTops.filter(p => {
+	                      if (effectiveType === "gas") return p.subCategory === "Gas";
+	                      if (effectiveType === "electric") return p.subCategory === "Electric";
+	                      return p.subCategory === "Smooth Top";
+	                    });
+	                    const layoutVisual = layoutCooktopVisuals[effectiveType];
+	                    return typeProducts.length === 0 ? (
+	                      <div className="flex flex-col gap-2">
+	                        <p className="text-sm text-muted-foreground text-center pt-2">No {effectiveType} range tops in catalog yet.</p>
+	                        <button
+	                          type="button"
+	                          data-testid={`range-top-layout-visual-${effectiveType}`}
+	                          aria-label={`Use ${layoutVisual.label} in this drawing; no catalog product or price is added`}
+	                          className="overflow-hidden rounded-xl border-2 border-dashed border-[#a87f33] text-left transition-colors hover:bg-[#a87f33]/5 hover:border-[#8e6829]"
+	                          onClick={(e) => { e.stopPropagation(); applyRangeTop(effectiveType, undefined, layoutVisual); }}
+	                        >
+	                          <div className="aspect-[4/3] w-full bg-muted overflow-hidden">
+	                            <img src={layoutVisual.imageUrl} alt="" className="h-full w-full object-contain" />
+	                          </div>
+	                          <div className="space-y-0.5 p-2.5">
+	                            <div className="text-sm font-semibold text-[#1a2744]">Use {layoutVisual.label}</div>
+	                            <div className="text-[11px] text-muted-foreground">{layoutVisual.detail}</div>
+	                          </div>
+	                        </button>
+	                        <p className="px-1 text-center text-[10px] leading-snug text-muted-foreground">This sets the visual cooktop type for the drawing only. It does not add a Stone Creek product, SKU, or price.</p>
+	                      </div>
                     ) : (
                       <div className="grid grid-cols-2 gap-3">
                         {typeProducts.map(p => (

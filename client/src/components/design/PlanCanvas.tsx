@@ -9,7 +9,7 @@ import {
 	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
 	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
-	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
@@ -82,6 +82,17 @@ export function planTapeMeasure(a: PlanMeasurePoint, b: PlanMeasurePoint) {
   const dx = Math.abs(b.x - a.x);
   const dy = Math.abs(b.y - a.y);
   return { dx, dy, distance: Math.hypot(dx, dy) };
+}
+
+/**
+ * A catalog drop must recognize either usable face of a peninsula wall, not
+ * only its zero-thickness center line. A range held against the inside cabinet
+ * face otherwise resolves to a nearby exterior room wall and crosses through
+ * the peninsula. The touch target remains available, with the shared wall
+ * magnet extended by the physical cabinet half-depth.
+ */
+export function peninsulaCatalogDropHitRadiusIn(depthIn: number, ppi: number): number {
+  return Math.max(10, 40 / Math.max(0.1, ppi), Math.max(0, Number(depthIn) || 0) / 2 + STD.SNAP_THRESHOLD);
 }
 
 /** Rotate a wall-size bubble with its run while keeping the text right-side up. */
@@ -1276,15 +1287,16 @@ export function PlanCanvas({
 	      onDragOver={(e) => {
 	        e.preventDefault();
 	        if (!catalogDragCabinet) return;
-	        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
-	        if (!roomEl) return;
-	        const rect = roomEl.getBoundingClientRect();
-	        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
-	        const peninsulaHit = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi));
-	        const nearestRun = peninsulaHit ? null : nearestWallRunAtPoint(room, point);
-	        const side = (peninsulaHit?.run.id ?? nearestRun?.frame.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
-	        const placement: "wall" | "base" = catalogDragCabinet.placement === "wall" ? "wall" : "base";
-	        const width = resolvedDesignCabinetDimensions(catalogDragCabinet).width;
+		        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement | null;
+		        if (!roomEl) return;
+		        const rect = roomEl.getBoundingClientRect();
+		        const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
+		        const catalogDimensions = resolvedDesignCabinetDimensions(catalogDragCabinet);
+		        const peninsulaHit = peninsulaRunHitAtPoint(room, point, peninsulaCatalogDropHitRadiusIn(catalogDimensions.depth, ppi));
+		        const nearestRun = peninsulaHit ? null : nearestWallRunAtPoint(room, point);
+		        const side = (peninsulaHit?.run.id ?? nearestRun?.frame.id ?? nearestRectRoomWallAtPoint(room, point)) as WallSide;
+		        const placement: "wall" | "base" = catalogDragCabinet.placement === "wall" ? "wall" : "base";
+		        const width = catalogDimensions.width;
 	        const targetAlong = peninsulaHit?.offset
 	          ?? (nearestRun ? nearestRun.along : side === "top" || side === "bottom" ? point.x : point.y);
 	        const gaps = peninsulaHit || nearestRun
@@ -1305,10 +1317,11 @@ export function PlanCanvas({
 	      onDrop={(e) => {
 	        e.preventDefault();
 	        const roomEl = containerRef.current?.querySelector("[data-room]") as HTMLElement;
-	        if (roomEl && onDropNew) {
-	          const rect = roomEl.getBoundingClientRect();
-	          const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
-	          const peninsulaWall = peninsulaRunHitAtPoint(room, point, Math.max(10, 40 / ppi))?.run.id;
+		        if (roomEl && onDropNew) {
+		          const rect = roomEl.getBoundingClientRect();
+		          const point = { x: (e.clientX - rect.left) / ppi, y: (e.clientY - rect.top) / ppi };
+		          const dragDepth = catalogDragCabinet ? resolvedDesignCabinetDimensions(catalogDragCabinet).depth : 0;
+		          const peninsulaWall = peninsulaRunHitAtPoint(room, point, peninsulaCatalogDropHitRadiusIn(dragDepth, ppi))?.run.id;
 	          const targetWall = (peninsulaWall ?? nearestWallRunAtPoint(room, point)?.frame.id) as WallSide | undefined;
 	          onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall);
 	        }

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { FLOOR_PLAN_ZOOM_MAX, FLOOR_PLAN_ZOOM_MIN, PlanCanvas, clampFloorPlanZoom, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { FLOOR_PLAN_ZOOM_MAX, FLOOR_PLAN_ZOOM_MIN, PlanCanvas, clampFloorPlanZoom, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, peninsulaCatalogDropHitRadiusIn, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -17,6 +17,16 @@ const base = {
   rotation: 0,
   category: "Base",
 } as const;
+
+describe("peninsula catalog drop reach", () => {
+  it("recognizes a range held against either cabinet face instead of only the wall center line", () => {
+    // A 25-inch-deep range reaches 18½ inches: its 12½-inch body half-depth
+    // plus the shared six-inch wall magnet. This covers the inside face shown
+    // in the range-through-peninsula report while retaining the touch target.
+    expect(peninsulaCatalogDropHitRadiusIn(25, 4)).toBe(18.5);
+    expect(peninsulaCatalogDropHitRadiusIn(0, 4)).toBe(10);
+  });
+});
 
 describe("plan corner geometry", () => {
   it("keeps an AW wall-end wedge in the cabinet's local wall-run frame instead of aiming it at the nearest room corner", () => {

@@ -7863,7 +7863,13 @@ export function cabinetWallMovePreview(
     // stays a free-floating plan item. Wall-hung boxes always belong to a wall.
     const reach = depth / 2 + STD.SNAP_THRESHOLD;
     const owned = cabinet.wallId ? wallRunFrame(cabinet.wallId, room) : null;
-    // A peninsula run is reached by the same magnet as a perimeter wall.
+    // A cabinet already seated on a peninsula must keep that actual wall and
+    // face while its pointer crosses the center line. Previously the generic
+    // nearest-run lookup ignored peninsulas unless the pointer landed exactly
+    // on their centre line, so a range could switch to the outer room wall and
+    // visibly pass through the peninsula. Give every peninsula the same normal
+    // wall-magnet reach as its perimeter-wall peers; an explicit target still
+    // wins, and a cabinet released beyond that reach remains free to move.
     const nearest = nearestWallRunAtPoint(room, center, reach);
     const ownedDistance = owned ? wallRunDistanceToPoint(owned, center) : Number.POSITIVE_INFINITY;
     const preferred = nearest && (!owned || nearest.distance + STD.SNAP_THRESHOLD < ownedDistance) ? nearest : owned ? { frame: owned, distance: ownedDistance } : nearest;
