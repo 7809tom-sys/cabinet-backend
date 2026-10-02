@@ -330,6 +330,10 @@ interface Props {
   wallCompassStartIn?: number | null;
   /** Called after the user moves and releases the selected-wall Compass handle. */
   onWallCompassDrop?: (side: WallSide, startIn: number) => void;
+  /** Rotates a measured custom-wall drawing as one unchanged geometric plan. */
+  onRotateDrawing?: () => void;
+  /** The drawing may be visible but protected from structural changes. */
+  drawingRotationDisabled?: boolean;
   /** Inline, uncommitted peninsula continuation shown after a Compass split. */
   peninsulaDraft?: PeninsulaRun | null;
   /** Updates the exact pulled length of the inline peninsula draft. */
@@ -430,7 +434,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -1621,7 +1625,7 @@ export function PlanCanvas({
               {primaryAttachmentMeasure != null && <span
                 data-testid="peninsula-attachment-measurement"
                 title="Measured parent-wall segment from the wall start corner to this peninsula attachment; displayed outside the room so it does not cover cabinets"
-                className="pointer-events-none absolute z-20 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow"
+                className="pointer-events-none absolute z-20 whitespace-nowrap rounded border border-slate-300 bg-white/95 px-1.5 py-0.5 text-[10px] font-bold leading-none text-slate-950 shadow-sm"
                 style={attachmentMeasureStyle}
               >
                 Wall start → peninsula · {formatEighthInches(primaryAttachmentMeasure)}
@@ -1697,7 +1701,7 @@ export function PlanCanvas({
                     onOpenWallSettings?.(run.id as WallSide);
                   }}
                   style={counterRotate}
-                  className="absolute -right-2 top-[18px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-[#1a2744] text-white shadow"
+                  className="absolute -right-2 top-[18px] z-20 flex h-5 w-5 items-center justify-center rounded-full border border-[#a87f33] bg-white text-[#1a2744] shadow"
                 >
                   <Compass className="h-3 w-3" />
                 </button>
@@ -1776,7 +1780,7 @@ export function PlanCanvas({
               {isActive && (
                 <>
                   <span
-                    className="pointer-events-none rounded bg-[#1a2744] px-1.5 py-0.5 text-[9px] font-bold text-white shadow whitespace-nowrap"
+                    className="pointer-events-none rounded border border-slate-400 bg-white/98 px-1.5 py-0.5 text-[10px] font-extrabold text-slate-950 shadow-sm whitespace-nowrap"
                     style={{ transform: horizontal ? "none" : "rotate(-90deg)" }}
                   >
                     {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : " SELECTED"}
@@ -1787,7 +1791,7 @@ export function PlanCanvas({
                       aria-label={`Drag Compass along ${wallLabel[side]} wall to set the peninsula split point`}
                       title="Drag toward the wall end for a 45° right turn or toward its start for a 45° left turn"
                       data-testid="on-wall-compass-drag-target"
-                      className="absolute z-20 grid h-12 w-12 touch-none place-items-center rounded-full border-2 border-[#d4a75a] bg-[#1a2744] text-white shadow-md cursor-grab active:cursor-grabbing"
+                      className="absolute z-20 grid h-12 w-12 touch-none place-items-center rounded-full border-2 border-[#a87f33] bg-white text-[#1a2744] shadow-md cursor-grab active:cursor-grabbing"
                       style={horizontal
                         ? { left: (compassStart - retainedWall.start) * ppi - 24, top: -16 }
                         : { top: (compassStart - retainedWall.start) * ppi - 24, left: -16 }}
@@ -2908,8 +2912,8 @@ export function PlanCanvas({
                   <line x1={start.x - tick.x} y1={start.y - tick.y} x2={start.x + tick.x} y2={start.y + tick.y} />
                   <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} />
                   <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle})`}>
-                    <rect x={-23} y={-8} width={46} height={16} rx={3} fill="#1a2744" stroke="none" />
-                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">{segment.arrow === "←" ? `${segment.arrow} ${formatDisplayDimension(segment.value)}` : `${formatDisplayDimension(segment.value)} ${segment.arrow}`}</text>
+                    <rect x={-27} y={-9} width={54} height={18} rx={4} fill="white" stroke="#334155" strokeWidth={1} />
+                    <text x={0} y={4} textAnchor="middle" fontSize={10} fontWeight={800} fill="#0f172a">{segment.arrow === "←" ? `${segment.arrow} ${formatDisplayDimension(segment.value)}` : `${formatDisplayDimension(segment.value)} ${segment.arrow}`}</text>
                   </g>
                 </g>;
               })}
@@ -2937,12 +2941,12 @@ export function PlanCanvas({
         )}
         {measure && (
           <div
-            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a]/70 bg-[#1a2744] px-2 py-1 text-center text-[10px] font-semibold text-white shadow-lg whitespace-nowrap"
+            className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a] bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950 shadow-lg whitespace-nowrap"
             style={{ left: measure.midX, top: measure.midY }}
           >
-            <span className="block text-[11px] text-[#f8d889]">Tape {formatDisplayDimension(measure.distIn)}</span>
-            <span className="block text-[9px] text-white/80">Point-to-point · X {formatDisplayDimension(measure.dx)} · Y {formatDisplayDimension(measure.dy)}</span>
-            <span className="block text-[8px] text-white/65">Use the catalog fit banner for usable cabinet clearance</span>
+            <span className="block text-[11px] font-extrabold text-slate-950">Tape {formatDisplayDimension(measure.distIn)}</span>
+            <span className="block text-[9px] text-slate-700">Point-to-point · X {formatDisplayDimension(measure.dx)} · Y {formatDisplayDimension(measure.dy)}</span>
+            <span className="block text-[8px] text-slate-600">Use the catalog fit banner for usable cabinet clearance</span>
           </div>
         )}
 
@@ -3350,6 +3354,21 @@ export function PlanCanvas({
           return t("dt_pc_room_size", { w: formatDisplayDimension(room.width), h: formatDisplayDimension(room.depth) });
         })()}
       </div>
+      {!drawMode && !measureMode && (
+        onRotateDrawing && (
+          <button
+            type="button"
+            data-testid="rotate-custom-drawing"
+            aria-label="Rotate the complete measured drawing 90 degrees clockwise"
+            title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
+            onClick={onRotateDrawing}
+            disabled={drawingRotationDisabled}
+            className="absolute right-3 top-3 z-50 inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-3 text-xs font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
+          >
+            <RotateCw className="h-4 w-4" /> Rotate drawing
+          </button>
+        )
+      )}
       {!drawMode && !measureMode && (
         <div data-testid="floor-plan-zoom-controls" className="absolute bottom-3 right-3 z-50 flex items-center overflow-hidden rounded-lg border border-[#1a2744]/25 bg-white/95 shadow-md backdrop-blur">
           <button

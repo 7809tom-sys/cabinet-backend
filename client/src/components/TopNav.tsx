@@ -305,8 +305,9 @@ export function TopNav() {
                     size="sm"
                     variant="outline"
                     className="border-[var(--color-gold)] text-[var(--color-gold)] hover:bg-[var(--color-gold)]/10"
+                    title="Manage this affiliate storefront"
                   >
-                    Administration
+                    Affiliate Portal
                   </Button>
                 </Link>
               )}
@@ -321,7 +322,7 @@ export function TopNav() {
                 </Link>
               )}
               <Link href="/account">
-                <Button variant="outline" size="sm">{t("nav_account")}</Button>
+                <Button variant="outline" size="sm" title="Manage your personal sign-in and profile">My Account</Button>
               </Link>
             </div>
           ) : (

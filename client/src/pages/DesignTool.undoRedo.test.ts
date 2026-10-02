@@ -4,6 +4,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool structural undo redo", () => {
+  it("keeps remote sharing out of the primary toolbar and supplies rotation through PlanCanvas", () => {
+    expect(source).not.toContain("Remote Share");
+    expect(source).toContain("onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}");
+    expect(source).toContain("drawingRotationDisabled={layoutLocked}");
+  });
+
   it("captures the complete physical plan rather than only cabinet placements", () => {
     expect(source).toContain("type DesignerHistorySnapshot = {");
     for (const field of ["room: RoomData", "placed: PlacedCabinet[]", "activeWall: WallSide", "openings: WallOpening[]", "sinks: SinkFixture[]", "island: IslandZone | null", "furniture: PlacedFurniture[]", "annotations: PlanAnnotation[]", "ponyWalls: PonyWall[]"]) {

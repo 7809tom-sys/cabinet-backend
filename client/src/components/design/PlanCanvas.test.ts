@@ -503,6 +503,14 @@ describe("refrigerator magnetic preview wiring", () => {
 });
 
 describe("plan placement assistance wiring", () => {
+	 it("keeps canvas measurement bubbles light and puts measured-plan rotation on the drawing surface", () => {
+	   const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+	   expect(source).toContain('data-testid="rotate-custom-drawing"');
+	   expect(source).toContain('aria-label="Rotate the complete measured drawing 90 degrees clockwise"');
+	   expect(source).toContain('bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950');
+	   expect(source).toContain('font-extrabold text-slate-950 shadow-sm whitespace-nowrap');
+	 });
+
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {
 	    const db24 = {
 	      ...base,

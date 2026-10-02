@@ -107,10 +107,9 @@ describe("designer toolbar layout", () => {
     expect(source).toContain("<RoomSizeControl");
   });
 
-	  it("offers one-click whole-drawing rotation only for explicit custom wall rooms", () => {
-	    expect(source).toContain('data-testid="rotate-custom-drawing"');
-	    expect(source).toContain('data-testid="rotate-custom-drawing-mobile"');
-	    expect(source).toContain("onClick={rotateDrawingClockwise}");
+	  it("offers one-click whole-drawing rotation in the Floor Plan canvas for explicit custom wall rooms", () => {
+	    expect(source).toContain("onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}");
+	    expect(source).toContain("drawingRotationDisabled={layoutLocked}");
 	    expect(source).toContain("rotateCustomPlanClockwise({");
 	  });
 

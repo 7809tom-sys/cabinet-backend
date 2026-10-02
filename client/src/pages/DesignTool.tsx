@@ -10,7 +10,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Share2, Compass } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Compass } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -11112,16 +11112,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </Button>
         <Button
           variant="outline"
-	          size="sm"
-          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
-	          onClick={shareCurrentDesign}
-	          disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
-	          title={(activeSavedDesignId ?? loadDesignId) == null ? "Save this design before sharing" : "Share a read-only remote homeowner view"}
-	        >
-	          <Share2 className="mr-1.5 h-3.5 w-3.5" /> Remote Share
-	        </Button>
-        <Button
-          variant="outline"
           size="sm"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
           disabled={materialsListRows.length === 0}
@@ -12043,20 +12033,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              </Button>
 	            </PopoverContent>
 	          </Popover>
-	          {isPolygonRoom && (
-	            <Button
-	              variant="outline"
-	              size="sm"
-	              data-testid="rotate-custom-drawing"
-	              onClick={rotateDrawingClockwise}
-	              disabled={layoutLocked}
-	              title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
-	              className="h-7 gap-1 px-2 text-[10px] font-bold"
-	            >
-	              <RotateCw className="h-3.5 w-3.5" />
-	              Rotate drawing
-	            </Button>
-	          )}
 	          <Button
             variant="outline"
             size="icon"
@@ -13917,6 +13893,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
               wallCompassStartIn={compassWallStartIn}
               onWallCompassDrop={beginPeninsulaFromCompass}
+              onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}
+              drawingRotationDisabled={layoutLocked}
               peninsulaDraft={peninsulaDraft}
               onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
               onPeninsulaAttachmentChange={movePeninsulaAttachment}
@@ -14156,8 +14134,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  activeWall={activeWall}
 	                  onSelectWall={setActiveWall}
 	                  wallCompassStartIn={compassWallStartIn}
-		                  onWallCompassDrop={beginPeninsulaFromCompass}
-		                  peninsulaDraft={peninsulaDraft}
+	                  onWallCompassDrop={beginPeninsulaFromCompass}
+	                  onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}
+	                  drawingRotationDisabled={layoutLocked}
+	                  peninsulaDraft={peninsulaDraft}
 		                  onPeninsulaDraftLengthChange={(length) => setPeninsulaDraft((draft) => draft ? { ...draft, length } : draft)}
 		                  onPeninsulaAttachmentChange={movePeninsulaAttachment}
 		                  onOpenWallSettings={openWallSettings}
@@ -15717,12 +15697,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               danger
               onClick={deleteSelected}
             />
-	            <MobileBarButton
-	              icon={<Share2 className="h-5 w-5" />}
-	              label="Share"
-	              disabled={(activeSavedDesignId ?? loadDesignId) == null || createRemoteShareLinkMut.isPending}
-	              onClick={shareCurrentDesign}
-	            />
 	          </div>
         </div>
       )}
