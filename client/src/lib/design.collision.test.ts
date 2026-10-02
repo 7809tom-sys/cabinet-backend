@@ -40,6 +40,15 @@ describe("design placement collision prevention", () => {
     expect(snapPosition(leftPreview, DEFAULT_ROOM, [range])).toMatchObject({ x: 18, y: 0, snappedCabinet: true });
   });
 
+  it("rounds a free-floating drag to the shared one-eighth-inch grid", () => {
+    const preview = placed({ uid: "grid-preview", x: 43.07, y: 47.94, width: 18, depth: 24 });
+    expect(snapPosition(preview, DEFAULT_ROOM, [])).toMatchObject({
+      x: 43.125,
+      y: 48,
+      snappedGrid: true,
+    });
+  });
+
   it("allows separate floating shelves on the same wall span only when their mounted heights do not overlap", () => {
     const lowerShelf = placed({ uid: "shelf-54", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 54, mountBottomAdjusted: true });
     const upperShelf = placed({ uid: "shelf-66", masterCode: "FS36", description: "Floating shelf", placement: "wall", width: 36, depth: 12, height: 0.75, mountBottom: 66, mountBottomAdjusted: true });

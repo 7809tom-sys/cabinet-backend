@@ -786,6 +786,67 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return initialDesignWorkspaceView(window.location.search);
   });
+  const renderFloorPlanImage = useCallback(async () => {
+    if (viewMode !== "plan") {
+      setViewMode("plan");
+      toast.info("Floor Plan opened — select export again to include the live dimensions.");
+      return null;
+    }
+    const element = canvasExportRef.current;
+    if (!element) return null;
+    try {
+      const { toPng } = await import("html-to-image");
+      // Four device pixels per CSS pixel preserves cabinet labels, dimensions,
+      // and 45° leaders in a print-quality downloaded image.
+      const dataUrl = await toPng(element, { pixelRatio: 4, cacheBust: true, backgroundColor: "#ffffff", skipFonts: true });
+      return dataUrl;
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }, [viewMode]);
+  const exportFloorPlanImage = useCallback(async () => {
+    toast.info("Exporting high-resolution Floor Plan image…");
+    const image = await renderFloorPlanImage();
+    if (!image) {
+      if (viewMode === "plan") toast.error("Floor Plan image export failed — please try again.");
+      return null;
+    }
+    const link = document.createElement("a");
+    link.download = `cabinet-floor-plan-${Date.now()}.png`;
+    link.href = image;
+    link.click();
+    toast.success("High-resolution Floor Plan image exported.");
+    return image;
+  }, [renderFloorPlanImage, viewMode]);
+  const exportFloorPlanPdf = useCallback(async () => {
+    if (viewMode !== "plan") {
+      setViewMode("plan");
+      toast.info("Floor Plan opened — select PDF export again to include the live dimensions.");
+      return;
+    }
+    // Open synchronously from the click handler before the render promise so
+    // normal browser popup protection cannot discard the Save-as-PDF window.
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Allow pop-ups to save the Floor Plan as a PDF.");
+      return;
+    }
+    toast.info("Preparing dimensioned Floor Plan PDF…");
+    const image = await renderFloorPlanImage();
+    if (!image) {
+      printWindow.close();
+      toast.error("Floor Plan PDF export failed — please try again.");
+      return;
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>CabinetDealz Floor Plan</title><style>@page{size:landscape;margin:.35in}html,body{margin:0;background:#fff}img{display:block;width:100%;height:auto;object-fit:contain}</style></head><body><img src="${image}" alt="Dimensioned CabinetDealz Floor Plan" /></body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
+    toast.success("Print dialog opened — choose Save as PDF.");
+  }, [renderFloorPlanImage, viewMode]);
   // Which corner the corner-view camera stands in.
   const [corner, setCorner] = useState<CornerId>("top-left");
 	  // Active island run for placement and Island elevation.
@@ -11157,30 +11218,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         >
           <Printer className="h-3.5 w-3.5" />
         </a>
-        {/* Export current view as PNG */}
+        {/* High-resolution, dimensioned Floor Plan exports */}
         <button
           type="button"
-          title="Export view as PNG"
+          data-testid="floor-plan-export-image"
+          title="Export high-resolution Floor Plan image"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
-          onClick={async () => {
-            const el = canvasExportRef.current;
-            if (!el) return;
-            toast.info("Exporting image…");
-            try {
-              const { toPng } = await import("html-to-image");
-              const dataUrl = await toPng(el, { pixelRatio: 2, cacheBust: true });
-              const link = document.createElement("a");
-              link.download = `cabinet-design-${activeWall}-${Date.now()}.png`;
-              link.href = dataUrl;
-              link.click();
-              toast.success("Image exported!");
-            } catch (err) {
-              console.error(err);
-              toast.error("Export failed — please try again");
-            }
-          }}
+          onClick={exportFloorPlanImage}
         >
           <Download className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          data-testid="floor-plan-export-pdf"
+          title="Export dimensioned Floor Plan as PDF"
+          className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} items-center justify-center h-7 w-7 rounded-md border border-border text-muted-foreground transition-colors hover:text-foreground hover:bg-muted`}
+          onClick={exportFloorPlanPdf}
+        >
+          <FileText className="h-3.5 w-3.5" />
         </button>
 	        {/* Mobile: icon-only compact buttons in top bar */}
 	        <div data-testid="mobile-designer-top-actions" className="ml-auto flex items-center gap-1 lg:hidden">
@@ -11397,6 +11452,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    <Ruler className="h-4 w-4 text-muted-foreground shrink-0" />
 	                    <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
 	                    {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+	                  </button>
+	                  <button onClick={() => { setMoreSheetOpen(false); void exportFloorPlanImage(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+	                    <Download className="h-4 w-4 text-muted-foreground shrink-0" />
+	                    <span className="flex-1 text-left">Export Floor Plan image</span>
+	                  </button>
+	                  <button onClick={() => { setMoreSheetOpen(false); void exportFloorPlanPdf(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+	                    <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+	                    <span className="flex-1 text-left">Export Floor Plan PDF</span>
 	                  </button>
 	                  <div data-testid="mobile-peninsula-snap-feedback-setting" className="mx-2 my-1 flex items-center gap-3 rounded-lg border border-border bg-muted/20 px-3 py-2.5">
 	                    <Compass className="h-4 w-4 shrink-0 text-muted-foreground" />

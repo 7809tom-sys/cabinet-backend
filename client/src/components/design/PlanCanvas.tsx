@@ -1038,8 +1038,10 @@ export function PlanCanvas({
       if (targetRot != null) {
         candidate = { ...candidate, rotation: targetRot };
       }
-      const snapped = snapPosition(candidate, room, others, island);
-      setHoverSnap(snapped.snappedWall || snapped.snappedIsland || snapped.snappedCabinet);
+      const snapped = automaticSnapping
+        ? snapPosition(candidate, room, others, island)
+        : { x: candidate.x, y: candidate.y, snappedWall: false, snappedIsland: false, snappedCabinet: false, snappedGrid: false };
+      setHoverSnap(snapped.snappedWall || snapped.snappedIsland || snapped.snappedCabinet || snapped.snappedGrid);
       setHoverSnapWall(Boolean(snapped.snappedWall));
       onMove(dragUid, snapped.x, snapped.y, targetRot ?? undefined);
     },

@@ -91,7 +91,7 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 
 	it("keeps the back-to-back island seam authoritative after the island placement helper resolves it", () => {
 	  expect(source).toContain("} else if (automaticSnapping && !requestedIslandFace && !strictDropTarget && !preserveResolvedPlacement && !peninsulaRunById(room, finalCab.wallId)) {");
-	  expect(source).toMatch(/if \(\s*!requestedIslandFace &&\s*finalCab\.placement === "wall"/);
+	  expect(source).toContain('if (!requestedIslandFace && (finalCab.placement === "wall" || finalCab.placement === "base" || finalCab.placement === "tall"))');
 	  expect(source).toContain("Object.assign(newCab, islandCandidate)");
 	});
 

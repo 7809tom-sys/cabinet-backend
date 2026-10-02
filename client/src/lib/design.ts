@@ -2435,7 +2435,7 @@ export function snapPosition(
   room: RoomData,
   others: PlacedCabinet[],
   island?: { x: number; y: number; width: number; depth: number } | null
-): { x: number; y: number; snappedWall: boolean; snappedIsland: boolean; snappedCabinet: boolean } {
+): { x: number; y: number; snappedWall: boolean; snappedIsland: boolean; snappedCabinet: boolean; snappedGrid: boolean } {
   // Use the PLAN footprint (not the raw rotated size) so L-corner cabinets
   // (lazy-Susan / corner base) snap by their true SQUARE box. Their stored depth
   // can be the shallow ~24" leg depth, which would leave the box short of the
@@ -2557,7 +2557,18 @@ export function snapPosition(
   x = Math.max(0, Math.min(x, room.width - w));
   y = Math.max(0, Math.min(y, room.depth - d));
 
-  return { x, y, snappedWall, snappedIsland, snappedCabinet };
+  // Free-floating plan objects must land on the same 1/8-inch precision grid
+  // as wall-run placements, nudges, resize, and catalog drops. Apply this only
+  // after the closest wall/island/cabinet edge has won, so a true butt seam
+  // stays exact instead of drifting to an arbitrary screen-pixel position.
+  const roundedX = roundToEighth(x);
+  const roundedY = roundToEighth(y);
+  const snappedGrid = Math.abs(roundedX - x) > COLLISION_EPSILON_IN
+    || Math.abs(roundedY - y) > COLLISION_EPSILON_IN;
+  x = roundedX;
+  y = roundedY;
+
+  return { x, y, snappedWall, snappedIsland, snappedCabinet, snappedGrid };
 }
 
 // Auto-orientation: when a cabinet is dragged near a wall, it should turn so its
