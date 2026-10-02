@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { FLOOR_PLAN_ZOOM_MAX, FLOOR_PLAN_ZOOM_MIN, PlanCanvas, clampFloorPlanZoom, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -153,6 +153,31 @@ describe("plan tape measure", () => {
     );
 
     expect(markup).toContain("Tape measure: tap the start point");
+  });
+});
+
+describe("Floor Plan view zoom", () => {
+  it("clamps view-only zoom without changing inch geometry", () => {
+    expect(clampFloorPlanZoom(-10)).toBe(FLOOR_PLAN_ZOOM_MIN);
+    expect(clampFloorPlanZoom(99)).toBe(FLOOR_PLAN_ZOOM_MAX);
+    expect(clampFloorPlanZoom(1.126)).toBe(1.13);
+    expect(clampFloorPlanZoom(Number.NaN)).toBe(1);
+  });
+
+  it("renders zoom-in, zoom-out, and fit controls without coupling them to cabinet placement", () => {
+    const markup = renderToStaticMarkup(
+      createElement(LanguageProvider, null, createElement(PlanCanvas, {
+        room: { width: 144, depth: 120, ceilingHeight: 96 },
+        cabinets: [], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+      })),
+    );
+
+    expect(markup).toContain('data-testid="floor-plan-canvas"');
+    expect(markup).toContain('data-floor-plan-zoom="1"');
+    expect(markup).toContain('data-testid="floor-plan-zoom-out"');
+    expect(markup).toContain('data-testid="floor-plan-zoom-in"');
+    expect(markup).toContain('data-testid="floor-plan-zoom-fit"');
+    expect(markup).toContain('data-testid="floor-plan-zoom-value"');
   });
 });
 

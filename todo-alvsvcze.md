@@ -3091,3 +3091,9 @@
 - Local browser proof switched a 101 in measured wall to **2565 mm** and B36 to **914 mm**, persisted metric to the saved draft, toggled back to imperial, and persisted `unitSystem: imperial`, without console errors. Evidence: `docs/proofs/floor-plan-dimension-units-local.{png,json}`.
 - Validation passed: `pnpm run check`; 37 focused Floor Plan/PlanCanvas/export tests; `pnpm run build`; and `git diff --check`.
 - 00:41 CT live verification: cache-busted `www.cabinetdealz.com` served `index-DOm4OkJ9.js` and `DesignTool-De-pMTkX.js` containing the IN/MM toggle. Published browser proof rendered 101 in as 2565 mm and B36 as 914 mm in metric mode, persisted metric, returned to fractional inches, persisted imperial, and reported no console errors. Evidence: `docs/proofs/floor-plan-dimension-units-live.{png,json}`.
+
+## 08:20 CT — Floor Plan zoom and fit controls
+- Added reusable **Floor Plan** view controls in the lower-right corner of the plan: **–**, a live percent readout, **+**, and **Fit**. They work in both the Continuous Wall Builder and the standard Designer because they live in the shared PlanCanvas.
+- Zoom ranges from **50% to 300%** in 25% increments. Mouse-wheel over the plan uses the same scale; middle-mouse drag pans the view. Fit returns both zoom and pan to the readable default. These controls are view-only: room coordinates, wall geometry, cabinet placement, collisions, prices, dimensions, and saved draft data remain inch-based and unchanged.
+- Local browser proof on a 101 in wall / 45° Wall Builder fixture: 100% room width **864 px** → 150% **1296 px** after two + clicks; wheel reached 175%; Fit restored 100% and 864 px. No browser console errors. Evidence: `docs/proofs/floor-plan-zoom-local.{png,json}`.
+- Validation passed: `pnpm run check`; 36 focused PlanCanvas/shared-dimension tests; production build; and `git diff --check`.

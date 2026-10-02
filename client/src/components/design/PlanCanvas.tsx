@@ -18,7 +18,7 @@ import {
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
-import { CheckCircle2, Compass, X, RotateCw } from "lucide-react";
+import { CheckCircle2, Compass, Maximize2, Minus, Plus, RotateCw, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -172,6 +172,16 @@ export function formatFloorPlanDimension(inches: number, unitSystem: FloorPlanDi
     return `${millimeters} mm`;
   }
   return formatSixteenthInches(inches);
+}
+
+/** View-only Floor Plan zoom boundaries. Geometry, measurements, and saved cabinet coordinates stay in inches. */
+export const FLOOR_PLAN_ZOOM_MIN = 0.5;
+export const FLOOR_PLAN_ZOOM_MAX = 3;
+export const FLOOR_PLAN_ZOOM_STEP = 0.25;
+
+export function clampFloorPlanZoom(value: number): number {
+  const finite = Number.isFinite(value) ? value : 1;
+  return Math.round(Math.max(FLOOR_PLAN_ZOOM_MIN, Math.min(FLOOR_PLAN_ZOOM_MAX, finite)) * 100) / 100;
 }
 
 /** Exact installed dimensions for either half of one purchased split filler. */
@@ -597,9 +607,13 @@ export function PlanCanvas({
   };
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const [ppi, setPpi] = useState(4);
+  const [fitPpi, setFitPpi] = useState(4);
+  const [floorPlanZoom, setFloorPlanZoom] = useState(1);
+  const [floorPlanPan, setFloorPlanPan] = useState({ x: 0, y: 0 });
+  const ppi = fitPpi * floorPlanZoom;
   const ppiRef = useRef(4);
   useEffect(() => { ppiRef.current = ppi; }, [ppi]);
+  const planPanDrag = useRef<{ startX: number; startY: number; originX: number; originY: number } | null>(null);
   const dimensionLeaderDrag = useRef<{
     key: string;
     startX: number;
@@ -726,13 +740,23 @@ export function PlanCanvas({
       const availW = el.clientWidth - PADDING * 2;
       const availH = el.clientHeight - PADDING * 2;
       const fitPpi = Math.min(availW / room.width, availH / room.depth);
-      setPpi(Math.max(1.5, Math.min(fitPpi, 8)));
+      setFitPpi(Math.max(1.5, Math.min(fitPpi, 8)));
     };
     fit();
     const ro = new ResizeObserver(fit);
     ro.observe(el);
     return () => ro.disconnect();
   }, [room.width, room.depth, autoDimensions]);
+
+  const setZoom = useCallback((next: number) => {
+    setFloorPlanZoom(clampFloorPlanZoom(next));
+  }, []);
+  const zoomIn = useCallback(() => setZoom(floorPlanZoom + FLOOR_PLAN_ZOOM_STEP), [floorPlanZoom, setZoom]);
+  const zoomOut = useCallback(() => setZoom(floorPlanZoom - FLOOR_PLAN_ZOOM_STEP), [floorPlanZoom, setZoom]);
+  const resetFloorPlanView = useCallback(() => {
+    setFloorPlanZoom(1);
+    setFloorPlanPan({ x: 0, y: 0 });
+  }, []);
 
   // Reset the temporary tape whenever measure mode toggles off.
   useEffect(() => {
@@ -778,6 +802,19 @@ export function PlanCanvas({
 
   // ─── Mouse-draw room gesture (container-level) ─────────────────────────────
   const onCanvasPointerDown = (e: React.PointerEvent) => {
+    // Middle-mouse drag pans only the view. It intentionally never changes a
+    // cabinet, wall, dimension, or saved room coordinate.
+    if (!drawMode && !measureMode && e.button === 1) {
+      e.preventDefault();
+      planPanDrag.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        originX: floorPlanPan.x,
+        originY: floorPlanPan.y,
+      };
+      try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* ignore */ }
+      return;
+    }
     if (!drawMode || !onDrawRoom) return;
     const el = containerRef.current;
     if (!el) return;
@@ -790,6 +827,14 @@ export function PlanCanvas({
   };
 
   const onCanvasPointerMove = (e: React.PointerEvent) => {
+    const pan = planPanDrag.current;
+    if (pan) {
+      setFloorPlanPan({
+        x: Math.round(pan.originX + e.clientX - pan.startX),
+        y: Math.round(pan.originY + e.clientY - pan.startY),
+      });
+      return;
+    }
     if (!drawMode || !drawStart.current) return;
     const el = containerRef.current;
     if (!el) return;
@@ -806,6 +851,11 @@ export function PlanCanvas({
   };
 
   const onCanvasPointerUp = (e: React.PointerEvent) => {
+    if (planPanDrag.current) {
+      try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+      planPanDrag.current = null;
+      return;
+    }
     if (!drawMode || !drawStart.current || !onDrawRoom) {
       drawStart.current = null;
       setDrawRect(null);
@@ -1184,11 +1234,18 @@ export function PlanCanvas({
   return (
     <div
       ref={containerRef}
+      data-testid="floor-plan-canvas"
+      data-floor-plan-zoom={floorPlanZoom}
       className={`relative w-full h-full overflow-hidden bg-[#eef1f5] select-none touch-none ${drawMode || measureMode ? "cursor-crosshair" : ""}`}
       onClick={(e) => { if (!measureMode && !drawMode && e.target === e.currentTarget) { onSelect(null); onSelectPonyWall?.(null); } }}
       onPointerDown={onCanvasPointerDown}
       onPointerMove={onCanvasPointerMove}
       onPointerUp={onCanvasPointerUp}
+	  onPointerCancel={() => { planPanDrag.current = null; drawStart.current = null; setDrawRect(null); }}
+      onWheel={(event) => {
+        if (drawMode || measureMode) return;
+        setZoom(floorPlanZoom + (event.deltaY < 0 ? FLOOR_PLAN_ZOOM_STEP : -FLOOR_PLAN_ZOOM_STEP));
+      }}
 	      onDragOver={(e) => {
 	        e.preventDefault();
 	        if (!catalogDragCabinet) return;
@@ -1254,8 +1311,8 @@ export function PlanCanvas({
         style={{
           width: roomPxW,
           height: roomPxH,
-          left: "50%",
-          top: "50%",
+          left: `calc(50% + ${floorPlanPan.x}px)`,
+          top: `calc(50% + ${floorPlanPan.y}px)`,
           transform: "translate(-50%, -50%)",
           border: "none",
           backgroundColor: flooringMaterialId
@@ -3288,11 +3345,50 @@ export function PlanCanvas({
         </div>;
       })()}
 
-      <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded">
+      <div className="absolute bottom-12 right-3 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded">
         {(() => {
           return t("dt_pc_room_size", { w: formatDisplayDimension(room.width), h: formatDisplayDimension(room.depth) });
         })()}
       </div>
+      {!drawMode && !measureMode && (
+        <div data-testid="floor-plan-zoom-controls" className="absolute bottom-3 right-3 z-50 flex items-center overflow-hidden rounded-lg border border-[#1a2744]/25 bg-white/95 shadow-md backdrop-blur">
+          <button
+            type="button"
+            data-testid="floor-plan-zoom-out"
+            aria-label="Zoom out Floor Plan"
+            title="Zoom out Floor Plan"
+            disabled={floorPlanZoom <= FLOOR_PLAN_ZOOM_MIN}
+            onClick={zoomOut}
+            className="flex h-8 w-8 items-center justify-center border-r border-[#1a2744]/15 text-[#1a2744] transition hover:bg-[#f2f5f8] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+          >
+            <Minus className="h-4 w-4" />
+          </button>
+          <span data-testid="floor-plan-zoom-value" className="min-w-12 px-2 text-center text-[11px] font-bold tabular-nums text-[#1a2744]" title="Mouse wheel zooms. Middle-mouse drag pans the view.">
+            {Math.round(floorPlanZoom * 100)}%
+          </span>
+          <button
+            type="button"
+            data-testid="floor-plan-zoom-in"
+            aria-label="Zoom in Floor Plan"
+            title="Zoom in Floor Plan"
+            disabled={floorPlanZoom >= FLOOR_PLAN_ZOOM_MAX}
+            onClick={zoomIn}
+            className="flex h-8 w-8 items-center justify-center border-l border-[#1a2744]/15 text-[#1a2744] transition hover:bg-[#f2f5f8] disabled:cursor-not-allowed disabled:opacity-40 active:scale-95"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            data-testid="floor-plan-zoom-fit"
+            aria-label="Fit Floor Plan to canvas"
+            title="Fit Floor Plan to canvas"
+            onClick={resetFloorPlanView}
+            className="flex h-8 w-8 items-center justify-center border-l border-[#1a2744]/15 text-[#1a2744] transition hover:bg-[#f2f5f8] active:scale-95"
+          >
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
