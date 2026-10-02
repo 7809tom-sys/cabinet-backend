@@ -874,7 +874,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [autoDimensions, setAutoDimensions] = useState(true);
   const dimensionLabelFontSize = Math.max(8, Math.min(18, Number(room.dimensionLabelStyle?.fontSizePx) || 9));
   const dimensionLabelColor = room.dimensionLabelStyle?.color || "#1a2744";
-  const updateDimensionLabelStyle = useCallback((patch: { fontSizePx?: number; color?: string }) => {
+  const dimensionUnitSystem = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";
+  const updateDimensionLabelStyle = useCallback((patch: { fontSizePx?: number; color?: string; unitSystem?: "imperial" | "metric" }) => {
     setRoom((previous) => ({
       ...previous,
       dimensionLabelStyle: { ...previous.dimensionLabelStyle, ...patch },
@@ -11465,6 +11466,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    <span className="flex-1 text-left">{t("dt_sh_auto_dim")}</span>
 	                    {autoDimensions && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
 	                  </button>
+	                  <button
+	                    data-testid="mobile-floor-plan-dimension-units-toggle"
+	                    onClick={() => updateDimensionLabelStyle({ unitSystem: dimensionUnitSystem === "imperial" ? "metric" : "imperial" })}
+	                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors"
+	                  >
+	                    <ArrowRightLeft className="h-4 w-4 text-muted-foreground shrink-0" />
+	                    <span className="flex-1 text-left">Floor Plan dimension units</span>
+	                    <span className="rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-bold text-foreground">{dimensionUnitSystem === "metric" ? "MM" : "IN"}</span>
+	                  </button>
 	                  <button onClick={() => { setMoreSheetOpen(false); void exportFloorPlanImage(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
 	                    <Download className="h-4 w-4 text-muted-foreground shrink-0" />
 	                    <span className="flex-1 text-left">Export Floor Plan image</span>
@@ -11875,10 +11885,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            variant="outline"
 	            size="icon"
 	            onClick={() => setAutoDimensions((d) => !d)}
-            title={t("dt_sh_auto_dim")}
+	            title={t("dt_sh_auto_dim")}
             className={`h-7 w-7 ${autoDimensions ? "bg-[#d4a75a] text-[#1a2744] border-[#d4a75a] hover:bg-[#c89945]" : ""}`}
 	          >
 	            <Ruler className="h-3.5 w-3.5" />
+	          </Button>
+	          <Button
+	            variant="outline"
+	            size="sm"
+	            data-testid="floor-plan-dimension-units-toggle"
+	            aria-pressed={dimensionUnitSystem === "metric"}
+	            onClick={() => updateDimensionLabelStyle({ unitSystem: dimensionUnitSystem === "imperial" ? "metric" : "imperial" })}
+	            title={dimensionUnitSystem === "imperial" ? "Show Floor Plan dimensions in metric millimetres" : "Show Floor Plan dimensions in imperial inches"}
+	            className={`h-7 gap-1 px-2 text-[10px] font-bold ${dimensionUnitSystem === "metric" ? "border-[#0f766e] bg-[#0f766e]/10 text-[#0f766e] hover:bg-[#0f766e]/15" : ""}`}
+	          >
+	            <ArrowRightLeft className="h-3.5 w-3.5" />
+	            {dimensionUnitSystem === "metric" ? "MM" : "IN"}
+	            <span className="sr-only">Toggle Floor Plan dimension units</span>
 	          </Button>
 	          <Popover>
 	            <PopoverTrigger asChild>

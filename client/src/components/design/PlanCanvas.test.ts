@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
-import { PlanCanvas, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
+import { PlanCanvas, formatFloorPlanDimension, nearestIslandFaceInRect, parallelWallLabelAngleDeg, planCabinetClipPath, planCornerGeometry, planOpeningWallFrame, planTapeMeasure, snapPlanMeasurePoint } from "./PlanCanvas";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 const base = {
@@ -207,6 +207,12 @@ describe("user measured open wall paths", () => {
     expect(parallelWallLabelAngleDeg(-72, 0)).toBe(0);
   });
 
+  it("formats annotation values in the selected display units without changing inch geometry", () => {
+    expect(formatFloorPlanDimension(101, "imperial")).toBe('101"');
+    expect(formatFloorPlanDimension(101, "metric")).toBe("2565 mm");
+    expect(formatFloorPlanDimension(0.625, "metric")).toBe("16 mm");
+  });
+
   it("renders display-only outer and run dimension lines on a measured 45-degree wall", () => {
     const room: RoomData = {
       width: 156.154,
@@ -277,6 +283,36 @@ describe("user measured open wall paths", () => {
     expect(markup).toContain('font-size="14"');
     expect(markup).toContain('fill="#c026d3"');
     expect(markup).toContain("cursor-grab");
+  });
+
+  it("renders exterior, run, and room-size dimensions in saved metric units", () => {
+    const room: RoomData = {
+      width: 120,
+      depth: 96,
+      ceilingHeight: 96,
+      dimensionLabelStyle: { unitSystem: "metric" },
+    };
+    const cabinet = {
+      ...base,
+      uid: "metric-b36",
+      masterCode: "B36",
+      description: "36 inch Base Cabinet",
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      x: 0,
+      y: 72,
+      wallId: "bottom",
+      wallOffset: 0,
+    } as PlacedCabinet;
+    const markup = renderToStaticMarkup(createElement(LanguageProvider, null, createElement(PlanCanvas, {
+      room, cabinets: [cabinet], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+      showWallLayer: true, autoDimensions: true,
+    })));
+
+    expect(markup).toContain("3048 mm");
+    expect(markup).toContain("914 mm");
+    expect(markup).toContain("2438 mm");
   });
 
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
@@ -490,8 +526,8 @@ describe("plan placement assistance wiring", () => {
 	    expect(source).toContain("automaticSnapping ? wallGapFitPreview(gaps, targetAlong, width) : wallGapFreehandPreview(gaps, targetAlong, width)");
 	    expect(source).toContain("onDropNew(e.clientX, e.clientY, rect, ppi, !automaticSnapping, targetWall)");
 		    expect(source).toContain("hold Shift for freehand");
-		    expect(source).toContain("Tape {formatInches(measure.distIn)}");
-		    expect(source).toContain("Point-to-point · X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}");
+		    expect(source).toContain("Tape {formatDisplayDimension(measure.distIn)}");
+		    expect(source).toContain("Point-to-point · X {formatDisplayDimension(measure.dx)} · Y {formatDisplayDimension(measure.dy)}");
 		    expect(source).toContain("Use the catalog fit banner for usable cabinet clearance");
 	  });
 });

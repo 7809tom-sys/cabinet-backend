@@ -20,4 +20,11 @@ describe("DesignTool high-resolution Floor Plan export", () => {
     expect(source).toContain('data-testid="floor-plan-export-pdf"');
     expect(source).toContain("Export Floor Plan PDF");
   });
+
+  it("provides saved imperial and metric dimension toggles on desktop and mobile", () => {
+    expect(source).toContain('const dimensionUnitSystem = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";');
+    expect(source).toContain('data-testid="floor-plan-dimension-units-toggle"');
+    expect(source).toContain('data-testid="mobile-floor-plan-dimension-units-toggle"');
+    expect(source).toContain('unitSystem: dimensionUnitSystem === "imperial" ? "metric" : "imperial"');
+  });
 });

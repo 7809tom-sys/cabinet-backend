@@ -1460,7 +1460,12 @@ export interface FloorPlanDimensionLabelStyle {
   fontSizePx?: number;
   /** CSS color value used for every readable dimension label. */
   color?: string;
+  /** Display-only unit system for Floor Plan dimensions. All geometry remains inches. */
+  unitSystem?: FloorPlanDimensionUnit;
 }
+
+/** User-facing display units for the Floor Plan's dimension annotation layer. */
+export type FloorPlanDimensionUnit = "imperial" | "metric";
 
 /**
  * A display-only manual offset for one exterior dimension chain. `alongIn`

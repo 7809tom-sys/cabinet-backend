@@ -2,7 +2,7 @@ import { useRef, useState, useCallback, useEffect } from "react";
 import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, blindCornerSnapInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
-  type FloorPlanDimensionAdjustment,
+  type FloorPlanDimensionAdjustment, type FloorPlanDimensionUnit,
 	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
@@ -160,6 +160,18 @@ function formatSixteenthInches(inches: number): string {
   const numerator = remainder === 0 ? 0 : remainder / (16 / divisor);
   const fraction = numerator > 0 ? `${numerator}/${divisor}` : "";
   return `${whole || !fraction ? whole : ""}${whole && fraction ? " " : ""}${fraction}\"`;
+}
+
+/**
+ * Floor Plan geometry stays in inches. This converts only the annotation text,
+ * allowing the same shared placement engine to be read in either unit system.
+ */
+export function formatFloorPlanDimension(inches: number, unitSystem: FloorPlanDimensionUnit = "imperial"): string {
+  if (unitSystem === "metric") {
+    const millimeters = Math.max(0, Math.round((Number.isFinite(inches) ? inches : 0) * 25.4));
+    return `${millimeters} mm`;
+  }
+  return formatSixteenthInches(inches);
 }
 
 /** Exact installed dimensions for either half of one purchased split filler. */
@@ -430,6 +442,8 @@ export function PlanCanvas({
   ponyWalls = [], selectedPonyWallUid = null, onSelectPonyWall, onPonyWallChange, onDeletePonyWall,
 }: Props) {
   const { t } = useLanguage();
+  const dimensionUnitSystem: FloorPlanDimensionUnit = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";
+  const formatDisplayDimension = (inches: number) => formatFloorPlanDimension(inches, dimensionUnitSystem);
   const [islandDepthTransitionVisible, setIslandDepthTransitionVisible] = useState(false);
   useEffect(() => {
     if (!islandDepthTransition) {
@@ -1226,10 +1240,9 @@ export function PlanCanvas({
         >
           <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-semibold text-white">
             {(() => {
-              const w = inchesToFeetInches(clampRoomInches(drawRect.w / ppi));
-              const h = inchesToFeetInches(clampRoomInches(drawRect.h / ppi));
-              const f = (v: { feet: number; inches: number }) => (v.inches ? `${v.feet}'${v.inches}"` : `${v.feet}'`);
-              return `${f(w)} × ${f(h)}`;
+              const w = clampRoomInches(drawRect.w / ppi);
+              const h = clampRoomInches(drawRect.h / ppi);
+              return `${formatDisplayDimension(w)} × ${formatDisplayDimension(h)}`;
             })()}
           </span>
         </div>
@@ -1395,7 +1408,7 @@ export function PlanCanvas({
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
                 {!autoDimensions && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
-                  <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatEighthInches(length)}</text>
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatDisplayDimension(length)}</text>
                 </g>}
               </g>;
             })}
@@ -1433,7 +1446,7 @@ export function PlanCanvas({
               }}
             >
               <span className="pointer-events-none absolute left-1/2 -top-7 -translate-x-1/2 whitespace-nowrap rounded bg-[#1a2744] px-1.5 py-0.5 text-[10px] font-bold text-white shadow">
-                Pull peninsula · {formatEighthInches(peninsulaDraft.length)}
+                Pull peninsula · {formatDisplayDimension(peninsulaDraft.length)}
               </span>
               <button
                 type="button"
@@ -2839,7 +2852,7 @@ export function PlanCanvas({
                   <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} />
                   <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle})`}>
                     <rect x={-23} y={-8} width={46} height={16} rx={3} fill="#1a2744" stroke="none" />
-                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">{segment.arrow === "←" ? `${segment.arrow} ${formatSixteenthInches(segment.value)}` : `${formatSixteenthInches(segment.value)} ${segment.arrow}`}</text>
+                    <text x={0} y={3} textAnchor="middle" fontSize={9} fontWeight={700} fill="white">{segment.arrow === "←" ? `${segment.arrow} ${formatDisplayDimension(segment.value)}` : `${formatDisplayDimension(segment.value)} ${segment.arrow}`}</text>
                   </g>
                 </g>;
               })}
@@ -2870,8 +2883,8 @@ export function PlanCanvas({
             className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a]/70 bg-[#1a2744] px-2 py-1 text-center text-[10px] font-semibold text-white shadow-lg whitespace-nowrap"
             style={{ left: measure.midX, top: measure.midY }}
           >
-            <span className="block text-[11px] text-[#f8d889]">Tape {formatInches(measure.distIn)}</span>
-            <span className="block text-[9px] text-white/80">Point-to-point · X {formatInches(measure.dx)} · Y {formatInches(measure.dy)}</span>
+            <span className="block text-[11px] text-[#f8d889]">Tape {formatDisplayDimension(measure.distIn)}</span>
+            <span className="block text-[9px] text-white/80">Point-to-point · X {formatDisplayDimension(measure.dx)} · Y {formatDisplayDimension(measure.dy)}</span>
             <span className="block text-[8px] text-white/65">Use the catalog fit banner for usable cabinet clearance</span>
           </div>
         )}
@@ -2950,7 +2963,7 @@ export function PlanCanvas({
               {wallFrames.map((frame) => {
                 const dimensionKey = `wall:${frame.id}`;
                 const adjustment = adjustmentFor(dimensionKey);
-                const label = formatSixteenthInches(frame.length);
+                const label = formatDisplayDimension(frame.length);
                 const metrics = labelMetrics(label.length);
                 const start = railPoint(frame, 0, outerRailOffsetIn, adjustment);
                 const end = railPoint(frame, frame.length, outerRailOffsetIn, adjustment);
@@ -2989,7 +3002,7 @@ export function PlanCanvas({
                 return chain.segments.map((segment, index) => {
                   const dimensionKey = `run:${chain.wallId}:${chain.layer}:${index}`;
                   const adjustment = adjustmentFor(dimensionKey);
-                  const label = formatSixteenthInches(segment.length);
+                  const label = formatDisplayDimension(segment.length);
                   const metrics = labelMetrics(label.length);
                   const start = railPoint(frame, segment.start, railOffsetIn, adjustment);
                   const end = railPoint(frame, segment.start + segment.length, railOffsetIn, adjustment);
@@ -3027,7 +3040,7 @@ export function PlanCanvas({
               {openingDimensions.map(({ opening, frame, start, width, nearest }) => {
                 const dimensionKey = `opening:${opening.uid}`;
                 const adjustment = adjustmentFor(dimensionKey);
-                const label = `${formatSixteenthInches(width)} · ${formatSixteenthInches(nearest)} to corner`;
+                const label = `${formatDisplayDimension(width)} · ${formatDisplayDimension(nearest)} to corner`;
                 const metrics = labelMetrics(label.length);
                 const a = railPoint(frame, start, openingRailOffsetIn, adjustment);
                 const b = railPoint(frame, start + width, openingRailOffsetIn, adjustment);
@@ -3057,9 +3070,9 @@ export function PlanCanvas({
               {/* Freestanding island/peninsula size and nearest clear aisle. */}
               {island && <g data-testid="floor-dimension-island">
                 <line x1={island.x * ppi} y1={(island.y - 8) * ppi} x2={(island.x + island.width) * ppi} y2={(island.y - 8) * ppi} stroke="#6d28d9" strokeWidth={1} />
-                <text x={(island.x + island.width / 2) * ppi} y={(island.y - 10) * ppi} textAnchor="middle" fontSize={9} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(island.width)}</text>
+                <text x={(island.x + island.width / 2) * ppi} y={(island.y - 10) * ppi} textAnchor="middle" fontSize={9} fontWeight={700} fill="#5b21b6">{formatDisplayDimension(island.width)}</text>
                 <line x1={(island.x - 8) * ppi} y1={island.y * ppi} x2={(island.x - 8) * ppi} y2={(island.y + island.depth) * ppi} stroke="#6d28d9" strokeWidth={1} />
-                <text x={(island.x - 10) * ppi} y={(island.y + island.depth / 2) * ppi} textAnchor="end" fontSize={9} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(island.depth)}{islandAisle != null ? ` · aisle ${formatSixteenthInches(islandAisle)}` : ""}</text>
+                <text x={(island.x - 10) * ppi} y={(island.y + island.depth / 2) * ppi} textAnchor="end" fontSize={9} fontWeight={700} fill="#5b21b6">{formatDisplayDimension(island.depth)}{islandAisle != null ? ` · aisle ${formatDisplayDimension(islandAisle)}` : ""}</text>
               </g>}
 	              {peninsulaDimensions.map(({ frame, depth, aisle }) => {
 	                const start = pointAt(frame, 0, depth / 2 + 8);
@@ -3072,7 +3085,7 @@ export function PlanCanvas({
 	                  <line x1={end.x - tick.x} y1={end.y - tick.y} x2={end.x + tick.x} y2={end.y + tick.y} stroke="#6d28d9" strokeWidth={1} />
 	                  <g transform={`translate(${middle.x} ${middle.y}) rotate(${labelAngle(frame)})`}>
 	                    <rect x={-52} y={-8} width={104} height={16} rx={4} fill="white" fillOpacity={0.94} stroke="#c4b5fd" />
-	                    <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill="#5b21b6">{formatSixteenthInches(frame.length)} × {formatSixteenthInches(depth)}{aisle != null ? ` · aisle ${formatSixteenthInches(aisle)}` : ""}</text>
+                    <text x={0} y={3} textAnchor="middle" fontSize={8} fontWeight={700} fill="#5b21b6">{formatDisplayDimension(frame.length)} × {formatDisplayDimension(depth)}{aisle != null ? ` · aisle ${formatDisplayDimension(aisle)}` : ""}</text>
 	                  </g>
 	                </g>;
 	              })}
@@ -3277,10 +3290,7 @@ export function PlanCanvas({
 
       <div className="absolute bottom-3 right-3 text-[10px] text-muted-foreground bg-white/80 px-2 py-1 rounded">
         {(() => {
-          const w = inchesToFeetInches(room.width);
-          const h = inchesToFeetInches(room.depth);
-          const f = (v: { feet: number; inches: number }) => (v.inches ? `${v.feet}'${v.inches}"` : `${v.feet}'`);
-          return t("dt_pc_room_size", { w: f(w), h: f(h) });
+          return t("dt_pc_room_size", { w: formatDisplayDimension(room.width), h: formatDisplayDimension(room.depth) });
         })()}
       </div>
     </div>
