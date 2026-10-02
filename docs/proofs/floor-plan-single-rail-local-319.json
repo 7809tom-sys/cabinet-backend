@@ -1,0 +1,26 @@
+{
+  "viewport": {
+    "width": 319,
+    "height": 700
+  },
+  "visibleBefore": true,
+  "dimmedOpacity": "0.45",
+  "dimmedValue": "45%",
+  "visibleAfterHide": false,
+  "visibleAfterShow": true,
+  "pressedHidden": true,
+  "pressedShown": true,
+  "labelBefore": "",
+  "labelHidden": "",
+  "controlsShareRow": true,
+  "controlsDoNotOverlap": true,
+  "wallControlSharesActionRail": true,
+  "railMetrics": {
+    "clientWidth": 284,
+    "scrollWidth": 284,
+    "scrollHeight": 36,
+    "startScrollLeft": 0
+  },
+  "rotateReachableAfterScroll": true,
+  "applicationErrors": []
+}

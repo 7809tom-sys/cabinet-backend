@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 const designActionsSource = readFileSync(new URL("../components/design/DesignActions.tsx", import.meta.url), "utf8");
 const roomSizeSource = readFileSync(new URL("../components/design/RoomSizeControl.tsx", import.meta.url), "utf8");
+const planCanvasSource = readFileSync(new URL("../components/design/PlanCanvas.tsx", import.meta.url), "utf8");
 
 describe("designer toolbar layout", () => {
   it("keeps the More-menu portal state hook inside the Design Tool component", () => {
@@ -135,7 +136,19 @@ describe("designer toolbar layout", () => {
 	    expect(rotationHandler.indexOf("roomRef.current = rotated.room;")).toBeLessThan(rotationHandler.indexOf("setPlaced(rotated.cabinets);"));
 	  });
 
-  it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {
+
+	  it("keeps wall visibility in the one responsive Floor Plan action rail", () => {
+	    // Two PlanCanvas call sites plus the synchronized 3D-view visibility control.
+	    expect(source.match(/onToggleWallLayer=\{\(\) => setShowWallLayer/g)).toHaveLength(3);
+	    expect(source).not.toContain('data-testid="floor-plan-wall-layer-control"');
+	    expect(planCanvasSource).toContain('data-testid="floor-plan-wall-layer-toggle"');
+	    expect(planCanvasSource).toContain('aria-label={showWallLayer ? "Hide wall cabinets in this Floor Plan view" : "Show wall cabinets in this Floor Plan view"}');
+	    expect(planCanvasSource).toContain('<span className="max-[300px]:hidden sm:hidden">Walls</span>');
+	    expect(planCanvasSource).toContain('<span className="hidden min-[360px]:inline">Measurements</span>');
+	    expect(planCanvasSource).toContain('<RotateCw className="h-4 w-4" /> <span className="max-[300px]:hidden">Rotate</span>');
+	  });
+
+	  it("keeps mobile Door & hardware editing direct without a large layout graphic", () => {
     const sheetStart = source.indexOf("{isMobile && selectedCab && !drawMode && !measureMode && (");
     const sheetEnd = source.indexOf("<WallPicker", sheetStart);
     const mobileCabinetSheet = source.slice(sheetStart, sheetEnd);

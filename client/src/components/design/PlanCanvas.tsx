@@ -18,7 +18,7 @@ import {
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
-import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, Plus, RotateCw, X } from "lucide-react";
+import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, PanelTop, Plus, RotateCw, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -285,8 +285,10 @@ interface Props {
   onOpenAttributes?: (uid: string) => void;
 	  onDropNew?: (clientX: number, clientY: number, canvasRect: DOMRect, ppi: number, freehand?: boolean, targetWall?: WallSide) => void;
 	  /** Toolbar-controlled choice between nearest-valid placement and exact manual placement. */
-	  automaticSnapping?: boolean;
+  automaticSnapping?: boolean;
   showWallLayer: boolean;
+  /** Keeps wall-cabinet visibility in the single Floor Plan action rail. */
+  onToggleWallLayer?: () => void;
   measureMode?: boolean;
   /** When true, show dimension lines for all gaps on all walls simultaneously. */
   autoDimensions?: boolean;
@@ -428,7 +430,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
+  showWallLayer, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
@@ -3413,12 +3415,27 @@ export function PlanCanvas({
               aria-pressed={measurementBubblesVisible}
               title={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles for a cleaner drawing" : "Show all Floor Plan measurement bubbles"}
               onClick={() => setMeasurementBubblesVisible((visible) => !visible)}
-	              className={`inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border px-2 text-[11px] font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
-            >
-              {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-              Measurements
-            </button>
-          {!measureMode && onRotateDrawing && (
+	              className={`inline-flex h-9 w-9 shrink-0 items-center justify-center gap-1 rounded-lg border px-0 text-[11px] font-bold shadow-md transition active:scale-[0.97] sm:w-auto sm:px-2 ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
+	            >
+	              {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+	              <span className="hidden min-[360px]:inline">Measurements</span>
+	            </button>
+	          {onToggleWallLayer && (
+	            <button
+	              type="button"
+	              data-testid="floor-plan-wall-layer-toggle"
+	              aria-label={showWallLayer ? "Hide wall cabinets in this Floor Plan view" : "Show wall cabinets in this Floor Plan view"}
+	              aria-pressed={showWallLayer}
+	              title={showWallLayer ? "Hide wall cabinets in this Floor Plan view" : "Show wall cabinets in this Floor Plan view"}
+	              onClick={onToggleWallLayer}
+	              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#1a2744]/30 bg-white/95 px-2 text-[11px] font-bold text-[#1a2744] shadow-md transition hover:bg-[#f2f5f8] active:scale-[0.97]"
+	            >
+	              <PanelTop className="h-4 w-4" />
+	              <span className="max-[300px]:hidden sm:hidden">Walls</span>
+	              <span className="hidden sm:inline">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span>
+	            </button>
+	          )}
+	          {!measureMode && onRotateDrawing && (
             <button
               type="button"
               data-testid="rotate-custom-drawing"
@@ -3426,9 +3443,9 @@ export function PlanCanvas({
               title="Rotate the complete drawing 90° clockwise while preserving every measured wall and cabinet position"
               onClick={onRotateDrawing}
               disabled={drawingRotationDisabled}
-	              className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-[#d4a75a] bg-white/95 px-2 text-[11px] font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
+	              className="inline-flex h-9 shrink-0 items-center justify-center gap-1 rounded-lg border border-[#d4a75a] bg-white/95 px-2 text-[11px] font-bold text-[#1a2744] shadow-md transition hover:bg-[#fff9ed] disabled:pointer-events-none disabled:opacity-50"
 	            >
-	              <RotateCw className="h-4 w-4" /> Rotate
+	              <RotateCw className="h-4 w-4" /> <span className="max-[300px]:hidden">Rotate</span>
             </button>
           )}
           </div>

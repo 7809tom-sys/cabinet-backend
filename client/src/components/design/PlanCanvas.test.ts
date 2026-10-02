@@ -510,7 +510,10 @@ describe("plan placement assistance wiring", () => {
 	   expect(source).toContain('max-w-[calc(100%-1.5rem)]');
 	   expect(source).toContain('flex shrink-0 flex-nowrap items-center gap-1');
 	   expect(source).toContain('className="h-1.5 w-12 accent-[#1a2744] disabled:cursor-not-allowed"');
-	   expect(source).toContain('<RotateCw className="h-4 w-4" /> Rotate');
+	   expect(source).toContain('onToggleWallLayer?: () => void;');
+	   expect(source).toContain('data-testid="floor-plan-wall-layer-toggle"');
+	   expect(source).toContain('<span className="max-[300px]:hidden sm:hidden">Walls</span>');
+	   expect(source).toContain('<RotateCw className="h-4 w-4" /> <span className="max-[300px]:hidden">Rotate</span>');
 	   expect(source).toContain('data-testid="rotate-custom-drawing"');
 	   expect(source).toContain('aria-label="Rotate the complete measured drawing 90 degrees clockwise"');
 	   expect(source).toContain('bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950');

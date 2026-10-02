@@ -13877,6 +13877,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onOpenAttributes={openAttributes}
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
+              onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
               measureMode={measureMode}
               autoDimensions={autoDimensions}
               onDimensionAdjustmentChange={(key, adjustment) => setRoom((previous) => ({
@@ -14119,6 +14120,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  onOpenAttributes={openAttributes}
                   onDropNew={handleDropNew}
 	                  showWallLayer={showWallLayer}
+	                  onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
 	                  measureMode={measureMode}
 	              autoDimensions={autoDimensions}
               onDimensionAdjustmentChange={(key, adjustment) => setRoom((previous) => ({
@@ -14288,26 +14290,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </div>
           )}
 
-	          {/* Wall layer toggle and explicit per-wall settings (plan only) */}
-	          {viewMode !== "threeD" && viewMode !== "elevation" && viewMode !== "corner" && viewMode !== "island" && (
-	            <div className="absolute top-3 right-3 z-30 flex flex-col items-end gap-2">
-	              <button
-	                type="button"
-	                data-testid="edit-selected-wall-trigger"
-                  onClick={() => openWallSettings()}
-	                className="flex items-center gap-1.5 rounded-lg border border-[#d4a75a] bg-white/95 px-2.5 py-1.5 text-xs font-semibold text-[#1a2744] shadow-sm hover:bg-[#fff9ed]"
-	              >
-	                <Pencil className="h-3.5 w-3.5" /> Edit wall
-	              </button>
-	              <button
-	                onClick={() => setShowWallLayer((s) => !s)}
-	                className="flex items-center gap-1.5 rounded-lg border border-border bg-white/90 px-2.5 py-1.5 text-xs font-medium shadow-sm hover:bg-white"
-	              >
-	                <PanelTop className="h-3.5 w-3.5" />
-	                {showWallLayer ? t("dt_hide_wall_cabs") : t("dt_show_wall_cabs")}
-	              </button>
-	            </div>
-	          )}
+	          {/* Wall settings stay direct on the selected drawing wall (context menu).
+	              The wall-cabinet visibility toggle is deliberately rendered by
+	              PlanCanvas in its single upper-right action rail. */}
 	          <Dialog open={wallSettingsOpen} onOpenChange={setWallSettingsOpen}>
 	          <DialogContent data-testid="peninsula-settings-dialog" className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
 	            <DialogHeader className="shrink-0 border-b px-4 py-3">
