@@ -1,0 +1,26 @@
+{
+  "savedStyle": {
+    "fontSizePx": 16,
+    "color": "#0f766e"
+  },
+  "savedWallAdjustment": {
+    "alongIn": 7.375,
+    "outsideIn": 5.625
+  },
+  "wallRailMoved": {
+    "before": {
+      "x": 343.6000061035156,
+      "y": 153.15292358398438,
+      "width": 576.3319396972656,
+      "height": 90.0751953125
+    },
+    "after": {
+      "x": 343.6000061035156,
+      "y": 131.09580993652344,
+      "width": 600.5387878417969,
+      "height": 112.13230895996094
+    }
+  },
+  "wallPointerEvents": "auto",
+  "applicationErrors": []
+}
