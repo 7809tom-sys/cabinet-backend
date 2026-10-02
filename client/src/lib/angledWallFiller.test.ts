@@ -111,7 +111,23 @@ function pair(placement: "wall" | "base" | "tall") {
   return { neighbor, newlyPlaced };
 }
 
-describe("automaticAngledWallFiller", () => {
+	describe("automaticAngledWallFiller", () => {
+	  it("builds the two-board pair only after a second cabinet completes the 45-degree turn", () => {
+	    const { neighbor, newlyPlaced } = pair("wall");
+	    const provisional: PlacedCabinet = {
+	      ...cabinet("first-corner-provisional", "straight", 10, "wall", 1),
+	      masterCode: "WF1242",
+	      fillerPieceGroupId: "filler-group-first-corner",
+	      fillerTransitionKind: "corner-provisional",
+	      fillerForCabinetUid: neighbor.uid,
+	    };
+	    let number = 0;
+	    const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, provisional, newlyPlaced], [wallFiller], () => `completed-pair-${++number}`, 7)!;
+	    expect(resolution.fillers).toHaveLength(2);
+	    expect(resolution.fillers.map((filler) => filler.fillerTransitionPiece)).toEqual(["owner", "neighbor"]);
+	    expect(resolution.fillers.every((filler) => filler.fillerTransitionKind === "front-miter-pair")).toBe(true);
+	  });
+
   it.each([
     ["base", STD.BASE_DEPTH],
     ["wall", STD.WALL_DEPTH],

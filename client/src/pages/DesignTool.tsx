@@ -83,8 +83,9 @@ import {
 	  appendSmallGapFillerPlacement,
   automaticSmallGapFillerMode,
   canSplitSmallGapFiller,
-  findIslandSmallGapFillerOpportunity,
-  findSmallGapFillerOpportunity,
+	findIslandSmallGapFillerOpportunity,
+	findFirstCabinet45CornerFillerOpportunity,
+	findSmallGapFillerOpportunity,
   installedSmallGapFillerEditOpportunity,
   installedFillerVerticalSpec,
   installableSmallGapRemainder,
@@ -2173,7 +2174,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [catalogFillers, pricingCabinetIdFor],
   );
   const queueSmallGapFillerOpportunity = useCallback((nextPlaced: PlacedCabinet[], cabinetUid: string) => {
-    const opportunity = findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid);
+    const opportunity = findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)
+      ?? findFirstCabinet45CornerFillerOpportunity(room, nextPlaced, cabinetUid);
     // Queue the measured opening immediately. The accessory catalog query can
     // finish after placement; smallGapFillerDefinition will resolve as soon as
     // the active style's filler arrives instead of silently losing the prompt.
@@ -5298,11 +5300,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        committedRun = withRequiredFiller;
 		      }
 		      if (!requestedIslandFace && (finalCab.placement === "wall" || finalCab.placement === "base" || finalCab.placement === "tall")) {
-		        const requiredTransition = measuredAngledWallTransition(finalCab, room, committedRun);
+		        // A first cabinet at the 45° hold may already have one user-approved
+		        // provisional filler. Once the adjoining cabinet is placed, remove
+		        // that board before adding the shared two-board front-miter pair.
+		        // This keeps the completed turn at exactly two boards, not three.
+		        const withoutProvisionalCornerFillers = committedRun.filter((item) => item.fillerTransitionKind !== "corner-provisional");
+		        const requiredTransition = measuredAngledWallTransition(finalCab, room, withoutProvisionalCornerFillers);
 		        const angledFiller = automaticAngledWallFiller(
-	          finalCab,
-	          room,
-	          committedRun,
+		          finalCab,
+		          room,
+		          withoutProvisionalCornerFillers,
 	          catalogFillers,
 	          makeUid,
 		          styleIdRef.current ?? null,
@@ -5315,7 +5322,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		            toast.error(message);
 		            return;
 		          } else {
-		            const resolution = appendCollisionFreePlacements(committedRun, angledFiller.fillers, room);
+		            const resolution = appendCollisionFreePlacements(withoutProvisionalCornerFillers, angledFiller.fillers, room);
 		            if (angledFiller.fillers.every((filler) => resolution.placed.some((item) => item.uid === filler.uid))) {
 		              committedRun = resolution.placed;
 		              setFillerInsertionTransition({ uids: angledFiller.fillers.map((filler) => filler.uid), key: Date.now() });
@@ -6509,9 +6516,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         styleId: styleIdRef.current ?? null,
         fillerPieceGroupId: fillerGroupId,
         fillerBillingRole: index === 0 ? "primary" : "secondary",
-	      fillerTotalWidth: cutOpportunity.remaining,
-	      fillerPlacementMode: mode,
+	        fillerTotalWidth: cutOpportunity.remaining,
+	        fillerPlacementMode: mode,
 		      fillerForCabinetUid: owner.uid,
+		      ...(cutOpportunity.cornerMiterProvisional ? {
+		        fillerTransitionKind: "corner-provisional" as const,
+		        fillerTransitionPiece: "owner" as const,
+		        fillerTransitionNeighborUid: null,
+		      } : {}),
 		    };
 	      const matched = matchInstalledFillerToCabinet(draft, owner, room);
 		    const wallSpot = cutOpportunity.islandFace && island

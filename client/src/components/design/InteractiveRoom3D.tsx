@@ -162,7 +162,7 @@ type SceneSku = {
 		  fillerPlacementMode?: "left" | "right" | "split" | null;
 		  fillerMiterAngle?: 22.5 | 45 | null;
 		  fillerMiteredEnd?: "start" | "end" | null;
-		  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
+		  fillerTransitionKind?: "angled-wedge" | "corner-provisional" | "front-miter-pair" | null;
 		  fillerTransitionPiece?: "owner" | "neighbor" | null;
 	  fillerTransitionNeighborUid?: string | null;
 	  fillerTransitionRearWidthIn?: number | null;

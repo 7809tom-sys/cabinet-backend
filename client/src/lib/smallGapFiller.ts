@@ -7,6 +7,10 @@ import {
 	peninsulaRunById,
 	wallRunOffset,
 	wallRunSpan,
+	wallRunFrame,
+	wallRunJoinAt,
+	insideCornerHoldIn,
+	wallLength,
 	wallCabinetFitMeasure,
   type CabinetWallDragPreview,
   type IslandFace,
@@ -48,6 +52,8 @@ export type SmallGapFillerOpportunity = {
 	boundedCabinetUids?: [string, string];
 	/** Exact along-run start of a bounded two-cabinet gap. */
 	boundedGapStart?: number;
+	/** First cabinet at a held 45° turn; replace this one board with the shared pair after a neighbor is added. */
+	cornerMiterProvisional?: { at: "start" | "end" };
 };
 
 export type SmallGapFillerLayout = {
@@ -266,6 +272,53 @@ export function findSmallGapFillerOpportunity(
 	    };
 	  }
 	  return null;
+}
+
+/**
+ * A first cabinet seated at a true 45° inside-corner hold can leave a visible
+ * face-side sliver before the adjoining run exists. Offer its ordinary
+ * source-backed filler dialog immediately; the caller replaces this provisional
+ * board with the shared front-miter pair after a second cabinet reaches the turn.
+ */
+export function findFirstCabinet45CornerFillerOpportunity(
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  cabinetUid: string,
+): SmallGapFillerOpportunity | null {
+  const cabinet = placed.find((item) => item.uid === cabinetUid);
+  if (!cabinet || isFillerItem(cabinet) || !cabinet.wallId || !["base", "wall", "tall"].includes(cabinet.placement)) return null;
+  const frame = wallRunFrame(cabinet.wallId, room);
+  if (!frame) return null;
+  const wall = cabinetWall(cabinet, room);
+  const wallLen = wallLength(wall, room);
+  const start = wallRunOffset(cabinet, wall, room);
+  const end = start + wallRunSpan(cabinet, wall, room);
+  const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
+  for (const at of ["start", "end"] as const) {
+    const join = wallRunJoinAt(frame, at, room);
+    const hold = join ? insideCornerHoldIn(join.turnDeg) : 0;
+    const edgeGap = at === "start" ? start : wallLen - end;
+    if (hold <= 0 || Math.abs(edgeGap - hold) > 0.125) continue;
+    const hasSameLayerNeighbor = placed.some((item) => item.uid !== cabinet.uid
+      && !isFillerItem(item)
+      && item.placement === cabinet.placement
+      && item.wallId === join?.frame.id);
+    if (hasSameLayerNeighbor) continue;
+    const remaining = 1;
+    return {
+      cabinetUid,
+      wall,
+      layer,
+      cabinetStart: start,
+      cabinetSpan: end - start,
+      openingStart: at === "start" ? start - remaining : start,
+      openingLength: end - start + remaining,
+      remaining,
+      preferredMode: at === "start" ? "left" : "right",
+      cornerMiterProvisional: { at },
+    };
+  }
+  return null;
 }
 
 /** Uses the selected island face's own run length and neighbors, never a room wall. */

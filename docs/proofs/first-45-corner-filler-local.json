@@ -1,0 +1,10 @@
+{
+  "scenario": "first B27FH seated at a true 45-degree inside-corner hold",
+  "observed": {
+    "fillerDialog": true,
+    "sourceSku": "F342",
+    "recommendedCutIn": 1,
+    "choices": ["left", "right", "split", "leave open"]
+  },
+  "note": "The second-cabinet miter-pair upgrade is covered by the shared angledWallFiller regression."
+}

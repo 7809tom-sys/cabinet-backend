@@ -722,11 +722,11 @@ export interface PlacedCabinet {
 	/** Which end of the filler is cut at the continuous-wall miter vertex. */
 	fillerMiteredEnd?: "start" | "end" | null;
   /**
-   * Legacy full-depth wedge or the current two-piece front-only 45° miter pair.
-   * New work must use `front-miter-pair`; a wedge remains only to preserve old
-   * saved plan geometry until it is explicitly rebuilt.
+   * Legacy full-depth wedge, a temporary one-cabinet corner filler, or the
+   * completed two-piece front-only 45° miter pair. The temporary board is
+   * replaced by the pair once the adjoining cabinet is placed.
    */
-  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
+  fillerTransitionKind?: "angled-wedge" | "corner-provisional" | "front-miter-pair" | null;
   /** Identifies which physical front filler piece owns this saved miter board. */
   fillerTransitionPiece?: "owner" | "neighbor" | null;
 	/** Cabinet on the adjoining measured wall that owns the other transition edge. */
@@ -10843,7 +10843,7 @@ export function bearsCountertop(p: {
 	  fillerPieceGroupId?: string | null;
 	  fillerTotalWidth?: number | null;
 	  fillerPlacementMode?: "left" | "right" | "split" | null;
-	  fillerTransitionKind?: "angled-wedge" | "front-miter-pair" | null;
+	  fillerTransitionKind?: "angled-wedge" | "corner-provisional" | "front-miter-pair" | null;
 }): boolean {
 	  if (p.placement !== "base") return false;
   // Some legacy plans stored a freestanding stove in the base layer. A stove

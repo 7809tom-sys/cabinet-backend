@@ -7,6 +7,7 @@ import {
 	automaticSmallGapFillerMode,
 	canSplitSmallGapFiller,
 	findSmallGapFillerOpportunity,
+	findFirstCabinet45CornerFillerOpportunity,
 	findIslandSmallGapFillerOpportunity,
 	installedFillerVerticalSpec,
 	installedSmallGapFillerEditOpportunity,
@@ -23,6 +24,30 @@ const cabinet: PlacedCabinet = {
 };
 
 	describe("small-gap filler placement", () => {
+		it("offers one provisional filler when the first cabinet seats at a true 45-degree hold", () => {
+			const cornerRoom: RoomData = {
+				...DEFAULT_ROOM,
+				width: 180,
+				depth: 180,
+				vertices: [{ id: "v1", x: 0, y: 0 }, { id: "v2", x: 60, y: 60 }, { id: "v3", x: 60, y: 180 }, { id: "v4", x: 0, y: 180 }],
+				customWalls: [
+					{ id: "diagonal", startVertexId: "v1", endVertexId: "v2", lockedAngle: 45 },
+					{ id: "straight", startVertexId: "v2", endVertexId: "v3" },
+					{ id: "return", startVertexId: "v3", endVertexId: "v4" },
+					{ id: "close", startVertexId: "v4", endVertexId: "v1" },
+				],
+			};
+			const spot = wallPlacementAt(11, 27, 12, "straight", cornerRoom);
+			const firstUpper: PlacedCabinet = { ...cabinet, uid: "first-45-upper", masterCode: "B27FH", placement: "wall", width: 27, depth: 12, height: 42, mountBottom: 54, ...spot };
+			expect(findSmallGapFillerOpportunity(cornerRoom, [firstUpper], [], firstUpper.uid)).toBeNull();
+			expect(findFirstCabinet45CornerFillerOpportunity(cornerRoom, [firstUpper], firstUpper.uid)).toMatchObject({
+				cabinetUid: firstUpper.uid,
+				remaining: 1,
+				preferredMode: "left",
+				cornerMiterProvisional: { at: "start" },
+			});
+		});
+
 		it("waits to offer an ERB36-side filler until a neighboring cabinet creates a real small seam", () => {
 		  const erb36: PlacedCabinet = {
 		    ...cabinet,
