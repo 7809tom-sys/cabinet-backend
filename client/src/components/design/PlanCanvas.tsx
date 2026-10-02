@@ -461,6 +461,8 @@ export function PlanCanvas({
   // View-only preference: hide annotations without changing saved geometry or
   // the user's Auto dimensions setting.
   const [measurementBubblesVisible, setMeasurementBubblesVisible] = useState(true);
+  const [measurementBubbleOpacity, setMeasurementBubbleOpacity] = useState(1);
+  const measurementBubbleStyle = { opacity: measurementBubbleOpacity };
   const [islandDepthTransitionVisible, setIslandDepthTransitionVisible] = useState(false);
   useEffect(() => {
     if (!islandDepthTransition) {
@@ -1470,7 +1472,7 @@ export function PlanCanvas({
                   <title>{`Right-click ${wall.label ?? "wall"} for Attributes`}</title>
                 </line>
                 <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? "#d4a75a" : "#1a2744"} strokeWidth={active ? 5 : 3} strokeLinecap="round" className="pointer-events-none" />
-                {!autoDimensions && measurementBubblesVisible && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`}>
+                {!autoDimensions && measurementBubblesVisible && <g data-testid="custom-wall-length-bubble" className="pointer-events-none" transform={`translate(${midX} ${midY}) rotate(${labelAngle})`} style={measurementBubbleStyle}>
                   <rect x={-29} y={-10} width={58} height={18} rx={5} fill="white" fillOpacity={0.94} stroke={active ? "#d4a75a" : "#cbd5e1"} />
                   <text x={0} y={3} textAnchor="middle" fontSize={10} fontWeight={700} fill="#1a2744">{formatDisplayDimension(length)}</text>
                 </g>}
@@ -1629,7 +1631,7 @@ export function PlanCanvas({
                 data-testid="peninsula-attachment-measurement"
                 title="Measured parent-wall segment from the wall start corner to this peninsula attachment; displayed outside the room so it does not cover cabinets"
                 className="pointer-events-none absolute z-20 whitespace-nowrap rounded border border-slate-300 bg-white/95 px-1.5 py-0.5 text-[10px] font-bold leading-none text-slate-950 shadow-sm"
-                style={attachmentMeasureStyle}
+                style={{ ...attachmentMeasureStyle, ...measurementBubbleStyle }}
               >
                 Wall start → peninsula · {formatEighthInches(primaryAttachmentMeasure)}
               </span>}
@@ -2905,7 +2907,7 @@ export function PlanCanvas({
             { start: m.end, end: m.end + m.after, value: m.after, arrow: "→" },
           ];
           return (
-            <svg data-testid="live-cabinet-gap-dimensions" className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH}>
+            <svg data-testid="live-cabinet-gap-dimensions" className="pointer-events-none absolute inset-0 z-40 overflow-visible" width={roomPxW} height={roomPxH} style={measurementBubbleStyle}>
               {segs.map((segment, index) => {
                 const start = pointAt(segment.start);
                 const end = pointAt(segment.end);
@@ -2931,6 +2933,7 @@ export function PlanCanvas({
             className="pointer-events-none absolute inset-0 z-40 overflow-visible"
             width={roomPxW}
             height={roomPxH}
+            style={measurementBubbleStyle}
           >
             {measure && (
               <line
@@ -2945,7 +2948,7 @@ export function PlanCanvas({
         {measurementBubblesVisible && measure && (
           <div
             className="pointer-events-none absolute z-40 -translate-x-1/2 -translate-y-1/2 rounded-lg border border-[#d4a75a] bg-white/98 px-2 py-1 text-center text-[10px] font-semibold text-slate-950 shadow-lg whitespace-nowrap"
-            style={{ left: measure.midX, top: measure.midY }}
+            style={{ left: measure.midX, top: measure.midY, ...measurementBubbleStyle }}
           >
             <span className="block text-[11px] font-extrabold text-slate-950">Tape {formatDisplayDimension(measure.distIn)}</span>
             <span className="block text-[9px] text-slate-700">Point-to-point · X {formatDisplayDimension(measure.dx)} · Y {formatDisplayDimension(measure.dy)}</span>
@@ -3022,7 +3025,7 @@ export function PlanCanvas({
 	              return { frame, depth, aisle };
 	            });
           return (
-            <svg data-testid="floor-plan-live-dimensions" className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH} aria-label="Live Floor Plan dimensions">
+            <svg data-testid="floor-plan-live-dimensions" className="pointer-events-none absolute inset-0 z-30 overflow-visible" width={roomPxW} height={roomPxH} aria-label="Live Floor Plan dimensions" style={measurementBubbleStyle}>
               {/* Outer physical-wall lines: corner-to-corner, including measured 45° walls. */}
               {wallFrames.map((frame) => {
                 const dimensionKey = `wall:${frame.id}`;
@@ -3265,7 +3268,7 @@ export function PlanCanvas({
           <div
             key={`x${t}`}
             className="absolute top-0 text-[8px] text-muted-foreground/60"
-            style={{ left: t * ppi - 6, top: -16 }}
+            style={{ left: t * ppi - 6, top: -16, ...measurementBubbleStyle }}
           >
             {t / 12}'
           </div>
@@ -3274,7 +3277,7 @@ export function PlanCanvas({
           <div
             key={`y${t}`}
             className="absolute text-[8px] text-muted-foreground/60"
-            style={{ top: t * ppi - 4, left: -18 }}
+            style={{ top: t * ppi - 4, left: -18, ...measurementBubbleStyle }}
           >
             {t / 12}'
           </div>
@@ -3359,18 +3362,42 @@ export function PlanCanvas({
       </div>
       {!drawMode && (
         <div className="absolute right-3 top-3 z-50 flex flex-col items-end gap-2">
-          <button
-            type="button"
-            data-testid="floor-plan-measurement-bubbles-toggle"
-            aria-label={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles" : "Show all Floor Plan measurement bubbles"}
-            aria-pressed={measurementBubblesVisible}
-            title={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles for a cleaner drawing" : "Show all Floor Plan measurement bubbles"}
-            onClick={() => setMeasurementBubblesVisible((visible) => !visible)}
-            className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
-          >
-            {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            Measurements
-          </button>
+          <div className="flex items-center gap-1.5">
+            <label
+              data-testid="floor-plan-measurement-opacity-control"
+              title="Dim visible Floor Plan measurement bubbles without hiding them"
+              className={`flex h-9 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-bold shadow-md transition ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744]" : "border-slate-200 bg-slate-50/95 text-slate-400"}`}
+            >
+              <span className="sr-only">Measurement bubble opacity</span>
+              <input
+                type="range"
+                data-testid="floor-plan-measurement-opacity-slider"
+                aria-label="Measurement bubble opacity"
+                min={25}
+                max={100}
+                step={5}
+                value={Math.round(measurementBubbleOpacity * 100)}
+                disabled={!measurementBubblesVisible}
+                onChange={(event) => setMeasurementBubbleOpacity(Math.max(0.25, Math.min(1, Number(event.target.value) / 100)))}
+                className="h-1.5 w-20 accent-[#1a2744] disabled:cursor-not-allowed"
+              />
+              <output data-testid="floor-plan-measurement-opacity-value" className="w-8 text-right tabular-nums" aria-live="polite">
+                {Math.round(measurementBubbleOpacity * 100)}%
+              </output>
+            </label>
+            <button
+              type="button"
+              data-testid="floor-plan-measurement-bubbles-toggle"
+              aria-label={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles" : "Show all Floor Plan measurement bubbles"}
+              aria-pressed={measurementBubblesVisible}
+              title={measurementBubblesVisible ? "Hide all Floor Plan measurement bubbles for a cleaner drawing" : "Show all Floor Plan measurement bubbles"}
+              onClick={() => setMeasurementBubblesVisible((visible) => !visible)}
+              className={`inline-flex h-9 items-center gap-1.5 rounded-lg border px-3 text-xs font-bold shadow-md transition active:scale-[0.97] ${measurementBubblesVisible ? "border-[#1a2744]/30 bg-white/95 text-[#1a2744] hover:bg-[#f2f5f8]" : "border-[#d4a75a] bg-[#fff9ed] text-[#1a2744] hover:bg-[#fff4dc]"}`}
+            >
+              {measurementBubblesVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              Measurements
+            </button>
+          </div>
           {!measureMode && onRotateDrawing && (
             <button
               type="button"

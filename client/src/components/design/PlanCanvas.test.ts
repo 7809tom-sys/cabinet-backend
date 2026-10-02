@@ -514,12 +514,19 @@ describe("plan placement assistance wiring", () => {
 	 it("offers one upper-right control that hides every Floor Plan measurement layer without changing the room", () => {
 	   const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 	   expect(source).toContain('data-testid="floor-plan-measurement-bubbles-toggle"');
+	   expect(source).toContain('data-testid="floor-plan-measurement-opacity-slider"');
+	   expect(source).toContain('data-testid="floor-plan-measurement-opacity-value"');
+	   expect(source).toContain('aria-label="Measurement bubble opacity"');
+	   expect(source).toContain('min={25}');
+	   expect(source).toContain('max={100}');
+	   expect(source).toContain('setMeasurementBubbleOpacity');
 	   expect(source).toContain('Hide all Floor Plan measurement bubbles for a cleaner drawing');
 	   expect(source).toContain('measurementBubblesVisible && autoDimensions');
 	   expect(source).toContain('measurementBubblesVisible && dragTape');
 	   expect(source).toContain('measurementBubblesVisible && measure');
 	   expect(source).toContain('measurementBubblesVisible && xTicks.map');
 	   expect(source).toContain('measurementBubblesVisible && yTicks.map');
+	   expect(source).toContain('style={measurementBubbleStyle}');
 	 });
 
 	  it("shows exact dimensions and flush-seam requirements when hovering DB24 or a dishwasher", () => {
