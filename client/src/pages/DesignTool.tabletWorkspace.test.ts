@@ -32,9 +32,11 @@ describe("tablet workspace layout (1024–1366px or touch)", () => {
     expect(designTool).toContain('isTabletPortrait ? "order-last border-b-0 border-t"');
   });
 
-  it("opens the catalog and cabinet editor as ~40% bottom sheets on tablets", () => {
+  it("opens the catalog tall enough to show cabinets (82vh) with a half-height snap, and the editor at 70vh", () => {
     expect(designTool).toContain('data-testid={tablet ? "tablet-catalog-bottom-sheet" : undefined}');
-    expect(designTool).toContain('h-[42vh] rounded-t-2xl');
+    expect(designTool).toContain('${tabletTall ? "h-[82vh]" : "h-[48vh]"} rounded-t-2xl');
+    expect(designTool).toContain('data-testid="tablet-catalog-snap-toggle"');
+    expect(designTool).toContain("if (open) setTabletTall(true);");
     const attributes = readFileSync(new URL("../components/design/CabinetAttributesDialog.tsx", import.meta.url), "utf8");
     expect(attributes).toContain('data-testid={isTablet ? "tablet-cabinet-edit-bottom-sheet" : undefined}');
     expect(attributes).toContain("if (isMobile || isTablet)");
