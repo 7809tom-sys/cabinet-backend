@@ -1,0 +1,27 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "styleId": 390012,
+  "styleName": "Aspen Charcoal",
+  "hardwareStyleId": "none",
+  "placedCodes": [
+    "B36",
+    "B18",
+    "B36",
+    "RANGE-30",
+    "B36",
+    "B24",
+    "B24",
+    "W3030",
+    "W3030",
+    "W3030",
+    "W2430",
+    "W2430"
+  ],
+  "hasW3030": 3,
+  "hasB18": 1,
+  "viewer": {
+    "canvas": true,
+    "title": "3D Kitchen Designer \u2014 Plan Your Layout in 3D | Cabinet Dealz"
+  },
+  "applicationErrors": []
+}
