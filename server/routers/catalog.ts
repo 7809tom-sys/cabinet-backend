@@ -47,6 +47,7 @@ import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { designerCabinetReadinessBySku } from "../lib/designerCabinetReadiness";
 import { landedCostFromList, landedCostMultiplier } from "../lib/distributorCostMultiplier";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
+import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
 
 // ─── Trim / accessory detection ──────────────────────────────────────────────
 // Mirrors the isAccessory() guard in design.ts so the Family page and the
@@ -1649,6 +1650,21 @@ export const cabinetsRouter = router({
         ))
         .limit(1);
       if (rows[0]) return scrubCabinet(rows[0]);
+
+      // Merged codes (master sheet 2026-10-03, rule 5: never deleted, only made
+      // inactive — e.g. LS3612 → LSB36, ERB36 → BER36) live in
+      // cabinet_code_equivalences. Resolve the request to the one active master
+      // in the same group so a legacy code never dead-ends on the public catalog.
+      const groups = await loadCodeEquivalenceGroups(db);
+      const spellings = groups.groupSpellings(input.masterCode).filter((code) => normalizeCode(code) !== normalizedCode);
+      if (spellings.length > 0) {
+        const [equivalent] = await db
+          .select()
+          .from(cabinets)
+          .where(and(inArray(cabinets.masterCode, spellings), notInConflict()))
+          .limit(1);
+        if (equivalent) return scrubCabinet(equivalent);
+      }
 
       return null;
     }),

@@ -528,6 +528,10 @@ export const cabinets = mysqlTable("cabinets", {
   masterCode: varchar("masterCode", { length: 64 }).notNull().unique(), // DB-24-3, B-24, etc.
   description: text("description").notNull(),
   descriptionSource: varchar("descriptionSource", { length: 64 }), // US Cabinet Depot, Clark & Son, Research
+  /** Plain-English homeowner description (master sheet 2026-10-03, rule 13). */
+  homeownerDescription: text("homeownerDescription"),
+  /** Owner's original wording before the 2026-10-03 description rewrite (kept, never overwritten). */
+  originalDescription: text("originalDescription"),
   category: varchar("category", { length: 64 }).notNull(), // Base, Wall, Tall, ADA, Vanity, Accessory
   subCategory: varchar("subCategory", { length: 128 }), // Drawer Base, Sink Base, etc.
   width: decimal("width", { precision: 6, scale: 2 }),
@@ -2668,6 +2672,27 @@ export const cabinetCodeEquivalences = mysqlTable("cabinet_code_equivalences", {
   uniqPair: unique("cabinet_code_equivalences_pair_unique").on(t.codeA, t.codeB),
 }));
 export type CabinetCodeEquivalence = typeof cabinetCodeEquivalences.$inferSelect;
+
+// ─── Per-brand attribute overrides (master sheet 2026-10-03, rule 7) ──────────
+// "Brand values override the master ONLY for that brand. Master keeps the
+// nominal code dimensions." Non-price facts only: box widths, drawer counts,
+// glass policy, shelf counts, native order codes. Prices are NEVER stored here.
+export const cabinetBrandAttributes = mysqlTable("cabinet_brand_attributes", {
+  id: int("id").autoincrement().primaryKey(),
+  brand: varchar("brand", { length: 64 }).notNull(), // ALL | U.S. Cabinet Depot (USCD) | A-Line/Skyline | Faircrest
+  appliesTo: varchar("appliesTo", { length: 128 }).notNull(), // master code / family / "all brands"
+  attribute: varchar("attribute", { length: 64 }).notNull(), // blindCornerBoxWidth, glassIncluded, ...
+  brandValue: text("brandValue").notNull(),
+  masterValue: varchar("masterValue", { length: 128 }),
+  source: varchar("source", { length: 191 }),
+  note: text("note"),
+  distributor: varchar("distributor", { length: 64 }),
+  nativeCode: varchar("nativeCode", { length: 64 }),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CabinetBrandAttribute = typeof cabinetBrandAttributes.$inferSelect;
+
 
 // ─── Designer missing-price log (Part 1) ─────────────────────────────────────
 // One row per (code, store, line, style, design) the Designer could not price.

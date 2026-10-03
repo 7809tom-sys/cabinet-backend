@@ -9,6 +9,7 @@ import type { SiteStringKey } from "@/lib/i18n/site";
 import { ChatTrigger } from "@/components/ChatWidget";
 import { trpc } from "@/lib/trpc";
 import { useIsMobile } from "@/hooks/useMobile";
+import { useDesignerImmersive, useTabletWorkspace } from "@/hooks/useTabletWorkspace";
 import {
   designerMobileCartCount,
   requestDesignerMobileCartOpen,
@@ -93,6 +94,11 @@ export function TopNav() {
   const { count: cartCount } = useCart();
   const { t } = useLanguage();
   const isDesignerMobile = useIsMobile(1024) && location.startsWith("/design");
+  // Tablet full-screen design mode: the header collapses to a small CD button
+  // so the kitchen gets the whole screen. Tapping CD brings the header back.
+  const tabletTier = useTabletWorkspace();
+  const isDesignerTablet = tabletTier.tablet && !isDesignerMobile && location.startsWith("/design");
+  const [immersive, setImmersive] = useDesignerImmersive();
   const [designCartCount, setDesignCartCount] = useState(designerMobileCartCount);
 
   useEffect(() => {
@@ -139,6 +145,22 @@ export function TopNav() {
     ? PORTAL_LINKS.filter((l) => l.href === "/affiliate")
     : PORTAL_LINKS;
 
+  if (isDesignerTablet && immersive) {
+    return (
+      <div data-testid="designer-immersive-header" className="pointer-events-none fixed left-2 top-2 z-[60]">
+        <button
+          type="button"
+          data-testid="designer-immersive-restore"
+          onClick={() => setImmersive(false)}
+          aria-label="Show site menu"
+          title="Show site menu"
+          className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg bg-[var(--color-navy)] font-serif text-sm font-bold text-white shadow-md active:scale-95"
+        >
+          CD
+        </button>
+      </div>
+    );
+  }
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-2">
@@ -254,6 +276,11 @@ export function TopNav() {
 
         {/* Right side actions */}
         <div className="flex items-center gap-1 shrink-0">
+          {isDesignerTablet && (
+            <Button variant="ghost" size="sm" data-testid="designer-immersive-hide" className="h-11 px-3 text-xs font-semibold" onClick={() => setImmersive(true)} aria-label="Hide site menu for full-screen design">
+              Full screen
+            </Button>
+          )}
           {/* Language toggle (desktop) */}
           <LangToggle className="hidden sm:flex" />
 

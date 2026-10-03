@@ -73,4 +73,24 @@ describe("saved-kitchen 3D regression: fridge bridge crown + corner countertop",
     expect(outline.some((point) => Math.abs(point.x - 156) < 1e-6 && Math.abs(point.y - 36) < 1e-6)).toBe(false);
     expect(corner.areaInches).toBeCloseTo(36 * 36 - 10.5 * 10.5, 6);
   });
+
+  it("never draws crown below the top of a taller neighbour: a lower bridge beside a ceiling pantry has no return along the pantry side", () => {
+    // Bridge top 84" (60" + 24") beside the 96" pantry: the bridge's left return
+    // would run along the pantry's exposed side 12" below the pantry top.
+    const lowBridge = { ...bridge, mountBottom: 60 };
+    const placed = [pantry, fridge, lowBridge, upperNextToBridge];
+    const segments = threeDCrownPerimeterSegments(placed, room);
+    const bridgeSegments = segments.filter((segment) => segment.ownerUid === "bridge");
+    expect(bridgeSegments.some((segment) => segment.kind === "front" && Math.abs(segment.top - 84) < 1e-6)).toBe(true);
+    expect(bridgeSegments.some((segment) => segment.kind === "left-return")).toBe(false);
+    // No crown segment of any owner may lie below the top of a body it runs along.
+    for (const segment of segments) {
+      if (segment.ownerUid === "bridge") expect(segment.top).toBeCloseTo(84, 6);
+      else expect(segment.top).toBeCloseTo(96, 6);
+    }
+    // The taller W-2442 (top 96") beside the lower bridge keeps its own left
+    // return above the bridge: a lower body never blocks a higher rail.
+    const upperSegments = segments.filter((segment) => segment.ownerUid === "w2442");
+    expect(upperSegments.some((segment) => segment.kind === "left-return")).toBe(true);
+  });
 });

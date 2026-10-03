@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/useMobile";
+import { useTabletWorkspace } from "@/hooks/useTabletWorkspace";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -487,6 +488,7 @@ export function CabinetAttributesDialog({
   onSetIslandWallBaseTreatment,
 }: CabinetAttributesDialogProps) {
 	  const { t } = useLanguage();
+  const isTablet = useTabletWorkspace().tablet;
   const isMobile = useIsMobile();
   const [pendingMasterId, setPendingMasterId] = useState<number | null>(null);
   const swing = useMemo(() => (cabinet ? resolveSwing(cabinet) : "double"), [cabinet]);
@@ -534,10 +536,11 @@ export function CabinetAttributesDialog({
 	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
-  if (isMobile) {
+  if (isMobile || isTablet) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="rounded-t-2xl p-0 flex flex-col gap-0" style={{ maxHeight: "min(90vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+        <SheetContent side="bottom" data-testid={isTablet ? "tablet-cabinet-edit-bottom-sheet" : undefined} className={`rounded-t-2xl p-0 flex flex-col gap-0 ${isTablet ? "h-[42vh]" : ""}`} style={{ maxHeight: isTablet ? "42vh" : "min(90vh, calc(100dvh - 4rem))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+          {isTablet && <div aria-hidden="true" className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-muted-foreground/30" />}
           <SheetHeader className="border-b px-4 py-3 text-left">
             <SheetTitle className="font-mono text-base leading-none">{cabinet.masterCode}</SheetTitle>
             <SheetDescription className="truncate text-xs">{cabinet.description}</SheetDescription>
