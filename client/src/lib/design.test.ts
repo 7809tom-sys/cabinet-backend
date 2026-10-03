@@ -2545,6 +2545,48 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     );
   });
 
+  it("keeps both shallow uppers and deep bases back-flush to 45° and 135° walls", () => {
+    const room: RoomData = {
+      width: 168,
+      depth: 96,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 120, y: 0 },
+        { id: "c", x: 168, y: 48 },
+        { id: "d", x: 120, y: 96 },
+        { id: "e", x: 0, y: 96 },
+      ],
+      customWalls: [
+        { id: "top", startVertexId: "a", endVertexId: "b" },
+        { id: "wall-45", startVertexId: "b", endVertexId: "c", lockedAngle: 45 },
+        { id: "wall-135", startVertexId: "c", endVertexId: "d", lockedAngle: -45 },
+        { id: "bottom", startVertexId: "d", endVertexId: "e" },
+        { id: "left", startVertexId: "e", endVertexId: "a" },
+      ],
+    };
+    for (const wallId of ["wall-45", "wall-135"] as const) {
+      const wall = room.customWalls!.find((entry) => entry.id === wallId)!;
+      const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId)!;
+      const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId)!;
+      const length = Math.hypot(end.x - start.x, end.y - start.y);
+      const tangent = { x: (end.x - start.x) / length, y: (end.y - start.y) / length };
+      const inward = { x: -tangent.y, y: tangent.x }; // closed clockwise room
+      for (const depth of [12, 24]) {
+        const spot = wallPlacementAt(10, 15, depth, wallId, room);
+        const bound = {
+          w: Math.abs(15 * tangent.x) + Math.abs(depth * inward.x),
+          h: Math.abs(15 * tangent.y) + Math.abs(depth * inward.y),
+        };
+        const center = { x: spot.x + bound.w / 2, y: spot.y + bound.h / 2 };
+        // Center is exactly depth/2 inside the line, therefore the physical back
+        // edge (center minus its depth half-vector) is exactly on the wall.
+        const inwardDistance = (center.x - start.x) * inward.x + (center.y - start.y) * inward.y;
+        expect(inwardDistance).toBeCloseTo(depth / 2, 6);
+      }
+    }
+  });
+
   it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {
     const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
     const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });
