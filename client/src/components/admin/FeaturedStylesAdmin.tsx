@@ -58,6 +58,13 @@ interface AdminStyle {
   railWidth: string | null;
   stileWidth: string | null;
   centerRailWidth: string | null;
+  panelConstruction?: "raised" | "flat" | "slab" | "glass" | null;
+  bevelWidth?: string | null;
+  bevelDepth?: string | null;
+  insideEdgeProfile?: string | null;
+  drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
+  grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
+  finishSheen?: "satin" | "matte" | "gloss" | null;
   profileNotes: string | null;
   profileDescription?: string | null;
   sourceSpecification?: string | null;
@@ -297,6 +304,13 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
   const [railWidth, setRailWidth] = useState(style.railWidth != null ? String(style.railWidth) : "");
   const [stileWidth, setStileWidth] = useState(style.stileWidth != null ? String(style.stileWidth) : "");
   const [centerRailWidth, setCenterRailWidth] = useState(style.centerRailWidth != null ? String(style.centerRailWidth) : "");
+  const [panelConstruction, setPanelConstruction] = useState<NonNullable<AdminStyle["panelConstruction"]>>(style.panelConstruction ?? "flat");
+  const [bevelWidth, setBevelWidth] = useState(style.bevelWidth != null ? String(style.bevelWidth) : "");
+  const [bevelDepth, setBevelDepth] = useState(style.bevelDepth != null ? String(style.bevelDepth) : "");
+  const [insideEdgeProfile, setInsideEdgeProfile] = useState(style.insideEdgeProfile ?? "");
+  const [drawerFrontType, setDrawerFrontType] = useState<NonNullable<AdminStyle["drawerFrontType"]>>(style.drawerFrontType ?? "slab");
+  const [grainDirection, setGrainDirection] = useState<NonNullable<AdminStyle["grainDirection"]>>(style.grainDirection ?? "none");
+  const [finishSheen, setFinishSheen] = useState<NonNullable<AdminStyle["finishSheen"]>>(style.finishSheen ?? "satin");
   const [profileNotes, setProfileNotes] = useState(style.profileNotes ?? "");
   const [profileDescription, setProfileDescription] = useState((style as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
   const [sourceSpecification, setSourceSpecification] = useState(style.sourceSpecification ?? "");
@@ -325,6 +339,13 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
     setRailWidth(s.railWidth != null ? String(s.railWidth) : "");
     setStileWidth(s.stileWidth != null ? String(s.stileWidth) : "");
     setCenterRailWidth(s.centerRailWidth != null ? String(s.centerRailWidth) : "");
+    setPanelConstruction(s.panelConstruction ?? "flat");
+    setBevelWidth(s.bevelWidth != null ? String(s.bevelWidth) : "");
+    setBevelDepth(s.bevelDepth != null ? String(s.bevelDepth) : "");
+    setInsideEdgeProfile(s.insideEdgeProfile ?? "");
+    setDrawerFrontType(s.drawerFrontType ?? "slab");
+    setGrainDirection(s.grainDirection ?? "none");
+    setFinishSheen(s.finishSheen ?? "satin");
     setProfileNotes(s.profileNotes ?? "");
     setProfileDescription((s as AdminStyle & { profileDescription?: string | null }).profileDescription ?? "");
     setSourceSpecification(s.sourceSpecification ?? "");
@@ -412,6 +433,13 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
       railWidth: enteredRail,
       stileWidth: enteredStile,
       centerRailWidth: centerRailWidth.trim() ? parseFloat(centerRailWidth) : null,
+      panelConstruction,
+      bevelWidth: bevelWidth.trim() ? parseFloat(bevelWidth) : null,
+      bevelDepth: bevelDepth.trim() ? parseFloat(bevelDepth) : null,
+      insideEdgeProfile: insideEdgeProfile.trim() || null,
+      drawerFrontType,
+      grainDirection,
+      finishSheen,
       profileNotes: profileNotes.trim() || null,
       profileDescription: profileDescription.trim() || null,
       sourceSpecification: sourceSpecification.trim() || null,
@@ -653,6 +681,67 @@ function EditDialog({ style, open, onClose, onSaved }: EditDialogProps) {
                 />
                 <p className="text-xs text-muted-foreground">Mid rail if any</p>
               </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label>Panel construction</Label>
+                <Select value={panelConstruction} onValueChange={(value) => setPanelConstruction(value as NonNullable<AdminStyle["panelConstruction"]>)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="raised">Raised panel</SelectItem>
+                    <SelectItem value="flat">Flat panel</SelectItem>
+                    <SelectItem value="slab">Slab</SelectItem>
+                    <SelectItem value="glass">Glass</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-bevel-width">Bevel width (in)</Label>
+                <Input id="ed-bevel-width" type="number" min="0" max="12" step="0.125" value={bevelWidth} onChange={(event) => setBevelWidth(event.target.value)} placeholder="e.g. 0.5" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-bevel-depth">Bevel depth (in)</Label>
+                <Input id="ed-bevel-depth" type="number" min="0" max="4" step="0.0625" value={bevelDepth} onChange={(event) => setBevelDepth(event.target.value)} placeholder="e.g. 0.18" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="ed-edge-profile">Inside-edge profile</Label>
+                <Input id="ed-edge-profile" value={insideEdgeProfile} onChange={(event) => setInsideEdgeProfile(event.target.value)} placeholder="e.g. beveled ogee" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Drawer front</Label>
+                <Select value={drawerFrontType} onValueChange={(value) => setDrawerFrontType(value as NonNullable<AdminStyle["drawerFrontType"]>)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="five-piece-raised">5-piece raised panel</SelectItem>
+                    <SelectItem value="five-piece-flat">5-piece flat panel</SelectItem>
+                    <SelectItem value="slab">Slab</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Finish sheen</Label>
+                <Select value={finishSheen} onValueChange={(value) => setFinishSheen(value as NonNullable<AdminStyle["finishSheen"]>)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="satin">Satin</SelectItem>
+                    <SelectItem value="matte">Matte</SelectItem>
+                    <SelectItem value="gloss">Gloss</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Wood-grain direction</Label>
+              <Select value={grainDirection} onValueChange={(value) => setGrainDirection(value as NonNullable<AdminStyle["grainDirection"]>)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="vertical-stiles-horizontal-rails">Vertical stiles / horizontal rails</SelectItem>
+                  <SelectItem value="vertical">Vertical</SelectItem>
+                  <SelectItem value="horizontal">Horizontal</SelectItem>
+                  <SelectItem value="none">No visible grain direction</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">The 3D Designer uses these physical profile settings only for this catalog style. Provide or cite a sample-door source before entering frame dimensions.</p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="ed-frame-source">Official frame source citation</Label>

@@ -414,6 +414,15 @@ export const doorStyles = mysqlTable("door_styles", {
   railWidth: decimal("railWidth", { precision: 4, scale: 2 }),           // top/bottom rail width in inches
   stileWidth: decimal("stileWidth", { precision: 4, scale: 2 }),         // left/right stile width in inches
   centerRailWidth: decimal("centerRailWidth", { precision: 4, scale: 2 }), // center/mid rail (if any)
+  // Renderable, catalog-backed profile details. They drive physical 3D faces;
+  // vendor sample measurements remain the source of truth for their values.
+  panelConstruction: varchar("panelConstruction", { length: 24 }),       // raised, flat, slab, or glass
+  bevelWidth: decimal("bevelWidth", { precision: 4, scale: 2 }),         // inset/raised panel bevel width in inches
+  bevelDepth: decimal("bevelDepth", { precision: 4, scale: 2 }),         // positive panel projection (inches)
+  insideEdgeProfile: varchar("insideEdgeProfile", { length: 64 }),       // ogee, bevel, square, bead, etc.
+  drawerFrontType: varchar("drawerFrontType", { length: 32 }),           // five-piece-raised, five-piece-flat, slab
+  grainDirection: varchar("grainDirection", { length: 64 }),             // vertical-stiles-horizontal-rails, vertical, none
+  finishSheen: varchar("finishSheen", { length: 24 }),                   // satin, matte, gloss
   profileNotes: varchar("profileNotes", { length: 256 }),                // free-text e.g. "Ogee profile", "Beaded inner edge"
   profileDescription: text("profileDescription"),                        // long-form educational description shown on public Door Styles page
   // A verified manufacturer specification may describe a future/price-pending

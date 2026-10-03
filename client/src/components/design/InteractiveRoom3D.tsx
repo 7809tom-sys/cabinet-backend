@@ -17,7 +17,7 @@ import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasu
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
-import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, normalizeDoorHardwareFramePosition } from "@/lib/hardware";
+import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -179,6 +179,21 @@ type SceneSku = {
 };
 
 export type VanityFaceLayout = { drawerSide: 'left' | 'right'; drawerCount: number; drawerBankRatio: number };
+/** Catalog-backed visual construction for a door style; never infer it from a finish name. */
+export type ThreeDDoorProfile = {
+  doorStyle: string | null;
+  doorPanelType: string | null;
+  railWidth?: string | number | null;
+  stileWidth?: string | number | null;
+  panelConstruction?: "raised" | "flat" | "slab" | "glass" | null;
+  bevelWidth?: string | number | null;
+  bevelDepth?: string | number | null;
+  insideEdgeProfile?: string | null;
+  drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
+  grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
+  finishSheen?: "satin" | "matte" | "gloss" | null;
+};
+
 export function resolvedThreeDVanityFaceLayout(layoutSpec: string | null | undefined): VanityFaceLayout | null {
   if (!layoutSpec) return null;
   try {
@@ -576,7 +591,7 @@ interface Props {
   /** Exact resolved 2D finish color for each placed cabinet, keyed by placement UID. */
   cabinetFinishOverrides?: Record<string, string>;
   /** Exact saved 2D door profile for each placed cabinet, keyed by placement UID. */
-  cabinetDoorProfiles?: Record<string, { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null }>;
+  cabinetDoorProfiles?: Record<string, ThreeDDoorProfile>;
   /** Exact admin door-sample URL for each placed cabinet's effective saved style. */
   cabinetDoorSampleUrls?: Record<string, string>;
   /** Live Cabinet Config product visual for each placed cabinet, keyed by placement UID. */
@@ -586,7 +601,9 @@ interface Props {
   /** Administration room scene is a visual target reference only; it never replaces saved plan geometry. */
   catalogRoomSceneUrl?: string | null;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
-  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null } | null;
+  catalogDoorProfile?: ThreeDDoorProfile | null;
+  /** The exact design-level hardware choice; `none` deliberately renders no pulls. */
+  hardwareStyleId?: HardwareStyleId;
   /** Human-readable catalog selections used in PDF and account-email output. */
   catalogFinishName?: string | null;
   /** Exact selected catalog identities retained with a final render for audit. */
@@ -709,6 +726,19 @@ export function threeDPhysicalSurfaceProfile(role: ThreeDPhysicalSurfaceRole, ha
     wall: { roughness: 0.82, metalness: 0, clearcoat: 0, clearcoatRoughness: 1, envMapIntensity: 0.35 },
   };
   return profiles[role];
+}
+
+/** Door sheen is catalog data, not an assumed glossy or glass-like reflection. */
+export function threeDDoorFinishSurfaceProfile(
+  finishSheen: ThreeDDoorProfile["finishSheen"] | undefined,
+  hasTexture = false,
+) {
+  const base = threeDPhysicalSurfaceProfile("cabinet", hasTexture);
+  if (finishSheen === "matte") return { ...base, roughness: hasTexture ? 0.56 : 0.6, clearcoat: 0.02, clearcoatRoughness: 0.78 };
+  if (finishSheen === "gloss") return { ...base, roughness: hasTexture ? 0.25 : 0.3, clearcoat: 0.28, clearcoatRoughness: 0.22 };
+  // Satin is the honest default for a wood cabinet profile: a controlled soft
+  // highlight, never the transmission/reflection behavior reserved for glass.
+  return { ...base, roughness: hasTexture ? 0.4 : 0.44, clearcoat: 0.1, clearcoatRoughness: 0.46 };
 }
 
 export function threeDSurfaceTextureTransform(
@@ -2755,8 +2785,8 @@ export function resolvedPlacedCabinetFinish(
 /** Resolves a placed cabinet's own saved 2D feature style before the plan default. */
 export function resolvedPlacedCabinetDoorProfile(
   cabinet: Pick<PlacedCabinet, "uid">,
-  cabinetDoorProfiles: Record<string, { doorStyle: string | null; doorPanelType: string | null }> | undefined,
-  planDefault: { doorStyle: string | null; doorPanelType: string | null } | null | undefined,
+  cabinetDoorProfiles: Record<string, ThreeDDoorProfile> | undefined,
+  planDefault: ThreeDDoorProfile | null | undefined,
 ) {
   const placedProfile = cabinetDoorProfiles?.[cabinet.uid];
   const placedIdentity = `${placedProfile?.doorStyle ?? ""} ${placedProfile?.doorPanelType ?? ""}`.trim();
@@ -2793,7 +2823,7 @@ export function resolvedThreeDDoorSampleUrl(cabinetFinish: string, catalogDoorSa
 
 export function resolvedThreeDDoorProfile(
   scene: InteractiveRoomScene,
-  catalogDoorProfile?: { doorStyle: string | null; doorPanelType: string | null } | null,
+  catalogDoorProfile?: ThreeDDoorProfile | null,
 ) {
   const selectedProfile = `${catalogDoorProfile?.doorStyle ?? ""} ${catalogDoorProfile?.doorPanelType ?? ""}`.trim();
   return selectedProfile ? catalogDoorProfile : scene.materials?.cabinet ?? null;
@@ -3256,11 +3286,11 @@ export function addCabinet(
   roomDepth: number,
   color: string,
   counterColor: string,
-  doorProfile?: { doorStyle: string | null; doorPanelType: string | null; railWidth?: string | number | null; stileWidth?: string | number | null },
+  doorProfile?: ThreeDDoorProfile,
   transform?: { x: number; z: number; rotation: number; bottom?: number },
   doorSampleUrl?: string | null,
   onDoorTextureState?: (state: "loading" | "loaded" | "failed") => void,
-  surfaceTextures?: { countertop?: THREE.Texture | null; suppressCountertop?: boolean; suppressFittedFillerToeKick?: boolean; suppressContinuousBaseToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean },
+  surfaceTextures?: { countertop?: THREE.Texture | null; suppressCountertop?: boolean; suppressFittedFillerToeKick?: boolean; suppressContinuousBaseToeKick?: boolean; suppressFarmhouseSinkPlaceholder?: boolean; selectedToeKick?: boolean; hardwareStyleId?: HardwareStyleId },
 ) {
   const placement = (sku.placementType ?? "base").toLowerCase();
   const isWall = placement === "wall";
@@ -3877,10 +3907,11 @@ export function addCabinet(
   // Shaker rails and stiles remain physical meshes over those faces, preserving
   // the selected Door Style's recessed-panel construction in the 3D Designer.
   const faceColor = threeDFaceMaterialColor(color, Boolean(doorTexture));
+	  const doorFinishSurface = threeDDoorFinishSurfaceProfile(doorProfile?.finishSheen, Boolean(doorTexture));
 	  const faceMaterial = new THREE.MeshPhysicalMaterial({
 	    color: faceColor,
 	    map: doorTexture,
-	    ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)),
+	    ...doorFinishSurface,
 	  });
   const structuralFinish = threeDStructuralFinish(color, Boolean(doorTexture));
   let plainStructuralColor = structuralFinish.color;
@@ -3906,9 +3937,24 @@ export function addCabinet(
   if (doorTexture?.image) {
     applyStructuralFinish(color, doorTexture);
   }
-	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...threeDPhysicalSurfaceProfile("cabinet", Boolean(doorTexture)) });
-  textureMaterials.push(faceMaterial);
-  const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
+	  const trimMaterial = new THREE.MeshPhysicalMaterial({ color: faceColor, map: doorTexture, ...doorFinishSurface });
+	  textureMaterials.push(faceMaterial);
+	  const frameMaterialFor = (piece: "rail" | "stile" | "panel") => {
+	    // The catalog profile can explicitly request traditional frame grain: rails
+	    // run horizontally, stiles and center panels vertically. A cloned material
+	    // keeps this UV orientation local to the physical board rather than rotating
+	    // the whole cabinet texture or any glass surface.
+	    if (!doorTexture || doorProfile?.grainDirection !== "vertical-stiles-horizontal-rails" || piece === "panel") return trimMaterial;
+	    const map = doorTexture.clone();
+	    map.center.set(0.5, 0.5);
+	    map.rotation = piece === "rail" ? Math.PI / 2 : 0;
+	    map.needsUpdate = true;
+	    const material = new THREE.MeshPhysicalMaterial({ color: "#ffffff", map, ...doorFinishSurface });
+	    material.userData = { grainPiece: piece, grainDirection: doorProfile.grainDirection };
+	    textureMaterials.push(material);
+	    return material;
+	  };
+	  const drawerRevealMaterial = new THREE.LineBasicMaterial({ color: "#302a24", transparent: true, opacity: 0.58 });
 	  const hardwareMaterial = new THREE.MeshPhysicalMaterial({ color: "#b8bbc0", ...metalPbr });
 	  const glassDoorMaterial = new THREE.MeshPhysicalMaterial({
 	    color: "#b8d4dc",
@@ -4073,7 +4119,9 @@ export function addCabinet(
   }
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
 	  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0, forceGlassFrame = false) => {
-	    if (!forceGlassFrame && !threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture))) return;
+	    const raisedProfile = !forceGlassFrame && (profileKind === "raised" || doorProfile?.panelConstruction === "raised");
+	    const framedProfile = forceGlassFrame || raisedProfile || threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture));
+	    if (!framedProfile) return;
     const rail = threeDShakerRailThickness(faceWidth, faceHeight, doorProfile?.railWidth);
     const stile = threeDShakerRailThickness(faceWidth, faceHeight, doorProfile?.stileWidth);
     if (!rail || !stile) return;
@@ -4081,19 +4129,52 @@ export function addCabinet(
     const pose = threeDShakerFramePose(x, y, z, rotationY);
     frameGroup.position.set(pose.x, pose.y, pose.z);
     frameGroup.rotation.y = pose.rotationY;
-	    frameGroup.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : "shaker", physicalRails: true, ...(forceGlassFrame ? { glassDoorFrame: true, selectedFinishGlassFrame: true } : {}) };
+	    frameGroup.userData = {
+	      selectedStyleFace: forceGlassFrame ? "glass-door-frame" : raisedProfile ? "raised-panel" : "shaker",
+	      physicalRails: true,
+	      panelConstruction: raisedProfile ? "raised" : doorProfile?.panelConstruction ?? "flat",
+	      insideEdgeProfile: doorProfile?.insideEdgeProfile ?? "square",
+	      ...(forceGlassFrame ? { glassDoorFrame: true, selectedFinishGlassFrame: true } : {}),
+	    };
     const pieces = [
-      [faceWidth, rail, 0, faceHeight / 2 - rail / 2],
-      [faceWidth, rail, 0, -faceHeight / 2 + rail / 2],
-      [stile, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + stile / 2, 0],
-      [stile, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - stile / 2, 0],
+      [faceWidth, rail, 0, faceHeight / 2 - rail / 2, "rail" as const],
+      [faceWidth, rail, 0, -faceHeight / 2 + rail / 2, "rail" as const],
+      [stile, Math.max(0.02, faceHeight - rail * 2), -faceWidth / 2 + stile / 2, 0, "stile" as const],
+      [stile, Math.max(0.02, faceHeight - rail * 2), faceWidth / 2 - stile / 2, 0, "stile" as const],
     ] as const;
-    for (const [pieceWidth, pieceHeight, offsetX, offsetY] of pieces) {
-      const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), trimMaterial);
+    for (const [pieceWidth, pieceHeight, offsetX, offsetY, piece] of pieces) {
+      const railMesh = new THREE.Mesh(new THREE.BoxGeometry(pieceWidth, pieceHeight, 0.026), frameMaterialFor(piece));
       railMesh.position.set(offsetX, offsetY, 0);
-	      railMesh.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : "shaker", physicalRail: true, ...(forceGlassFrame ? { glassDoorFrameRail: true, selectedFinishGlassFrame: true } : {}) };
+	      railMesh.userData = { selectedStyleFace: forceGlassFrame ? "glass-door-frame" : raisedProfile ? "raised-panel" : "shaker", physicalRail: true, grainPiece: piece, ...(forceGlassFrame ? { glassDoorFrameRail: true, selectedFinishGlassFrame: true } : {}) };
       frameGroup.add(railMesh);
     }
+	    if (raisedProfile) {
+	      const bevelWidth = Math.max(0.025, Math.min(
+	        Number.isFinite(Number(doorProfile?.bevelWidth)) ? Number(doorProfile?.bevelWidth) * INCH : 0.5 * INCH,
+	        (faceWidth - stile * 2) / 4,
+	        (faceHeight - rail * 2) / 4,
+	      ));
+	      const bevelDepth = Math.max(0.012, Math.min(
+	        Number.isFinite(Number(doorProfile?.bevelDepth)) ? Number(doorProfile?.bevelDepth) * INCH : 0.18 * INCH,
+	        0.07,
+	      ));
+	      const bevelOuterWidth = Math.max(0.06, faceWidth - stile * 2);
+	      const bevelOuterHeight = Math.max(0.06, faceHeight - rail * 2);
+	      const panelWidth = Math.max(0.04, bevelOuterWidth - bevelWidth * 2);
+	      const panelHeight = Math.max(0.04, bevelOuterHeight - bevelWidth * 2);
+	      const recessedBed = new THREE.Mesh(new THREE.BoxGeometry(bevelOuterWidth, bevelOuterHeight, 0.008), shadowRevealMaterial);
+	      recessedBed.position.z = -0.012;
+	      recessedBed.userData = { raisedPanelRecess: true, insideEdgeProfile: doorProfile?.insideEdgeProfile ?? "bevel" };
+	      frameGroup.add(recessedBed);
+	      const bevel = new THREE.Mesh(new THREE.BoxGeometry(bevelOuterWidth - 0.006, bevelOuterHeight - 0.006, Math.max(0.018, bevelDepth * 0.62)), frameMaterialFor("panel"));
+	      bevel.position.z = bevelDepth * 0.31;
+	      bevel.userData = { raisedPanelBevel: true, bevelWidthIn: bevelWidth / INCH, bevelDepthIn: bevelDepth / INCH, insideEdgeProfile: doorProfile?.insideEdgeProfile ?? "bevel" };
+	      frameGroup.add(bevel);
+	      const centerPanel = new THREE.Mesh(new THREE.BoxGeometry(panelWidth, panelHeight, Math.max(0.02, bevelDepth)), faceMaterial);
+	      centerPanel.position.z = bevelDepth;
+	      centerPanel.userData = { raisedCenterPanel: true, panelConstruction: "raised", drawerFrontType: doorProfile?.drawerFrontType ?? null, grainPiece: "panel" };
+	      frameGroup.add(centerPanel);
+	    }
     frontGroup.add(frameGroup);
   };
   const addDrawerReveal = (faceWidth: number, faceHeight: number, x: number, y: number, z = THREE_D_DRAWER_REVEAL_DEPTH) => {
@@ -4115,6 +4196,11 @@ export function addCabinet(
     frontGroup.add(shadow);
   };
   const addPull = (faceWidth: number, faceHeight: number, x: number, y: number, drawer = false, z = 0.086, doorZone: "upper" | "lower" = "lower", hingeSide: "left" | "right" | null = null, hardwarePosition = sku.hardwarePosition ?? sku.handleSide ?? "auto") => {
+    const selectedHardware = hardwareStyle(surfaceTextures?.hardwareStyleId);
+    const piece = drawer ? selectedHardware.drawerPiece : selectedHardware.doorPiece;
+    // A design configured as touch-latch/push-to-open must not acquire a default
+    // bar pull merely because a cabinet renderer was invoked.
+    if (piece === "none") return;
     const raisedFloorWallDoorPull = !drawer && usesRaisedFloorWallDoorPull({
       placement: sku.placementType,
       mountBottom: sku.mountBottom,
@@ -4123,9 +4209,19 @@ export function addCabinet(
     });
     const effectiveHardwarePosition = raisedFloorWallDoorPull && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
     const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
-    const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull;
+    const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull && piece === "pull";
     const pullLength = Math.min(Math.max(0.12, ((drawer || horizontalTopRailPull) ? faceWidth : faceHeight) * ((drawer || horizontalTopRailPull) ? 0.48 : 0.28)), (drawer || horizontalTopRailPull) ? 0.62 : 0.86);
-    const pull = new THREE.Mesh(new THREE.BoxGeometry((drawer || horizontalTopRailPull) ? pullLength : 0.022, (drawer || horizontalTopRailPull) ? 0.022 : pullLength, 0.026), hardwareMaterial);
+    const isKnob = piece === "knob";
+    const isCupPull = piece === "cup";
+    const pull = new THREE.Mesh(
+      isKnob
+        ? new THREE.SphereGeometry(0.035, 14, 10)
+        : isCupPull
+          ? new THREE.CylinderGeometry(0.052, 0.052, Math.min(0.2, pullLength), 14, 1, false, 0, Math.PI)
+          : new THREE.BoxGeometry((drawer || horizontalTopRailPull) ? pullLength : 0.022, (drawer || horizontalTopRailPull) ? 0.022 : pullLength, 0.026),
+      hardwareMaterial,
+    );
+    if (isCupPull) pull.rotation.z = Math.PI / 2;
     // Doors swing from their outside edge. Pulls therefore sit vertically at
     // the center meeting edge (opposite hinge). Upper doors pull from the
     // lower part; lower/pantry doors pull from the upper part.
@@ -4142,11 +4238,12 @@ export function addCabinet(
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
       ) * INCH;
     const pullY = drawer ? y : raisedFloorWallDoorPull || requestedTopCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
-    pull.position.set(pullX, pullY, z);
+    pull.position.set(pullX, pullY, isKnob ? z + 0.012 : z);
     pull.userData = {
       cabinetHardware: true,
-      cabinetPull: drawer ? "drawer" : "door",
-      verticalPull: !drawer && !horizontalTopRailPull,
+      cabinetPull: isKnob ? "knob" : isCupPull ? "cup-pull" : drawer ? "drawer" : "door",
+      hardwareStyleId: selectedHardware.id,
+      verticalPull: !isKnob && !drawer && !horizontalTopRailPull,
       pullDoorZone: drawer ? null : doorZone,
       pullEdge: raisedFloorWallDoorPull ? "raised-door-rail" : horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
       ...(hingeSide ? { hingeSide, handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
@@ -4155,6 +4252,7 @@ export function addCabinet(
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);
+    if (isKnob) return;
     for (const offset of [-1, 1] as const) {
       const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
       stem.rotation.x = Math.PI / 2;
@@ -5139,17 +5237,11 @@ export function addCabinet(
 	    frontGroup.add(door);
 	    if (!sku.glassDoor) addFaceShadow(doorWidth, doorHeight, door.position.x, door.position.y);
 	    addPull(doorWidth, doorHeight, door.position.x, door.position.y, false, 0.086, placement === "wall" ? "upper" : "lower", doorCount === 1 ? singleDoorHinge : null);
-	    const isRaised = profileKind === "raised";
 	    if (sku.glassDoor || profileKind === "shaker") {
 	      addShakerFrame(doorWidth, doorHeight, door.position.x, door.position.y, 0.036, 0, Boolean(sku.glassDoor));
-	    } else if (isRaised) {
-      const panel = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.72, doorHeight * 0.72, 0.052), trimMaterial);
-      panel.position.set(door.position.x, door.position.y, 0.045);
-      frontGroup.add(panel);
-      const inner = new THREE.Mesh(new THREE.BoxGeometry(doorWidth * 0.57, doorHeight * 0.57, 0.025), faceMaterial);
-      inner.position.set(door.position.x, door.position.y, 0.08);
-      frontGroup.add(inner);
-    }
+	    } else if (profileKind === "raised" || doorProfile?.panelConstruction === "raised") {
+	      addShakerFrame(doorWidth, doorHeight, door.position.x, door.position.y);
+	    }
   }
   const drawerRows = wd18Layout
     ? wd18Layout.drawerHeights.map((heightIn) => ({ count: 1, height: heightIn * INCH }))
@@ -8201,7 +8293,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -8910,6 +9002,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          suppressContinuousBaseToeKick: continuousToeKickMemberUids.has(cabinet.uid),
 		          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
 		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
+		          hardwareStyleId,
 		        });
 		      }
 		      if (toeKick && continuousToeKickSegments.length > 0) {
@@ -8924,7 +9017,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    } else {
       for (const suggestion of validSuggestions) {
         if (!suggestion.sku) continue;
-	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture, selectedToeKick: toeKick });
+	        addCabinet(catalogRoot, suggestion.sku, suggestion.zone.wallKey, cursor, room.width, room.depth, finish, materialDefaults.countertop, resolvedDoorProfile ?? undefined, undefined, activeDoorTexture, updateDoorTextureState, { countertop: countertopTexture, selectedToeKick: toeKick, hardwareStyleId });
 	      }
 	    }
 	    if (countertopUpstandSegments.length > 0) {
@@ -9002,7 +9095,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, hardwareStyleId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
 	  // A catalog filler has already passed geometry/collision validation before this
 	  // cue runs. Animate only its visual group, so the final coordinates and the

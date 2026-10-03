@@ -203,6 +203,13 @@ export const doorStylesRouter = router({
         railWidth: doorStyles.railWidth,
         stileWidth: doorStyles.stileWidth,
         centerRailWidth: doorStyles.centerRailWidth,
+        panelConstruction: doorStyles.panelConstruction,
+        bevelWidth: doorStyles.bevelWidth,
+        bevelDepth: doorStyles.bevelDepth,
+        insideEdgeProfile: doorStyles.insideEdgeProfile,
+        drawerFrontType: doorStyles.drawerFrontType,
+        grainDirection: doorStyles.grainDirection,
+        finishSheen: doorStyles.finishSheen,
         profileNotes: doorStyles.profileNotes,
         profileDescription: doorStyles.profileDescription,
         sourceSpecification: doorStyles.sourceSpecification,
@@ -249,6 +256,13 @@ export const doorStylesRouter = router({
         railWidth: doorStyles.railWidth,
         stileWidth: doorStyles.stileWidth,
         centerRailWidth: doorStyles.centerRailWidth,
+        panelConstruction: doorStyles.panelConstruction,
+        bevelWidth: doorStyles.bevelWidth,
+        bevelDepth: doorStyles.bevelDepth,
+        insideEdgeProfile: doorStyles.insideEdgeProfile,
+        drawerFrontType: doorStyles.drawerFrontType,
+        grainDirection: doorStyles.grainDirection,
+        finishSheen: doorStyles.finishSheen,
         profileNotes: doorStyles.profileNotes,
         profileDescription: doorStyles.profileDescription,
         specificationStatus: doorStyles.specificationStatus,
@@ -395,6 +409,13 @@ export const doorStylesRouter = router({
         railWidth: doorStyles.railWidth,
         stileWidth: doorStyles.stileWidth,
         centerRailWidth: doorStyles.centerRailWidth,
+        panelConstruction: doorStyles.panelConstruction,
+        bevelWidth: doorStyles.bevelWidth,
+        bevelDepth: doorStyles.bevelDepth,
+        insideEdgeProfile: doorStyles.insideEdgeProfile,
+        drawerFrontType: doorStyles.drawerFrontType,
+        grainDirection: doorStyles.grainDirection,
+        finishSheen: doorStyles.finishSheen,
         profileNotes: doorStyles.profileNotes,
         profileDescription: doorStyles.profileDescription,
         sourceSpecification: doorStyles.sourceSpecification,
@@ -494,6 +515,13 @@ export const doorStylesRouter = router({
         railWidth: z.number().min(0).max(99).nullable().optional(),
         stileWidth: z.number().min(0).max(99).nullable().optional(),
         centerRailWidth: z.number().min(0).max(99).nullable().optional(),
+        panelConstruction: z.enum(["raised", "flat", "slab", "glass"]).nullable().optional(),
+        bevelWidth: z.number().min(0).max(12).nullable().optional(),
+        bevelDepth: z.number().min(0).max(4).nullable().optional(),
+        insideEdgeProfile: z.string().max(64).nullable().optional(),
+        drawerFrontType: z.enum(["five-piece-raised", "five-piece-flat", "slab"]).nullable().optional(),
+        grainDirection: z.enum(["vertical-stiles-horizontal-rails", "vertical", "horizontal", "none"]).nullable().optional(),
+        finishSheen: z.enum(["satin", "matte", "gloss"]).nullable().optional(),
         profileNotes: z.string().max(256).nullable().optional(),
         profileDescription: z.string().nullable().optional(),
         sourceSpecification: z.string().max(512).nullable().optional(),
@@ -528,6 +556,13 @@ export const doorStylesRouter = router({
       if (fields.railWidth !== undefined) patch.railWidth = fields.railWidth ?? null;
       if (fields.stileWidth !== undefined) patch.stileWidth = fields.stileWidth ?? null;
       if (fields.centerRailWidth !== undefined) patch.centerRailWidth = fields.centerRailWidth ?? null;
+      if (fields.panelConstruction !== undefined) patch.panelConstruction = fields.panelConstruction;
+      if (fields.bevelWidth !== undefined) patch.bevelWidth = fields.bevelWidth ?? null;
+      if (fields.bevelDepth !== undefined) patch.bevelDepth = fields.bevelDepth ?? null;
+      if (fields.insideEdgeProfile !== undefined) patch.insideEdgeProfile = fields.insideEdgeProfile?.trim() || null;
+      if (fields.drawerFrontType !== undefined) patch.drawerFrontType = fields.drawerFrontType;
+      if (fields.grainDirection !== undefined) patch.grainDirection = fields.grainDirection;
+      if (fields.finishSheen !== undefined) patch.finishSheen = fields.finishSheen;
       if (fields.profileNotes !== undefined) patch.profileNotes = fields.profileNotes?.trim() || null;
       if (fields.profileDescription !== undefined) patch.profileDescription = fields.profileDescription?.trim() || null;
       if (fields.sourceSpecification !== undefined) patch.sourceSpecification = fields.sourceSpecification?.trim() || null;

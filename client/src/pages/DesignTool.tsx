@@ -10798,13 +10798,30 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const assignedStyleId = effectiveStyleId(cabinet, styleId) ?? styleId;
       const assignedStyle = doorStyles?.find((style) => style.id === assignedStyleId) ?? null;
       if (!assignedStyle) return [];
-      const frameStyle = assignedStyle as typeof assignedStyle & { railWidth?: string | number | null; stileWidth?: string | number | null };
+      const frameStyle = assignedStyle as typeof assignedStyle & {
+        railWidth?: string | number | null;
+        stileWidth?: string | number | null;
+        panelConstruction?: "raised" | "flat" | "slab" | "glass" | null;
+        bevelWidth?: string | number | null;
+        bevelDepth?: string | number | null;
+        insideEdgeProfile?: string | null;
+        drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
+        grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
+        finishSheen?: "satin" | "matte" | "gloss" | null;
+      };
       const frame = completeDoorFrameMetrics(frameStyle);
       return [[cabinet.uid, {
         doorStyle: assignedStyle.doorStyle ?? null,
         doorPanelType: assignedStyle.doorPanelType ?? null,
         railWidth: frame?.railWidth ?? null,
         stileWidth: frame?.stileWidth ?? null,
+        panelConstruction: frameStyle.panelConstruction ?? null,
+        bevelWidth: frameStyle.bevelWidth ?? null,
+        bevelDepth: frameStyle.bevelDepth ?? null,
+        insideEdgeProfile: frameStyle.insideEdgeProfile ?? null,
+        drawerFrontType: frameStyle.drawerFrontType ?? null,
+        grainDirection: frameStyle.grainDirection ?? null,
+        finishSheen: frameStyle.finishSheen ?? null,
       }]];
     })),
     [placed, styleId, doorStyles],
@@ -10957,18 +10974,35 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      cabinetFinishPreviewOptions={threeDCabinetFinishPreviewOptions}
 	      cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
+	      hardwareStyleId={hardwareStyleId}
 	      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
       catalogDoorProfile={activeStyle ? (() => {
-        const frame = completeDoorFrameMetrics(activeStyle as typeof activeStyle & { railWidth?: string | number | null; stileWidth?: string | number | null });
-        return {
-          doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
-          doorPanelType: activeStyle.doorPanelType ?? null,
-          railWidth: frame?.railWidth ?? null,
-          stileWidth: frame?.stileWidth ?? null,
-        };
+	        const styleProfile = activeStyle as typeof activeStyle & {
+	          railWidth?: string | number | null; stileWidth?: string | number | null;
+	          panelConstruction?: "raised" | "flat" | "slab" | "glass" | null;
+	          bevelWidth?: string | number | null; bevelDepth?: string | number | null;
+	          insideEdgeProfile?: string | null;
+	          drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
+	          grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
+	          finishSheen?: "satin" | "matte" | "gloss" | null;
+	        };
+	        const frame = completeDoorFrameMetrics(styleProfile);
+	        return {
+	          doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
+	          doorPanelType: activeStyle.doorPanelType ?? null,
+	          railWidth: frame?.railWidth ?? null,
+	          stileWidth: frame?.stileWidth ?? null,
+	          panelConstruction: styleProfile.panelConstruction ?? null,
+	          bevelWidth: styleProfile.bevelWidth ?? null,
+	          bevelDepth: styleProfile.bevelDepth ?? null,
+	          insideEdgeProfile: styleProfile.insideEdgeProfile ?? null,
+	          drawerFrontType: styleProfile.drawerFrontType ?? null,
+	          grainDirection: styleProfile.grainDirection ?? null,
+	          finishSheen: styleProfile.finishSheen ?? null,
+	        };
       })() : null}
 	      catalogFinishName={activeStyleName}
 	      catalogFinishProductId={styleId ?? null}
@@ -17236,20 +17270,37 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onSyncCart={syncThreeDOrderWithCart}
 			                initialPresentation={interactive3dPresentation ?? undefined}
 			                catalogFinishOverride={activeFinish.face}
-			                cabinetFinishPreviewOptions={threeDCabinetFinishPreviewOptions}
-			                cabinetFinishOverrides={threeDCabinetFinishOverrides}
-		                cabinetDoorProfiles={threeDCabinetDoorProfiles}
-		                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
+	                cabinetFinishPreviewOptions={threeDCabinetFinishPreviewOptions}
+	                cabinetFinishOverrides={threeDCabinetFinishOverrides}
+	                cabinetDoorProfiles={threeDCabinetDoorProfiles}
+	                hardwareStyleId={hardwareStyleId}
+	                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
 	                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
 	                catalogDoorProfile={activeStyle ? (() => {
-	                  const frame = completeDoorFrameMetrics(activeStyle as typeof activeStyle & { railWidth?: string | number | null; stileWidth?: string | number | null });
+	                  const styleProfile = activeStyle as typeof activeStyle & {
+	                    railWidth?: string | number | null; stileWidth?: string | number | null;
+	                    panelConstruction?: "raised" | "flat" | "slab" | "glass" | null;
+	                    bevelWidth?: string | number | null; bevelDepth?: string | number | null;
+	                    insideEdgeProfile?: string | null;
+	                    drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
+	                    grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
+	                    finishSheen?: "satin" | "matte" | "gloss" | null;
+	                  };
+	                  const frame = completeDoorFrameMetrics(styleProfile);
 	                  return {
 	                    doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
 	                    doorPanelType: activeStyle.doorPanelType ?? null,
 	                    railWidth: frame?.railWidth ?? null,
 	                    stileWidth: frame?.stileWidth ?? null,
+	                    panelConstruction: styleProfile.panelConstruction ?? null,
+	                    bevelWidth: styleProfile.bevelWidth ?? null,
+	                    bevelDepth: styleProfile.bevelDepth ?? null,
+	                    insideEdgeProfile: styleProfile.insideEdgeProfile ?? null,
+	                    drawerFrontType: styleProfile.drawerFrontType ?? null,
+	                    grainDirection: styleProfile.grainDirection ?? null,
+	                    finishSheen: styleProfile.finishSheen ?? null,
 	                  };
 	                })() : null}
 	                catalogFinishName={activeStyleName}

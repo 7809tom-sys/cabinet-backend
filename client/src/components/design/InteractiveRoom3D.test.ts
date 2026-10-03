@@ -23,7 +23,7 @@ import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./
 import { COUNTERTOP_DEPTH_IN, DEFAULT_ROOM, STD, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, nextAvailableRoomCornerPlacement, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, wallPlacementAt } from "@/lib/design";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStructuralSampleTexture } from "./InteractiveRoom3D";
-import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
+import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDDoorFinishSurfaceProfile, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
 describe("customer manual AI render handoff", () => {
@@ -6515,7 +6515,49 @@ describe("interactive 3D room scene helpers", () => {
     }
   });
 
+  it("builds a catalog-raised five-piece face with a profiled bevel and never adds an unselected default pull", () => {
+    const raisedProfile = {
+      doorStyle: "Aspen Charcoal Raised Panel",
+      doorPanelType: "Raised Panel",
+      panelConstruction: "raised" as const,
+      bevelWidth: 0.5,
+      bevelDepth: 0.18,
+      insideEdgeProfile: "beveled ogee",
+      drawerFrontType: "five-piece-raised" as const,
+      grainDirection: "vertical-stiles-horizontal-rails" as const,
+      finishSheen: "satin" as const,
+    };
+    const b18 = { masterCode: "B18", description: "18 inch base", placementType: "base", width: 18, height: 34.5, depth: 24, numberOfDoors: 1, numberOfDrawers: 1 } as never;
+    const withoutHardware = new THREE.Group();
+    addCabinet(withoutHardware, b18, null, {}, 144, 120, "#241a18", "#f8f8f6", raisedProfile, undefined, undefined, undefined, { hardwareStyleId: "none" });
+    const raisedPanels: THREE.Object3D[] = [];
+    const bevels: THREE.Object3D[] = [];
+    const hardware: THREE.Object3D[] = [];
+    withoutHardware.traverse((node) => {
+      if (node.userData.raisedCenterPanel) raisedPanels.push(node);
+      if (node.userData.raisedPanelBevel) bevels.push(node);
+      if (node.userData.cabinetHardware) hardware.push(node);
+    });
+    expect(raisedPanels.length).toBeGreaterThanOrEqual(2);
+    expect(bevels.length).toBeGreaterThanOrEqual(2);
+    expect(bevels.every((node) => node.userData.insideEdgeProfile === "beveled ogee")).toBe(true);
+    expect(hardware).toHaveLength(0);
+
+    const withKnob = new THREE.Group();
+    addCabinet(withKnob, b18, null, {}, 144, 120, "#241a18", "#f8f8f6", raisedProfile, undefined, undefined, undefined, { hardwareStyleId: "knob" });
+    const knobs: THREE.Object3D[] = [];
+    withKnob.traverse((node) => { if (node.userData.cabinetPull === "knob") knobs.push(node); });
+    expect(knobs.length).toBeGreaterThanOrEqual(2);
+  });
+  it("uses satin cabinet material without glass reflection behavior", () => {
+    const satin = threeDDoorFinishSurfaceProfile("satin", true);
+    expect(satin.roughness).toBeCloseTo(0.4, 8);
+    expect(satin.metalness).toBe(0);
+    expect(satin.clearcoat).toBeCloseTo(0.1, 8);
+  });
+
   it("builds a legacy WDC2430 as one flush diagonal side-skin wedge with two angled front doors, never a generic wall panel", () => {
+
     const legacyWdc2430 = existingCabinetSku({
       uid: "legacy-wdc2430",
       cabinetId: 9390172,

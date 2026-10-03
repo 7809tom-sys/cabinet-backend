@@ -1177,6 +1177,13 @@
       "when": 1790798202140,
       "tag": "0168_outgoing_franklin_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "5",
+      "when": 1791003595807,
+      "tag": "0169_minor_winter_soldier",
+      "breakpoints": true
     }
   ]
 }
