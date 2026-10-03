@@ -14173,6 +14173,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onOpenAttributes={openAttributes}
               onDropNew={handleDropNew}
               showWallLayer={showWallLayer}
+              showCrownTopBadges={crown}
               onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
               measureMode={measureMode}
               autoDimensions={autoDimensions}
@@ -14417,6 +14418,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  onOpenAttributes={openAttributes}
                   onDropNew={handleDropNew}
 	                  showWallLayer={showWallLayer}
+	                  showCrownTopBadges={crown}
 	                  onToggleWallLayer={() => setShowWallLayer((visible) => !visible)}
 	                  measureMode={measureMode}
 	              autoDimensions={autoDimensions}

@@ -300,6 +300,8 @@ interface Props {
 	  /** Toolbar-controlled choice between nearest-valid placement and exact manual placement. */
   automaticSnapping?: boolean;
   showWallLayer: boolean;
+  /** Crown-top callouts describe selected crown molding only; never imply crown on an untrimmed plan. */
+  showCrownTopBadges?: boolean;
   /** Keeps wall-cabinet visibility in the single Floor Plan action rail. */
   onToggleWallLayer?: () => void;
   measureMode?: boolean;
@@ -445,7 +447,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 
 export function PlanCanvas({
   room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
-  showWallLayer, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
+  showWallLayer, showCrownTopBadges = false, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
@@ -2916,7 +2918,7 @@ export function PlanCanvas({
         {/* Crown-top badges: one per continuous upper run, showing the height the
             crown finishes at. Runs whose top differs from another run on the same
             wall are flagged so mismatched tops are caught before opening 3D. */}
-        {showWallLayer && !drawMode && !measureMode && crownTopRuns(cabinets, room).map((run) => (
+        {showCrownTopBadges && showWallLayer && !drawMode && !measureMode && crownTopRuns(cabinets, room).map((run) => (
           <div
             key={`crown-top-${run.wallId}-${run.start}-${run.top}`}
             data-testid="crown-top-badge"
