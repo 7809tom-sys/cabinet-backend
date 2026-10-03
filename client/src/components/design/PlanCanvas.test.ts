@@ -352,6 +352,44 @@ describe("user measured open wall paths", () => {
     expect(markup).toContain("2438 mm");
   });
 
+  it("labels clear wall spans and both distances around a physical wall opening", () => {
+    const room: RoomData = { width: 120, depth: 96, ceilingHeight: 96 };
+    const baseCabinet = {
+      ...base,
+      uid: "opening-label-b36",
+      masterCode: "B36",
+      description: "36 inch Base Cabinet",
+      placement: "base",
+      width: 36,
+      depth: 24,
+      height: 34.5,
+      x: 0,
+      y: 0,
+      wallId: "top",
+      wallOffset: 0,
+    } as PlacedCabinet;
+    const opening: WallOpening = {
+      uid: "opening-label-window",
+      kind: "window",
+      label: "Window 36\"",
+      side: "top",
+      offset: 24,
+      width: 36,
+      height: 36,
+      sill: 42,
+    };
+
+    const markup = renderToStaticMarkup(createElement(LanguageProvider, null, createElement(PlanCanvas, {
+      room, cabinets: [baseCabinet], selectedUid: null, onSelect: () => undefined, onMove: () => undefined,
+      showWallLayer: true, autoDimensions: true, openings: [opening],
+    })));
+
+    expect(markup).toContain("Open 84");
+    expect(markup).toContain("Window 36");
+    expect(markup).toContain("24&quot; / 60&quot; to ends");
+    expect(markup).toContain("Cabinet placement evaluates wall holds and collision separately.");
+  });
+
   it("routes right-click and double-click wall gestures to the existing attributes dialog", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
 

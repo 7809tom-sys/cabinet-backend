@@ -3059,8 +3059,8 @@ export function PlanCanvas({
             const start = Math.max(0, Math.min(frame.length, opening.offset));
             const width = Math.max(0, Math.min(frame.length - start, opening.width));
             if (width <= 0) return [];
-            const nearest = Math.min(start, Math.max(0, frame.length - start - width));
-            return [{ opening, frame, start, width, nearest }];
+            const end = Math.max(0, frame.length - start - width);
+            return [{ opening, frame, start, width, end }];
           });
           const islandAisle = island ? (() => {
             const box = { left: island.x, top: island.y, right: island.x + island.width, bottom: island.y + island.depth };
@@ -3133,7 +3133,13 @@ export function PlanCanvas({
                 return chain.segments.map((segment, index) => {
                   const dimensionKey = `run:${chain.wallId}:${chain.layer}:${index}`;
                   const adjustment = adjustmentFor(dimensionKey);
-                  const label = formatDisplayDimension(segment.length);
+                  // A bare number on an empty stretch looks like a cabinet size.
+                  // Make the physical clear span explicit, but do not call it a
+                  // placeable cabinet clearance: collision, wall openings, and
+                  // 45-degree corner holds remain separate placement rules.
+                  const label = segment.kind === "gap"
+                    ? `Open ${formatDisplayDimension(segment.length)}`
+                    : formatDisplayDimension(segment.length);
                   const metrics = labelMetrics(label.length);
                   const start = railPoint(frame, segment.start, railOffsetIn, adjustment);
                   const end = railPoint(frame, segment.start + segment.length, railOffsetIn, adjustment);
@@ -3147,6 +3153,9 @@ export function PlanCanvas({
                     key={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
                     data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
                     data-dimension-key={dimensionKey}
+                    aria-label={segment.kind === "gap"
+                      ? `Clear wall span ${formatDisplayDimension(segment.length)}. Cabinet placement evaluates wall holds and collision separately.`
+                      : undefined}
                     className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
                     onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
                     onPointerMove={moveDimensionLeaderDrag}
@@ -3167,11 +3176,16 @@ export function PlanCanvas({
                 });
               })}
 
-              {/* Window and door width plus nearest-corner distance on their owning run. */}
-              {openingDimensions.map(({ opening, frame, start, width, nearest }) => {
+              {/* Door, window, and cased-opening width plus both wall-end dimensions. */}
+              {openingDimensions.map(({ opening, frame, start, width, end }) => {
                 const dimensionKey = `opening:${opening.uid}`;
                 const adjustment = adjustmentFor(dimensionKey);
-                const label = `${formatDisplayDimension(width)} · ${formatDisplayDimension(nearest)} to corner`;
+                const openingKind = opening.kind === "door"
+                  ? "Door"
+                  : opening.kind === "window"
+                    ? "Window"
+                    : "Wall opening";
+                const label = `${openingKind} ${formatDisplayDimension(width)} · ${formatDisplayDimension(start)} / ${formatDisplayDimension(end)} to ends`;
                 const metrics = labelMetrics(label.length);
                 const a = railPoint(frame, start, openingRailOffsetIn, adjustment);
                 const b = railPoint(frame, start + width, openingRailOffsetIn, adjustment);
