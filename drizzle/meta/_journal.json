@@ -1198,6 +1198,13 @@
       "when": 1791041850847,
       "tag": "0171_outgoing_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "5",
+      "when": 1791042164264,
+      "tag": "0172_cabinet_brand_attributes",
+      "breakpoints": true
     }
   ]
 }
