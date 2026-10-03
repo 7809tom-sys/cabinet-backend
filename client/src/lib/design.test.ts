@@ -2511,6 +2511,40 @@ describe("freeSegmentsOnWall (break the run around openings)", () => {
     });
   });
 
+  it("keeps a same-width upper at the exact selected-base offset beside a 45-degree corner hold", () => {
+    const room: RoomData = {
+      width: 168,
+      depth: 96,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 },
+        { id: "b", x: 120, y: 0 },
+        { id: "c", x: 168, y: 48 },
+        { id: "d", x: 120, y: 96 },
+        { id: "e", x: 0, y: 96 },
+      ],
+      customWalls: [
+        { id: "top", startVertexId: "a", endVertexId: "b" },
+        { id: "wall-45", startVertexId: "b", endVertexId: "c", lockedAngle: 45 },
+        { id: "wall-135", startVertexId: "c", endVertexId: "d", lockedAngle: -45 },
+        { id: "bottom", startVertexId: "d", endVertexId: "e" },
+        { id: "left", startVertexId: "e", endVertexId: "a" },
+      ],
+    };
+    // This base predates the generic first-cabinet 11-inch corner reserve but
+    // is physically seated on Wall 2 at offset 10. A selected 15-inch upper
+    // must project directly above it rather than shift to offset 11.
+    const lowerSpot = wallPlacementAt(10, 15, 24, "wall-45", room);
+    const lower = cab({
+      uid: "selected-b15", masterCode: "B15", placement: "base", ...lowerSpot,
+      width: 15, depth: 24, height: 34.5, rotation: lowerSpot.rotation,
+      wallId: "wall-45", wallOffset: lowerSpot.wallOffset,
+    });
+    expect(selectedLowerCabinetWallPlacement(lower, room, 15, 12, 42, [lower], [])).toEqual(
+      wallPlacementAt(10, 15, 12, "wall-45", room),
+    );
+  });
+
   it("recognizes the reported 54-inch opening, places W-30-24 at exact edge contact, and leaves 24 inches open", () => {
     const previous = cab({ uid: "previous-upper", masterCode: "W-30-42", placement: "wall", x: 0, y: 0, width: 30, depth: 12, height: 42 });
     const laterTall = cab({ uid: "later-tall", masterCode: "T-24-96", placement: "tall", x: 84, y: 0, width: 24, depth: 24, height: 96 });

@@ -4079,8 +4079,34 @@ export function selectedLowerCabinetWallPlacement(
     centeredStart >= segment.start - COLLISION_EPSILON_IN
     && centeredStart + width <= segment.start + segment.length + COLLISION_EPSILON_IN
   ));
-  if (!exactProjectionIsClear || hasCollision(candidate, placed)) return null;
-  return centeredSpot;
+  if (exactProjectionIsClear && !hasCollision(candidate, placed)) return centeredSpot;
+
+  // A lower box already seated at a real 45° vertex is the designer's explicit
+  // alignment target. Older saved plans can legitimately have that box inside
+  // the generic 11-inch first-cabinet hold. Do not slide its matching upper by
+  // an inch merely because the *initial-placement* reserve starts at 11 inches:
+  // retain the exact lower projection when it is inside this wall's measured
+  // limits, clears actual upper geometry, and does not cross a wall opening.
+  // This is deliberately narrow—normal unselected catalog placement still uses
+  // the shared corner hold, and an occupied upper or opening still wins.
+  const targetEnd = centeredStart + width;
+  const crossesOpening = openings.some((opening) => (
+    opening.side === side
+    && centeredStart < opening.offset + opening.width - COLLISION_EPSILON_IN
+    && targetEnd > opening.offset + COLLISION_EPSILON_IN
+  ));
+  const selectedRun = seatedWallRunFrame(selected, room);
+  const isExactSelectedRunProjection = Boolean(
+    selectedRun
+    && selected.wallId === side
+    && Math.abs(lowerStart - centeredStart) <= COLLISION_EPSILON_IN
+    && centeredStart >= -COLLISION_EPSILON_IN
+    && targetEnd <= selectedRun.length + COLLISION_EPSILON_IN,
+  );
+  if (isExactSelectedRunProjection && !crossesOpening && !cabinetPlacementCollisionDetail(candidate, placed, room)) {
+    return centeredSpot;
+  }
+  return null;
 }
 
 /**
