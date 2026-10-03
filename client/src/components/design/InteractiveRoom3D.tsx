@@ -6307,7 +6307,13 @@ function worldCrownFootprints(cabinet: PlacedCabinet, room: RoomData): CrownFoot
  */
 function crownEdgeCoveredByFootprint(edge: ThreeDCrownPerimeterSegment, blocker: CrownFootprint) {
   const seamTolerance = 0.25 + 1e-6;
-  if (Math.abs(edge.top - blocker.top) > seamTolerance || edge.length <= 1e-6 || blocker.points.length < 3) return null;
+  // Rule: crown lives only at a cabinet's own top and is never drawn below the
+  // top of another cabinet. A neighbouring body whose top is at the same height
+  // merges with this rail (its own edges take over); a neighbouring body that
+  // is TALLER physically occupies the space the rail would pass through (e.g.
+  // the refrigerator bridge beside a ceiling-height pantry), so it blocks too.
+  // Only a body whose top is BELOW this rail leaves the edge exposed.
+  if (edge.top > blocker.top + seamTolerance || edge.length <= 1e-6 || blocker.points.length < 3) return null;
   const dx = edge.end.x - edge.start.x;
   const dz = edge.end.z - edge.start.z;
   const outwardX = dz / edge.length;
