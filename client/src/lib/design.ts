@@ -7537,6 +7537,9 @@ export function freeSegmentsOnWall(
   // A short bridge may cross a window only when its explicit mount height
   // clears the opening vertically.
   candidate?: PlacedCabinet,
+  // A 12-inch upper reaches less far into a 45-degree corner than a 24-inch
+  // base. Callers that know the intended cabinet pass its real depth here.
+  layerDepth?: number,
 ): WallSegment[] {
   const frame = wallRunFrame(side, room);
   const peninsulaRun = peninsulaRunById(room, side);
@@ -7559,14 +7562,29 @@ export function freeSegmentsOnWall(
     }
   }
 
-  // Inside-corner installation hold by join angle, the same rule on every
-  // perimeter wall: a 45° join reserves 11 inches on each leg so two 24-inch
-  // faces cannot cross at the vertex; a 90° corner is flush (zero hold).
+  // Inside-corner installation hold by join angle on the actual cabinet layer.
+  // A 45° join holds 11 inches for a 24-inch base, 5.5 inches for a 12-inch
+  // upper, and proportionally for other real cabinet depths.
   if (frame && frame.kind !== "peninsula" && ["base", "wall", "tall"].includes(layer)) {
+    const defaultDepth = layer === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
+    // The hold protects an *ordinary* run cabinet from intruding into a turn.
+    // A true L/diagonal/blind corner cabinet has its own explicit corner-seat
+    // geometry and must not be rejected by the ordinary-run hold. Keep the
+    // proven base reference for that candidate; its adjoining legs are still
+    // reserved below for every following cabinet.
+    const candidateIsTrueCorner = candidate != null && (
+      placedCornerGeometryKind(candidate) === "l-shape"
+      || placedCornerGeometryKind(candidate) === "diagonal"
+      || placedCornerGeometryKind(candidate) === "corner-drawer"
+      || placedCornerGeometryKind(candidate) === "blind-corner"
+    );
+    const requestedDepth = candidateIsTrueCorner
+      ? defaultDepth
+      : Math.max(0, Number(layerDepth ?? candidate?.depth) || defaultDepth);
     const startJoin = wallRunJoinAt(frame, "start", room);
     const endJoin = wallRunJoinAt(frame, "end", room);
-    const startHold = startJoin ? insideCornerHoldIn(startJoin.turnDeg) : 0;
-    const endHold = endJoin ? insideCornerHoldIn(endJoin.turnDeg) : 0;
+    const startHold = startJoin ? insideCornerHoldIn(startJoin.turnDeg, requestedDepth) : 0;
+    const endHold = endJoin ? insideCornerHoldIn(endJoin.turnDeg, requestedDepth) : 0;
     if (startHold > 0) blocked.push({ s: 0, e: Math.min(startHold, wallLen) });
     if (endHold > 0) blocked.push({ s: Math.max(0, wallLen - endHold), e: wallLen });
   }
@@ -7742,6 +7760,8 @@ export function paletteActiveWallPlacement(
     placement === "wall" ? WALL_OPENING_CLEARANCE_IN : 0,
     placement,
     reserveFullHeightAppliances,
+    undefined,
+    depth,
   );
   // Work from the selected wall's visible left edge toward its right edge. A
   // later tall cabinet or prior intentional gap must not push the next cabinet
@@ -7934,19 +7954,14 @@ export function cabinetWallMovePreview(
   const startExtension = Math.max(0, Number(options.magneticEnvelope?.startExtensionIn) || 0);
   const endExtension = Math.max(0, Number(options.magneticEnvelope?.endExtensionIn) || 0);
   const magneticWidth = width + startExtension + endExtension;
-  // A saved same-axis half turn is the same seating on any wall; keep the
-  // user's turn instead of rewriting the plan graphic.
-  const keepRotation = (spot: { rotation: number }) => ((Math.round(cabinet.rotation) % 180) + 180) % 180 === ((spot.rotation % 180) + 180) % 180
-    ? cabinet.rotation
-    : spot.rotation;
   const seat = (start: number): PlacedCabinet => {
     const spot = wallPlacementAt(start, width, depth, frame!.id, room, cabinet.peninsulaSide);
-    return { ...cabinet, ...spot, rotation: keepRotation(spot), wallId: spot.wallId ?? frame!.id, wallOffset: spot.wallOffset ?? start };
+    return { ...cabinet, ...spot, rotation: spot.rotation, wallId: spot.wallId ?? frame!.id, wallOffset: spot.wallOffset ?? start };
   };
   if (!magnet) {
     return { candidate: seat(clampedStart), wall: frame.id, frame, requestedStart, snapped: false, failure: null };
   }
-  const segments = freeSegmentsOnWall(frame.id, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet);
+  const segments = freeSegmentsOnWall(frame.id, room, peers, openings, 0.5, 0, cabinet.placement, false, cabinet, depth);
   // Work in exposed-envelope coordinates.  For a refrigerator with a selected
   // left end panel, a base cabinet ending at 36 in pulls the panel's outside
   // edge to 36 in, which means the refrigerator itself seats at 37.25 in.
@@ -7968,7 +7983,7 @@ export function cabinetWallMovePreview(
     ? firstCollisionFreeWallPlacement(frame.id, room, peers, width, depth, cabinet.placement, magnetStart, containing.start + startExtension, containing.start + containing.length - width - endExtension)
     : wallPlacementAt(magnetStart, width, depth, frame.id, room, cabinet.peninsulaSide);
   if (!spot) return { candidate: null, wall: frame.id, frame, requestedStart, snapped: false, failure: "no-clear-position" };
-  const seated: PlacedCabinet = { ...cabinet, ...spot, rotation: keepRotation(spot), wallId: spot.wallId ?? frame.id, wallOffset: spot.wallOffset ?? magnetStart };
+  const seated: PlacedCabinet = { ...cabinet, ...spot, rotation: spot.rotation, wallId: spot.wallId ?? frame.id, wallOffset: spot.wallOffset ?? magnetStart };
   // Final edge-contact resolution: a near seam within the caller's tolerance
   // becomes exact zero-gap contact. The same rectangular seam rule applies on
   // every wall; it never approves an overlap.
@@ -8047,6 +8062,8 @@ export function alternateWallPlacementRecommendation(
       placement === "wall" ? WALL_OPENING_CLEARANCE_IN : 0,
       placement,
       reserveFullHeightAppliances,
+      undefined,
+      depth,
     ).find((segment) => segment.length + 0.001 >= width)?.length;
     if (availableLength == null) return [];
     return [{ side, spot, availableLength, order }];
@@ -8959,12 +8976,15 @@ export function wallRunJoinAt(frame: WallRunFrame, at: "start" | "end", room: Ro
   return null;
 }
 /**
- * Installation hold reserved on each leg at an inside corner, by join angle.
- * Two 24-inch faces meeting at a 45° turn need 11 inches so the fronts do not
- * cross at the vertex; a 90° corner is flush and reserves nothing here.
+ * Installation hold reserved on each leg at an inside corner, by join angle
+ * and the physical cabinet depth at that layer. Two 24-inch faces meeting at
+ * a 45° turn need 11 inches so the fronts do not cross at the vertex; a
+ * 12-inch upper needs half that hold. A 90° corner remains flush.
  */
-export function insideCornerHoldIn(turnDeg: number): number {
-  return Math.abs(turnDeg - 45) <= 0.5 ? PENINSULA_INSIDE_CORNER_CLEARANCE_IN : 0;
+export function insideCornerHoldIn(turnDeg: number, cabinetDepth = STD.BASE_DEPTH): number {
+  if (Math.abs(turnDeg - 45) > 0.5) return 0;
+  const depth = Math.max(0, Number(cabinetDepth) || STD.BASE_DEPTH);
+  return PENINSULA_INSIDE_CORNER_CLEARANCE_IN * (depth / STD.BASE_DEPTH);
 }
 /** Unclamped along-wall inches of a plan point on a run frame. */
 export function wallRunAlongAtPoint(frame: WallRunFrame, point: { x: number; y: number }): number {
@@ -9010,6 +9030,20 @@ export function nearestWallRunAtPoint(
 export function placedPlanCenter(p: PlacedCabinet): { x: number; y: number } {
   const footprint = placedFootprint(p);
   return { x: p.x + footprint.w / 2, y: p.y + footprint.d / 2 };
+}
+
+/**
+ * Center inferred from a cabinet's stored plan envelope when that envelope was
+ * originally seated on `frame`, even if an old save carries a screen-square
+ * rotation. This prevents a rotation-only repair from sliding an upper along a
+ * 45° wall just because the stale rotation made its screen bounding box smaller.
+ */
+function wallOrientedEnvelopeCenter(p: PlacedCabinet, frame: WallRunFrame): { x: number; y: number } {
+  const span = alongRunSpan(p);
+  const depth = Number(p.depth) || (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+  const boundWidth = Math.abs(span * frame.tangent.x) + Math.abs(depth * frame.inward.x);
+  const boundDepth = Math.abs(span * frame.tangent.y) + Math.abs(depth * frame.inward.y);
+  return { x: p.x + boundWidth / 2, y: p.y + boundDepth / 2 };
 }
 
 /**
@@ -9094,11 +9128,30 @@ export function reseatOnWallRun(p: PlacedCabinet, room: RoomData): PlacedCabinet
     const { wallId: _wallId, wallOffset: _wallOffset, ...rest } = p;
     return rest as PlacedCabinet;
   };
-  const rotation = ((Math.round(p.rotation) % 360) + 360) % 360;
-  if (((rotation - frame.facingRotation) % 180 + 180) % 180 !== 0) return strip();
   const span = alongRunSpan(p);
   const depth = Number(p.depth) || (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
   const center = placedPlanCenter(p);
+  const rotation = ((Math.round(p.rotation) % 360) + 360) % 360;
+  const rotationMatchesWall = ((rotation - frame.facingRotation) % 180 + 180) % 180 === 0;
+  // Old saved records can be physically close to a measured wall while still
+  // carrying a cardinal screen rotation. Re-seat only records within the
+  // ordinary wall-magnet reach, and use the frame's canonical rotation. An
+  // item intentionally pulled off the wall remains untouched except for its
+  // stale run metadata being cleared.
+  if (!rotationMatchesWall) {
+    const orientedCenter = wallOrientedEnvelopeCenter(p, frame);
+    const wallReach = depth / 2 + STD.SNAP_THRESHOLD + COLLISION_EPSILON_IN;
+    if (wallRunDistanceToPoint(frame, orientedCenter) > wallReach) return strip();
+    const projected = wallRunAlongAtPoint(frame, orientedCenter) - span / 2;
+    const maxStart = Math.max(0, frame.length - span);
+    // Existing wall metadata is the user's intended along-wall location. Keep
+    // it when repairing only the orientation; use the projected body center
+    // only for records that never persisted an offset.
+    const storedOffset = p.wallOffset != null && Number.isFinite(Number(p.wallOffset)) ? Number(p.wallOffset) : projected;
+    const offset = roundToEighth(Math.max(0, Math.min(maxStart, storedOffset)));
+    const spot = wallPlacementAt(offset, span, depth, frame.id, room, p.peninsulaSide);
+    return { ...p, ...spot, rotation: spot.rotation, wallId: spot.wallId ?? frame.id, wallOffset: spot.wallOffset ?? offset };
+  }
   const projected = wallRunAlongAtPoint(frame, center) - span / 2;
   const maxStart = Math.max(0, frame.length - span);
   const offset = roundToEighth(Math.max(0, Math.min(maxStart, projected)));
@@ -9137,20 +9190,31 @@ export function backfillLegacyWallRuns(placed: PlacedCabinet[], room: RoomData):
   let changed = false;
   const next = placed.map((p) => {
     if (p.islandFace) return p;
-    if (p.wallId && p.wallOffset != null && Number.isFinite(Number(p.wallOffset)) && wallRunFrame(p.wallId, room)) return p;
+    if (p.wallId && p.wallOffset != null && Number.isFinite(Number(p.wallOffset)) && wallRunFrame(p.wallId, room)) {
+      const repaired = reseatOnWallRun(p, room);
+      if (repaired !== p) changed = true;
+      return repaired;
+    }
     if (placedCornerGeometryKind(p) !== "standard") return p;
     const nearest = nearestWallRunAtPoint(room, placedPlanCenter(p));
     if (!nearest) return p;
     const rotation = ((Math.round(p.rotation) % 360) + 360) % 360;
-    if (((rotation - nearest.frame.facingRotation) % 180 + 180) % 180 !== 0) return p;
     const span = alongRunSpan(p);
     const maxStart = Math.max(0, nearest.frame.length - span);
-    const offset = roundToEighth(Math.max(0, Math.min(maxStart, nearest.along - span / 2)));
     const depth = Number(p.depth) || (p.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH);
+    // A legacy screen-square upper has the correct *oriented* envelope but an
+    // obsolete rotation. Recover its along-run center from the intended wall
+    // frame before assigning wallId/wallOffset, so this repair rotates only.
+    const orientedCenter = wallOrientedEnvelopeCenter(p, nearest.frame);
+    const orientedAlong = wallRunAlongAtPoint(nearest.frame, orientedCenter);
+    const offset = roundToEighth(Math.max(0, Math.min(maxStart, orientedAlong - span / 2)));
     const spot = wallPlacementAt(offset, span, depth, nearest.frame.id, room, p.peninsulaSide);
-    if (Math.abs(spot.x - p.x) > 0.125 || Math.abs(spot.y - p.y) > 0.125) return p;
+    const rotationMatchesWall = ((rotation - nearest.frame.facingRotation) % 180 + 180) % 180 === 0;
+    const withinWallReach = wallRunDistanceToPoint(nearest.frame, orientedCenter) <= depth / 2 + STD.SNAP_THRESHOLD + COLLISION_EPSILON_IN;
+    if (!rotationMatchesWall && !withinWallReach) return p;
+    if (rotationMatchesWall && (Math.abs(spot.x - p.x) > 0.125 || Math.abs(spot.y - p.y) > 0.125)) return p;
     changed = true;
-    return { ...p, wallId: spot.wallId ?? nearest.frame.id, wallOffset: spot.wallOffset ?? offset };
+    return { ...p, ...spot, rotation: spot.rotation, wallId: spot.wallId ?? nearest.frame.id, wallOffset: spot.wallOffset ?? offset };
   });
   return changed ? next : placed;
 }

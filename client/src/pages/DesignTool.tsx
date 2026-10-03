@@ -3314,10 +3314,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // persisted can have a visually seated cabinet but no wallId/wallOffset.
 	      // Repair that once while restoring so the drag preview and the final
 	      // collision check use the same physical run coordinates.
-	      const peninsulaNormalizedPlaced = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
-	        clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom), restoredRoom),
+	      const peninsulaNormalizedPlaced = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
+	        normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom),
 	        restoredRoom,
-	      ), restoredRoom);
+	      ), restoredRoom), restoredRoom);
 	      const repairedPlaced = removeOverlappingPlacements(
 	        normalizeStandardWallMounts(
 	          normalizeWd18CountertopMounts(
@@ -5056,6 +5056,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             0,
             accPlacement,
             isRefrigerator({ masterCode: c.masterCode, placement: accPlacement }),
+            undefined,
+            depth,
           );
           const fit = segs.find((segment) => segment.length >= width) ?? segs[0];
           if (fit) {
@@ -5440,6 +5442,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             finalCab.placement,
             isRefrigerator(finalCab),
             finalCab,
+            finalCab.depth,
           ),
           requestedAlong,
           finalCab.width,
@@ -8195,7 +8198,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // legacy island cabinets predate islandFace metadata, so exclude all
       // island members by geometry before measuring a back-wall opening.
       const wallRunPlaced = island ? placed.filter((item) => !isOnIsland(item, island)) : placed;
-      const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement);
+      const segments = freeSegmentsOnWall(dropWall, room, wallRunPlaced, openings, 0.5, 0, placement, false, undefined, depth);
       const gaps: WallGap[] = segments.map((segment) => ({ side: dropWall, layer: placement === "wall" ? "wall" : "base", start: segment.start, length: segment.length, center: segment.start + segment.length / 2, isStandardSize: Math.abs(segment.length / 3 - Math.round(segment.length / 3)) < 0.01, isFillerSize: segment.length <= 6 }));
 	      // A catalog drop is a normal replacement unless the user has explicitly
 	      // switched automatic snapping off. Modifier keys and a 3D pointer position
@@ -8523,9 +8526,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 		  const rotateSelected = () => {
 		    if (!selectedUid) return;
-			    setPlaced((prev) =>
+	    setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
+        const owningWall = p.wallId ? wallRunFrame(p.wallId, room) : null;
+        if (owningWall && !p.islandFace && !isCornerCabinet(p.masterCode, p.description)) {
+          // A cabinet seated to a wall never rotates square to the screen. The
+          // Rotate control restores the owning run's canonical facing while
+          // preserving its measured along-wall offset. Free-standing objects
+          // keep the ordinary 90-degree rotate behavior below.
+          const offset = wallRunOffset(p, owningWall.id, room);
+          const spot = wallPlacementAt(offset, p.width, p.depth, owningWall.id, room, p.peninsulaSide);
+          return { ...p, ...spot, rotation: spot.rotation, wallId: spot.wallId ?? owningWall.id, wallOffset: spot.wallOffset ?? offset };
+        }
         const rotated = { ...p, rotation: (p.rotation + 90) % 360 };
         // Re-seat against the wall so the new orientation sits cleanly
         // instead of keeping the old footprint's snapped position.
@@ -8649,11 +8662,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // nudged off it freely (it does not drag the island with it) so users can
   // re-arrange the island run; we just keep every cabinet clamped inside the
   // room. This is the fix for "can't move a cabinet once it's on the island".
-	  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
-	    if (!selectedUid) return;
-	    const current = placedRef.current.find((item) => item.uid === selectedUid);
-	    if (!current) return;
-	    // Every nudge — standard wall, drawn wall, peninsula or free-floating —
+		  const nudgeSelected = useCallback((dxIn: number, dyIn: number) => {
+		    if (!selectedUid) return;
+		    const current = placedRef.current.find((item) => item.uid === selectedUid);
+		    if (!current) return;
+		    const seatedWall = current.wallId ? wallRunFrame(current.wallId, room) : null;
+		    if (seatedWall && !current.islandFace) {
+		      // The compact arrow controls are screen arrows, but a cabinet attached to
+		      // any wall must travel along that wall's tangent—not along page X/Y.
+		      const alongDelta = roundToEighth(dxIn * seatedWall.tangent.x + dyIn * seatedWall.tangent.y);
+		      if (Math.abs(alongDelta) > COLLISION_EPSILON_IN) {
+		        setCabinetWallOffset(current.uid, wallRunOffset(current, seatedWall.id, room) + alongDelta);
+		      }
+		      return;
+		    }
+		    // Every nudge — standard wall, drawn wall, peninsula or free-floating —
 	    // takes the same authoritative route as a drag: moveCabinet re-measures the
 	    // run, keeps wallId/wallOffset current, rounds to the 1/8-inch grid and
 	    // applies the shared collision/filler/sink safeguards.
@@ -8664,7 +8687,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      undefined,
 	      true,
 	    );
-	  }, [selectedUid, moveCabinet]);
+		  }, [selectedUid, moveCabinet, room, setCabinetWallOffset]);
 
   // Raise/lower the selected WALL cabinet's mount height. Stores an explicit
   // mountBottom override (inches from floor to the box bottom); the elevation
@@ -10062,10 +10085,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            // Drafts survive refreshes independently of saved designs. Bring
 	            // every older custom-wall cabinet into the current measured wall
 	            // frame before the first preview or release can inspect it.
-	            const peninsulaNormalizedDraft = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
-	              clampCabinetsToRoom(normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom), draftRoom),
+	            const peninsulaNormalizedDraft = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
+	              normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom),
 	              draftRoom,
-	            ), draftRoom);
+	            ), draftRoom), draftRoom);
 	            setPlaced(removeOverlappingPlacements(
 	              normalizeStandardWallMounts(
 	                normalizeWd18CountertopMounts(

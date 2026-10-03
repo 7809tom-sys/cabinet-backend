@@ -296,7 +296,7 @@ export function findFirstCabinet45CornerFillerOpportunity(
   const layer: "base" | "wall" = cabinet.placement === "wall" ? "wall" : "base";
   for (const at of ["start", "end"] as const) {
     const join = wallRunJoinAt(frame, at, room);
-    const hold = join ? insideCornerHoldIn(join.turnDeg) : 0;
+    const hold = join ? insideCornerHoldIn(join.turnDeg, cabinet.depth) : 0;
     const edgeGap = at === "start" ? start : wallLen - end;
     if (hold <= 0 || Math.abs(edgeGap - hold) > 0.125) continue;
     const hasSameLayerNeighbor = placed.some((item) => item.uid !== cabinet.uid

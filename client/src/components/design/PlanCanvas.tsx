@@ -1302,8 +1302,8 @@ export function PlanCanvas({
 		        const width = catalogDimensions.width;
 	        const targetAlong = peninsulaHit?.offset
 	          ?? (nearestRun ? nearestRun.along : side === "top" || side === "bottom" ? point.x : point.y);
-	        const gaps = peninsulaHit || nearestRun
-	          ? freeSegmentsOnWall(side, room, cabinets, openings, 0.5, 0, placement).map((segment) => ({
+        const gaps = peninsulaHit || nearestRun
+          ? freeSegmentsOnWall(side, room, cabinets, openings, 0.5, 0, placement, false, undefined, catalogDimensions.depth).map((segment) => ({
 	              side,
 	              layer: placement,
 	              start: segment.start,
@@ -3175,11 +3175,12 @@ export function PlanCanvas({
                   const dimensionKey = `run:${chain.wallId}:${chain.layer}:${index}`;
                   const adjustment = adjustmentFor(dimensionKey);
                   // A bare number on an empty stretch looks like a cabinet size.
-                  // Make the physical clear span explicit, but do not call it a
-                  // placeable cabinet clearance: collision, wall openings, and
-                  // 45-degree corner holds remain separate placement rules.
+                  // Show which cabinet layer owns this physical clear span:
+                  // 12-inch uppers and 24-inch bases intentionally have
+                  // different 45-degree corner holds and therefore different
+                  // visible open lengths.
                   const label = segment.kind === "gap"
-                    ? `Open ${formatDisplayDimension(segment.length)}`
+                    ? `Open ${formatDisplayDimension(segment.length)} — ${chain.layer === "wall" ? "Wall" : "Base"}`
                     : formatDisplayDimension(segment.length);
                   const metrics = labelMetrics(label.length);
                   const start = railPoint(frame, segment.start, railOffsetIn, adjustment);
@@ -3195,7 +3196,7 @@ export function PlanCanvas({
                     data-testid={`floor-dimension-run-${chain.wallId}-${chain.layer}-${index}`}
                     data-dimension-key={dimensionKey}
                     aria-label={segment.kind === "gap"
-                      ? `Clear wall span ${formatDisplayDimension(segment.length)}. Cabinet placement evaluates wall holds and collision separately.`
+                      ? `Open ${chain.layer === "wall" ? "wall" : "base"} span ${formatDisplayDimension(segment.length)}. Cabinet placement evaluates wall holds and collision separately. This label names the applicable layer.`
                       : undefined}
                     className={onDimensionAdjustmentChange ? "pointer-events-auto cursor-grab active:cursor-grabbing" : undefined}
                     onPointerDown={(event) => beginDimensionLeaderDrag(event, dimensionKey, frame)}
