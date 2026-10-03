@@ -19,3 +19,11 @@
 - These annotations remain display-only and respect the existing Measurements show/hide and opacity controls. `Open` identifies the physical clear run; placement still separately applies door/window rules, collision detection, and 45° corner holds.
 - Local browser fixture verified one 18" window on a 45° wall, a 4 15/16" explicit clear span, readable exterior rails, and zero page errors. Focused PlanCanvas/dimension tests, TypeScript, production build, and diff integrity passed. Evidence: `docs/proofs/floor-plan-wall-openings-local.{png,json}`.
 - 20:41 CT live verification: cache-busted `www.cabinetdealz.com` passed the published 45° wall fixture. The exterior diagonal rail reads `Window 18" · 30" / 30" to ends`, the remaining physical run is explicitly labeled `Open 4 15/16"`, live dimensions remained readable, and no application errors occurred. Evidence: `docs/proofs/floor-plan-wall-openings-live.{png,json}`.
+
+## 20:59 CT — peninsula countertop support correction
+
+- Corrected the shared countertop-run builder so a peninsula receives countertop only over touching counter-bearing cabinets. An unsupported void now ends the run rather than creating a full-length floating slab; an appliance remains a cutout within a supported run.
+- Preserved joined 45°/90° countertop miters when cabinets actually meet at the bend, LSB36/ERB support polygons, seating/bar extensions, true 45° infill, appliance openings, countertop takeoff, cart, materials, and the shared Designer/Continuous Wall Builder code path.
+- Updated the 3D mesh metadata to accurately mark that ordinary cabinet gaps are not bridged.
+- Local proof used a 96" peninsula with two B30 supports at 0–30" and 66–96", leaving an intentional 36" empty interval. Both Floor Plan and 3D showed two bounded countertops and no 96" slab; no application errors. Evidence: `docs/proofs/peninsula-countertop-supported-runs-{floor-plan,3d}-local.png` and `docs/proofs/peninsula-countertop-supported-runs-local.json`.
+- Validation passed: `pnpm run check`; 909 shared geometry/placement/3D tests (2 existing skips); 31 responsive release tests; production build; and diff integrity.

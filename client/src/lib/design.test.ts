@@ -2147,7 +2147,10 @@ describe("countertopSurfaces", () => {
     // its full cabinet-supported footprint must survive the shared 45° union.
     expect(polygon.some((point) => Math.abs(point.x - 109.5) < 1e-6 && point.y >= 24 && point.y <= 48)).toBe(true);
     expect(countertopPolygonSelfIntersects(polygon)).toBe(false);
-	    expect(surfaces[0]!.areaInches).toBeGreaterThan(1872);
+	  // The ERB supports its real cabinet legs and the joined return, but not a
+	  // decorative slab across the unused remainder of either configured run.
+	  expect(surfaces[0]!.areaInches).toBeGreaterThan(1700);
+	  expect(surfaces[0]!.areaInches).toBeLessThan(1872);
 	  });
 
 	  it("makes a single cabinet-supported countertop outline through a 90-degree return", () => {

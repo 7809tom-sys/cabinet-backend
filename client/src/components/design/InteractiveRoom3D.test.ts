@@ -637,7 +637,7 @@ describe("side-aware peninsula countertop meshes", () => {
 	    expect(slab.position.y - slabHeight / 2).toBeCloseTo(34.5 / 12, 10);
 	  });
 
-  it("adds one continuous 12-inch seating slab across cabinet voids plus a waterfall only at the exposed end", () => {
+  it("ends seating slabs at an unsupported cabinet void and keeps the exposed-end waterfall", () => {
     const root = new THREE.Group();
     const room: RoomData = {
       width: 144,
@@ -650,13 +650,16 @@ describe("side-aware peninsula countertop meshes", () => {
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
     const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
     const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
-    expect(slabs).toHaveLength(1);
-    expect(slabs[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", seatingOverhangIn: 12, bridgesCabinetVoids: true });
+    expect(slabs).toHaveLength(2);
+    expect(slabs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "peninsula-test", runStartIn: 0, bridgesCabinetVoids: false }) }),
+      expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "peninsula-test", runStartIn: 66, bridgesCabinetVoids: false }) }),
+    ]));
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "peninsula-test", exposedFarEnd: true });
 
     const run = room.peninsulaRuns![0]!;
-    const surface = countertopSurfaces(placed, room).find((item) => item.peninsulaRunId === run.id)!;
+    const surface = countertopSurfaces(placed, room).find((item) => item.peninsulaRunId === run.id && item.runStartIn === 0)!;
     // The 3D slab is centered on the same plan surface: the 12-inch seat is
     // behind the run, leaving the cabinet-facing front at 24 + 1½ inches.
     expect(slabs[0]!.position.x * 12).toBeCloseTo(surface.x + surface.width / 2, 6);
@@ -671,7 +674,7 @@ describe("side-aware peninsula countertop meshes", () => {
     expect(waterfallCrossCenter).toBeCloseTo(slabCrossCenter, 6);
   });
 
-  it("inherits a legacy root overhang on the connected 45-degree child and moves the waterfall to the child end", () => {
+  it("keeps a legacy root overhang on its own support and moves the waterfall to the supported child end", () => {
     const root = new THREE.Group();
     const room: RoomData = {
       width: 192,
@@ -689,12 +692,11 @@ describe("side-aware peninsula countertop meshes", () => {
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
     const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
     const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
-    expect(slabs).toHaveLength(1);
-    expect(slabs[0]?.userData).toMatchObject({
-      unifiedPeninsulaAssembly: true,
-      peninsulaRunIds: ["saved-parent", "saved-child"],
-      seatingOverhangIn: 12,
-    });
+    expect(slabs).toHaveLength(2);
+    expect(slabs).toEqual(expect.arrayContaining([
+      expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "saved-parent", runStartIn: 51, seatingOverhangIn: 12 }) }),
+      expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "saved-child", runStartIn: 12, seatingOverhangIn: 12 }) }),
+    ]));
     expect(waterfalls).toHaveLength(1);
     expect(waterfalls[0]?.userData).toMatchObject({ peninsulaRunId: "saved-child", exposedFarEnd: true });
   });

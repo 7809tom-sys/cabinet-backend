@@ -11744,6 +11744,50 @@ function mergeContiguousBaseCountertopRuns(
   return [...surfaces.filter((_, index) => !consumed.has(index)), ...merged];
 }
 
+/**
+ * A peninsula countertop follows actual, touching cabinet support—not an
+ * arbitrary configured wall length.  This keeps an incomplete or sparse run
+ * from creating a detached slab across the room while retaining one continuous
+ * piece wherever base cabinets (including confirmed filler support) meet.
+ */
+function peninsulaCountertopSupportSegments(
+  run: PeninsulaRun,
+  placed: readonly PlacedCabinet[],
+  room: RoomData,
+): Array<{ start: number; end: number }> {
+  const tolerance = 1 / 16;
+  const intervals = placed.flatMap((cabinet) => {
+    if (!bearsCountertop(cabinet)) return [];
+    const belongsToRun = cabinetWall(cabinet, room) === run.id;
+    const cornerSupportsRun = !belongsToRun && peninsulaCornerCabinetSupportsCountertop(cabinet, run, room);
+    if (!belongsToRun && !cornerSupportsRun) return [];
+
+    const span = belongsToRun
+      ? wallRunSpan(cabinet, run.id as WallSide, room)
+      : Math.min(run.length, Math.max(STD.BASE_DEPTH, Math.min(Number(cabinet.width) || 0, Number(cabinet.depth) || 0)));
+    if (!Number.isFinite(span) || span <= COLLISION_EPSILON_IN) return [];
+
+    const offset = belongsToRun
+      ? wallRunOffset(cabinet, run.id as WallSide, room)
+      // A corner cabinet supports the adjacent return only at its shared start.
+      // Its own run still uses its stored wall offset above.
+      : 0;
+    const start = Math.max(0, Math.min(run.length, offset));
+    const end = Math.max(start, Math.min(run.length, start + span));
+    return end - start > COLLISION_EPSILON_IN ? [{ start, end }] : [];
+  }).sort((left, right) => left.start - right.start || left.end - right.end);
+
+  return intervals.reduce<Array<{ start: number; end: number }>>((segments, interval) => {
+    const previous = segments[segments.length - 1];
+    if (previous && interval.start <= previous.end + tolerance) {
+      previous.end = Math.max(previous.end, interval.end);
+    } else {
+      segments.push({ ...interval });
+    }
+    return segments;
+  }, []);
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -11860,17 +11904,12 @@ export function countertopSurfaces(
   // peninsula returns. Both cabinet-supported pieces meet at one physical seam;
   // do not add a third, decorative bridge triangle over the cabinet geometry.
   out.splice(0, out.length, ...miteredMeasuredWallCountertopSurfaces(out, placed, room));
-  // Every cabinet-supported peninsula receives continuous countertop across
-  // ordinary cabinet voids, but a freestanding range/stove/cooktop remains a
-  // true opening. Split only at those appliance footprints so Plan, 3D, price,
-  // and materials all share the same physical slab geometry.
+  // A peninsula follows the same cabinet-run rule as every other wall: touching
+  // counter-bearing pieces share one slab, while an actual unsupported gap ends
+  // the run. Appliances remain explicit openings inside a supported run.
   for (const run of room.peninsulaRuns ?? []) {
-    const hasCountertopSupport = placed.some((cabinet) =>
-      bearsCountertop(cabinet) &&
-      cabinetWall(cabinet, room) === run.id &&
-      Number(cabinet.width) > 0,
-    ) || placed.some((cabinet) => peninsulaCornerCabinetSupportsCountertop(cabinet, run, room));
-    if (!hasCountertopSupport) continue;
+    const supportSegments = peninsulaCountertopSupportSegments(run, placed, room);
+    if (supportSegments.length === 0) continue;
     const applianceOpenings = placed
       .filter((cabinet) => isRangeOrOven(cabinet.masterCode, cabinet.description) && cabinetWall(cabinet, room) === run.id)
       .map((cabinet) => {
@@ -11898,15 +11937,20 @@ export function countertopSurfaces(
         }
         return merged;
       }, []);
-    let cursor = 0;
-    for (const opening of applianceOpenings) {
-      if (opening.start - cursor > COLLISION_EPSILON_IN) {
-        out.push(peninsulaCountertopSurface(run, room, cursor, opening.start - cursor));
+    for (const support of supportSegments) {
+      let cursor = support.start;
+      for (const opening of applianceOpenings) {
+        if (opening.end <= cursor + COLLISION_EPSILON_IN) continue;
+        if (opening.start >= support.end - COLLISION_EPSILON_IN) break;
+        const clippedStart = Math.max(cursor, opening.start);
+        if (clippedStart - cursor > COLLISION_EPSILON_IN) {
+          out.push(peninsulaCountertopSurface(run, room, cursor, clippedStart - cursor));
+        }
+        cursor = Math.max(cursor, Math.min(support.end, opening.end));
       }
-      cursor = Math.max(cursor, opening.end);
-    }
-    if (run.length - cursor > COLLISION_EPSILON_IN) {
-      out.push(peninsulaCountertopSurface(run, room, cursor, run.length - cursor));
+      if (support.end - cursor > COLLISION_EPSILON_IN) {
+        out.push(peninsulaCountertopSurface(run, room, cursor, support.end - cursor));
+      }
     }
   }
   // The run slabs above provide the standard 24" cabinet depth plus finished
