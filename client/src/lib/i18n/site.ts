@@ -20,6 +20,7 @@ export const SITE_STRINGS = {
     nav_design_tool: "3D Designer",
     // --- Top nav: more dropdown ---
     nav_more: "More",
+    nav_kitchen_planning: "Kitchen Planning Guide",
     nav_build_an_order: "Build an Order",
     nav_photo_to_cart: "Photo to Cart",
     nav_fixture_photo: "Fixture Photo Match",
@@ -1341,6 +1342,7 @@ export const SITE_STRINGS = {
     nav_design_tool: "Diseñador 3D",
     // --- Barra superior: menú "Más" ---
     nav_more: "Más",
+    nav_kitchen_planning: "Guía para Planificar la Cocina",
     nav_build_an_order: "Armar un Pedido",
     nav_photo_to_cart: "Foto al Carrito",
     nav_fixture_photo: "Foto de Accesorio",
@@ -2655,6 +2657,7 @@ export const SITE_STRINGS = {
     nav_surfaces: "台面与配件",
     nav_plumbers_choice: "水暖工之选",
     nav_more: "更多",
+    nav_kitchen_planning: "厨房规划指南",
     nav_photo_to_cart: "照片入购物车",
     nav_fixture_photo: "配件照片匹配",
     nav_price_shop: "价格比价",

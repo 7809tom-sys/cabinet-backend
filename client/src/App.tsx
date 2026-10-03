@@ -68,6 +68,7 @@ const PlumbersChoice = lazy(() => import("@/pages/PlumbersChoice"));
 const PriceShop = lazy(() => import("@/pages/PriceShop"));
 const BundleDeals = lazy(() => import("@/pages/BundleDeals"));
 const KitchenDiscovery = lazy(() => import("@/pages/KitchenDiscovery"));
+const KitchenPlanningGuide = lazy(() => import("@/pages/KitchenPlanningGuide"));
 const DesignerWalkthrough = lazy(() => import("@/pages/DesignerWalkthrough"));
 const ARMeasure = lazy(() => import("@/pages/ARMeasure"));
 const About = lazy(() => import("@/pages/About"));
@@ -728,6 +729,14 @@ export default function App() {
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
               <KitchenDiscovery />
+            </Suspense>
+          </AppLayout>
+        </Route>
+
+        <Route path="/kitchen-planning">
+          <AppLayout>
+            <Suspense fallback={<PageLoader />}>
+              <KitchenPlanningGuide />
             </Suspense>
           </AppLayout>
         </Route>

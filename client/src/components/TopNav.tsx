@@ -33,6 +33,7 @@ const PRIMARY_LINKS: NavLink[] = [
 
 // Secondary links folded into the "More" dropdown on desktop
 const MORE_LINKS: NavLink[] = [
+  { key: "nav_kitchen_planning", href: "/kitchen-planning" },
   { key: "nav_build_an_order", href: "/order/new" },
   { key: "nav_photo_to_cart", href: "/photo-to-cart" },
   { key: "nav_fixture_photo", href: "/fixture-photo" },

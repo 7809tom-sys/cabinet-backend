@@ -217,6 +217,7 @@ function AboutYourKitchen() {
         </div>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:items-end">
           <Link href="/design"><Button className="gap-2 bg-[var(--color-navy)] text-white hover:bg-[var(--color-navy)]/90">Start Designing <ArrowRight className="h-4 w-4" /></Button></Link>
+          <Link href="/kitchen-planning"><Button variant="outline" className="gap-2 bg-background">Read the Kitchen Planning Guide <ArrowRight className="h-4 w-4" /></Button></Link>
           <div className="flex flex-col items-center gap-2">
             <img
               src={KITCHEN_SCENES["shaker-white"]}

@@ -28,3 +28,11 @@
 - Local proof used a 96" peninsula with two B30 supports at 0–30" and 66–96", leaving an intentional 36" empty interval. Both Floor Plan and 3D showed two bounded countertops and no 96" slab; no application errors. Evidence: `docs/proofs/peninsula-countertop-supported-runs-{floor-plan,3d}-local.png` and `docs/proofs/peninsula-countertop-supported-runs-local.json`.
 - Validation passed: `pnpm run check`; 909 shared geometry/placement/3D tests (2 existing skips); 31 responsive release tests; production build; and diff integrity.
 - 21:09 CT live verification: cache-busted `www.cabinetdealz.com` served the published `InteractiveRoom3D-CepdLMCV.js` with `bridgesCabinetVoids: !1`. The same real browser fixture—two B30 supports on a 96 in peninsula run, 0–30 in and 66–96 in—showed separate bounded tops in both Floor Plan and 3D, retained the intentional 36 in unsupported interval, and produced no application errors. Evidence: `docs/proofs/peninsula-countertop-supported-runs-{floor-plan,3d}-live.png` and `docs/proofs/peninsula-countertop-supported-runs-live.json`.
+
+## 23:15 CT — public Kitchen Planning Guide
+
+- Added a customer-facing **Kitchen Planning Guide** at `/kitchen-planning` with the supplied question-by-question content: starting a plan, room measurements, layout options, work-triangle guidance, aisle clearances, corners, storage, styles, live quote, 3D presentation, and local-store review.
+- Made the guide discoverable from the **More** menu, the Home page’s “About Your Kitchen” section, and the public footer. Added English, Spanish, and Chinese navigation labels.
+- Added page title/description/canonical URL and FAQ JSON-LD using the existing safe kitchen-discovery schema. The page makes no unsupported price, availability, shipping, or code-compliance claim; it labels dimensions as planning guidelines and final verification as a local-store step.
+- Local browser proof opened the route from the desktop More menu and directly at a 390 px viewport. Both views rendered 12 FAQs, five Designer links, a Kitchen Packages link, no horizontal overflow, and no application errors. Evidence: `docs/proofs/kitchen-planning-guide-local-{desktop,mobile}.{png,json}`.
+- Validation passed: TypeScript; 13 focused guide/i18n/schema tests; production build; and diff integrity.
