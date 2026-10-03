@@ -25,6 +25,7 @@ import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/cata
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
+import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -2912,6 +2913,28 @@ export function PlanCanvas({
             );
           })}
 
+        {/* Crown-top badges: one per continuous upper run, showing the height the
+            crown finishes at. Runs whose top differs from another run on the same
+            wall are flagged so mismatched tops are caught before opening 3D. */}
+        {showWallLayer && !drawMode && !measureMode && crownTopRuns(cabinets, room).map((run) => (
+          <div
+            key={`crown-top-${run.wallId}-${run.start}-${run.top}`}
+            data-testid="crown-top-badge"
+            data-crown-top={run.top}
+            data-crown-mismatch={run.mismatch ? "true" : undefined}
+            className={`pointer-events-none absolute z-40 inline-flex -translate-x-1/2 -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[8px] font-extrabold leading-none shadow-[0_0_0_2px_rgba(255,255,255,0.86)] ${
+              run.mismatch
+                ? "border-amber-300 bg-amber-500 text-white"
+                : "border-slate-300 bg-slate-800 text-white"
+            }`}
+            style={{ left: run.centerX * ppi, top: run.centerY * ppi }}
+            title={run.mismatch
+              ? `Crown top ${formatCrownTop(run.top)} — another run on this wall finishes at ${run.otherTops.map(formatCrownTop).join(", ")}. Level the tops or the crown will step.`
+              : `Crown top ${formatCrownTop(run.top)} — this upper run's crown finishes here.`}
+          >
+            {run.mismatch ? "\u26A0 " : ""}CROWN {formatCrownTop(run.top)}
+          </div>
+        ))}
         {/* Selected-cabinet ID callout: a leader line from the cabinet out to a
             high-contrast ID chip placed just outside the nearest room edge, so
             the code is readable even when the cabinet is narrow / dark / packed

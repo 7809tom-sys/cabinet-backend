@@ -9,6 +9,7 @@ import {
 	  flooringMaterial, normalizeRefrigeratorBayUppers, applianceAppearanceImage, applianceElevationPresentation, rangeVisualAppearance, resolveCabinetHardwarePosition, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout,
 	  isGlassDoorCabinet, glassDoorShelfCount, kitchenCrestGenericOpenEndShelfCount,
 } from "@/lib/design";
+import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 import {
   type HardwareStyleId,
   hardwareStyle as resolveHardwareStyle,
@@ -1783,6 +1784,28 @@ export function ElevationView({
           );
         })}
 
+        {/* Crown-top badge per upper run on this wall; amber when another run on
+            the same wall finishes at a different height. */}
+        {crownTopRuns(sorted, room).filter((run) => run.wallId === side).map((run) => (
+          <div
+            key={`crown-top-badge-${run.start}-${run.top}`}
+            data-testid="crown-top-badge"
+            data-crown-top={run.top}
+            data-crown-mismatch={run.mismatch ? "true" : undefined}
+            className={`pointer-events-none absolute z-[6] inline-flex -translate-x-1/2 items-center gap-1 whitespace-nowrap rounded border px-1.5 py-0.5 text-[9px] font-extrabold leading-none shadow ${
+              run.mismatch ? "border-amber-300 bg-amber-500 text-white" : "border-slate-300 bg-slate-800 text-white"
+            }`}
+            style={{
+              left: ((run.start + run.end) / 2) * ppi,
+              bottom: (run.top + CROWN_HEIGHT_IN) * ppi + 3,
+            }}
+            title={run.mismatch
+              ? `Crown top ${formatCrownTop(run.top)} — another run on this wall finishes at ${run.otherTops.map(formatCrownTop).join(", ")}.`
+              : `Crown top ${formatCrownTop(run.top)}`}
+          >
+            {run.mismatch ? "\u26A0 " : ""}CROWN {formatCrownTop(run.top)}
+          </div>
+        ))}
         {/* Light rail: slim valance strip under the bottom edge of each wall
             cabinet (hides under-cabinet lighting). */}
         {lightRail && sorted.filter((p) => isLightRailEligibleCabinet(p, room)).map((p) => {
