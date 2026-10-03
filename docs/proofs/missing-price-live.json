@@ -1,0 +1,62 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "live",
+  "bundles": [
+    "index-NIw38jCR.js"
+  ],
+  "flaggedTitlesBefore": [
+    "B48 \u2014 48\" Double Door Two Drawer Base Cabinet"
+  ],
+  "indicatorCount": 1,
+  "bannerText": "1 cabinet missing price. Checkout is blocked until each flagged cabinet has a price on this line (B48). Click a red-flagged cabinet for a priced alternative. Saving is still allowed.",
+  "erbLines": [
+    "ERB36",
+    "ERB36",
+    "SOLD AS BER36"
+  ],
+  "b48Lines": [
+    "B48",
+    "B48",
+    "1 cabinet missing price. Checkout is blocked until each flagged cabinet has a price on this line (B48). Click a red-flagged cabinet for a priced alternative. Saving is still allowed."
+  ],
+  "materialsBanner": "1 cabinet missing price. Checkout is blocked until every cabinet has a price.",
+  "materialsFlags": [
+    "PRICE MISSING \u2014 B48"
+  ],
+  "cartBlocked": {
+    "count": 1,
+    "disabled": true,
+    "sideCartDisabled": false
+  },
+  "materialsDialogExcerpt": [
+    "1 cabinet missing price. Checkout is blocked until every cabinet has a price.",
+    "REMOVE\tNO.\tITEM CODE\tDESCRIPTION\tCATEGORY\tDISTRIBUTOR\tCOLOR / STYLE\tDIMENSIONS\tQTY\tUNIT PRICE\tLINE TOTAL\tNOTES",
+    "\t1\tB48",
+    "PRICE MISSING \u2014 B48",
+    "\t2\tBER36\t36\" Easy Reach Base Cabinet with Lazy Susan\tCabinet\tMadison\tNova Blanc (Madison)\t36\" W \u00d7 34.5\" H \u00d7 36\" D\t1\t$397.01\t$397.01\tleft hinge"
+  ],
+  "popover": "PRICE MISSING \u2014 B48\n\nNo price on the active line \u00b7 searched the BASE family. Pick a priced alternative or dismiss to keep the flag.\n\nFSB36\nTOP MATCH\n36\" Farm Sink Base Cabinet\n36\" W \u00d7 34.5\" H \u00d7 24\" D \u00b7 none\n\u2022 12 in. narrower \u2014 add 6 in. filler each side\n\u2022 0 drawers instead of 2\n$327.41\nAccept\nSB36\n36\" Sink Base Cabinet\n36\" W \u00d7 34.5\" H \u00d7 24\" D \u00b7 none\n\u2022 12 in. narrower \u2014 add 6 in. filler each side\n$327.41\nAccept\n2DB36\n36\" 2 Drawer Base Cabinet\n36\" W \u00d7 34.5\" H \u00d7 24\" D \u00b7 none\n\u2022 12 in. narrower \u2014 add 6 in. filler each side\n\u2022 0-door front instead of 2-door\n$522.60\nAccept\nDismiss (keep flag)",
+  "acceptedBodyHasB48": 0,
+  "placedAfter": [
+    {
+      "uid": "erb36-corner",
+      "masterCode": "ERB36",
+      "cabinetId": 9360042,
+      "width": 36,
+      "x": 108,
+      "y": 0
+    },
+    {
+      "uid": "b48-missing",
+      "masterCode": "FSB36",
+      "cabinetId": 9360037,
+      "width": 36,
+      "x": 30,
+      "y": 0
+    }
+  ],
+  "flagsAfterAccept": 0,
+  "bannerAfterAccept": 0,
+  "logMissingCalls": 1,
+  "applicationErrors": []
+}
