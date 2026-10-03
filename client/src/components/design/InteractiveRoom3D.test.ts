@@ -1763,6 +1763,15 @@ describe("interactive 3D room scene helpers", () => {
     expect(filteredThreeDCatalogItems(catalog, "Base", "b2").map((item) => item.masterCode)).toContain("B-24");
   });
 
+  it("keeps the Add from catalog category choices at a fixed visible touch height", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="three-d-catalog-category-row"');
+    expect(source).toContain('h-10 min-h-10 shrink-0 items-center');
+    expect(source).toContain('overflow-x-auto overflow-y-hidden');
+    expect(source).toContain('className={`h-8 shrink-0 rounded-md');
+    expect(source).toContain('key={`${item.category}-${item.id}-${item.masterCode}-${index}`}');
+  });
+
   it("resolves independently persisted back, left, right, and front wall heights", () => {
     const heights = resolvedThreeDWallHeights({
       width: 144,

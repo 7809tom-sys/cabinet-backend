@@ -64,4 +64,19 @@ describe("stacked glass wall cabinet crown eligibility", () => {
 
     expect(crownEligibleCabinets([lower, glassStacker], tallRoom).map((cabinet) => cabinet.uid)).toEqual(["glass-stacker"]);
   });
+
+  it("does not add a second crown profile above ceiling-height pantries or refrigerator bridges", () => {
+    const ceilingRoom: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+    const pantry: PlacedCabinet = {
+      ...wallCabinet({ uid: "pantry", masterCode: "U249624", description: "96 inch Utility Pantry" }),
+      placement: "tall", height: 96, mountBottom: 0,
+    };
+    const refrigeratorBridge = wallCabinet({
+      uid: "bridge", masterCode: "WR3624", height: 24, mountBottom: 72, refrigeratorAssemblyRole: "bridge",
+    });
+    const ordinaryUpper = wallCabinet({ uid: "ordinary-upper", masterCode: "W2430", height: 30, mountBottom: 54 });
+
+    expect(crownEligibleCabinets([pantry, refrigeratorBridge, ordinaryUpper], ceilingRoom).map((cabinet) => cabinet.uid))
+      .toEqual(["ordinary-upper"]);
+  });
 });

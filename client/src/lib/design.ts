@@ -2810,10 +2810,9 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 /**
  * Countertop polygon for an easy-reach / Lazy-Susan corner base.
  *
- * A cardinal (ordinary 90-degree room) corner gets one complete square top:
- * the case's open access below the top is not a countertop cut-out. That keeps
- * the slab seated over every part of an LSB/ERB cabinet rather than leaving the
- * visible missing corner shown by an L-outline. A non-cardinal measured-wall
+ * The slab follows the two supported 24-inch cabinet legs.  Filling the inner
+ * 12-by-12 access notch as a 36-by-36 square creates a free-hanging countertop
+ * corner beside a Lazy Susan/Easy Reach cabinet. A non-cardinal measured-wall
  * placement retains the established 45-degree front-edge treatment; the wall
  * engine owns that distinct physical exception.
  */
@@ -2857,12 +2856,17 @@ export function lCornerCountertopWorldPolygon(
     };
   };
   if (!rotatedMeasuredPlacement) {
-    return [
-      { x: 0, y: 0 },
-      { x: bounds.w, y: 0 },
-      { x: bounds.w, y: bounds.d },
-      { x: 0, y: bounds.d },
-    ].map(worldPoint);
+    // Same L-supported contour as `lCornerBodyPolygons`: rotation determines
+    // which room-interior corner remains open, never a detached square slab.
+    const notch = Math.max(0, Math.min(bounds.w - leg, bounds.d - leg));
+    const local = rotation === 90
+      ? [{ x: 0, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: bounds.d }, { x: notch, y: bounds.d }, { x: notch, y: leg }, { x: 0, y: leg }]
+      : rotation === 180
+        ? [{ x: notch, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: bounds.d }, { x: 0, y: bounds.d }, { x: 0, y: notch }, { x: notch, y: notch }]
+        : rotation === 270
+          ? [{ x: 0, y: 0 }, { x: leg, y: 0 }, { x: leg, y: notch }, { x: bounds.w, y: notch }, { x: bounds.w, y: bounds.d }, { x: 0, y: bounds.d }]
+          : [{ x: 0, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: leg }, { x: leg, y: leg }, { x: leg, y: bounds.d }, { x: 0, y: bounds.d }];
+    return local.map(worldPoint);
   }
   // A 45-degree measured wall remains the intentional exception: retain the
   // two cabinet-leg front overhangs while its shared corner/miter rules resolve
@@ -5824,12 +5828,14 @@ export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boole
   // variants, and explicit mountBottom values all follow the same physical rule.
   const box = elevationBox(p, room);
   if (box.bottom <= STD.TOE_KICK + COLLISION_EPSILON_IN && p.placement === "wall") return false;
-  if (!room || !isStacker(p) || !isGlassDoorCabinet(p)) return true;
+  if (!room) return true;
 
-  // Crown rises three inches above the cabinet top. A glass stacker that already
-  // reaches the local ceiling cannot physically receive crown; drawing it anyway
-  // pushes the sloped rail through the ceiling and makes its deep return look
-  // like a shelf hanging into the room.
+  // A tall pantry or refrigerator bridge reaches the ceiling as a complete
+  // enclosure, leaving no physical space for another crown profile above it.
+  // Ordinary uppers use the existing crown face treatment at the ceiling line;
+  // changing that global convention would remove normal run molding.
+  const isCeilingFillingGlassStacker = isStacker(p) && isGlassDoorCabinet(p);
+  if (p.placement !== "tall" && p.refrigeratorAssemblyRole !== "bridge" && !isCeilingFillingGlassStacker) return true;
   const ceiling = wallCabinetVerticalMoveLimit(p, room).ceiling;
   const top = box.bottom + box.height;
   return ceiling - top >= CROWN_HEIGHT_IN - COLLISION_EPSILON_IN;
