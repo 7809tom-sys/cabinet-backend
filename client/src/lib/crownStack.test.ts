@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crownEligibleCabinets, type PlacedCabinet, type RoomData } from "./design";
+import { crownBlockingCabinets, crownEligibleCabinets, type PlacedCabinet, type RoomData } from "./design";
 
 const room: RoomData = { width: 144, depth: 120 };
 
@@ -65,18 +65,24 @@ describe("stacked glass wall cabinet crown eligibility", () => {
     expect(crownEligibleCabinets([lower, glassStacker], tallRoom).map((cabinet) => cabinet.uid)).toEqual(["glass-stacker"]);
   });
 
-  it("does not add a second crown profile above ceiling-height pantries or refrigerator bridges", () => {
+  it("skips a ceiling-height pantry but crowns the refrigerator bridge on its own top like every wall cabinet", () => {
     const ceilingRoom: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
     const pantry: PlacedCabinet = {
       ...wallCabinet({ uid: "pantry", masterCode: "U249624", description: "96 inch Utility Pantry" }),
       placement: "tall", height: 96, mountBottom: 0,
     };
+    // The bridge hangs at its own mount height (72" over a 70" refrigerator).
+    // Its top is a real exposed cabinet top and receives crown exactly like the
+    // neighbouring uppers, whether or not that top happens to meet the ceiling.
     const refrigeratorBridge = wallCabinet({
       uid: "bridge", masterCode: "WR3624", height: 24, mountBottom: 72, refrigeratorAssemblyRole: "bridge",
     });
     const ordinaryUpper = wallCabinet({ uid: "ordinary-upper", masterCode: "W2430", height: 30, mountBottom: 54 });
 
     expect(crownEligibleCabinets([pantry, refrigeratorBridge, ordinaryUpper], ceilingRoom).map((cabinet) => cabinet.uid))
-      .toEqual(["ordinary-upper"]);
+      .toEqual(["bridge", "ordinary-upper"]);
+    // The pantry still blocks neighbouring crown even though it receives none.
+    expect(crownBlockingCabinets([pantry, refrigeratorBridge, ordinaryUpper], ceilingRoom).map((cabinet) => cabinet.uid))
+      .toEqual(["pantry", "bridge", "ordinary-upper"]);
   });
 });

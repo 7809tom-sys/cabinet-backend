@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -5378,11 +5378,18 @@ export function addCabinet(
 		    };
     if (specialty.kind === "corner-drawer" || specialty.kind === "l-corner") {
       const counter = new THREE.Mesh(
-        // A standard room's LSB/ERB or corner-drawer cabinet gets one complete
-        // top over the cabinet envelope. The access notch belongs below the
-        // counter, not in it. Measured 45° walls suppress this per-cabinet slab
-        // and render their explicit shared polygon in addThreeDMeasuredWallMiterCountertops.
-        new THREE.BoxGeometry(bodyWidth, 1.5 * INCH, bodyDepth),
+        // An LSB/ERB or corner-drawer top follows the cabinet's true L
+        // footprint: both wall-side edges flush, and both room-facing fronts
+        // carried out by the same finished overhang as the adjoining runs.
+        // This is the same outline `lCornerCountertopWorldPolygon` gives the
+        // plan/takeoff and the shared `countertopSurfaces` 3D slab, so every
+        // render path agrees on one corner-top geometry.
+        lCornerCountertopWedgeGeometry(
+          bodyWidth,
+          bodyDepth,
+          1.5 * INCH,
+          lCornerLegRatio,
+        ),
         counterMaterial,
       );
       counter.position.copy(cabinet.position);
@@ -5391,10 +5398,12 @@ export function addCabinet(
       counter.userData = {
         specialtyProfile: specialty.kind,
         lCornerCountertop: true,
-        completeLCornerCabinetTop: true,
-        exactLCornerCountertopGeometry: false,
-        coversCompleteCabinetTop: true,
-        interiorNotchPreserved: false,
+        completeLCornerCabinetTop: false,
+        exactLCornerCountertopGeometry: true,
+        coversCompleteCabinetTop: false,
+        interiorNotchPreserved: true,
+        frontOverhangIn: COUNTERTOP_FRONT_OVERHANG / INCH,
+        wallSideReturnsFlush: true,
       };
       applyThreeDPlacementIdentity(counter, placementIdentity);
       root.add(counter);
@@ -6337,13 +6346,15 @@ function crownEdgeCoveredByFootprint(edge: ThreeDCrownPerimeterSegment, blocker:
  * cancel one another; a partial overlap leaves only the depth-step wrap.
  */
 export function threeDCrownPerimeterSegments(placed: PlacedCabinet[], room: RoomData) {
-  // Crown follows the outside perimeter of the complete upper/tall run. A tall
-  // pantry or refrigerator surround is a physical blocker at the same top line;
-  // omitting it from the union left hidden bridge returns running to the wall
-  // and removed the matching exposed segment on the opposite side.
+  // Crown follows the outside perimeter of the complete upper/tall run, at each
+  // cabinet's OWN top (the refrigerator bridge hangs at its own mount height).
+  // Edges come only from crown-eligible cabinets, but every upper/tall body is a
+  // physical blocker: a ceiling-height pantry or refrigerator surround that
+  // receives no crown itself must still stop the neighbouring run's return so
+  // no rail is ever drawn through a cabinet box.
   const cabinets = crownEligibleCabinets(placed, room);
   const edges = cabinets.flatMap((cabinet) => worldCrownEdges(cabinet, room));
-  const footprints = cabinets.flatMap((cabinet) => worldCrownFootprints(cabinet, room));
+  const footprints = crownBlockingCabinets(placed, room).flatMap((cabinet) => worldCrownFootprints(cabinet, room));
   const exposed: ThreeDCrownPerimeterSegment[] = [];
   for (const edge of edges) {
 	    const covered = footprints

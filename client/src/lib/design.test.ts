@@ -1966,18 +1966,22 @@ describe("countertopSurfaces", () => {
     expect(countertopSurfaces([cabinet], ROOM_12x10)).toMatchObject([{ kind: "base" }]);
   });
 
-  it("covers the complete LSB36 cabinet top in an ordinary 90-degree room", () => {
+  it("follows the true L footprint of an LSB36 top with both fronts overhanging in an ordinary 90-degree room", () => {
     const corner = cab({
       uid: "counter-lsb36", masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
       placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation: 0, cornerType: "lazy-susan",
     });
+    // 36x36 corner box, two 24-inch legs, 1½-inch front overhang on both
+    // room-facing fronts (24 + 1.5 = 25.5) — the same finished line as the
+    // adjoining 25.5-inch straight-run slabs. No square plug into the floor.
     const expected = [
-      { x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 36 }, { x: 0, y: 36 },
+      { x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 25.5 },
+      { x: 25.5, y: 25.5 }, { x: 25.5, y: 36 }, { x: 0, y: 36 },
     ];
     expect(lCornerCountertopWorldPolygon(corner)).toEqual(expected);
     const [surface] = countertopSurfaces([corner], ROOM_12x10);
     expect(countertopSurfacePlanPolygon(surface!)).toEqual(expected);
-    expect(surface!.areaInches).toBeCloseTo(1296, 6);
+    expect(surface!.areaInches).toBeCloseTo(1296 - 10.5 * 10.5, 6);
     expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(surface!))).toBe(false);
   });
 
@@ -2003,8 +2007,10 @@ describe("countertopSurfaces", () => {
     const [surface] = countertopSurfaces([corner], drawnRoom);
     const outline = countertopSurfacePlanPolygon(surface!);
     expect(outline).toEqual(lCornerCountertopWorldPolygon(corner));
-    expect(outline).toHaveLength(4);
+    expect(outline).toHaveLength(6);
     expect(outline.every((point) => point.x >= 0 && point.y >= 0 && point.x <= 36 && point.y <= 36)).toBe(true);
+    // The open floor corner of the 36x36 box is NOT covered by stone.
+    expect(outline).not.toContainEqual({ x: 36, y: 36 });
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 
@@ -2039,16 +2045,30 @@ describe("countertopSurfaces", () => {
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 
-  it.each([0, 90, 180, 270] as const)("keeps the complete L-corner countertop aligned at %s degrees", (rotation) => {
+  it.each([
+    [0, { x: 36, y: 36 }],
+    [90, { x: 0, y: 36 }],
+    [180, { x: 0, y: 0 }],
+    [270, { x: 36, y: 0 }],
+  ] as const)("keeps the true-L corner countertop aligned at %s degrees", (rotation, openFloorCorner) => {
     const corner = cab({
       uid: `counter-lsb36-${rotation}`, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
       placement: "base", width: 36, depth: 24, x: 0, y: 0, rotation, cornerType: "lazy-susan",
     });
-    const outline = countertopSurfacePlanPolygon(countertopSurfaces([corner], ROOM_12x10)[0]!);
-    expect(outline).toHaveLength(4);
-    expect([...outline].sort((left, right) => left.x - right.x || left.y - right.y)).toEqual([
-      { x: 0, y: 0 }, { x: 0, y: 36 }, { x: 36, y: 0 }, { x: 36, y: 36 },
-    ]);
+    const [surface] = countertopSurfaces([corner], ROOM_12x10);
+    const outline = countertopSurfacePlanPolygon(surface!);
+    expect(outline).toHaveLength(6);
+    expect(outline.every((point) => point.x >= -1e-9 && point.y >= -1e-9 && point.x <= 36 + 1e-9 && point.y <= 36 + 1e-9)).toBe(true);
+    // The three wall-side box corners stay covered; the open floor corner is
+    // cut back to the two overhanging fronts (24 + 1.5 inches from each wall).
+    const corners = [{ x: 0, y: 0 }, { x: 36, y: 0 }, { x: 36, y: 36 }, { x: 0, y: 36 }];
+    const has = (target: { x: number; y: number }) => outline.some((point) => Math.abs(point.x - target.x) < 1e-6 && Math.abs(point.y - target.y) < 1e-6);
+    corners.forEach((candidate) => {
+      expect(has(candidate)).toBe(candidate.x !== openFloorCorner.x || candidate.y !== openFloorCorner.y);
+    });
+    const notch = { x: openFloorCorner.x === 36 ? 25.5 : 10.5, y: openFloorCorner.y === 36 ? 25.5 : 10.5 };
+    expect(has(notch)).toBe(true);
+    expect(surface!.areaInches).toBeCloseTo(1296 - 10.5 * 10.5, 6);
     expect(countertopPolygonSelfIntersects(outline)).toBe(false);
   });
 

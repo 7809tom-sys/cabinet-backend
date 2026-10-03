@@ -639,7 +639,7 @@ describe("side-aware peninsula countertop meshes", () => {
 	    expect(slabs.every((item) => item.userData.bridgesCabinetVoids === false)).toBe(true);
 	  });
 
-	  it("keeps the complete cardinal LSB36 top in the same shared 3D surface path", () => {
+	  it("keeps the true-L cardinal LSB36 top in the same shared 3D surface path", () => {
 	    const root = new THREE.Group();
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 	    const lsb36 = {
@@ -648,7 +648,8 @@ describe("side-aware peninsula countertop meshes", () => {
 	    } as PlacedCabinet;
 	    addThreeDStandardCountertops(root, room, [lsb36], "#e9e7e2");
 	    const [slab] = root.children.filter((item) => item.userData.standardRunCountertop) as THREE.Mesh[];
-	    expect(slab?.userData.sourcePolygonVertices).toBe(4);
+	    // Six vertices: the true L with both fronts carried out by the overhang.
+	    expect(slab?.userData.sourcePolygonVertices).toBe(6);
 	    slab?.geometry.computeBoundingBox();
 	    expect((slab?.geometry.boundingBox?.max.x ?? 0) - (slab?.geometry.boundingBox?.min.x ?? 0)).toBeCloseTo(36 / 12, 6);
 	  });
@@ -3331,7 +3332,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(Object.values(lCornerCarcassParts(3, 3)).filter((part) => typeof part === "object" && part !== null && "width" in part)).toHaveLength(2);
   });
 
-  it("uses a complete standard-room countertop over an L-corner cabinet while retaining the 45-degree edge helper", () => {
+  it("uses the true-L countertop over an L-corner cabinet with both fronts overhanging", () => {
     const countertop = lCornerCountertopFootprintVertices(3, 3);
     // The 24-inch base legs keep their wall-side edges seated. The back-leg
     // front and side-leg front both project 1½ inches (0.125 ft), which is the
@@ -3363,14 +3364,24 @@ describe("interactive 3D room scene helpers", () => {
     });
     expect(tops).toHaveLength(1);
     expect(tops[0]!.userData).toMatchObject({
-      completeLCornerCabinetTop: true,
-      coversCompleteCabinetTop: true,
-      interiorNotchPreserved: false,
+      completeLCornerCabinetTop: false,
+      exactLCornerCountertopGeometry: true,
+      interiorNotchPreserved: true,
+      wallSideReturnsFlush: true,
     });
-    expect((tops[0] as THREE.Mesh).geometry.type).toBe("BoxGeometry");
+    expect((tops[0] as THREE.Mesh).geometry.type).toBe("ExtrudeGeometry");
     const bounds = new THREE.Box3().setFromObject(tops[0]!);
     expect((bounds.max.x - bounds.min.x) * 12).toBeCloseTo(36, 6);
     expect((bounds.max.z - bounds.min.z) * 12).toBeCloseTo(36, 6);
+    // The open floor corner of the 36x36 box has no stone: the slab's far
+    // corner is cut back to the two 25.5-inch overhanging fronts.
+    const geometry = (tops[0] as THREE.Mesh).geometry;
+    const positions = geometry.getAttribute("position");
+    let coversOpenCorner = false;
+    for (let i = 0; i < positions.count; i += 1) {
+      if (positions.getX(i) * 12 > 25.5 + 1e-6 && positions.getZ(i) * 12 > 25.5 + 1e-6) coversOpenCorner = true;
+    }
+    expect(coversOpenCorner).toBe(false);
   });
 
   it("normalizes an older CDB36 accessible-leg save to the shared 36-inch square 2D corner footprint", () => {
@@ -3469,7 +3480,7 @@ describe("interactive 3D room scene helpers", () => {
     expect(nodes.filter((node) => node.userData.endReturnCountertop)).toHaveLength(0);
     const lCornerCountertops = nodes.filter((node) => node.userData.lCornerCountertop);
     expect(lCornerCountertops).toHaveLength(2);
-    expect(lCornerCountertops.every((node) => node.userData.completeLCornerCabinetTop && node.userData.coversCompleteCabinetTop)).toBe(true);
+    expect(lCornerCountertops.every((node) => node.userData.exactLCornerCountertopGeometry && node.userData.wallSideReturnsFlush && !node.userData.coversCompleteCabinetTop)).toBe(true);
     expect(triangleCornerFootprintVertices(2, 2)).toEqual([{ x: -1, z: -1 }, { x: 1, z: -1 }, { x: 1, z: 1 }]);
     expect(triangleCornerFrontWidth(24, 24)).toBeCloseTo(Math.hypot(24, 24), 12);
   });

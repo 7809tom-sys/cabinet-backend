@@ -2810,12 +2810,14 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 /**
  * Countertop polygon for an easy-reach / Lazy-Susan corner base.
  *
- * A cardinal (ordinary 90-degree room) corner gets one complete square top:
- * the case's open access below the top is not a countertop cut-out. That keeps
- * the slab seated over every part of an LSB/ERB cabinet rather than leaving the
- * visible missing corner shown by an L-outline. A non-cardinal measured-wall
- * placement retains the established 45-degree front-edge treatment; the wall
- * engine owns that distinct physical exception.
+ * The top follows the cabinet's TRUE L footprint (two carcass legs seated in
+ * the room corner), not its square bounding box. Each of the two exposed fronts
+ * carries the same finished front overhang as the adjoining straight runs, so
+ * the corner top meets the neighbouring run slabs on one continuous front line
+ * with no step, gap, or square "plug" projecting into the open floor. The two
+ * wall-side edges remain flush to the walls. The same canonical outline is
+ * used for every rotation, in both ordinary rectangular rooms and measured
+ * continuous-wall rooms.
  */
 export function lCornerCountertopWorldPolygon(
   cabinet: PlacedCabinet,
@@ -2856,15 +2858,9 @@ export function lCornerCountertopWorldPolygon(
       y: clean(center.y + tangent.y * along + normal.y * inward),
     };
   };
-  if (!rotatedMeasuredPlacement) return [
-    { x: 0, y: 0 },
-    { x: bounds.w, y: 0 },
-    { x: bounds.w, y: bounds.d },
-    { x: 0, y: bounds.d },
-  ].map(worldPoint);
-  // A 45-degree measured wall remains the intentional exception: retain the
-  // two cabinet-leg front overhangs while its shared corner/miter rules resolve
-  // the adjoining slab and any fill.
+  // Local frame (rotation 0): wall corner at top-left. The back leg runs along
+  // the top wall (y: 0..leg) and the side leg runs down the left wall
+  // (x: 0..leg). Both room-facing fronts step out by the finished overhang.
   return [
     { x: 0, y: 0 },
     { x: bounds.w, y: 0 },
@@ -5824,15 +5820,32 @@ export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boole
   if (box.bottom <= STD.TOE_KICK + COLLISION_EPSILON_IN && p.placement === "wall") return false;
   if (!room) return true;
 
-  // A tall pantry or refrigerator bridge reaches the ceiling as a complete
-  // enclosure, leaving no physical space for another crown profile above it.
-  // Ordinary uppers use the existing crown face treatment at the ceiling line;
-  // changing that global convention would remove normal run molding.
+  // Crown sits on the actual top of EVERY wall cabinet, including the
+  // refrigerator bridge, which hangs at its own mount height (72" over a 70"
+  // refrigerator) rather than the standard upper-run line. Excluding the bridge
+  // left the neighbouring upper's crown return running into the bridge body
+  // instead of stopping at it and continuing along the bridge top.
+  // A tall pantry or a ceiling-filling glass stacker is a complete enclosure,
+  // leaving no physical space for another crown profile above it.
   const isCeilingFillingGlassStacker = isStacker(p) && isGlassDoorCabinet(p);
-  if (p.placement !== "tall" && p.refrigeratorAssemblyRole !== "bridge" && !isCeilingFillingGlassStacker) return true;
+  if (p.placement !== "tall" && !isCeilingFillingGlassStacker) return true;
   const ceiling = wallCabinetVerticalMoveLimit(p, room).ceiling;
   const top = box.bottom + box.height;
   return ceiling - top >= CROWN_HEIGHT_IN - COLLISION_EPSILON_IN;
+}
+
+/**
+ * Every upper or tall cabinet body is a physical obstacle for crown, whether or
+ * not it receives crown itself. A ceiling-height pantry or a refrigerator
+ * surround at the same top line must still clip the neighbouring run's return
+ * so no rail is ever drawn through a cabinet box.
+ */
+export function crownBlockingCabinets(placed: readonly PlacedCabinet[], room?: RoomData): PlacedCabinet[] {
+  const eligibleUids = new Set(crownEligibleCabinets(placed, room).map((cabinet) => cabinet.uid));
+  return placed.filter((cabinet) => (
+    eligibleUids.has(cabinet.uid)
+    || ((cabinet.placement === "tall" || cabinet.placement === "wall") && !usesRaisedFloorWallDoorPull(cabinet))
+  ));
 }
 
 /**
