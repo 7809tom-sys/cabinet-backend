@@ -664,6 +664,8 @@ interface Props {
   selectedCabinetUid?: string | null;
   /** Cabinet currently controlled by the host Cabinet Attributes panel. */
   attributesTargetUid?: string | null;
+  /** Part 1: placed cabinets flagged with no price on the active line (red outline). */
+  missingPriceUids?: ReadonlySet<string>;
   /** Selects the same saved placement in the host 2D designer after a 3D hit. */
   onSelectCabinet?: (uid: string) => void;
   /** Opens the selected cabinet’s standard edit controls without leaving the 3D workspace. */
@@ -8362,7 +8364,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -8371,6 +8373,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const controlsRef = useRef<OrbitControls | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
   const attributesOutlineRef = useRef<THREE.BoxHelper | null>(null);
+  const missingPriceOutlinesRef = useRef<THREE.BoxHelper[]>([]);
   const cameraViewRef = useRef<ThreeDCameraViewSnapshot | null>(null);
   const sharedCameraViewRef = useRef<ThreeDCameraShareView | null>(typeof window === "undefined" ? null : parseThreeDCameraShareView(new URLSearchParams(window.location.search).get(THREE_D_CAMERA_VIEW_QUERY_PARAM)));
   const pointerStartRef = useRef<{ x: number; y: number; button: number } | null>(null);
@@ -9242,6 +9245,42 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     return removeOutline;
   }, [attributesTargetUid, cameraReadyKey]);
 
+  // Part 1: red outline on every placed cabinet with no price on the active
+  // line. Shared by the Designer and the Continuous Wall Builder because both
+  // render through this component.
+  const missingPriceKey = missingPriceUids ? Array.from(missingPriceUids).sort().join("|") : "";
+  useEffect(() => {
+    const root = catalogRootRef.current;
+    const removeOutlines = () => {
+      for (const current of missingPriceOutlinesRef.current) {
+        current.parent?.remove(current);
+        current.geometry.dispose();
+        const materials = Array.isArray(current.material) ? current.material : [current.material];
+        materials.forEach((material) => material.dispose());
+      }
+      missingPriceOutlinesRef.current = [];
+    };
+    removeOutlines();
+    if (!root || !missingPriceKey) return undefined;
+    for (const uid of missingPriceKey.split("|")) {
+      const target = root.children.find((node) => node.userData.placedUid === uid);
+      if (!target) continue;
+      const outline = new THREE.BoxHelper(target, new THREE.Color("#dc2626"));
+      outline.name = "cabinet-price-missing-outline";
+      outline.userData = { priceMissing: true, placedUid: uid };
+      outline.renderOrder = 999;
+      const materials = Array.isArray(outline.material) ? outline.material : [outline.material];
+      materials.forEach((material) => {
+        material.depthTest = false;
+        material.transparent = true;
+        material.opacity = 0.98;
+      });
+      outline.update();
+      root.add(outline);
+      missingPriceOutlinesRef.current.push(outline);
+    }
+    return removeOutlines;
+  }, [missingPriceKey, cameraReadyKey, placed]);
   const downloadImage = () => {
     const renderer = rendererRef.current;
     const threeScene = sceneRef.current;

@@ -19,6 +19,8 @@ import { resolveAffiliateAccess } from "../lib/affiliateAccess";
 import { canViewAffiliateDesignPriceList, affiliateCustomerPosition } from "../lib/affiliateDesignPriceList";
 import { selectExactCartPriceRows } from "../lib/cartPriceSelection";
 import { canonicalizeDesignPriceItems, normalizedDesignPriceCode, verifiedLegacyDesignPriceAliases } from "../lib/designPriceAliases";
+import { loadCodeEquivalenceGroups } from "../lib/codeEquivalenceLoader";
+import { normalizedEquivalenceCode } from "../../shared/codeEquivalence";
 import { ENV } from "../_core/env";
 import { priceLadder } from "../../shared/pricing";
 import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
@@ -937,25 +939,71 @@ export const designRouter = router({
           }
         }
       }
-      const candidateCodes = Array.from(new Set(requestedCodes.flatMap((code) => [code, canonicalCodeByAlias.get(code)].filter((value): value is string => Boolean(value)))));
+      // Two-way equivalence (Part 2 / Part 5 rule): every alias store is read
+      // as an undirected group, so ERB36 <-> BER36, BT09/FHBO9 <-> BT9 and
+      // alias chains all resolve to whichever code the ACTIVE line sells. The
+      // exact requested code still wins when the line sells it; otherwise the
+      // group member with a published price on this line is used. If no member
+      // is priced here, nothing is returned and the Part 1 missing-price flag
+      // fires on the client. No price, code, or geometry is invented.
+      const equivalence = await loadCodeEquivalenceGroups(db);
+      const sourceCodesForRequested = (code: string): string[] => Array.from(new Set([
+        code,
+        ...(canonicalCodeByAlias.get(code) ? [canonicalCodeByAlias.get(code)!] : []),
+        ...equivalence.groupSpellings(code),
+      ]));
+      const candidateCodes = Array.from(new Set(requestedCodes.flatMap(sourceCodesForRequested)));
+      // Portable SQL (MySQL/TiDB) cannot be trusted with regex backreferences, so
+      // the single-leading-zero rule is expressed as an explicit variant list:
+      // BT9 also matches a stored BT09 and vice versa. Other zeros untouched.
+      const normalizedCandidateCodes = Array.from(new Set(candidateCodes.flatMap((code) => {
+        const compact = code.toUpperCase().replace(/[^A-Z0-9]/g, "");
+        if (!compact) return [];
+        const collapsed = normalizedEquivalenceCode(code);
+        const zeroPadded = compact.replace(/^([A-Z]*)([1-9])/, "$10$2");
+        return [compact, collapsed, zeroPadded];
+      })));
       const candidateCabinets = candidateCodes.length > 0
         ? await db
           .select({ id: cabinets.id, masterCode: cabinets.masterCode })
           .from(cabinets)
-          .where(and(inArray(cabinets.masterCode, candidateCodes), ne(cabinets.conflictStatus, "conflict")))
+          .where(and(
+            or(
+              inArray(cabinets.masterCode, candidateCodes),
+              inArray(
+                sql`UPPER(REPLACE(REPLACE(REPLACE(REPLACE(${cabinets.masterCode}, '-', ''), ' ', ''), '_', ''), '.', ''))`,
+                normalizedCandidateCodes,
+              ),
+            )!,
+            ne(cabinets.conflictStatus, "conflict"),
+            sql`${cabinets.masterCode} NOT LIKE 'ARCHIVE-%'`,
+          ))
         : [];
       const cabinetIdsByMasterCode = new Map<string, number[]>();
+      const masterCodeByCabinetId = new Map<number, string>();
       for (const cabinet of candidateCabinets) {
         const ids = cabinetIdsByMasterCode.get(cabinet.masterCode) ?? [];
         ids.push(cabinet.id);
         cabinetIdsByMasterCode.set(cabinet.masterCode, ids);
+        masterCodeByCabinetId.set(cabinet.id, cabinet.masterCode);
       }
       const candidateIdsByRequestedId = new Map<number, number[]>();
       for (const requestedId of requestedCabinetIds) {
         const requestedCode = masterCodeByRequestedId.get(requestedId);
         if (!requestedCode) continue;
-        const sourceCodes = [requestedCode, canonicalCodeByAlias.get(requestedCode)].filter((value): value is string => Boolean(value));
-        candidateIdsByRequestedId.set(requestedId, Array.from(new Set(sourceCodes.flatMap((code) => cabinetIdsByMasterCode.get(code) ?? []))));
+        const ids = new Set<number>();
+        const canonical = canonicalCodeByAlias.get(requestedCode);
+        // Admit candidates by equivalence-group membership rather than exact
+        // spelling so punctuation/leading-zero variants (BT09 vs BT9) and
+        // reversed codes (ERB36 vs BER36) are all considered for this line.
+        for (const cabinet of candidateCabinets) {
+          if (cabinet.masterCode === requestedCode
+            || (canonical != null && cabinet.masterCode === canonical)
+            || equivalence.sameGroup(cabinet.masterCode, requestedCode)) {
+            ids.add(cabinet.id);
+          }
+        }
+        candidateIdsByRequestedId.set(requestedId, Array.from(ids));
       }
       const candidateCabinetIds = Array.from(new Set(Array.from(candidateIdsByRequestedId.values()).flat()));
       if (candidateCabinetIds.length === 0) return [];
@@ -1006,16 +1054,22 @@ export const designRouter = router({
       // Best (cheapest contractor) row per requested pair. An authorized legacy
       // alias may resolve to a different canonical cabinet id in the query, but
       // it must return under the requested id for the saved design's price map.
-      const best = new Map<string, { requestedCabinetId: number; row: (typeof rows)[number] }>();
+      const best = new Map<string, { requestedCabinetId: number; row: (typeof rows)[number]; exact: boolean }>();
       for (const r of rows) {
         const requestedIds = requestedIdsBySourcePair.get(`${r.cabinetId}:${r.styleId}`) ?? [];
         for (const requestedCabinetId of requestedIds) {
           const key = `${requestedCabinetId}:${r.styleId}`;
+          const requestedCode = masterCodeByRequestedId.get(requestedCabinetId) ?? "";
+          const sourceCode = masterCodeByCabinetId.get(Number(r.cabinetId)) ?? "";
+          const exact = r.cabinetId === requestedCabinetId
+            || normalizedEquivalenceCode(sourceCode) === normalizedEquivalenceCode(requestedCode);
           const cur = best.get(key);
-          if (!cur) { best.set(key, { requestedCabinetId, row: r }); continue; }
+          if (!cur) { best.set(key, { requestedCabinetId, row: r, exact }); continue; }
+          // The requested code's own row always beats an alias-group swap.
+          if (exact !== cur.exact) { if (exact) best.set(key, { requestedCabinetId, row: r, exact }); continue; }
           const a = Number(r.contractorPrice ?? r.wholesalePrice ?? Infinity);
           const b = Number(cur.row.contractorPrice ?? cur.row.wholesalePrice ?? Infinity);
-          if (a < b) best.set(key, { requestedCabinetId, row: r });
+          if (a < b) best.set(key, { requestedCabinetId, row: r, exact });
         }
       }
       // Resolve each customer tier through the shared pricing policy. Each
@@ -1023,9 +1077,13 @@ export const designRouter = router({
       // verified cost/list basis through the saved tier markup; never bypass
       // this resolver with stale stored columns.
       const ps = await getPricingSettings();
-      return Array.from(best.values()).map(({ requestedCabinetId, row }) => ({
+      return Array.from(best.values()).map(({ requestedCabinetId, row, exact }) => ({
         cabinetId: requestedCabinetId,
         styleId: Number(row.styleId),
+        /** Code the active line actually sells; differs from the placed code only after an equivalence swap. */
+        resolvedMasterCode: masterCodeByCabinetId.get(Number(row.cabinetId)) ?? masterCodeByRequestedId.get(requestedCabinetId) ?? null,
+        resolvedCabinetId: Number(row.cabinetId),
+        aliasSwapped: !exact,
         listPrice: row.listPrice,
         adjustedListPrice: row.adjustedListPrice,
         wholesalePrice: sellPriceForTier(row, ps, "wholesale")?.toFixed(2) ?? null,

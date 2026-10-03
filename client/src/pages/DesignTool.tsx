@@ -133,7 +133,7 @@ import {
   isApplianceCode, bearsCountertop, bearsIslandCountertop,
   type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
-		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities, MIN_WALL_HEIGHT, wallTopLimit } from "@/lib/design";
+		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities, MIN_WALL_HEIGHT, wallTopLimit, reseatOnWallRun } from "@/lib/design";
 import { applyCabinetFinishScope, autoAdjustIslandDepthForBackFace, inferredIslandFace, isIslandAssemblyMember, islandAssemblyClearance, islandCountertopOverhangIn, islandCountertopRect, islandCountertopVisibleRects, islandFaceCapacity, islandFaceFitMeasure, islandFaceLength, islandFacePlacement, islandFaceTransferOption, islandWithFaceSeatingOverhang, moveIslandScene, nextIslandFacePlacement, normalizeIslandRangeRearPlanes, resizeIslandScene, resolvedIslandCabinetStyleId, rotateIslandScene, synchronizeIslandCountertopFootprint, type CabinetFinishScope } from "@/lib/islandScene";
 import { buildTrimCartLines,
   trimPriceForKind,
@@ -179,6 +179,8 @@ import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
+import { summarizeMissingPrices, checkoutBlockedByMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
+import { DesignMissingPricePopover, type MissingPriceAlternative } from "@/components/design/DesignMissingPricePopover";
 import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/designMaterialsList";
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
@@ -2828,10 +2830,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    return pairs;
 	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers, refrigeratorSurroundCatalog]);
 
-  const { data: priceRows } = trpc.design.priceForCabinetsByStyles.useQuery(
+  const { data: priceRows, isFetching: priceRowsFetching, isFetched: priceRowsFetched } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
     { enabled: pricePairs.length > 0 && !!styleId }
   );
+  // Part 2: the server may have priced a placed code through its two-way
+  // equivalence group (ERB36 placed on a BER line prices as BER36). Keep the
+  // resolved line code per requested cabinet so the material list and cart
+  // show the code the active line actually sells.
+  const resolvedLineCodeByPair = useMemo(() => {
+    const m = new Map<string, { code: string; swapped: boolean }>();
+    priceRows?.forEach((r) => {
+      const row = r as typeof r & { resolvedMasterCode?: string | null; aliasSwapped?: boolean };
+      if (row.resolvedMasterCode) m.set(`${r.cabinetId}:${r.styleId}`, { code: row.resolvedMasterCode, swapped: Boolean(row.aliasSwapped) });
+    });
+    return m;
+  }, [priceRows]);
+  const resolvedLineCodeFor = useCallback((p: PlacedCabinet): { code: string; swapped: boolean } | null => {
+    if (!styleId) return null;
+    const sid = pricingStyleIdFor(p) ?? styleId;
+    return resolvedLineCodeByPair.get(`${pricingIdForPlacedCabinet(p)}:${sid}`) ?? null;
+  }, [resolvedLineCodeByPair, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId]);
 
   // Before a plan changes to a new style, ask the server to verify every
   // affected cabinet has an authorized price in that line. The procedure
@@ -2903,6 +2922,89 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     },
 	    [priceMap, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct]
 	  );
+
+  // ── Part 1: no unpriced cabinet on a material list ───────────────────────
+  // Evaluated for the ACTIVE line as soon as the price query settles. Flags
+  // drive the red outline on the plan/3D cabinet, the materials-list line,
+  // the banner count, and the checkout block. Shared with the Wall Builder
+  // because both tools render through this same state.
+  const missingPriceSummary = useMemo(() => summarizeMissingPrices({
+    placed,
+    styleId,
+    pricesReady: pricePairs.length === 0 || (priceRowsFetched && !priceRowsFetching),
+    unitPriceFor,
+    styleIdFor: (p) => pricingStyleIdFor(p) ?? styleId,
+  }), [placed, styleId, pricePairs.length, priceRowsFetched, priceRowsFetching, unitPriceFor, pricingStyleIdFor]);
+  const missingPriceUids = missingPriceSummary.uids;
+  const checkoutBlockedForMissingPrices = checkoutBlockedByMissingPrices(missingPriceSummary);
+  const logMissingPrices = trpc.designMissingPrice.logMissing.useMutation();
+  const loggedMissingPriceKeysRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (missingPriceSummary.count === 0) return;
+    const fresh = missingPriceSummary.flags.filter((flag) => {
+      const key = `${flag.masterCode}:${lockedDistributorId ?? 0}:${flag.styleId ?? 0}:${currentSavedDesignId ?? 0}:${storeScope}`;
+      if (loggedMissingPriceKeysRef.current.has(key)) return false;
+      loggedMissingPriceKeysRef.current.add(key);
+      return true;
+    });
+    if (fresh.length === 0) return;
+    const byCode = new Map<string, { masterCode: string; cabinetId: number | null }>();
+    for (const flag of fresh) if (!byCode.has(flag.masterCode)) byCode.set(flag.masterCode, { masterCode: flag.masterCode, cabinetId: flag.cabinetId || null });
+    logMissingPrices.mutate({
+      storeScope,
+      distributorId: lockedDistributorId ?? null,
+      styleId: styleId ?? null,
+      designId: currentSavedDesignId ?? null,
+      items: Array.from(byCode.values()),
+    });
+  }, [missingPriceSummary, lockedDistributorId, styleId, currentSavedDesignId, storeScope, logMissingPrices]);
+  const notifyCheckoutBlockedByMissingPrices = useCallback(() => {
+    toast.error(missingPriceBannerText(missingPriceSummary.count), {
+      description: `Checkout is blocked until every cabinet has a price on this line: ${missingPriceSummary.codes.join(", ")}. You can still save the design.`,
+    });
+  }, [missingPriceSummary.count, missingPriceSummary.codes]);
+  // Part 4: the popover is offered for the selected flagged cabinet. Dismiss
+  // hides it for that cabinet until the selection changes; the flag stays.
+  const [dismissedMissingPricePopoverUid, setDismissedMissingPricePopoverUid] = useState<string | null>(null);
+  const acceptMissingPriceAlternative = useCallback((uid: string, alternative: MissingPriceAlternative) => {
+    const target = placedRef.current.find((cabinet) => cabinet.uid === uid);
+    if (!target) return;
+    const next = placedRef.current.map((cabinet) => {
+      if (cabinet.uid !== uid) return cabinet;
+      const swapped: PlacedCabinet = {
+        ...cabinet,
+        cabinetId: alternative.cabinetId,
+        masterCode: alternative.masterCode,
+        description: alternative.description ?? cabinet.description,
+        category: alternative.category,
+        subCategory: alternative.subCategory,
+        isCornerCabinet: alternative.isCornerCabinet,
+        width: alternative.width > 0 ? alternative.width : cabinet.width,
+        nominalWidth: alternative.width > 0 ? alternative.width : cabinet.nominalWidth,
+        height: alternative.height > 0 ? alternative.height : cabinet.height,
+        nominalHeight: alternative.height > 0 ? alternative.height : cabinet.nominalHeight,
+        depth: alternative.depth > 0 ? alternative.depth : cabinet.depth,
+        nominalDepth: alternative.depth > 0 ? alternative.depth : cabinet.nominalDepth,
+        numberOfDoors: alternative.numberOfDoors,
+        numberOfDrawers: alternative.numberOfDrawers,
+        catalogImageUrl: alternative.catalogImageUrl ?? cabinet.catalogImageUrl,
+      };
+      // Re-run the shared wall seating so the swapped size sits on its wall
+      // exactly like a fresh placement (same path in Designer and Wall Builder).
+      return reseatOnWallRun(swapped, room);
+    });
+    placedRef.current = next;
+    setPlaced(next);
+    setSelectedUid(uid);
+    setDismissedMissingPricePopoverUid(null);
+    toast.success(`${target.masterCode} replaced with priced ${alternative.masterCode} ($${alternative.customerPrice.toFixed(2)}). Placement, fillers, and countertops were re-run.`);
+  }, [room]);
+  const missingPricePopoverTarget = useMemo(() => {
+    if (!selectedUid || !styleId) return null;
+    if (!missingPriceUids.has(selectedUid)) return null;
+    if (dismissedMissingPricePopoverUid === selectedUid) return null;
+    return placed.find((cabinet) => cabinet.uid === selectedUid) ?? null;
+  }, [selectedUid, styleId, missingPriceUids, dismissedMissingPricePopoverUid, placed]);
 
 	  // Older peninsula designs could preserve the 11-inch collision clearance at
 	  // a 45-degree return without creating the two finished face boards. Once the
@@ -3287,8 +3389,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           sourceUids: [p.uid],
 	          // The base cabinet keeps its canonical SKU. A separately priced glass
 	          // door appears as its own cart/material line instead of replacing it.
-	          code: p.masterCode,
-		          description: [p.description, sizeNote, fillerInstallNote, miterCutNote, attrNote]
+	          // Part 2: when the active line sells this cabinet under an equivalent
+	          // code (ERB36 placed on a BER line), the list shows the line's code.
+	          code: resolvedLineCodeFor(p)?.swapped ? resolvedLineCodeFor(p)!.code : p.masterCode,
+		          description: [resolvedLineCodeFor(p)?.swapped ? `${p.description} (master ${p.masterCode} → ${resolvedLineCodeFor(p)!.code} on this line)` : p.description, sizeNote, fillerInstallNote, miterCutNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
           color: cabColor,
@@ -3380,7 +3484,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       });
     }
     return rows;
-	  }, [placed, room, priceMap, styleId, pricingStyleIdFor, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines]);
+	  }, [placed, room, priceMap, styleId, pricingStyleIdFor, unitPriceFor, hickorySkins, autoEndPanels, styleNameById, rolloutLines, resolvedLineCodeFor]);
 
   const affiliatePriceListItems = useMemo(() => {
     if (!styleId) return [] as Array<{ masterCode: string; styleId: number; quantity: number }>;
@@ -3436,6 +3540,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       styleNameById,
       unitPriceFor,
       glassDoorAddonFor,
+      lineCodeFor: (cabinet) => {
+        const resolved = resolvedLineCodeFor(cabinet);
+        return resolved?.swapped ? resolved.code : null;
+      },
     });
     const baseLines = activeBundlePriceLock
       ? lockDesignCartLinesToPackageTotal(designLines, activeBundlePriceLock.total)
@@ -3449,7 +3557,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      tier: DESIGN_TIER_TO_SHARED[tier],
 	    });
     return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
-  }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock]);
+  }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock, resolvedLineCodeFor]);
 
   // Cabinet-preview lines preserve exact placement UIDs and unavailable
   // cabinets. Complete trim, surface, fixture, and cart parity is added below.
@@ -3847,6 +3955,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, []);
 
   const addAllToCart = useCallback(async () => {
+    if (checkoutBlockedForMissingPrices) {
+      notifyCheckoutBlockedByMissingPrices();
+      return;
+    }
     if (cartableLines.length === 0) {
       toast.info(t("dt_cart_nothing"));
       return;
@@ -3886,16 +3998,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     } else {
       toast.error(t("dt_cart_failed"));
     }
-  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t]);
+  }, [cartableLines, cartItems.length, cartSourceDesignId, currentSavedDesignId, cartLockedDistributorId, lockedDistributorId, cartLockedStyleLabel, clearCart, addItem, replaceWithDesignItems, navigate, cartDestination, showCartSuccessToast, t, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
 
   const syncThreeDOrderWithCart = useCallback(() => {
+    if (checkoutBlockedForMissingPrices) {
+      notifyCheckoutBlockedByMissingPrices();
+      return;
+    }
     if (cartableLines.length === 0) {
       toast.info("Add a cabinet to the design before synchronizing the cart.");
       return;
     }
     replaceWithDesignItems(cartableLines, currentSavedDesignId ?? null);
     toast.success(`3D design synchronized to cart (${cartableLines.reduce((count, line) => count + line.qty, 0)} items).`);
-  }, [cartableLines, replaceWithDesignItems, currentSavedDesignId]);
+  }, [cartableLines, replaceWithDesignItems, currentSavedDesignId, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
   // Physically required trims auto-apply when the layout warrants them unless
@@ -10956,6 +11072,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      onAddCatalogItem={addFromInteractive3d}
 	      onAddRangeHood={addRangeHoodFromInteractive3d}
 	      selectedCabinetUid={selectedUid}
+	      missingPriceUids={missingPriceUids}
 	      attributesTargetUid={attributesTargetUid}
 	      onSelectCabinet={selectCabinet}
       onOpenCabinetEditor={openAttributes}
@@ -11761,6 +11878,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <div className="px-3 py-2 text-[11px] text-muted-foreground">{t("dt_sh_order_empty")}</div>
                 ) : (
                   <div className="px-2 pb-2">
+                    {missingPriceSummary.count > 0 && (
+                      <div data-testid="missing-price-banner-mobile" className="mb-1.5 flex items-start gap-1.5 rounded border border-red-400 bg-red-600 px-2 py-1.5 text-[10px] font-semibold text-white">
+                        <TriangleAlert className="mt-0.5 h-3 w-3 shrink-0" />
+                        {missingPriceBannerText(missingPriceSummary.count)} Checkout blocked.
+                      </div>
+                    )}
                     {hasConflicts && (
                       <div className="mb-1.5 flex items-start gap-1.5 rounded border border-red-300 bg-red-50 px-2 py-1.5 text-[10px] text-red-700">
                         <span className="mt-0.5 h-1.5 w-1.5 shrink-0 rounded-full bg-red-600" />
@@ -11793,8 +11916,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button
                       type="button"
                       className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg bg-[#a87f33] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#a87f33]/90 active:scale-[0.97] disabled:opacity-50"
-                      disabled={cartableLines.length === 0}
+                      disabled={cartableLines.length === 0 || checkoutBlockedForMissingPrices}
+                      data-missing-price-blocked={checkoutBlockedForMissingPrices ? "true" : undefined}
                       onClick={() => {
+                        if (checkoutBlockedForMissingPrices) { notifyCheckoutBlockedByMissingPrices(); return; }
                         if (hasConflicts && !window.confirm(
                           t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" })
                         )) return;
@@ -13700,6 +13825,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              </Button>
 	            </div>
 	          )}
+	          {missingPricePopoverTarget && styleId && (
+	            <div className="absolute right-3 top-16 z-50">
+	              <DesignMissingPricePopover
+	                key={missingPricePopoverTarget.uid}
+	                masterCode={missingPricePopoverTarget.masterCode}
+	                cabinetId={missingPricePopoverTarget.cabinetId}
+	                styleId={pricingStyleIdFor(missingPricePopoverTarget) ?? styleId}
+	                distributorId={lockedDistributorId ?? null}
+	                tier={DESIGN_TIER_TO_SHARED[tier]}
+	                onAccept={(alternative) => acceptMissingPriceAlternative(missingPricePopoverTarget.uid, alternative)}
+	                onDismiss={() => setDismissedMissingPricePopoverUid(missingPricePopoverTarget.uid)}
+	              />
+	            </div>
+	          )}
 	          {placementWarning && (
 	            <div role="alert" className="absolute left-3 right-3 top-3 z-40 max-h-[70%] overflow-y-auto rounded-lg border border-amber-400 bg-amber-50 px-3 py-2 text-sm text-amber-950 shadow-md sm:right-auto sm:max-w-lg">
 	              {/\bCorner protected:\s*ERB36\b/i.test(placementWarning) && (
@@ -13948,6 +14087,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onPeninsulaAttachmentChange={movePeninsulaAttachment}
               onOpenWallSettings={openWallSettings}
               conflictUids={conflictUids}
+              missingPriceUids={missingPriceUids}
               layoutLocked={layoutLocked}
               lockedWalls={lockedWalls}
               countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -14191,6 +14331,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		                  onPeninsulaAttachmentChange={movePeninsulaAttachment}
 		                  onOpenWallSettings={openWallSettings}
 		                  conflictUids={conflictUids}
+		                  missingPriceUids={missingPriceUids}
 	                  layoutLocked={layoutLocked}
 	                  lockedWalls={lockedWalls}
 	                  countertopMaterialId={countertop ? countertopMaterialId : null}
@@ -14915,6 +15056,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                               Conflict
                             </span>
                           )}
+                          {(() => {
+                            const resolved = resolvedLineCodeFor(g.sample);
+                            return resolved?.swapped ? (
+                              <span data-testid="side-list-alias-swapped" className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-800 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide" title={`${g.sample.masterCode} is sold as ${resolved.code} on this line (same cabinet, distributor nomenclature).`}>
+                                Sold as {resolved.code}
+                              </span>
+                            ) : null;
+                          })()}
+                          {missingPriceUids.has(g.sample.uid) && (
+                            <span data-testid="side-list-price-missing" className="inline-flex items-center rounded bg-red-600 text-white px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wide">
+                              Price missing
+                            </span>
+                          )}
                         </div>
                         <div className="text-[10px] text-muted-foreground truncate">
                           {g.label} · {g.sample.placement}
@@ -15271,6 +15425,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
           {/* Total */}
           <div className="p-3 border-t border-border shrink-0">
+            {missingPriceSummary.count > 0 && (
+              <div data-testid="missing-price-banner" role="alert" className="mb-2 flex items-start gap-2 rounded-md border border-red-500 bg-red-600 p-2 text-[11px] font-semibold text-white shadow">
+                <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {missingPriceBannerText(missingPriceSummary.count)}{" "}
+                  <span className="font-normal">Checkout is blocked until each flagged cabinet has a price on this line ({missingPriceSummary.codes.join(", ")}). Click a red-flagged cabinet for a priced alternative. Saving is still allowed.</span>
+                </span>
+              </div>
+            )}
             {hasConflicts && (
               <div className="mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-50 p-2 text-[11px] text-red-700">
                 <span className="mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full bg-red-600" />
@@ -15452,14 +15615,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <div data-testid="price-panel-quick-actions" className="mt-3 grid grid-cols-4 gap-1.5">
               <Popover>
                 <Tooltip><TooltipTrigger asChild><PopoverTrigger asChild>
-                  <Button aria-label="Cart actions" className="aspect-square min-h-12 w-full bg-[#a87f33] p-0 text-white hover:bg-[#a87f33]/90" disabled={cartableLines.length === 0}>
+                  <Button aria-label="Cart actions" data-missing-price-blocked={checkoutBlockedForMissingPrices ? "true" : undefined} className={`aspect-square min-h-12 w-full p-0 text-white ${checkoutBlockedForMissingPrices ? "bg-red-600 hover:bg-red-600" : "bg-[#a87f33] hover:bg-[#a87f33]/90"}`} disabled={cartableLines.length === 0}>
                     <ShoppingCart className="h-4 w-4" />
                   </Button>
                 </PopoverTrigger></TooltipTrigger><TooltipContent>Add this design to cart</TooltipContent></Tooltip>
                 <PopoverContent align="start" className="w-64 space-y-2">
                   <p className="text-sm font-semibold">Add design to cart</p>
                   <p className="text-xs text-muted-foreground">{cartableLines.length} orderable item{cartableLines.length === 1 ? "" : "s"} are ready.</p>
-                  <Button className="w-full bg-[#a87f33] text-white hover:bg-[#a87f33]/90" onClick={() => {
+                  {checkoutBlockedForMissingPrices && (
+                    <p data-testid="missing-price-checkout-blocked" className="rounded border border-red-300 bg-red-50 p-2 text-xs font-semibold text-red-700">{missingPriceBannerText(missingPriceSummary.count)} Checkout is blocked until every cabinet has a price.</p>
+                  )}
+                  <Button className="w-full bg-[#a87f33] text-white hover:bg-[#a87f33]/90" disabled={checkoutBlockedForMissingPrices} onClick={() => {
+                    if (checkoutBlockedForMissingPrices) { notifyCheckoutBlockedByMissingPrices(); return; }
                     if (hasConflicts && !window.confirm(t("dt_confirm_export_conflicts", { n: conflictUids.size, s: conflictUids.size > 1 ? "s" : "" }))) return;
                     addAllToCart();
                   }}>
@@ -17366,6 +17533,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        styleName={activeStyleName}
 	        brandName={affiliateBrand?.storeName}
 	        onAddPricedItemsToCart={() => void addAllToCart()}
+	        missingPriceUids={missingPriceUids}
+	        missingPriceCount={missingPriceSummary.count}
 	        pricedCartItemCount={cartableLines.reduce((count, line) => count + line.qty, 0)}
 	        onRemovePlacedItems={(uids) => {
 	          const sources = new Set(uids);

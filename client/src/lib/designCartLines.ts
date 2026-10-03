@@ -18,6 +18,8 @@ type BuildDesignCabinetCartLinesArgs = {
     unitPrice: number | null;
     catalogImageUrl?: string | null;
   } | null;
+  /** Optional resolver returning the active line's equivalent code for a cabinet (two-way alias). */
+  lineCodeFor?: (cabinet: PlacedCabinet) => string | null;
 };
 
 export type DesignPreviewPricingLine = CartItem & {
@@ -77,6 +79,7 @@ export function buildDesignCabinetCartLines({
   styleNameById,
   unitPriceFor,
   glassDoorAddonFor,
+  lineCodeFor,
 }: BuildDesignCabinetCartLinesArgs): CartItem[] {
   if (!styleId) return [];
   const lines = new Map<string, CartItem>();
@@ -96,9 +99,13 @@ export function buildDesignCabinetCartLines({
     // A linked glassDoorAddonCode is a separately priced replacement door. Keep
     // the cabinet itself on its canonical SKU; only full-cabinet GD swaps use an
     // appended-code identity.
+    // Part 2: the active line may sell this cabinet under an equivalent code
+    // (ERB36 placed on a BER line is sold as BER36). The cart carries the
+    // code the line actually prices so the order matches the distributor.
+    const baseCode = lineCodeFor?.(cabinet) ?? cabinet.masterCode;
     const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
-      ? `${cabinet.masterCode}GD`
-      : cabinet.masterCode;
+      ? `${baseCode}GD`
+      : baseCode;
     // Different discounts or custom-size fees must remain separate locked
     // lines; combining them would assign one cabinet's adjusted price to both.
     const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;

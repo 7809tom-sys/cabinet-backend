@@ -71,6 +71,7 @@ import CabinetConfigReviewQueueAdmin from "@/components/admin/CabinetConfigRevie
 import MasterChangesAdmin from "@/components/admin/MasterChangesAdmin";
 import DataRecoveryAdmin from "@/components/admin/DataRecoveryAdmin";
 import UnpricedCabinetsAdmin from "@/components/admin/UnpricedCabinetsAdmin";
+import DesignerPriceFlagsAdmin from "@/components/admin/DesignerPriceFlagsAdmin";
 import PotentialMergesAdmin from "@/components/admin/PotentialMergesAdmin";
 import { BannerAdmin } from "@/components/admin/BannerAdmin";
 import MasterSkuAdmin from "@/components/admin/MasterSkuAdmin";
@@ -142,6 +143,7 @@ const GROUPS = [
       { value: "package-data", label: "📦 Package Data & Parcel" },
       { value: "cabinet-attention", label: "⚠ Cabinet Attention" },
       { value: "unpriced-items", label: "⚠ Unpriced Items" },
+      { value: "designer-price-flags", label: "🚩 Designer Price Flags" },
       { value: "categories", label: "Categories" },
       { value: "pending-review", label: "⏳ Pending Review" },
       { value: "pending-distributor-connections", label: "✎ Supplier Products" },
@@ -523,6 +525,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="package-data" className="mt-6"><BulkDimensionsAdmin /></TabsContent>
         <TabsContent value="cabinet-attention" className="mt-6"><CabinetConfigReviewQueueAdmin /></TabsContent>
         <TabsContent value="unpriced-items" className="mt-6"><UnpricedCabinetsAdmin /></TabsContent>
+        <TabsContent value="designer-price-flags" className="mt-6"><DesignerPriceFlagsAdmin /></TabsContent>
         <TabsContent value="categories" className="mt-6"><CategoriesAdmin /></TabsContent>
         <TabsContent value="pending-review" className="mt-6"><PendingReviewAdmin /></TabsContent>
         <TabsContent value="pending-distributor-connections" className="mt-6"><PendingDistributorConnectionsAdmin /></TabsContent>

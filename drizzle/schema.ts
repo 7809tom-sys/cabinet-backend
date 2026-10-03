@@ -2647,6 +2647,55 @@ export const skuMasterAliases = mysqlTable("sku_master_aliases", {
 export type SkuMasterAlias = typeof skuMasterAliases.$inferSelect;
 export type InsertSkuMasterAlias = typeof skuMasterAliases.$inferInsert;
 
+// ─── Two-way code equivalences ───────────────────────────────────────────────
+// Undirected "same physical cabinet, different maker code" links (ERB36 <->
+// BER36, FHBO9 <-> BT9). Unlike sku_master_aliases this never retires either
+// code: both stay canonical, both stay in their line's palette, and the
+// Designer price lookup simply widens to the whole equivalence group and uses
+// whichever code the ACTIVE line actually sells. Never changes a price.
+export const cabinetCodeEquivalences = mysqlTable("cabinet_code_equivalences", {
+  id: int("id").autoincrement().primaryKey(),
+  codeA: varchar("codeA", { length: 64 }).notNull(),
+  codeB: varchar("codeB", { length: 64 }).notNull(),
+  // Optional master nomenclature family tag (e.g. CORNER) for reporting.
+  family: varchar("family", { length: 32 }),
+  notes: text("notes"),
+  isActive: boolean("isActive").default(true).notNull(),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  uniqPair: unique("cabinet_code_equivalences_pair_unique").on(t.codeA, t.codeB),
+}));
+export type CabinetCodeEquivalence = typeof cabinetCodeEquivalences.$inferSelect;
+
+// ─── Designer missing-price log (Part 1) ─────────────────────────────────────
+// One row per (code, store, line, style, design) the Designer could not price.
+// Hit counts accumulate so the admin list stays short; resolvedAt marks a fix.
+export const designMissingPriceEvents = mysqlTable("design_missing_price_events", {
+  id: int("id").autoincrement().primaryKey(),
+  masterCode: varchar("masterCode", { length: 64 }).notNull(),
+  cabinetId: int("cabinetId"),
+  storeScope: varchar("storeScope", { length: 160 }).notNull().default("owner"),
+  distributorId: int("distributorId").notNull().default(0),
+  styleId: int("styleId").notNull().default(0),
+  designId: int("designId").notNull().default(0),
+  userId: int("userId"),
+  /** Codes in the equivalence group that were tried on this line (comma list). */
+  triedCodes: text("triedCodes"),
+  /** Whether a priced same-family alternative existed when flagged. */
+  alternativeAvailable: boolean("alternativeAvailable"),
+  hitCount: int("hitCount").default(1).notNull(),
+  firstSeenAt: timestamp("firstSeenAt").defaultNow().notNull(),
+  lastSeenAt: timestamp("lastSeenAt").defaultNow().onUpdateNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+  resolvedBy: int("resolvedBy"),
+}, (t) => ({
+  uniqHit: unique("design_missing_price_events_hit_unique").on(t.masterCode, t.storeScope, t.distributorId, t.styleId, t.designId),
+  openIndex: index("design_missing_price_events_open_idx").on(t.resolvedAt, t.lastSeenAt),
+}));
+export type DesignMissingPriceEvent = typeof designMissingPriceEvents.$inferSelect;
+
 // AI-generated duplicate suggestions awaiting human review
 export const skuMergeSuggestions = mysqlTable("sku_merge_suggestions", {
   id: int("id").autoincrement().primaryKey(),

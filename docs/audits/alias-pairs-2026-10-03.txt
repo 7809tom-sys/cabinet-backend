@@ -1,0 +1,210 @@
+
+## sku_master_aliases rows linking two LIVE priced masters (only alias->master direction works)
+┌─────────┬─────────────────┬──────────────────┬─────────────────────────────────────┬─────────────────────────────────────┬────────────┐
+│ (index) │ aliasCode       │ masterCode       │ aliasLines                          │ masterLines                         │ hasReverse │
+├─────────┼─────────────────┼──────────────────┼─────────────────────────────────────┼─────────────────────────────────────┼────────────┤
+│ 0       │ 'REP2496'       │ 'REPV2496'       │ 'Ashford'                           │ 'Skyline Cabinetry'                 │ 0          │
+│ 1       │ 'W1542'         │ 'W-1542'         │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Ashford,Madison' │ 0          │
+│ 2       │ 'DCW-2436'      │ 'DCW2436'        │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 3       │ 'WF342'         │ 'F342'           │ 'Ashford'                           │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 4       │ 'BF-3'          │ 'F342'           │ 'Ashford'                           │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 5       │ 'W1830'         │ 'W-1830'         │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Ashford,Madison' │ 0          │
+│ 6       │ 'WER-2430'      │ 'WER2430'        │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 7       │ 'WER-2436'      │ 'WER2436'        │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 8       │ 'WER-2442'      │ 'WER2442'        │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 9       │ 'AW-12-30'      │ 'AW1230'         │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 10      │ 'AW-12-36'      │ 'AW1236'         │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 11      │ 'AW-12-42'      │ 'AW1242'         │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 0          │
+│ 12      │ 'W1842'         │ 'W-1842'         │ 'Skyline Cabinetry'                 │ 'Ashford,Madison,Skyline Cabinetry' │ 0          │
+│ 13      │ 'W2130'         │ 'W-2130'         │ 'Skyline Cabinetry'                 │ 'Ashford,Madison,Skyline Cabinetry' │ 0          │
+│ 14      │ 'W2136'         │ 'W-2136'         │ 'Skyline Cabinetry'                 │ 'Ashford,Madison,Skyline Cabinetry' │ 0          │
+│ 15      │ 'W2142'         │ 'W-2142'         │ 'Skyline Cabinetry'                 │ 'Ashford,Madison,Skyline Cabinetry' │ 0          │
+│ 16      │ 'W2742'         │ 'W-2742'         │ 'Skyline Cabinetry'                 │ 'Ashford,Madison,Skyline Cabinetry' │ 0          │
+│ 17      │ 'F642'          │ 'WF642'          │ 'Skyline Cabinetry,Madison'         │ 'Ashford'                           │ 0          │
+│ 18      │ 'WRC3015'       │ 'LWR3015'        │ 'Skyline Cabinetry'                 │ 'Ashford'                           │ 0          │
+│ 19      │ 'W-15-36'       │ 'W-1536'         │ 'Skyline Cabinetry,Ashford,Madison' │ 'Skyline Cabinetry'                 │ 0          │
+│ 20      │ 'W-18-36'       │ 'W-1836'         │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 0          │
+│ 21      │ 'W-15-30'       │ 'W-1530'         │ 'Skyline Cabinetry,Ashford,Madison' │ 'Skyline Cabinetry'                 │ 0          │
+│ 22      │ 'WBC-27-30'     │ 'WBC2730'        │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 0          │
+│ 23      │ 'WBC-27-36'     │ 'WBC2736'        │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 0          │
+│ 24      │ 'WBC-27-42'     │ 'WBC2742'        │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 0          │
+│ 25      │ 'CHROME-TRAY33' │ 'CHROME TRAY 33' │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry'                 │ 0          │
+│ 26      │ 'CHROME-TRAY36' │ 'CHROME TRAY 36' │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry'                 │ 0          │
+│ 27      │ 'PR-30-15'      │ 'PR3015'         │ 'Skyline Cabinetry,Ashford'         │ 'Skyline Cabinetry'                 │ 0          │
+│ 28      │ 'ADA-3VDB12'    │ '3DB12ADA'       │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry'                 │ 0          │
+└─────────┴─────────────────┴──────────────────┴─────────────────────────────────────┴─────────────────────────────────────┴────────────┘
+
+## altSku1-3 pointing at ANOTHER live master code (altSku is never read by pricing)
+┌─────────┬───────────────────────────┬────────────┬─────────────────────────────────────┬─────────────────────────────────────┬──────────┐
+│ (index) │ masterCode                │ altCode    │ ownLines                            │ altLines                            │ aliasRow │
+├─────────┼───────────────────────────┼────────────┼─────────────────────────────────────┼─────────────────────────────────────┼──────────┤
+│ 0       │ 'ARCHIVE-3DB12-9390028'   │ '3DB12'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 1       │ 'ARCHIVE-3DB12-9390028'   │ '3DB12'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 2       │ 'ARCHIVE-3DB15-9390029'   │ '3DB15'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 3       │ 'ARCHIVE-3DB18-9390030'   │ '3DB18'    │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 4       │ 'ARCHIVE-3DB21-9390031'   │ '3DB21'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 5       │ 'ARCHIVE-3DB24-9390032'   │ '3DB24'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 6       │ 'ARCHIVE-3DB30-9390033'   │ '3DB30'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 7       │ 'ARCHIVE-3DB36-9390034'   │ '3DB36'    │ null                                │ 'Ashford,Skyline Cabinetry,Madison' │ 0        │
+│ 8       │ 'ARCHIVE-B24-9390006'     │ 'B24'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 9       │ 'ARCHIVE-B27-9390007'     │ 'B27'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 10      │ 'ARCHIVE-B30-9390008'     │ 'B30'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 11      │ 'ARCHIVE-B33-9390009'     │ 'B33'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 12      │ 'ARCHIVE-B36-9390010'     │ 'B36'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 13      │ 'ARCHIVE-B42-9390012'     │ 'B42'      │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 14      │ 'ARCHIVE-FSB36-9390043'   │ 'FSB36'    │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 15      │ 'ARCHIVE-SB33-9390063'    │ 'SB33'     │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 16      │ 'ARCHIVE-SB36-9390064'    │ 'SB36'     │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 17      │ 'ARCHIVE-U189024-9390076' │ 'U189024'  │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 18      │ 'ARCHIVE-U248424-9390078' │ 'U248424'  │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 19      │ 'ARCHIVE-U249024-9390079' │ 'U249024'  │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 20      │ 'ARCHIVE-U249624-9390080' │ 'U249624'  │ null                                │ 'Skyline Cabinetry,Ashford,Madison' │ 0        │
+│ 21      │ 'AW-12-30'                │ 'AW1230'   │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 1        │
+│ 22      │ 'AW-12-36'                │ 'AW1236'   │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 1        │
+│ 23      │ 'AW-12-42'                │ 'AW1242'   │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 1        │
+│ 24      │ 'AW1230'                  │ 'AW-12-30' │ 'Skyline Cabinetry,Madison'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 25      │ 'AW1236'                  │ 'AW-12-36' │ 'Skyline Cabinetry,Madison'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 26      │ 'AW1242'                  │ 'AW-12-42' │ 'Skyline Cabinetry,Madison'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 27      │ 'B30FH'                   │ 'BFH30'    │ 'Madison,Skyline Cabinetry'         │ null                                │ 1        │
+│ 28      │ 'B36FH'                   │ 'BFH36'    │ 'Madison,Skyline Cabinetry'         │ null                                │ 1        │
+│ 29      │ 'BSD6'                    │ 'BSDC6'    │ 'Skyline Cabinetry,Ashford'         │ null                                │ 1        │
+│ 30      │ 'DCW-2436'                │ 'DCW2436'  │ 'Skyline Cabinetry'                 │ 'Skyline Cabinetry,Madison'         │ 1        │
+│ 31      │ 'LRM-8'                   │ 'LRM8'     │ 'Skyline Cabinetry,Ashford'         │ null                                │ 1        │
+│ 32      │ 'PR-30-15'                │ 'PR3015'   │ 'Skyline Cabinetry,Ashford'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 33      │ 'TK-8(TKC)'               │ 'TKC'      │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 0        │
+│ 34      │ 'UOC3384(O338424)'        │ 'O338424'  │ 'Skyline Cabinetry,Ashford,Madison' │ 'Madison'                           │ 0        │
+│ 35      │ 'UOC3390(O339024)'        │ 'O339024'  │ 'Skyline Cabinetry,Ashford'         │ 'Madison'                           │ 0        │
+│ 36      │ 'UOC3396(O339624)'        │ 'O339624'  │ 'Skyline Cabinetry,Ashford,Madison' │ 'Madison'                           │ 0        │
+│ 37      │ 'V-30-21DL'               │ 'V3021DL'  │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 1        │
+│ 38      │ 'V-30-21DR'               │ 'V3021DR'  │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 1        │
+│ 39      │ 'V-36-21DL'               │ 'V3621DL'  │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 1        │
+│ 40      │ 'V-36-21DR'               │ 'V3621DR'  │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 1        │
+│ 41      │ 'VA-48'                   │ 'VA48'     │ 'Skyline Cabinetry,Ashford'         │ null                                │ 1        │
+│ 42      │ 'VDB1221(3VDB12)'         │ '3VDB12'   │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 0        │
+│ 43      │ 'VDB1521(3VDB15)'         │ '3VDB15'   │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 0        │
+│ 44      │ 'VDB1821(3VDB18)'         │ '3VDB18'   │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 0        │
+│ 45      │ 'VDB2121'                 │ '3VDB21'   │ 'Skyline Cabinetry,Ashford'         │ null                                │ 0        │
+│ 46      │ 'VDB2421'                 │ '3VDB24'   │ 'Skyline Cabinetry,Ashford,Madison' │ null                                │ 0        │
+│ 47      │ 'W-1542'                  │ 'W1542'    │ 'Skyline Cabinetry,Ashford,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 48      │ 'W-1830'                  │ 'W1830'    │ 'Skyline Cabinetry,Ashford,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 49      │ 'W-1842'                  │ 'W1842'    │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 50      │ 'W-2130'                  │ 'W2130'    │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 51      │ 'W-2136'                  │ 'W2136'    │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 52      │ 'W-2142'                  │ 'W2142'    │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 53      │ 'W-2430'                  │ 'W2430'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 54      │ 'W-2436'                  │ 'W2436'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 55      │ 'W-2442'                  │ 'W2442'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 56      │ 'W-2730'                  │ 'W2730'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 57      │ 'W-2736'                  │ 'W2736'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 58      │ 'W-2742'                  │ 'W2742'    │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 59      │ 'W-3012'                  │ 'W3012'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 60      │ 'W-3015'                  │ 'W3015'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 61      │ 'W-3018'                  │ 'W3018'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 62      │ 'W-3024'                  │ 'W3024'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 63      │ 'W-3030'                  │ 'W3030'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 64      │ 'W-3036'                  │ 'W3036'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 65      │ 'W-3042'                  │ 'W3042'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 66      │ 'W-3312'                  │ 'W3312'    │ 'Ashford,Skyline Cabinetry'         │ null                                │ 1        │
+│ 67      │ 'W-3315'                  │ 'W3315'    │ 'Ashford,Skyline Cabinetry'         │ null                                │ 1        │
+│ 68      │ 'W-3318'                  │ 'W3318'    │ 'Ashford,Skyline Cabinetry'         │ null                                │ 1        │
+│ 69      │ 'W-3324'                  │ 'W3324'    │ 'Ashford,Skyline Cabinetry'         │ null                                │ 1        │
+│ 70      │ 'W-3330'                  │ 'W3330'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 71      │ 'W-3336'                  │ 'W3336'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 72      │ 'W-3342'                  │ 'W3342'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 73      │ 'W-3612'                  │ 'W3612'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 74      │ 'W-3615'                  │ 'W3615'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 75      │ 'W-3618'                  │ 'W3618'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 76      │ 'W-3624'                  │ 'W3624'    │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 1        │
+│ 77      │ 'W-3630'                  │ 'W3630'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 78      │ 'W-3636'                  │ 'W3636'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 79      │ 'W-3642'                  │ 'W3642'    │ 'Ashford,Madison,Skyline Cabinetry' │ null                                │ 1        │
+│ 80      │ 'WBC-27-30'               │ 'WBC2730'  │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 81      │ 'WBC-27-36'               │ 'WBC2736'  │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 82      │ 'WBC-27-42'               │ 'WBC2742'  │ 'Ashford,Madison,Skyline Cabinetry' │ 'Skyline Cabinetry'                 │ 1        │
+│ 83      │ 'WR331524(W331524)'       │ 'W331524'  │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 0        │
+│ 84      │ 'WR3318(W331824)'         │ 'W331824'  │ 'Skyline Cabinetry,Madison'         │ null                                │ 0        │
+│ 85      │ 'WR3612(W361224)'         │ 'W361224'  │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 0        │
+│ 86      │ 'WR3615(W361524)'         │ 'W361524'  │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 0        │
+│ 87      │ 'WR3618(W361824)'         │ 'W361824'  │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 0        │
+│ 88      │ 'WR3624(W362424)'         │ 'W362424'  │ 'Ashford,Skyline Cabinetry,Madison' │ null                                │ 0        │
+└─────────┴───────────────────────────┴────────────┴─────────────────────────────────────┴─────────────────────────────────────┴──────────┘
+
+## CORNER-family twins: same dims/placement, different codes, no alias row either direction
+┌─────────┬────────────┬─────────────────────────────┬─────────────┬─────────────────────────────┬──────────┬──────────────────────────┬───────────────────────────┬─────────┬─────────┬─────────┐
+│ (index) │ codeA      │ linesA                      │ codeB       │ linesB                      │ category │ subA                     │ subB                      │ width   │ height  │ depth   │
+├─────────┼────────────┼─────────────────────────────┼─────────────┼─────────────────────────────┼──────────┼──────────────────────────┼───────────────────────────┼─────────┼─────────┼─────────┤
+│ 0       │ 'BER36'    │ 'Madison'                   │ 'LSB36'     │ 'Madison'                   │ 'Base'   │ 'Lazy Susan'             │ 'Lazy Susan'              │ '36.00' │ '34.50' │ '24.00' │
+│ 1       │ 'BER36ADA' │ 'Madison'                   │ 'LSB36ADA'  │ 'Madison'                   │ 'ADA'    │ 'Easy Reach Corner Base' │ 'Lazy Susan / Easy Reach' │ '36.00' │ '32.50' │ '24.00' │
+│ 2       │ 'DCSB36'   │ 'Ashford'                   │ 'BER36'     │ 'Madison'                   │ 'Base'   │ 'Sink Base'              │ 'Lazy Susan'              │ '36.00' │ '34.50' │ '24.00' │
+│ 3       │ 'DCSB36'   │ 'Ashford'                   │ 'LSB36'     │ 'Madison'                   │ 'Base'   │ 'Sink Base'              │ 'Lazy Susan'              │ '36.00' │ '34.50' │ '24.00' │
+│ 4       │ 'DCW2430'  │ 'Madison,Skyline Cabinetry' │ 'DCW2430GD' │ 'Madison,Skyline Cabinetry' │ 'Wall'   │ 'Corner Wall'            │ 'Corner Wall'             │ '24.00' │ '30.00' │ '12.00' │
+│ 5       │ 'DCW2436'  │ 'Madison,Skyline Cabinetry' │ 'DCW2436GD' │ 'Madison,Skyline Cabinetry' │ 'Wall'   │ 'Corner Wall'            │ 'Glass Door Wall'         │ '24.00' │ '36.00' │ '12.00' │
+│ 6       │ 'DCW2442'  │ 'Madison,Skyline Cabinetry' │ 'DCW2442GD' │ 'Skyline Cabinetry,Madison' │ 'Wall'   │ 'Corner Wall'            │ 'Corner Wall'             │ '24.00' │ '42.00' │ '12.00' │
+│ 7       │ 'WBC2430'  │ 'Skyline Cabinetry'         │ 'DCW2430'   │ 'Madison,Skyline Cabinetry' │ 'Wall'   │ 'Blind Corner Wall'      │ 'Corner Wall'             │ '24.00' │ '30.00' │ '12.00' │
+│ 8       │ 'WBC2430'  │ 'Skyline Cabinetry'         │ 'DCW2430GD' │ 'Madison,Skyline Cabinetry' │ 'Wall'   │ 'Blind Corner Wall'      │ 'Corner Wall'             │ '24.00' │ '30.00' │ '12.00' │
+│ 9       │ 'WBC2442'  │ 'Skyline Cabinetry'         │ 'DCW2442'   │ 'Skyline Cabinetry,Madison' │ 'Wall'   │ 'Blind Corner Wall'      │ 'Corner Wall'             │ '24.00' │ '42.00' │ '12.00' │
+│ 10      │ 'WBC2442'  │ 'Skyline Cabinetry'         │ 'DCW2442GD' │ 'Skyline Cabinetry,Madison' │ 'Wall'   │ 'Blind Corner Wall'      │ 'Corner Wall'             │ '24.00' │ '42.00' │ '12.00' │
+│ 11      │ 'WDC2436'  │ 'Ashford'                   │ 'DCW-2436'  │ 'Skyline Cabinetry'         │ 'Wall'   │ 'Corner Wall'            │ 'Corner Wall'             │ '24.00' │ '36.00' │ '12.00' │
+└─────────┴────────────┴─────────────────────────────┴─────────────┴─────────────────────────────┴──────────┴──────────────────────────┴───────────────────────────┴─────────┴─────────┴─────────┘
+
+## Punctuation-only twins (same code once dashes/spaces removed)
+┌─────────┬──────────────────┬─────────────────┬─────────────────────────────┬─────────────────────────────────────┬──────────┐
+│ (index) │ codeA            │ codeB           │ linesA                      │ linesB                              │ aliasRow │
+├─────────┼──────────────────┼─────────────────┼─────────────────────────────┼─────────────────────────────────────┼──────────┤
+│ 0       │ 'AW1230'         │ 'AW-12-30'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 1       │ 'AW1236'         │ 'AW-12-36'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 2       │ 'AW1242'         │ 'AW-12-42'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 3       │ 'CHROME TRAY 33' │ 'CHROME-TRAY33' │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 4       │ 'CHROME TRAY 36' │ 'CHROME-TRAY36' │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry'                 │ 1        │
+│ 5       │ 'DCW2436'        │ 'DCW-2436'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 6       │ 'LRM8'           │ 'LRM-8'         │ null                        │ 'Skyline Cabinetry,Ashford'         │ 1        │
+│ 7       │ 'PR3015'         │ 'PR-30-15'      │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry,Ashford'         │ 1        │
+│ 8       │ 'V3021DL'        │ 'V-30-21DL'     │ null                        │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 9       │ 'V3021DR'        │ 'V-30-21DR'     │ null                        │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 10      │ 'V3621DL'        │ 'V-36-21DL'     │ null                        │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 11      │ 'V3621DR'        │ 'V-36-21DR'     │ null                        │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 12      │ 'VA48'           │ 'VA-48'         │ null                        │ 'Skyline Cabinetry,Ashford'         │ 1        │
+│ 13      │ 'W-1530'         │ 'W-15-30'       │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 14      │ 'W-1536'         │ 'W-15-36'       │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 15      │ 'W-1836'         │ 'W-18-36'       │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 16      │ 'W-3930'         │ 'W-39-30'       │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 17      │ 'W1542'          │ 'W-1542'        │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 18      │ 'W1830'          │ 'W-1830'        │ 'Skyline Cabinetry'         │ 'Skyline Cabinetry,Ashford,Madison' │ 1        │
+│ 19      │ 'W1842'          │ 'W-1842'        │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 20      │ 'W2130'          │ 'W-2130'        │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 21      │ 'W2136'          │ 'W-2136'        │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 22      │ 'W2142'          │ 'W-2142'        │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 23      │ 'W2430'          │ 'W-2430'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 24      │ 'W2436'          │ 'W-2436'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 25      │ 'W2442'          │ 'W-2442'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 26      │ 'W2730'          │ 'W-2730'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 27      │ 'W2736'          │ 'W-2736'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 28      │ 'W2742'          │ 'W-2742'        │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 29      │ 'W3012'          │ 'W-3012'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 30      │ 'W3015'          │ 'W-3015'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 31      │ 'W3018'          │ 'W-3018'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 32      │ 'W3024'          │ 'W-3024'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 33      │ 'W3030'          │ 'W-3030'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 34      │ 'W3036'          │ 'W-3036'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 35      │ 'W3042'          │ 'W-3042'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 36      │ 'W3312'          │ 'W-3312'        │ null                        │ 'Ashford,Skyline Cabinetry'         │ 1        │
+│ 37      │ 'W3315'          │ 'W-3315'        │ null                        │ 'Ashford,Skyline Cabinetry'         │ 1        │
+│ 38      │ 'W3318'          │ 'W-3318'        │ null                        │ 'Ashford,Skyline Cabinetry'         │ 1        │
+│ 39      │ 'W3324'          │ 'W-3324'        │ null                        │ 'Ashford,Skyline Cabinetry'         │ 1        │
+│ 40      │ 'W3330'          │ 'W-3330'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 41      │ 'W3336'          │ 'W-3336'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 42      │ 'W3342'          │ 'W-3342'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 43      │ 'W3612'          │ 'W-3612'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 44      │ 'W3615'          │ 'W-3615'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 45      │ 'W3618'          │ 'W-3618'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 46      │ 'W3624'          │ 'W-3624'        │ null                        │ 'Ashford,Skyline Cabinetry,Madison' │ 1        │
+│ 47      │ 'W3630'          │ 'W-3630'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 48      │ 'W3636'          │ 'W-3636'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 49      │ 'W3642'          │ 'W-3642'        │ null                        │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 50      │ 'WBC2730'        │ 'WBC-27-30'     │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 51      │ 'WBC2736'        │ 'WBC-27-36'     │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 52      │ 'WBC2742'        │ 'WBC-27-42'     │ 'Skyline Cabinetry'         │ 'Ashford,Madison,Skyline Cabinetry' │ 1        │
+│ 53      │ 'WER2430'        │ 'WER-2430'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 54      │ 'WER2436'        │ 'WER-2436'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+│ 55      │ 'WER2442'        │ 'WER-2442'      │ 'Skyline Cabinetry,Madison' │ 'Skyline Cabinetry'                 │ 1        │
+└─────────┴──────────────────┴─────────────────┴─────────────────────────────┴─────────────────────────────────────┴──────────┘

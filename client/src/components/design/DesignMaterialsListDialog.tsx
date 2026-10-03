@@ -1,4 +1,5 @@
-import { Download, FileSpreadsheet, Printer, ShoppingCart, Trash2 } from "lucide-react";
+import { Download, FileSpreadsheet, Printer, ShoppingCart, Trash2, TriangleAlert } from "lucide-react";
+import { missingPriceBannerText, missingPriceLineLabel } from "@/lib/designMissingPrice";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -23,6 +24,8 @@ export function DesignMaterialsListDialog({
   onRemovePlacedItems,
   onAddPricedItemsToCart,
   pricedCartItemCount = 0,
+  missingPriceUids,
+  missingPriceCount = 0,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -36,7 +39,11 @@ export function DesignMaterialsListDialog({
   onAddPricedItemsToCart?: () => void;
   /** Purchase-unit count after quote-only and unavailable lines have been excluded. */
   pricedCartItemCount?: number;
+  /** Part 1: placed cabinet UIDs with no price on the active line. */
+  missingPriceUids?: ReadonlySet<string>;
+  missingPriceCount?: number;
 }) {
+  const rowMissingPrice = (row: MaterialsListRow) => (row.sourceUids ?? []).some((uid) => missingPriceUids?.has(uid));
   const title = `${brandName?.trim() || "Cabinet Dealz"} Materials & Parts List`;
   const cabinetRows = rows.filter((row) => row.section === "cabinet");
   const otherRows = rows.filter((row) => row.section === "other");
@@ -82,7 +89,7 @@ export function DesignMaterialsListDialog({
         <th colSpan={12} className="px-3 py-2 text-left text-[11px] font-bold uppercase tracking-wide">{heading}</th>
       </tr>
       {sectionRows.map((row) => (
-        <tr key={`${row.section}:${row.label}:${row.code}:${row.styleColor}`} className="border-b border-slate-200 align-top odd:bg-white even:bg-slate-50/60">
+        <tr key={`${row.section}:${row.label}:${row.code}:${row.styleColor}`} data-price-missing={rowMissingPrice(row) ? "true" : undefined} className={`border-b align-top ${rowMissingPrice(row) ? "border-red-300 bg-red-50 odd:bg-red-50 even:bg-red-50" : "border-slate-200 odd:bg-white even:bg-slate-50/60"}`}>
           <td className="sticky left-0 z-[1] bg-white px-1.5 py-1.5 text-center even:bg-slate-50/60">
             <Button
               type="button"
@@ -98,7 +105,12 @@ export function DesignMaterialsListDialog({
             </Button>
           </td>
           <td className="px-2 py-2 text-center font-bold text-[#1a2744]">{row.label}</td>
-          <td className="px-2 py-2 font-mono font-semibold">{row.code}</td>
+          <td className="px-2 py-2 font-mono font-semibold">
+            {row.code}
+            {rowMissingPrice(row) && (
+              <span data-testid="materials-price-missing-flag" className="mt-1 block w-fit rounded bg-red-600 px-1.5 py-0.5 font-sans text-[9px] font-extrabold uppercase tracking-wide text-white">{missingPriceLineLabel(row.code)}</span>
+            )}
+          </td>
           <td className="px-2 py-2 min-w-[190px]">{row.description}</td>
           <td className="px-2 py-2">{row.category}</td>
           <td className="px-2 py-2">{row.supplier}</td>
@@ -126,6 +138,11 @@ export function DesignMaterialsListDialog({
                 Numbered cabinets, panels, fillers, and cabinet trim first; all non-cabinet materials are alphabetized below. Use the red trash button at the left of each placed item to remove it from this design.
               </DialogDescription>
               <p className="mt-1 text-[11px] font-medium text-slate-600">{roomLabel} · {styleName?.trim() || "Cabinet style not selected"}</p>
+              {missingPriceCount > 0 && (
+                <p data-testid="materials-missing-price-banner" role="alert" className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-red-500 bg-red-600 px-2.5 py-1.5 text-xs font-bold text-white shadow">
+                  <TriangleAlert className="h-3.5 w-3.5" /> {missingPriceBannerText(missingPriceCount)} Checkout is blocked until every cabinet has a price.
+                </p>
+              )}
             </div>
             <div className="flex shrink-0 flex-wrap gap-2 pr-7 sm:pr-8">
               <Button
@@ -133,7 +150,8 @@ export function DesignMaterialsListDialog({
                 size="sm"
                 className="gap-1.5 bg-[#a87f33] text-white hover:bg-[#8e6929]"
                 onClick={onAddPricedItemsToCart}
-                disabled={!onAddPricedItemsToCart || pricedCartItemCount <= 0}
+                disabled={!onAddPricedItemsToCart || pricedCartItemCount <= 0 || missingPriceCount > 0}
+                data-missing-price-blocked={missingPriceCount > 0 ? "true" : undefined}
                 title="Add only catalog-priced materials and parts to the cart"
               >
                 <ShoppingCart className="h-4 w-4" /> Add priced items to cart{pricedCartItemCount > 0 ? ` (${pricedCartItemCount})` : ""}

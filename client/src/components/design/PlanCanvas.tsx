@@ -358,6 +358,8 @@ interface Props {
   onOpenWallSettings?: (side: WallSide) => void;
   // Uids of items that are in a conflict (e.g. appliance running into a cabinet).
   conflictUids?: Set<string>;
+  /** Part 1: placed cabinets with no price on the active line (red flag). */
+  missingPriceUids?: Set<string>;
   // Lock state: when layoutLocked is true the whole room/walls/openings/island
   // are frozen (cabinets can still be moved). lockedWalls freezes specific walls.
   layoutLocked?: boolean;
@@ -448,7 +450,7 @@ export function PlanCanvas({
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
   finish = DEFAULT_FINISH_COLORS,
   drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids,
+  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids, missingPriceUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -2374,6 +2376,7 @@ export function PlanCanvas({
             const lbl = readableLabel(faceFill);
             const collides = cabinetPlacementCollisionDetail(p, cabinets, room) != null;
             const inConflict = conflictUids?.has(p.uid) ?? false;
+            const priceMissing = missingPriceUids?.has(p.uid) ?? false;
 	            const splitFillerTooltip = splitFillerDimensionTooltip(p);
 	            const placementHoverDetail = cabinetPlacementHoverDetail(p);
 	            const placementHoverTooltip = placementHoverDetail
@@ -2466,7 +2469,9 @@ export function PlanCanvas({
                   background: isWall
                     ? `repeating-linear-gradient(45deg, ${edgeColor}33, ${edgeColor}33 6px, ${edgeColor}55 6px, ${edgeColor}55 12px), ${faceFill}`
                     : faceFill,
-                  border: inConflict
+                  border: priceMissing
+                    ? "3px solid #dc2626"
+                    : inConflict
                     ? "2.5px solid #dc2626"
                     : isAttributesTarget
                     ? "3px solid #a87f33"
@@ -2483,7 +2488,9 @@ export function PlanCanvas({
                     : isWall
                     ? `1.5px dashed ${edgeColor}`
                     : `1.5px solid ${edgeColor}`,
-                  boxShadow: inConflict
+                  boxShadow: priceMissing
+                    ? "0 0 0 4px rgba(220,38,38,0.55), 0 0 16px rgba(220,38,38,0.7)"
+                    : inConflict
                     ? "0 0 0 3px rgba(220,38,38,0.45)"
                     : isAttributesTarget
                     ? "0 0 0 5px rgba(212,167,90,0.72), 0 0 18px rgba(212,167,90,0.52), inset 0 0 0 1px rgba(255,255,255,0.85)"
@@ -2513,7 +2520,18 @@ export function PlanCanvas({
 	                data-angled-wall-mitered-filler={isMiteredAngledWallFiller ? "true" : undefined}
 	                data-angled-wall-transition-filler={transitionBounds ? "true" : undefined}
 	                data-placement-detail-tooltip={placementHoverDetail ? "true" : undefined}
+                data-price-missing={priceMissing ? "true" : undefined}
               >
+                {priceMissing && (
+                  <span
+                    data-testid="price-missing-indicator"
+                    role="alert"
+                    className="pointer-events-none absolute left-1/2 top-0 z-50 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center gap-1 whitespace-nowrap rounded border border-red-200 bg-red-600 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_14px_rgba(220,38,38,0.72)]"
+                    title={`PRICE MISSING — ${p.masterCode}. No price on the active line. Click the cabinet for a priced alternative.`}
+                  >
+                    PRICE MISSING
+                  </span>
+                )}
 		                {showWallSnapSuccess && (
 		                  <span
 		                    data-testid="wall-snap-success-indicator"
