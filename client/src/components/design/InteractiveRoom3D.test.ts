@@ -6517,8 +6517,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(THREE_D_WALL_DEPTH_WRITE).toBe(false);
   });
 
-  it("opens the 3D Designer on a clear stage instead of overlaying translucent room walls", () => {
-    expect(THREE_D_ROOM_CONTEXT_DEFAULT).toBe(false);
+  it("opens the 3D Designer with its drawn room walls visible", () => {
+    expect(THREE_D_ROOM_CONTEXT_DEFAULT).toBe(true);
   });
 
   it("writes the active catalog cabinet and countertop names when quote previews stay at their defaults", () => {

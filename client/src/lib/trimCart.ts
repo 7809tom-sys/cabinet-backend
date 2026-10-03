@@ -1,6 +1,6 @@
 // Trim → cart / build-sheet pricing helper.
 //
-// The Design Tool auto-adds trim (toe kick, crown, light rail, batten) and lets
+// The Design Tool auto-adds physical trim (toe kick, light rail, batten); crown is opt-in, and all trim lets
 // the user add fillers/scribe. Previously those trims were computed for the
 // build sheet only and never became priced cart line items, so a designed
 // kitchen's trim was missing from the cart (and showed "incl." / $0). They also

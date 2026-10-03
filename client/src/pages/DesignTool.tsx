@@ -4014,11 +4014,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [cartableLines, replaceWithDesignItems, currentSavedDesignId, checkoutBlockedForMissingPrices, notifyCheckoutBlockedByMissingPrices]);
 
   // ─── Trim auto-apply ────────────────────────────────────────────────────────
-  // Physically required trims auto-apply when the layout warrants them unless
-  // the user explicitly overrides the switch: toe kick on base runs, crown and
-  // light rail on wall runs, and batten at cabinet seams. Decorative valances
-  // deliberately remain opt-in so they cannot appear in the plan or invoice
-  // without a user choice.
+  // Only physical construction trim may auto-apply when the layout needs it:
+  // toe kick on base runs, light rail on wall runs, and batten at cabinet seams.
+  // Crown and valances are decorative selections. They must remain opt-in so no
+  // crown item or 3D crown profile appears without the customer selecting it.
   const hasBaseCab = useMemo(() => placed.some((p) => p.placement === "base"), [placed]);
   const hasWallCab = useMemo(() => placed.some((p) => p.placement === "wall"), [placed]);
   const needsBatten = useMemo(() => battenLinearInches(placed, room) > 0, [placed, room]);
@@ -4026,8 +4025,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const o = trimOverride.current;
     // Toe kick: any base cabinet run needs a toe kick.
     if (!o.toeKick && hasBaseCab && !toeKick) setToeKick(true);
-    // Crown: wall cabinets get crown along the top.
-    if (!o.crown && hasWallCab && !crown) setCrown(true);
     // Light rail: valance under the wall cabinets.
     if (!o.lightRail && hasWallCab && !lightRail) setLightRail(true);
     // Batten: cover the seams wherever cabinets meet.
@@ -4035,7 +4032,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // An arched valance is a deliberate decorative plan item. It is never
     // inferred from a window + wall cabinet pairing, so the invoice cannot gain
     // a VA-48 that the customer did not add to the plan.
-  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, crown, lightRail, batten]);
+  }, [hasBaseCab, hasWallCab, needsBatten, toeKick, lightRail, batten]);
   // Countertop is a POST-LAYOUT step: it can only be applied once the kitchen
   // has base cabinets (or an island) to sit on. A base run, a vanity, or an
   // island all count as a surface that takes a top.
@@ -7410,8 +7407,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // from the wall corner inward: a 96" pantry → the refrigerator flanked by tall
   // REPV end panels → the deep 27", +6"-taller refrigerator wall cabinet two
   // inches above the fridge → standard 54"-bottom uppers filling the remainder.
-  // Continuous crown is enabled so it wraps the stepped top line. Everything is
-  // movable/deletable afterward. Fires a fetch, then places when data lands.
+  // Everything remains movable/deletable afterward. Crown stays an explicit
+  // trim choice and is never added by this preset. Fires a fetch, then places
+  // when data lands.
   const [builtinRunArmed, setBuiltinRunArmed] = useState(false);
   const { data: builtinRunData } = trpc.design.builtinFridgeRun.useQuery(
     { styleId: styleId ?? 0 },
@@ -7549,9 +7547,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
 
     setPlaced((prev) => appendCollisionFreePlacements(prev, out).placed);
-    // Turn on crown so it wraps the stepped top line of the built-in.
-    trimOverride.current.crown = true;
-    setCrown(true);
     toast.success(t("dt_builtin_added_toast", { n: out.length }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [builtinRunArmed, builtinRunData]);
@@ -10093,14 +10088,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (d.tier) setTier(normalizeDesignPricingTier(d.tier));
           // Current snapshots separately preserve which trim switches were a
           // deliberate customer choice. Older snapshots did not carry that
-          // provenance, so only their physical auto-trims retain the former
-          // compatibility behavior; a legacy VA-48 is never inferred or billed
-          // merely because the room has a window and wall cabinet.
+          // provenance, so only their physical auto-trims retain compatibility
+          // behavior. Decorative crown and valances are never inferred, billed,
+          // or restored from the former automatic behavior.
           const persistedManualTrimOverride = d.trimManualOverride && typeof d.trimManualOverride === "object"
             ? d.trimManualOverride as Partial<Record<TrimKind, unknown>>
             : null;
           const wasManuallyChosen = (kind: TrimKind) => persistedManualTrimOverride?.[kind] === true;
-          if ("crown" in d) trimOverride.current.crown = true;
+          if (wasManuallyChosen("crown")) trimOverride.current.crown = true;
           // Only lock toeKick override when it was explicitly saved as true.
           // If saved as false, allow auto-enable to fire so old designs
           // (saved before toe kick was a feature) get the toe kick added.
@@ -10108,7 +10103,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if ("batten" in d) trimOverride.current.batten = true;
           if ("lightRail" in d) trimOverride.current.lightRail = true;
           if (wasManuallyChosen("valance")) trimOverride.current.valance = true;
-          setCrown(!!d.crown);
+          setCrown(wasManuallyChosen("crown") && d.crown === true);
           setToeKick(!!d.toeKick);
           setBatten(!!d.batten);
           setLightRail(!!d.lightRail);
@@ -10120,7 +10115,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             const src = d.trimQtyOverride as Record<string, unknown>;
             const clean: Partial<Record<TrimKind, number>> = {};
             for (const k of ["crown", "toeKick", "batten", "lightRail", "valance"] as TrimKind[]) {
-              if (k === "valance" && !wasManuallyChosen("valance")) continue;
+              if ((k === "crown" || k === "valance") && !wasManuallyChosen(k)) continue;
               if (typeof src[k] === "number") clean[k] = Math.max(0, Math.min(99, src[k] as number));
             }
             setTrimQtyOverride(clean);
