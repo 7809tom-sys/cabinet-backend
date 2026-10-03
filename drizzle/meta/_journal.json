@@ -1191,6 +1191,13 @@
       "when": 1791035538073,
       "tag": "0170_faithful_ken_ellis",
       "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "5",
+      "when": 1791041850847,
+      "tag": "0171_outgoing_valkyrie",
+      "breakpoints": true
     }
   ]
 }

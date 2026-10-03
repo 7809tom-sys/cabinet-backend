@@ -528,6 +528,10 @@ export const cabinets = mysqlTable("cabinets", {
   masterCode: varchar("masterCode", { length: 64 }).notNull().unique(), // DB-24-3, B-24, etc.
   description: text("description").notNull(),
   descriptionSource: varchar("descriptionSource", { length: 64 }), // US Cabinet Depot, Clark & Son, Research
+  /** Plain-English homeowner description (master sheet 2026-10-03, rule 13). */
+  homeownerDescription: text("homeownerDescription"),
+  /** Owner's original wording before the 2026-10-03 description rewrite (kept, never overwritten). */
+  originalDescription: text("originalDescription"),
   category: varchar("category", { length: 64 }).notNull(), // Base, Wall, Tall, ADA, Vanity, Accessory
   subCategory: varchar("subCategory", { length: 128 }), // Drawer Base, Sink Base, etc.
   width: decimal("width", { precision: 6, scale: 2 }),
