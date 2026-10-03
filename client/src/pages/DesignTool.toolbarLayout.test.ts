@@ -87,7 +87,8 @@ describe("designer toolbar layout", () => {
   });
 
   it("keeps Materials & Parts as direct toolbar actions and removes every More-menu duplicate", () => {
-    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(3);
+    // 3 direct desktop/mobile actions + the tablet "More tools" Workspace row.
+    expect(source.match(/setMaterialsListOpen\(true\)/g)).toHaveLength(4);
     expect(source).toContain("Materials &amp; Parts");
     expect(source).not.toContain("Materials &amp; Parts List");
   });
@@ -102,7 +103,9 @@ describe("designer toolbar layout", () => {
   });
 
 	it("keeps Room Size visible in compact desktop workspace and reachable on mobile", () => {
-	  expect(source).toContain('className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
+	  expect(source).toContain('className={`${isTabletWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`}');
+  // Tablets fold Room Size into the More tools sheet instead.
+  expect(source).toContain('data-testid="tablet-more-room-size"');
 	  expect(roomSizeSource).toContain('aria-label="Open room size"');
 	  expect(roomSizeSource).toContain("<span>Room size</span>");
 	  expect(source).toContain("<RoomSizeControl");

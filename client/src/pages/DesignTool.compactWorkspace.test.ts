@@ -15,7 +15,7 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Show panels");
     expect(source).toContain('data-testid="compact-workspace-show-panels-trigger"');
     expect(source).toContain('aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas"');
-    expect(source).toContain("> Catalog");
+    expect(source).toContain('{isTabletWorkspace ? "Add cabinet" : "Catalog"}');
     expect(source).toContain("Price &amp; cart");
   });
 

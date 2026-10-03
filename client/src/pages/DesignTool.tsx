@@ -41,6 +41,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/useMobile";
+import { useDesignerImmersive, useTabletWorkspace } from "@/hooks/useTabletWorkspace";
 import { usePersistFn } from "@/hooks/usePersistFn";
 import { trpc } from "@/lib/trpc";
 import {
@@ -577,11 +578,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // customer override Auto at any time.
   const isSmallLaptop = useIsMobile(1440);
   const [compactWorkspaceOverride, setCompactWorkspaceOverride] = useState<"auto" | "compact" | "expanded">("auto");
+  const tabletTier = useTabletWorkspace();
   const isCompactWorkspace = !isMobile && (
     compactWorkspaceOverride === "compact"
-    || (compactWorkspaceOverride === "auto" && isSmallLaptop)
+    || (compactWorkspaceOverride === "auto" && (isSmallLaptop || tabletTier.tablet))
   );
   const panelDrawerMode = isMobile || isCompactWorkspace;
+  // Tablet workspace: a landscape tablet (or a 150%-scaled 1080p slate) lands
+  // between 1024 and 1366 CSS px. Compact Workspace already turns the sidebars
+  // into drawers there, but the toolbar still ran as a single horizontal
+  // scroller wider than the screen. On tablets the toolbar wraps, duplicate
+  // controls (View/Wall selects, Show panels) move into the More sheet, and
+  // the chips use short labels so everything fits in two rows.
+  // Any touch device >= 1024px also counts as a tablet even when it is wider
+  // than 1366 (iPad Pro, Surface in landscape at 100%).
+  const isTabletWorkspace = !isMobile && isCompactWorkspace && tabletTier.tablet;
+  const isTabletPortrait = isTabletWorkspace && tabletTier.portrait;
+  const [designerImmersive] = useDesignerImmersive();
+  const tabletImmersiveHeader = isTabletWorkspace && designerImmersive;
   const [, navigate] = useLocation();
   const { items: cartItems, sourceDesignId: cartSourceDesignId, addItem, clear: clearCart, replaceWithDesignItems, lockedDistributorId: cartLockedDistributorId, lockedStyleLabel: cartLockedStyleLabel } = useCart();
   const [mobilePanel, setMobilePanel] = useState<null | "catalog" | "cart" | "style" | "room">(() => {
@@ -11186,7 +11200,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Toolbar */}
-      <div className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none lg:[&>*]:shrink-0" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
+      <div data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined} className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isTabletWorkspace ? `flex-nowrap overflow-visible gap-1.5 px-2 py-1 ${isTabletPortrait ? "order-last border-b-0 border-t" : tabletImmersiveHeader ? "pl-16" : ""}` : isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none lg:[&>*]:shrink-0" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
         <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (
@@ -11206,7 +11220,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             most, rather than hiding 3D among icon-only utility controls. */}
         <div
           data-testid="primary-floor-plan-3d-switch"
-          className="hidden shrink-0 items-center rounded-md border border-[#1a2744]/25 bg-[#f8f5ee] p-0.5 shadow-sm lg:flex"
+          className={`hidden shrink-0 items-center rounded-md border border-[#1a2744]/25 bg-[#f8f5ee] p-0.5 shadow-sm lg:flex ${isTabletWorkspace ? "[&>button]:h-10 [&>button]:min-w-11" : ""}`}
           aria-label="Designer view"
         >
           <Button
@@ -11220,6 +11234,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           >
             <LayoutGrid className="h-3.5 w-3.5" /> Floor Plan
           </Button>
+          {isTabletWorkspace && (
+            <Button
+              type="button"
+              size="sm"
+              variant={viewMode === "elevation" ? "default" : "ghost"}
+              onClick={() => setViewMode("elevation")}
+              className={`h-8 gap-1.5 px-3 text-xs font-semibold ${viewMode === "elevation" ? "bg-[#1a2744] text-white hover:bg-[#24375f]" : "text-[#1a2744] hover:bg-white"}`}
+              aria-pressed={viewMode === "elevation"}
+              data-testid="switch-to-elevation"
+              title={t("dt_sh_front_view")}
+            >
+              <Eye className="h-3.5 w-3.5" /> Elevation
+            </Button>
+          )}
           <Button
             type="button"
             size="sm"
@@ -11237,7 +11265,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
         {/* Floor Plan / Room Size stays visible in every desktop workspace mode.
             Mobile uses the compact room-size sheet trigger immediately below. */}
-        <div className={`hidden lg:block ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
+        <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
@@ -11253,7 +11281,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <Button
           variant="outline"
           size="sm"
-          className={`${isCompactWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
+          className={`${isCompactWorkspace && !isTabletWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
           onClick={activateSelectedWallCompassDrag}
           disabled={layoutLocked}
           title="Show the selected wall’s direct 45° drag handle"
@@ -11263,7 +11291,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           <Compass className="h-3.5 w-3.5" /> Drag 45°
         </Button>
 
-        <Button variant="outline" size="sm" className="hidden shrink-0 lg:inline-flex" onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
+        <Button variant="outline" size="sm" className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
         </Button>
         <Button
@@ -11279,7 +11307,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <Button
           variant={isCompactWorkspace ? "default" : "outline"}
           size="sm"
-          className="hidden lg:inline-flex shrink-0"
+          className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
           onClick={() => setCompactWorkspaceOverride((mode) => isCompactWorkspace ? "expanded" : "compact")}
           title={isCompactWorkspace ? "Show the Catalog and Price & cart panels beside the canvas" : "Hide the Catalog and Price & cart panels to give the canvas more room"}
           aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas" : "Hide Catalog and Price & cart panels to focus the canvas"}
@@ -11290,29 +11318,40 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         {isCompactWorkspace && (
           <>
             <Button
-              variant="outline"
+              variant={isTabletWorkspace ? "default" : "outline"}
               size="sm"
-              className="hidden lg:inline-flex shrink-0"
+              data-testid="tablet-add-cabinet"
+              className={`hidden lg:inline-flex shrink-0 ${isTabletWorkspace ? "h-10 min-w-11 bg-[#1a2744] px-3 text-white hover:bg-[#24375f]" : ""}`}
               onClick={() => setMobilePanel((panel) => panel === "catalog" ? null : "catalog")}
             >
-              <Boxes className="mr-1.5 h-3.5 w-3.5" /> Catalog
+              {isTabletWorkspace ? <Plus className="mr-1.5 h-4 w-4" /> : <Boxes className="mr-1.5 h-3.5 w-3.5" />} {isTabletWorkspace ? "Add cabinet" : "Catalog"}
             </Button>
+            {isTabletWorkspace && (
+              <div className="flex items-center gap-1" data-testid="tablet-undo-redo">
+                <Button variant="outline" size="icon" aria-label="Undo cabinet or wall change" onClick={handleUndo} disabled={!canUndo} className="h-10 w-11" title={t("dt_sh_undo")}>
+                  <Undo2 className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" aria-label="Redo cabinet or wall change" onClick={handleRedo} disabled={!canRedo} className="h-10 w-11" title={t("dt_sh_redo")}>
+                  <Redo2 className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
             <Button
               variant="outline"
               size="sm"
               data-testid="compact-workspace-materials-trigger"
-              className="hidden lg:inline-flex shrink-0"
+              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
               disabled={materialsListRows.length === 0}
               onClick={() => setMaterialsListOpen(true)}
               title="View every cabinet, material, fixture, and part in this design"
             >
-              <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
+              <FileText className="mr-1.5 h-3.5 w-3.5" /> {isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}
             </Button>
             <Button
               variant="outline"
               size="sm"
               data-testid="compact-workspace-surfaces-trigger"
-              className="hidden lg:inline-flex shrink-0"
+              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
               onClick={() => {
                 setPaletteType("surfaces");
                 setMobilePanel("catalog");
@@ -11324,16 +11363,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <Button
               variant="outline"
               size="sm"
-              className="hidden lg:inline-flex shrink-0"
+              data-testid="tablet-price-cart"
+              className={`hidden lg:inline-flex shrink-0 ${isTabletWorkspace ? "ml-auto h-10 gap-2 border-[#1a2744]/30 bg-white px-3" : ""}`}
               onClick={() => setMobilePanel((panel) => panel === "cart" ? null : "cart")}
             >
-              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Price &amp; cart
+              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> {isTabletWorkspace ? <>Price &amp; cart <span data-testid="tablet-running-total" className="font-serif text-sm font-bold text-[#1a2744]">${total.toFixed(2)}</span></> : <>Price &amp; cart</>}
             </Button>
             <Button
               variant="outline"
               size="sm"
               data-testid="compact-workspace-island-zone-trigger"
-              className="hidden lg:inline-flex shrink-0"
+              className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
               onClick={openOrCreateIsland}
               title={island ? "Edit island zone and choose the active placement face" : "Add an island zone and choose its placement face"}
             >
@@ -11343,13 +11383,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               variant="outline"
               size="sm"
               data-testid="compact-workspace-more-trigger"
-              className="hidden lg:inline-flex shrink-0"
+              className={`hidden lg:inline-flex shrink-0 ${isTabletWorkspace ? "h-10 min-w-11" : ""}`}
               onClick={() => setMoreSheetOpen(true)}
               title="Open more Designer tools"
             >
-              <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" /> More
+              <MoreHorizontal className="mr-1.5 h-3.5 w-3.5" /> {isTabletWorkspace ? "More tools" : "More"}
             </Button>
-            <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
+            <label className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground`}>
               <span className="mr-1.5 text-muted-foreground">Wall</span>
               <select
                 data-testid="compact-workspace-wall-selector"
@@ -11371,7 +11411,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		                ))}
               </select>
             </label>
-            <label className="hidden lg:inline-flex h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground">
+            <label className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} h-9 shrink-0 items-center rounded-md border border-border bg-background px-2 text-xs font-semibold text-foreground`}>
               <span className="mr-1.5 text-muted-foreground">View</span>
               <select
                 data-testid="compact-workspace-view-selector"
@@ -11662,6 +11702,84 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   ))}
                 </div>
 
+                {/* Tablet workspace: controls folded out of the toolbar so it fits in two rows. */}
+                {isTabletWorkspace && (
+                  <div data-testid="tablet-workspace-more-section" className="px-1 pb-1">
+                    <p className="px-3 pt-2 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Workspace</p>
+                    <div className="px-3 pb-2" data-testid="tablet-more-room-size">
+                      <RoomSizeControl
+                        room={room}
+                        onChange={applyRoom}
+                        drawMode={drawMode}
+                        onToggleDraw={() => {
+                          if (layoutLocked) return;
+                          setMoreSheetOpen(false);
+                          setDrawMode((d) => !d);
+                          setSelectedUid(null);
+                          setMeasureMode(false);
+                        }}
+                      />
+                    </div>
+                    <button disabled={materialsListRows.length === 0} onClick={() => { setMoreSheetOpen(false); setMaterialsListOpen(true); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Materials &amp; Parts</span>
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); setPaletteType("surfaces"); setMobilePanel("catalog"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Waves className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Surfaces — flooring, countertops, backsplash, sinks</span>
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); setShowWallLayer((visible) => !visible); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">{showWallLayer ? "Hide wall cabinets" : "Show wall cabinets"}</span>
+                      {showWallLayer && <Check className="h-3.5 w-3.5 text-[#1a2744]" />}
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); setSaveSignal((n) => n + 1); }} disabled={placed.length === 0} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                      <Save className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Save design</span>
+                    </button>
+                    <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); setLayoutStarterOpen(true); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                      <LayoutGrid className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Room layout</span>
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); openOrCreateIsland(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Square className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">{island ? "Edit island zone" : "Add island zone"}</span>
+                    </button>
+                    <button disabled={layoutLocked} onClick={() => { setMoreSheetOpen(false); activateSelectedWallCompassDrag(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted disabled:opacity-50 transition-colors">
+                      <Compass className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Drag 45° wall handle</span>
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); setCompactWorkspaceOverride("expanded"); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Columns3 className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Show side panels</span>
+                    </button>
+                    <button onClick={() => { setMoreSheetOpen(false); setConsultOpen((open) => !open); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Wand2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">{t("dt_sh_consultant_title")}</span>
+                    </button>
+                    <a href="/plan-sheet" target="_blank" rel="noopener noreferrer" className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <Printer className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">{t("dt_sh_print_title")}</span>
+                    </a>
+                    <button onClick={() => { setMoreSheetOpen(false); exportFloorPlanPdf(); }} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted transition-colors">
+                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <span className="flex-1 text-left">Export Floor Plan PDF</span>
+                    </button>
+                    <p className="px-3 pt-3 pb-1 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selected cabinet</p>
+                    <div className="grid grid-cols-3 gap-2 px-3 pb-2" data-testid="tablet-more-selected-actions">
+                      <Button type="button" variant="outline" className="h-11" disabled={!selectedUid || measureMode} onClick={() => { rotateSelected(); }}>
+                        <RotateCw className="mr-1.5 h-4 w-4" /> Rotate
+                      </Button>
+                      <Button type="button" variant="outline" className="h-11" disabled={!selectedUid || measureMode} onClick={() => { swingSelected(); }}>
+                        <DoorOpen className="mr-1.5 h-4 w-4" /> Swing
+                      </Button>
+                      <Button type="button" variant="outline" className="h-11 border-red-300 text-red-700 hover:bg-red-50" disabled={(!selectedUid && !selectedSinkUid && !selectedOpeningUid && !selectedPonyWallUid) || measureMode} onClick={() => { setMoreSheetOpen(false); deleteSelected(); }}>
+                        <Trash2 className="mr-1.5 h-4 w-4" /> Delete
+                      </Button>
+                    </div>
+                    <div className="px-3 pb-3" data-testid="tablet-more-help"><DesignHelp /></div>
+                  </div>
+                )}
                 {/* Quick-action rows */}
                 <div className="px-1 pb-1">
 	                  <button
@@ -12079,7 +12197,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </div>
 
         {/* Desktop action cluster */}
-	        <div className="hidden lg:flex items-center gap-1">
+	        <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-1`}>
 	          {/* Undo / Redo */}
 	          <Button variant="outline" size="icon" data-testid="designer-undo" aria-label="Undo cabinet or wall change" onClick={handleUndo} disabled={!canUndo} className="h-7 w-7" title={canUndo ? `${t("dt_sh_undo")} cabinet or wall change` : "Nothing to undo"}>
             <Undo2 className="h-3.5 w-3.5" />
@@ -13293,6 +13411,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <PaletteShell
           isMobile={panelDrawerMode}
           compact={isCompactWorkspace}
+          tablet={isTabletWorkspace}
           open={mobilePanel === "catalog"}
           onOpenChange={(o) => setMobilePanel(o ? "catalog" : null)}
         >
@@ -17712,10 +17831,11 @@ function MobileBarButton({
 // slide-in Sheet on mobile, so the heavy palette / pricing markup is written
 // once and reused for both layouts.
 function PaletteShell({
-  isMobile, compact = false, open, onOpenChange, children,
+  isMobile, compact = false, tablet = false, open, onOpenChange, children,
 }: {
   isMobile: boolean;
   compact?: boolean;
+  tablet?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
@@ -17724,7 +17844,13 @@ function PaletteShell({
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className={compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}>
+        <SheetContent
+          side={tablet ? "bottom" : "left"}
+          data-testid={tablet ? "tablet-catalog-bottom-sheet" : undefined}
+          className={tablet ? "h-[42vh] rounded-t-2xl p-0 gap-0 flex flex-col" : compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}
+          style={tablet ? { paddingBottom: "env(safe-area-inset-bottom, 0px)" } : undefined}
+        >
+          {tablet && <div aria-hidden="true" className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-muted-foreground/30" />}
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
             <SheetTitle className="text-sm">{compact ? "Cabinet catalog — tablet view" : t("dt_pl_catalog")}</SheetTitle>
           </SheetHeader>
