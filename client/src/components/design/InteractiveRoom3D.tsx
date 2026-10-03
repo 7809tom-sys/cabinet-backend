@@ -5960,6 +5960,64 @@ export function addThreeDMeasuredWallMiterCountertops(
   }
 }
 
+/**
+ * Standard rooms use the same resolved countertop surfaces as the Floor Plan,
+ * materials list, and measured-wall renderer.  Rendering a slab per cabinet
+ * leaves visible seams and can keep an obsolete corner contour after the
+ * shared source has already combined a run into one physical piece.
+ */
+export function addThreeDStandardCountertops(
+  root: THREE.Group,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  counterColor: string,
+  countertopTexture?: THREE.Texture | null,
+  island?: IslandZone | null,
+) {
+  const surfaces = countertopSurfaces(placed, room, island).filter((surface) => (
+    !surface.peninsulaRunId && !surface.customWallId && surface.kind !== "island"
+  ));
+  for (const surface of surfaces) {
+    const length = Math.max(0.1, surface.linearInches ?? surface.width);
+    const depth = Math.max(0.1, surface.depth);
+    const rotation = threeDPlanRotation((surface.rotation ?? 0) * Math.PI / 180);
+    const centerX = surface.x + surface.width / 2;
+    const centerZ = surface.y + surface.depth / 2;
+    const mappedTexture = countertopTexture ? threeDTextureForCountertopMesh(countertopTexture, {
+      centerXIn: centerX,
+      centerZIn: centerZ,
+      localWidthIn: length,
+      localDepthIn: depth,
+      rotation,
+      slabWidthIn: Number(countertopTexture.userData?.physicalWidthIn) || 138,
+      slabDepthIn: Number(countertopTexture.userData?.physicalDepthIn) || 79,
+    }) : null;
+    const material = new THREE.MeshPhysicalMaterial({
+      color: mappedTexture ? "#ffffff" : counterColor,
+      map: mappedTexture,
+      ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)),
+    });
+    material.userData = {
+      selectedSurfaceRole: "countertop",
+      usesAuthoritativeProductImage: Boolean(mappedTexture),
+      worldSlabMapped: Boolean(mappedTexture?.userData?.worldSlabMapped),
+      materialOnlyNoGeometryChange: true,
+    };
+    const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
+    slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    slab.rotation.y = rotation;
+    slab.userData = {
+      standardRunCountertop: true,
+      cabinetRunId: surface.cabinetRunId ?? null,
+      physicalSharedSurface: true,
+      preservesRangeOpening: true,
+      bridgesCabinetVoids: false,
+      sourcePolygonVertices: surface.polygon?.length ?? 4,
+    };
+    root.add(slab);
+  }
+}
+
 type CrownPoint = { x: number; z: number };
 type CrownEdgeKind = "front" | "left-return" | "right-return" | "diagonal-front";
 
@@ -8990,14 +9048,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          && sink.type === "farmhouse"
 	          && Boolean(sink.pelicanProfileId)
 	        ));
-	        const sharedPeninsulaCounter = Boolean(roomOverride?.peninsulaRuns?.some((run) => cabinetWall(cabinet, roomOverride) === run.id && bearsCountertop(cabinet)));
-	        // Continuous walls render their countertop from the shared surface
-	        // definition below. That preserves a real 45° miter seam instead of
-	        // stacking an ordinary rectangular cabinet top over the cut slab.
-	        const sharedMeasuredWallCounter = Boolean(roomOverride?.customWalls?.some((wall) => cabinetWall(cabinet, roomOverride) === wall.id && bearsCountertop(cabinet)));
+		        // Every saved counter-bearing base is rendered once from
+		        // `countertopSurfaces` below. That shared source preserves complete
+		        // LSB/ERB tops, one uninterrupted slab per touching run, and real
+		        // gaps at appliances without stacking a rectangular top per box.
+		        const sharedCountertopSurface = bearsCountertop(cabinet);
 		        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
 		          countertop: countertopTexture,
-		          suppressCountertop: sharedPeninsulaCounter || sharedMeasuredWallCounter,
+		          suppressCountertop: sharedCountertopSurface,
 		          selectedToeKick: toeKick,
 		          suppressContinuousBaseToeKick: continuousToeKickMemberUids.has(cabinet.uid),
 		          suppressFittedFillerToeKick: fittedFillerToeKickSuppressions.has(cabinet.uid),
@@ -9008,10 +9066,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      if (toeKick && continuousToeKickSegments.length > 0) {
 		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
 		      }
+		      addThreeDStandardCountertops(catalogRoot, room, placed, materialDefaults.countertop, countertopTexture, island);
 		      if (roomOverride) {
-	        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-	        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
-	      }
+		        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+		        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
+		      }
 		      addThreeDGlassStackerRearSupports(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
 		      if (crown) addThreeDCrownMolding(catalogRoot, placed, room, visibleCabinetFinishOverrides, finish);
 	    } else {

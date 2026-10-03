@@ -2810,9 +2810,10 @@ function lCornerBodyPolygons(cabinet: PlacedCabinet): PlanFootprintPoint[][] {
 /**
  * Countertop polygon for an easy-reach / Lazy-Susan corner base.
  *
- * The slab follows the two supported 24-inch cabinet legs.  Filling the inner
- * 12-by-12 access notch as a 36-by-36 square creates a free-hanging countertop
- * corner beside a Lazy Susan/Easy Reach cabinet. A non-cardinal measured-wall
+ * A cardinal (ordinary 90-degree room) corner gets one complete square top:
+ * the case's open access below the top is not a countertop cut-out. That keeps
+ * the slab seated over every part of an LSB/ERB cabinet rather than leaving the
+ * visible missing corner shown by an L-outline. A non-cardinal measured-wall
  * placement retains the established 45-degree front-edge treatment; the wall
  * engine owns that distinct physical exception.
  */
@@ -2855,19 +2856,12 @@ export function lCornerCountertopWorldPolygon(
       y: clean(center.y + tangent.y * along + normal.y * inward),
     };
   };
-  if (!rotatedMeasuredPlacement) {
-    // Same L-supported contour as `lCornerBodyPolygons`: rotation determines
-    // which room-interior corner remains open, never a detached square slab.
-    const notch = Math.max(0, Math.min(bounds.w - leg, bounds.d - leg));
-    const local = rotation === 90
-      ? [{ x: 0, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: bounds.d }, { x: notch, y: bounds.d }, { x: notch, y: leg }, { x: 0, y: leg }]
-      : rotation === 180
-        ? [{ x: notch, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: bounds.d }, { x: 0, y: bounds.d }, { x: 0, y: notch }, { x: notch, y: notch }]
-        : rotation === 270
-          ? [{ x: 0, y: 0 }, { x: leg, y: 0 }, { x: leg, y: notch }, { x: bounds.w, y: notch }, { x: bounds.w, y: bounds.d }, { x: 0, y: bounds.d }]
-          : [{ x: 0, y: 0 }, { x: bounds.w, y: 0 }, { x: bounds.w, y: leg }, { x: leg, y: leg }, { x: leg, y: bounds.d }, { x: 0, y: bounds.d }];
-    return local.map(worldPoint);
-  }
+  if (!rotatedMeasuredPlacement) return [
+    { x: 0, y: 0 },
+    { x: bounds.w, y: 0 },
+    { x: bounds.w, y: bounds.d },
+    { x: 0, y: bounds.d },
+  ].map(worldPoint);
   // A 45-degree measured wall remains the intentional exception: retain the
   // two cabinet-leg front overhangs while its shared corner/miter rules resolve
   // the adjoining slab and any fill.

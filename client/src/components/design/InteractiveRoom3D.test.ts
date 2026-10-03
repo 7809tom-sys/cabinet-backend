@@ -16,7 +16,7 @@ import { threeDSceneCountertopDepthIn } from "./InteractiveRoom3D";
 import { threeDPeninsulaCountertopPhysicalDepth } from "./InteractiveRoom3D";
 import { diagonalCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
 import { lCornerCountertopFootprintVertices } from "./InteractiveRoom3D";
-import { addThreeDMeasuredWallMiterCountertops } from "./InteractiveRoom3D";
+import { addThreeDMeasuredWallMiterCountertops, addThreeDStandardCountertops } from "./InteractiveRoom3D";
 import { threeDMiteredRoomWallGeometry, threeDMiteredRoomWallOutlines } from "./InteractiveRoom3D";
 import { normalizedThreeDCabinetMoveIncrement, parsedThreeDCabinetMoveIncrement, THREE_D_MAX_MOVE_INCREMENT_IN, THREE_D_MIN_MOVE_INCREMENT_IN } from "./InteractiveRoom3D";
 import { addThreeDContinuousToeKicks, threeDContinuousToeKickSegments } from "./InteractiveRoom3D";
@@ -620,6 +620,39 @@ describe("3D fallback appliance run seams", () => {
 });
 
 describe("side-aware peninsula countertop meshes", () => {
+	  it("renders one shared standard slab per touching cabinet run and preserves appliance breaks", () => {
+	    const root = new THREE.Group();
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const placed = [
+	      { uid: "shared-before-a", cabinetId: 1, masterCode: "B24", placement: "base", width: 24, depth: 24, height: 34.5, x: 0, y: 0, rotation: 0 } as PlacedCabinet,
+	      { uid: "shared-before-b", cabinetId: 2, masterCode: "B30", placement: "base", width: 30, depth: 24, height: 34.5, x: 24, y: 0, rotation: 0 } as PlacedCabinet,
+	      { uid: "shared-range", cabinetId: 3, masterCode: "RANGE-30", placement: "appliance", width: 30, depth: 25, height: 36, x: 54, y: 0, rotation: 0 } as PlacedCabinet,
+	      { uid: "shared-after", cabinetId: 4, masterCode: "B24", placement: "base", width: 24, depth: 24, height: 34.5, x: 84, y: 0, rotation: 0 } as PlacedCabinet,
+	    ];
+	    addThreeDStandardCountertops(root, room, placed, "#e9e7e2");
+	    const slabs = root.children.filter((item) => item.userData.standardRunCountertop);
+	    expect(slabs).toHaveLength(2);
+	    expect(slabs.map((item) => item.userData.cabinetRunId)).toEqual([
+	      "wall:top:0-54",
+	      "wall:top:84-108",
+	    ]);
+	    expect(slabs.every((item) => item.userData.bridgesCabinetVoids === false)).toBe(true);
+	  });
+
+	  it("keeps the complete cardinal LSB36 top in the same shared 3D surface path", () => {
+	    const root = new THREE.Group();
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const lsb36 = {
+	      uid: "shared-lsb36", cabinetId: 1, masterCode: "LSB36", description: "36 inch Lazy Susan Corner Base",
+	      placement: "base", width: 36, depth: 36, height: 34.5, x: 0, y: 0, rotation: 0, cornerType: "lazy-susan",
+	    } as PlacedCabinet;
+	    addThreeDStandardCountertops(root, room, [lsb36], "#e9e7e2");
+	    const [slab] = root.children.filter((item) => item.userData.standardRunCountertop) as THREE.Mesh[];
+	    expect(slab?.userData.sourcePolygonVertices).toBe(4);
+	    slab?.geometry.computeBoundingBox();
+	    expect((slab?.geometry.boundingBox?.max.x ?? 0) - (slab?.geometry.boundingBox?.min.x ?? 0)).toBeCloseTo(36 / 12, 6);
+	  });
+
 	  it("seats the shared peninsula slab directly on the 34½-inch cabinet top", () => {
 	    const root = new THREE.Group();
 	    const room: RoomData = {
