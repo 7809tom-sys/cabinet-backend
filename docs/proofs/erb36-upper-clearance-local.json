@@ -1,0 +1,65 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "results": [
+    {
+      "room": "standard",
+      "upperCount": 2,
+      "regularWallCabinet": [
+        {
+          "uid": "cmurweawx_1",
+          "masterCode": "W-1542",
+          "placement": "wall",
+          "wallId": "top",
+          "wallOffset": 0,
+          "rotation": 0,
+          "mountBottom": 54,
+          "height": 42
+        }
+      ],
+      "cornerWallCabinet": [
+        {
+          "uid": "cmurweewv_2",
+          "masterCode": "WDC2430",
+          "placement": "wall",
+          "wallId": "right",
+          "wallOffset": 0,
+          "rotation": 90,
+          "mountBottom": 54,
+          "height": 30
+        }
+      ],
+      "alerts": [],
+      "applicationErrors": []
+    },
+    {
+      "room": "continuous",
+      "upperCount": 2,
+      "regularWallCabinet": [
+        {
+          "uid": "cmurwfqoa_1",
+          "masterCode": "W-1542",
+          "placement": "wall",
+          "wallId": "builder-right",
+          "wallOffset": 0,
+          "rotation": 90,
+          "mountBottom": 54,
+          "height": 42
+        }
+      ],
+      "cornerWallCabinet": [
+        {
+          "uid": "cmurwfuta_2",
+          "masterCode": "WDC2430",
+          "placement": "wall",
+          "wallId": "builder-bottom",
+          "wallOffset": 0,
+          "rotation": 180,
+          "mountBottom": 54,
+          "height": 30
+        }
+      ],
+      "alerts": [],
+      "applicationErrors": []
+    }
+  ]
+}

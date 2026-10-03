@@ -672,6 +672,47 @@ describe("continuous builder custom wall placement", () => {
     expect(collisionReason(b12, [erb], room)).toContain("Corner protected: ERB36 is snapped into this corner.");
   });
 
+  it.each([
+    ["ERB33", "Easy Reach Corner Base 33", "l-shape"],
+    ["ERB36", "Easy Reach Corner Base 36", "l-shape"],
+    ["BBC36", "Blind Corner Base 36", "blind-corner"],
+    ["LSB36", "Lazy Susan Base 36", "lazy-susan"],
+  ] as const)("keeps a 34½-inch %s base-corner reservation out of the upper band in standard and Continuous Wall rooms", (masterCode, description, cornerType) => {
+    const rooms: Array<{ label: string; room: RoomData; top: any; right: any }> = [
+      { label: "standard", room: { ...DEFAULT_ROOM, width: 120, depth: 96, ceilingHeight: 96 }, top: "top", right: "right" },
+      { label: "continuous", room: { ...builderRoom, openWallPath: true, ceilingHeight: 96 }, top: "builder-top", right: "builder-right" },
+    ];
+
+    for (const { label, room, top, right } of rooms) {
+      const cornerStart = wallLength(top, room) - 36;
+      const baseSpot = wallPlacementAt(cornerStart, 36, 24, top, room);
+      const corner: PlacedCabinet = {
+        uid: `${masterCode}-${label}-corner`, cabinetId: 36, masterCode, description,
+        placement: "base", ...baseSpot, width: 36, depth: 24, height: 34.5,
+        rotation: baseSpot.rotation, wallId: baseSpot.wallId, wallOffset: baseSpot.wallOffset,
+        cornerType,
+      };
+      const upperSpot = wallPlacementAt(0, 24, 12, right, room);
+      const upper: PlacedCabinet = {
+        uid: `${masterCode}-${label}-upper`, cabinetId: 24, masterCode: "W2424", description: "24 inch Wall Cabinet",
+        placement: "wall", ...upperSpot, width: 24, depth: 12, height: 24,
+        rotation: upperSpot.rotation, wallId: upperSpot.wallId, wallOffset: upperSpot.wallOffset, mountBottom: 60,
+      };
+
+      // The plan outlines overlap at the shared vertex, but the upper begins at
+      // 60 in and the base ends at 34½ in. It must be allowed in both engines.
+      expect(cabinetPlacementCollisionDetail(upper, [corner], room)).toBeNull();
+      expect(shouldBlockPlacementCollision(upper, [corner], false, room)).toBe(false);
+
+      // The upper layer remains open from the vertex, while the base layer still
+      // reserves the adjoining leg of the installed base corner.
+      const wallSegments = freeSegmentsOnWall(right, room, [corner], [], 1, 0, "wall", false, upper);
+      const baseSegments = freeSegmentsOnWall(right, room, [corner], [], 1, 0, "base");
+      expect(wallSegments.some((segment) => segment.start <= 0.01)).toBe(true);
+      expect(baseSegments.some((segment) => segment.start <= 0.01)).toBe(false);
+    }
+  });
+
   it("confirms a seated BBC42 blind corner and protects its cabinet body and filler zone", () => {
     const room: RoomData = { ...builderRoom, openWallPath: true };
     const bbc42: PlacedCabinet = {

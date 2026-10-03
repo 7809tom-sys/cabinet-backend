@@ -36,3 +36,11 @@
 - Added page title/description/canonical URL and FAQ JSON-LD using the existing safe kitchen-discovery schema. The page makes no unsupported price, availability, shipping, or code-compliance claim; it labels dimensions as planning guidelines and final verification as a local-store step.
 - Local browser proof opened the route from the desktop More menu and directly at a 390 px viewport. Both views rendered 12 FAQs, five Designer links, a Kitchen Packages link, no horizontal overflow, and no application errors. Evidence: `docs/proofs/kitchen-planning-guide-local-{desktop,mobile}.{png,json}`.
 - Validation passed: TypeScript; 13 focused guide/i18n/schema tests; production build; and diff integrity.
+
+## 23:38 CT — base-corner upper clearance
+
+- Found the blocker: `customWallCornerReservationCollision` evaluated the two-dimensional corner reservation before the shared elevation filter. A 34½ in ERB36 base therefore could incorrectly reserve the upper wall band at a continuous-wall corner.
+- The shared reservation now first uses `sharesPlanCollisionZone`, which requires both a plan overlap and an overlapping installed height range. A base corner (ERB33/ERB36, blind base, or lazy susan) continues to reserve its physical base leg but no longer blocks a wall cabinet mounted at 54 in or above. Tall units retain their full-height reservation; wall-corner reservations remain in the wall layer.
+- Added one shared regression across **standard** and **Continuous Wall** rooms for ERB33, ERB36, BBC36, and LSB36. Each asserts: the upper overlap is allowed; the base corner still blocks its own base leg; and the wall layer remains open at the shared vertex.
+- Real-click local proof restored a seated ERB36, selected it, clicked **W-1542**, reselected ERB36, and clicked **WDC2430** in each room type. Both persisted one regular and one corner wall cabinet at `mountBottom: 54`, showed no placement warning, and produced no application errors. Evidence: `docs/proofs/erb36-upper-clearance-{standard,continuous}-{floor-plan,3d}-local.png` and `docs/proofs/erb36-upper-clearance-local.json`.
+- Validation passed: TypeScript; 557 focused shared wall-placement/geometry/PlanCanvas tests; 31 responsive release tests; production build; and diff integrity.

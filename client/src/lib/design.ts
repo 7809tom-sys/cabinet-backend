@@ -2938,6 +2938,12 @@ function customWallCornerReservationCollision(
   blockedBy: PlacedCabinet,
   room: RoomData,
 ): CabinetCollisionDetail | null {
+  // A plan-view corner footprint is only a collision when the two installed
+  // elevation envelopes also overlap. A 34½-inch ERB/LS/BBC base must protect
+  // the adjoining *base* run, but it cannot reserve the 54-inch-and-up wall
+  // cabinet band. Tall cabinets remain intentionally blocking because their
+  // vertical envelope crosses both layers.
+  if (!sharesPlanCollisionZone(corner, neighbor)) return null;
   const kind = placedCornerGeometryKind(corner);
   if (kind !== "l-shape" && kind !== "diagonal" && kind !== "corner-drawer") return null;
   if (!room.vertices?.length || !room.customWalls?.length) return null;
