@@ -12,7 +12,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { REFRIGERATOR_UPPER_CLEARANCE_IN, wallCabinetSkuDimensions } from "@/lib/design";
+import { REFRIGERATOR_UPPER_CLEARANCE_IN } from "@/lib/design";
+import {
+  availableOverFridgeWidths,
+  closestOverFridgeSuggestion,
+  exactOverFridgeCabinet,
+  overFridgeCatalogDimensions,
+} from "@/lib/refrigeratorOverFridgePicker";
 
 export type FridgeAbove = "bridge" | "none";
 export type FridgePanels = "left" | "right" | "both" | "none";
@@ -148,6 +154,7 @@ function DimSelector({
   onChange,
   unit = '"',
   note,
+  disabledOptions = [],
 }: {
   label: string;
   value: number;
@@ -155,6 +162,7 @@ function DimSelector({
   onChange: (v: number) => void;
   unit?: string;
   note?: string;
+  disabledOptions?: readonly number[];
 }) {
   return (
     <div className="space-y-1.5">
@@ -163,21 +171,28 @@ function DimSelector({
         {note && <span className="text-[10px] text-muted-foreground">{note}</span>}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {options.map((o) => (
-          <button
-            key={o}
-            type="button"
-            onClick={() => onChange(o)}
-            className={cn(
-              "rounded border px-2.5 py-1 text-xs transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
-              value === o
-                ? "border-primary bg-primary text-primary-foreground font-semibold"
-                : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
-            )}
-          >
-            {o}{unit}
-          </button>
-        ))}
+        {options.map((o) => {
+          const unavailable = disabledOptions.includes(o);
+          return (
+            <button
+              key={o}
+              type="button"
+              disabled={unavailable}
+              onClick={() => onChange(o)}
+              title={unavailable ? `No ${o}${unit} cabinet is available for this height and depth` : undefined}
+              className={cn(
+                "rounded border px-2.5 py-1 text-xs transition-[background-color,border-color,transform] duration-150 active:scale-[0.97]",
+                value === o
+                  ? "border-primary bg-primary text-primary-foreground font-semibold"
+                  : unavailable
+                    ? "cursor-not-allowed border-border bg-background text-muted-foreground/40 line-through"
+                    : "border-border bg-background text-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              {o}{unit}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -238,12 +253,8 @@ export function RefrigeratorOptionsDialog({
   // ── Smooth panel ───────────────────────────────────────────────────────────
   const [smooth, setSmooth] = useState(false);
 
-  const parseSkuDims = (code: string) => {
-    const parsed = wallCabinetSkuDimensions(code);
-    return parsed ? { w: parsed.width, h: parsed.height, d: parsed.depth } : null;
-  };
-
-  // ── Derived: best-match bridge cabinet ────────────────────────────────────
+  // Every code, dimension label, cart line, and placement below comes from the
+  // exact same active catalog record. There is no narrower-width fallback.
   const bridgeByDims = useMemo(() => {
     const result: Record<BridgeHeight, Record<BridgeDepth, SurroundCabinet | null>> = {
       12: { 12: null, 24: null },
@@ -254,34 +265,24 @@ export function RefrigeratorOptionsDialog({
     };
     for (const targetH of BRIDGE_HEIGHT_OPTIONS) {
       for (const targetD of BRIDGE_DEPTH_OPTIONS) {
-        const candidates = deepAbove.filter((c) => {
-          const sku = parseSkuDims(c.masterCode);
-          const storedW = parseFloat(String(c.width ?? ""));
-          const storedH = parseFloat(String(c.height ?? ""));
-          const storedD = parseFloat(String(c.depth ?? ""));
-          const w = storedW || (sku ? sku.w : 0);
-          const h = storedH || (sku ? sku.h : 0);
-          const d = storedD || (sku ? sku.d : 0);
-          return (
-            w <= bridgeWidthChoice + 0.5 &&
-            Math.abs(h - targetH) < 1.5 &&
-            Math.abs(d - targetD) < 1.5
-          );
+        result[targetH][targetD] = exactOverFridgeCabinet(deepAbove, {
+          width: bridgeWidthChoice,
+          height: targetH,
+          depth: targetD,
         });
-        if (!candidates.length) continue;
-        result[targetH][targetD] = [...candidates].sort((a, b) => {
-          const sa = parseSkuDims(a.masterCode);
-          const sb = parseSkuDims(b.masterCode);
-          const storedWA = parseFloat(String(a.width ?? ""));
-          const storedWB = parseFloat(String(b.width ?? ""));
-          const wa = storedWA || (sa ? sa.w : 0);
-          const wb = storedWB || (sb ? sb.w : 0);
-          return Math.abs(wa - bridgeWidthChoice) - Math.abs(wb - bridgeWidthChoice);
-        })[0];
       }
     }
     return result;
   }, [deepAbove, bridgeWidthChoice]);
+
+  const availableBridgeWidths = useMemo(
+    () => availableOverFridgeWidths(deepAbove, bridgeHeightChoice, bridgeDepthChoice),
+    [deepAbove, bridgeHeightChoice, bridgeDepthChoice],
+  );
+  const unavailableBridgeWidths = useMemo(
+    () => BRIDGE_WIDTH_OPTIONS.filter((width) => !availableBridgeWidths.includes(width)),
+    [availableBridgeWidths],
+  );
 
   // A refrigerator bay is an invoiceable group: the cap and each finished panel
   // must be an actual selected-line SKU. There is no visual-only generic cap or
@@ -289,6 +290,19 @@ export function RefrigeratorOptionsDialog({
   const hasBridgeAbove = deepAbove.length > 0;
 
   const chosenBridge = above === "bridge" ? bridgeByDims[bridgeHeightChoice][bridgeDepthChoice] : null;
+  const chosenBridgeDims = chosenBridge ? overFridgeCatalogDimensions(chosenBridge) : null;
+  const closestBridgeSuggestion = useMemo(
+    () => closestOverFridgeSuggestion(deepAbove, {
+      width: bridgeWidthChoice,
+      height: bridgeHeightChoice,
+      depth: bridgeDepthChoice,
+    }),
+    [deepAbove, bridgeWidthChoice, bridgeHeightChoice, bridgeDepthChoice],
+  );
+  const closestBridgeDims = closestBridgeSuggestion ? overFridgeCatalogDimensions(closestBridgeSuggestion) : null;
+  const suggestedFillerEachSide = closestBridgeDims && closestBridgeDims.width < bridgeWidthChoice
+    ? (bridgeWidthChoice - closestBridgeDims.width) / 2
+    : null;
 
   // A finished panel reaches the cap above the mandatory appliance clearance.
   const panelHeight = above === "bridge" && panels !== "none"
@@ -506,6 +520,7 @@ export function RefrigeratorOptionsDialog({
                   value={bridgeWidthChoice}
                   options={BRIDGE_WIDTH_OPTIONS}
                   onChange={setBridgeWidthChoice}
+                  disabledOptions={unavailableBridgeWidths}
                 />
 
                 {/* Cabinet Height */}
@@ -519,6 +534,7 @@ export function RefrigeratorOptionsDialog({
                         <button
                           key={h}
                           type="button"
+                          disabled={!hasAny}
                           onClick={() => setBridgeHeightChoice(h)}
                           title={!hasAny ? `No ${h}" cabinet available for this style` : undefined}
                           className={cn(
@@ -583,16 +599,37 @@ export function RefrigeratorOptionsDialog({
                 </div>
 
                 {/* Matched SKU / warning */}
-                {chosenBridge ? (
+                {chosenBridge && chosenBridgeDims ? (
                   <p className="text-[11px] text-muted-foreground">
                     Will use:{" "}
                     <span className="font-medium text-foreground">{chosenBridge.masterCode}</span>
-                    {" "}— {bridgeHeightChoice}″ H × {bridgeDepthChoice}″ D × {bridgeWidthChoice}″ W
+                    {" "}— {chosenBridgeDims.height}″ H × {chosenBridgeDims.depth}″ D × {chosenBridgeDims.width}″ W
                   </p>
                 ) : (
-                  <p className="text-[11px] text-amber-600">
-                    No {bridgeHeightChoice}″ × {bridgeDepthChoice}″ cabinet available for this style. Try a different combination.
-                  </p>
+                  <div className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] text-amber-900" role="status">
+                    <p>
+                      <span className="font-semibold">{bridgeWidthChoice} × {bridgeHeightChoice} × {bridgeDepthChoice} isn’t available in this line.</span>
+                      {" "}Choose an enabled width or use the suggested real cabinet below.
+                    </p>
+                    {closestBridgeSuggestion && closestBridgeDims ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>
+                          Closest: <span className="font-semibold">{closestBridgeSuggestion.masterCode}</span>
+                          {" "}({closestBridgeDims.width}″ W × {closestBridgeDims.height}″ H × {closestBridgeDims.depth}″ D)
+                          {suggestedFillerEachSide != null ? `; ${suggestedFillerEachSide}″ filler each side.` : "."}
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 bg-background text-[11px]"
+                          onClick={() => setBridgeWidthChoice(closestBridgeDims.width)}
+                        >
+                          Use {closestBridgeSuggestion.masterCode}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
                 )}
               </div>
             )}

@@ -17,6 +17,8 @@ const ERB36_ID = 9360042; // Skyline code
 const BER36_ID = 9390244; // Madison code
 const BT9_ID = 9390192;
 const MADISON_STYLE = 330014;
+const W362424_ID = 9360131;
+const IROY_DUNE_STYLE = 330028;
 
 describe("Two-way code equivalence pricing against live catalog data", () => {
   it("prices a Skyline ERB36 placed on a Madison line through BER36 and reports the swap", async () => {
@@ -89,5 +91,21 @@ describe("Two-way code equivalence pricing against live catalog data", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].resolvedMasterCode).toBe("BT9");
     expect(rows[0].aliasSwapped).toBe(false);
+  });
+
+  it("prices the active exact W362424 Iroy Dune cabinet after the retired-link repair", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const rows = await caller.design.priceForCabinetsByStyles({
+      pairs: [{ cabinetId: W362424_ID, styleId: IROY_DUNE_STYLE, masterCode: "W362424" }],
+      distributorId: MADISON,
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].cabinetId).toBe(W362424_ID);
+    expect(rows[0].resolvedCabinetId).toBe(W362424_ID);
+    expect(rows[0].resolvedMasterCode).toBe("W362424");
+    expect(rows[0].aliasSwapped).toBe(false);
+    expect(Number(rows[0].homeownerPrice)).toBeGreaterThan(0);
   });
 });

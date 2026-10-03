@@ -7080,35 +7080,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // "bridge" now means the fridge-cabinet (deepAbove) catalog since the dialog
         // was updated to use deepAbove for the over-fridge section.
         const src = (opts.above === "deep" || opts.above === "bridge") ? surround.deepAbove : surround.bridgeAbove;
-        // Use `fw`, the authoritative run width. A diagonal wall's plan bounding
-        // box is intentionally wider than its 36-inch refrigerator span.
-        // For bridge mode: filter candidates by the chosen bridge height, then pick best width match.
+        // Use the exact source record chosen in RefrigeratorOptionsDialog. The
+        // picker only enables an exact width × height × depth record, so a
+        // nearest-width fallback here would make the plan/cart disagree with
+        // the dialog (for example, W332424 for a selected 36-inch cap).
         let chosen: DesignCabinet | undefined;
-        if (opts.above === "bridge" && opts.bridgeHeight) {
-          const targetH = opts.bridgeHeight;
-          const targetD = opts.bridgeDepth ?? 12;
-          const heightFiltered = src.filter((c) => {
-            const sku = wallCabinetSkuDimensions(c.masterCode);
-            const h = sku?.height ?? (parseFloat(String(c.height ?? "")) || 0);
-            const d = sku?.depth ?? (parseFloat(String(c.depth ?? "")) || 0);
-            const heightOk = Math.abs(h - targetH) < 1.5;
-            const depthOk = d === 0 || Math.abs(d - targetD) < 1.5;
-            return heightOk && depthOk;
-          });
-          // Fall back to height-only match if no depth-matched candidates exist.
-          const fallback = src.filter((c) => {
-            const sku = wallCabinetSkuDimensions(c.masterCode);
-            const h = sku?.height ?? (parseFloat(String(c.height ?? "")) || 0);
-            return Math.abs(h - targetH) < 1.5;
-          });
-              chosen = pickByWidth(
-                heightFiltered.length > 0 ? heightFiltered : fallback.length > 0 ? fallback : src,
-                fw,
-              );
+        if (opts.above === "bridge") {
+          chosen = src.find((candidate) => candidate.id === opts.bridgeCabinetId);
+          if (!chosen) {
+            const message = "The exact over-refrigerator cabinet you selected is no longer available in this line. Choose an enabled catalog size before adding it to the plan.";
+            setPlacementWarning(message);
+            toast.error(message);
+            return;
+          }
         } else {
-          chosen = opts.above === "bridge"
-            ? pickById(src, opts.bridgeCabinetId, fw)
-            : pickByWidth(src, fw);
+          chosen = pickByWidth(src, fw);
         }
         if (!chosen) {
           const message = "No source-priced over-refrigerator cabinet is available for this door style, so the selected refrigerator options were not added.";

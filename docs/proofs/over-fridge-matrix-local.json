@@ -1,0 +1,128 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "bundles": [],
+  "matrix": [
+    {
+      "height": 12,
+      "depth": 12,
+      "width": null,
+      "available": false,
+      "reason": "depth disabled"
+    },
+    {
+      "height": 12,
+      "depth": 24,
+      "width": 30,
+      "available": true,
+      "willUse": "Will use: W301224 \u2014 12\u2033 H \u00d7 24\u2033 D \u00d7 30\u2033 W"
+    },
+    {
+      "height": 12,
+      "depth": 24,
+      "width": 33,
+      "available": true,
+      "willUse": "Will use: W331224 \u2014 12\u2033 H \u00d7 24\u2033 D \u00d7 33\u2033 W"
+    },
+    {
+      "height": 12,
+      "depth": 24,
+      "width": 36,
+      "available": true,
+      "willUse": "Will use: W361224 \u2014 12\u2033 H \u00d7 24\u2033 D \u00d7 36\u2033 W"
+    },
+    {
+      "height": 15,
+      "depth": 12,
+      "width": null,
+      "available": false,
+      "reason": "depth disabled"
+    },
+    {
+      "height": 15,
+      "depth": 24,
+      "width": 30,
+      "available": true,
+      "willUse": "Will use: W301524 \u2014 15\u2033 H \u00d7 24\u2033 D \u00d7 30\u2033 W"
+    },
+    {
+      "height": 15,
+      "depth": 24,
+      "width": 33,
+      "available": true,
+      "willUse": "Will use: W331524 \u2014 15\u2033 H \u00d7 24\u2033 D \u00d7 33\u2033 W"
+    },
+    {
+      "height": 15,
+      "depth": 24,
+      "width": 36,
+      "available": true,
+      "willUse": "Will use: W361524 \u2014 15\u2033 H \u00d7 24\u2033 D \u00d7 36\u2033 W"
+    },
+    {
+      "height": 18,
+      "depth": 12,
+      "width": null,
+      "available": false,
+      "reason": "depth disabled"
+    },
+    {
+      "height": 18,
+      "depth": 24,
+      "width": 30,
+      "available": true,
+      "willUse": "Will use: W301824 \u2014 18\u2033 H \u00d7 24\u2033 D \u00d7 30\u2033 W"
+    },
+    {
+      "height": 18,
+      "depth": 24,
+      "width": 33,
+      "available": true,
+      "willUse": "Will use: W331824 \u2014 18\u2033 H \u00d7 24\u2033 D \u00d7 33\u2033 W"
+    },
+    {
+      "height": 18,
+      "depth": 24,
+      "width": 36,
+      "available": true,
+      "willUse": "Will use: W361824 \u2014 18\u2033 H \u00d7 24\u2033 D \u00d7 36\u2033 W"
+    },
+    {
+      "height": 21,
+      "depth": null,
+      "width": null,
+      "available": false,
+      "reason": "height disabled"
+    },
+    {
+      "height": 24,
+      "depth": 12,
+      "width": null,
+      "available": false,
+      "reason": "depth disabled"
+    },
+    {
+      "height": 24,
+      "depth": 24,
+      "width": 30,
+      "available": true,
+      "willUse": "Will use: W302424 \u2014 24\u2033 H \u00d7 24\u2033 D \u00d7 30\u2033 W"
+    },
+    {
+      "height": 24,
+      "depth": 24,
+      "width": 33,
+      "available": true,
+      "willUse": "Will use: W332424 \u2014 24\u2033 H \u00d7 24\u2033 D \u00d7 33\u2033 W"
+    },
+    {
+      "height": 24,
+      "depth": 24,
+      "width": 36,
+      "available": true,
+      "willUse": "Will use: W362424 \u2014 24\u2033 H \u00d7 24\u2033 D \u00d7 36\u2033 W"
+    }
+  ],
+  "exactDialogHasW362424": true,
+  "cartHasW362424": true,
+  "errors": []
+}
