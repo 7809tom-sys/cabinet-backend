@@ -2086,9 +2086,10 @@ describe("countertopSurfaces", () => {
 	it("continues the countertop over both physical pieces of a confirmed split base filler", () => {
     const left = cab({ uid: "fill-left", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 24, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
     const right = cab({ uid: "fill-right", masterCode: "FILL-3", description: '3" Filler', subCategory: "Filler", placement: "base", width: 1.25, depth: 24, x: 40.25, y: 0, fillerPieceGroupId: "fill-group", fillerTotalWidth: 2.5, fillerPlacementMode: "split" });
+    // Void filling: nothing stands in the hole between the two filler pieces,
+    // so the top runs continuously across it (24 -> 41.5) instead of stopping.
     expect(countertopSurfaces([left, right], ROOM_12x10)).toMatchObject([
-      { x: 24, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
-      { x: 40.25, y: 0, width: 1.25, depth: CT_DEPTH, kind: "base" },
+      { x: 24, y: 0, width: 17.5, depth: CT_DEPTH, kind: "base" },
     ]);
 	});
 

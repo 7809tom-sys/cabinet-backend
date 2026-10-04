@@ -11766,8 +11766,28 @@ export function miteredMeasuredWallCountertopSurfaces(
 function mergeContiguousBaseCountertopRuns(
   surfaces: CountertopSurface[],
   room: RoomData,
+  placed: readonly PlacedCabinet[] = [],
 ): CountertopSurface[] {
   const tolerance = 1 / 16;
+  // Void filling: a gap between two counter-bearing pieces on the same wall
+  // closes automatically unless a physical non-counter unit (range, fridge,
+  // tall pantry, end panel) actually stands in it. Previously ANY gap wider
+  // than 1/16" ended the run, so a 1/8" seam, a filler-sized hole or a small
+  // depth mismatch left the top starting but never finishing.
+  const wallBlockers = (wallKey: string): Array<{ start: number; end: number }> => {
+    const id = wallKey.startsWith("custom:") ? wallKey.slice("custom:".length) : wallKey.slice("wall:".length);
+    return placed.flatMap((cabinet) => {
+      if (cabinet.placement === "wall") return [];
+      if (cabinet.placement === "base" && bearsCountertop(cabinet)) return [];
+      let wall: string | null = null;
+      try { wall = cabinetWall(cabinet, room) as string | null; } catch { wall = null; }
+      if (wall !== id) return [];
+      const start = wallRunOffset(cabinet, id, room);
+      const span = wallRunSpan(cabinet, id, room);
+      return Number.isFinite(start) && Number.isFinite(span) && span > 0 ? [{ start, end: start + span }] : [];
+    });
+  };
+  const DEPTH_FILL_TOLERANCE_IN = 2;
   const merged: CountertopSurface[] = [];
   const consumed = new Set<number>();
   const groups = new Map<string, Array<{ index: number; surface: CountertopSurface; start: number; span: number; thickness: number }>>();
@@ -11802,17 +11822,23 @@ function mergeContiguousBaseCountertopRuns(
   });
   groups.forEach((entries, key) => {
     entries.sort((left, right) => left.start - right.start || left.index - right.index);
+    const blockers = wallBlockers(key);
     let cursor = 0;
     while (cursor < entries.length) {
       const first = entries[cursor]!;
       const start = first.start;
       let end = first.start + first.span;
-      const depth = first.thickness;
+      let depth = first.thickness;
       const members = [first];
       cursor += 1;
       while (cursor < entries.length) {
         const next = entries[cursor]!;
-        if (next.start > end + tolerance || Math.abs(next.thickness - depth) > tolerance) break;
+        const gapStart = end;
+        const gapEnd = next.start;
+        const gapBlocked = gapEnd > gapStart + tolerance
+          && blockers.some((b) => b.start < gapEnd - tolerance && b.end > gapStart + tolerance);
+        if ((next.start > end + tolerance && gapBlocked) || Math.abs(next.thickness - depth) > DEPTH_FILL_TOLERANCE_IN) break;
+        depth = Math.max(depth, next.thickness);
         end = Math.max(end, next.start + next.span);
         members.push(next);
         cursor += 1;
@@ -12011,7 +12037,7 @@ export function countertopSurfaces(
   // First collapse cabinet-by-cabinet support into one physical top per
   // contiguous run. Refrigerator bays and appliance gaps have no support, so
   // they remain explicit breaks rather than receiving an accidental bridge slab.
-  out.splice(0, out.length, ...mergeContiguousBaseCountertopRuns(out, room));
+  out.splice(0, out.length, ...mergeContiguousBaseCountertopRuns(out, room, placed));
   // Continuous-wall 45-degree returns use the same two miter-cut slab rule as
   // peninsula returns. Both cabinet-supported pieces meet at one physical seam;
   // do not add a third, decorative bridge triangle over the cabinet geometry.
