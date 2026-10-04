@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
-import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
+import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -5861,11 +5861,12 @@ export function addThreeDPeninsulaCountertops(
     const material = new THREE.MeshPhysicalMaterial({ color: mappedTexture ? "#ffffff" : counterColor, map: mappedTexture, ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)) });
     material.userData = { selectedSurfaceRole: "countertop", peninsulaContinuousSlab: true, materialOnlyNoGeometryChange: true };
     const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
-    slab.position.set(centerX * INCH, ((surface.topElevationIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    const finishedHeight = surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT;
+    slab.position.set(centerX * INCH, (finishedHeight - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-    slab.userData = { peninsulaCountertop: true, raisedPonyWallBarTop: Boolean(surface.raisedPonyWallBarTop), peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: false, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
+    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), raisedBar: Boolean(surface.raisedBar), raisedBarOverhangIn: surface.raisedBarOverhangIn ?? null, countertopHeightIn: finishedHeight, bridgesCabinetVoids: false, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
     root.add(slab);
-    if (surface.raisedPonyWallBarTop) continue;
+    if (surface.raisedBar) continue;
     const terminalRun = surface.peninsulaTerminalRunId
       ? room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? run
       : run;
@@ -7503,6 +7504,7 @@ export function addIslandZone(
   guideGroup.add(back, front, left, right);
   group.add(guideGroup);
 	  const slabs = islandCountertopVisibleRects(island, placed);
+	  const raisedBarSlabs = islandRaisedBarRects(island, placed);
 	  const waterfallSlabs = islandCountertopRects(island, placed);
 	  slabs.forEach((slab, slabIndex) => {
     const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
@@ -7532,6 +7534,45 @@ export function addIslandZone(
     counter.position.set((slab.x + slab.width / 2) * INCH - transform.x, transform.counterTop, (slab.y + slab.depth / 2) * INCH - transform.z);
 	    counter.rotation.y = threeDPlanRotation((Number(slab.rotation ?? 0) * Math.PI) / 180);
     counter.userData = { islandCountertop: true, islandCountertopSegment: slabIndex + 1, widthIn: slab.width, depthIn: slab.depth };
+	    group.add(counter);
+	  });
+	  raisedBarSlabs.forEach((slab, slabIndex) => {
+	    const planRadians = (Number(slab.rotation ?? 0) * Math.PI) / 180;
+	    const barSide = island.raisedBarSide ?? "back";
+	    const supportDepthIn = 4.5;
+	    const localSupport = barSide === "back"
+	      ? { x: 0, y: slab.depth / 2 - supportDepthIn / 2, width: slab.width, depth: supportDepthIn }
+	      : barSide === "front"
+	        ? { x: 0, y: -slab.depth / 2 + supportDepthIn / 2, width: slab.width, depth: supportDepthIn }
+	        : barSide === "left"
+	          ? { x: slab.width / 2 - supportDepthIn / 2, y: 0, width: supportDepthIn, depth: slab.depth }
+	          : { x: -slab.width / 2 + supportDepthIn / 2, y: 0, width: supportDepthIn, depth: slab.depth };
+	    const slabCenterXIn = slab.x + slab.width / 2;
+	    const slabCenterZIn = slab.y + slab.depth / 2;
+	    const supportXIn = slabCenterXIn + localSupport.x * Math.cos(planRadians) - localSupport.y * Math.sin(planRadians);
+	    const supportZIn = slabCenterZIn + localSupport.x * Math.sin(planRadians) + localSupport.y * Math.cos(planRadians);
+	    const support = new THREE.Mesh(
+	      new THREE.BoxGeometry(localSupport.width * INCH, (42 - STD.COUNTERTOP_THICKNESS) * INCH, localSupport.depth * INCH),
+	      new THREE.MeshPhysicalMaterial({ color: "#e9e2d4", roughness: 0.86, metalness: 0 }),
+	    );
+	    support.position.set(supportXIn * INCH - transform.x, ((42 - STD.COUNTERTOP_THICKNESS) / 2) * INCH, supportZIn * INCH - transform.z);
+	    support.rotation.y = threeDPlanRotation(planRadians);
+	    support.userData = { islandRaisedBarPonyWall: true, islandRaisedBarSegment: slabIndex + 1, supportHeightIn: 42 - STD.COUNTERTOP_THICKNESS, supportDepthIn };
+	    group.add(support);
+	    const mappedCountertopTexture = threeDTextureForCountertopMesh(countertopTexture ?? null, {
+	      centerXIn: slab.x + slab.width / 2,
+	      centerZIn: slab.y + slab.depth / 2,
+	      localWidthIn: slab.width,
+	      localDepthIn: slab.depth,
+	      rotation: threeDPlanRotation(planRadians),
+	      slabWidthIn: Number(countertopTexture?.userData?.physicalWidthIn) || 138,
+	      slabDepthIn: Number(countertopTexture?.userData?.physicalDepthIn) || 79,
+	    });
+	    const material = new THREE.MeshPhysicalMaterial({ color: mappedCountertopTexture ? "#ffffff" : counterColor, map: mappedCountertopTexture ?? null, ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedCountertopTexture)) });
+	    const counter = new THREE.Mesh(new THREE.BoxGeometry(slab.width * INCH, STD.COUNTERTOP_THICKNESS * INCH, slab.depth * INCH), material);
+	    counter.position.set(slabCenterXIn * INCH - transform.x, (42 - STD.COUNTERTOP_THICKNESS / 2) * INCH, slabCenterZIn * INCH - transform.z);
+	    counter.rotation.y = threeDPlanRotation(planRadians);
+	    counter.userData = { islandRaisedBar: true, islandRaisedBarSegment: slabIndex + 1, countertopHeightIn: 42, raisedBarOverhangIn: island.raisedBarOverhang === 12 ? 12 : 15, widthIn: slab.width, depthIn: slab.depth };
 	    group.add(counter);
 	  });
 	  const waterfallEnd = island.waterfallEnd;

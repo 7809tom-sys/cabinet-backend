@@ -23,7 +23,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
-import { islandCountertopVisibleRects, islandFaceCapacity } from "@/lib/islandScene";
+import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects } from "@/lib/islandScene";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 
@@ -1881,7 +1881,10 @@ export function PlanCanvas({
         {countertopMaterialId && (() => {
 	          const perimeterSurfaces = countertopSurfaces(cabinets, room, island).filter((surface) => surface.kind !== "island");
 	          const islandSurfaces: CountertopSurface[] = island
-	            ? islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const }))
+	            ? [
+	              ...islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const })),
+	              ...islandRaisedBarRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const, raisedBar: true, raisedBarOverhangIn: island.raisedBarOverhang === 12 ? 12 : 15, countertopHeightIn: 42 })),
+	            ]
 	            : [];
 	          const surfaces = [...perimeterSurfaces, ...islandSurfaces];
           if (surfaces.length === 0) return null;
@@ -1893,6 +1896,7 @@ export function PlanCanvas({
                   <div
                     key={`ct${i}`}
                     data-countertop-scope={s.kind === "island" ? "island" : "perimeter"}
+                    data-raised-bar={s.raisedBar ? "true" : undefined}
                     className="absolute"
                     style={{
                       left: s.x * ppi,
@@ -1900,20 +1904,22 @@ export function PlanCanvas({
                       width: s.width * ppi,
                       height: s.depth * ppi,
                       background: mat.fill,
-                      border: `1px solid ${mat.edge}`,
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
+                      border: s.raisedBar ? "2px dashed #9a6c22" : `1px solid ${mat.edge}`,
+                      boxShadow: s.raisedBar ? "0 0 0 2px rgba(212,167,90,0.34), 0 1px 2px rgba(0,0,0,0.12)" : "0 1px 2px rgba(0,0,0,0.12)",
                       backgroundImage: mat.speckle
                         ? `radial-gradient(${mat.speckle} 0.5px, transparent 0.6px)`
                         : undefined,
                       backgroundSize: mat.speckle ? "6px 6px" : undefined,
-                      opacity: 0.92,
+                      opacity: s.raisedBar ? 0.76 : 0.92,
                       transform: s.rotation ? `rotate(${s.rotation}deg)` : undefined,
                       transformOrigin: "50% 50%",
                       clipPath: s.polygon
                         ? `polygon(${s.polygon.map((point) => `${(point.x / s.width) * 100}% ${(point.y / s.depth) * 100}%`).join(", ")})`
                         : undefined,
                     }}
-                  />
+                  >
+                    {s.raisedBar && <span className="absolute left-1 top-1 rounded bg-[#fff7df]/90 px-1 text-[8px] font-bold tracking-wide text-[#755117]">42″ BAR</span>}
+                  </div>
                 );
               })}
             </div>

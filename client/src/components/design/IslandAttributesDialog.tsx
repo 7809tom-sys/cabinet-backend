@@ -189,6 +189,27 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 	            </SelectContent>
 	            </Select>
 	          </div>
+	          <div data-testid="island-raised-bar-control" className="space-y-2 rounded-md border border-[#b99049] bg-[#fff5d9] p-2 sm:col-span-2">
+	            <div className="flex items-center justify-between gap-3">
+	              <div>
+	                <Label htmlFor="island-raised-bar-toggle" className="text-xs font-semibold text-[#1a2744]">Split-level raised seating bar</Label>
+	                <p className="text-[10px] leading-4 text-muted-foreground">Separate 42″ bar top — 6″ above the counter-height worktop — supported on the selected side.</p>
+	              </div>
+	              <Switch id="island-raised-bar-toggle" aria-label="Add a six-inch higher island seating bar" checked={draft.raisedBar === true} onCheckedChange={(enabled) => setDraft({ ...draft, raisedBar: enabled, raisedBarSide: draft.raisedBarSide ?? "back", raisedBarOverhang: draft.raisedBarOverhang ?? 15 })} />
+	            </div>
+	            {draft.raisedBar && <div className="grid grid-cols-2 gap-2">
+	              <label className="grid gap-1 text-[10px] font-semibold text-[#634b20]">Bar side
+	                <select value={draft.raisedBarSide ?? "back"} onChange={(event) => setDraft({ ...draft, raisedBarSide: event.target.value as IslandFace })} className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground">
+	                  <option value="back">Behind back cabinets</option><option value="front">Front side</option><option value="left">Left end</option><option value="right">Right end</option>
+	                </select>
+	              </label>
+	              <label className="grid gap-1 text-[10px] font-semibold text-[#634b20]">Seating projection
+	                <select value={draft.raisedBarOverhang ?? 15} onChange={(event) => setDraft({ ...draft, raisedBarOverhang: Number(event.target.value) as 12 | 15 })} className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground">
+	                  <option value={12}>12 in. beyond support</option><option value={15}>15 in. beyond support</option>
+	                </select>
+	              </label>
+	            </div>}
+	          </div>
 	          <div className="space-y-1">
 	            <Label className="text-xs">Active placement face</Label>
 	            <Select value={draft.activeFace ?? "front"} onValueChange={(value) => setDraft({ ...draft, activeFace: value as IslandFace })}>

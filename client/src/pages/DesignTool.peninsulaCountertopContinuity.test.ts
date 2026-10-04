@@ -18,8 +18,7 @@ describe("connected peninsula countertop continuity", () => {
 	  expect(source).toContain("countertopPonyWallBarOverhang: peninsulaCountertopPonyWallBarOverhang(parent, room)");
 	  expect(source).toContain("const rootId = rootIdFor(current);");
 	  expect(source).toContain("if (rootIdFor(run) !== rootId) return run;");
-	  expect(source).toContain("const raisedBarOverhang = draft.drywallBackPonyWall && height > STD.BASE_HEIGHT + 0.01");
-	  expect(source).toContain("countertopPonyWallBarOverhang: raisedBarOverhang");
+	  expect(source).toContain("countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0");
 	  expect(source).toContain('data-testid="peninsula-pony-wall-bar-top"');
 	  expect(source).toContain('aria-label="Bar countertop extension across drywall pony wall"');
 	});
