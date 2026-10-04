@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791147978,
+  "indexBundles": [
+    "index-CXx8Gm91.js"
+  ],
+  "designerBundles": [
+    "DesignTool-CLuSm7Jx.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-CR0mwkde.js"
+  ],
+  "marker": "including a measured Continuous Wall Builder run",
+  "markerFound": true
+}
