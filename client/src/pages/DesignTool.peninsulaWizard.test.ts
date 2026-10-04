@@ -5,7 +5,7 @@ import path from "node:path";
 const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/pages/DesignTool.tsx"), "utf8");
 
 describe("Peninsula Wizard", () => {
-  it("creates a straight selected-side run with an optional connected 45-degree end, then fills each safe span from the active line", () => {
+  it("creates a straight selected-side run with an optional connected 45-degree end from the active line", () => {
     expect(source).toContain("const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);");
     expect(source).toContain("const buildPeninsulaWizardLayout = useCallback(() => {");
     expect(source).toContain('turn: 90,');
@@ -16,9 +16,7 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain("countertopSeatingOverhang: draft.seatingOverhang");
     expect(source).toContain("countertopWaterfallEnd: draft.waterfall");
     expect(source).toContain('applianceCode: "none" | "DW-24" | "WINE-24"');
-    expect(source).toContain('firstCollisionFreePeninsulaPlacement(\n              layoutRun.id as WallSide,');
-    expect(source).toContain('autoFillSpan(segment.length, "kitchen", pool)');
-    expect(source).toContain('catalogFillerForGap(pool, item.width, "base")');
+    expect(source).toContain('const spot = firstCollisionFreePeninsulaPlacement(');
     expect(source).toContain('data-testid="build-peninsula-wizard"');
     expect(source).toContain('45° end from the straight run');
   });
@@ -39,5 +37,31 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('makePeninsulaPonyWall(ponyWallOwner, nextRoom, {');
     expect(source).toContain('ponyWallFitsRoom(builtPonyWall, nextRoom)');
     expect(source).toContain('and a snapped pony wall');
+  });
+
+  it("requires the user’s ordered cabinet sequence on each leg and never auto-fills a cabinet", () => {
+    expect(source).toContain('primaryCabinetIds: number[];');
+    expect(source).toContain('returnCabinetIds: number[];');
+    expect(source).toContain('data-testid="peninsula-wizard-primary-cabinet-add"');
+    expect(source).toContain('data-testid="peninsula-wizard-return-cabinet-add"');
+    expect(source).toContain('data-testid="peninsula-wizard-primary-sequence-list"');
+    expect(source).toContain('selectedPeninsulaCabinetSequencePlan(segment.length, selectedCabinets as PeninsulaWizardCabinet[], selectedLineFillers)');
+    expect(source).toContain('The Wizard will not auto-fill it.');
+    expect(source).not.toContain('Automatic fit from this line');
+  });
+
+  it("adds a real mitered filler pair at the 135-degree joint of every Wizard 45-degree return", () => {
+    expect(source).toContain('const hasChildFortyFiveReturn = Boolean((nextRoom.peninsulaRuns ?? []).some((candidate) => (');
+    expect(source).toContain('const itemsForSegment = hasChildFortyFiveReturn && plan.items.at(-1)?.isFiller');
+    expect(source).toContain('const miterRepair = repairMissingAngledWallFillers(working, nextRoom, catalogFillers, makeUid, styleIdRef.current ?? null);');
+    expect(source).toContain('The 135° joint needs a matching catalog filler pair on this line. No peninsula was added;');
+    expect(source).toContain('At the 135° joint formed by this 45° return, the Wizard adds the required pair of real selected-line filler boards');
+  });
+
+  it("offers a regular or 42-inch split-level countertop treatment through the shared peninsula data model", () => {
+    expect(source).toContain('countertopTreatment: "regular" | "split-level"');
+    expect(source).toContain('data-testid="peninsula-wizard-countertop-treatment"');
+    expect(source).toContain('countertopRaisedBar: draft.countertopTreatment === "split-level"');
+    expect(source).toContain('makePeninsulaDrywallBackPonyWall(');
   });
 });

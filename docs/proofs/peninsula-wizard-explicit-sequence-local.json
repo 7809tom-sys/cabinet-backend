@@ -1,0 +1,128 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "tag": "local",
+  "bundles": [],
+  "disabledBeforeSequences": true,
+  "enabledAfterSequences": true,
+  "chosenCabinet": {
+    "value": "9360028",
+    "text": "3DB24 \u00b7 24 in W \u00d7 24 in D"
+  },
+  "straightSequence": "1. 3DB24 \u00b7 24 in\nRemove\n2. 3DB24 \u00b7 24 in\nRemove",
+  "returnSequence": "1. 3DB24 \u00b7 24 in\nRemove\n2. 3DB24 \u00b7 24 in\nRemove",
+  "baseItems": [
+    {
+      "masterCode": "3DB24",
+      "width": 24,
+      "wallId": "peninsula_wizard_mutpr1mi",
+      "wallOffset": 0
+    },
+    {
+      "masterCode": "3DB24",
+      "width": 24,
+      "wallId": "peninsula_wizard_mutpr1mi",
+      "wallOffset": 24
+    },
+    {
+      "masterCode": "3DB24",
+      "width": 24,
+      "wallId": "peninsula_wizard_mutpr1mi_45_end",
+      "wallOffset": 11
+    },
+    {
+      "masterCode": "3DB24",
+      "width": 24,
+      "wallId": "peninsula_wizard_mutpr1mi_45_end",
+      "wallOffset": 35
+    }
+  ],
+  "miterFillers": [
+    {
+      "masterCode": "F342",
+      "width": 2.558874503045729,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    },
+    {
+      "masterCode": "F342",
+      "width": 1.0588745030457147,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    }
+  ],
+  "peninsulaRuns": [
+    {
+      "id": "peninsula_wizard_mutpr1mi",
+      "parentWall": "top",
+      "startOffset": 108,
+      "turn": 90,
+      "direction": "right",
+      "length": 60.5,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula \u00b7 straight"
+    },
+    {
+      "id": "peninsula_wizard_mutpr1mi_45_end",
+      "parentRunId": "peninsula_wizard_mutpr1mi",
+      "startOffset": 0,
+      "turn": 45,
+      "direction": "right",
+      "length": 60.5,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula end \u00b7 45\u00b0 right"
+    }
+  ],
+  "ponyWalls": [
+    {
+      "uid": "pw-peninsula-back-1791111851566-fgzme",
+      "x": 108,
+      "y": 0,
+      "width": 60.5,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutpr1mi",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    },
+    {
+      "uid": "pw-peninsula-back-1791111851567-c62of",
+      "x": 108,
+      "y": 60.5,
+      "width": 60.5,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutpr1mi_45_end",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    }
+  ],
+  "hasOnlyChosenBaseCabinets": true,
+  "chosenBaseCount": 4,
+  "hasRaisedBar": true,
+  "raisedSupportCount": 2,
+  "materialsHaveChosenCabinet": true,
+  "materialsHaveMiterFiller": true,
+  "applicationErrors": []
+}

@@ -78,6 +78,7 @@ import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { selectedPeninsulaCabinetSequencePlan, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
 import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MIN_IN,
@@ -1194,7 +1195,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    waterfall: boolean;
 	    addPonyWall: boolean;
 	    ponyWallLength: number;
-	    ponyWallHeight: number;
+    ponyWallHeight: number;
+    /** Exact catalog cabinet sequence per leg. The Wizard never chooses a box. */
+    primaryCabinetIds: number[];
+    returnCabinetIds: number[];
+    /** Regular counter-height worktop or a 42-inch separate seating bar. */
+    countertopTreatment: "regular" | "split-level";
 	  } | null>(null);
   const [wallSettingsOpen, setWallSettingsOpen] = useState(false);
   const [peninsulaDeletePrompt, setPeninsulaDeletePrompt] = useState<null | {
@@ -1274,7 +1280,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      waterfall: false,
 	      addPonyWall: false,
 	      ponyWallLength: 36,
-	      ponyWallHeight: 34.5,
+      ponyWallHeight: 34.5,
+      primaryCabinetIds: [],
+      returnCabinetIds: [],
+      countertopTreatment: "regular",
 	    });
     setPeninsulaWizardOpen(true);
   }, [activeWall, layoutLocked, room.depth, room.width]);
@@ -2169,6 +2178,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
     [threeDAccessoryCatalog],
   );
+  // The Wizard presents actual active base cabinets from the selected line.
+  // Catalog fillers remain a separate, priced stock source for true remainders.
+  const peninsulaWizardBaseCabinets = useMemo(() => wizardEligibleBaseCabinets(
+    ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
+  ), [autoFillCabinets]);
   const blindCornerFillerOptions = useMemo<CatalogFillerCandidate[]>(() => (
     catalogFillers
       .filter(isCatalogFiller)
@@ -4263,6 +4277,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       height: 34.5,
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
+      countertopRaisedBar: draft.countertopTreatment === "split-level",
+      countertopRaisedBarOverhang: 15,
       countertopWaterfallEnd: draft.waterfall,
       label: "Peninsula · straight",
     };
@@ -4284,6 +4300,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           height: run.height,
           cabinetSide: run.cabinetSide,
           countertopSeatingOverhang: run.countertopSeatingOverhang,
+          countertopRaisedBar: run.countertopRaisedBar,
+          countertopRaisedBarOverhang: run.countertopRaisedBarOverhang,
           countertopWaterfallEnd: run.countertopWaterfallEnd,
           label: `Peninsula end · 45° ${draft.endDirection}`,
         }
@@ -4328,60 +4346,118 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("That appliance cannot fit on this peninsula length. Increase the length or choose no appliance.");
       return;
     }
-    setPlaced((previous) => {
-      let working = [...previous];
-      if (appliance && applianceSpot) {
-        working.push({
-          uid: makeUid(), cabinetId: 0, masterCode: appliance.masterCode, description: appliance.description,
-          category: "Appliance", subCategory: null, placement: "appliance", x: applianceSpot.x, y: applianceSpot.y,
-          width: appliance.width, depth: appliance.depth, height: appliance.elevHeight, rotation: applianceSpot.rotation,
-          mountBottom: appliance.elevBottom, numberOfDoors: 0, numberOfDrawers: 0, catalogImageUrl: appliance.catalogImageUrl ?? null,
-          wallId: applianceSpot.wallId, wallOffset: applianceSpot.wallOffset, peninsulaSide: applianceSpot.peninsulaSide,
-        });
+    // The owner supplies the full cabinet sequence for each leg. No best-fit,
+    // repeat, fallback, or silent cabinet substitution is allowed in this Wizard.
+    const wizardSequences = {
+      [run.id]: draft.primaryCabinetIds,
+      ...(angledRun ? { [angledRun.id]: draft.returnCabinetIds } : {}),
+    } as Record<string, number[]>;
+    const selectedLineFillers = [...pool, ...catalogFillers] as PeninsulaWizardCabinet[];
+    let working = [...placed];
+    if (appliance && applianceSpot) {
+      working.push({
+        uid: makeUid(), cabinetId: 0, masterCode: appliance.masterCode, description: appliance.description,
+        category: "Appliance", subCategory: null, placement: "appliance", x: applianceSpot.x, y: applianceSpot.y,
+        width: appliance.width, depth: appliance.depth, height: appliance.elevHeight, rotation: applianceSpot.rotation,
+        mountBottom: appliance.elevBottom, numberOfDoors: 0, numberOfDrawers: 0, catalogImageUrl: appliance.catalogImageUrl ?? null,
+        wallId: applianceSpot.wallId, wallOffset: applianceSpot.wallOffset, peninsulaSide: applianceSpot.peninsulaSide,
+      });
+    }
+    for (const layoutRun of layoutRuns) {
+      const selectedIds = wizardSequences[layoutRun.id] ?? [];
+      const selectedCabinets = selectedIds.map((id) => peninsulaWizardBaseCabinets.find((cabinet) => cabinet.id === id) ?? null);
+      if (selectedCabinets.some((cabinet) => cabinet == null)) {
+        toast.error("One of the selected peninsula cabinets is no longer available in this active line. Choose that cabinet again before building.");
+        return;
       }
-      for (const layoutRun of layoutRuns) {
-        const segments = freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, working, [], 9);
-        for (const segment of segments) {
-          const fill = autoFillSpan(segment.length, "kitchen", pool);
-          for (const item of fill.items) {
-            const fillerCandidate = item.isFiller ? catalogFillerForGap(pool, item.width, "base") : null;
-            const cabinet = fillerCandidate
-              ? pool.find((option) => option.id === fillerCandidate.id) ?? null
-              : item.isFiller ? null : item.cabinet;
-            if (!cabinet) continue;
-            const width = item.width;
-            const depth = footprintDepth(cabinet);
-            const spot = firstCollisionFreePeninsulaPlacement(
-              layoutRun.id as WallSide,
-              nextRoom,
-              working,
-              width,
-              depth,
-              "base",
-              { start: segment.start, end: segment.start + segment.length - width },
-            );
-            if (!spot) continue;
-            working.push({
-              uid: makeUid(), cabinetId: cabinet.id, masterCode: cabinet.masterCode,
-              description: item.isFiller ? fittedCatalogFillerDescription(cabinet, width) : cabinet.description,
-              category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null, placement: "base",
-              x: spot.x, y: spot.y, width, depth, height: dim(cabinet.height, standardHeight(cabinet.placement)),
-              rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors, numberOfDrawers: cabinet.numberOfDrawers,
-              catalogImageUrl: cabinet.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
-              wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
-            });
+      if (selectedCabinets.length === 0) {
+        toast.error(`${layoutRun.label ?? "Peninsula run"}: choose every cabinet for this leg. The Wizard will not auto-fill it.`);
+        return;
+      }
+      const segments = freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, working, [], 9);
+      if (segments.length !== 1) {
+        toast.error(`${layoutRun.label ?? "Peninsula run"}: an appliance or obstruction splits this leg. Place it manually so you can specify each cabinet around it; the Wizard will not guess.`);
+        return;
+      }
+      for (const segment of segments) {
+        const plan = selectedPeninsulaCabinetSequencePlan(segment.length, selectedCabinets as PeninsulaWizardCabinet[], selectedLineFillers);
+        if (plan.message) {
+          toast.error(`${layoutRun.label ?? "Peninsula run"}: ${plan.message}`);
+          return;
+        }
+        // The terminating gap on the straight leg is not an ordinary small-gap
+        // filler when it becomes the inside 135° side of a 45° return. Leave it
+        // open for the shared two-board 22.5° miter assembly below; otherwise a
+        // rectangular filler would obscure the corner and prevent that real
+        // catalog pair from being measured and installed.
+        const hasChildFortyFiveReturn = Boolean((nextRoom.peninsulaRuns ?? []).some((candidate) => (
+          candidate.parentRunId === layoutRun.id && candidate.turn === 45
+        )));
+        const itemsForSegment = hasChildFortyFiveReturn && plan.items.at(-1)?.isFiller
+          ? plan.items.slice(0, -1)
+          : plan.items;
+        for (const item of itemsForSegment) {
+          if (!item.cabinet) continue;
+          const cabinet = item.cabinet as DesignCabinet;
+          const width = item.width;
+          const depth = footprintDepth(cabinet);
+          const spot = firstCollisionFreePeninsulaPlacement(
+            layoutRun.id as WallSide,
+            nextRoom,
+            working,
+            width,
+            depth,
+            "base",
+            { start: segment.start, end: segment.start + segment.length - width },
+          );
+          if (!spot) {
+            toast.error(`Could not seat ${cabinet.masterCode} on the measured ${layoutRun.label ?? "peninsula"} span. No items were added.`);
+            return;
           }
+          working.push({
+            uid: makeUid(), cabinetId: cabinet.id, masterCode: cabinet.masterCode,
+            description: item.isFiller ? fittedCatalogFillerDescription(cabinet, width) : cabinet.description,
+            category: cabinet.category ?? null, subCategory: cabinet.subCategory ?? null, placement: "base",
+            x: spot.x, y: spot.y, width, depth, height: dim(cabinet.height, standardHeight(cabinet.placement)),
+            rotation: spot.rotation, numberOfDoors: cabinet.numberOfDoors, numberOfDrawers: cabinet.numberOfDrawers,
+            catalogImageUrl: cabinet.catalogImageUrl ?? null, styleId: styleIdRef.current ?? null,
+            wallId: spot.wallId, wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
+          });
         }
       }
-      return working;
-	    });
+    }
+    // A 45° return forms a 135° cabinet-face joint. Insert the real two-piece
+    // selected-line miter filler pair immediately; do not rely only on the later
+    // restore effect because a brand-new Wizard build must never show that seam open.
+    if (angledRun) {
+      const miterRepair = repairMissingAngledWallFillers(working, nextRoom, catalogFillers, makeUid, styleIdRef.current ?? null);
+      if (miterRepair.added.length === 0) {
+        toast.error("The 135° joint needs a matching catalog filler pair on this line. No peninsula was added; choose a line with a suitable filler or adjust the selected cabinet plan.");
+        return;
+      }
+      working = miterRepair.placed;
+    }
+    // A raised bar is its own 42-inch slab with a continuous 40½-inch drywall
+    // support behind every connected run, including a selected 45-degree end.
+    const raisedBarSupport = draft.countertopTreatment === "split-level"
+      ? layoutRuns.map((layoutRun) => makePeninsulaDrywallBackPonyWall(
+          layoutRun,
+          nextRoom,
+          { height: RAISED_BAR_HEIGHT_IN - STD.COUNTERTOP_THICKNESS },
+        ))
+      : [];
+    if (raisedBarSupport.some((ponyWall) => !ponyWallFitsRoom(ponyWall, nextRoom))) {
+      toast.error("The split-level bar support would extend outside the measured room. Adjust the length, 45° end, or cabinet side.");
+      return;
+    }
+    setPlaced(working);
 	    setRoom(nextRoom);
-	    if (builtPonyWall) setPonyWalls((previous) => [...previous, builtPonyWall]);
+	    if (builtPonyWall || raisedBarSupport.length) setPonyWalls((previous) => [...previous, ...(builtPonyWall ? [builtPonyWall] : []), ...raisedBarSupport]);
 	    setActiveWall(run.id as WallSide);
     setPlacementTarget("wall");
     setPeninsulaWizardOpen(false);
-	    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWall ? " and a snapped pony wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Compatible cabinets and any verified filler were added to each clear run.`);
-  }, [autoFillCabinets, layoutLocked, peninsulaWizardDraft, placed, room]);
+	    toast.success(`Straight peninsula${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWall ? " and a snapped pony wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only your selected cabinets and any verified small remainder filler were added.`);
+  }, [autoFillCabinets, catalogFillers, layoutLocked, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
 	const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
 	  if (layoutLocked) return;
@@ -12052,8 +12128,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     )}
                     <div className="max-h-40 overflow-y-auto rounded-lg border border-border">
                       <ul className="divide-y divide-border">
-                        {cartableLines.map((line) => (
-                          <li key={`${line.masterCode}-${line.styleId}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
+                        {cartableLines.map((line, index) => (
+                          <li key={`${line.masterCode}-${line.styleId}-${line.qtyNote ?? "line"}-${index}`} className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px]">
                             <div className="min-w-0">
                               <div className="flex items-center gap-1 font-medium text-foreground">
                                 <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px]">{line.qty}×</span>
@@ -14907,7 +14983,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            <DialogContent data-testid="peninsula-wizard-dialog" className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-lg flex-col gap-0 overflow-hidden p-0">
 	              <DialogHeader className="shrink-0 border-b px-4 py-3">
 	                <DialogTitle>Peninsula Wizard</DialogTitle>
-	                <DialogDescription>Choose the run, optional appliance, and countertop treatment. The Designer creates the peninsula and fills compatible cabinet openings for you.</DialogDescription>
+	                <DialogDescription>Choose the run, the 45° turn, exact cabinet choices, and countertop treatment. The shared engine builds the peninsula and only uses catalog-backed fillers for real remainders.</DialogDescription>
 	              </DialogHeader>
 	              {peninsulaWizardDraft && (
 	                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4">
@@ -14960,6 +15036,50 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        <option value="left">Left side</option><option value="right">Right side</option>
 	                      </select>
 	                    </label>
+                    <div className="grid gap-3 rounded-md border border-[#bfcee0] bg-[#f5f9fd] p-3" data-testid="peninsula-wizard-cabinet-choices">
+                      <p className="text-xs font-bold text-[#1a2744]">Your cabinet plan</p>
+                      <p className="text-[11px] leading-4 text-muted-foreground"><strong>You choose every cabinet, in order, for each leg.</strong> The Wizard places only that ordered list from the wall outward. It never repeats, auto-fills, swaps, or invents a cabinet. A 1/8–6 in. leftover may use a real catalog filler; any larger opening stops the build.</p>
+                      <div className="grid gap-1 rounded-md border border-[#d8e6f3] bg-background/70 p-2" data-testid="peninsula-wizard-primary-sequence">
+                        <span className="text-xs font-semibold text-foreground">Straight leg — wall to end</span>
+                        <select data-testid="peninsula-wizard-primary-cabinet-add" defaultValue="" onChange={(event) => {
+                          const cabinetId = Number(event.currentTarget.value);
+                          if (!cabinetId) return;
+                          setPeninsulaWizardDraft((draft) => draft ? { ...draft, primaryCabinetIds: [...draft.primaryCabinetIds, cabinetId] } : draft);
+                          event.currentTarget.value = "";
+                        }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+                          <option value="" disabled>Add a cabinet to this leg…</option>
+                          {peninsulaWizardBaseCabinets.map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}
+                        </select>
+                        {peninsulaWizardDraft.primaryCabinetIds.length === 0 ? <span className="text-[11px] text-destructive">Add every cabinet for the straight leg.</span> : <ol className="grid gap-1" data-testid="peninsula-wizard-primary-sequence-list">{peninsulaWizardDraft.primaryCabinetIds.map((id, index) => {
+                          const cabinet = peninsulaWizardBaseCabinets.find((candidate) => candidate.id === id);
+                          return <li key={`${id}-${index}`} className="flex items-center justify-between gap-2 rounded border bg-background px-2 py-1 text-xs"><span>{index + 1}. {cabinet ? `${cabinet.masterCode} · ${Number(cabinet.width)} in` : "Unavailable cabinet"}</span><Button type="button" size="sm" variant="ghost" className="h-6 px-1.5 text-destructive" aria-label={`Remove straight cabinet ${index + 1}`} onClick={() => setPeninsulaWizardDraft((draft) => draft ? { ...draft, primaryCabinetIds: draft.primaryCabinetIds.filter((_, itemIndex) => itemIndex !== index) } : draft)}>Remove</Button></li>;
+                        })}</ol>}
+                      </div>
+                      {peninsulaWizardDraft.endTurn === 45 && <div className="grid gap-1 rounded-md border border-[#d8e6f3] bg-background/70 p-2" data-testid="peninsula-wizard-return-sequence">
+                        <span className="text-xs font-semibold text-foreground">45° return — joint to end</span>
+                        <select data-testid="peninsula-wizard-return-cabinet-add" defaultValue="" onChange={(event) => {
+                          const cabinetId = Number(event.currentTarget.value);
+                          if (!cabinetId) return;
+                          setPeninsulaWizardDraft((draft) => draft ? { ...draft, returnCabinetIds: [...draft.returnCabinetIds, cabinetId] } : draft);
+                          event.currentTarget.value = "";
+                        }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+                          <option value="" disabled>Add a cabinet to this return…</option>
+                          {peninsulaWizardBaseCabinets.map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}
+                        </select>
+                        {peninsulaWizardDraft.returnCabinetIds.length === 0 ? <span className="text-[11px] text-destructive">Add every cabinet for the 45° return.</span> : <ol className="grid gap-1" data-testid="peninsula-wizard-return-sequence-list">{peninsulaWizardDraft.returnCabinetIds.map((id, index) => {
+                          const cabinet = peninsulaWizardBaseCabinets.find((candidate) => candidate.id === id);
+                          return <li key={`${id}-${index}`} className="flex items-center justify-between gap-2 rounded border bg-background px-2 py-1 text-xs"><span>{index + 1}. {cabinet ? `${cabinet.masterCode} · ${Number(cabinet.width)} in` : "Unavailable cabinet"}</span><Button type="button" size="sm" variant="ghost" className="h-6 px-1.5 text-destructive" aria-label={`Remove return cabinet ${index + 1}`} onClick={() => setPeninsulaWizardDraft((draft) => draft ? { ...draft, returnCabinetIds: draft.returnCabinetIds.filter((_, itemIndex) => itemIndex !== index) } : draft)}>Remove</Button></li>;
+                        })}</ol>}
+                      </div>}
+                      {peninsulaWizardDraft.endTurn === 45 && <p className="text-[11px] leading-4 text-[#634b20]">At the 135° joint formed by this 45° return, the Wizard adds the required pair of real selected-line filler boards with the shared 22.5° miter. If this line has no suitable filler stock, it stops instead of leaving an open seam.</p>}
+                    </div>
+                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Countertop treatment
+                      <select data-testid="peninsula-wizard-countertop-treatment" value={peninsulaWizardDraft.countertopTreatment} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, countertopTreatment: event.target.value as "regular" | "split-level" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+                        <option value="regular">Regular counter-height worktop</option>
+                        <option value="split-level">Split-level: 42 in. raised seating bar · 15 in. projection</option>
+                      </select>
+                      {peninsulaWizardDraft.countertopTreatment === "split-level" && <span className="font-normal leading-4 text-muted-foreground">The Wizard creates the 42 in. raised bar and its continuous drywall support behind the straight leg and selected 45° return.</span>}
+                    </label>
 	                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Appliance in this run
 	                      <select value={peninsulaWizardDraft.applianceCode} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, applianceCode: event.target.value as "none" | "DW-24" | "WINE-24" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
 	                        <option value="none">No appliance</option><option value="DW-24">Dishwasher · 24 in.</option><option value="WINE-24">Wine cooler · 24 in.</option>
@@ -14978,13 +15098,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
 	                      </label>
 	                    </div>
-	                    <p className="text-[11px] leading-4 text-muted-foreground">Regular base cabinets receive the standard 1½ in. finished edge. Choose 12 or 15 in. only for actual seating. The first run always comes straight out from the selected wall. You can add one locked 45° end from its free end and a measured pony wall that follows the final peninsula endpoint. The build action seats the optional appliance on the straight run, then adds compatible selected-line base cabinets to each safe span. A small remainder becomes a filler only when your selected line has a cuttable catalog filler.</p>
+	                    <p className="text-[11px] leading-4 text-muted-foreground">Regular base cabinets receive the standard 1½ in. finished edge. Choose 12 or 15 in. only for actual seating. The first run always comes straight out from the selected wall; the optional 45° end is measured from its free end. Add every cabinet you want, in order, to each list. The Wizard stops and explains any large remainder instead of substituting another cabinet. A 1/8–6 in. remainder becomes a filler only when this line has a cuttable catalog filler.</p>
 	                  </div>
 	                </div>
 	              )}
 	              <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
 	                <Button type="button" variant="outline" onClick={() => setPeninsulaWizardOpen(false)}>Cancel</Button>
-	                <Button type="button" data-testid="build-peninsula-wizard" onClick={buildPeninsulaWizardLayout}><Wand2 className="mr-1.5 h-4 w-4" /> Build peninsula</Button>
+	                <Button type="button" data-testid="build-peninsula-wizard" disabled={peninsulaWizardDraft != null && (peninsulaWizardDraft.primaryCabinetIds.length === 0 || (peninsulaWizardDraft.endTurn === 45 && peninsulaWizardDraft.returnCabinetIds.length === 0))} onClick={buildPeninsulaWizardLayout}><Wand2 className="mr-1.5 h-4 w-4" /> Build your cabinet plan</Button>
 	              </DialogFooter>
 	            </DialogContent>
 	          </Dialog>
