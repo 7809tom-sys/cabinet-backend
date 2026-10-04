@@ -1,0 +1,57 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "straight": {
+    "wall": "wall-straight",
+    "rows": [
+      {
+        "masterCode": "W1542",
+        "wallId": "wall-straight",
+        "wallOffset": 0,
+        "rotation": 0,
+        "width": 15,
+        "depth": 12
+      },
+      {
+        "masterCode": "W3042",
+        "wallId": "wall-straight",
+        "wallOffset": 16,
+        "rotation": 0,
+        "width": 30,
+        "depth": 12
+      }
+    ],
+    "rotateAndArrowNudge": {
+      "beforeOffset": 15.0,
+      "afterOffset": 16,
+      "rotation": 0
+    },
+    "errors": []
+  },
+  "angle": {
+    "wall": "wall-45",
+    "rows": [
+      {
+        "masterCode": "W1542",
+        "wallId": "wall-45",
+        "wallOffset": 5.5,
+        "rotation": 45,
+        "width": 15,
+        "depth": 12
+      },
+      {
+        "masterCode": "W3042",
+        "wallId": "wall-45",
+        "wallOffset": 21.25,
+        "rotation": 45,
+        "width": 30,
+        "depth": 12
+      }
+    ],
+    "rotateAndArrowNudge": {
+      "beforeOffset": 20.5,
+      "afterOffset": 21.25,
+      "rotation": 45
+    },
+    "errors": []
+  }
+}
