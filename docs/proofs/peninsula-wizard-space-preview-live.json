@@ -1,0 +1,138 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "space-live",
+  "bundles": [
+    "index-C9KNUyBq.js"
+  ],
+  "disabledBeforeSequences": true,
+  "enabledAfterSequences": true,
+  "selectedCabinetSequence": [
+    "B30",
+    "B18"
+  ],
+  "straightSequence": "1. B30 \u00b7 30 in\nRemove\n2. B18 \u00b7 18 in\nRemove",
+  "returnSequence": "1. B30 \u00b7 30 in\nRemove\n2. B18 \u00b7 18 in\nRemove",
+  "spacePreview": "Cabinet totals & remaining space\n\nPRE-BUILD CHECK\n\nUses the measured cabinet span after the shared depth-specific corner holds. Only the cabinets in your lists are counted.\n\nStraight leg \u2014 wall to 45\u00b0 joint\nClear: 49\u00bd\"\nCabinets: 48\"\nRemaining: 1\u00bd\"\nSelected: B30 + B18 = 48\"\nThe 1\u00bd\" joint remainder is reserved for the required two-piece 22.5\u00b0 miter filler pair.\n45\u00b0 return \u2014 joint to end\nClear: 49\u00bd\"\nCabinets: 48\"\nRemaining: 1\u00bd\"\nSelected: B30 + B18 = 48\"\nWill use real filler: F342 cut to 1\u00bd\".",
+  "primaryPreview": "Straight leg \u2014 wall to 45\u00b0 joint\nClear: 49\u00bd\"\nCabinets: 48\"\nRemaining: 1\u00bd\"\nSelected: B30 + B18 = 48\"\nThe 1\u00bd\" joint remainder is reserved for the required two-piece 22.5\u00b0 miter filler pair.",
+  "returnPreview": "45\u00b0 return \u2014 joint to end\nClear: 49\u00bd\"\nCabinets: 48\"\nRemaining: 1\u00bd\"\nSelected: B30 + B18 = 48\"\nWill use real filler: F342 cut to 1\u00bd\".",
+  "baseItems": [
+    {
+      "masterCode": "B30",
+      "width": 30,
+      "wallId": "peninsula_wizard_mutsrqba",
+      "wallOffset": 0
+    },
+    {
+      "masterCode": "B18",
+      "width": 18,
+      "wallId": "peninsula_wizard_mutsrqba",
+      "wallOffset": 30
+    },
+    {
+      "masterCode": "B30",
+      "width": 30,
+      "wallId": "peninsula_wizard_mutsrqba_45_end",
+      "wallOffset": 11
+    },
+    {
+      "masterCode": "B18",
+      "width": 18,
+      "wallId": "peninsula_wizard_mutsrqba_45_end",
+      "wallOffset": 41
+    }
+  ],
+  "miterFillers": [
+    {
+      "masterCode": "F342",
+      "width": 2.558874503045729,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    },
+    {
+      "masterCode": "F342",
+      "width": 1.0588745030457147,
+      "fillerTransitionKind": "front-miter-pair",
+      "fillerMiterAngle": 22.5
+    }
+  ],
+  "peninsulaRuns": [
+    {
+      "id": "peninsula_wizard_mutsrqba",
+      "parentWall": "top",
+      "startOffset": 108,
+      "turn": 90,
+      "direction": "right",
+      "length": 60.5,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula \u00b7 straight"
+    },
+    {
+      "id": "peninsula_wizard_mutsrqba_45_end",
+      "parentRunId": "peninsula_wizard_mutsrqba",
+      "startOffset": 0,
+      "turn": 45,
+      "direction": "right",
+      "length": 60.5,
+      "height": 34.5,
+      "cabinetSide": "left",
+      "countertopSeatingOverhang": 0,
+      "countertopRaisedBar": true,
+      "countertopRaisedBarOverhang": 15,
+      "countertopWaterfallEnd": false,
+      "label": "Peninsula end \u00b7 45\u00b0 right"
+    }
+  ],
+  "ponyWalls": [
+    {
+      "uid": "pw-peninsula-back-1791116922439-9dkdi",
+      "x": 108,
+      "y": 0,
+      "width": 60.5,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutsrqba",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    },
+    {
+      "uid": "pw-peninsula-back-1791116922439-hzf8j",
+      "x": 108,
+      "y": 60.5,
+      "width": 60.5,
+      "depth": 4.5,
+      "height": 40.5,
+      "label": "Drywall pony wall \u00b7 behind peninsula",
+      "peninsulaRunId": "peninsula_wizard_mutsrqba_45_end",
+      "peninsulaEnd": "start",
+      "peninsulaTurn": 0,
+      "peninsulaDirection": "right",
+      "peninsulaPlacement": "behind-cabinets",
+      "finish": "drywall",
+      "drywallColor": "#e7e1d5",
+      "drywallTexture": "smooth"
+    }
+  ],
+  "actualBaseSequence": [
+    "B30",
+    "B18",
+    "B30",
+    "B18"
+  ],
+  "matchesUserSequenceExactly": true,
+  "hasRaisedBar": true,
+  "raisedSupportCount": 2,
+  "materialsHaveSelectedCabinets": true,
+  "materialsHaveMiterFiller": true,
+  "applicationErrors": []
+}

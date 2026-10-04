@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791116768,
+  "indexBundles": [
+    "index-C9KNUyBq.js"
+  ],
+  "designerBundles": [
+    "DesignTool-ceKAamOY.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-BY6Em0gU.js"
+  ],
+  "marker": "Cabinet totals & remaining space",
+  "markerFound": true
+}
