@@ -5,6 +5,7 @@ import {
   COUNTERTOP_DEPTH_IN,
   RAISED_BAR_HEIGHT_IN,
   countertopSurfaces,
+  countertopSurfacePlanPolygon,
   peninsulaCountertopSurface,
   type PeninsulaRun,
   type PlacedCabinet,
@@ -104,6 +105,84 @@ describe("split-level countertop geometry", () => {
       expect.objectContaining({ peninsulaRunId: "return-45", countertopHeightIn: RAISED_BAR_HEIGHT_IN, raisedBarOverhangIn: 15, depth: 19.5 }),
     ]));
     expect(raised.every((surface) => surface.miteredStart || surface.miteredEnd)).toBe(true);
+
+    // The seating bar lives on the side opposite the cabinet-facing worktop.
+    // Its two 45° pieces must share the complete miter edge—not only one apex.
+    // A single shared point lets Three.js create a visibly detached triangle at
+    // the raised return even when the plan metadata says both segments exist.
+    const mainBar = raised.find((surface) => surface.peninsulaRunId === "main")!;
+    const returnBar = raised.find((surface) => surface.peninsulaRunId === "return-45")!;
+    const sharedMiter = countertopSurfacePlanPolygon(mainBar).filter((point) => (
+      countertopSurfacePlanPolygon(returnBar).some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 1e-6)
+    ));
+    expect(sharedMiter).toHaveLength(2);
+    expect(Math.hypot(
+      sharedMiter[0]!.x - sharedMiter[1]!.x,
+      sharedMiter[0]!.y - sharedMiter[1]!.y,
+    )).toBeGreaterThan(0.1);
+
+    const scene = new THREE.Group();
+    addThreeDPeninsulaCountertops(scene, room, placed, "#ffffff");
+    scene.updateMatrixWorld(true);
+    for (const bar of [mainBar, returnBar]) {
+      const mesh = scene.children.find((item) => (
+        item.userData.raisedBar && item.userData.peninsulaRunId === bar.peninsulaRunId
+      )) as THREE.Mesh | undefined;
+      expect(mesh).toBeTruthy();
+      const positions = mesh!.geometry.getAttribute("position");
+      const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
+        .fromBufferAttribute(positions, index)
+        .applyMatrix4(mesh!.matrixWorld));
+      for (const point of sharedMiter) {
+        expect(worldVertices.some((vertex) => (
+          Math.hypot(vertex.x * 12 - point.x, vertex.z * 12 - point.y) < 1e-5
+        ))).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the full seating-side miter edge connected for either cabinet side and 45-degree direction", () => {
+    for (const cabinetSide of ["left", "right"] as const) {
+      for (const direction of ["left", "right"] as const) {
+        const variantRoom: RoomData = {
+          width: 240,
+          depth: 240,
+          peninsulaRuns: [
+            { id: "variant-main", parentWall: "top", startOffset: 72, direction: "right", length: 72, height: 96, cabinetSide, countertopRaisedBar: true, countertopRaisedBarOverhang: 15 },
+            { id: "variant-return", parentRunId: "variant-main", parentWall: "top", startOffset: 0, turn: 45, direction, length: 42, height: 96, cabinetSide },
+          ],
+        };
+        const [variantMain, variantReturn] = variantRoom.peninsulaRuns!;
+        const placeBase = (uid: string, run: PeninsulaRun, width: number): PlacedCabinet => ({
+          uid,
+          cabinetId: 1,
+          masterCode: "B24",
+          description: "24 inch base cabinet",
+          placement: "base",
+          ...wallPlacementAt(0, width, 24, run.id as any, variantRoom, run.cabinetSide),
+          width,
+          depth: 24,
+          height: 34.5,
+          wallId: run.id,
+          wallOffset: 0,
+          peninsulaSide: run.cabinetSide,
+        });
+        const raised = countertopSurfaces([
+          placeBase("variant-main-base", variantMain, 72),
+          placeBase("variant-return-base", variantReturn, 42),
+        ], variantRoom).filter((surface) => surface.raisedBar);
+        expect(raised).toHaveLength(2);
+        const [mainBar, returnBar] = raised;
+        const sharedMiter = countertopSurfacePlanPolygon(mainBar!).filter((point) => (
+          countertopSurfacePlanPolygon(returnBar!).some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 1e-6)
+        ));
+        expect(sharedMiter).toHaveLength(2);
+        expect(Math.hypot(
+          sharedMiter[0]!.x - sharedMiter[1]!.x,
+          sharedMiter[0]!.y - sharedMiter[1]!.y,
+        )).toBeGreaterThan(0.1);
+      }
+    }
   });
 
   it("keeps a raised island bar as a separate 15-inch seating projection", () => {

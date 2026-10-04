@@ -10286,7 +10286,15 @@ function countertopSurfaceWithMiterPoint(
   const world = countertopSurfacePlanPolygon(surface);
   const geometry = peninsulaRunEndpoints(run, room);
   const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
-  const normal = countertopRunFaceNormal(geometry.radians, run.cabinetSide ?? "left");
+  const cabinetFacingNormal = countertopRunFaceNormal(geometry.radians, run.cabinetSide ?? "left");
+  // The lower worktop finishes on the cabinet-facing normal. A separate raised
+  // seating bar is deliberately on the opposite side of that same run, so its
+  // 45° miter must replace the seating-side endpoint. Selecting the lower-top
+  // endpoint here turns the bar into a crossed triangle and can leave its return
+  // visibly detached in 3D.
+  const normal = surface.raisedBar
+    ? { x: -cabinetFacingNormal.x, y: -cabinetFacingNormal.y }
+    : cabinetFacingNormal;
   const targetAlong = atStart ? (surface.runStartIn ?? 0) : (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width);
   let outerIndex = 0;
   let bestScore = Number.POSITIVE_INFINITY;

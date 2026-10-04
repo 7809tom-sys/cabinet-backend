@@ -9,7 +9,7 @@ describe("drywall pony wall behind a peninsula cabinet run", () => {
   it("provides an editable peninsula setting that creates or removes the attached drywall wall", () => {
     expect(designTool).toContain('data-testid="peninsula-drywall-back-pony-wall"');
     expect(designTool).toContain("Drywall pony wall behind cabinet run");
-    expect(designTool).toContain("makePeninsulaDrywallBackPonyWall(savedRun, prospectiveRoom, { height, color: draft.drywallColor, texture: draft.drywallTexture })");
+    expect(designTool).toContain("makePeninsulaDrywallBackPonyWall(run, prospectiveRoom, { height: drywallBackPonyWallHeight, color: draft.drywallColor, texture: draft.drywallTexture })");
     expect(designTool).toContain('peninsulaPlacement === "behind-cabinets"');
     expect(designTool).toContain('finish === "drywall"');
     expect(designTool).toContain("would extend outside the measured room");
