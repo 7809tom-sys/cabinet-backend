@@ -13,7 +13,7 @@ describe("island stove and faucet rendering routes", () => {
   });
 
   it("uses the same visible fragments in the plan and native 3D island slab renderers", () => {
-    expect(planSource).toContain("islandCountertopVisibleRects(island, cabinets)");
+    expect(planSource).toContain("islandCountertopVisibleRects(geometryIsland, snapshotCabinets)");
     expect(threeDSource).toContain("const slabs = islandCountertopVisibleRects(island, placed);");
     expect(threeDSource).toContain("const waterfallSlabs = islandCountertopRects(island, placed);");
     expect(fabricatorSource).toContain("islandCountertopVisibleRects(draft.island, draft.placed)");

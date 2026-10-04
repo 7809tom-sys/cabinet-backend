@@ -1,5 +1,5 @@
 import { snapFreestandingFortyFive } from "@/lib/freestandingRun";
-import { useState, useMemo, useCallback, useEffect, useRef, type SetStateAction } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef, useDeferredValue, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useSearch, useLocation } from "wouter";
@@ -11,7 +11,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Compass } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Compass, LoaderCircle } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -6820,6 +6820,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    toast.info("Preview only — use ← and → to compare suggestions, or place one to save it.");
 	  }, [catalogFillers, room]);
 	  const threeDPlaced = useMemo(() => withTemporarySmartGapPreview(placed, smartGapPreview), [placed, smartGapPreview]);
+	  // Cabinet interactions stay immediate; only the expensive countertop geometry
+	  // waits for a deferred snapshot so the progress badge can paint first.
+	  const countertopGeometry = useMemo(() => ({ room, placed, threeDPlaced, island, sinks, ponyWalls }),
+	    [room, placed, threeDPlaced, island, sinks, ponyWalls]);
+	  const deferredCountertopGeometry = useDeferredValue(countertopGeometry);
+	  const [paintedCountertopGeometry, setPaintedCountertopGeometry] = useState<typeof countertopGeometry | null>(null);
+	  const countertopGeometryUpdating = deferredCountertopGeometry !== countertopGeometry
+	    || ((viewMode === "threeD" || viewMode === "hybrid") && !interactive3dLoading && !!resolvedInteractive3dScene
+	      && paintedCountertopGeometry !== deferredCountertopGeometry);
 	  useEffect(() => {
 	    if (smartGapPreview.length === 0) return;
 	    const onKeyDown = (event: KeyboardEvent) => {
@@ -11100,18 +11109,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		      catalogDragItem={interactive3dCatalogDragItem}
 	      className="h-full min-h-0"
 	      scene={resolvedInteractive3dScene}
-	      placed={threeDPlaced}
+	      placed={deferredCountertopGeometry.threeDPlaced}
+	      onGeometryRendered={() => setPaintedCountertopGeometry(deferredCountertopGeometry)}
 	      crown={crown}
 	      toeKick={toeKick}
 	      catalogDropWall={activeWall}
 		      islandFocusRequest={islandCameraFocusRequest}
-	      roomOverride={room}
+	      roomOverride={deferredCountertopGeometry.room}
       openings={openings}
-      sinks={sinks}
+      sinks={deferredCountertopGeometry.sinks}
       potFillers={potFillers}
-      island={island}
+      island={deferredCountertopGeometry.island}
       furniture={furniture}
-      ponyWalls={ponyWalls}
+      ponyWalls={deferredCountertopGeometry.ponyWalls}
       orderSummary={interactive3dOrderSummary}
       orderLines={interactive3dOrderLines}
 	      catalogItems={interactive3dCatalogItems}
@@ -13954,6 +13964,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 	        {/* Canvas */}
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
+	          {countertopGeometryUpdating && ((viewMode === "plan" && countertop)
+	            || ((viewMode === "threeD" || viewMode === "hybrid") && !!resolvedInteractive3dScene)) && (
+	            <div data-testid="countertop-geometry-loading" role="status" aria-live="polite"
+	              className="pointer-events-none absolute bottom-[5.25rem] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-amber-300 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-lg backdrop-blur-sm lg:bottom-4">
+	              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin text-amber-700 motion-reduce:animate-none" />
+	              Updating countertop…
+	            </div>
+	          )}
 	          {activePeninsulaGapRecommendation && viewMode !== "threeD" && (
 	            <div
 	              data-testid="peninsula-45-gap-recommendation"
@@ -14190,6 +14208,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              smartGapCandidates={smartGapCatalogCandidates}
 	              smartGapCandidatePrices={smartGapCandidatePrices}
 	              cabinets={placed}
+                  countertopGeometry={{ room: deferredCountertopGeometry.room, cabinets: deferredCountertopGeometry.placed, island: deferredCountertopGeometry.island }}
 	              selectedUid={selectedUid}
 	              attributesTargetUid={attributesTargetUid}
 	              onSelect={selectCabinet}
@@ -14435,6 +14454,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  smartGapCandidates={smartGapCatalogCandidates}
 	                  smartGapCandidatePrices={smartGapCandidatePrices}
 	                  cabinets={placed}
+                  countertopGeometry={{ room: deferredCountertopGeometry.room, cabinets: deferredCountertopGeometry.placed, island: deferredCountertopGeometry.island }}
 	                  selectedUid={selectedUid}
 	                  attributesTargetUid={attributesTargetUid}
 	                  onSelect={selectCabinet}

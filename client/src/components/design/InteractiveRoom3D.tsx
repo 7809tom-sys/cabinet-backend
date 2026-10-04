@@ -653,6 +653,8 @@ interface Props {
   /** Explicitly refreshes the main cart from the current authoritative design lines. */
   onSyncCart?: () => void;
   onPresentationChange?: (presentation: InteractiveRoomPresentation) => void;
+  /** Fires once the rebuilt scene has painted its first countertop frame. */
+  onGeometryRendered?: () => void;
   /** Persists an interactive wall-height adjustment back to the current 2D room. */
   onRoomWallHeightChange?: (heightIn: number) => void;
   /** Persists individual back, left, right, and front wall heights. */
@@ -8491,11 +8493,14 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
+  // Keep the callback fresh without rebuilding the WebGL scene on every parent render.
+  const onGeometryRenderedRef = useRef(onGeometryRendered);
+  onGeometryRenderedRef.current = onGeometryRendered;
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
   const catalogRootRef = useRef<THREE.Group | null>(null);
@@ -8855,10 +8860,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    let renderer: THREE.WebGLRenderer;
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
-    } catch {
-      setWebglUnavailable(true);
-      return;
-    }
+	    } catch {
+	      setWebglUnavailable(true);
+	      onGeometryRenderedRef.current?.();
+	      return;
+	    }
 	    renderer.setPixelRatio(Math.min(window.devicePixelRatio, renderQuality.pixelRatioCap));
 	    renderer.setSize(canvasWidth, canvasHeight);
 	    renderer.domElement.dataset.renderQuality = renderQuality.tier;
@@ -9270,12 +9276,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    cameraRef.current = camera;
 	    setCameraReadyKey((current) => current + 1);
 
-    let frame = 0;
-    const render = () => {
-      frame = requestAnimationFrame(render);
-      controls.update();
-      renderer.render(threeScene, camera);
-    };
+	    let frame = 0;
+	    let readyFrame = 0;
+	    let firstFramePainted = false;
+	    const render = () => {
+	      frame = requestAnimationFrame(render);
+	      controls.update();
+	      renderer.render(threeScene, camera);
+	      if (!firstFramePainted) {
+	        firstFramePainted = true;
+	        readyFrame = requestAnimationFrame(() => onGeometryRenderedRef.current?.());
+	      }
+	    };
     render();
     const resizeObserver = new ResizeObserver(() => {
       const width = Math.max(280, mount.clientWidth);
@@ -9285,10 +9297,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       renderer.setSize(width, height);
     });
     resizeObserver.observe(mount);
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      resizeObserver.disconnect();
+	    return () => {
+	      disposed = true;
+	      cancelAnimationFrame(frame);
+	      cancelAnimationFrame(readyFrame);
+	      resizeObserver.disconnect();
       cameraViewRef.current = {
         preset: cameraPreset,
         resetKey,

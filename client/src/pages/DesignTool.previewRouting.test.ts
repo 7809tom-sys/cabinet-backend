@@ -18,7 +18,7 @@ describe("DesignTool deterministic 3D preview routing", () => {
     expect(designToolSource).not.toContain("setPreviewModalOpen");
     expect(nativeThreeDStart).toBeGreaterThan(-1);
     expect(nativeThreeDEnd).toBeGreaterThan(nativeThreeDStart);
-    expect(nativeThreeDSource).toMatch(/<InteractiveRoom3D[\s\S]*?placed=\{threeDPlaced\}[\s\S]*?crown=\{crown\}[\s\S]*?toeKick=\{toeKick\}[\s\S]*?catalogDropWall=\{activeWall\}/);
+    expect(nativeThreeDSource).toMatch(/<InteractiveRoom3D[\s\S]*?placed=\{deferredCountertopGeometry\.threeDPlaced\}[\s\S]*?crown=\{crown\}[\s\S]*?toeKick=\{toeKick\}[\s\S]*?catalogDropWall=\{activeWall\}/);
   });
 
   it("opens a loaded saved plan in the deterministic renderer even before a door style is selected", () => {

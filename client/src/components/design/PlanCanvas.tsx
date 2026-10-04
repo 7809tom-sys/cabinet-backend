@@ -1,4 +1,4 @@
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Fragment } from "react";
 import {
   PlacedCabinet, RoomData, rotatedSize, placedFootprint, placedCornerGeometryKind, cabinetCornerPlacementInfo, blindCornerSnapInfo, cabinetPlacementCollisionDetail, nextAvailableRoomCornerPlacement, snapPosition, orientToWall,
@@ -284,6 +284,8 @@ interface Props {
   /** Catalog item currently being dragged over the 2D plan. */
   catalogDragCabinet?: DesignCabinet | null;
   cabinets: PlacedCabinet[];
+  /** An atomic, optionally deferred snapshot for the costly countertop layer only. */
+  countertopGeometry?: { room: RoomData; cabinets: PlacedCabinet[]; island: IslandZone | null };
   selectedUid: string | null;
   /** Cabinet currently controlled by an open Attributes panel. This receives a stronger, non-destructive visual cue than ordinary selection. */
   attributesTargetUid?: string | null;
@@ -446,7 +448,7 @@ function readableLabel(fillHex: string): { color: string; shadow: string; isDark
 }
 
 export function PlanCanvas({
-  room, catalogDragCabinet = null, cabinets, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
+  room, catalogDragCabinet = null, cabinets, countertopGeometry, selectedUid, attributesTargetUid = null, onSelect, onMove, onDelete, onRotate, onUnlockCorner, onOpenAttributes, onDropNew, onDropToFloor,
   showWallLayer, showCrownTopBadges = false, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
@@ -475,6 +477,21 @@ export function PlanCanvas({
   ponyWalls = [], selectedPonyWallUid = null, onSelectPonyWall, onPonyWallChange, onDeletePonyWall,
 }: Props) {
   const { t } = useLanguage();
+  const snapshotRoom = countertopGeometry?.room ?? room;
+  const snapshotCabinets = countertopGeometry?.cabinets ?? cabinets;
+  const snapshotIsland = countertopGeometry ? countertopGeometry.island : island;
+  const countertopShapes = useMemo(() => {
+    if (!countertopMaterialId) return [] as CountertopSurface[];
+    const geometryIsland = snapshotIsland;
+    const perimeterSurfaces = countertopSurfaces(snapshotCabinets, snapshotRoom, geometryIsland).filter((surface) => surface.kind !== "island");
+    const islandSurfaces: CountertopSurface[] = geometryIsland
+      ? [
+          ...islandCountertopVisibleRects(geometryIsland, snapshotCabinets).map((surface) => ({ ...surface, kind: "island" as const })),
+          ...islandRaisedBarRects(geometryIsland, snapshotCabinets).map((surface) => ({ ...surface, kind: "island" as const, raisedBar: true, raisedBarOverhangIn: geometryIsland.raisedBarOverhang === 12 ? 12 : 15, countertopHeightIn: 42 })),
+        ]
+      : [];
+    return [...perimeterSurfaces, ...islandSurfaces];
+  }, [countertopMaterialId, snapshotRoom, snapshotCabinets, snapshotIsland]);
   const dimensionUnitSystem: FloorPlanDimensionUnit = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";
   const formatDisplayDimension = (inches: number) => formatFloorPlanDimension(inches, dimensionUnitSystem);
   // View-only preference: hide annotations without changing saved geometry or
@@ -1879,14 +1896,7 @@ export function PlanCanvas({
         {/* Countertop slab layer — visible material over base cabinets + island.
             Sits above the floor but below cabinet faces so faces read on top. */}
         {countertopMaterialId && (() => {
-	          const perimeterSurfaces = countertopSurfaces(cabinets, room, island).filter((surface) => surface.kind !== "island");
-	          const islandSurfaces: CountertopSurface[] = island
-	            ? [
-	              ...islandCountertopVisibleRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const })),
-	              ...islandRaisedBarRects(island, cabinets).map((surface) => ({ ...surface, kind: "island" as const, raisedBar: true, raisedBarOverhangIn: island.raisedBarOverhang === 12 ? 12 : 15, countertopHeightIn: 42 })),
-	            ]
-	            : [];
-	          const surfaces = [...perimeterSurfaces, ...islandSurfaces];
+          const surfaces = countertopShapes;
           if (surfaces.length === 0) return null;
           return (
             <div className="pointer-events-none absolute inset-0 z-[2]">
