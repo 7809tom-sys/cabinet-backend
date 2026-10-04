@@ -13,7 +13,7 @@ const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 const variants = [
   { finish: "Glacier White", fixed: "432556", adjustable: "432557", joint: "433172", fixedList: 46, adjustableList: 38 },
   { finish: "Spiced Mahogany", fixed: "432786", adjustable: "432787", joint: "433176", fixedList: 57.5, adjustableList: 47.5 },
-  { finish: "Slate Rift", fixed: "430833", adjustable: "430834", joint: "433172", fixedList: 57.5, adjustableList: 47.5 },
+  { finish: "Slate Rift", fixed: "430833", adjustable: "430834", joint: "433174", fixedList: 57.5, adjustableList: 47.5 },
 ] as const;
 
 describe("MasterTrac illustrative curved corner with real 2022 catalog SKUs", () => {
@@ -44,9 +44,10 @@ describe("MasterTrac illustrative curved corner with real 2022 catalog SKUs", ()
     expect(panels.filter((board) => board.masterTracTowerRole === "center")).toHaveLength(1);
     expect(side === "start" ? panels[0].wallOffset : shelf.wallOffset).toBe(side === "start" ? 29.5 : panels[2].wallOffset! + 0.75);
     expect(shelf.mountBottom).toBe(config.bays[side === "start" ? 0 : 1].fixedTopIn);
-    expect(result.plan.conceptualItems).toEqual([{ sku: "433172", quantity: 1, listEachUsd: 8.5, description: expect.stringContaining("H-Joint") }]);
-    expect(result.plan.listSubtotal).toBe(231 + 46 + 8.5);
-    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(8.5);
+    expect(result.plan.conceptualItems.filter((item) => item.sku === "432608")).toHaveLength(2);
+    expect(result.plan.conceptualItems.find((item) => item.sku === "433172")).toMatchObject({ quantity: 1, listEachUsd: 8.5, description: expect.stringContaining("H-Joint") });
+    expect(result.plan.listSubtotal).toBe(231 + 46 + 8.5 + 2 * 9);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(8.5 + 2 * 9);
     const restored = removeOverlappingPlacements(JSON.parse(JSON.stringify(result.plan.boards)), room);
     expect(restored.rejected).toHaveLength(0);
     expect(restored.placed).toHaveLength(result.plan.boards.length);
@@ -63,7 +64,7 @@ describe("MasterTrac illustrative curved corner with real 2022 catalog SKUs", ()
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.plan.boards.find(isMasterTracCornerBoard)).toMatchObject({ masterCode: "430834", mountBottom: 44, masterTracCorner: { hJointSku: null } });
-    expect(result.plan.conceptualItems).toHaveLength(0);
+    expect(result.plan.conceptualItems.map((item) => item.sku)).toEqual(["431613", "431613"]);
     expect(towerConfigFromPlacements(result.plan.boards, "tower-preview")?.config).toMatchObject({ cornerShelfType: "adjustable", cornerElevationIn: 44 });
   });
 

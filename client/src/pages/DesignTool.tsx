@@ -171,7 +171,8 @@ import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview
 import { REACH_IN_CLOSET_PRESETS, WALK_IN_CLOSET_PRESETS, roomFromReachInPreset, roomFromWalkInPreset } from "@/lib/closetRoomPresets";
 import { MasterTracTowerPlanner } from "@/components/design/MasterTracTowerPlanner";
 import { MasterTracCorner3D, MasterTracCornerElevation } from "@/components/design/MasterTracCornerViews";
-import { defaultTowerConfig, isMasterTracCornerBoard, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
+import { MasterTracRod3D, MasterTracRodElevation } from "@/components/design/MasterTracRodViews";
+import { defaultTowerConfig, isMasterTracCornerBoard, planMasterTracTower, towerCleatReferenceItems, towerConceptReferenceSubtotal, towerConfigFromPlacements, towerRodHardwareTakeoff, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
@@ -1647,7 +1648,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [layoutLocked, room]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
-  const [masterTracFinish, setMasterTracFinish] = useState("all");
+  const [masterTracFinish, setMasterTracFinish] = useState("Glacier White");
   const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
   const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -4119,10 +4120,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     (sum, p) => sum + (masterTracProduct(p.masterCode)?.listEachUsd ?? 0), 0,
   ) + towerConceptReferenceSubtotal(placed), [placed]);
   const cornerTowerBoard = paletteType === "closetparts" ? placed.find(isMasterTracCornerBoard) : undefined;
+  const rodTowerBoard = paletteType === "closetparts" ? placed.find((board) => board.masterTracTowerRole === "fixed-bottom" && board.masterTracConceptStorage?.kind === "rod") : undefined;
   const editCornerTower = () => {
     if (!cornerTowerBoard?.masterTracTowerId) return;
     const current = towerConfigFromPlacements(placedRef.current, cornerTowerBoard.masterTracTowerId);
     if (current) setTowerDialog({ ...current, editGroupId: cornerTowerBoard.masterTracTowerId });
+  };
+  const editRodTower = () => {
+    if (!rodTowerBoard?.masterTracTowerId) return;
+    const current = towerConfigFromPlacements(placedRef.current, rodTowerBoard.masterTracTowerId);
+    if (current) setTowerDialog({ ...current, editGroupId: rodTowerBoard.masterTracTowerId });
   };
 
   const commitMasterTracTower = useCallback((config: MasterTracTowerConfig, wall: WallSide, startIn: number, editGroupId: string | null) => {
@@ -8633,6 +8640,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        : dropFrame
 		        ? wallRunAlongAtPoint(dropFrame, center)
 		        : dropWall === "top" || dropWall === "bottom" ? center.x : center.y;
+	      // Source-dimensioned Closet boards follow the cursor. The existing snap
+	      // toggle offers 6-inch guidance; freehand/Shift allows quarter-inch positions.
+	      // Do not run narrow 3/4-inch uprights or thin shelves through kitchen-box
+	      // gap fitting; the exact final collision/opening check remains in addCabinet.
+	      if (paletteType === "closetparts" && isMasterTracPlaceable(data.masterCode) && dropFrame) {
+	        const first = dropFrame.runStart;
+	        const last = dropFrame.runEnd - width;
+	        const rawStart = targetAlong - width / 2;
+	        const guidedStart = automaticSnapping && !freehand ? Math.round(rawStart / 6) * 6 : Math.round(rawStart * 4) / 4;
+	        const offset = Math.max(first, Math.min(last, guidedStart));
+	        const spot = last >= first ? wallPlacementAt(offset, width, depth, dropWall, room) : null;
+	        if (!spot) {
+	          toast.error(`${data.masterCode} is wider than this measured Closet wall run.`);
+	        } else {
+	          addCabinet(data, spot.x, spot.y, false, spot.rotation, true, undefined, undefined, false, { wallId: dropWall, wallOffset: offset });
+	        }
+	        dragDataRef.current = null;
+	        setCatalogDragPreview(null);
+	        return;
+	      }
       const targetedLowerCabinet = placement === "wall"
         ? targetedLowerCabinetForThreeDDrop(placed, { x: center.x, y: center.y, wall: dropWall }, room)
         : null;
@@ -11541,8 +11568,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
     if (cornerTowerBoard) return <MasterTracCorner3D placed={placed} wall={cornerTowerBoard.wallId as WallSide} onEdit={editCornerTower} />;
+    if (rodTowerBoard) return <MasterTracRod3D placed={placed} wall={rodTowerBoard.wallId as WallSide} onEdit={editRodTower} />;
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
-    if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
+    if (!resolvedInteractive3dScene) return paletteType === "closetparts"
+      ? <div className="flex h-full min-h-[360px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground"><strong className="text-foreground">Start your MasterTrac closet</strong><p>Open the measured floor plan to position boards, or choose a connected layout part in the right panel. No kitchen door style is needed.</p><Button type="button" variant="outline" onClick={() => setViewMode("plan")}>Open floor plan</Button></div>
+      : <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
 	    return <InteractiveRoom3D
 		      key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}
 		      embedded
@@ -13944,8 +13974,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {ROOM_TYPES.map((rt) => (
                 <button
                   key={rt.value}
-                  onClick={() => {
-                    setRoomType(rt.value);
+	                  onClick={() => {
+	                    setRoomType(rt.value);
+	                    if (rt.value === "closet") setViewMode("plan");
                     // Pick a sensible starting tab for the chosen room type
                     // without forbidding the others.
                     setPaletteType(
@@ -13971,7 +14002,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <img src={MASTERTRAC_BROCHURE_PHOTO} alt="Assembled WoodTrac MasterTrac closet photographed in the supplied brochure; example installation, not a photograph of an individual SKU" className="h-24 w-full object-cover" />
                 <div className="space-y-1.5 p-2">
                   <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
-                  <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves have dimensioned 3D models; other parts are reference-only until their assembly geometry is verified.</p>
+	                  <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves use source dimensions; the connected planner shows corner, drawer, shoe and pole options with clearly illustrative accessory geometry. Other SKUs remain reference-only.</p>
 	                  <Button type="button" data-testid="open-mastertrac-tower-planner" className="h-9 w-full justify-start gap-2 bg-[#192432] px-3 text-xs font-semibold text-white hover:bg-[#2c3b4e]" onClick={() => setTowerDialog({ config: defaultTowerConfig(masterTracFinish), wall: activeWall, startIn: 12, editGroupId: null })}>
 	                    <Columns3 className="h-4 w-4 text-[#d8b275]" /> Plan connected towers <span className="ml-auto text-[10px] font-normal text-stone-200">2–4 bays</span>
 	                  </Button>
@@ -14003,7 +14034,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               ).map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setPaletteType(tab)}
+                  onClick={() => { setPaletteType(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
                   }`}
@@ -14493,7 +14524,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 	        {/* Canvas */}
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
-	          {countertopGeometryUpdating && !(cornerTowerBoard && (viewMode === "threeD" || viewMode === "hybrid")) && ((viewMode === "plan" && countertop)
+	          {countertopGeometryUpdating && !((cornerTowerBoard || rodTowerBoard) && (viewMode === "threeD" || viewMode === "hybrid")) && ((viewMode === "plan" && countertop)
 	            || ((viewMode === "threeD" || viewMode === "hybrid") && !!resolvedInteractive3dScene)) && (
 	            <div data-testid="countertop-geometry-loading" role="status" aria-live="polite"
 	              className="pointer-events-none absolute bottom-[5.25rem] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-amber-300 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-lg backdrop-blur-sm lg:bottom-4">
@@ -14882,7 +14913,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
 	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
-	          {viewMode === "elevation" && (cornerTowerBoard ? <MasterTracCornerElevation placed={placed} wall={cornerTowerBoard.wallId as WallSide} onEdit={editCornerTower} /> : (
+	          {viewMode === "elevation" && (cornerTowerBoard ? <MasterTracCornerElevation placed={placed} wall={cornerTowerBoard.wallId as WallSide} onEdit={editCornerTower} /> : rodTowerBoard ? <MasterTracRodElevation placed={placed} wall={rodTowerBoard.wallId as WallSide} onEdit={editRodTower} /> : (
 	            <ElevationView
 	              room={room}
 	              cabinets={placed}
@@ -15677,7 +15708,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         >
           <div className="flex flex-col min-h-0 h-full">
           {paletteType === "closetparts" ? <div className="shrink-0 border-b border-border bg-amber-50 px-3 py-2 text-xs text-amber-950" data-testid="mastertrac-closet-sidebar">
-            <strong>MasterTrac Closet</strong><p>Choose a board finish in the Closet palette; drawer and shoe visuals are illustrative. Materials below use March 2022 List references only.</p>
+            <strong>MasterTrac Closet · choose a layout part</strong><p>Choose the finish in the left catalog, then open a measured bay assembly. The floor plan is ready without a kitchen door style.</p>
+            <div className="mt-2 grid grid-cols-2 gap-1" data-testid="mastertrac-quick-parts">
+              {([
+                ["Shelves", "shelves"], ["Curved corner", "corner"], ["Drawers", "drawers"], ["Shoe racks", "shoe"], ["Hanging poles", "rod"],
+              ] as const).map(([label, kind]) => <button key={kind} type="button" className="rounded border border-amber-900/25 bg-white px-2 py-1.5 text-left text-[11px] font-semibold hover:bg-amber-100 focus-visible:outline-2 focus-visible:outline-amber-700" onClick={() => {
+                const config = defaultTowerConfig(masterTracFinish);
+                if (kind === "corner") config.corner = "start";
+                if (kind === "drawers") { config.bays[0].adjustableHeightsIn = []; config.bays[0].storage = { kind: "drawers", count: 1, drawerSize: "small", frontStyle: "slab" }; }
+                if (kind === "shoe") { config.bays[0].adjustableHeightsIn = []; config.bays[0].storage = { kind: "shoe", count: 3, fenceFinish: "Chrome" }; }
+                if (kind === "rod") { config.bays[0].adjustableHeightsIn = []; config.bays[0].storage = { kind: "rod", count: 1, rodFinish: "Chrome", heightsIn: [64] }; }
+                setTowerDialog({ config, wall: activeWall, startIn: kind === "corner" ? 0 : 12, editGroupId: null });
+              }}>{label}</button>)}
+            </div>
+            <p className="mt-1 text-[10px] leading-snug">Drag individual dimensioned boards from the left catalog to the floor plan, or configure connected bays here. March 2022 List is a reference, not checkout. Counted cleats and cup packs appear in the materials below; screws and anchors need site-specific verification.</p>
           </div> : <>
           <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
             {/* Compact door style badge — replaces the large hero image to save vertical space */}
@@ -16099,7 +16143,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 );
               })()
             )}
-            {((crown || toeKick || batten || lightRail || countertop) && placed.length > 0) && (
+            {(!(paletteType === "closetparts" && placed.every((item) => isClosetPart(item.masterCode))) && (crown || toeKick || batten || lightRail || countertop) && placed.length > 0) && (
             <SheetSection
               title={t("dt_bs_sec_extras")}
               collapsed={collapsedSheet.has("extras")}
@@ -16459,12 +16503,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 {masterTracListSubtotal > 0 && (
                   <div data-testid="mastertrac-list-subtotal" className="mb-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
                     <div className="flex items-start justify-between gap-2"><span><strong>MasterTrac materials</strong><br />{MASTERTRAC_PRICE_DATE} List · reference, not added to checkout</span><strong>${masterTracListSubtotal.toFixed(2)}</strong></div>
-                    {placed.some(isMasterTracCornerBoard) && <div className="mt-2 space-y-1 border-t border-amber-200 pt-2" data-testid="mastertrac-corner-reference-cart"><strong>Corner reference cart · not checkout</strong>{placed.filter(isMasterTracCornerBoard).map((board) => {
-                      const shelf = masterTracProduct(board.masterCode);
-                      const joint = board.masterTracCorner.hJointSku ? masterTracProduct(board.masterTracCorner.hJointSku) : null;
-                      return <div key={board.uid} className="space-y-0.5"><p>1× SKU {board.masterCode} · {shelf?.description} · {shelf?.finish} · 29.5 × 29.5″ · ${shelf?.listEachUsd.toFixed(2)} List</p>{joint && <p>1× SKU {joint.sku} · H-joint channel · {joint.finish} · ${joint.listEachUsd.toFixed(2)} List</p>}</div>;
-                    })}<small>Curve and join position illustrative; supplier installation and current sell prices unverified.</small></div>}
-                    {placed.some((board) => board.masterTracConceptStorage) && <div className="mt-2 border-t border-amber-200 pt-1" data-testid="mastertrac-concept-reference-lines"><strong>Illustrative drawer/shoe storage</strong>{placed.flatMap((board) => board.masterTracConceptStorage?.skuReferences.map((sku) => ({ sku, quantity: board.masterTracConceptStorage!.count })) ?? []).map((item, index) => <p key={`${item.sku}-${index}`} className="mt-0.5">{item.quantity}× SKU {item.sku} · {masterTracProduct(item.sku)?.description ?? "SKU reference"}</p>)}<small>Shapes and fit are visual planning aids; confirm manufacturer installation details.</small></div>}
+	                    {placed.some(isMasterTracCornerBoard) && <div className="mt-2 space-y-1 border-t border-amber-200 pt-2" data-testid="mastertrac-corner-reference-cart"><strong>Corner reference cart · not checkout</strong>{placed.filter(isMasterTracCornerBoard).map((board) => {
+	                      const shelf = masterTracProduct(board.masterCode);
+	                      const joint = board.masterTracCorner.hJointSku ? masterTracProduct(board.masterTracCorner.hJointSku) : null;
+	                      return <div key={board.uid} className="space-y-0.5"><p>1× SKU {board.masterCode} · {shelf?.description} · {shelf?.finish} · 29.5 × 29.5″ · ${shelf?.listEachUsd.toFixed(2)} List</p>{joint && <p>1× SKU {joint.sku} · H-joint channel · {joint.finish} · ${joint.listEachUsd.toFixed(2)} List</p>}</div>;
+	                    })}<small>Curve and join position illustrative; supplier installation and current sell prices unverified.</small></div>}
+	                    {towerCleatReferenceItems(placed).length > 0 && <div className="mt-2 space-y-1 border-t border-amber-200 pt-2" data-testid="mastertrac-cleat-reference-cart"><strong>Required wall cleats · 1 per connected bay</strong>{towerCleatReferenceItems(placed).map((item, index) => <p key={`${item.sku}-${index}`}>1× SKU {item.sku} · {item.stockIn}″ stock{item.installedIn < item.stockIn ? ` → ${item.installedIn}″ cut; rebore per manual` : ""} · ${item.listEachUsd.toFixed(2)} 2022 List</p>)}<small>Mounting screws/anchors depend on wall substrate; installer must verify quantities. Reference only, not checkout.</small></div>}
+	                    {towerRodHardwareTakeoff(placed).length > 0 && <div className="mt-2 space-y-1 border-t border-amber-200 pt-2" data-testid="mastertrac-rod-reference-cart"><strong>Hanging poles · source-backed quantities</strong>{towerRodHardwareTakeoff(placed).map((item) => <div key={item.finish}><p>{item.rodCount}× SKU {item.rodSku} · 8′ {item.finish} rod stock · ${(item.rodCount * item.rodListEachUsd).toFixed(2)} List</p><p>{item.cupCount} cups needed · {item.cupPacks}× SKU {item.cupSku} · 10-cup pack · ${(item.cupPacks * item.cupListPackUsd).toFixed(2)} List</p></div>)}<small>Cut rods for measured bays. Mounting heights/loads are illustrative; installer verification required. Not checkout.</small></div>}
+	                    {placed.some((board) => board.masterTracConceptStorage && board.masterTracConceptStorage.kind !== "rod") && <div className="mt-2 border-t border-amber-200 pt-1" data-testid="mastertrac-concept-reference-lines"><strong>Illustrative drawer/shoe storage</strong>{placed.flatMap((board) => board.masterTracConceptStorage?.kind !== "rod" ? board.masterTracConceptStorage?.skuReferences.map((sku) => ({ sku, quantity: board.masterTracConceptStorage!.count })) ?? [] : []).map((item, index) => <p key={`${item.sku}-${index}`} className="mt-0.5">{item.quantity}× SKU {item.sku} · {masterTracProduct(item.sku)?.description ?? "SKU reference"}</p>)}<small>Shapes and fit are visual planning aids; confirm manufacturer installation details.</small></div>}
                   </div>
                 )}
                 </>

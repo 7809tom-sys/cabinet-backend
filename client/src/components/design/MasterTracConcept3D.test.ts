@@ -25,7 +25,8 @@ function sceneFor(kind: "drawers" | "shoe") {
 describe("MasterTrac 3D storage illustrations", () => {
   it("shows two open-tray drawers with separate real-SKU front references, not generic kitchen cabinets", () => {
     const { root, anchor, marked, plan } = sceneFor("drawers");
-    expect(plan.conceptualItems.map((item) => item.sku)).toEqual(["432389", "432574"]);
+    expect(plan.conceptualItems.filter((item) => item.sku === "432608")).toHaveLength(2);
+    expect(plan.conceptualItems.filter((item) => item.sku !== "432608").map((item) => item.sku)).toEqual(["432389", "432574"]);
     expect(marked["drawer-front-illustration"]).toHaveLength(2);
     expect(marked["drawer-tray-bottom-illustration"]).toHaveLength(2);
     expect(marked["drawer-tray-side-illustration"]).toHaveLength(4);
@@ -37,7 +38,8 @@ describe("MasterTrac 3D storage illustrations", () => {
 
   it("shows an angled board with a distinct metal fence, not a generic flat kitchen shelf", () => {
     const { root, marked, plan } = sceneFor("shoe");
-    expect(plan.conceptualItems.map((item) => item.sku)).toEqual(["432559", "432927"]);
+    expect(plan.conceptualItems.filter((item) => item.sku === "432608")).toHaveLength(2);
+    expect(plan.conceptualItems.filter((item) => item.sku !== "432608").map((item) => item.sku)).toEqual(["432559", "432927"]);
     expect(marked["shoe-board-illustration"]).toHaveLength(3);
     expect(marked["shoe-fence-illustration"]).toHaveLength(3);
     expect(marked["shoe-board-illustration"][0].rotation.x).toBeGreaterThan(0);

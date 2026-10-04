@@ -378,6 +378,7 @@ export function ElevationView({
     const masterTracBoard = masterTracProduct(p.masterCode);
     if (masterTracBoard?.placeable && masterTracBoard.shape) {
       const selected = p.uid === selectedUid;
+      const shelfDrag = !seam && !moveLocked && masterTracBoard.shape === "shelf" && p.placement === "wall" && !!onMoveVertical;
       return <div
         key={seam ? `${p.uid}-seam` : p.uid}
         data-testid="mastertrac-elevation-board"
@@ -385,9 +386,23 @@ export function ElevationView({
         role="button"
         tabIndex={0}
         aria-label={`${p.masterCode} ${masterTracBoard.description}, ${masterTracBoard.finish}, ${sizeAlong} by ${rawHeight} inches${p.masterTracShelfCut ? `, installed cut from ${p.masterTracShelfCut.stockWidthIn} inch stock` : ""}, bottom ${rawBottom} inches`}
+        onPointerDown={shelfDrag ? (event) => {
+          event.stopPropagation();
+          onSelect(p.uid);
+          setDragUid(p.uid);
+          const rect = event.currentTarget.getBoundingClientRect();
+          dragOffset.current = event.clientX - rect.left;
+          dragAxis.current = null;
+          vDragStartY.current = event.clientY;
+          vDragStartBottom.current = rawBottom;
+          if (wallInnerRef.current) {
+            wallInnerRef.current.setPointerCapture(event.pointerId);
+            capturedPointerId.current = event.pointerId;
+          }
+        } : undefined}
         onClick={(event) => { event.stopPropagation(); onSelect(p.uid); }}
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(p.uid); } }}
-        className="absolute cursor-pointer border border-stone-500/60 focus-visible:outline-2 focus-visible:outline-amber-600"
+        className={`absolute border border-stone-500/60 focus-visible:outline-2 focus-visible:outline-amber-600 ${shelfDrag ? "cursor-ns-resize touch-none" : "cursor-pointer"}`}
         style={{
           left: posAlong * ppi,
           bottom: rawBottom * ppi,
@@ -397,7 +412,7 @@ export function ElevationView({
           boxShadow: selected ? "0 0 0 2px #c79130" : "inset 0 1px 0 rgba(255,255,255,.32)",
           zIndex: masterTracBoard.shape === "panel" ? 5 : 6,
         }}
-        title={`${p.masterCode} · ${masterTracBoard.description} · ${masterTracBoard.finish}${p.masterTracShelfCut ? ` · cut ${p.masterTracShelfCut.stockWidthIn}″ stock to ${p.masterTracShelfCut.installedWidthIn}″ installed` : ""} · ${rawBottom}″ bottom`}
+        title={`${p.masterCode} · ${masterTracBoard.description} · ${masterTracBoard.finish}${p.masterTracShelfCut ? ` · cut ${p.masterTracShelfCut.stockWidthIn}″ stock to ${p.masterTracShelfCut.installedWidthIn}″ installed` : ""} · ${rawBottom}″ bottom${shelfDrag ? " · drag up/down to adjust elevation" : ""}`}
       />;
     }
     const isWall = p.placement === "wall";

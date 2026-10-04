@@ -52,7 +52,7 @@ export function addIllustrativeMasterTracCorner(parent: THREE.Group, board: Mast
   return group;
 }
 
-function addStraightBoard(parent: THREE.Group, board: PlacedCabinet, localXIn: number) {
+export function addStraightBoard(parent: THREE.Group, board: PlacedCabinet, localXIn: number) {
   const color = masterTracFinishColor(masterTracProduct(board.masterCode)?.finish ?? "Glacier White");
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(board.width * IN, (board.height ?? 0.75) * IN, board.depth * IN),
@@ -68,6 +68,27 @@ function addStraightBoard(parent: THREE.Group, board: PlacedCabinet, localXIn: n
   parent.add(outline);
 }
 
+/** SKU and measured span are real; diameter, cup profile and hole location are illustrative. */
+export function addIllustrativeTowerRods(parent: THREE.Group, anchor: PlacedCabinet, localXIn: number) {
+  const storage = anchor.masterTracConceptStorage;
+  if (storage?.kind !== "rod" || !storage.rodHeightsIn?.length) return;
+  const material = new THREE.MeshStandardMaterial({ color: storage.rodFinish === "Matt Nickel" ? 0x747574 : 0xa7a8aa, metalness: 0.72, roughness: 0.29 });
+  storage.rodHeightsIn.forEach((height, level) => {
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * IN, 0.42 * IN, anchor.width * IN, 12), material);
+    rod.rotation.z = Math.PI / 2;
+    rod.position.set((localXIn + anchor.width / 2) * IN, height * IN, anchor.depth * 0.5 * IN);
+    rod.userData = { masterTracRodIllustration: true, stockSku: storage.skuReferences[0], finish: storage.rodFinish, level, installedSpanIn: anchor.width, notInstallationGeometry: true };
+    parent.add(rod);
+    for (const end of [0, anchor.width]) {
+      const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.55 * IN, 0.55 * IN, 0.12 * IN, 12), material);
+      cup.rotation.z = Math.PI / 2;
+      cup.position.set((localXIn + end) * IN, height * IN, anchor.depth * 0.5 * IN);
+      cup.userData = { masterTracCupIllustration: true, notInstallationGeometry: true };
+      parent.add(cup);
+    }
+  });
+}
+
 export function masterTracCornerAssembly(placed: PlacedCabinet[]): THREE.Group | null {
   const group = groupBoards(placed);
   if (!group) return null;
@@ -75,7 +96,10 @@ export function masterTracCornerAssembly(placed: PlacedCabinet[]): THREE.Group |
   for (const board of group.boards) {
     const offset = (board.wallOffset ?? group.start) - group.start;
     if (isMasterTracCornerBoard(board)) addIllustrativeMasterTracCorner(root, board, offset);
-    else addStraightBoard(root, board, offset);
+    else {
+      addStraightBoard(root, board, offset);
+      addIllustrativeTowerRods(root, board, offset);
+    }
   }
   root.userData = { cornerSku: group.corner.masterCode, side: group.corner.masterTracCorner.side, widthIn: group.width };
   return root;
@@ -119,6 +143,11 @@ export function MasterTracCornerElevation({ placed, wall, onEdit }: { placed: Pl
             {isCorner && <><text x={x + w / 2} y={y - 10} textAnchor="middle" fontSize="13" fill="#80430f">{board.masterCode} · {board.width}″ corner</text><path d={`M ${x + w * 0.18} ${y + 14} Q ${x + w * 0.48} ${y + 38} ${x + w * 0.82} ${y + 14}`} fill="none" stroke="#a16b30" strokeWidth="2" strokeDasharray="4 3" /></>}
           </g>;
         })}
+        {group.boards.filter((board) => board.masterTracTowerRole === "fixed-bottom" && board.masterTracConceptStorage?.kind === "rod").flatMap((board) => (board.masterTracConceptStorage?.rodHeightsIn ?? []).map((height, index) => {
+          const x = pad + ((board.wallOffset ?? group.start) - group.start) * scale;
+          const y = baseline - height * scale;
+          return <g key={`${board.uid}-rod-${index}`} data-testid="mastertrac-rod-elevation"><line x1={x} x2={x + board.width * scale} y1={y} y2={y} stroke="#7f8487" strokeWidth="5" /><text x={x + board.width * scale / 2} y={y - 7} textAnchor="middle" fontSize="10" fill="#3f484b">Rod · {height}″</text></g>;
+        }))}
         <text x={svgWidth / 2} y={svgHeight - 14} textAnchor="middle" fontSize="14" fill="#554c43">{group.width.toFixed(2)}″ total · two or more straight bays · shared upright at corner join</text>
       </svg>
     </div>

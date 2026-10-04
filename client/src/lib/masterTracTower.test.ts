@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { addCabinet, existingCabinetSku, existingCabinetTransform } from "@/components/design/InteractiveRoom3D";
 import { masterTracProduct } from "./closet";
 import { removeOverlappingPlacements, type RoomData, type WallOpening } from "./design";
-import { defaultTowerConfig, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, towerStorageSkuReferences, towerTotalWidth, towerWidths } from "./masterTracTower";
+import { defaultTowerConfig, planMasterTracTower, towerCleatReferenceItems, towerConceptReferenceSubtotal, towerConfigFromPlacements, towerRodHardwareTakeoff, towerStorageSkuReferences, towerTotalWidth, towerWidths } from "./masterTracTower";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 const config = defaultTowerConfig();
@@ -31,8 +31,9 @@ describe("MasterTrac connected tower planning", () => {
     const shelves = boards.filter((b) => b.masterTracTowerRole === "fixed-bottom");
     expect(shelves.map((b) => b.wallOffset)).toEqual([12.75, 37.5]);
     expect(shelves.every((b) => b.width === 24 && b.depth === 14.5 && b.height === 0.75)).toBe(true);
-    expect(listSubtotal).toBe(231);
-    expect(listSubtotal).toBe(boards.reduce((sum, b) => sum + masterTracProduct(b.masterCode)!.listEachUsd, 0));
+    expect(towerCleatReferenceItems(boards).map((item) => item.sku)).toEqual(["432608", "432608"]);
+    expect(listSubtotal).toBe(231 + 2 * 9);
+    expect(listSubtotal).toBe(boards.reduce((sum, b) => sum + masterTracProduct(b.masterCode)!.listEachUsd, 0) + towerConceptReferenceSubtotal(boards));
   });
 
   it("accepts three distinct bays using four panels and survives saved-design collision restoration", () => {
@@ -113,12 +114,12 @@ describe("MasterTrac connected tower planning", () => {
     const result = planMasterTracTower(mixed, room, "top", 12, []);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.conceptualItems.map((item) => [item.sku, item.quantity])).toEqual([
+    expect(result.plan.conceptualItems.filter((item) => !/Cleat/i.test(item.description)).map((item) => [item.sku, item.quantity])).toEqual([
       ["432383", 2], ["432567", 2], ["432559", 1], ["432928", 1],
     ]);
     expect(result.plan.boards).toHaveLength(7);
     expect(result.plan.boards.filter((board) => board.masterTracConceptStorage)).toHaveLength(2);
-    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(2 * (94 + 12) + 12 + 10.5);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(2 * (94 + 12) + 12 + 10.5 + 8 + 9);
     expect(result.plan.listSubtotal).toBe(result.plan.boards.reduce((sum, board) => sum + masterTracProduct(board.masterCode)!.listEachUsd, 0) + towerConceptReferenceSubtotal(result.plan.boards));
     const restored = removeOverlappingPlacements(JSON.parse(JSON.stringify(result.plan.boards)), room);
     expect(restored.rejected).toHaveLength(0);
@@ -145,8 +146,8 @@ describe("MasterTrac connected tower planning", () => {
     const result = planMasterTracTower(grouped, room, "top", 2, []);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.plan.conceptualItems.map(({ sku, quantity }) => [sku, quantity])).toEqual([["432559", 3], ["432927", 3]]);
-    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(3 * (12 + 9.5));
+    expect(result.plan.conceptualItems.filter((item) => !/Cleat/i.test(item.description)).map(({ sku, quantity }) => [sku, quantity])).toEqual([["432559", 3], ["432927", 3]]);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(3 * (12 + 9.5) + 2 * 9);
     expect(planMasterTracTower({ ...grouped, bays: [{ ...grouped.bays[0], fixedTopIn: 39 }, grouped.bays[1]] }, room, "top", 2, []).ok).toBe(false);
   });
 
@@ -158,6 +159,26 @@ describe("MasterTrac connected tower planning", () => {
         expect(towerStorageSkuReferences({ kind: "shoe", count: 1, fenceFinish: "Chrome" }, width, 14.5, finish).ok).toBe(true);
       }
     }
+  });
+
+  it("counts one 8-foot stock rod per level and two cups per rod, buying cups in ten-packs across the tower", () => {
+    const rods = { ...config, bays: [
+      { ...config.bays[0], adjustableHeightsIn: [], storage: { kind: "rod" as const, count: 2, rodFinish: "Chrome" as const, heightsIn: [40, 70] } },
+      { ...config.bays[1], adjustableHeightsIn: [], storage: { kind: "rod" as const, count: 1, rodFinish: "Chrome" as const, heightsIn: [64] } },
+    ] };
+    const result = planMasterTracTower(rods, room, "top", 0, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(towerRodHardwareTakeoff(result.plan.boards)).toEqual([{ finish: "Chrome", rodSku: "433223", rodCount: 3,
+      rodListEachUsd: 29, cupSku: "433225", cupCount: 6, cupPackSize: 10, cupPacks: 1, cupListPackUsd: 30.5 }]);
+    expect(result.plan.conceptualItems.filter((item) => item.sku === "433223").map((item) => item.quantity)).toEqual([2, 1]);
+    expect(result.plan.conceptualItems.find((item) => item.sku === "433225")?.quantity).toBe(1);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(18 + 3 * 29 + 30.5);
+    expect(towerConfigFromPlacements(JSON.parse(JSON.stringify(result.plan.boards)), "tower-preview")?.config.bays.map((bay) => bay.storage)).toEqual(rods.bays.map((bay) => bay.storage));
+    expect(planMasterTracTower({ ...rods, bays: [{ ...rods.bays[0], storage: { kind: "rod" as const, count: 2, rodFinish: "Chrome" as const, heightsIn: [40, 44] } }, rods.bays[1]] }, room, "top", 0, []).ok).toBe(false);
+    const six = planMasterTracTower({ ...rods, bays: Array.from({ length: 3 }, () => ({ ...rods.bays[0] })) }, room, "top", 0, []);
+    expect(six.ok).toBe(true);
+    if (six.ok) expect(towerRodHardwareTakeoff(six.plan.boards)[0]).toMatchObject({ rodCount: 6, cupCount: 12, cupPacks: 2 });
   });
 
   it("uses real 24-inch stock SKUs and List while installing 22.5-inch fixed and adjustable boards", () => {
@@ -172,7 +193,8 @@ describe("MasterTrac connected tower planning", () => {
       && board.masterTracShelfCut?.offcutIn === 1.5)).toBe(true);
     expect(cutBoards.filter((board) => board.masterTracTowerRole === "adjustable").map((board) => board.masterCode)).toEqual(["432535", "432535"]);
     expect(cutBoards.filter((board) => board.masterTracTowerRole === "fixed-bottom").map((board) => board.masterCode)).toEqual(["432529"]);
-    expect(result.plan.listSubtotal).toBe(231); // four full-stock boards, no fabricated cut discount
+    expect(towerCleatReferenceItems(result.plan.boards)[0]).toMatchObject({ sku: "432608", stockIn: 24, installedIn: 22.5 });
+    expect(result.plan.listSubtotal).toBe(231 + 2 * 9); // stock boards and one sourced cleat per bay; no fabricated cut discount
     expect(result.plan.boards.filter((board) => board.masterTracTowerRole === "center")[0].wallOffset).toBe(28.25);
     const firstShelf = cutBoards.find((board) => board.masterTracTowerRole === "fixed-bottom")!;
     const root = new THREE.Group();

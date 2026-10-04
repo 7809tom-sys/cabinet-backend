@@ -774,11 +774,13 @@ export interface PlacedCabinet {
   /** Illustrative per-bay storage, anchored on the exact fixed-bottom board.
    * The referenced SKUs are 2022 List-only; shapes/rail positions are not installation drawings. */
   masterTracConceptStorage?: {
-    kind: "drawers" | "shoe";
+    kind: "drawers" | "shoe" | "rod";
     count: number;
     drawerSize?: "small" | "large";
     frontStyle?: "slab" | "shaker";
     fenceFinish?: "Chrome" | "Matt Nickel";
+    rodFinish?: "Chrome" | "Matt Nickel";
+    rodHeightsIn?: number[];
     fixedTopIn?: number;
     skuReferences: string[];
   } | null;
