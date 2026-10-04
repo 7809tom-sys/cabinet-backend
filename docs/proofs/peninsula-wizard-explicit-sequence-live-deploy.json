@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791112362,
+  "indexBundles": [
+    "index-DqiHCrja.js"
+  ],
+  "designerBundles": [
+    "DesignTool-BKnHuvC8.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-dEGPXY82.js"
+  ],
+  "marker": "Build your cabinet plan",
+  "markerFound": true
+}
