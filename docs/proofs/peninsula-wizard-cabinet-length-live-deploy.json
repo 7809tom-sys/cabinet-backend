@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791120404,
+  "indexBundles": [
+    "index-Bw0wuD6E.js"
+  ],
+  "designerBundles": [
+    "DesignTool-CWnxoThS.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-DiFrEeul.js"
+  ],
+  "marker": "Show counter stools on the seating side",
+  "markerFound": true
+}
