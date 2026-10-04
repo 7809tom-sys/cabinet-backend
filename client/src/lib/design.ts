@@ -11922,6 +11922,91 @@ function peninsulaCountertopSupportSegments(
   }, []);
 }
 
+
+/**
+ * Void fill for a peninsula with a turn: when two slabs of the same connected
+ * assembly remain separate (e.g. the inside-corner hold-in leaves an empty
+ * wedge between the end of a run and a 45-degree return), bridge them with one
+ * quad built from the two longest facing edges. Straight runs and walls are
+ * untouched.
+ */
+function peninsulaVoidFillSurfaces(
+  surfaces: readonly CountertopSurface[],
+  room: RoomData,
+): CountertopSurface[] {
+  const runs = room.peninsulaRuns ?? [];
+  if (!runs.some((run) => run.parentRunId)) return [];
+  const MAX_GAP = 14;
+  type Pt = { x: number; y: number };
+  const segDist = (a0: Pt, a1: Pt, b0: Pt, b1: Pt) => {
+    const pointSeg = (p: Pt, q0: Pt, q1: Pt) => {
+      const dx = q1.x - q0.x, dy = q1.y - q0.y;
+      const len2 = dx * dx + dy * dy || 1;
+      const t = Math.max(0, Math.min(1, ((p.x - q0.x) * dx + (p.y - q0.y) * dy) / len2));
+      return Math.hypot(p.x - (q0.x + t * dx), p.y - (q0.y + t * dy));
+    };
+    return Math.min(pointSeg(a0, b0, b1), pointSeg(a1, b0, b1), pointSeg(b0, a0, a1), pointSeg(b1, a0, a1));
+  };
+  const rootOf = (surface: CountertopSurface): string | null => {
+    const id = surface.peninsulaRunIds?.[0] ?? surface.peninsulaRunId;
+    const run = id ? runs.find((candidate) => candidate.id === id) : null;
+    return run ? peninsulaRootRunId(run, room) : null;
+  };
+  const items = surfaces
+    .map((surface) => ({ surface, root: rootOf(surface), poly: countertopSurfacePlanPolygon(surface) }))
+    .filter((item) => item.root && item.poly.length >= 3);
+  const fills: CountertopSurface[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    for (let j = i + 1; j < items.length; j += 1) {
+      const A = items[i]!, B = items[j]!;
+      if (A.root !== B.root) continue;
+      let best: { score: number; a: [Pt, Pt]; b: [Pt, Pt]; gap: number } | null = null;
+      for (let ai = 0; ai < A.poly.length; ai += 1) {
+        const a0 = A.poly[ai]!, a1 = A.poly[(ai + 1) % A.poly.length]!;
+        const aLen = Math.hypot(a1.x - a0.x, a1.y - a0.y);
+        for (let bi = 0; bi < B.poly.length; bi += 1) {
+          const b0 = B.poly[bi]!, b1 = B.poly[(bi + 1) % B.poly.length]!;
+          const bLen = Math.hypot(b1.x - b0.x, b1.y - b0.y);
+          const gap = segDist(a0, a1, b0, b1);
+          if (gap > MAX_GAP) continue;
+          const score = Math.min(aLen, bLen);
+          if (!best || score > best.score) best = { score, a: [a0, a1], b: [b0, b1], gap };
+        }
+      }
+      if (!best || best.score < 6) continue;
+      const orders: Pt[][] = [
+        [best.a[0], best.a[1], best.b[0], best.b[1]],
+        [best.a[0], best.a[1], best.b[1], best.b[0]],
+      ];
+      const quad = orders.find((candidate) => !countertopPolygonSelfIntersects(candidate));
+      if (!quad || countertopPolygonArea(quad) < 4) continue;
+      // Only fill a genuine void: skip a bridge that mostly lies on slabs that
+      // already exist (sampled on a grid), so nothing is stacked or z-fights.
+      const inside = (pt: Pt, poly: readonly Pt[]) => {
+        let hit = false;
+        for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
+          const a = poly[k]!, b = poly[m]!;
+          if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+        }
+        return hit;
+      };
+      const xs = quad.map((q) => q.x), ys = quad.map((q) => q.y);
+      let total = 0, covered = 0;
+      for (let gx = 0; gx < 12; gx += 1) {
+        for (let gy = 0; gy < 12; gy += 1) {
+          const pt = { x: Math.min(...xs) + ((gx + 0.5) / 12) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + ((gy + 0.5) / 12) * (Math.max(...ys) - Math.min(...ys)) };
+          if (!inside(pt, quad)) continue;
+          total += 1;
+          if (items.some((it) => inside(pt, it.poly)) || fills.some((f) => inside(pt, countertopSurfacePlanPolygon(f)))) covered += 1;
+        }
+      }
+      if (total === 0 || covered / total > 0.1) continue;
+      const surface = countertopSurfaceFromWorldPolygon(quad, A.surface.peninsulaRunId ?? B.surface.peninsulaRunId ?? "");
+      if (surface) fills.push({ ...surface, peninsulaRunIds: Array.from(new Set((A.surface.peninsulaRunIds ?? []).concat(B.surface.peninsulaRunIds ?? []))) });
+    }
+  }
+  return fills;
+}
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
@@ -12097,6 +12182,7 @@ export function countertopSurfaces(
   out.push(...peninsulaLCornerSupportSurfaces(placed, room));
   const mitered = miteredPeninsulaCountertopSurfaces(out, room);
   out.splice(0, out.length, ...unifiedFortyFivePeninsulaCountertopSurfaces(mitered, room));
+  out.push(...peninsulaVoidFillSurfaces(out, room));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {

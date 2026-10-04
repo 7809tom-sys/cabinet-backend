@@ -726,7 +726,7 @@ describe("side-aware peninsula countertop meshes", () => {
     addThreeDPeninsulaCountertops(root, room, placed, "#e9e7e2");
     const slabs = root.children.filter((item) => item.userData.peninsulaCountertop);
     const waterfalls = root.children.filter((item) => item.userData.peninsulaWaterfall);
-    expect(slabs).toHaveLength(2);
+    expect(slabs).toHaveLength(3);
     expect(slabs).toEqual(expect.arrayContaining([
       expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "saved-parent", runStartIn: 51, seatingOverhangIn: 12 }) }),
       expect.objectContaining({ userData: expect.objectContaining({ peninsulaRunId: "saved-child", runStartIn: 12, seatingOverhangIn: 12 }) }),

@@ -2030,7 +2030,7 @@ describe("cabinet-supported peninsula runs", () => {
       expect.objectContaining({ peninsulaRunId: parent.id, runStartIn: 36, linearInches: 42 }),
       expect.objectContaining({ peninsulaRunId: child.id, runStartIn: 12, linearInches: 24 }),
     ]));
-    expect(surfaces).toHaveLength(2);
+    expect(surfaces).toHaveLength(3); // parent slab, return slab, and the void-fill bridge between them
     const visibleArea = surfaces.reduce((sum, surface) => sum + (surface.areaInches ?? surface.width * surface.depth), 0);
     const terminalWaterfallArea = STD.BASE_HEIGHT * 37.5;
     expect(countertopArea([parentB15, parentB27, childB24], null, null, room).squareFeet).toBe(Math.ceil(((visibleArea + terminalWaterfallArea) / 144) * 10) / 10);
