@@ -4,7 +4,7 @@ export const TABLET_WORKSPACE_MAX_WIDTH = 1366;
 const PHONE_WORKSPACE_MAX_WIDTH = 1024;
 
 export type TabletWorkspaceState = {
-  /** True for the tablet tier: 1024–1366px wide, or any touch device at least 1024px wide. */
+  /** True for the tablet tier: 1024–1366 CSS px wide. Width only — a wide touch screen (1440+/1536) keeps the normal desktop layout. */
   tablet: boolean;
   /** True when the primary pointer is a finger (pinch/two-finger gestures replace pan pads). */
   touch: boolean;
@@ -17,7 +17,7 @@ function readState(): TabletWorkspaceState {
   const width = window.innerWidth;
   const height = window.innerHeight;
   const touch = window.matchMedia("(pointer: coarse)").matches;
-  const tablet = width >= PHONE_WORKSPACE_MAX_WIDTH && (width <= TABLET_WORKSPACE_MAX_WIDTH || touch);
+  const tablet = width >= PHONE_WORKSPACE_MAX_WIDTH && width <= TABLET_WORKSPACE_MAX_WIDTH;
   return { tablet, touch, portrait: height > width };
 }
 

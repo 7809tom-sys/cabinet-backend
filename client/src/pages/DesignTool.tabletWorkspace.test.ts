@@ -7,10 +7,12 @@ const topNav = readFileSync(new URL("../components/TopNav.tsx", import.meta.url)
 const hook = readFileSync(new URL("../hooks/useTabletWorkspace.ts", import.meta.url), "utf8");
 
 describe("tablet workspace layout (1024–1366px or touch)", () => {
-  it("defines the tablet tier as 1024–1366px wide or a coarse-pointer device", () => {
+  it("defines the tablet tier by width only (1024–1366px); a wide touch screen keeps the desktop selector", () => {
     expect(hook).toContain("TABLET_WORKSPACE_MAX_WIDTH = 1366");
-    expect(hook).toContain('window.matchMedia("(pointer: coarse)")');
-    expect(hook).toContain("width >= PHONE_WORKSPACE_MAX_WIDTH && (width <= TABLET_WORKSPACE_MAX_WIDTH || touch)");
+    expect(hook).toContain("width >= PHONE_WORKSPACE_MAX_WIDTH && width <= TABLET_WORKSPACE_MAX_WIDTH;");
+    expect(hook).not.toContain("|| touch)");
+    // Compact (drawer) mode is still decided by the original small-laptop rule alone.
+    expect(designTool).toContain('|| (compactWorkspaceOverride === "auto" && isSmallLaptop)\n  );');
   });
 
   it("keeps a single non-scrolling toolbar row with the essentials and folds the rest into More tools", () => {

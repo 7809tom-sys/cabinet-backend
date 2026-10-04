@@ -581,7 +581,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const tabletTier = useTabletWorkspace();
   const isCompactWorkspace = !isMobile && (
     compactWorkspaceOverride === "compact"
-    || (compactWorkspaceOverride === "auto" && (isSmallLaptop || tabletTier.tablet))
+    || (compactWorkspaceOverride === "auto" && isSmallLaptop)
   );
   const panelDrawerMode = isMobile || isCompactWorkspace;
   // Tablet workspace: a landscape tablet (or a 150%-scaled 1080p slate) lands
@@ -590,8 +590,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // scroller wider than the screen. On tablets the toolbar wraps, duplicate
   // controls (View/Wall selects, Show panels) move into the More sheet, and
   // the chips use short labels so everything fits in two rows.
-  // Any touch device >= 1024px also counts as a tablet even when it is wider
-  // than 1366 (iPad Pro, Surface in landscape at 100%).
+  // Width only: a wide touch screen (1440 px and up) keeps the normal desktop
+  // layout with the always-open catalog column — owner preference.
   const isTabletWorkspace = !isMobile && isCompactWorkspace && tabletTier.tablet;
   const isTabletPortrait = isTabletWorkspace && tabletTier.portrait;
   const [designerImmersive] = useDesignerImmersive();
