@@ -1,0 +1,67 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "tag": "cabinet-jump-live",
+  "email": "peninsula-wizard-edit-cabinet-jump-live@cabinetdealz.test",
+  "bundles": [
+    "index-CsEKh73h.js"
+  ],
+  "rootId": "peninsula_wizard_muuc8h0w",
+  "initialWizardBadgeCount": 2,
+  "cabinetJumpVisible": true,
+  "cabinetJumpOpenedEditWizard": true,
+  "cabinetJumpPrimarySequence": "1. B18 \u00b7 18 in\nRemove",
+  "cabinetJumpReturnSequence": "1. B24 \u00b7 24 in\nRemove",
+  "settingsBadgeText": "WIZARD-BUILT \u00b7 EDITABLE\n\nThis run belongs to a Peninsula Wizard assembly. Edit its exact cabinet recipe without replacing ordinary cabinets.\n\nEdit in Peninsula Wizard",
+  "updatedWizardBadgeCount": 2,
+  "editHeading": "Edit Peninsula Wizard",
+  "reopenedPrimarySequence": "1. B18 \u00b7 18 in\nRemove",
+  "reopenedReturnSequence": "1. B24 \u00b7 24 in\nRemove",
+  "originalOwnedUids": [
+    "cmuuc8h0x_1",
+    "cmuuc8h0z_2",
+    "cmuuc8h11_3",
+    "cmuuc8h11_4"
+  ],
+  "updatedOwnedUids": [
+    "cmuuc9mh1_1",
+    "cmuuc9mh1_2",
+    "cmuuc9mh3_3",
+    "cmuuc9mh3_4"
+  ],
+  "ordinaryCabinet": {
+    "uid": "cmuuc8kn0_5",
+    "masterCode": "SPB6",
+    "wallId": "left",
+    "wallOffset": 0,
+    "peninsulaWizardId": null
+  },
+  "updatedRecipe": {
+    "schemaVersion": 1,
+    "parentWall": "top",
+    "startOffset": 108,
+    "endTurn": 45,
+    "endDirection": "right",
+    "cabinetSide": "left",
+    "applianceCode": "none",
+    "seatingOverhang": 0,
+    "waterfall": false,
+    "addPonyWall": false,
+    "ponyWallLength": 36,
+    "ponyWallHeight": 34.5,
+    "primaryCabinetIds": [
+      9390004
+    ],
+    "returnCabinetIds": [
+      9390004
+    ],
+    "countertopTreatment": "split-level",
+    "showBarStools": true
+  },
+  "updatedRunCount": 2,
+  "updatedStoolUids": [
+    "peninsula-stool:peninsula_wizard_muuc8h0w:0"
+  ],
+  "materialsHasOrdinarySPB6": true,
+  "materialsHasUpdatedReturnB18": true,
+  "applicationErrors": []
+}
