@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   selectedPeninsulaCabinetSequencePlan,
+  selectedPeninsulaCabinetTotalIn,
   wizardEligibleBaseCabinets,
   type PeninsulaWizardCabinet,
 } from "./peninsulaWizardPlan";
@@ -32,6 +33,14 @@ const F342: PeninsulaWizardCabinet = {
 };
 
 describe("selected Peninsula Wizard cabinet planning", () => {
+  it("reports only the selected catalog cabinets in the pre-build total", () => {
+    const total = selectedPeninsulaCabinetTotalIn([
+      { ...B24, id: 30, masterCode: "B30", width: 30 },
+      { ...B24, id: 18, masterCode: "B18", width: 18 },
+    ]);
+    expect(total).toBe(48);
+  });
+
   it("uses the exact requested cabinet sequence and a real stock filler for a 1½-inch remainder", () => {
     const plan = selectedPeninsulaCabinetSequencePlan(49.5, [B24, B24], [F342]);
     expect(plan.message).toBeNull();

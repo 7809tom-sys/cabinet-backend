@@ -35,6 +35,18 @@ function eighth(value: number): number {
   return Math.round(value * 8) / 8;
 }
 
+/**
+ * The Wizard must report the user's own ordered cabinet total before it builds.
+ * This intentionally never adds a best-fit cabinet or a filler: it is only the
+ * sum of the selected catalog records so the dialog and the build path speak
+ * about the same dimensions.
+ */
+export function selectedPeninsulaCabinetTotalIn(
+  selectedCabinets: readonly PeninsulaWizardCabinet[],
+): number {
+  return eighth(selectedCabinets.reduce((total, cabinet) => total + Math.max(0, numeric(cabinet.width)), 0));
+}
+
 export function wizardEligibleBaseCabinets(
   candidates: readonly PeninsulaWizardCabinet[],
 ): PeninsulaWizardCabinet[] {

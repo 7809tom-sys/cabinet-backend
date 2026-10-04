@@ -78,7 +78,7 @@ import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
-import { selectedPeninsulaCabinetSequencePlan, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
+import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
 import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import {
   SMALL_GAP_FILLER_MIN_IN,
@@ -2183,6 +2183,95 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const peninsulaWizardBaseCabinets = useMemo(() => wizardEligibleBaseCabinets(
     ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
   ), [autoFillCabinets]);
+  // Pre-build accounting uses the same catalog records and free-span calculation
+  // as the Build action. It reports only the cabinet list the owner selected;
+  // it never pads the total with a replacement cabinet or an invented filler.
+  const peninsulaWizardSpacePreview = useMemo(() => {
+    const draft = peninsulaWizardDraft;
+    const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
+    if (!draft || pool.length === 0) return null;
+
+    const roundEighth = (value: number) => Math.round(value * 8) / 8;
+    const candidate: PeninsulaRun = {
+      id: "peninsula_wizard_preview",
+      parentWall: draft.parentWall,
+      startOffset: roundEighth(Math.max(6, draft.startOffset)),
+      turn: 90,
+      direction: "right",
+      length: roundEighth(Math.max(24, draft.primaryLength)),
+      height: 34.5,
+      cabinetSide: draft.cabinetSide,
+      countertopSeatingOverhang: draft.seatingOverhang,
+      countertopRaisedBar: draft.countertopTreatment === "split-level",
+      countertopRaisedBarOverhang: 15,
+      countertopWaterfallEnd: draft.waterfall,
+      label: "Peninsula · straight",
+    };
+    const primaryMaximum = peninsulaRunMaxLength(candidate, room);
+    if (primaryMaximum < 24) {
+      return { error: "There is not enough clear room to create a 24 in. peninsula from that wall.", legs: [] };
+    }
+    const run: PeninsulaRun = { ...candidate, length: Math.min(candidate.length, primaryMaximum) };
+    const primaryRoom: RoomData = { ...room, peninsulaRuns: [...(room.peninsulaRuns ?? []), run] };
+    const angledCandidate: PeninsulaRun | null = draft.endTurn === 45
+      ? {
+          id: `${run.id}_45_end`, parentRunId: run.id, startOffset: 0, turn: 45, direction: draft.endDirection,
+          length: roundEighth(Math.max(PENINSULA_INSIDE_CORNER_CLEARANCE_IN, draft.endLength)), height: run.height,
+          cabinetSide: run.cabinetSide, countertopSeatingOverhang: run.countertopSeatingOverhang,
+          countertopRaisedBar: run.countertopRaisedBar, countertopRaisedBarOverhang: run.countertopRaisedBarOverhang,
+          countertopWaterfallEnd: run.countertopWaterfallEnd, label: `Peninsula end · 45° ${draft.endDirection}`,
+        }
+      : null;
+    const angledMaximum = angledCandidate ? peninsulaRunMaxLength(angledCandidate, primaryRoom) : 0;
+    const angledRun = angledCandidate && angledMaximum >= PENINSULA_INSIDE_CORNER_CLEARANCE_IN
+      ? { ...angledCandidate, length: Math.min(angledCandidate.length, angledMaximum) }
+      : null;
+    if (angledCandidate && !angledRun) {
+      return { error: `The selected 45° end does not have ${PENINSULA_INSIDE_CORNER_CLEARANCE_IN} in. of clear room.`, legs: [] };
+    }
+    const nextRoom: RoomData = {
+      ...primaryRoom,
+      peninsulaRuns: angledRun ? [...primaryRoom.peninsulaRuns!, angledRun] : primaryRoom.peninsulaRuns,
+    };
+    const selectedLineFillers = [...pool, ...catalogFillers] as PeninsulaWizardCabinet[];
+    const makeLeg = (layoutRun: PeninsulaRun, selectedIds: number[], isJointLeg: boolean) => {
+      const selectedCabinets = selectedIds
+        .map((id) => peninsulaWizardBaseCabinets.find((cabinet) => cabinet.id === id) ?? null)
+        .filter((cabinet): cabinet is PeninsulaWizardCabinet => cabinet != null);
+      const cabinetTotalIn = selectedPeninsulaCabinetTotalIn(selectedCabinets);
+      const segments = draft.applianceCode === "none"
+        ? freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, placed, [], 9)
+        : [];
+      const clearSpanIn = segments.length === 1 ? roundEighth(segments[0].length) : null;
+      const plan = clearSpanIn == null
+        ? null
+        : selectedPeninsulaCabinetSequencePlan(clearSpanIn, selectedCabinets, selectedLineFillers);
+      const remainingIn = clearSpanIn == null ? null : roundEighth(clearSpanIn - cabinetTotalIn);
+      const filler = plan?.items.find((item) => item.isFiller) ?? null;
+      return {
+        id: layoutRun.id,
+        label: isJointLeg ? "Straight leg — wall to 45° joint" : layoutRun.turn === 45 ? "45° return — joint to end" : "Straight leg — wall to end",
+        requestedIn: layoutRun === run ? candidate.length : angledCandidate?.length ?? layoutRun.length,
+        runLengthIn: layoutRun.length,
+        clearSpanIn,
+        cabinetTotalIn,
+        remainingIn,
+        selectedCodes: selectedCabinets.map((cabinet) => cabinet.masterCode),
+        filler,
+        message: draft.applianceCode !== "none"
+          ? "An appliance splits this leg; place cabinets manually around it so each side remains explicit."
+          : plan?.message ?? null,
+        usesJointMiter: isJointLeg && Boolean(angledRun) && Boolean(filler),
+      };
+    };
+    return {
+      error: null,
+      legs: [
+        makeLeg(run, draft.primaryCabinetIds, true),
+        ...(angledRun ? [makeLeg(angledRun, draft.returnCabinetIds, false)] : []),
+      ],
+    };
+  }, [autoFillCabinets, catalogFillers, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room]);
   const blindCornerFillerOptions = useMemo<CatalogFillerCandidate[]>(() => (
     catalogFillers
       .filter(isCatalogFiller)
@@ -15073,6 +15162,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         })}</ol>}
                       </div>}
                       {peninsulaWizardDraft.endTurn === 45 && <p className="text-[11px] leading-4 text-[#634b20]">At the 135° joint formed by this 45° return, the Wizard adds the required pair of real selected-line filler boards with the shared 22.5° miter. If this line has no suitable filler stock, it stops instead of leaving an open seam.</p>}
+                      <div className="grid gap-2 rounded-md border border-[#c9d9c3] bg-[#f4faf1] p-3" data-testid="peninsula-wizard-space-preview">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p className="text-xs font-bold text-[#294c2d]">Cabinet totals &amp; remaining space</p>
+                          <span className="text-[10px] font-medium uppercase tracking-wide text-[#5a745b]">Pre-build check</span>
+                        </div>
+                        <p className="text-[11px] leading-4 text-muted-foreground">Uses the measured cabinet span after the shared depth-specific corner holds. Only the cabinets in your lists are counted.</p>
+                        {peninsulaWizardSpacePreview?.error ? (
+                          <p className="rounded border border-destructive/30 bg-destructive/5 px-2 py-1.5 text-xs font-medium text-destructive">{peninsulaWizardSpacePreview.error}</p>
+                        ) : peninsulaWizardSpacePreview?.legs.map((leg) => (
+                          <div key={leg.id} className="grid gap-1 rounded border border-[#d9e5d5] bg-background/80 p-2 text-xs" data-testid={`peninsula-wizard-preview-${leg.id.endsWith("_45_end") ? "return" : "primary"}`}>
+                            <div className="flex items-center justify-between gap-2"><span className="font-semibold text-foreground">{leg.label}</span>{leg.requestedIn > leg.runLengthIn + 0.001 && <span className="text-[10px] font-medium text-[#8a5b20]">Capped to room</span>}</div>
+                            <div className="grid grid-cols-3 gap-1 text-[11px] text-muted-foreground">
+                              <span>Clear: <strong className="text-foreground">{leg.clearSpanIn == null ? "—" : formatEighthInches(leg.clearSpanIn)}</strong></span>
+                              <span data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-cabinet-total`}>Cabinets: <strong className="text-foreground">{formatEighthInches(leg.cabinetTotalIn)}</strong></span>
+                              <span data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-remaining-space`}>Remaining: <strong className={leg.remainingIn != null && leg.remainingIn < -0.001 ? "text-destructive" : "text-foreground"}>{leg.remainingIn == null ? "—" : formatEighthInches(Math.abs(leg.remainingIn))}{leg.remainingIn != null && leg.remainingIn < -0.001 ? " over" : ""}</strong></span>
+                            </div>
+                            {leg.selectedCodes.length > 0 && <span className="text-[11px] text-muted-foreground">Selected: {leg.selectedCodes.join(" + ")} = {formatEighthInches(leg.cabinetTotalIn)}</span>}
+                            {leg.message ? <span className="text-[11px] font-medium text-destructive">{leg.message}</span> : leg.usesJointMiter ? <span className="text-[11px] font-medium text-[#634b20]">The {formatEighthInches(leg.remainingIn ?? 0)} joint remainder is reserved for the required two-piece 22.5° miter filler pair.</span> : leg.filler ? <span className="text-[11px] font-medium text-[#294c2d]">Will use real filler: {leg.filler.cabinet.masterCode} cut to {formatEighthInches(leg.filler.width)}.</span> : <span className="text-[11px] font-medium text-[#294c2d]">Exact cabinet fit — no filler required.</span>}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                     <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Countertop treatment
                       <select data-testid="peninsula-wizard-countertop-treatment" value={peninsulaWizardDraft.countertopTreatment} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, countertopTreatment: event.target.value as "regular" | "split-level" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">

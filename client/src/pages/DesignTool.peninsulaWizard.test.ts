@@ -50,6 +50,17 @@ describe("Peninsula Wizard", () => {
     expect(source).not.toContain('Automatic fit from this line');
   });
 
+  it("shows the selected cabinet total and measured remaining space before building", () => {
+    expect(source).toContain('const peninsulaWizardSpacePreview = useMemo(() => {');
+    expect(source).toContain('selectedPeninsulaCabinetTotalIn(selectedCabinets)');
+    expect(source).toContain('freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, placed, [], 9)');
+    expect(source).toContain('data-testid="peninsula-wizard-space-preview"');
+    expect(source).toContain('Cabinet totals &amp; remaining space');
+    expect(source).toContain('data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-cabinet-total`}');
+    expect(source).toContain('data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-remaining-space`}');
+    expect(source).toContain('The {formatEighthInches(leg.remainingIn ?? 0)} joint remainder is reserved');
+  });
+
   it("adds a real mitered filler pair at the 135-degree joint of every Wizard 45-degree return", () => {
     expect(source).toContain('const hasChildFortyFiveReturn = Boolean((nextRoom.peninsulaRuns ?? []).some((candidate) => (');
     expect(source).toContain('const itemsForSegment = hasChildFortyFiveReturn && plan.items.at(-1)?.isFiller');
