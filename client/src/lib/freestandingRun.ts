@@ -374,25 +374,16 @@ export function freestandingCountertopSurfaces(placed: readonly PlacedCabinet[],
     if (!model) return;
     const surfaces = countertopSurfaces(model.seated, model.room, null);
     for (const surface of surfaces) {
-      const world = countertopSurfacePlanPolygon(surface);
-      if (world.length < 3) continue;
-      const minX = Math.min(...world.map((p) => p.x));
-      const maxX = Math.max(...world.map((p) => p.x));
-      const minY = Math.min(...world.map((p) => p.y));
-      const maxY = Math.max(...world.map((p) => p.y));
-      if (maxX - minX <= EPS || maxY - minY <= EPS) continue;
+      if (countertopSurfacePlanPolygon(surface).length < 3) continue;
+      // Keep the Wall Builder surface exactly as built (frame, rotation, local
+      // polygon, miter flags); only re-tag it so the standard-room passes know
+      // it belongs to this free-standing chain and not to a drawn wall.
       out.push({
-        x: minX,
-        y: minY,
-        width: maxX - minX,
-        depth: maxY - minY,
-        kind: "base",
-        polygon: world.map((p) => ({ x: p.x - minX, y: p.y - minY })),
-        miteredStart: surface.miteredStart,
-        miteredEnd: surface.miteredEnd,
-        linearInches: surface.linearInches,
-        runLinearInches: surface.runLinearInches,
-        areaInches: surface.areaInches,
+        ...surface,
+        customWallId: undefined,
+        customWallRunStartIn: undefined,
+        customWallMiterWallIds: undefined,
+        customWallMiterVertexId: undefined,
         cabinetRunId: `freestanding:${model.chainUids.slice().sort().join("+")}`,
         freestandingMemberUids: model.chainUids,
       });
