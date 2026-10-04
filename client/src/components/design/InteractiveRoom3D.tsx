@@ -5861,10 +5861,11 @@ export function addThreeDPeninsulaCountertops(
     const material = new THREE.MeshPhysicalMaterial({ color: mappedTexture ? "#ffffff" : counterColor, map: mappedTexture, ...threeDPhysicalSurfaceProfile("countertop", Boolean(mappedTexture)) });
     material.userData = { selectedSurfaceRole: "countertop", peninsulaContinuousSlab: true, materialOnlyNoGeometryChange: true };
     const slab = new THREE.Mesh(threeDPeninsulaCountertopGeometry(surface, length, depth), material);
-    slab.position.set(centerX * INCH, (STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
+    slab.position.set(centerX * INCH, ((surface.topElevationIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
-    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: false, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
+    slab.userData = { peninsulaCountertop: true, raisedPonyWallBarTop: Boolean(surface.raisedPonyWallBarTop), peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, seatingOverhangIn: peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: peninsulaCountertopPonyWallBackExtensionIn(run, room), bridgesCabinetVoids: false, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
     root.add(slab);
+    if (surface.raisedPonyWallBarTop) continue;
     const terminalRun = surface.peninsulaTerminalRunId
       ? room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? run
       : run;

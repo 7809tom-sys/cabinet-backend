@@ -10010,6 +10010,10 @@ export interface CountertopSurface {
   runLinearInches?: number;
   /** Physical slab area used for takeoff when the plan rectangle is rotated. */
   areaInches?: number;
+  /** Finished elevation of a split-level pony-wall bar top; ordinary prep slabs remain at 36 in. */
+  topElevationIn?: number;
+  /** A raised top sits on the pony wall, not on the base cabinets. */
+  raisedPonyWallBarTop?: boolean;
   /** Bar projection beyond the cabinet-back drywall pony wall. */
   ponyWallBarOverhangIn?: number;
   /** Drywall thickness plus bar projection carried behind the cabinet backs. */
@@ -11074,7 +11078,10 @@ export function peninsulaCountertopSurface(
   // `wallPlacementAt` anchors the entire depth at the peninsula's cabinet-side
   // face. The standard 25½-inch depth owns the cabinet-facing 1½-inch edge;
   // seating and a pony-wall bar must instead grow away from that face.
-  const oppositeSideExtension = seating + ponyWallBackExtension;
+  // A wall taller than the base cabinets creates two tiers. The prep slab
+  // ends at the cabinet backs; the bar top is built separately above the wall.
+  const oppositeSideExtension = run.height > STD.BASE_HEIGHT + 0.01 && ponyWallBarOverhang > 0
+    ? 0 : seating + ponyWallBackExtension;
   const slabDepth = COUNTERTOP_DEPTH_IN + oppositeSideExtension;
   const runLength = Math.max(0, Number(run.length) || 0);
   const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
@@ -11891,7 +11898,11 @@ function peninsulaCountertopSupportSegments(
 ): Array<{ start: number; end: number }> {
   const tolerance = 1 / 16;
   const intervals = placed.flatMap((cabinet) => {
-    if (!bearsCountertop(cabinet)) return [];
+    // An installed dishwasher sits beneath the continuous countertop; it is
+    // not a range/oven opening. Do not cut a 24" hole out of the peninsula run.
+    const dishwasher = cabinet.placement === "appliance"
+      && /^(?:DW-?\d+|DISHWASHER-?\d*)$/i.test((cabinet.masterCode ?? "").replace(/\s/g, ""));
+    if (!bearsCountertop(cabinet) && !dishwasher) return [];
     const belongsToRun = cabinetWall(cabinet, room) === run.id;
     const cornerSupportsRun = !belongsToRun && peninsulaCornerCabinetSupportsCountertop(cabinet, run, room);
     if (!belongsToRun && !cornerSupportsRun) return [];
@@ -11960,7 +11971,15 @@ function peninsulaVoidFillSurfaces(
     for (let j = i + 1; j < items.length; j += 1) {
       const A = items[i]!, B = items[j]!;
       if (A.root !== B.root) continue;
-      let best: { score: number; a: [Pt, Pt]; b: [Pt, Pt]; gap: number } | null = null;
+      let best: { score: number; area: number; quad: Pt[] } | null = null;
+      const inside = (pt: Pt, poly: readonly Pt[]) => {
+        let hit = false;
+        for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
+          const a = poly[k]!, b = poly[m]!;
+          if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+        }
+        return hit;
+      };
       for (let ai = 0; ai < A.poly.length; ai += 1) {
         const a0 = A.poly[ai]!, a1 = A.poly[(ai + 1) % A.poly.length]!;
         const aLen = Math.hypot(a1.x - a0.x, a1.y - a0.y);
@@ -11970,39 +11989,36 @@ function peninsulaVoidFillSurfaces(
           const gap = segDist(a0, a1, b0, b1);
           if (gap > MAX_GAP) continue;
           const score = Math.min(aLen, bLen);
-          if (!best || score > best.score) best = { score, a: [a0, a1], b: [b0, b1], gap };
+          if (score < 6 || (best && score < best.score - 1e-6)) continue;
+          for (const quad of [[a0, a1, b0, b1], [a0, a1, b1, b0]]) {
+            if (countertopPolygonSelfIntersects(quad)) continue;
+            const area = countertopPolygonArea(quad);
+            if (area < 4) continue;
+            const xs = quad.map((q) => q.x), ys = quad.map((q) => q.y);
+            let total = 0, covered = 0;
+            for (let gx = 0; gx < 12; gx += 1) {
+              for (let gy = 0; gy < 12; gy += 1) {
+                const pt = { x: Math.min(...xs) + ((gx + 0.5) / 12) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + ((gy + 0.5) / 12) * (Math.max(...ys) - Math.min(...ys)) };
+                if (!inside(pt, quad)) continue;
+                total += 1;
+                if (items.some((it) => inside(pt, it.poly)) || fills.some((f) => inside(pt, countertopSurfacePlanPolygon(f)))) covered += 1;
+              }
+            }
+            if (total === 0 || covered / total > 0.1) continue;
+            // Long facing edges are preferred, but nearly equal edge lengths
+            // (40.50000000000001 vs 40.5) must choose the real, larger void.
+            if (!best || score > best.score + 1e-6 || (Math.abs(score - best.score) <= 1e-6 && area > best.area)) {
+              best = { score, area, quad };
+            }
+          }
         }
       }
-      if (!best || best.score < 6) continue;
-      const orders: Pt[][] = [
-        [best.a[0], best.a[1], best.b[0], best.b[1]],
-        [best.a[0], best.a[1], best.b[1], best.b[0]],
-      ];
-      const quad = orders.find((candidate) => !countertopPolygonSelfIntersects(candidate));
-      if (!quad || countertopPolygonArea(quad) < 4) continue;
-      // Only fill a genuine void: skip a bridge that mostly lies on slabs that
-      // already exist (sampled on a grid), so nothing is stacked or z-fights.
-      const inside = (pt: Pt, poly: readonly Pt[]) => {
-        let hit = false;
-        for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
-          const a = poly[k]!, b = poly[m]!;
-          if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
-        }
-        return hit;
-      };
-      const xs = quad.map((q) => q.x), ys = quad.map((q) => q.y);
-      let total = 0, covered = 0;
-      for (let gx = 0; gx < 12; gx += 1) {
-        for (let gy = 0; gy < 12; gy += 1) {
-          const pt = { x: Math.min(...xs) + ((gx + 0.5) / 12) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + ((gy + 0.5) / 12) * (Math.max(...ys) - Math.min(...ys)) };
-          if (!inside(pt, quad)) continue;
-          total += 1;
-          if (items.some((it) => inside(pt, it.poly)) || fills.some((f) => inside(pt, countertopSurfacePlanPolygon(f)))) covered += 1;
-        }
-      }
-      if (total === 0 || covered / total > 0.1) continue;
-      const surface = countertopSurfaceFromWorldPolygon(quad, A.surface.peninsulaRunId ?? B.surface.peninsulaRunId ?? "");
-      if (surface) fills.push({ ...surface, peninsulaRunIds: Array.from(new Set((A.surface.peninsulaRunIds ?? []).concat(B.surface.peninsulaRunIds ?? []))) });
+      if (!best) continue;
+      const surface = countertopSurfaceFromWorldPolygon(best.quad, A.surface.peninsulaRunId ?? B.surface.peninsulaRunId ?? "");
+      // The 3D peninsula renderer centers polygon vertices using linearInches.
+      // Without it the renderer falls back to the entire parent run length,
+      // translating this small infill far away from its actual plan position.
+      if (surface) fills.push({ ...surface, linearInches: surface.width, peninsulaRunIds: Array.from(new Set((A.surface.peninsulaRunIds ?? []).concat(B.surface.peninsulaRunIds ?? []))) });
     }
   }
   return fills;
@@ -12182,7 +12198,71 @@ export function countertopSurfaces(
   out.push(...peninsulaLCornerSupportSurfaces(placed, room));
   const mitered = miteredPeninsulaCountertopSurfaces(out, room);
   out.splice(0, out.length, ...unifiedFortyFivePeninsulaCountertopSurfaces(mitered, room));
+  // On a 45° return, a rotated base can project past the wall-run slab's rear
+  // edge. Finish the SAME slab over its real carcass, never create a separate
+  // floating counter or assume that a 45° screen bounding box is the body.
+  for (const run of room.peninsulaRuns ?? []) {
+    if (run.turn !== 45) continue;
+    for (const cabinet of placed) {
+      if (cabinet.placement !== "base" || cabinetWall(cabinet, room) !== run.id || !bearsCountertop(cabinet)) continue;
+      const body = rotatedCabinetBodyPolygon(cabinet);
+      const cabinetCenter = { x: body.reduce((sum, point) => sum + point.x, 0) / body.length,
+        y: body.reduce((sum, point) => sum + point.y, 0) / body.length };
+      const slabIndex = out.findIndex((surface) => {
+        if (surface.peninsulaRunId !== run.id || surface.raisedPonyWallBarTop) return false;
+        const polygon = countertopSurfacePlanPolygon(surface);
+        let inside = false;
+        for (let index = 0, previous = polygon.length - 1; index < polygon.length; previous = index++) {
+          const a = polygon[index]!, b = polygon[previous]!;
+          if ((a.y > cabinetCenter.y) !== (b.y > cabinetCenter.y)
+            && cabinetCenter.x < (b.x - a.x) * (cabinetCenter.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+        }
+        return inside;
+      });
+      if (slabIndex < 0) continue;
+      const original = out[slabIndex]!;
+      const polygon = countertopSurfacePlanPolygon(original);
+      const hull = countertopConvexHull([...polygon, ...body]);
+      if (countertopPolygonArea(hull) - countertopPolygonArea(polygon) < 0.1) continue;
+      const expanded = countertopSurfaceFromWorldPolygon(hull);
+      if (expanded) out[slabIndex] = { ...original, ...expanded, rotation: 0,
+        linearInches: expanded.width, peninsulaRunId: original.peninsulaRunId,
+        peninsulaRunIds: original.peninsulaRunIds, runStartIn: original.runStartIn };
+    }
+  }
   out.push(...peninsulaVoidFillSurfaces(out, room));
+  // A tall drywall pony wall has its own raised bar top. Its lower prep slab
+  // stops at cabinet backs above; this second slab sits on the wall itself and
+  // reaches 15" beyond the far edge, instead of cutting through the wall.
+  const raisedBarSurfaces: CountertopSurface[] = [];
+  for (const run of room.peninsulaRuns ?? []) {
+    if (run.height <= STD.BASE_HEIGHT + 0.01 || peninsulaCountertopPonyWallBarOverhang(run, room) <= 0) continue;
+    // The finished drywall pony wall (not each individual cabinet) supports
+    // the bar. Once the run has a counter-bearing member, cap its whole wall;
+    // otherwise cabinet gaps would create new holes at the raised level.
+    if (peninsulaCountertopSupportSegments(run, placed, room).length === 0) continue;
+    const geometry = peninsulaRunEndpoints(run, room);
+    const tangent = { x: Math.cos(geometry.radians), y: Math.sin(geometry.radians) };
+    const face = countertopRunFaceNormal(geometry.radians, run.cabinetSide ?? "left");
+    const raisedDepth = DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN + 15;
+    for (const support of [{ start: 0, end: run.length }]) {
+      const start = { x: geometry.start.x + tangent.x * support.start, y: geometry.start.y + tangent.y * support.start };
+      const end = { x: geometry.start.x + tangent.x * support.end, y: geometry.start.y + tangent.y * support.end };
+      const far = (point: CountertopPlanPoint) => ({ x: point.x - face.x * raisedDepth, y: point.y - face.y * raisedDepth });
+      const cap = countertopSurfaceFromWorldPolygon([start, end, far(end), far(start)], run.id);
+      if (cap) raisedBarSurfaces.push({ ...cap, linearInches: cap.width, runStartIn: support.start,
+        runLinearInches: support.end - support.start, topElevationIn: run.height + STD.COUNTERTOP_THICKNESS,
+        raisedPonyWallBarTop: true, ponyWallBarOverhangIn: 15 });
+    }
+  }
+  // These two wall-supported tiers meet at the same real 45° miter as the
+  // cabinet-side slab; never leave a triangular notch between adjacent caps.
+  const miteredBar = miteredPeninsulaCountertopSurfaces(raisedBarSurfaces, room);
+  out.push(...unifiedFortyFivePeninsulaCountertopSurfaces(miteredBar, room).map((surface) => {
+    const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
+    return { ...surface, raisedPonyWallBarTop: true,
+      topElevationIn: (run?.height ?? STD.BASE_HEIGHT) + STD.COUNTERTOP_THICKNESS };
+  }));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {

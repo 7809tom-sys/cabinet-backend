@@ -1334,7 +1334,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!draft) return;
     const length = Math.max(6, Math.round((Number(draft.length) || 6) * 8) / 8);
     // A wall can be as short as a knee wall but never taller than the room's one ceiling.
-    const height = Math.max(MIN_WALL_HEIGHT, Math.min(roomCeiling(room), Math.round((Number(draft.height) || roomCeiling(room)) * 8) / 8));
+	    const height = Math.max(MIN_WALL_HEIGHT, Math.min(roomCeiling(room), Math.round((Number(draft.height) || roomCeiling(room)) * 8) / 8));
+	    const raisedBarOverhang = draft.drywallBackPonyWall && height > STD.BASE_HEIGHT + 0.01
+	      ? 15 : draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0;
     const wallCabinets = placed.filter((cabinet) => cabinetWall(cabinet, room) === draft.wallId);
     const mountedCabinetAboveHeight = wallCabinets.find((cabinet) => cabinet.placement === "wall" && (Number(cabinet.mountBottom) || STD.WALL_MOUNT_BOTTOM) + placedHeight(cabinet) > height + 0.01);
     if (mountedCabinetAboveHeight) {
@@ -1359,7 +1361,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         direction,
 	        cabinetSide: draft.cabinetSide,
 	        countertopSeatingOverhang: draft.countertopSeatingOverhang,
-	        countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0,
+	        countertopPonyWallBarOverhang: raisedBarOverhang,
 	        countertopWaterfallEnd: draft.countertopWaterfallEnd,
 	        locked: draft.locked,
 	      } as PeninsulaRun;
@@ -1397,7 +1399,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          ...previous,
 	          peninsulaRuns: runs.map((run) => {
 	            if (rootIdFor(run) !== rootId) return run;
-	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopPonyWallBarOverhang: draft.drywallBackPonyWall ? draft.countertopPonyWallBarOverhang : 0, countertopWaterfallEnd: draft.countertopWaterfallEnd };
+	            const withContinuousCountertop = { ...run, countertopSeatingOverhang: draft.countertopSeatingOverhang, countertopPonyWallBarOverhang: raisedBarOverhang, countertopWaterfallEnd: draft.countertopWaterfallEnd };
 	            if (run.id === current.id) return { ...withContinuousCountertop, ...savedRun };
 	            return run.id === rootId ? { ...withContinuousCountertop, locked: draft.locked } : withContinuousCountertop;
 	          }),
@@ -14732,8 +14734,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      {wallSettingsDraft.drywallBackPonyWall && (
 	                        <label data-testid="peninsula-pony-wall-bar-top" className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Bar top over drywall pony wall
 	                          <select
-	                            value={wallSettingsDraft.countertopPonyWallBarOverhang}
+	                            value={Number(wallSettingsDraft.height) > STD.BASE_HEIGHT + 0.01 ? 15 : wallSettingsDraft.countertopPonyWallBarOverhang}
 	                            aria-label="Bar countertop extension across drywall pony wall"
+	                            disabled={Number(wallSettingsDraft.height) > STD.BASE_HEIGHT + 0.01}
 	                            onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopPonyWallBarOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)}
 	                            className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground"
 	                          >
@@ -14742,7 +14745,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                            <option value={12}>12 in. bar — crosses wall + extends 12 in.</option>
 	                            <option value={15}>15 in. bar — crosses wall + extends 15 in.</option>
 	                          </select>
-	                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Covers the full cabinet run, crosses the finished 4½ in. drywall pony wall, then creates the selected bar projection behind it.</span>
+	                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Above a 34½ in. wall, the raised bar sits on its top and extends 15 in. beyond the finished wall. The cabinet-side prep counter remains at 36 in.</span>
 	                        </label>
 	                      )}
 	                      <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2">
