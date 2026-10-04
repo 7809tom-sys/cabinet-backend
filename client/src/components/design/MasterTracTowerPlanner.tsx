@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
 import { cabinetWallRunSegment, type PlacedCabinet, type RoomData, type WallOpening, type WallSide } from "@/lib/design";
 import {
-  planMasterTracTower, towerTotalWidth, towerWidths,
+  CORNER_FOOTPRINT_IN, masterTracCornerParts, planMasterTracTower, towerTotalWidth, towerWidths,
   type MasterTracTowerConfig, type TowerBay, type TowerStorage,
 } from "@/lib/masterTracTower";
 
@@ -26,12 +26,18 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
   const color = masterTracFinishColor(config.finish);
   const isWhite = config.finish === "Glacier White";
   const board = { backgroundColor: color, borderColor: isWhite ? "#92918d" : "#221f1d" };
+  const cornerHeight = config.cornerElevationIn ?? (config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn);
+  const cornerFace = config.corner && <div className="relative h-full shrink-0 border-x border-dashed border-amber-600 bg-amber-50/40" style={{ width: `${CORNER_FOOTPRINT_IN / total * 100}%` }} data-testid="tower-corner-elevation-face">
+    <div className="absolute inset-x-0 border-y-2 border-amber-700 shadow-sm" style={{ ...board, height: "5px", bottom: `${cornerHeight / config.heightIn * 100}%` }} />
+    <span className="absolute inset-x-0 top-1/3 text-center text-[9px] leading-tight text-amber-950">Curved corner<br />29.5″ · illustrative</span>
+  </div>;
   return (
     <div className="rounded-xl border border-stone-300 bg-gradient-to-b from-[#f6f4ef] to-[#ebe8e0] p-4" data-testid="mastertrac-tower-elevation">
       <div className="mb-3 flex items-center justify-between text-xs font-medium text-stone-600">
         <span>Front elevation · board layout</span><span>{total.toFixed(2)}″ overall × {config.heightIn}″ high</span>
       </div>
       <div className="mx-auto flex h-52 max-w-[650px] border-b-2 border-stone-500" role="img" aria-label={`${config.bays.length} connected MasterTrac bays with shared center uprights and individually adjustable shelves`}>
+        {config.corner === "start" && cornerFace}
         <div className="relative h-full shrink-0 border-x" style={{ ...board, width: `${Math.max(0.75, PANEL_PCT(total))}%` }} aria-hidden="true" />
         {config.bays.map((bay, index) => (
           <div key={index} className="relative h-full min-w-0" style={{ width: `${bay.widthIn / total * 100}%` }}>
@@ -49,8 +55,9 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
             {bay.storage?.kind === "shoe" && Array.from({ length: bay.storage.count }, (_, shoeIndex) => <div key={`shoe-${shoeIndex}`} className="absolute inset-x-1 border-b-[3px] border-stone-600" style={{ bottom: `${(bay.fixedTopIn - 10 - shoeIndex * 12) / config.heightIn * 100}%`, transform: "rotate(-8deg)" }} aria-hidden="true" />)}
           </div>
         )).flatMap((element, index) => [element, <div key={`upright-${index}`} className="relative h-full shrink-0 border-x" style={{ ...board, width: `${Math.max(0.75, PANEL_PCT(total))}%` }} aria-hidden="true" />])}
+        {config.corner === "end" && cornerFace}
       </div>
-      <p className="mt-2 text-[10px] leading-snug text-stone-600">Real stock SKUs and shared uprights; cut bays show finished installed widths. Drawer faces and shoe shelf tilt are <strong>illustrative only</strong>. 3D is not a cutting or drilling guide.</p>
+      <p className="mt-2 text-[10px] leading-snug text-stone-600">Real stock SKUs and shared uprights; cut bays show finished installed widths. Curved corner edge, H-joint placement, drawer faces and shoe shelf tilt are <strong>illustrative only</strong>. 3D is not a cutting or drilling guide.</p>
     </div>
   );
 }
@@ -74,12 +81,15 @@ export function MasterTracTowerPlanner({
   const [startIn, setStartIn] = useState(initialStartIn);
   const [commitError, setCommitError] = useState<string | null>(null);
   const available = useMemo(() => placed.filter((board) => board.masterTracTowerId !== editGroupId || !editGroupId), [placed, editGroupId]);
-  const preview = useMemo(() => planMasterTracTower(config, room, wall, startIn, available, openings), [config, room, wall, startIn, available, openings]);
+  const run = cabinetWallRunSegment(wall, room);
+  const effectiveStartIn = config.corner === "start" ? run.start : config.corner === "end"
+    ? run.start + run.length - towerTotalWidth(config) : startIn;
+  const preview = useMemo(() => planMasterTracTower(config, room, wall, effectiveStartIn, available, openings), [config, room, wall, effectiveStartIn, available, openings]);
   const updateBay = (index: number, patch: Partial<TowerBay>) => setConfig((prev) => ({
     ...prev, bays: prev.bays.map((bay, bayIndex) => bayIndex === index ? { ...bay, ...patch } : bay),
   }));
   const setHeight = (heightIn: 87 | 94) => setConfig((prev) => ({
-    ...prev, heightIn, bays: prev.bays.map((bay) => ({
+    ...prev, heightIn, cornerElevationIn: prev.cornerShelfType === "adjustable" ? prev.cornerElevationIn : undefined, bays: prev.bays.map((bay) => ({
       ...bay, fixedTopIn: heightIn - 0.75,
       adjustableHeightsIn: bay.adjustableHeightsIn.filter((height) => height < heightIn - 1.5),
     })),
@@ -90,15 +100,22 @@ export function MasterTracTowerPlanner({
       return towerWidths(depthIn).includes(stock) ? bay : { ...bay, widthIn: 24, stockWidthIn: undefined };
     }),
   }));
+  const chooseCorner = (side: "start" | "end" | undefined) => {
+    setConfig((prev) => ({ ...prev, corner: side, cornerShelfType: side ? (prev.cornerShelfType ?? "fixed") : undefined, cornerElevationIn: undefined }));
+    const run = cabinetWallRunSegment(wall, room);
+    const nextWidth = towerTotalWidth({ ...config, corner: side });
+    setStartIn(side === "end" ? run.start + run.length - nextWidth : run.start);
+  };
   const submit = () => {
     setCommitError(null);
     if (!preview.ok) { setCommitError(preview.reason); return; }
-    const result = onCommit(config, wall, startIn, editGroupId);
+    const result = onCommit(config, wall, effectiveStartIn, editGroupId);
     if (!result.ok) setCommitError(result.reason ?? "The tower could not be placed. No boards were added.");
   };
   const panelCount = config.bays.length + 1;
   const fixedCount = config.bays.length * 2;
   const adjustableCount = config.bays.reduce((sum, bay) => sum + bay.adjustableHeightsIn.length, 0);
+  const cornerParts = config.corner ? masterTracCornerParts(config.finish, config.cornerShelfType ?? "fixed") : null;
   const cutLines = new Map<string, { sku: string; quantity: number; bay: number; stock: number; installed: number; offcut: number; price: number }>();
   if (preview.ok) for (const board of preview.plan.boards) {
     const cut = board.masterTracShelfCut;
@@ -124,14 +141,17 @@ export function MasterTracTowerPlanner({
               <div className="space-y-1"><Label className="text-xs">Wall</Label><Select value={wall} onValueChange={(side) => setWall(side as WallSide)}><SelectTrigger aria-label="Tower wall" className="w-full text-xs"><SelectValue /></SelectTrigger><SelectContent>{WALLS.map((side) => <SelectItem key={side.value} value={side.value}>{side.label}</SelectItem>)}</SelectContent></Select></div>
             </div>
             <div className="rounded-lg border border-stone-200 bg-stone-50 p-3" data-testid="tower-corner-first">
-              <p className="text-xs font-bold text-stone-800">1. Start at a corner · straight run</p>
+              <p className="text-xs font-bold text-stone-800">1. Curved corner shelf · 29.5″ sourced footprint</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => setStartIn(cabinetWallRunSegment(wall, room).start)}>Left / start corner</Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => { const run = cabinetWallRunSegment(wall, room); setStartIn(Math.max(run.start, run.start + run.length - towerTotalWidth(config))); }}>Right / end corner</Button>
+                {([ [undefined, "No corner"], ["start", "Left / start corner"], ["end", "Right / end corner"] ] as const).map(([side, label]) => <Button key={side ?? "none"} type="button" size="sm" variant={config.corner === side ? "default" : "outline"} aria-pressed={config.corner === side} onClick={() => chooseCorner(side)}>{label}</Button>)}
               </div>
-              <p className="mt-1.5 text-[11px] text-stone-600">The curved corner-shelf SKU is not represented by a measured 3D outline yet. Choose straight wall sections first; a separate corner-shelf concept is needed before placing it.</p>
+              {config.corner && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                <Label>Corner shelf</Label><Select value={config.cornerShelfType ?? "fixed"} onValueChange={(type) => setConfig((prev) => ({ ...prev, cornerShelfType: type as "fixed" | "adjustable", cornerElevationIn: type === "fixed" ? undefined : (prev.cornerElevationIn ?? 42) }))}><SelectTrigger aria-label="Corner shelf type" className="h-8 w-44 bg-white text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">Fixed corner shelf</SelectItem><SelectItem value="adjustable">Adjustable corner shelf</SelectItem></SelectContent></Select>
+                {config.cornerShelfType === "adjustable" ? <><Label htmlFor="tower-corner-elevation">Bottom elevation</Label><Input id="tower-corner-elevation" aria-label="Corner shelf elevation in inches" type="number" min="0" max={config.heightIn - 0.75} step="0.25" value={config.cornerElevationIn ?? 42} onChange={(event) => setConfig((prev) => ({ ...prev, cornerElevationIn: Number(event.target.value) }))} className="h-8 w-20 bg-white text-xs" />″</> : <span className="text-stone-600">Level with adjacent fixed top shelf · H-joint listed separately</span>}
+              </div>}
+              <p className="mt-1.5 text-[11px] text-stone-600">Actual shelf SKU/finish and 29.5 × 29.5 × 0.75″ catalog bounding size; <strong>curved edge and join visualization are illustrative</strong>, not an installation drawing. {config.corner === "end" ? "End" : "Start"} corner anchors to the selected wall end. {config.corner && config.depthIn !== 14.5 ? "Select 14.5″ straight bays for this documented H-joint reference." : ""}</p>
             </div>
-            <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2"><Label htmlFor="tower-start" className="shrink-0 text-xs">Start on wall</Label><Input id="tower-start" aria-label="Tower start in inches" type="number" min="0" step="0.25" value={startIn} onChange={(event) => setStartIn(Number(event.target.value))} className="h-8 w-24 bg-white" /><span className="text-xs text-stone-600">inches from wall start · {towerTotalWidth(config).toFixed(2)}″ overall</span></div>
+            <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2"><Label htmlFor="tower-start" className="shrink-0 text-xs">Start on wall</Label><Input id="tower-start" aria-label="Tower start in inches" type="number" min="0" step="0.25" value={effectiveStartIn} disabled={Boolean(config.corner)} onChange={(event) => setStartIn(Number(event.target.value))} className="h-8 w-24 bg-white" /><span className="text-xs text-stone-600">inches from wall start · {towerTotalWidth(config).toFixed(2)}″ overall</span></div>
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Bay openings <span className="font-normal text-stone-500">({config.bays.length} shared)</span></h3><Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={config.bays.length >= 4} onClick={() => setConfig((prev) => ({ ...prev, bays: [...prev.bays, { widthIn: towerWidths(prev.depthIn)[0] === 12 ? 24 : towerWidths(prev.depthIn)[0], fixedBottomIn: 6, fixedTopIn: prev.heightIn - 0.75, adjustableHeightsIn: [30, 54] }] }))}><Plus className="mr-1 h-3.5 w-3.5" /> Add bay</Button></div>
             {config.bays.map((bay, index) => (
               <div key={index} className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm" data-testid={`tower-bay-${index + 1}`}>
@@ -171,9 +191,15 @@ export function MasterTracTowerPlanner({
             ))}
           </div>
           <div className="space-y-4 border-t border-stone-200 bg-[#fbfaf7] px-5 py-4 lg:border-l lg:border-t-0"><TowerDiagram config={config} />
-            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference takeoff</span><span>{panelCount + fixedCount + adjustableCount} measured boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves</p>
+            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference cart · not checkout</span><span>{panelCount + fixedCount + adjustableCount + (config.corner ? 1 : 0)} sourced boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves{config.corner ? " · 1 corner shelf" : ""}</p>
+              {cornerParts && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2 text-[11px] text-stone-700" data-testid="tower-corner-reference-lines">
+                <p className="font-semibold text-amber-900">{config.corner === "start" ? "Left/start" : "Right/end"} · illustrated 29.5 × 29.5″ corner</p>
+                <p>1× SKU {cornerParts.shelf.sku} · {cornerParts.shelf.description} · {cornerParts.shelf.finish} · {money(cornerParts.shelf.listEachUsd)} List each</p>
+                {cornerParts.joint && <p>1× SKU {cornerParts.joint.sku} · {cornerParts.joint.description} · {cornerParts.joint.finish} finish · {money(cornerParts.joint.listEachUsd)} List each · join location illustrative</p>}
+                {!cornerParts.joint && <p>Adjustable shelf: no fixed-shelf H-joint priced or implied. Confirm support with installer.</p>}
+              </div>}
               {cutLines.size > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-cut-skus"><p className="text-[11px] font-semibold text-amber-900">Stock shelf SKUs · field cuts</p>{Array.from(cutLines.values()).map((line) => <p key={`${line.bay}-${line.sku}`} className="text-[11px] text-stone-700">Bay {line.bay} · {line.quantity}× SKU {line.sku} · {line.stock}″ stock → {line.installed}″ installed · {line.offcut}″ offcut each · {money(line.price)} List each</p>)}</div>}
-              {preview.ok && preview.plan.conceptualItems.length > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-concept-skus"><p className="text-[11px] font-semibold text-amber-900">Illustrated storage · verified SKU references</p>{preview.plan.conceptualItems.map((item, i) => <p key={`${item.sku}-${i}`} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>{item.quantity}× {item.sku} · {item.description}</span><span>{money(item.quantity * item.listEachUsd)}</span></p>)}</div>}
+              {preview.ok && preview.plan.conceptualItems.some((item) => item.sku !== cornerParts?.joint?.sku) && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-concept-skus"><p className="text-[11px] font-semibold text-amber-900">Illustrated storage · verified SKU references</p>{preview.plan.conceptualItems.filter((item) => item.sku !== cornerParts?.joint?.sku).map((item, i) => <p key={`${item.sku}-${i}`} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>{item.quantity}× {item.sku} · {item.description}</span><span>{money(item.quantity * item.listEachUsd)}</span></p>)}</div>}
               <div className="mt-2 flex justify-between border-t border-stone-200 pt-2 text-sm font-bold"><span>MasterTrac materials</span><span>{preview.ok ? money(preview.plan.listSubtotal) : "—"}</span></div><p className="mt-1 text-[11px] text-stone-600">March 1, 2022 List reference only. Concept geometry and installation hardware not validated. Not added to checkout.</p></div>
             {!preview.ok && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800" data-testid="tower-validation-error">{preview.reason}</p>}
             {commitError && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">{commitError}</p>}

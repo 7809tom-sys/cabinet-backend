@@ -111,7 +111,7 @@ import {
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
 		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
-	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
+	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, cabinetWallRunSegment, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
@@ -170,7 +170,8 @@ import {
 import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview";
 import { REACH_IN_CLOSET_PRESETS, WALK_IN_CLOSET_PRESETS, roomFromReachInPreset, roomFromWalkInPreset } from "@/lib/closetRoomPresets";
 import { MasterTracTowerPlanner } from "@/components/design/MasterTracTowerPlanner";
-import { defaultTowerConfig, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
+import { MasterTracCorner3D, MasterTracCornerElevation } from "@/components/design/MasterTracCornerViews";
+import { defaultTowerConfig, isMasterTracCornerBoard, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
@@ -4117,6 +4118,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const masterTracListSubtotal = useMemo(() => placed.reduce(
     (sum, p) => sum + (masterTracProduct(p.masterCode)?.listEachUsd ?? 0), 0,
   ) + towerConceptReferenceSubtotal(placed), [placed]);
+  const cornerTowerBoard = paletteType === "closetparts" ? placed.find(isMasterTracCornerBoard) : undefined;
+  const editCornerTower = () => {
+    if (!cornerTowerBoard?.masterTracTowerId) return;
+    const current = towerConfigFromPlacements(placedRef.current, cornerTowerBoard.masterTracTowerId);
+    if (current) setTowerDialog({ ...current, editGroupId: cornerTowerBoard.masterTracTowerId });
+  };
 
   const commitMasterTracTower = useCallback((config: MasterTracTowerConfig, wall: WallSide, startIn: number, editGroupId: string | null) => {
     if (layoutLocked || cabinetsLocked) return { ok: false, reason: "Unlock the room and cabinets before placing or editing a tower." };
@@ -11533,6 +11540,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [activeFlooringSurface]);
 
   const renderNativeThreeDCanvas = (hybridPlanUnderlay = false) => {
+    if (cornerTowerBoard) return <MasterTracCorner3D placed={placed} wall={cornerTowerBoard.wallId as WallSide} onEdit={editCornerTower} />;
     if (interactive3dLoading) return <div className="flex h-full min-h-[360px] items-center justify-center text-sm text-muted-foreground">Loading real catalog geometry…</div>;
     if (!resolvedInteractive3dScene) return <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-dashed px-6 text-center text-sm text-muted-foreground">Choose an active door style and add a cabinet, or choose a starter room layout, to load the synchronized 3D canvas.</div>;
 	    return <InteractiveRoom3D
@@ -14323,21 +14331,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       {t("dt_pl_no_category")}
                     </div>
                   ) : group.items.map((c) => {
-                    if (paletteType === "closetparts") {
-                      const product = masterTracProduct(c.masterCode);
-                      if (!product) return null;
-                      return (
+	                    if (paletteType === "closetparts") {
+	                      const product = masterTracProduct(c.masterCode);
+	                      if (!product) return null;
+	                      const cornerSku = product.category === "Shelves" && ["Fixed Corner Shelf", "Adj Corner Shelf"].includes(product.description.trim())
+	                        && product.widthIn == null && product.lengthIn === 29.5 && product.depthIn === 29.5 && product.thicknessIn === 0.75;
+	                      return (
                         <button
                           type="button"
                           key={product.sku}
                           data-testid={`mastertrac-sku-${product.sku}`}
-                          disabled={!isMasterTracPlaceable(product.sku)}
+	                          disabled={!isMasterTracPlaceable(product.sku) && !cornerSku}
                           draggable={product.placeable}
                           onDragStart={(event) => { if (product.placeable) { dragDataRef.current = c; setCatalogDragPreview(c); event.dataTransfer.effectAllowed = "copy"; } }}
                           onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
-                          onClick={() => { if (product.placeable) addCabinet(c); }}
-                          className={`mb-1 flex w-full items-center gap-2 rounded-lg border p-2 text-left transition-colors ${product.placeable ? "border-stone-300 bg-white hover:border-primary hover:bg-stone-50" : "cursor-default border-stone-200 bg-stone-50"}`}
-                          title={product.placeable ? `Place exact ${product.widthIn}″W × ${product.heightIn}″H × ${product.depthIn}″D MasterTrac board` : "SKU and list price reference only — installation geometry not yet verified"}
+	                          onClick={() => { if (cornerSku) { setMasterTracFinish(product.finish); setTowerDialog({ config: { ...defaultTowerConfig(product.finish), corner: "start", cornerShelfType: product.description.startsWith("Fixed") ? "fixed" : "adjustable" }, wall: activeWall, startIn: cabinetWallRunSegment(activeWall, room).start, editGroupId: null }); } else if (product.placeable) addCabinet(c); }}
+	                          className={`mb-1 flex w-full items-center gap-2 rounded-lg border p-2 text-left transition-colors ${product.placeable || cornerSku ? "border-stone-300 bg-white hover:border-primary hover:bg-stone-50" : "cursor-default border-stone-200 bg-stone-50"}`}
+	                          title={cornerSku ? "Plan this real 29.5-inch MasterTrac corner SKU with an illustrative curve and connected straight bays" : product.placeable ? `Place exact ${product.widthIn}″W × ${product.heightIn}″H × ${product.depthIn}″D MasterTrac board` : "SKU and list price reference only — installation geometry not yet verified"}
                         >
                           <MasterTracPartPreview product={product} />
                           <span className="min-w-0 flex-1">
@@ -14345,9 +14355,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             <span className="block text-[10px] leading-snug text-stone-700">{product.description}</span>
                             <span className="block text-[9px] text-stone-500">{product.finish}{product.placeable ? ` · ${product.widthIn}″W × ${product.heightIn}″H × ${product.depthIn}″D` : ""}</span>
                             <span className="block text-[10px] font-semibold text-primary">{product.packQty > 1 ? `$${product.listPackUsd.toFixed(2)} List / pack of ${product.packQty}` : `$${product.listEachUsd.toFixed(2)} List / each`}</span>
-                            <span className="block text-[9px] text-stone-500">{product.placeable ? product.shape === "shelf" ? "Place shelf · adjust elevation in Attributes" : "Place ¾″ panel" : "Reference only · no verified 3D model"}</span>
-                          </span>
-                          {product.placeable && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+	                            <span className="block text-[9px] text-stone-500">{cornerSku ? "Plan corner + shared-upright bays · illustrative curved edge" : product.placeable ? product.shape === "shelf" ? "Place shelf · adjust elevation in Attributes" : "Place ¾″ panel" : "Reference only · no verified 3D model"}</span>
+	                          </span>
+	                          {(product.placeable || cornerSku) && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
                         </button>
                       );
                     }
@@ -14483,7 +14493,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 	        {/* Canvas */}
 	        <div ref={canvasExportRef} className={DESIGNER_CANVAS_CONTAINER_CLASS}>
-	          {countertopGeometryUpdating && ((viewMode === "plan" && countertop)
+	          {countertopGeometryUpdating && !(cornerTowerBoard && (viewMode === "threeD" || viewMode === "hybrid")) && ((viewMode === "plan" && countertop)
 	            || ((viewMode === "threeD" || viewMode === "hybrid") && !!resolvedInteractive3dScene)) && (
 	            <div data-testid="countertop-geometry-loading" role="status" aria-live="polite"
 	              className="pointer-events-none absolute bottom-[5.25rem] left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-full border border-amber-300 bg-white/95 px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-lg backdrop-blur-sm lg:bottom-4">
@@ -14872,7 +14882,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          )}
 	          {viewMode === "threeD" && renderNativeThreeDCanvas()}
 	          {viewMode === "hybrid" && renderNativeThreeDCanvas(true)}
-          {viewMode === "elevation" && (
+	          {viewMode === "elevation" && (cornerTowerBoard ? <MasterTracCornerElevation placed={placed} wall={cornerTowerBoard.wallId as WallSide} onEdit={editCornerTower} /> : (
 	            <ElevationView
 	              room={room}
 	              cabinets={placed}
@@ -14900,10 +14910,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               frameInsetFor={frameInsetForCab}
               frameMetricsFor={frameMetricsForCab}
               onMove={cabinetsLocked ? undefined : moveCabinet}
-              onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
-              moveLocked={cabinetsLocked}
+	              onMoveVertical={cabinetsLocked ? undefined : setMountBottomFor}
+	              moveLocked={cabinetsLocked}
             />
-          )}
+          ))}
           {viewMode === "island" && island && (
             <div className="relative w-full h-full flex flex-col">
 	              {/* Four independent island cabinet runs. */}
@@ -16067,7 +16077,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     )}
                     {cabinetSections.wall.length > 0 && (
                       <SheetSection
-                        title={cabinetSections.wall.every((group) => masterTracProduct(group.sample.masterCode)?.shape === "shelf") ? "MasterTrac shelf boards" : t("dt_bs_sec_wall")}
+	                        title={cabinetSections.wall.every((group) => masterTracProduct(group.sample.masterCode)?.shape === "shelf" || isMasterTracCornerBoard(group.sample)) ? "MasterTrac shelf boards" : t("dt_bs_sec_wall")}
                         count={cabinetSections.wall.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("wall")}
                         onToggle={() => toggleSheetSection("wall")}
@@ -16449,6 +16459,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 {masterTracListSubtotal > 0 && (
                   <div data-testid="mastertrac-list-subtotal" className="mb-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
                     <div className="flex items-start justify-between gap-2"><span><strong>MasterTrac materials</strong><br />{MASTERTRAC_PRICE_DATE} List · reference, not added to checkout</span><strong>${masterTracListSubtotal.toFixed(2)}</strong></div>
+                    {placed.some(isMasterTracCornerBoard) && <div className="mt-2 space-y-1 border-t border-amber-200 pt-2" data-testid="mastertrac-corner-reference-cart"><strong>Corner reference cart · not checkout</strong>{placed.filter(isMasterTracCornerBoard).map((board) => {
+                      const shelf = masterTracProduct(board.masterCode);
+                      const joint = board.masterTracCorner.hJointSku ? masterTracProduct(board.masterTracCorner.hJointSku) : null;
+                      return <div key={board.uid} className="space-y-0.5"><p>1× SKU {board.masterCode} · {shelf?.description} · {shelf?.finish} · 29.5 × 29.5″ · ${shelf?.listEachUsd.toFixed(2)} List</p>{joint && <p>1× SKU {joint.sku} · H-joint channel · {joint.finish} · ${joint.listEachUsd.toFixed(2)} List</p>}</div>;
+                    })}<small>Curve and join position illustrative; supplier installation and current sell prices unverified.</small></div>}
                     {placed.some((board) => board.masterTracConceptStorage) && <div className="mt-2 border-t border-amber-200 pt-1" data-testid="mastertrac-concept-reference-lines"><strong>Illustrative drawer/shoe storage</strong>{placed.flatMap((board) => board.masterTracConceptStorage?.skuReferences.map((sku) => ({ sku, quantity: board.masterTracConceptStorage!.count })) ?? []).map((item, index) => <p key={`${item.sku}-${index}`} className="mt-0.5">{item.quantity}× SKU {item.sku} · {masterTracProduct(item.sku)?.description ?? "SKU reference"}</p>)}<small>Shapes and fit are visual planning aids; confirm manufacturer installation details.</small></div>}
                   </div>
                 )}

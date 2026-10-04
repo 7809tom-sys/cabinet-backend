@@ -29,6 +29,10 @@ export type MasterTracTowerConfig = {
   heightIn: 87 | 94;
   depthIn: 14.5 | 23.5;
   bays: TowerBay[];
+  /** 2022 SKU outer footprint is sourced; curved edge and join are illustrative. */
+  corner?: "start" | "end";
+  cornerShelfType?: "fixed" | "adjustable";
+  cornerElevationIn?: number;
 };
 export type TowerPlan = {
   boards: PlacedCabinet[];
@@ -46,6 +50,30 @@ const SHALLOW_WIDTHS = [12, 18, 24, 30, 36, 42] as const;
 const DEEP_WIDTHS = [24, 30] as const;
 const EPS = 0.01;
 const PANEL_THICKNESS = 0.75;
+export const CORNER_FOOTPRINT_IN = 29.5;
+export type MasterTracCornerBoard = PlacedCabinet & {
+  masterTracCorner: { side: "start" | "end"; type: "fixed" | "adjustable"; illustrative: true; hJointSku: string | null };
+};
+
+/** One each, rather than the box-of-100 channel SKUs. No hardware geometry is implied. */
+export function masterTracCornerParts(finish: string, type: "fixed" | "adjustable" = "fixed"): { shelf: MasterTracProduct; joint: MasterTracProduct | null } | null {
+  const shelf = CLOSET_PARTS.find((part) => part.category === "Shelves" && part.description.trim() === (type === "fixed" ? "Fixed Corner Shelf" : "Adj Corner Shelf")
+    && part.finish === finish && part.packQty === 1 && part.lengthIn === CORNER_FOOTPRINT_IN
+    && part.depthIn === CORNER_FOOTPRINT_IN && part.thicknessIn === PANEL_THICKNESS);
+  // The 2022 sheet lists only White and Brown one-each channels: for Slate Rift,
+  // show the real White accessory finish explicitly, not a fabricated Slate SKU.
+  const hardwareFinish: Record<string, string> = { "Glacier White": "White", "Slate Rift": "White", "Spiced Mahogany": "Brown" };
+  const joint = CLOSET_PARTS.find((part) => part.category === "Hardware" && part.finish === hardwareFinish[finish]
+    && part.description.includes('14.5" Corner Shelf H-Joint Channel (1 each)') && part.packQty === 1);
+  return shelf && (type === "adjustable" || joint) ? { shelf, joint: type === "fixed" ? joint! : null } : null;
+}
+
+export function isMasterTracCornerBoard(board: PlacedCabinet): board is MasterTracCornerBoard {
+  const candidate = board as MasterTracCornerBoard;
+  return candidate.category === "MasterTrac Closet" && candidate.masterTracCorner?.illustrative === true
+    && (candidate.masterTracCorner.side === "start" || candidate.masterTracCorner.side === "end")
+    && ["Fixed Corner Shelf", "Adj Corner Shelf"].includes(masterTracProduct(candidate.masterCode)?.description.trim() ?? "");
+}
 
 /** Floor-mount manual pp. 5–9, 36–38: 18/24/30 bay matches, 14-in drawer
  * slides, and a fence on the front of the tilted shoe board. No box envelope,
@@ -96,7 +124,8 @@ export function defaultTowerConfig(finish = "Glacier White"): MasterTracTowerCon
 }
 
 export function towerTotalWidth(config: MasterTracTowerConfig): number {
-  return config.bays.reduce((sum, bay) => sum + bay.widthIn, 0) + (config.bays.length + 1) * PANEL_THICKNESS;
+  return config.bays.reduce((sum, bay) => sum + bay.widthIn, 0) + (config.bays.length + 1) * PANEL_THICKNESS
+    + (config.corner ? CORNER_FOOTPRINT_IN : 0);
 }
 
 function exactPart(config: MasterTracTowerConfig, category: "Panels (Floor)" | "Shelves", name: RegExp, widthIn: number, heightIn: number): MasterTracProduct | undefined {
@@ -122,9 +151,28 @@ export function planMasterTracTower(
   if (!STRUCTURAL_FINISHES.includes(config.finish as typeof STRUCTURAL_FINISHES[number])) return { ok: false, reason: "Select one verified MasterTrac structural finish." };
   if (![87, 94].includes(config.heightIn) || ![14.5, 23.5].includes(config.depthIn)) return { ok: false, reason: "Choose an actual floor-panel height and depth from the 2022 worksheet." };
   if (config.bays.length < 2 || config.bays.length > 4) return { ok: false, reason: "Select two to four connected bays." };
+  if (config.corner && config.corner !== "start" && config.corner !== "end") return { ok: false, reason: "Choose a supported left or right corner." };
+  if (config.cornerShelfType && config.cornerShelfType !== "fixed" && config.cornerShelfType !== "adjustable") return { ok: false, reason: "Choose the fixed or adjustable sourced corner shelf." };
+  if (config.corner && config.depthIn !== 14.5) return { ok: false, reason: "The 2022 one-each H-joint channel is specified for 14.5-inch straight bays only; choose the 14.5-inch boards." };
+  const cornerType = config.cornerShelfType ?? "fixed";
+  const cornerParts = config.corner ? masterTracCornerParts(config.finish, cornerType) : null;
+  if (config.corner && !cornerParts) return { ok: false, reason: "No matching 2022 corner shelf and compatible fixed-shelf H-joint channel are available in this finish." };
+  const adjacentTop = config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn;
+  const cornerElevation = config.cornerElevationIn ?? adjacentTop;
+  if (config.corner && (!Number.isFinite(cornerElevation) || cornerElevation < 0 || cornerElevation + PANEL_THICKNESS > config.heightIn + EPS)) {
+    return { ok: false, reason: "The corner shelf elevation must fit within the selected floor panel height." };
+  }
+  if (config.corner && cornerType === "fixed" && Math.abs(cornerElevation - adjacentTop) > EPS) {
+    return { ok: false, reason: "The fixed corner and adjacent fixed top shelf must have the same elevation for their H-joint reference." };
+  }
   const totalWidthIn = towerTotalWidth(config);
   if (!Number.isFinite(totalWidthIn) || !Number.isFinite(startIn)) return { ok: false, reason: "Enter a valid wall start and bay widths." };
   const run = cabinetWallRunSegment(wall, room);
+  if (config.corner && Math.abs(startIn - (config.corner === "start" ? run.start : run.start + run.length - totalWidthIn)) > EPS) {
+    return { ok: false, reason: "The illustrated corner shelf must start or end at the selected wall segment's corner." };
+  }
+  const roomDepthOnWall = wall === "top" || wall === "bottom" ? room.depth : room.width;
+  if (config.corner && roomDepthOnWall < CORNER_FOOTPRINT_IN - EPS) return { ok: false, reason: "The corner shelf's 29.5-inch source footprint exceeds the room depth." };
   if (startIn < run.start - EPS || startIn + totalWidthIn > run.start + run.length + EPS) {
     return { ok: false, reason: `The ${totalWidthIn}\" tower does not fit the selected wall segment (${run.length}\" available). Move its start or choose narrower bays.` };
   }
@@ -143,6 +191,25 @@ export function planMasterTracTower(
   let sequence = 0;
   const boards: PlacedCabinet[] = [];
   const conceptualItems: TowerPlan["conceptualItems"] = [];
+  function addCorner(along: number, side: "start" | "end") {
+    const parts = cornerParts!;
+    const position = wallPlacementAt(along, CORNER_FOOTPRINT_IN, CORNER_FOOTPRINT_IN, wall, room, undefined, false);
+    const cornerBoard: MasterTracCornerBoard = {
+      uid: uid(sequence++), cabinetId: 0, masterCode: parts.shelf.sku,
+      description: `${parts.shelf.description} · ${parts.shelf.finish} · illustrative curved edge`,
+      category: "MasterTrac Closet", subCategory: "Shelves", placement: "wall",
+      x: position.x, y: position.y, rotation: position.rotation,
+      wallId: position.wallId, wallOffset: position.wallOffset,
+      width: CORNER_FOOTPRINT_IN, height: PANEL_THICKNESS, depth: CORNER_FOOTPRINT_IN,
+      nominalWidth: CORNER_FOOTPRINT_IN, nominalHeight: PANEL_THICKNESS, nominalDepth: CORNER_FOOTPRINT_IN,
+      mountBottom: cornerElevation, mountBottomAdjusted: true,
+      numberOfDoors: 0, numberOfDrawers: 0,
+      masterTracTowerId: towerId,
+      masterTracCorner: { side, type: cornerType, illustrative: true, hJointSku: parts.joint?.sku ?? null },
+    };
+    boards.push(cornerBoard);
+    if (parts.joint) conceptualItems.push({ sku: parts.joint.sku, quantity: 1, listEachUsd: parts.joint.listEachUsd, description: `${parts.joint.description} · ${parts.joint.finish}` });
+  }
   function addBoard(part: MasterTracProduct, role: PlacedCabinet["masterTracTowerRole"], bayIndex: number | null, along: number, mountBottom?: number, installedWidthIn = part.widthIn!) {
     const position = wallPlacementAt(along, installedWidthIn, part.depthIn!, wall, room, undefined, false);
     const cut = installedWidthIn < part.widthIn! - EPS ? {
@@ -163,6 +230,10 @@ export function planMasterTracTower(
       masterTracTowerId: towerId, masterTracTowerRole: role, masterTracTowerBayIndex: bayIndex,
       ...(cut ? { masterTracShelfCut: cut } : {}),
     });
+  }
+  if (config.corner === "start") {
+    addCorner(cursor, "start");
+    cursor += CORNER_FOOTPRINT_IN;
   }
   for (let index = 0; index < config.bays.length; index++) {
     const bay = config.bays[index];
@@ -205,6 +276,8 @@ export function planMasterTracTower(
     cursor += bay.widthIn;
   }
   addBoard(uprights.at(-1)!, "right", null, cursor);
+  cursor += PANEL_THICKNESS;
+  if (config.corner === "end") addCorner(cursor, "end");
   const collision = appendCollisionFreePlacements(placed, boards, room);
   if (collision.rejected.length) return { ok: false, reason: `The connected tower intersects an existing item or another tower at SKU ${collision.rejected[0].masterCode}. Nothing was placed.` };
   const listSubtotal = Math.round((boards.reduce((sum, board) => sum + (masterTracProduct(board.masterCode)?.listEachUsd ?? 0), 0)
@@ -212,17 +285,19 @@ export function planMasterTracTower(
   return { ok: true, plan: { boards: collision.placed.slice(placed.length), totalWidthIn, listSubtotal, conceptualItems, count: boards.length } };
 }
 
-/** Real SKU List references for conceptual storage; never cart or physical dimensions. */
+/** Real SKU List references for conceptual storage and illustrated H-joint; never checkout. */
 export function towerConceptReferenceSubtotal(placed: PlacedCabinet[]): number {
   return Math.round(placed.reduce((sum, board) => {
     const storage = board.masterTracConceptStorage;
-    return sum + (storage ? storage.skuReferences.reduce((partSum, sku) => partSum + (masterTracProduct(sku)?.listEachUsd ?? 0) * storage.count, 0) : 0);
+    const corner = isMasterTracCornerBoard(board) && board.masterTracCorner.hJointSku ? masterTracProduct(board.masterTracCorner.hJointSku)?.listEachUsd ?? 0 : 0;
+    return sum + corner + (storage ? storage.skuReferences.reduce((partSum, sku) => partSum + (masterTracProduct(sku)?.listEachUsd ?? 0) * storage.count, 0) : 0);
   }, 0) * 100) / 100;
 }
 
 /** Reopens a saved group from its actual current boards, including moved adjustable shelves. */
 export function towerConfigFromPlacements(placed: PlacedCabinet[], towerId: string): { config: MasterTracTowerConfig; wall: WallSide; startIn: number } | null {
   const group = placed.filter((board) => board.masterTracTowerId === towerId);
+  const corner = group.find(isMasterTracCornerBoard);
   const panels = group.filter((board) => ["left", "center", "right"].includes(board.masterTracTowerRole ?? ""))
     .sort((a, b) => (a.wallOffset ?? 0) - (b.wallOffset ?? 0));
   if (panels.length < 3 || panels.length > 5 || panels[0].masterTracTowerRole !== "left" || panels.at(-1)?.masterTracTowerRole !== "right") return null;
@@ -232,6 +307,11 @@ export function towerConfigFromPlacements(placed: PlacedCabinet[], towerId: stri
   if (wall !== "top" && wall !== "bottom" && wall !== "left" && wall !== "right") return null;
   const config: MasterTracTowerConfig = {
     finish: first.finish, heightIn: first.heightIn, depthIn: first.depthIn,
+    ...(corner ? {
+      corner: corner.masterTracCorner.side,
+      cornerShelfType: corner.masterTracCorner.type,
+      ...(corner.masterTracCorner.type === "adjustable" ? { cornerElevationIn: corner.mountBottom ?? 42 } : {}),
+    } : {}),
     bays: panels.slice(0, -1).map((panel, index) => {
       const widthIn = (panels[index + 1].wallOffset ?? NaN) - (panel.wallOffset ?? NaN) - PANEL_THICKNESS;
       const shelf = (role: string) => group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === role)?.mountBottom;
@@ -252,5 +332,5 @@ export function towerConfigFromPlacements(placed: PlacedCabinet[], towerId: stri
       };
     }),
   };
-  return { config, wall, startIn: panels[0].wallOffset ?? 0 };
+  return { config, wall, startIn: (panels[0].wallOffset ?? 0) - (corner?.masterTracCorner.side === "start" ? CORNER_FOOTPRINT_IN : 0) };
 }
