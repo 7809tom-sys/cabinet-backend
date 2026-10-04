@@ -26,6 +26,14 @@ import { addThreeDCrownMolding, applyThreeDStructuralFinishMaterials, threeDStru
 import { addThreeDProductionLightRig, normalizeThreeDPlanarUv, THREE_D_BACKSPLASH_TILE_SIZE_IN, threeDBacksplashSegments, threeDBacksplashSupportSpans, threeDBacksplashTileTextureTransform, threeDBacksplashTransform, threeDCountertopUpstandSegments, threeDCountertopSlabTextureTransform, threeDDoorFinishSurfaceProfile, threeDFlooringPatternProfile, threeDPhysicalSurfaceProfile, threeDPlankAtlasProfile, threeDProductMaterialSource, threeDProductSurfaceTextureTransform, threeDRenderQualityProfile, threeDSupportsBacksplash, threeDSurfaceImageCrop, threeDSurfaceTextureTransform } from "./InteractiveRoom3D";
 import type { PlacedCabinet, RoomData, WallOpening } from "@/lib/design";
 
+// The production default is intentionally push-to-open/no decorative hardware.
+// Tests that measure physical pulls must explicitly select a visible style.
+function addCabinetWithBarPulls(...args: Parameters<typeof addCabinet>) {
+  const withHardware = [...args] as Parameters<typeof addCabinet>;
+  withHardware[12] = { ...withHardware[12], hardwareStyleId: "bar-pull" };
+  return addCabinet(...withHardware);
+}
+
 describe("customer manual AI render handoff", () => {
   it("sends only verified customer requests into manual review while retaining the administrator path", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
@@ -40,14 +48,15 @@ describe("customer manual AI render handoff", () => {
 });
 
 describe("embedded 3D workspace viewport", () => {
-  it("opens the selected-cabinet dock with full details until the user collapses it", () => {
+  it("keeps kitchen details open but starts selected MasterTrac boards compact on tablets with a Details action", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
     expect(source).toContain("selectedCabinetInspectorExpanded");
     expect(source).toContain('data-testid="three-d-cabinet-attributes-compact"');
     expect(source).toContain('data-testid="three-d-expand-cabinet-attributes"');
     expect(source).toContain('data-testid="three-d-collapse-cabinet-attributes"');
     expect(source).toContain("const [selectedCabinetInspectorExpanded, setSelectedCabinetInspectorExpanded] = useState(true);");
-    expect(source).toContain("setSelectedCabinetInspectorExpanded(true);");
+    expect(source).toContain('setSelectedCabinetInspectorExpanded(!(tabletOverlay && Boolean(masterTracProduct(selectedCabinet?.masterCode ?? ""))));');
+    expect(source).toContain('onClick={() => setSelectedCabinetInspectorExpanded(true)}');
   });
 });
 
@@ -3221,7 +3230,7 @@ describe("interactive 3D room scene helpers", () => {
   it("builds dimensional cabinet, refrigerator, range, dishwasher, farmhouse sink, and hood detail meshes", () => {
     const root = new THREE.Group();
     const common = { width: 30, height: 36, depth: 24, mountBottom: 0, numberOfDoors: 2, numberOfDrawers: 1 };
-    addCabinet(root, { distributorSkuId: 1, cabinetId: 1, masterCode: "B-30", description: "Base Cabinet", placementType: "base", ...common }, null, {}, 180, 144, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
+    addCabinetWithBarPulls(root, { distributorSkuId: 1, cabinetId: 1, masterCode: "B-30", description: "Base Cabinet", placementType: "base", ...common }, null, {}, 180, 144, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
     addCabinet(root, { distributorSkuId: 2, cabinetId: 2, masterCode: "FRIDGE-36", description: "36 inch Panel-Ready Refrigerator", placementType: "appliance", width: 36, height: 70, depth: 30, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
     addCabinet(root, { distributorSkuId: 3, cabinetId: 3, masterCode: "RANGE-30", description: "30 inch Freestanding Range", placementType: "appliance", width: 30, height: 36, depth: 25, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
     addCabinet(root, { distributorSkuId: 4, cabinetId: 4, masterCode: "DW-24", description: "24 inch Panel Ready Dishwasher", placementType: "appliance", width: 24, height: 34.5, depth: 24, mountBottom: 0, numberOfDoors: 0, numberOfDrawers: 0 }, null, {}, 180, 144, "#7e8d72", "#f8f8f6");
@@ -3255,7 +3264,7 @@ describe("interactive 3D room scene helpers", () => {
 
   it("uses vertical hinge-opposite pulls at the correct upper and lower pantry door zones", () => {
     const root = new THREE.Group();
-    addCabinet(root, {
+    addCabinetWithBarPulls(root, {
       distributorSkuId: 1, cabinetId: 1, masterCode: "P-24-90", description: "24 inch Pantry Cabinet",
       placementType: "tall", width: 24, height: 90, depth: 24, mountBottom: 0, numberOfDoors: 4, numberOfDrawers: 0,
     }, null, {}, 144, 120, "#7e8d72", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });
@@ -3285,7 +3294,7 @@ describe("interactive 3D room scene helpers", () => {
 
   it("renders a stale-count B-18 lower front as a hinged door with a vertical opposite-hinge handle", () => {
     const root = new THREE.Group();
-    addCabinet(root, {
+    addCabinetWithBarPulls(root, {
       distributorSkuId: 2640004,
       cabinetId: 9390004,
       masterCode: "B-18",
@@ -3814,7 +3823,7 @@ describe("interactive 3D room scene helpers", () => {
         hardwarePosition,
       } as never;
       const root = new THREE.Group();
-      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      addCabinetWithBarPulls(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
       const pulls: THREE.Object3D[] = [];
       root.traverse((node) => { if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") pulls.push(node); });
       return pulls;
@@ -3856,7 +3865,7 @@ describe("interactive 3D room scene helpers", () => {
         hardwarePosition,
       } as never;
       const root = new THREE.Group();
-      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+      addCabinetWithBarPulls(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
       const doorMeshes: THREE.Mesh[] = [];
       const pullMeshes: THREE.Object3D[] = [];
       root.traverse((node) => {
@@ -3920,7 +3929,7 @@ describe("interactive 3D room scene helpers", () => {
       hardwarePosition: "left",
     } as never;
     const root = new THREE.Group();
-    addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+    addCabinetWithBarPulls(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
     const drawerPulls: THREE.Object3D[] = [];
     root.traverse((node) => { if (node.userData.cabinetHardware && node.userData.cabinetPull === "drawer") drawerPulls.push(node); });
 
@@ -3948,7 +3957,7 @@ describe("interactive 3D room scene helpers", () => {
       hardwarePosition: "right",
     } as never;
     const root = new THREE.Group();
-    addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#eee9dd", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+    addCabinetWithBarPulls(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#eee9dd", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
     const drawers: THREE.Mesh[] = [];
     const drawerPulls: THREE.Object3D[] = [];
     root.traverse((node) => {
@@ -4116,7 +4125,7 @@ describe("interactive 3D room scene helpers", () => {
     ]);
 
     const root = new THREE.Group();
-    addCabinet(root, {
+    addCabinetWithBarPulls(root, {
       distributorSkuId: -930,
       cabinetId: 9360022,
       masterCode: "2-DB30",
@@ -6193,7 +6202,7 @@ describe("interactive 3D room scene helpers", () => {
 
 	  it("renders SB36 with two false drawer fronts, two standard doors, and no false-drawer pull", () => {
     const root = new THREE.Group();
-    addCabinet(root, {
+    addCabinetWithBarPulls(root, {
       distributorSkuId: -89, cabinetId: 89, masterCode: "SB-36", description: "36 inch Sink Base",
       placementType: "base", width: 36, height: 34.5, depth: 24, numberOfDoors: 2, numberOfDrawers: 0,
     } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: "shaker" });

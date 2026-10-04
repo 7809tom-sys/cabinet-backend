@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { CabinetAttributesDialog } from "./CabinetAttributesDialog";
 
@@ -26,6 +26,16 @@ vi.mock("@/lib/trpc", () => ({
     }),
   },
 }));
+
+beforeAll(() => {
+  // jsdom has no matchMedia; the dialog's responsive hook observes this browser API.
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: false,
+    media: query,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+});
 
 afterEach(cleanup);
 

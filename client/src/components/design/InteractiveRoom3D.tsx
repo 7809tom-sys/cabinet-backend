@@ -8767,8 +8767,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     setSelectedCabinet((current) => current?.uid === hostSelection.uid ? current : hostSelection);
   }, [placed, selectedCabinetUid]);
   useEffect(() => {
-    setSelectedCabinetInspectorExpanded(true);
-  }, [selectedCabinet?.uid]);
+    // A selected closet board already has Move, Attributes, and Edit tower in
+    // the host toolbar. On the tablet tier, start with the compact dock so the
+    // room stays visible; Details still opens the full measured inspector.
+    setSelectedCabinetInspectorExpanded(!(tabletOverlay && Boolean(masterTracProduct(selectedCabinet?.masterCode ?? ""))));
+  }, [selectedCabinet?.uid, selectedCabinet?.masterCode, tabletOverlay]);
   const [moveIncrementText, setMoveIncrementText] = useState("1");
   const moveIncrementIn = normalizedThreeDCabinetMoveIncrement(moveIncrementText);
   const [cabinetMoveResult, setCabinetMoveResult] = useState<ThreeDCabinetMoveResult | null>(null);

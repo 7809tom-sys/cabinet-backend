@@ -15,8 +15,23 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Show panels");
     expect(source).toContain('data-testid="compact-workspace-show-panels-trigger"');
     expect(source).toContain('aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas"');
-    expect(source).toContain('{isTabletWorkspace ? "Add cabinet" : "Catalog"}');
+    expect(source).toContain('paletteType === "closetparts" ? "Add closet parts" : "Add cabinet"');
+    expect(source).toContain(') : "Catalog"}');
+    expect(source).toContain('data-testid="tablet-mastertrac-reference-total"');
+    expect(source).toContain('masterTracListSubtotal.toFixed(2)');
     expect(source).toContain("Price &amp; cart");
+  });
+
+  it("lets tablet Closet members reveal the brochure and complete historical-List notes without covering the parts list by default", () => {
+    expect(source).toContain('data-testid="mastertrac-palette-header"');
+    expect(source).toContain('const [masterTracIntroExpanded, setMasterTracIntroExpanded] = useState(false)');
+    expect(source).toContain('(!isTabletWorkspace || masterTracIntroExpanded) && <img src={MASTERTRAC_BROCHURE_PHOTO}');
+    expect(source).toContain('data-testid="mastertrac-palette-about" aria-expanded={masterTracIntroExpanded}');
+    expect(source).toContain('onClick={() => setMasterTracIntroExpanded((expanded) => !expanded)}');
+    expect(source).toContain('March 1, 2022 List reference only · confirm current price and availability');
+    expect(source).toContain('(!isTabletWorkspace || paletteType !== "closetparts") && <div className="mt-2 flex items-center gap-1.5">');
+    expect(source).toContain('data-testid="catalog-distributor-picker"');
+    expect(source).toContain('data-testid={`mastertrac-sku-${product.sku}`}');
   });
 
   it("keeps the compact desktop toolbar to one scrollable row and preserves direct materials and surfaces access", () => {

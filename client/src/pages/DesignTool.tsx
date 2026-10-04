@@ -1649,6 +1649,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [masterTracFinish, setMasterTracFinish] = useState("Glacier White");
+  const [masterTracIntroExpanded, setMasterTracIntroExpanded] = useState(false);
   const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
   const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
@@ -11851,7 +11852,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               className={`hidden lg:inline-flex shrink-0 ${isTabletWorkspace ? "h-10 min-w-11 bg-[#1a2744] px-3 text-white hover:bg-[#24375f]" : ""}`}
               onClick={() => setMobilePanel((panel) => panel === "catalog" ? null : "catalog")}
             >
-              {isTabletWorkspace ? <Plus className="mr-1.5 h-4 w-4" /> : <Boxes className="mr-1.5 h-3.5 w-3.5" />} {isTabletWorkspace ? "Add cabinet" : "Catalog"}
+              {isTabletWorkspace ? <Plus className="mr-1.5 h-4 w-4" /> : <Boxes className="mr-1.5 h-3.5 w-3.5" />} {isTabletWorkspace ? (paletteType === "closetparts" ? "Add closet parts" : "Add cabinet") : "Catalog"}
             </Button>
             {isTabletWorkspace && (
               <div className="flex items-center gap-1" data-testid="tablet-undo-redo">
@@ -11893,8 +11894,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               data-testid="tablet-price-cart"
               className={`hidden lg:inline-flex shrink-0 ${isTabletWorkspace ? "ml-auto h-10 gap-2 border-[#1a2744]/30 bg-white px-3" : ""}`}
               onClick={() => setMobilePanel((panel) => panel === "cart" ? null : "cart")}
+              title={paletteType === "closetparts" ? "MasterTrac March 2022 List prices are reference only, not added to checkout" : undefined}
             >
-              <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> {isTabletWorkspace ? <>Price &amp; cart <span data-testid="tablet-running-total" className="font-serif text-sm font-bold text-[#1a2744]">${total.toFixed(2)}</span></> : <>Price &amp; cart</>}
+              {paletteType === "closetparts" ? <FileText className="mr-1.5 h-3.5 w-3.5" /> : <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />} {isTabletWorkspace ? paletteType === "closetparts" ? <>2022 List · reference <span data-testid="tablet-mastertrac-reference-total" className="font-serif text-sm font-bold text-[#1a2744]">${masterTracListSubtotal.toFixed(2)}</span></> : <>Price &amp; cart <span data-testid="tablet-running-total" className="font-serif text-sm font-bold text-[#1a2744]">${total.toFixed(2)}</span></> : paletteType === "closetparts" ? <>MasterTrac List · reference</> : <>Price &amp; cart</>}
             </Button>
             <Button
               variant="outline"
@@ -13142,7 +13144,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           {selectedCab && !drawMode && !isMobile && (
             <>
               {/* Cabinet image — click to open the Door & Drawer Layout popover */}
-              <Popover>
+              {!masterTracProduct(selectedCab.masterCode) && <Popover>
                 <PopoverTrigger asChild>
                   <button
                     className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-transparent hover:border-border hover:bg-muted/50 transition-colors cursor-pointer"
@@ -13155,12 +13157,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Door &amp; Drawer Layout</div>
                   <DoorDrawerDiagram cabinet={selectedCab} width={180} />
                 </PopoverContent>
-              </Popover>
+              </Popover>}
               {/* Door-style thumbnail: shows a picture of the selected door's
                   face/finish so the member sees the actual door look while
                   editing the cabinet. Falls back to a color chip from the
                   finish palette when the style has no sample photo. */}
-              {(paletteFinishSwatch || styleId) && (
+              {!masterTracProduct(selectedCab.masterCode) && (paletteFinishSwatch || styleId) && (
                 <div
                   className="flex items-center gap-1.5 shrink-0"
                   title={`Door style: ${activeStyleName || "selected style"}`}
@@ -13999,10 +14001,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </div>
             {paletteType === "closetparts" && (
               <div className="mb-2 overflow-hidden rounded-lg border border-stone-300 bg-stone-50" data-testid="mastertrac-palette-header">
-                <img src={MASTERTRAC_BROCHURE_PHOTO} alt="Assembled WoodTrac MasterTrac closet photographed in the supplied brochure; example installation, not a photograph of an individual SKU" className="h-24 w-full object-cover" />
+                {(!isTabletWorkspace || masterTracIntroExpanded) && <img src={MASTERTRAC_BROCHURE_PHOTO} alt="Assembled WoodTrac MasterTrac closet photographed in the supplied brochure; example installation, not a photograph of an individual SKU" className="h-24 w-full object-cover" />}
                 <div className="space-y-1.5 p-2">
-                  <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
-	                  <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves use source dimensions; the connected planner shows corner, drawer, shoe and pole options with clearly illustrative accessory geometry. Other SKUs remain reference-only.</p>
+	                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
+                    {isTabletWorkspace && <button type="button" data-testid="mastertrac-palette-about" aria-expanded={masterTracIntroExpanded} aria-controls="mastertrac-reference-details" onClick={() => setMasterTracIntroExpanded((expanded) => !expanded)} className="inline-flex shrink-0 items-center gap-1 rounded border border-stone-300 bg-white px-2 py-1 text-[10px] font-semibold text-[#1a2744] hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a2744]">About <ChevronDown className={`h-3 w-3 ${masterTracIntroExpanded ? "rotate-180" : ""}`} /></button>}
+                  </div>
+                  <p id="mastertrac-reference-details" className="text-[10px] leading-snug text-stone-600">{isTabletWorkspace && !masterTracIntroExpanded ? "March 1, 2022 List reference only · confirm current price and availability" : `List prices from the ${MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves use source dimensions; the connected planner shows corner, drawer, shoe and pole options with clearly illustrative accessory geometry. Other SKUs remain reference-only.`}</p>
 	                  <Button type="button" data-testid="open-mastertrac-tower-planner" className="h-9 w-full justify-start gap-2 bg-[#192432] px-3 text-xs font-semibold text-white hover:bg-[#2c3b4e]" onClick={() => setTowerDialog({ config: defaultTowerConfig(masterTracFinish), wall: activeWall, startIn: 12, editGroupId: null })}>
 	                    <Columns3 className="h-4 w-4 text-[#d8b275]" /> Plan connected towers <span className="ml-auto text-[10px] font-normal text-stone-200">2–4 bays</span>
 	                  </Button>
@@ -14086,8 +14091,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </div>
 	            {/* Distributor selector and relocated desktop More menu share one
 	                compact row. Choose the supplier before a door style, including
-	                from the phone Catalog drawer rather than only in Estimate. */}
-	            <div className="mt-2 flex items-center gap-1.5">
+	                from the phone Catalog drawer rather than only in Estimate.
+	                MasterTrac List SKUs are manufacturer-specific and do not use
+	                a kitchen distributor picker in the tablet Closet parts tab. */}
+	            {(!isTabletWorkspace || paletteType !== "closetparts") && <div className="mt-2 flex items-center gap-1.5">
 	              {(distributorLabels ?? []).length > 1 ? (
 	                <div className="min-w-0 flex-1" data-testid="catalog-distributor-picker">
 	                  <Select
@@ -14110,7 +14117,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                </div>
 	              ) : <div className="min-w-0 flex-1" />}
 	              {!isCompactWorkspace && <div ref={setMoreToolsPortalElement} data-testid="catalog-more-tools-slot" className="hidden shrink-0 lg:block" />}
-	            </div>
+	            </div>}
 	          </div>
 
 	          <div className="flex-1 overflow-y-auto p-2 space-y-1">
