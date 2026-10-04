@@ -44,7 +44,16 @@ export type PlanCabinetRenderFrame = {
 export function planCabinetRenderFrame(p: PlacedCabinet): PlanCabinetRenderFrame {
   const footprint = placedFootprint(p);
   const normalizedRotation = ((Math.round(p.rotation) % 360) + 360) % 360;
-  const lockedAngledRun = Boolean(p.wallId && p.wallOffset != null && [45, 135, 225, 315].includes(normalizedRotation));
+  const diagonalTurn = [45, 135, 225, 315].includes(normalizedRotation);
+  // A Wall Builder run carries wallId + wallOffset. A free-standing standard
+  // cabinet turned 45 degrees (Designer peninsula run) has neither, but its plan
+  // body must still be drawn rotated about its envelope centre, the same way.
+  const lockedAngledRun = Boolean(
+    diagonalTurn && (
+      (p.wallId && p.wallOffset != null)
+      || (!p.wallId && placedCornerGeometryKind(p) === "standard")
+    ),
+  );
   if (!lockedAngledRun) {
     return { lockedAngledRun: false, bodyW: footprint.w, bodyD: footprint.d, bodyLeft: p.x, bodyTop: p.y };
   }
