@@ -167,9 +167,9 @@ import {
   MASTERTRAC_BROCHURE_PHOTO, MASTERTRAC_PRICE_DATE,
 } from "@/lib/closet";
 import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview";
-import { REACH_IN_CLOSET_PRESETS, roomFromReachInPreset } from "@/lib/closetRoomPresets";
+import { REACH_IN_CLOSET_PRESETS, WALK_IN_CLOSET_PRESETS, roomFromReachInPreset, roomFromWalkInPreset } from "@/lib/closetRoomPresets";
 import { MasterTracTowerPlanner } from "@/components/design/MasterTracTowerPlanner";
-import { defaultTowerConfig, planMasterTracTower, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
+import { defaultTowerConfig, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
@@ -4070,7 +4070,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Show them for design reference, but do not quietly sell at historical prices.
   const masterTracListSubtotal = useMemo(() => placed.reduce(
     (sum, p) => sum + (masterTracProduct(p.masterCode)?.listEachUsd ?? 0), 0,
-  ), [placed]);
+  ) + towerConceptReferenceSubtotal(placed), [placed]);
 
   const commitMasterTracTower = useCallback((config: MasterTracTowerConfig, wall: WallSide, startIn: number, editGroupId: string | null) => {
     if (layoutLocked || cabinetsLocked) return { ok: false, reason: "Unlock the room and cabinets before placing or editing a tower." };
@@ -4094,7 +4094,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setViewMode("threeD");
     setPlacementWarning(null);
     setTowerDialog(null);
-    toast.success(`${config.bays.length} connected MasterTrac bays · ${result.plan.count} exact SKU boards · $${result.plan.listSubtotal.toFixed(2)} March 2022 List reference, not checkout.`);
+    toast.success(`${config.bays.length} connected MasterTrac bays · ${result.plan.count} exact SKU boards${result.plan.conceptualItems.length ? ` + ${result.plan.conceptualItems.reduce((sum, item) => sum + item.quantity, 0)} illustrated storage parts` : ""} · $${result.plan.listSubtotal.toFixed(2)} March 2022 List reference, not checkout.`);
     return { ok: true };
   }, [cabinetsLocked, layoutLocked, openings, room, setPlaced]);
 
@@ -11572,7 +11572,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               <h1 className="font-serif text-sm font-bold" style={{ color: affiliatePrimary }}>{affiliateBrand.storeName} Designer</h1>
             </div>
           ) : (
-            <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">{t("dt_sh_title_desktop")}</h1>
+            <h1 className="font-serif text-sm font-bold text-foreground whitespace-nowrap">{paletteType === "closetparts" ? "Closet Designer" : t("dt_sh_title_desktop")}</h1>
           )}
           <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{t("dt_sh_items", { n: placed.length })}</Badge>
         </div>
@@ -15496,6 +15496,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           onOpenChange={(o) => setMobilePanel(o ? "cart" : null)}
         >
           <div className="flex flex-col min-h-0 h-full">
+          {paletteType === "closetparts" ? <div className="shrink-0 border-b border-border bg-amber-50 px-3 py-2 text-xs text-amber-950" data-testid="mastertrac-closet-sidebar">
+            <strong>MasterTrac Closet</strong><p>Choose a board finish in the Closet palette; drawer and shoe visuals are illustrative. Materials below use March 2022 List references only.</p>
+          </div> : <>
           <div className="px-3 py-2 border-b border-border shrink-0 flex items-center gap-2">
             {/* Compact door style badge — replaces the large hero image to save vertical space */}
             {activeStyle ? (
@@ -15647,13 +15650,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             )}
             </div>
           </SheetSection>
+          </>}
 
           {/* BOM list */}
           <div className="flex-1 overflow-y-auto py-1">
             {placed.length === 0 ? (
               <div className="text-center py-10 text-muted-foreground text-xs">
                 <DollarSign className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                Add cabinets to build your bill of materials
+                {paletteType === "closetparts" ? "Plan connected towers or add MasterTrac boards to see your reference materials." : "Add cabinets to build your bill of materials"}
               </div>
             ) : (
               (() => {
@@ -16138,7 +16142,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </span>
               </div>
             )}
-	            <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
+		            {paletteType !== "closetparts" && <section data-testid="design-finish-selection-summary" aria-label="Current cabinet colors and countertop materials" className="mb-3 border-y border-[#d9c196]/70 py-3">
 	              <div className="mb-2 flex items-center justify-between gap-2">
 	                <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-[#1a2744]">Current selections</h3>
 	                <span className="text-[10px] text-muted-foreground">Wall runs and island</span>
@@ -16170,10 +16174,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  <div className="mt-1 flex min-w-0 items-center gap-1.5">
 	                    {selectedFinishSummary.islandCountertop ? <span className="h-3.5 w-3.5 shrink-0 border" style={{ background: selectedFinishSummary.islandCountertop.material.fill, borderColor: selectedFinishSummary.islandCountertop.material.edge }} /> : <span className="h-3.5 w-3.5 shrink-0 border border-dashed bg-muted" />}
 	                    <span className="truncate text-[11px] font-semibold text-foreground" title={selectedFinishSummary.islandCountertop?.name ?? (island ? "Not selected" : "No island")}>{selectedFinishSummary.islandCountertop?.name ?? (island ? "Not selected" : "No island")}</span>
-	                  </div>
-	                </div>
-	              </div>
-	            </section>
+                  </div>
+                </div>
+              </div>
+		            </section>}
             {/* Range/oven corner clearance is now a WARNING ONLY. Per product
                 decision, Cabinet Dealz does not auto-insert or auto-shift
                 cabinets — the designer places the clearance filler manually
@@ -16185,7 +16189,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               // conflict warning + range-clearance button (above) and the
               // Estimated Total + CTAs (below) always stay visible inline.
               const noteItems: React.ReactNode[] = [];
-              if (!styleId && placed.length > 0) {
+              if (!styleId && placed.length > 0 && paletteType !== "closetparts") {
                 noteItems.push(
                   <p key="select" className="text-[11px] text-amber-600">{t("dt_bs_select_style_pricing")}</p>,
                 );
@@ -16272,9 +16276,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
                 </div>
                 {masterTracListSubtotal > 0 && (
-                  <div data-testid="mastertrac-list-subtotal" className="mb-2 flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
-                    <span><strong>MasterTrac materials</strong><br />{MASTERTRAC_PRICE_DATE} List · reference, not added to checkout</span>
-                    <strong>${masterTracListSubtotal.toFixed(2)}</strong>
+                  <div data-testid="mastertrac-list-subtotal" className="mb-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
+                    <div className="flex items-start justify-between gap-2"><span><strong>MasterTrac materials</strong><br />{MASTERTRAC_PRICE_DATE} List · reference, not added to checkout</span><strong>${masterTracListSubtotal.toFixed(2)}</strong></div>
+                    {placed.some((board) => board.masterTracConceptStorage) && <div className="mt-2 border-t border-amber-200 pt-1" data-testid="mastertrac-concept-reference-lines"><strong>Illustrative drawer/shoe storage</strong>{placed.flatMap((board) => board.masterTracConceptStorage?.skuReferences.map((sku) => ({ sku, quantity: board.masterTracConceptStorage!.count })) ?? []).map((item, index) => <p key={`${item.sku}-${index}`} className="mt-0.5">{item.quantity}× SKU {item.sku} · {masterTracProduct(item.sku)?.description ?? "SKU reference"}</p>)}<small>Shapes and fit are visual planning aids; confirm manufacturer installation details.</small></div>}
                   </div>
                 )}
                 </>
@@ -17932,8 +17936,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            <section data-testid="closet-room-templates" className="rounded-xl border border-[#c8a972]/60 bg-[#faf7f0] p-4">
 	              <div className="mb-1 text-sm font-semibold text-[#192432]">Bedroom closet · one-click room templates</div>
 	              <p className="mb-3 text-xs text-stone-600">Room width × interior depth. Bi-fold dimensions are nominal planning openings, not an orderable door or a rough-opening specification.</p>
-	              <div className="grid gap-2 sm:grid-cols-3">
-	                {REACH_IN_CLOSET_PRESETS.map((preset) => (
+	              <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+	                {([...REACH_IN_CLOSET_PRESETS, ...WALK_IN_CLOSET_PRESETS] as const).map((preset) => (
 	                  <button
 	                    key={preset.id}
 	                    type="button"
@@ -17941,7 +17945,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    disabled={layoutLocked || Boolean(placed.length || openings.length || island || sinks.length || furniture.length || ponyWalls.length || annotations.length)}
 	                    onClick={() => {
 	                      if (layoutLocked || placed.length || openings.length || island || sinks.length || furniture.length || ponyWalls.length || annotations.length) return;
-	                      const { room: presetRoom, openings: presetOpenings } = roomFromReachInPreset(preset, makeUid());
+	                      const { room: presetRoom, openings: presetOpenings } = "doorWidthIn" in preset ? roomFromWalkInPreset(preset, makeUid()) : roomFromReachInPreset(preset, makeUid());
 	                      applyRoom(presetRoom);
 	                      setOpenings(presetOpenings);
 	                      setSelectedLayoutPresetId(preset.id);
@@ -17956,7 +17960,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      setDrawMode(false);
 	                      setMeasureMode(false);
 	                      setLayoutStarterOpen(false);
-	                      toast.success(`${preset.label} applied. Measure your actual closet and bi-fold opening before ordering.`);
+	                      toast.success(`${preset.label} applied. Measure your actual closet and door opening before ordering.`);
 	                    }}
 	                    className="rounded-lg border border-[#c8a972]/60 bg-white p-3 text-left shadow-sm transition-colors hover:border-[#a87f33] hover:bg-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#192432] disabled:cursor-not-allowed disabled:opacity-50"
 	                  >

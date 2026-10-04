@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { addWallOpening } from "@/components/design/InteractiveRoom3D";
-import { REACH_IN_CLOSET_PRESETS, roomFromReachInPreset } from "./closetRoomPresets";
+import { REACH_IN_CLOSET_PRESETS, WALK_IN_CLOSET_PRESETS, roomFromReachInPreset, roomFromWalkInPreset } from "./closetRoomPresets";
 
 describe("editable reach-in bedroom closet room presets", () => {
   it("offers classic, six-and-a-half-foot, and seven-foot planning rooms", () => {
@@ -51,5 +51,20 @@ describe("editable reach-in bedroom closet room presets", () => {
     normal.traverse((node) => { if (node.userData.architecturalBifoldLeaf) normalLeaves.push(node); });
     expect(normalLeaves).toHaveLength(0);
     expect(normal.children[0]?.children.some((node) => node.userData.architecturalOpeningBacking)).toBe(true);
+  });
+});
+
+describe("walk-in closet room presets", () => {
+  it("offers exactly 5x5 ft and 7x9 ft rooms", () => {
+    expect(WALK_IN_CLOSET_PRESETS.map(({ widthIn, depthIn }) => [widthIn, depthIn])).toEqual([[60, 60], [84, 108]]);
+  });
+  it.each(WALK_IN_CLOSET_PRESETS)("centers a plain hinged door in $label", (preset) => {
+    const { room, openings } = roomFromWalkInPreset(preset, "walk-door");
+    expect(room).toEqual({ width: preset.widthIn, depth: preset.depthIn, ceilingHeight: 96 });
+    expect(openings[0]).toMatchObject({ kind: "door", side: "bottom", width: 30, offset: (preset.widthIn - 30) / 2 });
+    expect(openings[0]?.doorStyle).toBeUndefined();
+  });
+  it("rejects a door as wide as the wall", () => {
+    expect(() => roomFromWalkInPreset({ id: "x", label: "x", description: "x", widthIn: 60, depthIn: 60, doorWidthIn: 60 }, "d")).toThrow(/valid width/);
   });
 });

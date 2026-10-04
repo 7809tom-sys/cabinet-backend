@@ -3303,6 +3303,66 @@ export function wallEndOpenShelfBoardGeometry(
   return geometry;
 }
 
+/** Manufacturer-photo-informed preview only. These shapes have NO published
+ * box envelope, rail side clearance, fence section, or drilled-hole pitch.
+ * Their 2022 SKU references and actual List prices live on the bay anchor;
+ * this group's visual dimensions are deliberately never presented as specs. */
+export function addMasterTracConceptStorage(root: THREE.Group, anchor: PlacedCabinet, room: RoomData, currentFixedTopIn?: number) {
+  const storage = anchor.masterTracConceptStorage;
+  if (!storage || anchor.masterTracTowerRole !== "fixed-bottom") return;
+  const transform = existingCabinetTransform(anchor, room);
+  const group = new THREE.Group();
+  group.position.set(transform.x * INCH, 0, transform.z * INCH);
+  group.rotation.y = transform.rotation;
+  group.userData.masterTracIllustration = { kind: storage.kind, skuReferences: storage.skuReferences, notInstallationGeometry: true };
+  const span = anchor.width * INCH;
+  const depth = anchor.depth * INCH;
+  const bottom = anchor.mountBottom ?? 6;
+  const frontZ = depth / 2 + 0.045 * INCH;
+  const boardFinish = masterTracProduct(anchor.masterCode)?.finish ?? "Glacier White";
+  const colored = new THREE.MeshStandardMaterial({ color: masterTracFinishColor(boardFinish), roughness: 0.78 });
+  const maple = new THREE.MeshStandardMaterial({ color: "#c9a77b", roughness: 0.79 });
+  const metal = new THREE.MeshStandardMaterial({ color: storage.fenceFinish === "Matt Nickel" ? "#74736f" : "#95938e", metalness: 0.58, roughness: 0.37 });
+  function part(geometry: THREE.BufferGeometry, material: THREE.Material, x: number, y: number, z: number, component: string) {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.set(x * INCH, y * INCH, z * INCH);
+    mesh.userData.masterTracConceptComponent = component;
+    mesh.castShadow = true;
+    if (component === "drawer-front-illustration" || component === "shoe-board-illustration") {
+      const outline = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), new THREE.LineBasicMaterial({ color: "#68635d", transparent: true, opacity: 0.8 }));
+      outline.userData.masterTracConceptOutline = true;
+      mesh.add(outline);
+    }
+    group.add(mesh);
+    return mesh;
+  }
+  if (storage.kind === "drawers") {
+    const small = storage.drawerSize !== "large";
+    const faceH = small ? 5 : 10; // Nominal catalog family; not an actual envelope.
+    const gap = small ? 7 : 12; // Visual spacing only; rail hole pitch is unpublished.
+    for (let i = 0; i < storage.count; i++) {
+      const faceY = bottom + 1.25 + faceH / 2 + i * gap;
+      part(new THREE.BoxGeometry(span - 0.5 * INCH, faceH * INCH, 0.45 * INCH), colored, 0, faceY, frontZ / INCH, "drawer-front-illustration");
+      part(new THREE.BoxGeometry(span - 1.6 * INCH, 0.28 * INCH, depth * 0.72), maple, 0, faceY - faceH / 2 + 0.2, -0.35, "drawer-tray-bottom-illustration");
+      for (const edge of [-1, 1]) part(new THREE.BoxGeometry(0.33 * INCH, (faceH - 0.9) * INCH, depth * 0.72), maple, edge * (anchor.width / 2 - 0.9), faceY - 0.3, -0.35, "drawer-tray-side-illustration");
+      part(new THREE.BoxGeometry(Math.min(4.5, anchor.width / 4) * INCH, 0.16 * INCH, 0.2 * INCH), metal, 0, faceY, frontZ / INCH + 0.33, "drawer-pull-illustration");
+    }
+  } else if (storage.kind === "shoe") {
+    const tilt = 11 * Math.PI / 180; // Preview inclination only, NOT a drilling instruction.
+    // Manual p. 38 references hole 6/8 BELOW the fixed top shelf; absolute
+    // pitch is unpublished. Use only a visually plausible, labeled offset.
+    for (let i = 0; i < storage.count; i++) {
+      const shelfY = (currentFixedTopIn ?? storage.fixedTopIn ?? 60) - 10 - i * 12;
+      const shelf = part(new THREE.BoxGeometry(span, 0.75 * INCH, depth * 0.97), colored, 0, shelfY, 0, "shoe-board-illustration");
+      shelf.rotation.x = tilt;
+      const frontHeight = shelfY - Math.sin(tilt) * anchor.depth * 0.485;
+      part(new THREE.BoxGeometry(span - 0.4 * INCH, 0.14 * INCH, 0.14 * INCH), metal, 0, frontHeight + 0.65, anchor.depth * 0.47, "shoe-fence-illustration");
+    }
+  }
+  applyThreeDPlacementIdentity(group, { uid: anchor.uid, masterCode: anchor.masterCode, description: `${storage.kind === "shoe" ? "Shoe organizer" : "Drawers"} · illustrative 3D, confirm manufacturer fit`, distributorSkuId: null });
+  root.add(group);
+}
+
 export function addCabinet(
   root: THREE.Group,
   sku: SceneSku,
@@ -9293,6 +9353,11 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 		          hardwareStyleId,
 		        });
+		        if (cabinet.masterTracConceptStorage) {
+		          const fixedTopIn = placed.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
+		            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
+		          addMasterTracConceptStorage(catalogRoot, cabinet, room, fixedTopIn ?? undefined);
+		        }
 		      }
 		      if (toeKick && continuousToeKickSegments.length > 0) {
 		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
@@ -10732,6 +10797,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		                  <span className="truncate">{masterTracItem ? `MasterTrac · ${masterTracItem.finish}` : `${scene.materials?.cabinet.doorStyle ?? "Catalog"} · ${scene.materials?.cabinet.doorPanelType ?? "panel"}`}</span>
 		                  <span className={`font-semibold ${selectedPrice == null ? "text-rose-700" : "text-foreground"}`}>{selectedPrice == null ? "Unavailable" : `$${selectedPrice.toFixed(2)}${masterTracItem ? " · 2022 List reference" : ""}`}</span>
 		                </div>
+		                {selectedPlacedCabinet?.masterTracConceptStorage && <p className="mt-1 text-[10px] font-medium text-amber-800">Illustrative {selectedPlacedCabinet.masterTracConceptStorage.kind} in this bay · pictured configuration, not installation geometry. See reference SKU lines in Materials.</p>}
 		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
 		                {refrigeratorBayProof && <div data-testid="three-d-refrigerator-bay-proof" className={`mt-1 rounded border px-1.5 py-1 text-[10px] ${refrigeratorBayProof.hasLeftPanel && refrigeratorBayProof.hasRightPanel && refrigeratorBayProof.bridgeCenterOffset != null ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
 		                  <div className="font-bold uppercase tracking-wide">Refrigerator dimensions · selected parts</div>

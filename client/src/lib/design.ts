@@ -762,6 +762,17 @@ export interface PlacedCabinet {
   masterTracTowerId?: string | null;
   masterTracTowerRole?: "left" | "center" | "right" | "fixed-bottom" | "fixed-top" | "adjustable" | null;
   masterTracTowerBayIndex?: number | null;
+  /** Illustrative per-bay storage, anchored on the exact fixed-bottom board.
+   * The referenced SKUs are 2022 List-only; shapes/rail positions are not installation drawings. */
+  masterTracConceptStorage?: {
+    kind: "drawers" | "shoe";
+    count: number;
+    drawerSize?: "small" | "large";
+    frontStyle?: "slab" | "shaker";
+    fenceFinish?: "Chrome" | "Matt Nickel";
+    fixedTopIn?: number;
+    skuReferences: string[];
+  } | null;
   // Per-cabinet door/hardware attributes (set from the right-click attributes
   // dialog). All optional for backward-compat with older saved designs.
   // noDoor: order this cabinet as an OPEN unit (no door/front) — e.g. open

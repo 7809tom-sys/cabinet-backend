@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { masterTracProduct } from "./closet";
 import { removeOverlappingPlacements, type RoomData, type WallOpening } from "./design";
-import { defaultTowerConfig, planMasterTracTower, towerConfigFromPlacements, towerTotalWidth, towerWidths } from "./masterTracTower";
+import { defaultTowerConfig, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, towerStorageSkuReferences, towerTotalWidth, towerWidths } from "./masterTracTower";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 const config = defaultTowerConfig();
@@ -101,5 +101,60 @@ describe("MasterTrac connected tower planning", () => {
     const parsed = towerConfigFromPlacements(moved, "tower-preview");
     expect(parsed?.config.bays[0].adjustableHeightsIn).toEqual([30, 55]);
     expect(parsed?.config.bays[1].adjustableHeightsIn).toEqual([30, 54]);
+  });
+
+  it("chooses actual 2022 drawer assembly/front and shoe shelf/fence references for compatible shallow bays", () => {
+    const mixed = { ...config, bays: [
+      { widthIn: 18, fixedBottomIn: 6, fixedTopIn: 86.25, adjustableHeightsIn: [], storage: { kind: "drawers" as const, count: 2, drawerSize: "small" as const, frontStyle: "slab" as const } },
+      { widthIn: 24, fixedBottomIn: 6, fixedTopIn: 86.25, adjustableHeightsIn: [], storage: { kind: "shoe" as const, count: 1 as const, fenceFinish: "Chrome" as const } },
+    ] };
+    const result = planMasterTracTower(mixed, room, "top", 12, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.conceptualItems.map((item) => [item.sku, item.quantity])).toEqual([
+      ["432383", 2], ["432567", 2], ["432559", 1], ["432928", 1],
+    ]);
+    expect(result.plan.boards).toHaveLength(7);
+    expect(result.plan.boards.filter((board) => board.masterTracConceptStorage)).toHaveLength(2);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(2 * (94 + 12) + 12 + 10.5);
+    expect(result.plan.listSubtotal).toBe(result.plan.boards.reduce((sum, board) => sum + masterTracProduct(board.masterCode)!.listEachUsd, 0) + towerConceptReferenceSubtotal(result.plan.boards));
+    const restored = removeOverlappingPlacements(JSON.parse(JSON.stringify(result.plan.boards)), room);
+    expect(restored.rejected).toHaveLength(0);
+    expect(towerConfigFromPlacements(restored.placed, "tower-preview")?.config.bays.map((bay) => bay.storage)).toEqual(mixed.bays.map((bay) => bay.storage));
+  });
+
+  it("keeps unsupported depth, mismatched shoe width, missing small Shaker and overlapping shelves out of the whole tower", () => {
+    const storage = { kind: "drawers" as const, count: 2, drawerSize: "small" as const, frontStyle: "slab" as const };
+    expect(towerStorageSkuReferences(storage, 18, 23.5, "Glacier White").ok).toBe(false);
+    expect(towerStorageSkuReferences({ kind: "shoe", count: 1, fenceFinish: "Chrome" }, 36, 14.5, "Glacier White").ok).toBe(false);
+    expect(towerStorageSkuReferences({ ...storage, frontStyle: "shaker" }, 24, 14.5, "Glacier White").ok).toBe(false);
+    const invalid = { ...config, bays: [{ ...config.bays[0], storage }, config.bays[1]] };
+    const failed = planMasterTracTower(invalid, room, "top", 0, []);
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) expect(failed.reason).toContain("choose storage or adjustable shelves");
+    expect(config.bays[0].storage).toBeUndefined();
+  });
+
+  it("repeats a sourced shoe shelf AND fence per level, without assigning a manufactured hole pitch", () => {
+    const grouped = { ...config, bays: [
+      { ...config.bays[0], adjustableHeightsIn: [], storage: { kind: "shoe" as const, count: 3, fenceFinish: "Matt Nickel" as const } },
+      config.bays[1],
+    ] };
+    const result = planMasterTracTower(grouped, room, "top", 2, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.conceptualItems.map(({ sku, quantity }) => [sku, quantity])).toEqual([["432559", 3], ["432927", 3]]);
+    expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(3 * (12 + 9.5));
+    expect(planMasterTracTower({ ...grouped, bays: [{ ...grouped.bays[0], fixedTopIn: 39 }, grouped.bays[1]] }, room, "top", 2, []).ok).toBe(false);
+  });
+
+  it("never infers missing drawer fronts or shoe shelves across the 2022 finish/width variants", () => {
+    for (const finish of ["Glacier White", "Slate Rift", "Spiced Mahogany"]) {
+      for (const width of [18, 24, 30]) {
+        expect(towerStorageSkuReferences({ kind: "drawers", count: 1, drawerSize: "small", frontStyle: "slab" }, width, 14.5, finish).ok).toBe(true);
+        expect(towerStorageSkuReferences({ kind: "drawers", count: 1, drawerSize: "large", frontStyle: "shaker" }, width, 14.5, finish).ok).toBe(true);
+        expect(towerStorageSkuReferences({ kind: "shoe", count: 1, fenceFinish: "Chrome" }, width, 14.5, finish).ok).toBe(true);
+      }
+    }
   });
 });
