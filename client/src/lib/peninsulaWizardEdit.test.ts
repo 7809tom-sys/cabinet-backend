@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { editablePeninsulaWizard, peninsulaWizardAssemblyRunIds } from "./peninsulaWizardEdit";
-import type { RoomData } from "./design";
+import { peninsulaRunEndpoints, type RoomData } from "./design";
 
 const recipe = {
   schemaVersion: 1 as const,
@@ -78,6 +78,44 @@ describe("editable Peninsula Wizard ownership", () => {
     const editable = editablePeninsulaWizard(room, "peninsula_wizard_recipe");
     expect(editable?.draft).toMatchObject({ parentWall: "right", startOffset: 72 });
     expect(editable?.draft.primaryCabinetIds).toEqual(recipe.primaryCabinetIds);
+  });
+
+  it("preserves a measured Continuous Wall Builder parent run in the exact edit recipe", () => {
+    const room = roomWithWizard();
+    room.peninsulaRuns![0] = {
+      ...room.peninsulaRuns![0]!,
+      parentWall: "builder-back-run",
+      startOffset: 72,
+      wizardRecipe: { ...recipe, parentWall: "builder-back-run", startOffset: 72 },
+    };
+    const editable = editablePeninsulaWizard(room, "peninsula_wizard_recipe");
+    expect(editable?.draft).toMatchObject({ parentWall: "builder-back-run", startOffset: 72 });
+  });
+
+  it("leaves a measured angled wall through its shared inward frame", () => {
+    const room: RoomData = {
+      width: 200,
+      depth: 300,
+      ceilingHeight: 96,
+      vertices: [
+        { id: "a", x: 0, y: 0 }, { id: "b", x: 100, y: 100 },
+        { id: "c", x: 200, y: 100 }, { id: "d", x: 200, y: 300 }, { id: "e", x: 0, y: 300 },
+      ],
+      customWalls: [
+        { id: "builder-angle", startVertexId: "a", endVertexId: "b", lockedAngle: 45 },
+        { id: "builder-east", startVertexId: "b", endVertexId: "c" },
+        { id: "builder-south-east", startVertexId: "c", endVertexId: "d" },
+        { id: "builder-south", startVertexId: "d", endVertexId: "e" },
+        { id: "builder-west", startVertexId: "e", endVertexId: "a" },
+      ],
+      peninsulaRuns: [{
+        id: "wizard-on-angle", parentWall: "builder-angle", startOffset: Math.SQRT2 * 50,
+        turn: 90, direction: "right", length: 24, height: 34.5,
+      }],
+    };
+    const geometry = peninsulaRunEndpoints(room.peninsulaRuns![0]!, room);
+    expect(geometry.start).toEqual({ x: 50, y: 50 });
+    expect(geometry.radians).toBeCloseTo((3 * Math.PI) / 4, 6);
   });
 
   it("collects every connected return so a root attachment move carries the full assembly", () => {

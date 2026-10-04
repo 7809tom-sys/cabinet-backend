@@ -69,7 +69,7 @@ describe("Peninsula Wizard", () => {
     expect(source).not.toContain('Straight run length (in)');
     expect(source).not.toContain('45° end length (in)');
     expect(source).not.toContain('Start from corner (in)');
-    expect(source).toContain('The Wizard attaches at the selected wall centre.');
+    expect(source).toContain('The Wizard attaches at the selected wall centre, including a measured Continuous Wall Builder run.');
     expect(source).toContain('Show counter stools on the seating side');
     expect(source).toContain('item.uid.startsWith("peninsula-stool:")');
   });
@@ -105,5 +105,19 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('This 45° return has an ordinary cabinet. Keep its turn and direction');
     expect(source).toContain('Any ordinary cabinet on this run was kept; move it or choose a non-overlapping Wizard sequence.');
     expect(source).toContain('Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.');
+  });
+
+  it("identifies an editable Wizard-built run directly in its Attributes panel", () => {
+    expect(source).toContain('data-testid="peninsula-wizard-built-settings"');
+    expect(source).toContain('WIZARD-BUILT · EDITABLE');
+    expect(source).toContain('Edit its exact cabinet recipe without replacing ordinary cabinets.');
+    expect(source).toContain('const editableWizard = editablePeninsulaWizard(room, wallSettingsDraft.wallId);');
+  });
+
+  it("uses the selected shared wall-run frame for a Continuous Wall Builder attachment", () => {
+    expect(source).toContain('const selectedFrame = wallRunFrame(activeWall, room);');
+    expect(source).toContain('selectedFrame && selectedFrame.kind !== "peninsula" ? selectedFrame.id : "top"');
+    expect(source).toContain('const peninsulaWizardAttachmentWalls = useMemo(() => {');
+    expect(source).toContain('including a measured Continuous Wall Builder run');
   });
 });

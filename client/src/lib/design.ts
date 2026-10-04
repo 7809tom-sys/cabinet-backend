@@ -1545,7 +1545,8 @@ export type PeninsulaCabinetSide = "left" | "right";
 /** The exact recipe required to reopen a Wizard-built peninsula safely. */
 export interface PeninsulaWizardRecipe {
   schemaVersion: 1;
-  parentWall: "top" | "bottom" | "left" | "right";
+  /** Cardinal or measured Continuous Wall Builder run that owns the attachment. */
+  parentWall: string;
   startOffset: number;
   endTurn: "none" | 45;
   endDirection: PeninsulaDirection;
@@ -1564,8 +1565,8 @@ export interface PeninsulaWizardRecipe {
 
 export interface PeninsulaRun {
   id: string;
-  /** Cardinal room wall where a primary peninsula begins. */
-  parentWall?: WallSide;
+  /** Physical room wall run (cardinal or measured) where a primary peninsula begins. */
+  parentWall?: string;
   /** Optional connected peninsula run whose far endpoint anchors this return. */
   parentRunId?: string;
   /** Exact distance in inches from a primary parent wall's start corner. */
@@ -1641,7 +1642,7 @@ export function peninsulaRunHas45EndInsideCornerClearance(run: PeninsulaRun, roo
 }
 
 /** Exact room-space line geometry for a persisted peninsula run. */
-export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "width" | "depth">): {
+export function peninsulaRunEndpoints(run: PeninsulaRun, room: RoomData): {
   start: { x: number; y: number };
   end: { x: number; y: number };
   radians: number;
@@ -1650,15 +1651,21 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
     ? (room as RoomData).peninsulaRuns?.find((candidate) => candidate.id === run.parentRunId)
     : undefined;
   const parentWall = run.parentWall ?? "top";
-  const span = parentWall === "top" || parentWall === "bottom" ? room.width : room.depth;
+  const parentFrame = !parentRun ? wallRunFrame(parentWall, room) : null;
+  const span = parentFrame?.length ?? (parentWall === "top" || parentWall === "bottom" ? room.width : room.depth);
   const offset = Math.max(0, Math.min(span, Number(run.startOffset) || 0));
-  const rootStart = parentWall === "top"
-    ? { x: offset, y: 0 }
-    : parentWall === "bottom"
-      ? { x: offset, y: room.depth }
-      : parentWall === "left"
-        ? { x: 0, y: offset }
-        : { x: room.width, y: offset };
+  const rootStart = parentFrame
+    ? {
+        x: Math.round((parentFrame.start.x + parentFrame.tangent.x * offset) * 8) / 8,
+        y: Math.round((parentFrame.start.y + parentFrame.tangent.y * offset) * 8) / 8,
+      }
+    : parentWall === "top"
+      ? { x: offset, y: 0 }
+      : parentWall === "bottom"
+        ? { x: offset, y: room.depth }
+        : parentWall === "left"
+          ? { x: 0, y: offset }
+          : { x: room.width, y: offset };
   const parentRadians: Record<WallSide, number> = {
     top: 0,
     right: Math.PI / 2,
@@ -1672,14 +1679,16 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
   // becoming the diamond-shaped pseudo-corner shown in older plans.
   const parentGeometry = parentRun ? peninsulaRunEndpoints(parentRun, room) : null;
   const start = parentGeometry?.end ?? rootStart;
-  const parentHeading = parentGeometry?.radians ?? parentRadians[parentWall];
+  const parentHeading = parentGeometry?.radians ?? parentFrame?.angle ?? parentRadians[parentWall as WallSide];
   // A primary run leaves its room wall through the room interior. A connected
   // return leaves the prior run's far endpoint and turns relative to that run.
   const radians = parentGeometry
     ? parentHeading + (run.turn === 90
       ? (run.direction === "right" ? Math.PI / 2 : -Math.PI / 2)
       : (run.direction === "right" ? Math.PI / 4 : -Math.PI / 4))
-    : parentHeading + Math.PI / 2;
+    : parentFrame
+      ? Math.atan2(parentFrame.inward.y, parentFrame.inward.x)
+      : parentHeading + Math.PI / 2;
   const length = Math.max(6, Number(run.length) || 6);
   return {
     start,
@@ -1692,7 +1701,7 @@ export function peninsulaRunEndpoints(run: PeninsulaRun, room: Pick<RoomData, "w
 }
 
 /** Maximum interior pull length before a peninsula continuation reaches a room boundary. */
-export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { length?: number }, room: Pick<RoomData, "width" | "depth">): number {
+export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { length?: number }, room: RoomData): number {
   const { start, radians } = peninsulaRunEndpoints({ ...run, length: 6 }, room);
   const dx = Math.cos(radians);
   const dy = Math.sin(radians);
@@ -1708,14 +1717,17 @@ export function peninsulaRunMaxLength(run: Omit<PeninsulaRun, "length"> & { leng
 /** Projects a room point to the parent wall and clamps a moved peninsula attachment to that adjoining wall. */
 export function peninsulaRunStartOffsetAtPoint(
   run: PeninsulaRun,
-  room: Pick<RoomData, "width" | "depth">,
+  room: RoomData,
   point: { x: number; y: number },
 ): number {
   // Returns are anchored to their parent run's far endpoint; only a primary
-  // run may slide its joined attachment along a cardinal room wall.
+  // run may slide its joined attachment along its measured parent wall.
   if (run.parentRunId || !run.parentWall) return 0;
-  const parentLength = run.parentWall === "top" || run.parentWall === "bottom" ? room.width : room.depth;
-  const rawOffset = run.parentWall === "top" || run.parentWall === "bottom" ? point.x : point.y;
+  const parentFrame = wallRunFrame(run.parentWall, room);
+  const parentLength = parentFrame?.length ?? wallLength(run.parentWall, room);
+  const rawOffset = parentFrame
+    ? wallRunAlongAtPoint(parentFrame, point)
+    : run.parentWall === "top" || run.parentWall === "bottom" ? point.x : point.y;
   return Math.max(0, Math.min(Math.max(0, parentLength - 6), Math.round(rawOffset * 8) / 8));
 }
 
@@ -5516,7 +5528,7 @@ export interface WallOpening {
   sill: number;
 }
 
-export function wallLength(side: WallSide, room: RoomData): number {
+export function wallLength(side: WallSide | string, room: RoomData): number {
   const peninsula = peninsulaRunById(room, side);
   if (peninsula) return Math.max(6, peninsula.length);
   // If the side is actually a custom wall ID in a polygon room, compute from vertices.

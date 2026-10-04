@@ -1,0 +1,29 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "selectedContinuousWallId": "cw_muuawv5b_5",
+  "attachmentOptions": [
+    {
+      "value": "cw_muuawv5b_5",
+      "text": "Wall 1 \u00b7 180\""
+    },
+    {
+      "value": "cw_muuawv5b_6",
+      "text": "Wall 2 \u00b7 144\""
+    },
+    {
+      "value": "cw_muuawv5b_7",
+      "text": "Wall 3 \u00b7 180\""
+    },
+    {
+      "value": "cw_muuawv5b_8",
+      "text": "Wall 4 \u00b7 144\""
+    }
+  ],
+  "rootParentWall": "cw_muuawv5b_5",
+  "rootStartOffset": 90,
+  "rootCabinetSide": "left",
+  "childRunId": "peninsula_wizard_muuax6km_45_end",
+  "wizardBadgeCount": 2,
+  "reopenedFrom45Child": true,
+  "applicationErrors": []
+}

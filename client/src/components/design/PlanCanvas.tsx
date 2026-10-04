@@ -6,7 +6,7 @@ import {
 	  isCornerCabinet, isProtectedCornerCabinet, cornerClipPath, cornerLegRatioForPlaced, cornerRotationForPlaced, diagonalCornerClipPath, isDiagonalCorner, isAngledWallCabinet, formatEighthInches, formatInches, isBlindCorner, isTriangleCorner, triangleCornerClipPath,
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
-	  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked,
+  clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked, peninsulaRootRunId,
 	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
@@ -1665,16 +1665,21 @@ export function PlanCanvas({
 	            })}
 	          </div>;
         })()}
-	        {(room.peninsulaRuns ?? []).map((run) => {
-	          const { start, radians } = peninsulaRunEndpoints(run, room);
-	          const runDegrees = (radians * 180) / Math.PI;
-	          const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
-	          const active = activeWall === run.id;
-	          const runLocked = peninsulaRunAssemblyLocked(run, room);
+		{(room.peninsulaRuns ?? []).map((run) => {
+		  const { start, radians } = peninsulaRunEndpoints(run, room);
+		  const runDegrees = (radians * 180) / Math.PI;
+		  const counterRotate: React.CSSProperties = { transform: `rotate(${-runDegrees}deg)` };
+		  const active = activeWall === run.id;
+		  const runLocked = peninsulaRunAssemblyLocked(run, room);
+		  const wizardRootId = peninsulaRootRunId(run, room);
+			  const wizardRoot = room.peninsulaRuns?.find((candidate) => candidate.id === wizardRootId);
+			  const wizardEditable = wizardRoot?.wizardRecipe?.schemaVersion === 1;
           const parentWall = run.parentWall;
-          const primaryAttachmentMeasure = !run.parentRunId && parentWall
-            ? Math.max(0, Number(run.startOffset) || 0)
-            : null;
+	          const parentWallIsCardinal = parentWall === "top" || parentWall === "bottom" || parentWall === "left" || parentWall === "right";
+	          const parentWallLabel = room.customWalls?.find((wall) => wall.id === parentWall)?.label ?? (parentWallIsCardinal ? wallLabel[parentWall] : "selected wall");
+	          const primaryAttachmentMeasure = !run.parentRunId && parentWallIsCardinal
+	            ? Math.max(0, Number(run.startOffset) || 0)
+	            : null;
           const attachmentMeasureHorizontal = parentWall === "top" || parentWall === "bottom";
           const attachmentMeasureStyle: React.CSSProperties | undefined = primaryAttachmentMeasure == null
             ? undefined
@@ -1705,11 +1710,11 @@ export function PlanCanvas({
               role="button"
               tabIndex={0}
 	              aria-label={run.parentRunId
-	                ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint${runLocked ? " and locked" : ""}`
-	                : `Select ${run.label ?? "peninsula run"}; ${runLocked ? "its attachment is locked" : `hold and drag it along the adjoining ${wallLabel[run.parentWall ?? "top"]} wall to move the attachment point`}`}
+	                ? `Select ${run.label ?? "peninsula return"}; it is attached to its parent peninsula endpoint${wizardEditable ? " and is Wizard-built and editable" : ""}${runLocked ? " and locked" : ""}`
+	                : `Select ${run.label ?? "peninsula run"};${wizardEditable ? " Wizard-built and editable;" : ""} ${runLocked ? "its attachment is locked" : `hold and drag it along the adjoining ${parentWallLabel} wall to move the attachment point`}`}
 	              title={run.parentRunId
-	                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high${runLocked ? ". Peninsula assembly locked." : ". Right-click for Attributes."}`
-	                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high.${runLocked ? " Peninsula assembly locked; unlock in Attributes before moving its attachment." : " Right-click for Attributes; hold and drag the line to move its attachment along the adjoining wall."}`}
+	                ? `${run.turn}° ${run.direction} connected return · ${formatEighthInches(run.length)} · ${run.height}" high${wizardEditable ? ". Wizard-built and editable in Peninsula Wizard." : ""}${runLocked ? " Peninsula assembly locked." : ". Right-click for Attributes."}`
+	                : `${run.turn}° ${run.direction} peninsula · ${formatEighthInches(run.length)} · ${run.height}" high.${wizardEditable ? " Wizard-built and editable in Peninsula Wizard." : ""}${runLocked ? " Peninsula assembly locked; unlock in Attributes before moving its attachment." : " Right-click for Attributes; hold and drag the line to move its attachment along the adjoining wall."}`}
               onPointerDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
@@ -1733,6 +1738,13 @@ export function PlanCanvas({
 	                transformOrigin: "0 50%",
 	              }}
 	                >
+	              {wizardEditable && run.parentRunId && <span
+	                data-testid="peninsula-wizard-built-badge"
+	                className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-extrabold tracking-wide text-emerald-950 shadow-sm"
+	                style={{ left: "50%", top: -52, transform: `translateX(-50%) rotate(${-runDegrees}deg)`, transformOrigin: "center" }}
+	              >
+	                WIZARD-BUILT · EDITABLE
+	              </span>}
 	              <span
 	                data-testid="peninsula-plan-label"
 	                className="pointer-events-none absolute z-10 whitespace-nowrap rounded border border-[#d4a75a]/70 bg-white/95 px-1.5 py-0.5 text-[8px] font-extrabold tracking-wide text-[#1a2744] shadow-sm"
@@ -1743,7 +1755,9 @@ export function PlanCanvas({
 	                  transformOrigin: "center",
 	                }}
 	              >
-	                {run.parentRunId ? `PENINSULA · ${run.turn}° ${run.direction} RETURN` : `PENINSULA · ${formatEighthInches(run.length)}`}{runLocked ? " · LOCKED" : ""}
+	                {run.parentRunId ? `PENINSULA · ${run.turn}° ${run.direction} RETURN` : `PENINSULA · ${formatEighthInches(run.length)}`}
+	                {wizardEditable && !run.parentRunId && <span data-testid="peninsula-wizard-built-badge" className="ml-1 rounded border border-emerald-700 bg-emerald-50 px-1 py-px text-emerald-950">WIZARD-BUILT · EDITABLE</span>}
+	                {runLocked ? " · LOCKED" : ""}
 	              </span>
 	              {active && <>
 	                {!run.parentRunId && !runLocked && <button

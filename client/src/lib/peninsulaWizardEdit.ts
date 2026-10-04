@@ -12,7 +12,7 @@ import {
  * than deriving a new best-fit cabinet list from geometry.
  */
 export type PeninsulaWizardEditDraft = {
-  parentWall: "top" | "bottom" | "left" | "right";
+  parentWall: string;
   startOffset: number;
   endTurn: "none" | 45;
   endDirection: PeninsulaDirection;
@@ -35,7 +35,7 @@ export type EditablePeninsulaWizard = {
 };
 
 function asParentWall(value: unknown): PeninsulaWizardEditDraft["parentWall"] {
-  return value === "top" || value === "bottom" || value === "left" || value === "right" ? value : "top";
+  return typeof value === "string" && value.trim() ? value : "top";
 }
 
 function numberValue(value: unknown, fallback: number): number {

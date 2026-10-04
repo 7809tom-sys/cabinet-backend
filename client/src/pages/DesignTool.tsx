@@ -1249,12 +1249,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setMeasureMode(false);
     toast.info(`Drag the gold 45° Compass on the selected ${wallNameFor(activeWall, room)} wall. No popup is needed.`);
   }, [activeWall, layoutLocked]);
-  const openPeninsulaWizard = useCallback(() => {
-    if (layoutLocked) return;
-    const parentWall = (["top", "bottom", "left", "right"] as const).includes(activeWall as any)
-      ? activeWall as "top" | "bottom" | "left" | "right"
-      : "top";
-    const parentLength = parentWall === "top" || parentWall === "bottom" ? room.width : room.depth;
+	  const openPeninsulaWizard = useCallback(() => {
+	    if (layoutLocked) return;
+	    const selectedFrame = wallRunFrame(activeWall, room);
+	    // A Wizard peninsula can attach to the same physical wall frame selected
+	    // in either room tool. Existing peninsulas are not parent walls, so fall
+	    // back to the standard back wall only when no perimeter frame is selected.
+	    const parentWall = selectedFrame && selectedFrame.kind !== "peninsula" ? selectedFrame.id : "top";
+	    const parentLength = selectedFrame && selectedFrame.kind !== "peninsula" ? selectedFrame.length : wallLength(parentWall, room);
     setEditingPeninsulaWizardRootId(null);
     setPeninsulaWizardDraft({
       parentWall,
@@ -1276,7 +1278,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       showBarStools: true,
 	    });
     setPeninsulaWizardOpen(true);
-  }, [activeWall, layoutLocked, room.depth, room.width]);
+	  }, [activeWall, layoutLocked, room]);
   const openPeninsulaWizardForEdit = useCallback((requestedRunId: WallSide = activeWall) => {
     if (layoutLocked) return;
     const editable = editablePeninsulaWizard(room, requestedRunId);
@@ -2227,9 +2229,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   );
   // The Wizard presents actual active base cabinets from the selected line.
   // Catalog fillers remain a separate, priced stock source for true remainders.
-  const peninsulaWizardBaseCabinets = useMemo(() => wizardEligibleBaseCabinets(
-    ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
-  ), [autoFillCabinets]);
+	  const peninsulaWizardBaseCabinets = useMemo(() => wizardEligibleBaseCabinets(
+	    ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
+	  ), [autoFillCabinets]);
+	  const peninsulaWizardAttachmentWalls = useMemo(() => {
+	    const ids = room.customWalls?.length
+	      ? room.customWalls.map((wall) => wall.id)
+	      : ["top", "bottom", "left", "right"];
+	    return ids.map((id) => {
+	      const frame = wallRunFrame(id, room);
+	      const custom = room.customWalls?.find((wall) => wall.id === id);
+	      return {
+	        id,
+	        label: custom?.label ?? wallLabel[id as keyof typeof wallLabel] ?? id,
+	        length: frame?.length ?? wallLength(id, room),
+	      };
+	    });
+	  }, [room]);
   // This top-of-Wizard total reacts directly to every add/remove action. It sums
   // only the real catalog cabinets the owner chose across the connected legs;
   // it deliberately excludes catalog fillers and the angled joint allowance.
@@ -15345,11 +15361,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    </label>
 	                  </div>
 	                  <p className="text-xs leading-5 text-muted-foreground">Changing a wall’s geometry is blocked while it has cabinets, and a wall cannot be shortened below a mounted cabinet. This keeps every placed cabinet supported and in its existing run.</p>
-	                  {wallSettingsDraft.kind === "peninsula" && editablePeninsulaWizard(room, wallSettingsDraft.wallId) && (
-	                    <Button type="button" variant="outline" data-testid="edit-peninsula-wizard" onClick={() => openPeninsulaWizardForEdit(wallSettingsDraft.wallId)}>
-	                      Edit in Peninsula Wizard
-	                    </Button>
-	                  )}
+	                  {wallSettingsDraft.kind === "peninsula" && (() => {
+	                    const editableWizard = editablePeninsulaWizard(room, wallSettingsDraft.wallId);
+	                    if (!editableWizard) return null;
+	                    return (
+	                      <div data-testid="peninsula-wizard-built-settings" className="rounded-md border border-emerald-300 bg-emerald-50 p-3">
+	                        <div className="flex items-start justify-between gap-3">
+	                          <div className="min-w-0">
+	                            <Badge className="bg-emerald-800 text-[10px] font-bold tracking-wide text-white hover:bg-emerald-800">WIZARD-BUILT · EDITABLE</Badge>
+	                            <p className="mt-1.5 text-[11px] leading-4 text-emerald-950">This run belongs to a Peninsula Wizard assembly. Edit its exact cabinet recipe without replacing ordinary cabinets.</p>
+	                          </div>
+	                        </div>
+	                        <Button type="button" variant="outline" className="mt-2 w-full border-emerald-700 bg-white text-emerald-950 hover:bg-emerald-100" data-testid="edit-peninsula-wizard" onClick={() => openPeninsulaWizardForEdit(wallSettingsDraft.wallId)}>
+	                          Edit in Peninsula Wizard
+	                        </Button>
+	                      </div>
+	                    );
+	                  })()}
 	                  </div>
 	                </div>
 	              )}
@@ -15405,20 +15433,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  <div className="grid gap-3">
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Attach to wall
 	                      <select value={peninsulaWizardDraft.parentWall} onChange={(event) => {
-	                        const parentWall = event.target.value as "top" | "bottom" | "left" | "right";
-	                        const wallLength = parentWall === "top" || parentWall === "bottom" ? room.width : room.depth;
+	                        const parentWall = event.target.value;
+	                        const attachment = peninsulaWizardAttachmentWalls.find((wall) => wall.id === parentWall);
+	                        const parentLength = attachment?.length ?? wallLength(parentWall, room);
 	                        // A wizard-built peninsula always starts from the selected
 	                        // wall's centre. The cabinet list defines its length; no
 	                        // starting or ending measurement is required.
 	                        setPeninsulaWizardDraft((draft) => draft ? {
 	                          ...draft,
 	                          parentWall,
-	                          startOffset: Math.round((wallLength / 2) * 8) / 8,
+	                          startOffset: Math.round((parentLength / 2) * 8) / 8,
 	                        } : draft);
 	                      }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-	                        <option value="top">Back wall</option><option value="bottom">Front wall</option><option value="left">Left wall</option><option value="right">Right wall</option>
+	                        {peninsulaWizardAttachmentWalls.map((wall) => <option key={wall.id} value={wall.id}>{wall.label} · {formatEighthInches(wall.length)}</option>)}
 	                      </select>
-	                      <span className="text-[11px] font-normal leading-4 text-muted-foreground">The Wizard attaches at the selected wall centre. Build from your cabinet list, then drag the finished peninsula if its room position needs adjustment.</span>
+	                      <span className="text-[11px] font-normal leading-4 text-muted-foreground">The Wizard attaches at the selected wall centre, including a measured Continuous Wall Builder run. Build from your cabinet list, then drag the finished peninsula if its room position needs adjustment.</span>
 	                    </label>
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end from the straight run
                       <select value={`${peninsulaWizardDraft.endTurn}-${peninsulaWizardDraft.endDirection}`} onChange={(event) => {
