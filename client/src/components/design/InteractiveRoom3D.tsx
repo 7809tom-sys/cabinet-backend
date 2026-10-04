@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
@@ -5977,6 +5977,50 @@ export function addThreeDMeasuredWallMiterCountertops(
  * leaves visible seams and can keep an obsolete corner contour after the
  * shared source has already combined a run into one physical piece.
  */
+/**
+ * True when a shared countertop surface physically sits over the cabinet —
+ * the cabinet's plan centre lies inside the slab outline (small tolerance).
+ * Free-standing cabinets (no wall seat) are snapped to a wall by the shared
+ * surface builder; their slab lands on the wall instead of over the box, so
+ * that slab covers nothing and the cabinet keeps its own top.
+ */
+export function countertopSurfaceCoversCabinet(surface: CountertopSurface, cabinet: PlacedCabinet): boolean {
+  const { w, d } = rotatedSize(cabinet);
+  const point = { x: cabinet.x + w / 2, y: cabinet.y + d / 2 };
+  const polygon = countertopSurfacePlanPolygon(surface);
+  if (polygon.length < 3) return false;
+  const tolerance = 0.75;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const a = polygon[i]!;
+    const b = polygon[j]!;
+    const intersects = ((a.y > point.y) !== (b.y > point.y))
+      && (point.x < ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || 1e-9) + a.x);
+    if (intersects) inside = !inside;
+  }
+  if (inside) return true;
+  // Tolerate a centre that sits exactly on the outline (touching-run seams).
+  const minX = Math.min(...polygon.map((v) => v.x)) - tolerance;
+  const maxX = Math.max(...polygon.map((v) => v.x)) + tolerance;
+  const minY = Math.min(...polygon.map((v) => v.y)) - tolerance;
+  const maxY = Math.max(...polygon.map((v) => v.y)) + tolerance;
+  if (point.x < minX || point.x > maxX || point.y < minY || point.y > maxY) return false;
+  return polygon.length === 4 && !surface.polygon;
+}
+
+/** Standard-room shared slabs that actually sit over at least one counter-bearing base. */
+export function threeDStandardCountertopSurfaces(
+  room: RoomData,
+  placed: PlacedCabinet[],
+  island?: IslandZone | null,
+): CountertopSurface[] {
+  const bases = placed.filter((cabinet) => bearsCountertop(cabinet));
+  return countertopSurfaces(placed, room, island).filter((surface) => (
+    !surface.peninsulaRunId && !surface.customWallId && surface.kind !== "island"
+    && bases.some((cabinet) => countertopSurfaceCoversCabinet(surface, cabinet))
+  ));
+}
+
 export function addThreeDStandardCountertops(
   root: THREE.Group,
   room: RoomData,
@@ -5985,9 +6029,7 @@ export function addThreeDStandardCountertops(
   countertopTexture?: THREE.Texture | null,
   island?: IslandZone | null,
 ) {
-  const surfaces = countertopSurfaces(placed, room, island).filter((surface) => (
-    !surface.peninsulaRunId && !surface.customWallId && surface.kind !== "island"
-  ));
+  const surfaces = threeDStandardCountertopSurfaces(room, placed, island);
   for (const surface of surfaces) {
     const length = Math.max(0.1, surface.linearInches ?? surface.width);
     const depth = Math.max(0.1, surface.depth);
@@ -6517,6 +6559,10 @@ export function threeDContinuousToeKickSegments(placed: PlacedCabinet[], room: R
     if (cabinet.placement !== "base" || placedCornerGeometryKind(cabinet) !== "standard") return [];
     const wallId = cabinetWall(cabinet, room);
     if (!wallRunFrame(wallId, room)) return [];
+    // A free-standing box in the middle of the room is only *nearest* to this
+    // wall; it has no wall run, so it keeps its own toe kick instead of
+    // projecting a board onto the wall it does not touch.
+    if (!cabinet.wallId && !isAgainstWall(cabinet, wallId, room)) return [];
     const start = wallRunOffset(cabinet, wallId, room);
     const end = start + wallRunSpan(cabinet, wallId, room);
     const depth = Math.max(0, Number(cabinet.depth) || STD.BASE_DEPTH);
@@ -9079,7 +9125,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (!disposed) setDoorTextureState(state);
     };
     if (renderExistingDesign) {
-	      for (const cabinet of placed) {
+	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, placed, island);
+      for (const cabinet of placed) {
 	        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
 	        const baseSku = existingCabinetSku(cabinet, room);
 	        const transitionFootprint = angledWallTransitionFootprint(cabinet, room, placed);
@@ -9103,7 +9150,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		        // `countertopSurfaces` below. That shared source preserves complete
 		        // LSB/ERB tops, one uninterrupted slab per touching run, and real
 		        // gaps at appliances without stacking a rectangular top per box.
-		        const sharedCountertopSurface = bearsCountertop(cabinet);
+		        // A base whose footprint no shared slab covers (free-standing box
+		        // snapped to a wall by the run builder) keeps its own top.
+		        const sharedCountertopSurface = bearsCountertop(cabinet)
+		          && sharedStandardCountertopSurfaces.some((surface) => countertopSurfaceCoversCabinet(surface, cabinet));
 		        addCabinet(catalogRoot, sku, null, cursor, room.width, room.depth, cabinetFinish, materialDefaults.countertop, cabinetDoorProfile ?? undefined, transform, cabinetDoorTexture, updateDoorTextureState, {
 		          countertop: countertopTexture,
 		          suppressCountertop: sharedCountertopSurface,

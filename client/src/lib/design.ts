@@ -6594,7 +6594,7 @@ export const WALL_LABELS: Record<WallSide, string> = {
 };
 
 // Is the placed item sitting against `side` (within a tolerance)?
-function isAgainstWall(p: PlacedCabinet, side: WallSide, room: RoomData): boolean {
+export function isAgainstWall(p: PlacedCabinet, side: WallSide, room: RoomData): boolean {
 	  const rotated = rotatedSize(p);
 	  const cornerKind = placedCornerGeometryKind(p);
 	  const trueRoomCorner = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer" || cornerKind === "triangle";
