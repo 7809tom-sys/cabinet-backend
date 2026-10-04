@@ -1823,6 +1823,20 @@ export function peninsulaCountertopRaisedBarOverhang(
   return value === 12 ? 12 : 15;
 }
 
+/**
+ * The counter-height worktop stops at the cabinet support when a separate
+ * raised seating bar is selected.  This also neutralizes legacy lower-seat and
+ * pony-wall extension values stored on an older split-level peninsula.
+ */
+export function peninsulaLowerWorktopOppositeSideExtensionIn(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): number {
+  if (peninsulaCountertopRaisedBarEnabled(run, room)) return 0;
+  return peninsulaCountertopSeatingOverhang(run, room)
+    + peninsulaCountertopPonyWallBackExtensionIn(run, room);
+}
+
 /** A connected countertop has one exposed far end; move a legacy root flag to the terminal run. */
 export function peninsulaCountertopWaterfallEnd(
   run: PeninsulaRun,
@@ -6285,8 +6299,7 @@ export function countertopArea(
       || (surface.runStartIn ?? 0) + (surface.linearInches ?? surface.width) >= (terminalRun?.length ?? Number.POSITIVE_INFINITY) - COLLISION_EPSILON_IN;
     if (terminalRun && peninsulaCountertopWaterfallEnd(terminalRun, room ?? { peninsulaRuns: [] }) && reachesFarEnd) {
       const terminalDepth = COUNTERTOP_DEPTH_IN
-        + peninsulaCountertopSeatingOverhang(terminalRun, room ?? { peninsulaRuns: [] })
-        + peninsulaCountertopPonyWallBackExtensionIn(terminalRun, room ?? { peninsulaRuns: [] });
+        + peninsulaLowerWorktopOppositeSideExtensionIn(terminalRun, room ?? { peninsulaRuns: [] });
       waterfallSqIn += STD.BASE_HEIGHT * terminalDepth;
     }
   }
@@ -11165,13 +11178,18 @@ export function peninsulaCountertopSurface(
   requestedStartIn = 0,
   requestedLengthIn = run.length,
 ): CountertopSurface {
-  const seating = peninsulaCountertopSeatingOverhang(run, room);
-  const ponyWallBarOverhang = peninsulaCountertopPonyWallBarOverhang(run, room);
-  const ponyWallBackExtension = peninsulaCountertopPonyWallBackExtensionIn(run, room);
+  const hasSeparateRaisedBar = peninsulaCountertopRaisedBarEnabled(run, room);
+  // A 42-inch bar is its own fabricated surface and pony-wall-supported
+  // projection. A saved split-level run can carry older 12/15-inch lower-seat
+  // settings, but those must not make the 36-inch worktop project past its base
+  // cabinets. The lower top ends at the cabinet support with only its standard
+  // 1½-inch finished edge; `peninsulaRaisedBarSurface` owns the seating depth.
+  const ponyWallBarOverhang = hasSeparateRaisedBar ? 0 : peninsulaCountertopPonyWallBarOverhang(run, room);
+  const ponyWallBackExtension = hasSeparateRaisedBar ? 0 : peninsulaCountertopPonyWallBackExtensionIn(run, room);
   // `wallPlacementAt` anchors the entire depth at the peninsula's cabinet-side
   // face. The standard 25½-inch depth owns the cabinet-facing 1½-inch edge;
   // seating and a pony-wall bar must instead grow away from that face.
-  const oppositeSideExtension = seating + ponyWallBackExtension;
+  const oppositeSideExtension = peninsulaLowerWorktopOppositeSideExtensionIn(run, room);
   const slabDepth = COUNTERTOP_DEPTH_IN + oppositeSideExtension;
   const runLength = Math.max(0, Number(run.length) || 0);
   const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));

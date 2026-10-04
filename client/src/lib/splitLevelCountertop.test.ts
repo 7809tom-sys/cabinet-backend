@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { addThreeDPeninsulaCountertops } from "@/components/design/InteractiveRoom3D";
 import {
+  COUNTERTOP_DEPTH_IN,
   RAISED_BAR_HEIGHT_IN,
   countertopSurfaces,
+  peninsulaCountertopSurface,
   type PeninsulaRun,
   type PlacedCabinet,
   type RoomData,
@@ -63,6 +65,27 @@ function baseOnRun(uid: string, run: PeninsulaRun, offset: number, width: number
 }
 
 describe("split-level countertop geometry", () => {
+  it("keeps the lower worktop at the cabinet-supported depth when a saved split-level run carries legacy seating fields", () => {
+    const legacyRoom: RoomData = {
+      ...room,
+      peninsulaRuns: room.peninsulaRuns!.map((run) => run.id === "main" ? {
+        ...run,
+        countertopSeatingOverhang: 15,
+        countertopPonyWallBarOverhang: 15,
+      } : run),
+    };
+    const legacyMain = legacyRoom.peninsulaRuns![0]!;
+    const lower = peninsulaCountertopSurface(legacyMain, legacyRoom, 0, 72);
+
+    expect(lower).toMatchObject({
+      width: 72,
+      depth: COUNTERTOP_DEPTH_IN,
+      ponyWallBarOverhangIn: 0,
+      ponyWallBackExtensionIn: 0,
+      areaInches: 72 * COUNTERTOP_DEPTH_IN,
+    });
+  });
+
   it("keeps the worktop low and builds a separate 42-inch, 15-inch raised bar through a 45-degree return", () => {
     const placed = [
       baseOnRun("main-base", root, 0, 72),
