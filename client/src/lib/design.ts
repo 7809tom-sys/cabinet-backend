@@ -1546,6 +1546,10 @@ export interface PeninsulaRun {
   countertopSeatingOverhang?: 0 | 10 | 12 | 15;
   /** Bar projection that carries the slab across a drywall pony wall and past its back face. */
   countertopPonyWallBarOverhang?: 0 | 10 | 12 | 15;
+  /** A separate 42-inch seating bar behind the counter-height worktop. */
+  countertopRaisedBar?: boolean;
+  /** Seating projection beyond the 4½-inch pony-wall support for a raised bar. */
+  countertopRaisedBarOverhang?: 12 | 15;
   /** A full-height counter panel at this run's exposed far end. */
   countertopWaterfallEnd?: boolean;
   /**
@@ -1767,6 +1771,8 @@ export function peninsulaCountertopPonyWallBarOverhang(
 
 /** Standard framed/drywall pony-wall thickness used when a bar top crosses it. */
 export const DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN = 4.5;
+/** Standard finished height for a two-level seating bar. */
+export const RAISED_BAR_HEIGHT_IN = 42;
 
 /**
  * The selected bar top must first cross the finished pony wall, then project
@@ -1778,6 +1784,25 @@ export function peninsulaCountertopPonyWallBackExtensionIn(
 ): number {
   const barOverhang = peninsulaCountertopPonyWallBarOverhang(run, room);
   return barOverhang > 0 ? DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN + barOverhang : 0;
+}
+
+/** A root-owned raised bar keeps every connected peninsula setting consistent. */
+export function peninsulaCountertopRaisedBarEnabled(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): boolean {
+  const rootId = peninsulaRootRunId(run, room);
+  return Boolean(room.peninsulaRuns?.find((candidate) => candidate.id === rootId)?.countertopRaisedBar);
+}
+
+/** The raised bar is a separately fabricated seating slab, never a deeper worktop. */
+export function peninsulaCountertopRaisedBarOverhang(
+  run: PeninsulaRun,
+  room: Pick<RoomData, "peninsulaRuns">,
+): 12 | 15 {
+  const rootId = peninsulaRootRunId(run, room);
+  const value = room.peninsulaRuns?.find((candidate) => candidate.id === rootId)?.countertopRaisedBarOverhang;
+  return value === 12 ? 12 : 15;
 }
 
 /** A connected countertop has one exposed far end; move a legacy root flag to the terminal run. */
@@ -6224,6 +6249,7 @@ export function countertopArea(
     waterfallSqIn += sides * h * d;
   }
   for (const surface of peninsulaSurfaces) {
+    if (surface.raisedBar) continue;
     const rootRun = room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     const terminalRun = surface.peninsulaTerminalRunId
       ? room?.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? rootRun
@@ -9472,6 +9498,12 @@ export interface IslandZone {
   countertopOffsetY?: number | null;
   /** Exact reveal around automatic slab edges. Null/undefined uses the standard 1.5-inch reveal. */
   countertopOverhang?: number | null;
+  /** A separate 42-inch seating bar, retained independently of the lower worktop. */
+  raisedBar?: boolean;
+  /** Side of the island that receives the raised seating bar. */
+  raisedBarSide?: IslandFace;
+  /** Finished seating projection beyond the lower island worktop. */
+  raisedBarOverhang?: 12 | 15;
   /** When true, the explicit slab width remains centered on the island work zone instead of the current cabinet envelope. */
   countertopWidthAnchoredToZone?: boolean | null;
   /** When true, the explicit slab depth remains centered on the island work zone instead of the current cabinet envelope. */
@@ -10014,6 +10046,12 @@ export interface CountertopSurface {
   ponyWallBarOverhangIn?: number;
   /** Drywall thickness plus bar projection carried behind the cabinet backs. */
   ponyWallBackExtensionIn?: number;
+  /** A separately fabricated 42-inch seating bar, drawn above the worktop in 3D. */
+  raisedBar?: boolean;
+  /** Seating projection beyond its supporting pony wall. */
+  raisedBarOverhangIn?: 12 | 15;
+  /** Finished installation height for the separate seating bar. */
+  countertopHeightIn?: number;
   /** Measured continuous wall that owns this cabinet-supported countertop piece. */
   customWallId?: string;
 	/** Stable physical cabinet run represented by this single countertop piece. */
@@ -10302,8 +10340,16 @@ export function miteredPeninsulaCountertopSurfaces(
 	      for (const { index: childIndex } of childIndices) {
 	        const parentSurface = resolved[parentIndex]!;
 	        const childSurface = resolved[childIndex]!;
-	        const parentNormal = countertopRunFaceNormal(parentGeometry.radians, side);
-	        const childNormal = countertopRunFaceNormal(childGeometry.radians, side);
+        const parentNormalBase = countertopRunFaceNormal(parentGeometry.radians, side);
+        const childNormalBase = countertopRunFaceNormal(childGeometry.radians, side);
+        // The lower worktop occupies the cabinet-facing normal; a raised bar
+        // occupies the opposite seating normal at the same physical turn.
+        const parentNormal = parentSurface.raisedBar
+          ? { x: -parentNormalBase.x, y: -parentNormalBase.y }
+          : parentNormalBase;
+        const childNormal = childSurface.raisedBar
+          ? { x: -childNormalBase.x, y: -childNormalBase.y }
+          : childNormalBase;
 	        const rightAngle = Math.abs(Math.cos(parentGeometry.radians - childGeometry.radians)) <= 1e-6;
 	        if (rightAngle) {
 	          const parentEdge = countertopSurfaceRunEndEdge(parentSurface, parent, room, false);
@@ -10319,14 +10365,14 @@ export function miteredPeninsulaCountertopSurfaces(
 	            continue;
 	          }
 	        }
-	        const miterPoint = countertopOffsetEdgeMiterPoint(
-	          parentGeometry.end,
-	          parentGeometry.radians,
+        const miterPoint = countertopOffsetEdgeMiterPoint(
+          parentGeometry.end,
+          parentGeometry.radians,
           parentNormal,
-          COUNTERTOP_DEPTH_IN,
-	          childGeometry.radians,
+          parentSurface.raisedBar ? parentSurface.depth : COUNTERTOP_DEPTH_IN,
+          childGeometry.radians,
           childNormal,
-          COUNTERTOP_DEPTH_IN,
+          childSurface.raisedBar ? childSurface.depth : COUNTERTOP_DEPTH_IN,
         );
         resolved[parentIndex] = countertopSurfaceWithMiterPoint(parentSurface, parent, room, false, miterPoint);
         resolved[childIndex] = countertopSurfaceWithMiterPoint(childSurface, child, room, true, miterPoint);
@@ -11118,6 +11164,50 @@ export function peninsulaCountertopSurface(
     areaInches: lengthIn * slabDepth,
     ponyWallBarOverhangIn: ponyWallBarOverhang,
     ponyWallBackExtensionIn: ponyWallBackExtension,
+  };
+}
+
+/**
+ * Separate upper seating bar behind the root peninsula's cabinet run. The lower
+ * worktop remains at 36 inches and retains its normal 1½-inch edge; the bar is
+ * supported by the drywall pony wall, rises to 42 inches, and projects 12 or
+ * 15 inches on the seating side. This is deliberately its own physical slab.
+ */
+export function peninsulaRaisedBarSurface(
+  run: PeninsulaRun,
+  room: RoomData,
+  requestedStartIn = 0,
+  requestedLengthIn = run.length,
+): CountertopSurface | null {
+  if (!peninsulaCountertopRaisedBarEnabled(run, room)) return null;
+  const overhang = peninsulaCountertopRaisedBarOverhang(run, room);
+  const depth = DRYWALL_PONY_WALL_COUNTERTOP_SUPPORT_DEPTH_IN + overhang;
+  const runLength = Math.max(0, Number(run.length) || 0);
+  const startIn = Math.max(0, Math.min(runLength, Number(requestedStartIn) || 0));
+  const lengthIn = Math.max(0, Math.min(runLength - startIn, Number(requestedLengthIn) || 0));
+  if (lengthIn <= COLLISION_EPSILON_IN) return null;
+  const seatingSide: PeninsulaCabinetSide = (run.cabinetSide ?? "left") === "left" ? "right" : "left";
+  const spot = wallPlacementAt(startIn, lengthIn, depth, run.id as WallSide, room, seatingSide);
+  const radians = spot.rotation * Math.PI / 180;
+  const aabbWidth = Math.abs(lengthIn * Math.cos(radians)) + Math.abs(depth * Math.sin(radians));
+  const aabbDepth = Math.abs(lengthIn * Math.sin(radians)) + Math.abs(depth * Math.cos(radians));
+  const centerX = spot.x + aabbWidth / 2;
+  const centerY = spot.y + aabbDepth / 2;
+  return {
+    x: centerX - lengthIn / 2,
+    y: centerY - depth / 2,
+    width: lengthIn,
+    depth,
+    kind: "base",
+    rotation: spot.rotation,
+    peninsulaRunId: run.id,
+    runStartIn: startIn,
+    linearInches: lengthIn,
+    runLinearInches: lengthIn,
+    areaInches: lengthIn * depth,
+    raisedBar: true,
+    raisedBarOverhangIn: overhang,
+    countertopHeightIn: RAISED_BAR_HEIGHT_IN,
   };
 }
 
@@ -12183,6 +12273,18 @@ export function countertopSurfaces(
   const mitered = miteredPeninsulaCountertopSurfaces(out, room);
   out.splice(0, out.length, ...unifiedFortyFivePeninsulaCountertopSurfaces(mitered, room));
   out.push(...peninsulaVoidFillSurfaces(out, room));
+  // A split-level bar is not a deeper version of the lower worktop. Add its
+  // separate mitered slabs after the lower countertop's miter/void passes so it
+  // follows every connected 45° return without becoming a countertop bridge.
+  const raisedBars: CountertopSurface[] = [];
+  for (const run of room.peninsulaRuns ?? []) {
+    if (!peninsulaCountertopRaisedBarEnabled(run, room)) continue;
+    for (const support of peninsulaCountertopSupportSegments(run, placed, room)) {
+      const bar = peninsulaRaisedBarSurface(run, room, support.start, support.end - support.start);
+      if (bar) raisedBars.push(bar);
+    }
+  }
+  out.push(...miteredPeninsulaCountertopSurfaces(raisedBars, room));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {

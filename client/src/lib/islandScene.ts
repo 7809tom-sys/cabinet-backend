@@ -20,6 +20,8 @@ import {
 
 export const ISLAND_COUNTERTOP_OVERHANG_IN = 1.5;
 export const ISLAND_COUNTERTOP_OVERHANG_MAX_IN = 24;
+/** The framing/pony-wall support below an upper island seating bar. */
+export const ISLAND_RAISED_BAR_SUPPORT_DEPTH_IN = 4.5;
 
 /** The user may replace the standard reveal in exact one-eighth-inch increments. */
 export function islandCountertopOverhangIn(island: IslandZone): number {
@@ -216,6 +218,7 @@ export function islandAssemblyClearance(
   const rectangles = [
     islandAssemblyBounds(island),
     ...islandCountertopRects(island, placed).map(rotatedPlanRectBounds),
+    ...islandRaisedBarRects(island, placed).map(rotatedPlanRectBounds),
     ...placed
       .filter((item) => isIslandAssemblyMember(item, island, placed))
       .map((item) => {
@@ -908,6 +911,38 @@ export function islandCountertopVisibleRects(island: IslandZone, placed: PlacedC
       [slab],
     ),
   );
+}
+
+/**
+ * Returns a separate 42-inch seating bar behind (or on the chosen side of) an
+ * island's counter-height worktop. The lower worktop is never stretched to make
+ * this happen: each returned rectangle is a new physical top, measured for the
+ * fabricator and rendered at its own height.
+ */
+export function islandRaisedBarRects(island: IslandZone, placed: PlacedCabinet[]): IslandCountertopRect[] {
+  if (!island.raisedBar) return [];
+  const side = island.raisedBarSide ?? "back";
+  const overhang = island.raisedBarOverhang === 15 ? 15 : 12;
+  const barDepth = ISLAND_RAISED_BAR_SUPPORT_DEPTH_IN + overhang;
+  return islandCountertopVisibleRects(island, placed).map((slab) => {
+    const radians = ((Number(slab.rotation ?? 0) || 0) * Math.PI) / 180;
+    const local = side === "back"
+      ? { x: 0, y: -(slab.depth / 2 + barDepth / 2), width: slab.width, depth: barDepth }
+      : side === "front"
+        ? { x: 0, y: slab.depth / 2 + barDepth / 2, width: slab.width, depth: barDepth }
+        : side === "left"
+          ? { x: -(slab.width / 2 + barDepth / 2), y: 0, width: barDepth, depth: slab.depth }
+          : { x: slab.width / 2 + barDepth / 2, y: 0, width: barDepth, depth: slab.depth };
+    const centerX = slab.x + slab.width / 2 + local.x * Math.cos(radians) - local.y * Math.sin(radians);
+    const centerY = slab.y + slab.depth / 2 + local.x * Math.sin(radians) + local.y * Math.cos(radians);
+    return {
+      x: centerX - local.width / 2,
+      y: centerY - local.depth / 2,
+      width: local.width,
+      depth: local.depth,
+      rotation: slab.rotation,
+    };
+  });
 }
 
 /** Legacy single-slab measurement used by the 2D island attribute interface. */
