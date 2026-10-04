@@ -79,6 +79,8 @@ describe("selected Peninsula Wizard cabinet planning", () => {
       B24,
       F342,
       { ...B24, id: 30, masterCode: "W2430", description: '24" wall cabinet', height: 30, depth: 12, category: "Wall", subCategory: "Wall Cabinet" },
+      { ...B24, id: 36, masterCode: "V3621", description: '36" vanity sink base', category: "Vanity", subCategory: "Vanity Sink", depth: 21 },
+      { ...B24, id: 37, masterCode: "ADA-VA30", description: '30" ADA vanity', category: "ADA", subCategory: "ADA Vanity", depth: 24 },
     ]);
     expect(options.map((item) => item.masterCode)).toEqual(["B24"]);
   });

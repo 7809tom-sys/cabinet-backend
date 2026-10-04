@@ -50,15 +50,27 @@ describe("Peninsula Wizard", () => {
     expect(source).not.toContain('Automatic fit from this line');
   });
 
-  it("shows the selected cabinet total and measured remaining space before building", () => {
+  it("derives each leg from the selected cabinet list and shows the dynamic total before building", () => {
     expect(source).toContain('const peninsulaWizardSpacePreview = useMemo(() => {');
     expect(source).toContain('selectedPeninsulaCabinetTotalIn(selectedCabinets)');
+    expect(source).toContain('const peninsulaWizardTotalLength = useMemo(() => {');
+    expect(source).toContain('data-testid="peninsula-wizard-total-length"');
+    expect(source).toContain('Total selected peninsula cabinet length');
     expect(source).toContain('freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, placed, [], 9)');
     expect(source).toContain('data-testid="peninsula-wizard-space-preview"');
     expect(source).toContain('Cabinet totals &amp; remaining space');
     expect(source).toContain('data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-cabinet-total`}');
     expect(source).toContain('data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-remaining-space`}');
-    expect(source).toContain('The {formatEighthInches(leg.remainingIn ?? 0)} joint remainder is reserved');
+    expect(source).toContain('Each leg ends at the last cabinet you add');
+    expect(source).toContain('No leg length is entered.');
+    expect(source).not.toContain('primaryLength: number;');
+    expect(source).not.toContain('endLength: number;');
+    expect(source).not.toContain('Straight run length (in)');
+    expect(source).not.toContain('45° end length (in)');
+    expect(source).not.toContain('Start from corner (in)');
+    expect(source).toContain('The Wizard attaches at the selected wall centre.');
+    expect(source).toContain('Show counter stools on the seating side');
+    expect(source).toContain('item.uid.startsWith("peninsula-stool:")');
   });
 
   it("adds a real mitered filler pair at the 135-degree joint of every Wizard 45-degree return", () => {
@@ -72,7 +84,13 @@ describe("Peninsula Wizard", () => {
   it("offers a regular or 42-inch split-level countertop treatment through the shared peninsula data model", () => {
     expect(source).toContain('countertopTreatment: "regular" | "split-level"');
     expect(source).toContain('data-testid="peninsula-wizard-countertop-treatment"');
-    expect(source).toContain('countertopRaisedBar: draft.countertopTreatment === "split-level"');
+    expect(source).toContain("countertopRaisedBar: draft.countertopTreatment === 'split-level'");
     expect(source).toContain('makePeninsulaDrywallBackPonyWall(');
+  });
+
+  it("blocks a generated Peninsula Wizard countertop from leaving the measured room shell", () => {
+    expect(source).toContain('const escapedCountertop = countertopSurfaces(working, nextRoom).some((surface) => {');
+    expect(source).toContain('!countertopSurfaceInsideRoom(surface, nextRoom)');
+    expect(source).toContain('This cabinet plan would send a countertop through a room wall.');
   });
 });

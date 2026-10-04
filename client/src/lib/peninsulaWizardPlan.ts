@@ -10,6 +10,8 @@ import { catalogFillerForGap, isCatalogFiller, type CatalogFillerCandidate } fro
 export type PeninsulaWizardCabinet = CatalogFillerCandidate & {
   id: number;
   placement?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
 };
 
 export type PeninsulaWizardPlanItem = {
@@ -54,7 +56,12 @@ export function wizardEligibleBaseCabinets(
     const width = numeric(candidate.width);
     const height = numeric(candidate.height);
     const depth = numeric(candidate.depth);
+    const classification = `${candidate.category ?? ""} ${candidate.subCategory ?? ""} ${candidate.description ?? ""}`.toLowerCase();
+    // A kitchen peninsula only accepts kitchen bases. Bathroom vanities and ADA
+    // vanity sinks may share a base-like size, but are never a Wizard choice.
+    const isVanity = /\bvanity\b|\bbath(?:room)?\b/.test(classification);
     return !isCatalogFiller(candidate)
+      && !isVanity
       && width >= 9
       && height >= 30
       && height <= 36

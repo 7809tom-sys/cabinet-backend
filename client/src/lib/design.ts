@@ -9398,6 +9398,30 @@ export function placedInsideDrawnRoom(p: PlacedCabinet, room: RoomData): boolean
   }
   return placedEnvelopeCorners(p).every((corner) => pointInsideOrOnRoomShell(corner.x, corner.y, vertices));
 }
+
+/**
+ * Shared room-shell guard for fabricated countertop surfaces. Cabinets already
+ * use `placedInsideDrawnRoom`; a countertop has a polygon, not a cabinet body,
+ * so it needs the same strict boundary rule in its own geometry vocabulary.
+ * This prevents a seating projection or a generated peninsula slab from
+ * visually passing through a room wall in Plan or 3D.
+ */
+export function countertopSurfaceInsideRoom(surface: CountertopSurface, room: RoomData): boolean {
+  const polygon = countertopSurfacePlanPolygon(surface);
+  if (polygon.length < 3) return false;
+  const vertices = room.vertices ?? [];
+  const closedShell = !room.openWallPath && vertices.length >= 3 && (room.customWalls?.length ?? 0) >= vertices.length;
+  if (closedShell) {
+    return polygon.every((point) => pointInsideOrOnRoomShell(point.x, point.y, vertices));
+  }
+  return polygon.every((point) => (
+    point.x >= -1e-6
+    && point.y >= -1e-6
+    && point.x <= room.width + 1e-6
+    && point.y <= room.depth + 1e-6
+  ));
+}
+
 export function containCabinetOnDrawnWalls(p: PlacedCabinet, room: RoomData): PlacedCabinet {
   if (p.islandFace || !room.vertices?.length || !room.customWalls?.length) return p;
   // ONE clamp rule for every room kind: a body that already sits inside the
