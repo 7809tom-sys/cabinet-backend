@@ -11181,6 +11181,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    return <InteractiveRoom3D
 		      key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}
 		      embedded
+		      cutawayRoomWalls
 		      hybridPlanUnderlay={hybridPlanUnderlay}
 		      catalogDragItem={interactive3dCatalogDragItem}
 	      className="h-full min-h-0"

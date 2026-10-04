@@ -698,6 +698,8 @@ interface Props {
   fillerInsertionTransition?: { uids: string[]; key: number } | null;
   /** Renders directly inside the main designer canvas rather than a standalone preview shell. */
   embedded?: boolean;
+  /** Ghosts walls between the camera and its target so the regular Designer stays visible. */
+  cutawayRoomWalls?: boolean;
   /** Draws the complete authoritative 2D plan as a subdued floor reference beneath full-opacity 3D geometry. */
   hybridPlanUnderlay?: boolean;
   /** Exact admin-only Cabinet Config destination for a selected 3D cabinet. */
@@ -1820,11 +1822,30 @@ export function threeDRoomWallSideFromObject(object: THREE.Object3D | null | und
 // carcass face avoids line geometry projecting through painted door panels.
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
 export const THREE_D_WALL_OPACITY = 0.72;
+export const THREE_D_CUTAWAY_WALL_OPACITY = 0.025;
 export const THREE_D_WALL_DEPTH_WRITE = false;
 // A kitchen is placed in a room, not on an empty stage. Show the drawn walls on
 // first load so the customer can immediately see cabinet-to-wall relationships.
 // The control still offers a deliberate clear-stage view for close inspection.
 export const THREE_D_ROOM_CONTEXT_DEFAULT = true;
+
+/** A wall only becomes a visual cutaway if the sightline to the orbit target crosses its finite span. */
+export function threeDWallObscuresOrbitTarget(
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  camera: { x: number; z: number },
+  target: { x: number; z: number },
+): boolean {
+  const cameraX = camera.x, cameraY = -camera.z;
+  const rayX = target.x - cameraX, rayY = -target.z - cameraY;
+  const wallX = end.x - start.x, wallY = end.y - start.y;
+  const cross = (ax: number, ay: number, bx: number, by: number) => ax * by - ay * bx;
+  const denominator = cross(rayX, rayY, wallX, wallY);
+  if (Math.abs(denominator) < 1e-9) return false;
+  const alongSightline = cross(start.x - cameraX, start.y - cameraY, wallX, wallY) / denominator;
+  const alongWall = cross(start.x - cameraX, start.y - cameraY, rayX, rayY) / denominator;
+  return alongSightline > 0 && alongSightline < 1 && alongWall >= -0.03 && alongWall <= 1.03;
+}
 
 /** Keeps the orbit camera outside the furnished room envelope at every supported room size. */
 export function threeDCameraDistanceLimits(maxSpan: number) {
@@ -8493,7 +8514,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -8528,6 +8549,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  const [cameraReadyKey, setCameraReadyKey] = useState(0);
 	  const [cameraPreset, setCameraPreset] = useState<ThreeDCameraPreset>("presentation");
 	  const [showRoomContext, setShowRoomContext] = useState(THREE_D_ROOM_CONTEXT_DEFAULT);
+	  const [showSolidFrontWalls, setShowSolidFrontWalls] = useState(false);
   const [wallHeightIn, setWallHeightIn] = useState(() => constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
   const [wallHeights, setWallHeights] = useState<Record<WallSide, number>>(() => resolvedThreeDWallHeights(roomOverride, wallHeightIn));
 	  const [webglUnavailable, setWebglUnavailable] = useState(false);
@@ -9107,6 +9129,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
           heightIn: undefined,
 	        }));
 	    const miteredRoomWallOutlines = threeDMiteredRoomWallOutlines(explicitWallSegments, !roomOverride?.openWallPath);
+	    const roomWallMeshes: Array<{ mesh: THREE.Mesh; start: THREE.Vector2; end: THREE.Vector2 }> = [];
 	    explicitWallSegments.forEach(({ start, end, customWall, heightIn }, index) => {
 	      const outline = miteredRoomWallOutlines[index];
 	      if (!outline) return;
@@ -9126,6 +9149,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        roomWallTexture: hasRoomWallAppearance ? resolvedRoomWallAppearance.texture : null,
 	      };
 	      threeScene.add(wall);
+	      roomWallMeshes.push({ mesh: wall, start, end });
 	    });
     // Keep the floor visually warm and uncluttered; physical room edges and
     // cabinet shadows provide scale better than a generic editor grid.
@@ -9282,6 +9306,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    const render = () => {
 	      frame = requestAnimationFrame(render);
 	      controls.update();
+	      if (cutawayRoomWalls && showRoomContext && !showSolidFrontWalls) {
+	        for (const { mesh, start, end } of roomWallMeshes) {
+	          (mesh.material as THREE.MeshStandardMaterial).opacity = threeDWallObscuresOrbitTarget(start, end, camera.position, controls.target)
+	            ? THREE_D_CUTAWAY_WALL_OPACITY : THREE_D_WALL_OPACITY;
+	        }
+	      }
 	      renderer.render(threeScene, camera);
 	      if (!firstFramePainted) {
 	        firstFramePainted = true;
@@ -9322,7 +9352,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, hardwareStyleId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, showSolidFrontWalls, cutawayRoomWalls, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, hardwareStyleId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
 	  // A catalog filler has already passed geometry/collision validation before this
 	  // cue runs. Animate only its visual group, so the final coordinates and the
@@ -10753,6 +10783,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
           {workspacePanel === "view" && <>
             <SheetHeader><SheetTitle>3D view</SheetTitle></SheetHeader>
             <div className="mt-4 flex flex-wrap gap-2" aria-label="3D camera presets">{([ ["presentation", "Perspective"], ["front", "Front"], ["wide", "Wide"], ["detail", "Detail"] ] as const).map(([preset, label]) => <Button key={preset} type="button" variant={cameraPreset === preset ? "default" : "outline"} onClick={() => { setCameraPreset(preset); setWorkspacePanel(null); }}>{label}</Button>)}</div>
+            {cutawayRoomWalls && <Button type="button" className="mt-4" variant="outline" aria-pressed={showSolidFrontWalls} onClick={() => setShowSolidFrontWalls((current) => !current)}>{showSolidFrontWalls ? "Clear view (cut away front walls)" : "Show solid front walls"}</Button>}
             <div className="mt-4 flex flex-wrap gap-2"><Button type="button" variant="outline" onClick={() => setShowRoomContext((current) => !current)}>{showRoomContext ? "Hide room walls" : "Show room walls"}</Button><Button type="button" variant="outline" onClick={() => setAutoRotate((current) => !current)}><Rotate3D className="mr-1.5 h-4 w-4" />{autoRotate ? "Pause rotation" : "Rotate room"}</Button><Button type="button" variant="outline" onClick={toggleFullscreen}>{isFullscreen ? "Exit full screen" : "Full screen"}</Button></div>
           </>}
 	          {workspacePanel === "finish" && <>
