@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
 import { cabinetWallRunSegment, type PlacedCabinet, type RoomData, type WallOpening, type WallSide } from "@/lib/design";
 import {
-  CORNER_FOOTPRINT_IN, masterTracCornerParts, planMasterTracTower, towerCleatReferenceItems, towerRodHardwareTakeoff, towerTotalWidth, towerWidths,
+  CORNER_FOOTPRINT_IN, masterTracCornerParts, nextAvailableCornerShelfElevation, planMasterTracTower, towerCleatReferenceItems, towerRodHardwareTakeoff, towerTotalWidth, towerWidths,
   type MasterTracTowerConfig, type TowerBay, type TowerStorage,
 } from "@/lib/masterTracTower";
 
@@ -27,8 +27,9 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
   const isWhite = config.finish === "Glacier White";
   const board = { backgroundColor: color, borderColor: isWhite ? "#92918d" : "#221f1d" };
   const cornerHeight = config.cornerElevationIn ?? (config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn);
+  const cornerHeights = [cornerHeight, ...(config.cornerAdjustableHeightsIn ?? [])];
   const cornerFace = config.corner && <div className="relative h-full shrink-0 border-x border-dashed border-amber-600 bg-amber-50/40" style={{ width: `${CORNER_FOOTPRINT_IN / total * 100}%` }} data-testid="tower-corner-elevation-face">
-    <div className="absolute inset-x-0 border-y-2 border-amber-700 shadow-sm" style={{ ...board, height: "5px", bottom: `${cornerHeight / config.heightIn * 100}%` }} />
+    {cornerHeights.map((height, index) => <div key={`${height}-${index}`} data-testid="tower-corner-elevation-level" className="absolute inset-x-0 border-y-2 border-amber-700 shadow-sm" style={{ ...board, height: "5px", bottom: `${height / config.heightIn * 100}%` }} />)}
     <span className="absolute inset-x-0 top-1/3 text-center text-[9px] leading-tight text-amber-950">Curved corner<br />29.5″ · illustrative</span>
   </div>;
   return (
@@ -102,7 +103,8 @@ export function MasterTracTowerPlanner({
     }),
   }));
   const chooseCorner = (side: "start" | "end" | undefined) => {
-    setConfig((prev) => ({ ...prev, corner: side, cornerShelfType: side ? (prev.cornerShelfType ?? "fixed") : undefined, cornerElevationIn: undefined }));
+    setConfig((prev) => ({ ...prev, corner: side, cornerShelfType: side ? (prev.cornerShelfType ?? "fixed") : undefined, cornerElevationIn: undefined,
+      cornerAdjustableHeightsIn: side ? prev.cornerAdjustableHeightsIn : undefined }));
     const run = cabinetWallRunSegment(wall, room);
     const nextWidth = towerTotalWidth({ ...config, corner: side });
     setStartIn(side === "end" ? run.start + run.length - nextWidth : run.start);
@@ -117,6 +119,9 @@ export function MasterTracTowerPlanner({
   const fixedCount = config.bays.length * 2;
   const adjustableCount = config.bays.reduce((sum, bay) => sum + bay.adjustableHeightsIn.length, 0);
   const cornerParts = config.corner ? masterTracCornerParts(config.finish, config.cornerShelfType ?? "fixed") : null;
+  const cornerExtraCount = config.corner ? config.cornerAdjustableHeightsIn?.length ?? 0 : 0;
+  const additionalCornerParts = cornerExtraCount ? masterTracCornerParts(config.finish, "adjustable") : null;
+  const nextCornerElevation = nextAvailableCornerShelfElevation(config);
   const cutLines = new Map<string, { sku: string; quantity: number; bay: number; stock: number; installed: number; offcut: number; price: number }>();
   if (preview.ok) for (const board of preview.plan.boards) {
     const cut = board.masterTracShelfCut;
@@ -146,9 +151,12 @@ export function MasterTracTowerPlanner({
               <div className="mt-2 flex flex-wrap gap-2">
                 {([ [undefined, "No corner"], ["start", "Left / start corner"], ["end", "Right / end corner"] ] as const).map(([side, label]) => <Button key={side ?? "none"} type="button" size="sm" variant={config.corner === side ? "default" : "outline"} aria-pressed={config.corner === side} onClick={() => chooseCorner(side)}>{label}</Button>)}
               </div>
-              {config.corner && <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                <Label>Corner shelf</Label><Select value={config.cornerShelfType ?? "fixed"} onValueChange={(type) => setConfig((prev) => ({ ...prev, cornerShelfType: type as "fixed" | "adjustable", cornerElevationIn: type === "fixed" ? undefined : (prev.cornerElevationIn ?? 42) }))}><SelectTrigger aria-label="Corner shelf type" className="h-8 w-44 bg-white text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">Fixed corner shelf</SelectItem><SelectItem value="adjustable">Adjustable corner shelf</SelectItem></SelectContent></Select>
-                {config.cornerShelfType === "adjustable" ? <><Label htmlFor="tower-corner-elevation">Bottom elevation</Label><Input id="tower-corner-elevation" aria-label="Corner shelf elevation in inches" type="number" min="0" max={config.heightIn - 0.75} step="0.25" value={config.cornerElevationIn ?? 42} onChange={(event) => setConfig((prev) => ({ ...prev, cornerElevationIn: Number(event.target.value) }))} className="h-8 w-20 bg-white text-xs" />″</> : <span className="text-stone-600">Level with adjacent fixed top shelf · H-joint listed separately</span>}
+              {config.corner && <div className="mt-2 space-y-2 text-xs">
+                <div className="flex flex-wrap items-center gap-2"><Label>Primary corner shelf</Label><Select value={config.cornerShelfType ?? "fixed"} onValueChange={(type) => setConfig((prev) => ({ ...prev, cornerShelfType: type as "fixed" | "adjustable", cornerElevationIn: type === "fixed" ? undefined : (prev.cornerElevationIn ?? 42) }))}><SelectTrigger aria-label="Corner shelf type" className="h-8 w-44 bg-white text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="fixed">Fixed corner shelf</SelectItem><SelectItem value="adjustable">Adjustable corner shelf</SelectItem></SelectContent></Select>
+                  {config.cornerShelfType === "adjustable" ? <><Label htmlFor="tower-corner-elevation">Bottom elevation</Label><Input id="tower-corner-elevation" aria-label="Corner shelf elevation in inches" type="number" min="0" max={config.heightIn - 0.75} step="0.25" value={config.cornerElevationIn ?? 42} onChange={(event) => setConfig((prev) => ({ ...prev, cornerElevationIn: Number(event.target.value) }))} className="h-8 w-20 bg-white text-xs" />″</> : <span className="text-stone-600">Level with adjacent fixed top shelf · H-joint listed separately</span>}
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5" data-testid="tower-adjustable-corner-shelves"><span className="mr-1 text-stone-700">More adjustable corner shelves · bottom height</span>{(config.cornerAdjustableHeightsIn ?? []).map((height, shelfIndex) => <span key={shelfIndex} className="inline-flex items-center rounded border border-stone-300 bg-white"><Input aria-label={`Adjustable corner shelf ${shelfIndex + 1} elevation`} type="number" min="0" max={config.heightIn - 0.75} step="0.25" value={height} onChange={(event) => setConfig((prev) => ({ ...prev, cornerAdjustableHeightsIn: (prev.cornerAdjustableHeightsIn ?? []).map((old, index) => index === shelfIndex ? Number(event.target.value) : old) }))} className="h-7 w-16 border-0 bg-transparent px-1 text-center text-xs" /><span className="text-[10px]">″</span><button type="button" aria-label={`Remove adjustable corner shelf ${shelfIndex + 1}`} onClick={() => setConfig((prev) => ({ ...prev, cornerAdjustableHeightsIn: (prev.cornerAdjustableHeightsIn ?? []).filter((_, index) => index !== shelfIndex) }))} className="px-1.5 text-stone-500 hover:text-red-700">×</button></span>)}<Button type="button" size="sm" variant="outline" data-testid="add-adjustable-corner-shelf" disabled={nextCornerElevation == null} onClick={() => setConfig((prev) => { const height = nextAvailableCornerShelfElevation(prev); return height == null ? prev : { ...prev, cornerAdjustableHeightsIn: [...(prev.cornerAdjustableHeightsIn ?? []), height] }; })} className="h-8 border-dashed bg-white text-xs"><Plus className="mr-1 h-3 w-3" /> Add adjustable corner shelf</Button></div>
+                <p className="text-[10px] text-stone-600">Add as many sourced corner shelves as fit the panel height; each needs its own elevation and ¾″ of nonoverlapping board space. Adjustable shelf supports are not specified.</p>
               </div>}
               <p className="mt-1.5 text-[11px] text-stone-600">Actual shelf SKU/finish and 29.5 × 29.5 × 0.75″ catalog bounding size; <strong>curved edge and join visualization are illustrative</strong>, not an installation drawing. {config.corner === "end" ? "End" : "Start"} corner anchors to the selected wall end. {config.corner && config.depthIn !== 14.5 ? "Select 14.5″ straight bays for this documented H-joint reference." : ""}</p>
             </div>
@@ -198,10 +206,11 @@ export function MasterTracTowerPlanner({
             ))}
           </div>
           <div className="space-y-4 border-t border-stone-200 bg-[#fbfaf7] px-5 py-4 lg:border-l lg:border-t-0"><TowerDiagram config={config} />
-            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference cart · not checkout</span><span>{panelCount + fixedCount + adjustableCount + (config.corner ? 1 : 0)} sourced boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves{config.corner ? " · 1 corner shelf" : ""}</p>
+            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference cart · not checkout</span><span>{panelCount + fixedCount + adjustableCount + (config.corner ? 1 + cornerExtraCount : 0)} sourced boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves{config.corner ? ` · ${1 + cornerExtraCount} corner ${cornerExtraCount ? "shelves" : "shelf"}` : ""}</p>
               {cornerParts && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2 text-[11px] text-stone-700" data-testid="tower-corner-reference-lines">
                 <p className="font-semibold text-amber-900">{config.corner === "start" ? "Left/start" : "Right/end"} · illustrated 29.5 × 29.5″ corner</p>
-                <p>1× SKU {cornerParts.shelf.sku} · {cornerParts.shelf.description} · {cornerParts.shelf.finish} · {money(cornerParts.shelf.listEachUsd)} List each</p>
+                <p>{1 + ((config.cornerShelfType ?? "fixed") === "adjustable" ? cornerExtraCount : 0)}× SKU {cornerParts.shelf.sku} · {cornerParts.shelf.description} · {cornerParts.shelf.finish} · {money(cornerParts.shelf.listEachUsd)} List each</p>
+                {(config.cornerShelfType ?? "fixed") === "fixed" && additionalCornerParts && <p>{cornerExtraCount}× SKU {additionalCornerParts.shelf.sku} · {additionalCornerParts.shelf.description} · {additionalCornerParts.shelf.finish} · {money(additionalCornerParts.shelf.listEachUsd)} List each</p>}
                 {cornerParts.joint && <p>1× SKU {cornerParts.joint.sku} · {cornerParts.joint.description} · {cornerParts.joint.finish} finish · {money(cornerParts.joint.listEachUsd)} List each · join location illustrative</p>}
                 {!cornerParts.joint && <p>Adjustable shelf: no fixed-shelf H-joint priced or implied. Confirm support with installer.</p>}
               </div>}

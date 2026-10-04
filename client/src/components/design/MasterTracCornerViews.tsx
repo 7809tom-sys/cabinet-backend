@@ -101,18 +101,21 @@ export function masterTracCornerAssembly(placed: PlacedCabinet[]): THREE.Group |
       addIllustrativeTowerRods(root, board, offset);
     }
   }
-  root.userData = { cornerSku: group.corner.masterCode, side: group.corner.masterTracCorner.side, widthIn: group.width };
+  const corners = group.boards.filter(isMasterTracCornerBoard);
+  root.userData = { cornerSku: group.corner.masterCode, cornerCount: corners.length,
+    cornerSkus: corners.map((board) => board.masterCode), side: group.corner.masterTracCorner.side, widthIn: group.width };
   return root;
 }
 
 function Heading({ placed, wall, view }: { placed: PlacedCabinet[]; wall: WallSide; view: string }) {
   const group = groupBoards(placed)!;
   const corner = group.corner;
-  const shelf = masterTracProduct(corner.masterCode)!;
+  const corners = group.boards.filter(isMasterTracCornerBoard);
+  const cornerList = corners.reduce((sum, board) => sum + (masterTracProduct(board.masterCode)?.listEachUsd ?? 0), 0);
   const joint = corner.masterTracCorner.hJointSku ? masterTracProduct(corner.masterTracCorner.hJointSku) : null;
   return <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 bg-[#192432] px-4 py-3 text-xs text-white">
     <div><strong className="text-sm">MasterTrac Closet · {view}</strong><span className="ml-2 text-stone-200">{corner.masterTracCorner.side === "start" ? "Left/start" : "Right/end"} · {wall} wall · {group.width.toFixed(2)}″ overall</span></div>
-    <span>{shelf.sku} · {shelf.finish} · ${shelf.listEachUsd.toFixed(2)} List{joint ? ` · H-joint ${joint.sku} $${joint.listEachUsd.toFixed(2)}` : ""}</span>
+    <span>{corners.length} curved corner {corners.length === 1 ? "shelf" : "shelves"} · {masterTracProduct(corner.masterCode)?.finish} · ${cornerList.toFixed(2)} List{joint ? ` · H-joint ${joint.sku} $${joint.listEachUsd.toFixed(2)}` : ""}</span>
   </div>;
 }
 

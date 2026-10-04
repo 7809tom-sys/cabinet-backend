@@ -34,5 +34,23 @@ describe("Closet-only illustrative MasterTrac corner views", () => {
       expect(markup).toContain('433176');
       expect(markup).toContain('illustrative, not installation geometry');
     });
+
+    it(`renders every adjustable shelf stacked at the ${side} corner in 3D and elevation`, () => {
+      const config = { ...defaultTowerConfig("Spiced Mahogany"), corner: side, cornerAdjustableHeightsIn: [18, 40, 64] };
+      const result = planMasterTracTower(config, room, "top", side === "start" ? 0 : 64.25, []);
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      const root = masterTracCornerAssembly(result.plan.boards)!;
+      const corners = root.children.filter((object) => object.userData.masterTracCorner) as THREE.Group[];
+      expect(corners).toHaveLength(4);
+      expect(corners.map((object) => object.userData.masterTracCorner.sku)).toEqual(["432786", "432787", "432787", "432787"]);
+      expect(corners.map((object) => object.position.y * 12)).toEqual([87, 18.75, 40.75, 64.75]);
+      expect(root.userData.cornerCount).toBe(4);
+      const markup = renderToStaticMarkup(createElement(MasterTracCornerElevation, { placed: result.plan.boards, wall: "top", onEdit: () => {} }));
+      expect(markup.match(/data-testid="mastertrac-corner-elevation-shelf"/g)).toHaveLength(4);
+      expect(markup).toContain("4 curved corner shelves");
+      expect(markup).toContain("432786");
+      expect(markup).toContain("432787");
+    });
   }
 });

@@ -4,8 +4,8 @@ import { removeOverlappingPlacements, type RoomData } from "./design";
 import { masterTracProduct } from "./closet";
 import {
   CORNER_FOOTPRINT_IN, defaultTowerConfig, isMasterTracCornerBoard,
-  masterTracCornerParts, planMasterTracTower, towerConceptReferenceSubtotal,
-  towerConfigFromPlacements, towerTotalWidth,
+  masterTracCornerParts, nextAvailableCornerShelfElevation, planMasterTracTower, towerConceptReferenceSubtotal, towerCornerReferenceItems,
+  towerConfigFromPlacements, towerTotalWidth, type MasterTracTowerConfig,
 } from "./masterTracTower";
 
 const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
@@ -66,6 +66,68 @@ describe("MasterTrac illustrative curved corner with real 2022 catalog SKUs", ()
     expect(result.plan.boards.find(isMasterTracCornerBoard)).toMatchObject({ masterCode: "430834", mountBottom: 44, masterTracCorner: { hJointSku: null } });
     expect(result.plan.conceptualItems.map((item) => item.sku)).toEqual(["431613", "431613"]);
     expect(towerConfigFromPlacements(result.plan.boards, "tower-preview")?.config).toMatchObject({ cornerShelfType: "adjustable", cornerElevationIn: 44 });
+  });
+
+  it.each(["start", "end"] as const)("stacks as many nonoverlapping adjustable corner shelves as fit at the %s corner and restores each one", (side) => {
+    const elevations = [8, 16, 24, 32, 40, 48, 56, 64, 72, 80];
+    const config = { ...defaultTowerConfig(), corner: side, cornerAdjustableHeightsIn: elevations };
+    const start = side === "start" ? 0 : room.width - towerTotalWidth(config);
+    const result = planMasterTracTower(config, room, "top", start, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const corners = result.plan.boards.filter(isMasterTracCornerBoard);
+    expect(corners).toHaveLength(elevations.length + 1);
+    expect(corners.filter((board) => board.masterCode === "432557").map((board) => board.mountBottom)).toEqual(elevations);
+    expect(corners.filter((board) => board.masterCode === "432556")).toMatchObject([{ mountBottom: 86.25, masterTracCorner: { hJointSku: "433172" } }]);
+    expect(result.plan.conceptualItems.filter((item) => item.sku === "433172")).toHaveLength(1);
+    expect(towerCornerReferenceItems(result.plan.boards)).toMatchObject([
+      { sku: "432556", kind: "shelf", quantity: 1, listEachUsd: 46 },
+      { sku: "433172", kind: "joint", quantity: 1, listEachUsd: 8.5 },
+      { sku: "432557", kind: "shelf", quantity: 10, listEachUsd: 38 },
+    ]);
+    expect(result.plan.listSubtotal).toBe(231 + 46 + 8.5 + 2 * 9 + elevations.length * 38);
+    const restored = removeOverlappingPlacements(JSON.parse(JSON.stringify(result.plan.boards)), room);
+    expect(restored.rejected).toHaveLength(0);
+    expect(restored.placed).toHaveLength(result.plan.boards.length);
+    expect(towerConfigFromPlacements(restored.placed, "tower-preview")?.config).toMatchObject({ corner: side, cornerShelfType: "fixed", cornerAdjustableHeightsIn: elevations });
+    expect(buildDesignCabinetCartLines({
+      placed: restored.placed, styleId: 330011, distributorId: 210001, tier: "homeowner",
+      styleNameById: new Map([[330011, "Test style"]]), unitPriceFor: () => 999,
+    })).toHaveLength(0);
+  });
+
+  it("allows extra adjustable shelves above and below an adjustable primary corner shelf", () => {
+    const config = { ...defaultTowerConfig("Slate Rift"), corner: "start" as const, cornerShelfType: "adjustable" as const,
+      cornerElevationIn: 44, cornerAdjustableHeightsIn: [12, 60] };
+    const result = planMasterTracTower(config, room, "top", 0, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.boards.filter(isMasterTracCornerBoard).map((board) => board.mountBottom)).toEqual([44, 12, 60]);
+    expect(result.plan.boards.filter(isMasterTracCornerBoard).every((board) => board.masterCode === "430834" && board.masterTracCorner.hJointSku === null)).toBe(true);
+    expect(towerCornerReferenceItems(result.plan.boards)).toMatchObject([{ sku: "430834", kind: "shelf", quantity: 3 }]);
+    expect(towerConfigFromPlacements(result.plan.boards, "tower-preview")?.config).toMatchObject({ cornerShelfType: "adjustable", cornerElevationIn: 44, cornerAdjustableHeightsIn: [12, 60] });
+  });
+
+  it("proposes the next adjustable corner level in the largest physically free slot", () => {
+    const config: MasterTracTowerConfig = { ...defaultTowerConfig(), corner: "start" };
+    expect(nextAvailableCornerShelfElevation(config)).toBe(42.75);
+    const levels = [...Array(10)].map(() => {
+      const height = nextAvailableCornerShelfElevation(config);
+      expect(height).not.toBeNull();
+      config.cornerAdjustableHeightsIn = [...(config.cornerAdjustableHeightsIn ?? []), height!];
+      return height;
+    });
+    expect(new Set(levels).size).toBe(10);
+    expect(planMasterTracTower(config, room, "top", 0, []).ok).toBe(true);
+  });
+
+  it("rejects overlapping, out-of-panel or nonsensical corner levels atomically rather than imposing an arbitrary shelf count", () => {
+    const config = { ...defaultTowerConfig(), corner: "start" as const };
+    for (const heights of [[30, 30], [30, 30.5], [85.75], [-1], [87], [Number.NaN]]) {
+      const result = planMasterTracTower({ ...config, cornerAdjustableHeightsIn: heights }, room, "top", 0, []);
+      expect(result.ok, `corner levels ${heights.join(",")}`).toBe(false);
+      if (!result.ok) expect(result.reason).toMatch(/corner shel(?:f|ves)/i);
+    }
   });
 
   it("rejects noncorner positions, deep bays, conflicting pieces and mismatched fixed shelf heights without partial placement", () => {
