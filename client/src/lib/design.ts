@@ -609,6 +609,12 @@ export interface PlacedCabinet {
   cabinetId: number;
   masterCode: string;
   description: string;
+  /**
+   * Identifies a cabinet created by one Peninsula Wizard transaction. This is
+   * deliberately separate from `wallId`: a customer can add ordinary cabinets
+   * to a peninsula wall without allowing a later Wizard edit to overwrite them.
+   */
+  peninsulaWizardId?: string | null;
   // Catalog category / sub-category, carried from the source cabinet so the
   // canvas drawing + accessibility label classify the PLACED cabinet the same
   // way the palette does. Without these, cabinetDrawingType() can't tell a real
@@ -1536,6 +1542,26 @@ export type PeninsulaDirection = "left" | "right";
 /** The side of a peninsula center line where a cabinet is seated. */
 export type PeninsulaCabinetSide = "left" | "right";
 
+/** The exact recipe required to reopen a Wizard-built peninsula safely. */
+export interface PeninsulaWizardRecipe {
+  schemaVersion: 1;
+  parentWall: "top" | "bottom" | "left" | "right";
+  startOffset: number;
+  endTurn: "none" | 45;
+  endDirection: PeninsulaDirection;
+  cabinetSide: PeninsulaCabinetSide;
+  applianceCode: "none" | "DW-24" | "WINE-24";
+  seatingOverhang: 0 | 10 | 12 | 15;
+  waterfall: boolean;
+  addPonyWall: boolean;
+  ponyWallLength: number;
+  ponyWallHeight: number;
+  primaryCabinetIds: number[];
+  returnCabinetIds: number[];
+  countertopTreatment: "regular" | "split-level";
+  showBarStools: boolean;
+}
+
 export interface PeninsulaRun {
   id: string;
   /** Cardinal room wall where a primary peninsula begins. */
@@ -1576,6 +1602,8 @@ export interface PeninsulaRun {
    * the same protection through peninsulaRunAssemblyLocked().
    */
   locked?: boolean;
+  /** A persisted, user-owned Wizard recipe. Present on the root Wizard run. */
+  wizardRecipe?: PeninsulaWizardRecipe;
   label?: string;
 }
 
@@ -13545,6 +13573,8 @@ export interface PonyWall {
   drywallTexture?: DrywallPonyWallTexture;
   /** Legacy/free-standing pony walls may keep an explicit plan rotation. */
   rotation?: number;
+  /** Wizard transaction that created this optional support or endpoint wall. */
+  peninsulaWizardId?: string | null;
 }
 
 export interface PonyWallPlanFrame {

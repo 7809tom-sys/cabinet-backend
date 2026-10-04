@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/pages/DesignTool.tsx"), "utf8");
+const wizardEditSource = fs.readFileSync(path.resolve(process.cwd(), "client/src/lib/peninsulaWizardEdit.ts"), "utf8");
 
 describe("Peninsula Wizard", () => {
   it("creates a straight selected-side run with an optional connected 45-degree end from the active line", () => {
@@ -15,7 +16,7 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const layoutRuns = angledRun ? [run, angledRun] : [run];');
     expect(source).toContain("countertopSeatingOverhang: draft.seatingOverhang");
     expect(source).toContain("countertopWaterfallEnd: draft.waterfall");
-    expect(source).toContain('applianceCode: "none" | "DW-24" | "WINE-24"');
+    expect(wizardEditSource).toContain('applianceCode: "none" | "DW-24" | "WINE-24"');
     expect(source).toContain('const spot = firstCollisionFreePeninsulaPlacement(');
     expect(source).toContain('data-testid="build-peninsula-wizard"');
     expect(source).toContain('45° end from the straight run');
@@ -30,7 +31,7 @@ describe("Peninsula Wizard", () => {
   });
 
   it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
-    expect(source).toContain('addPonyWall: boolean;');
+    expect(wizardEditSource).toContain('addPonyWall: boolean;');
     expect(source).toContain('data-testid="peninsula-pony-wall-option"');
     expect(source).toContain('Add pony wall at the far end.');
     expect(source).toContain('const ponyWallOwner = angledRun ?? run;');
@@ -40,8 +41,8 @@ describe("Peninsula Wizard", () => {
   });
 
   it("requires the user’s ordered cabinet sequence on each leg and never auto-fills a cabinet", () => {
-    expect(source).toContain('primaryCabinetIds: number[];');
-    expect(source).toContain('returnCabinetIds: number[];');
+    expect(wizardEditSource).toContain('primaryCabinetIds: number[];');
+    expect(wizardEditSource).toContain('returnCabinetIds: number[];');
     expect(source).toContain('data-testid="peninsula-wizard-primary-cabinet-add"');
     expect(source).toContain('data-testid="peninsula-wizard-return-cabinet-add"');
     expect(source).toContain('data-testid="peninsula-wizard-primary-sequence-list"');
@@ -56,7 +57,7 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const peninsulaWizardTotalLength = useMemo(() => {');
     expect(source).toContain('data-testid="peninsula-wizard-total-length"');
     expect(source).toContain('Total selected peninsula cabinet length');
-    expect(source).toContain('freeSegmentsOnWall(layoutRun.id as WallSide, nextRoom, placed, [], 9)');
+    expect(source).toContain('working.filter((cabinet) => cabinetWall(cabinet, nextRoom) !== layoutRun.id)');
     expect(source).toContain('data-testid="peninsula-wizard-space-preview"');
     expect(source).toContain('Cabinet totals &amp; remaining space');
     expect(source).toContain('data-testid={`peninsula-wizard-${leg.id.endsWith("_45_end") ? "return" : "primary"}-cabinet-total`}');
@@ -82,7 +83,9 @@ describe("Peninsula Wizard", () => {
   });
 
   it("offers a regular or 42-inch split-level countertop treatment through the shared peninsula data model", () => {
-    expect(source).toContain('countertopTreatment: "regular" | "split-level"');
+    expect(source).toContain('type PeninsulaWizardEditDraft');
+    expect(wizardEditSource).toContain('countertopTreatment: "regular" | "split-level"');
+    expect(source).toContain('countertopTreatment: event.target.value as "regular" | "split-level"');
     expect(source).toContain('data-testid="peninsula-wizard-countertop-treatment"');
     expect(source).toContain("countertopRaisedBar: draft.countertopTreatment === 'split-level'");
     expect(source).toContain('makePeninsulaDrywallBackPonyWall(');
@@ -92,5 +95,15 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const escapedCountertop = countertopSurfaces(working, nextRoom).some((surface) => {');
     expect(source).toContain('!countertopSurfaceInsideRoom(surface, nextRoom)');
     expect(source).toContain('This cabinet plan would send a countertop through a room wall.');
+  });
+
+  it("replaces only owned Wizard assets and refuses a return topology change that would move an ordinary cabinet", () => {
+    expect(source).toContain('placed.filter((cabinet) => cabinet.peninsulaWizardId !== editingPeninsulaWizardRootId)');
+    expect(source).toContain('previous.filter((ponyWall) => ponyWall.peninsulaWizardId !== wizardRootId)');
+    expect(source).toContain('previous.filter((item) => !item.uid.startsWith(`peninsula-stool:${wizardRootId}:`))');
+    expect(source).toContain('const ordinaryCabinetOnExistingReturn = existingFortyFiveReturn && placed.some((cabinet) => (');
+    expect(source).toContain('This 45° return has an ordinary cabinet. Keep its turn and direction');
+    expect(source).toContain('Any ordinary cabinet on this run was kept; move it or choose a non-overlapping Wizard sequence.');
+    expect(source).toContain('Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.');
   });
 });

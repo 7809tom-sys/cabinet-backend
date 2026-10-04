@@ -10,10 +10,10 @@ describe("saved peninsula restore", () => {
     expect(restoreSource).toContain("normalizeLegacyPeninsulaCabinets(");
     expect(restoreSource.indexOf("normalizeLegacyPeninsulaCabinets(")).toBeLessThan(restoreSource.indexOf("setPlaced("));
 
-    const draftStart = source.indexOf("// Restore once, after verification");
-    const draftEnd = source.indexOf("// Persist draft after any design change", draftStart);
+    const draftStart = source.indexOf("const raw = localStorage.getItem(draftKey);");
+    const draftEnd = source.indexOf("if (Array.isArray(d.openings)) setOpenings(d.openings);", draftStart);
     const draftSource = source.slice(draftStart, draftEnd);
-    expect(draftSource).toContain("const peninsulaNormalizedDraft = backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(");
+    expect(draftSource).toContain("const peninsulaNormalizedDraft = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(");
     expect(draftSource.indexOf("normalizeLegacyPeninsulaCabinets(")).toBeLessThan(draftSource.indexOf("setPlaced("));
   });
 });
