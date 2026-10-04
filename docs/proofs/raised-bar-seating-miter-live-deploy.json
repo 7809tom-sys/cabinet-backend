@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791155581,
+  "indexBundles": [
+    "index-BKLiAwWA.js"
+  ],
+  "designerBundles": [
+    "DesignTool-CZvzhbwT.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-CBPkF5tb.js"
+  ],
+  "marker": "raisedBar",
+  "markerFound": true
+}
