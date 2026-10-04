@@ -114,6 +114,16 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const editableWizard = editablePeninsulaWizard(room, wallSettingsDraft.wallId);');
   });
 
+  it("opens the exact Wizard recipe from any selected owned cabinet", () => {
+    expect(source).toContain('const selectedCabinetWizard = useMemo(() => {');
+    expect(source).toContain('return editablePeninsulaWizard(room, selectedCab.peninsulaWizardId);');
+    expect(source).toContain('const jumpCabinetToWizard = useCallback((uid: string) => {');
+    expect(source).toContain('openPeninsulaWizardForEdit(cabinet.peninsulaWizardId as WallSide);');
+    expect(source).toContain('data-testid="selected-cabinet-wizard-status"');
+    expect(source).toContain('data-testid="jump-to-peninsula-wizard"');
+    expect(source).toContain('wizardBuiltEditable={Boolean(attrCabinetWizard)}');
+  });
+
   it("uses the selected shared wall-run frame for a Continuous Wall Builder attachment", () => {
     expect(source).toContain('const selectedFrame = wallRunFrame(activeWall, room);');
     expect(source).toContain('selectedFrame && selectedFrame.kind !== "peninsula" ? selectedFrame.id : "top"');

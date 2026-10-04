@@ -9442,8 +9442,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // The compact selection sheet remains useful for quick edits; the explicit
 	    // Attributes action opens the complete responsive dialog instead, so exact
 	    // wall position, corner clearance, and all desktop fields are not hidden.
-    setCabEditSheetOpen(false);
+	    setCabEditSheetOpen(false);
 	  }, [openFillerAttributes, openFloatingShelfAttributes]);
+	  const attrCabinetWizard = useMemo(() => {
+	    const cabinet = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    return cabinet?.peninsulaWizardId ? editablePeninsulaWizard(room, cabinet.peninsulaWizardId) : null;
+	  }, [attrUid, placed, room]);
+	  const jumpCabinetToWizard = useCallback((uid: string) => {
+	    const cabinet = placedRef.current.find((item) => item.uid === uid);
+	    if (!cabinet?.peninsulaWizardId || !editablePeninsulaWizard(room, cabinet.peninsulaWizardId)) {
+	      toast.info("This cabinet is not part of an editable Peninsula Wizard assembly.");
+	      return;
+	    }
+	    // Retain the clicked cabinet as the selection, but switch the editor to
+	    // the exact persisted root recipe. Nothing is rebuilt until Update is used.
+	    setSelectedUid(uid);
+	    setAttrOpen(false);
+	    setAttrUid(null);
+	    openPeninsulaWizardForEdit(cabinet.peninsulaWizardId as WallSide);
+	  }, [openPeninsulaWizardForEdit, room]);
 	  // Phones and tablets have no reliable right-click gesture. Route the visible
 	  // bottom-bar Attributes control to the same authoritative editors used by
 	  // desktop, based on the currently selected object or active wall.
@@ -10900,6 +10917,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [appliancePalette, autoFillCabinets, clearDraft, layoutLocked, room, t, tallCabPool, wallCabPool]);
 
 		  const selectedCab = placed.find((p) => p.uid === selectedUid);
+		  const selectedCabinetWizard = useMemo(() => {
+		    if (!selectedCab?.peninsulaWizardId) return null;
+		    return editablePeninsulaWizard(room, selectedCab.peninsulaWizardId);
+		  }, [room, selectedCab]);
 		  const selectedCabDisplayDescription = (() => {
 		    if (!selectedCab) return "";
 		    const description = selectedCab.description ?? "";
@@ -13126,10 +13147,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </span>
                 </div>
               )}
-	              <span className="text-[11px] text-muted-foreground">
-	                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
+		              <span className="text-[11px] text-muted-foreground">
+		                {t("dt_cx_selected")} <span className="font-mono font-semibold text-foreground">{selectedCab.masterCode}</span>
 		                <span className="ml-1 hidden sm:inline text-foreground/70">— {selectedCabDisplayDescription}</span>
-	              </span>
+		              </span>
+		              {selectedCabinetWizard && (
+		                <div data-testid="selected-cabinet-wizard-status" className="flex shrink-0 items-center gap-1.5 rounded-md border border-emerald-300 bg-emerald-50 px-1.5 py-1">
+		                  <Badge className="bg-emerald-800 px-1.5 py-0.5 text-[9px] font-bold tracking-wide text-white hover:bg-emerald-800">WIZARD-BUILT · EDITABLE</Badge>
+		                  <Button
+		                    type="button"
+		                    data-testid="jump-to-peninsula-wizard"
+		                    variant="outline"
+		                    size="sm"
+		                    className="h-7 gap-1 border-emerald-700 bg-white px-2 text-[10px] font-semibold text-emerald-950 hover:bg-emerald-100"
+		                    onClick={() => jumpCabinetToWizard(selectedCab.uid)}
+		                    title="Open this assembly's exact Peninsula Wizard recipe"
+		                  >
+		                    <Wand2 className="h-3.5 w-3.5" /> Jump to Wizard
+		                  </Button>
+		                </div>
+		              )}
 		              {selectedIslandTransfer && (
 	                <div data-testid="selected-island-face-transfer" className="flex shrink-0 items-center gap-1 rounded-md border border-[#d4a75a]/60 bg-[#fffaf1] px-1.5 py-1">
 	                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#765416]">Island · {inferredIslandFace(selectedCab, island!)}</span>
@@ -16985,7 +17022,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          setAttrOpen(open);
 	          if (!open) setAttrUid(null);
 	        }}
-        customFee={CUSTOM_SIZE_FEE}
+	        wizardBuiltEditable={Boolean(attrCabinetWizard)}
+	        onJumpToWizard={attrCabinetWizard ? jumpCabinetToWizard : undefined}
+	        customFee={CUSTOM_SIZE_FEE}
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}
         onSetDepth={(_uid, v) => setCustomDepth(v)}

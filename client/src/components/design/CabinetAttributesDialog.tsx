@@ -391,6 +391,10 @@ export interface CabinetAttributesDialogProps {
   cabinet: PlacedCabinet | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Cabinet belongs to a persisted, safely editable Peninsula Wizard assembly. */
+  wizardBuiltEditable?: boolean;
+  /** Opens the assembly's exact Wizard recipe without altering this cabinet first. */
+  onJumpToWizard?: (uid: string) => void;
   customFee: number;
   onSetWidth: (uid: string, v: number) => void;
   onSetHeight: (uid: string, v: number) => void;
@@ -451,6 +455,8 @@ export function CabinetAttributesDialog({
   cabinet,
   open,
   onOpenChange,
+  wizardBuiltEditable = false,
+  onJumpToWizard,
   customFee,
   onSetWidth,
   onSetHeight,
@@ -585,11 +591,18 @@ export function CabinetAttributesDialog({
           <SheetHeader className="border-b px-4 py-3 text-left">
             <SheetTitle className="font-mono text-base leading-none">{cabinet.masterCode}</SheetTitle>
             <SheetDescription className="truncate text-xs">{cabinet.description}</SheetDescription>
-            <div data-testid="cabinet-attributes-active-target" className="mt-1 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm ring-2 ring-amber-200/70 motion-safe:animate-pulse">
-              <span className="shrink-0 rounded bg-[#1a2744] px-1.5 py-0.5 font-mono font-bold text-white">{cabinet.masterCode}</span>
-              <span><strong>Editing this cabinet</strong></span>
+          <div data-testid="cabinet-attributes-active-target" className="mt-1 flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 shadow-sm ring-2 ring-amber-200/70 motion-safe:animate-pulse">
+            <span className="shrink-0 rounded bg-[#1a2744] px-1.5 py-0.5 font-mono font-bold text-white">{cabinet.masterCode}</span>
+            <span><strong>Editing this cabinet</strong></span>
+          </div>
+          {wizardBuiltEditable && onJumpToWizard && (
+            <div data-testid="cabinet-wizard-jump-panel" className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 p-2.5 text-left">
+              <Badge className="bg-emerald-800 text-[10px] font-bold tracking-wide text-white hover:bg-emerald-800">WIZARD-BUILT · EDITABLE</Badge>
+              <p className="mt-1 text-[11px] leading-4 text-emerald-950">This cabinet belongs to an editable Peninsula Wizard assembly.</p>
+              <Button type="button" variant="outline" size="sm" data-testid="jump-to-peninsula-wizard" className="mt-2 w-full border-emerald-700 bg-white text-emerald-950 hover:bg-emerald-100" onClick={() => onJumpToWizard(uid)}>Jump to Wizard</Button>
             </div>
-            {editConfigLink && (
+          )}
+          {editConfigLink && (
               <a
                 href={editConfigLink.href}
                 target={editConfigLink.target}
@@ -625,6 +638,17 @@ export function CabinetAttributesDialog({
             <span className="shrink-0 rounded bg-[#1a2744] px-1.5 py-0.5 font-mono font-bold text-white">{cabinet.masterCode}</span>
             <span><strong>Editing this cabinet</strong> — it is highlighted in the active Designer view.</span>
           </div>
+          {wizardBuiltEditable && onJumpToWizard && (
+            <div data-testid="cabinet-wizard-jump-panel" className="mt-2 rounded-md border border-emerald-300 bg-emerald-50 p-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <Badge className="bg-emerald-800 text-[10px] font-bold tracking-wide text-white hover:bg-emerald-800">WIZARD-BUILT · EDITABLE</Badge>
+                  <p className="mt-1 text-[11px] leading-4 text-emerald-950">This cabinet belongs to an editable Peninsula Wizard assembly.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" data-testid="jump-to-peninsula-wizard" className="border-emerald-700 bg-white text-emerald-950 hover:bg-emerald-100" onClick={() => onJumpToWizard(uid)}>Jump to Wizard</Button>
+              </div>
+            </div>
+          )}
           {editConfigLink && (
             <a
               href={editConfigLink.href}

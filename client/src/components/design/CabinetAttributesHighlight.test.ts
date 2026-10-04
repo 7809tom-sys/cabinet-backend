@@ -37,4 +37,12 @@ describe("Cabinet Attributes active target highlighting", () => {
     expect(dialogSource).toContain("Editing this cabinet");
     expect(dialogSource).toContain("highlighted in the active Designer view");
   });
+
+  it("offers the Wizard shortcut only when the selected cabinet is safely editable", () => {
+    expect(dialogSource).toContain("wizardBuiltEditable?: boolean;");
+    expect(dialogSource).toContain("onJumpToWizard?: (uid: string) => void;");
+    expect(dialogSource).toContain('data-testid="cabinet-wizard-jump-panel"');
+    expect(dialogSource).toContain('data-testid="jump-to-peninsula-wizard"');
+    expect(dialogSource).toContain("This cabinet belongs to an editable Peninsula Wizard assembly.");
+  });
 });
