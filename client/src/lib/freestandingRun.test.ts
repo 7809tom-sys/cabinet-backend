@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { cabinetPlanBodiesIntersect, countertopSurfaces, countertopSurfacePlanPolygon, removeOverlappingPlacements, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { cabinetPlanBodiesIntersect, countertopSurfaces, countertopSurfacePlanPolygon, removeOverlappingPlacements, wallPlacementAt, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { appendWallBuilderSegment, wallBuilderRoomGeometry } from "@/lib/polygonRoom";
 import {
   freestandingChains,
-  freestandingChainOutline,
   freestandingBody,
   freestandingBodyCorners,
   snapFreestandingFortyFive,
@@ -53,49 +53,72 @@ describe("free-standing run countertop (Continuous Wall Builder rule)", () => {
     expect(slab.linearInches).toBeCloseTo(72, 3);
   });
 
-  it("a 45° cabinet seated flush at the end of the run joins the same slab with a mitered corner", () => {
+  it("a 45° cabinet dropped at the end of the run is seated and topped by the Continuous Wall Builder's code (parity)", () => {
     const straight = [base("a", 40, 70), base("b", 64, 70), base("c", 88, 70)];
-    // Drop the angled cabinet roughly at the end and let the flush snap seat it.
-    const loose = base("d", 110, 79, 45); // flush seat is x=112, y=77 (front corners meet, backs miter)
-    const snap = snapFreestandingFortyFive(loose, straight, room, null, 8);
+    // Drop the angled cabinet roughly past the end; the Wall Builder seat (11" inside-corner hold) takes over.
+    const loose = base("d", 118, 76, 45);
+    const snap = snapFreestandingFortyFive(loose, straight, room, null, 12);
     expect(snap).not.toBeNull();
     const angled = { ...loose, x: snap!.x, y: snap!.y };
     const placed = [...straight, angled];
 
-    // The flush seat survives the load-time collision sweep (true bodies only touch at the miter).
+    // Survives the load-time collision sweep.
     const restored = removeOverlappingPlacements(placed, room);
     expect(restored.rejected).toEqual([]);
-    expect(restored.placed.find((c) => c.uid === "d")!.x).toBeCloseTo(angled.x, 3);
-    expect(restored.placed.find((c) => c.uid === "d")!.y).toBeCloseTo(angled.y, 3);
 
+    // One chain of four.
     const chains = freestandingChains(placed, room, null);
     expect(chains).toHaveLength(1);
     expect(chains[0]!.map((body) => body.cabinet.uid)).toEqual(["a", "b", "c", "d"]);
 
-    const outline = freestandingChainOutline(chains[0]!);
-    // 4 bodies → back polyline has 5 points, front polyline 5 points, one closed outline.
-    expect(outline).toHaveLength(10);
+    // --- Reference: the SAME run on a real Continuous Wall Builder room -----------------
+    // Wall 1: 83" straight (72" of cabinets + 11" hold), then a right 45° turn of 35" (11" hold + 24").
+    const reference = wallBuilderRoomGeometry(
+      appendWallBuilderSegment(appendWallBuilderSegment([], 83, "start"), 35, "right45"),
+      96,
+    ).room!;
+    const [w0, w1] = reference.customWalls;
+    const refRoom: RoomData = { ...room, vertices: reference.vertices, customWalls: reference.customWalls, openWallPath: reference.openWallPath };
+    const seat = (uid: string, wallId: string, along: number) => {
+      const spot = wallPlacementAt(along, 24, 24, wallId as never, refRoom, null, false);
+      return { ...base(uid, 0, 0), x: spot.x, y: spot.y, rotation: spot.rotation, wallId: spot.wallId, wallOffset: spot.wallOffset };
+    };
+    const refPlaced = [seat("a", w0!.id, 0), seat("b", w0!.id, 24), seat("c", w0!.id, 48), seat("d", w1!.id, 11)];
+    const refSurfaces = countertopSurfaces(refPlaced, refRoom, null);
 
+    // --- Designer: free-standing chain ------------------------------------------------
     const surfaces = countertopSurfaces(placed, room, null);
-    expect(surfaces).toHaveLength(1);
-    const world = countertopSurfacePlanPolygon(surfaces[0]!);
+    expect(surfaces.length).toBe(refSurfaces.length);
+    expect(surfaces.length).toBeGreaterThan(0);
 
-    // Every cabinet's centre sits under the single slab; the slab never reaches the walls.
+    // Translate the reference (its origin is the first wall start) onto the Designer chain and compare polygons.
+    const refOrigin = { x: reference.vertices[0]!.x, y: reference.vertices[0]!.y };
+    const norm = (polys: { x: number; y: number }[][], origin: { x: number; y: number }) => polys
+      .map((poly) => poly.map((p) => [Math.round((p.x - origin.x) * 8) / 8, Math.round((p.y - origin.y) * 8) / 8]))
+      .map((poly) => JSON.stringify([...poly].sort((l, r) => l[0]! - r[0]! || l[1]! - r[1]!)))
+      .sort();
+    const refPolys = norm(refSurfaces.map((s) => countertopSurfacePlanPolygon(s)), refOrigin);
+    const ourPolys = norm(surfaces.map((s) => countertopSurfacePlanPolygon(s)), { x: 40, y: 70 });
+    expect(ourPolys).toEqual(refPolys);
+
+    // The two legs are mitered at one shared point; every slab is tagged to the chain.
+    expect(surfaces.some((s) => s.miteredStart || s.miteredEnd)).toBe(true);
+    for (const surface of surfaces) expect(surface.freestandingMemberUids?.slice().sort()).toEqual(["a", "b", "c", "d"]);
+
+    // Every cabinet's centre is under a slab; nothing lands near the room walls.
     for (const cabinet of placed) {
       const body = freestandingBody(cabinet);
-      expect(pointInPolygon(body.center, world)).toBe(true);
-      // front-overhang point just outside the front face is covered too (continuous front edge)
-      const frontMid = { x: body.center.x + body.forward.x * (12 + 0.75), y: body.center.y + body.forward.y * (12 + 0.75) };
-      expect(pointInPolygon(frontMid, world)).toBe(true);
+      expect(surfaces.some((s) => pointInPolygon(body.center, countertopSurfacePlanPolygon(s)))).toBe(true);
     }
-    expect(Math.min(...world.map((p) => p.y))).toBeGreaterThan(5);
-    expect(Math.max(...world.map((p) => p.x))).toBeLessThan(room.width - 5);
+    const allPoints = surfaces.flatMap((s) => countertopSurfacePlanPolygon(s));
+    expect(Math.min(...allPoints.map((p) => p.y))).toBeGreaterThan(5);
+    expect(Math.max(...allPoints.map((p) => p.x))).toBeLessThan(room.width - 5);
 
-    // The angled cabinet shares a corner with its neighbour (flush, no gap) and the true bodies do not overlap.
-    const cCorners = freestandingBodyCorners(freestandingBody(straight[2]!));
-    const dCorners = freestandingBodyCorners(freestandingBody(angled));
-    const nearest = Math.min(...dCorners.flatMap((p) => cCorners.map((q) => Math.hypot(p.x - q.x, p.y - q.y))));
-    expect(nearest).toBeLessThan(0.01);
+    // The angled cabinet sits at the Wall Builder's 11" hold from its neighbour and the bodies do not overlap.
+    const [, cBackRight] = freestandingBodyCorners(freestandingBody(straight[2]!));
+    const [dBackLeft] = freestandingBodyCorners(freestandingBody(angled));
+    // back corners: 11" along the first wall + 11" along the 45° wall = 2 legs of the hold triangle
+    expect(Math.hypot(dBackLeft.x - cBackRight.x, dBackLeft.y - cBackRight.y)).toBeCloseTo(Math.hypot(11 + 11 * Math.SQRT1_2, 11 * Math.SQRT1_2), 1);
     expect(cabinetPlanBodiesIntersect(angled, straight[2]!)).toBe(false);
   });
 

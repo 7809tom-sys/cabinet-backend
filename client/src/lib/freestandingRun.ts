@@ -1,28 +1,43 @@
 /**
- * Free-standing cabinet runs.
+ * Free-standing cabinet runs → the Continuous Wall Builder's code path.
  *
- * The Continuous Wall Builder already produces one seamless, mitered
- * countertop over a run that turns 45°: every slab keeps its cabinet-supported
- * area, two neighbouring slabs meet at one real seam, and the outer corner is
- * the shared miter point where the two front edges intersect. This module gives
- * the ordinary Designer the same result for cabinets that sit in the open room
- * (no wall seat, no peninsula run, no island): bases that physically touch are
- * grouped into a chain, each cabinet contributes its own slab (cabinet depth
- * plus the standard front overhang, at its own rotation), and adjoining slabs
- * are joined edge-to-edge or mitered at a turn so the chain becomes ONE polygon.
+ * The Continuous Wall Builder (client/src/components/design/WallBuilder.tsx →
+ * polygonRoom.wallBuilderRoomGeometry → room.customWalls / room.vertices)
+ * already seats cabinets and builds the countertop for a run that turns 45°:
+ *   • seat:       design.ts `wallPlacementAt()` (custom-wall branch)
+ *   • slab:       design.ts `countertopSurfaces()` custom-wall branch
+ *   • merge:      design.ts `mergeContiguousBaseCountertopRuns()`
+ *   • 45° miter:  design.ts `measuredWallCountertopMiterSurfaces()` +
+ *                 `miteredMeasuredWallCountertopSurfaces()`
  *
- * Nothing here touches walls, peninsulas, islands, or pricing.
+ * This module does NOT re-implement any of that. For bases standing in the
+ * open room (no wall seat, not against a wall, not island/peninsula) it only:
+ *   1. groups physically touching bodies into a chain,
+ *   2. describes the chain's back line as the same wall model the Wall Builder
+ *      emits (vertices + customWalls, diagonal segments `lockedAngle: ±45`,
+ *      `openWallPath: true`),
+ *   3. seats the chain's cabinets on those walls with `wallPlacementAt`, and
+ *   4. calls `countertopSurfaces` on that synthetic room so the exact Wall
+ *      Builder functions above produce the one mitered slab.
+ *
+ * Nothing here changes the Wall Builder's behaviour or any wall/peninsula/
+ * island/pricing code.
  */
 import {
-  COUNTERTOP_DEPTH_IN,
   STD,
   cabinetPlanBodiesIntersect,
   cabinetWall,
+  countertopSurfaces,
+  countertopSurfacePlanPolygon,
+  customWallCabinetSide,
+  insideCornerHoldIn,
   isAgainstWall,
   isOnIsland,
-  peninsulaRunById,
   placedCornerGeometryKind,
   placedFootprint,
+  wallPlacementAt,
+  wallRunAlongAtPoint,
+  wallRunFrame,
   type CountertopPlanPoint,
   type CountertopSurface,
   type IslandZone,
@@ -31,10 +46,8 @@ import {
 } from "@/lib/design";
 
 const EPS = 1e-6;
-/** Two free-standing boxes count as touching when their sides are within this gap. */
+/** Two free-standing boxes count as touching when a pair of corners is within this gap. */
 export const FREESTANDING_JOIN_TOLERANCE_IN = 1.5;
-/** The countertop front overhang beyond the cabinet face (25.5 top on a 24 box). */
-const frontOverhangIn = () => COUNTERTOP_DEPTH_IN - STD.BASE_DEPTH;
 
 type Pt = CountertopPlanPoint;
 
@@ -58,17 +71,8 @@ function rot(p: Pt, radians: number): Pt {
   return { x: p.x * c - p.y * s, y: p.x * s + p.y * c };
 }
 function add(a: Pt, b: Pt): Pt { return { x: a.x + b.x, y: a.y + b.y }; }
-function sub(a: Pt, b: Pt): Pt { return { x: a.x - b.x, y: a.y - b.y }; }
 function scale(a: Pt, k: number): Pt { return { x: a.x * k, y: a.y * k }; }
 function dist(a: Pt, b: Pt): number { return Math.hypot(a.x - b.x, a.y - b.y); }
-
-/** Intersection of two infinite lines given by point + direction. */
-function lineIntersection(p: Pt, d: Pt, q: Pt, e: Pt): Pt | null {
-  const cross = d.x * e.y - d.y * e.x;
-  if (Math.abs(cross) < EPS) return null;
-  const t = ((q.x - p.x) * e.y - (q.y - p.y) * e.x) / cross;
-  return add(p, scale(d, t));
-}
 
 /** True when a standard base is in the open room: not seated, not against a wall, not on an island or peninsula. */
 export function isFreestandingBase(cabinet: PlacedCabinet, room: RoomData, island?: IslandZone | null): boolean {
@@ -76,7 +80,6 @@ export function isFreestandingBase(cabinet: PlacedCabinet, room: RoomData, islan
   if (cabinet.wallId || cabinet.islandFace) return false;
   if (placedCornerGeometryKind(cabinet) !== "standard") return false;
   if (island && isOnIsland(cabinet, island)) return false;
-  if (room.peninsulaRuns?.some((run) => run.id === cabinet.wallId)) return false;
   const nearest = cabinetWall(cabinet, room);
   if (nearest && isAgainstWall(cabinet, nearest as never, room)) return false;
   return !(["top", "bottom", "left", "right"] as const).some((side) => isAgainstWall(cabinet, side, room));
@@ -115,30 +118,71 @@ export function freestandingBodyCorners(body: FreestandingBody): [Pt, Pt, Pt, Pt
   ];
 }
 
-/** Slab corners for one body: the box plus the front overhang, same order as the body corners. */
-function freestandingSlabCorners(body: FreestandingBody): [Pt, Pt, Pt, Pt] {
-  const [bl, br, fr, fl] = freestandingBodyCorners(body);
-  const over = scale(body.forward, frontOverhangIn());
-  return [bl, br, add(fr, over), add(fl, over)];
+/** Fitted filler the Wall Builder allows beside a 45° inside corner (design.ts FITTED_FORTY_FIVE_CORNER_FILLER_MAX_IN). */
+const FORTY_FIVE_FILLER_MAX_IN = 3;
+
+export interface FreestandingJoin {
+  /** Shared wall vertex of the two runs (the Wall Builder's corner point). */
+  vertex: Pt;
+  /** Interior turn between the two headings in degrees: 0 (straight), 45, or 90. */
+  turnDeg: number;
 }
 
-/** Two bodies touch when a right/left end edge of one is within tolerance of an end edge of the other. */
-function bodiesJoin(a: FreestandingBody, b: FreestandingBody): boolean {
-  const [abl, abr, afr, afl] = freestandingBodyCorners(a);
-  const [bbl, bbr, bfr, bfl] = freestandingBodyCorners(b);
-  const aEnds = [[abl, afl], [abr, afr]];
-  const bEnds = [[bbl, bfl], [bbr, bfr]];
-  for (const [a0, a1] of aEnds) {
-    for (const [b0, b1] of bEnds) {
-      // Back corners meet (flush straight join or a mitered turn that shares the back corner)...
-      if (dist(a0!, b0!) <= FREESTANDING_JOIN_TOLERANCE_IN) return true;
-      // ...or the two end edges coincide for a straight join.
-      if (dist(a0!, b0!) <= FREESTANDING_JOIN_TOLERANCE_IN && dist(a1!, b1!) <= FREESTANDING_JOIN_TOLERANCE_IN) return true;
-      // ...or the front corners meet (mitered turn that shares the front corner).
-      if (dist(a1!, b1!) <= FREESTANDING_JOIN_TOLERANCE_IN) return true;
+function headingOf(body: FreestandingBody): number {
+  return Math.atan2(body.tangent.y, body.tangent.x);
+}
+
+function interiorTurnDeg(a: FreestandingBody, b: FreestandingBody): number {
+  const raw = Math.abs(((headingOf(a) - headingOf(b) + Math.PI) % (2 * Math.PI)) - Math.PI);
+  const interior = Math.min(raw, Math.abs(Math.PI - raw));
+  return Math.round((interior * 180) / Math.PI);
+}
+
+/**
+ * How two free-standing bodies meet, using the Continuous Wall Builder's own
+ * corner rule: on a straight run their end corners touch; at a 45° turn each
+ * leg is held `insideCornerHoldIn(45, depth)` back from the shared wall vertex
+ * (plus up to one fitted filler), exactly as `freeSegmentsOnWall` seats them
+ * on drawn walls. Returns null when the bodies are not joined.
+ */
+export function freestandingJoin(a: FreestandingBody, b: FreestandingBody): FreestandingJoin | null {
+  const turnDeg = interiorTurnDeg(a, b);
+  const ends = (body: FreestandingBody): Array<{ corner: Pt; outward: Pt }> => {
+    const [bl, br] = freestandingBodyCorners(body);
+    return [
+      { corner: bl, outward: scale(body.tangent, -1) },
+      { corner: br, outward: body.tangent },
+    ];
+  };
+  let best: { vertex: Pt; distance: number } | null = null;
+  for (const endA of ends(a)) {
+    for (const endB of ends(b)) {
+      if (turnDeg === 45) {
+        const holdA = insideCornerHoldIn(45, a.depth);
+        const holdB = insideCornerHoldIn(45, b.depth);
+        for (const extraA of [0, FORTY_FIVE_FILLER_MAX_IN]) {
+          for (const extraB of [0, FORTY_FIVE_FILLER_MAX_IN]) {
+            const va = add(endA.corner, scale(endA.outward, holdA + extraA));
+            const vb = add(endB.corner, scale(endB.outward, holdB + extraB));
+            const distance = dist(va, vb);
+            if (distance <= FREESTANDING_JOIN_TOLERANCE_IN && (!best || distance < best.distance)) {
+              best = { vertex: { x: (va.x + vb.x) / 2, y: (va.y + vb.y) / 2 }, distance };
+            }
+          }
+        }
+      } else {
+        const distance = dist(endA.corner, endB.corner);
+        if (distance <= FREESTANDING_JOIN_TOLERANCE_IN && (!best || distance < best.distance)) {
+          best = { vertex: { x: (endA.corner.x + endB.corner.x) / 2, y: (endA.corner.y + endB.corner.y) / 2 }, distance };
+        }
+      }
     }
   }
-  return false;
+  return best ? { vertex: best.vertex, turnDeg } : null;
+}
+
+function bodiesJoin(a: FreestandingBody, b: FreestandingBody): boolean {
+  return freestandingJoin(a, b) != null;
 }
 
 /** Groups free-standing bases into chains of physically touching bodies, ordered along the run. */
@@ -166,7 +210,6 @@ export function freestandingChains(placed: readonly PlacedCabinet[], room: RoomD
   return chains;
 }
 
-/** Orders chain members end-to-end by walking neighbours from one extremity. */
 function orderChain(members: FreestandingBody[]): FreestandingBody[] {
   if (members.length <= 2) return members;
   const neighbours = members.map((member) => members.filter((other) => other !== member && bodiesJoin(member, other)));
@@ -185,63 +228,19 @@ function orderChain(members: FreestandingBody[]): FreestandingBody[] {
   return ordered;
 }
 
-/**
- * Builds the one continuous outline for an ordered chain. Walking the chain
- * from first to last, the back edge of every slab is laid out, then the front
- * edges in reverse. At every join the two neighbouring edges are extended to
- * their intersection — exactly the fabricated miter point the Continuous Wall
- * Builder uses — so a 45° turn gets a clean seamless corner and a straight
- * join simply continues the edge.
- */
-export function freestandingChainOutline(chain: FreestandingBody[]): Pt[] {
-  if (chain.length === 0) return [];
-  // Make every body point the same way along the run: body k's right end
-  // should touch body k+1's left end. Flip (rotate 180°) bodies as needed.
-  const oriented = orientChain(chain);
-  const slabs = oriented.map(freestandingSlabCorners);
-  const backs: Pt[] = [];
-  const fronts: Pt[] = [];
-  for (let index = 0; index < slabs.length; index += 1) {
-    const [bl, br, fr, fl] = slabs[index]!;
-    const body = oriented[index]!;
-    if (index === 0) {
-      backs.push(bl);
-      fronts.push(fl);
-    } else {
-      const prev = oriented[index - 1]!;
-      const [pbl, , , pfl] = slabs[index - 1]!;
-      const backJoin = lineIntersection(pbl, prev.tangent, bl, body.tangent);
-      const frontJoin = lineIntersection(pfl, prev.tangent, fl, body.tangent);
-      backs.push(backJoin ?? bl);
-      fronts.push(frontJoin ?? fl);
-    }
-    if (index === slabs.length - 1) {
-      backs.push(br);
-      fronts.push(fr);
-    }
-  }
-  return [...backs, ...fronts.reverse()];
-}
-
 function flipBody(body: FreestandingBody): FreestandingBody {
-  return {
-    ...body,
-    radians: body.radians + Math.PI,
-    tangent: scale(body.tangent, -1),
-    forward: scale(body.forward, -1),
-  };
+  return { ...body, radians: body.radians + Math.PI, tangent: scale(body.tangent, -1), forward: scale(body.forward, -1) };
 }
 
-/** Ensures each body's "right" end meets the next body's "left" end; preserves fronts facing the same half-plane. */
+/** Walk the chain so each body's right end meets the next body's left end. */
 function orientChain(chain: FreestandingBody[]): FreestandingBody[] {
   if (chain.length < 2) return chain;
   const out: FreestandingBody[] = [];
   for (let index = 0; index < chain.length; index += 1) {
     const current = chain[index]!;
     if (index === 0) {
-      const next = chain[1]!;
       const [bl, br] = freestandingBodyCorners(current);
-      const nextCorners = freestandingBodyCorners(next);
+      const nextCorners = freestandingBodyCorners(chain[1]!);
       const nearRight = Math.min(...nextCorners.map((p) => dist(p, br)));
       const nearLeft = Math.min(...nextCorners.map((p) => dist(p, bl)));
       out.push(nearRight <= nearLeft ? current : flipBody(current));
@@ -254,55 +253,163 @@ function orientChain(chain: FreestandingBody[]): FreestandingBody[] {
     const flipped = Math.min(dist(br, pbr), dist(fr, pfr));
     out.push(asIs <= flipped ? current : flipBody(current));
   }
-  // Keep fronts on a consistent side: the first body decides; if the majority
-  // of forwards oppose it we flip the whole walk (so the outline is still one
-  // simple polygon, just traversed the other way).
   return out;
 }
 
-function polygonArea(points: Pt[]): number {
-  if (points.length < 3) return 0;
-  return Math.abs(points.reduce((sum, point, index) => {
-    const next = points[(index + 1) % points.length]!;
-    return sum + point.x * next.y - next.x * point.y;
-  }, 0)) / 2;
+
+/**
+ * `customWallCabinetSide` picks the cabinet side of an open wall path from its
+ * first turn. When that side is opposite to where the bodies actually face,
+ * walking the path backwards flips it — same walls, same vertices, same seat.
+ */
+function orientWallPathToFacing(
+  vertices: Array<{ id: string; x: number; y: number }>,
+  walls: NonNullable<RoomData["customWalls"]>,
+  room: RoomData,
+  forward: Pt,
+): { vertices: typeof vertices; customWalls: typeof walls } {
+  const probe: RoomData = { ...room, vertices, customWalls: walls, openWallPath: true, peninsulaRuns: undefined };
+  const first = walls[0]!;
+  const a = vertices.find((v) => v.id === first.startVertexId)!;
+  const b = vertices.find((v) => v.id === first.endVertexId)!;
+  const radians = Math.atan2(b.y - a.y, b.x - a.x);
+  const leftNormal = { x: -Math.sin(radians), y: Math.cos(radians) };
+  const side = customWallCabinetSide(probe, first.id);
+  const inward = side === "left" ? leftNormal : scale(leftNormal, -1);
+  if (inward.x * forward.x + inward.y * forward.y >= 0) return { vertices, customWalls: walls };
+  const reversedVertices = [...vertices].reverse();
+  const reversedWalls = [...walls].reverse().map((wall) => ({ ...wall, startVertexId: wall.endVertexId, endVertexId: wall.startVertexId }));
+  return { vertices: reversedVertices, customWalls: reversedWalls };
 }
 
-/** One CountertopSurface per free-standing chain, as a world-anchored polygon slab. */
+/**
+ * The Wall Builder room model for one chain: the chain's back line as an open
+ * wall path. Consecutive bodies with the same heading share one wall segment;
+ * a heading change starts a new segment at the shared back corner. Diagonal
+ * segments carry `lockedAngle` exactly like `wallBuilderRoomGeometry` sets it,
+ * which is what `customWallJoinTurnsFortyFive` keys on for the miter.
+ */
+export interface FreestandingWallModel {
+  room: RoomData;
+  /** Chain cabinets re-seated on the synthetic walls via `wallPlacementAt`. */
+  seated: PlacedCabinet[];
+  chainUids: string[];
+}
+
+export function freestandingChainWallModel(chain: FreestandingBody[], room: RoomData, chainIndex = 0): FreestandingWallModel | null {
+  const oriented = orientChain(chain);
+  if (oriented.length === 0) return null;
+  type Segment = { start: Pt; end: Pt; radians: number; bodies: FreestandingBody[] };
+  const segments: Segment[] = [];
+  oriented.forEach((body, index) => {
+    const [bl, br] = freestandingBodyCorners(body);
+    const heading = headingOf(body);
+    const last = segments[segments.length - 1];
+    if (last && Math.abs(((heading - last.radians + Math.PI) % (2 * Math.PI)) - Math.PI) <= 1e-6) {
+      last.end = br;
+      last.bodies.push(body);
+      return;
+    }
+    // A turn: both walls meet at the Wall Builder's shared vertex (each leg holds 11" back at 45°).
+    const join = last ? freestandingJoin(oriented[index - 1]!, body) : null;
+    if (last && join) last.end = join.vertex;
+    const start = join ? join.vertex : bl;
+    const bodyEnd = br;
+    segments.push({ start, end: bodyEnd, radians: heading, bodies: [body] });
+  });
+  // The last wall also ends where the Wall Builder would end it: at the last body's end corner.
+  const prefix = `fs${chainIndex}`;
+  const vertices = [
+    { id: `${prefix}-v0`, x: segments[0]!.start.x, y: segments[0]!.start.y },
+    ...segments.map((segment, index) => ({ id: `${prefix}-v${index + 1}`, x: segment.end.x, y: segment.end.y })),
+  ];
+  const customWalls = segments.map((segment, index) => {
+    const dx = segment.end.x - segment.start.x;
+    const dy = segment.end.y - segment.start.y;
+    const diagonal = Math.abs(dx) > EPS && Math.abs(dy) > EPS;
+    return {
+      id: `${prefix}-w${index}`,
+      startVertexId: `${prefix}-v${index}`,
+      endVertexId: `${prefix}-v${index + 1}`,
+      label: `Run ${index + 1}`,
+      ...(diagonal ? { lockedAngle: (dx * dy >= 0 ? 45 : -45) as 45 | -45 } : {}),
+      height: room.ceilingHeight,
+    };
+  });
+  const oriented45 = orientWallPathToFacing(vertices, customWalls, room, oriented[0]!.forward);
+  const syntheticRoom: RoomData = {
+    ...room,
+    vertices: oriented45.vertices,
+    customWalls: oriented45.customWalls,
+    openWallPath: true,
+    peninsulaRuns: undefined,
+    wallCeilings: undefined,
+  };
+  // Seat every chain cabinet on its wall with the Wall Builder's own placement.
+  const seated: PlacedCabinet[] = [];
+  segments.forEach((segment, index) => {
+    const wallId = customWalls[index]!.id;
+    const frame = wallRunFrame(wallId, syntheticRoom);
+    if (!frame) return;
+    for (const body of segment.bodies) {
+      const [bl] = freestandingBodyCorners(body);
+      const along = Math.max(0, wallRunAlongAtPoint(frame, bl));
+      const spot = wallPlacementAt(along, body.width, body.depth, wallId as never, syntheticRoom, null, false);
+      seated.push({ ...body.cabinet, x: spot.x, y: spot.y, rotation: spot.rotation, wallId: spot.wallId, wallOffset: spot.wallOffset });
+    }
+  });
+  if (seated.length === 0) return null;
+  return { room: syntheticRoom, seated, chainUids: chain.map((body) => body.cabinet.uid) };
+}
+
+/**
+ * One CountertopSurface per free-standing chain, produced by the Continuous
+ * Wall Builder's `countertopSurfaces` custom-wall path (slab → merge → miter)
+ * on the chain's synthetic wall model, then returned as a plain world polygon.
+ */
 export function freestandingCountertopSurfaces(placed: readonly PlacedCabinet[], room: RoomData, island?: IslandZone | null): CountertopSurface[] {
   const out: CountertopSurface[] = [];
-  for (const chain of freestandingChains(placed, room, island)) {
-    const world = freestandingChainOutline(chain);
-    if (world.length < 3) continue;
-    const minX = Math.min(...world.map((p) => p.x));
-    const maxX = Math.max(...world.map((p) => p.x));
-    const minY = Math.min(...world.map((p) => p.y));
-    const maxY = Math.max(...world.map((p) => p.y));
-    const area = polygonArea(world);
-    if (maxX - minX <= EPS || maxY - minY <= EPS || area <= EPS) continue;
-    const linear = chain.reduce((sum, body) => sum + body.width, 0);
-    out.push({
-      x: minX,
-      y: minY,
-      width: maxX - minX,
-      depth: maxY - minY,
-      kind: "base",
-      polygon: world.map((p) => ({ x: p.x - minX, y: p.y - minY })),
-      linearInches: linear,
-      areaInches: area,
-      cabinetRunId: `freestanding:${chain.map((body) => body.cabinet.uid).sort().join("+")}`,
-      freestandingMemberUids: chain.map((body) => body.cabinet.uid),
-    });
-  }
+  freestandingChains(placed, room, island).forEach((chain, chainIndex) => {
+    const model = freestandingChainWallModel(chain, room, chainIndex);
+    if (!model) return;
+    const surfaces = countertopSurfaces(model.seated, model.room, null);
+    for (const surface of surfaces) {
+      const world = countertopSurfacePlanPolygon(surface);
+      if (world.length < 3) continue;
+      const minX = Math.min(...world.map((p) => p.x));
+      const maxX = Math.max(...world.map((p) => p.x));
+      const minY = Math.min(...world.map((p) => p.y));
+      const maxY = Math.max(...world.map((p) => p.y));
+      if (maxX - minX <= EPS || maxY - minY <= EPS) continue;
+      out.push({
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        depth: maxY - minY,
+        kind: "base",
+        polygon: world.map((p) => ({ x: p.x - minX, y: p.y - minY })),
+        miteredStart: surface.miteredStart,
+        miteredEnd: surface.miteredEnd,
+        linearInches: surface.linearInches,
+        runLinearInches: surface.runLinearInches,
+        areaInches: surface.areaInches,
+        cabinetRunId: `freestanding:${model.chainUids.slice().sort().join("+")}`,
+        freestandingMemberUids: model.chainUids,
+      });
+    }
+  });
   return out;
 }
 
 /**
- * Flush 45° join: when a free cabinet rotated to an odd 45° is dropped near
- * the end of a free-standing neighbour, seat it so the two back corners
- * coincide and its front face meets the neighbour's front at the miter — the
- * same flush, gap-free seat the Continuous Wall Builder gives an angled wall.
- * Returns the adjusted AABB position, or null when nothing is near.
+ * 45° join on drop — the Continuous Wall Builder's rule, not a new one. When a
+ * free cabinet turned to an odd 45° lands near the end of a free-standing
+ * neighbour, the neighbour's back line and the new heading become a two-wall
+ * open path sharing a vertex at the neighbour's end corner. The cabinet is then
+ * seated by `wallPlacementAt` at `insideCornerHoldIn(45, depth)` along the new
+ * wall — exactly where `freeSegmentsOnWall` lets the Wall Builder place it —
+ * and `miteredMeasuredWallCountertopSurfaces` closes the corner. Returns the
+ * adjusted AABB position, or null when nothing is near or the seat overlaps.
  */
 export function snapFreestandingFortyFive(
   moving: PlacedCabinet,
@@ -315,22 +422,45 @@ export function snapFreestandingFortyFive(
   if (![45, 135, 225, 315].includes(rotation)) return null;
   if (moving.placement !== "base" || placedCornerGeometryKind(moving) !== "standard" || moving.wallId) return null;
   const body = freestandingBody(moving);
-  const mineCorners = freestandingBodyCorners(body);
-  let best: { x: number; y: number; neighbourUid: string; distance: number } | null = null;
+  const [mbl, mbr] = freestandingBodyCorners(body);
+  const hold = insideCornerHoldIn(45, body.depth);
   const freeOthers = others.filter((other) => other.uid !== moving.uid && isFreestandingBase(other, room, island));
+  let best: { x: number; y: number; neighbourUid: string; distance: number } | null = null;
   for (const other of freeOthers) {
-    const theirCorners = freestandingBodyCorners(freestandingBody(other));
-    for (const mine of mineCorners) {
-      for (const theirs of theirCorners) {
-        const distance = dist(mine, theirs);
-        if (distance > threshold || (best && distance >= best.distance)) continue;
-        const shift = sub(theirs, mine);
-        const seated = { ...moving, x: moving.x + shift.x, y: moving.y + shift.y };
-        // Only a seat whose true rotated body merely touches its neighbours is
-        // flush; a corner match that swings the box into a neighbour is skipped.
-        if (freeOthers.some((peer) => cabinetPlanBodiesIntersect(seated, peer))) continue;
-        best = { x: seated.x, y: seated.y, neighbourUid: other.uid, distance };
-      }
+    const otherBody = freestandingBody(other);
+    const [obl, obr] = freestandingBodyCorners(otherBody);
+    const otherHold = insideCornerHoldIn(45, otherBody.depth);
+    const candidates: Array<{ mine: Pt; vertex: Pt; otherStart: Pt; heading: Pt }> = [
+      // continue past the neighbour's right end, my heading forward
+      { mine: mbl, vertex: add(obr, scale(otherBody.tangent, otherHold)), otherStart: obl, heading: body.tangent },
+      // continue past the neighbour's left end, my heading reversed
+      { mine: mbr, vertex: add(obl, scale(otherBody.tangent, -otherHold)), otherStart: obr, heading: scale(body.tangent, -1) },
+    ];
+    for (const candidate of candidates) {
+      // Where my back corner would sit once held back from the vertex.
+      const seatCorner = add(candidate.vertex, scale(candidate.heading, hold));
+      const distance = dist(candidate.mine, seatCorner);
+      if (distance > threshold || (best && distance >= best.distance)) continue;
+      const end = add(candidate.vertex, scale(candidate.heading, hold + body.width));
+      const diagonal = ((end.x - candidate.vertex.x) * (end.y - candidate.vertex.y) >= 0 ? 45 : -45) as 45 | -45;
+      const vertices = [
+        { id: "snap-v0", x: candidate.otherStart.x, y: candidate.otherStart.y },
+        { id: "snap-v1", x: candidate.vertex.x, y: candidate.vertex.y },
+        { id: "snap-v2", x: end.x, y: end.y },
+      ];
+      const walls = [
+        { id: "snap-w0", startVertexId: "snap-v0", endVertexId: "snap-v1", height: room.ceilingHeight },
+        { id: "snap-w1", startVertexId: "snap-v1", endVertexId: "snap-v2", lockedAngle: diagonal, height: room.ceilingHeight },
+      ];
+      const oriented = orientWallPathToFacing(vertices, walls, room, otherBody.forward);
+      const syntheticRoom: RoomData = { ...room, ...oriented, openWallPath: true, peninsulaRuns: undefined };
+      const frame = wallRunFrame("snap-w1", syntheticRoom);
+      if (!frame) continue;
+      const along = wallRunAlongAtPoint(frame, seatCorner);
+      const spot = wallPlacementAt(along, body.width, body.depth, "snap-w1" as never, syntheticRoom, null, false);
+      const seated = { ...moving, x: spot.x, y: spot.y };
+      if (freeOthers.some((peer) => cabinetPlanBodiesIntersect(seated, peer))) continue;
+      best = { x: seated.x, y: seated.y, neighbourUid: other.uid, distance };
     }
   }
   return best ? { x: best.x, y: best.y, neighbourUid: best.neighbourUid } : null;

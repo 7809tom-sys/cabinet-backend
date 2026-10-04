@@ -6015,9 +6015,21 @@ export function threeDStandardCountertopSurfaces(
   island?: IslandZone | null,
 ): CountertopSurface[] {
   const bases = placed.filter((cabinet) => bearsCountertop(cabinet));
-  return countertopSurfaces(placed, room, island).filter((surface) => (
+  const all = countertopSurfaces(placed, room, island);
+  // A free-standing chain is one fabricated path from the Continuous Wall
+  // Builder's code (leg slabs + the 45° corner infill). Keep the whole path when
+  // any member cabinet is under it, so the small corner piece is not dropped.
+  const coveredChains = new Set(
+    all
+      .filter((surface) => surface.freestandingMemberUids?.length && bases.some((cabinet) => countertopSurfaceCoversCabinet(surface, cabinet)))
+      .map((surface) => surface.cabinetRunId ?? ""),
+  );
+  return all.filter((surface) => (
     !surface.peninsulaRunId && !surface.customWallId && surface.kind !== "island"
-    && bases.some((cabinet) => countertopSurfaceCoversCabinet(surface, cabinet))
+    && (
+      bases.some((cabinet) => countertopSurfaceCoversCabinet(surface, cabinet))
+      || (surface.freestandingMemberUids?.length ? coveredChains.has(surface.cabinetRunId ?? "") : false)
+    )
   ));
 }
 
