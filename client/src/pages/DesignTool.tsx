@@ -3021,28 +3021,31 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return placed.find((cabinet) => cabinet.uid === selectedUid) ?? null;
   }, [selectedUid, styleId, missingPriceUids, dismissedMissingPricePopoverUid, placed]);
 
-	  // Older peninsula designs could preserve the 11-inch collision clearance at
-	  // a 45-degree return without creating the two finished face boards. Once the
-	  // selected-line filler catalog and its verified prices are available, add the
-	  // exact two-piece miter pair so Plan, 3D, BOM, cart, and saved drafts cannot
-	  // show an open front void. Cabinet positions and the rear service pocket stay
-	  // unchanged.
-	  useEffect(() => {
-	    if (!styleId || !priceRows || catalogFillers.length === 0) return;
-	    const repaired = repairMissingAngledWallFillers(
-	      placedRef.current,
-	      room,
-	      catalogFillers,
-	      makeUid,
-	      styleId,
-	      unitPriceFor,
-	    );
+		  // Older peninsula designs could preserve the 11-inch collision clearance at
+		  // a 45-degree return without creating the two finished face boards. Once the
+		  // selected-line filler catalog is available, add the exact two-piece miter
+		  // pair so Plan, 3D, BOM, cart, and saved drafts cannot show an open front
+		  // void. Missing price is an explicit Part 1 flag and checkout block—not a
+		  // reason to leave the physical cabinet transition open.
+		  useEffect(() => {
+		    if (!styleId || !priceRows || catalogFillers.length === 0) return;
+		    const repaired = repairMissingAngledWallFillers(
+		      placedRef.current,
+		      room,
+		      catalogFillers,
+		      makeUid,
+		      styleId,
+		    );
 	    if (repaired.added.length === 0) return;
 	    placedRef.current = repaired.placed;
 	    setPlaced(() => repaired.placed);
 	    setFillerInsertionTransition({ uids: repaired.added.map((filler) => filler.uid), key: Date.now() });
-	    toast.success("The open 45° cabinet front was closed with two source-priced fillers joined on one continuous miter.");
-	  }, [catalogFillers, priceRows, room, styleId, unitPriceFor]);
+	    toast.success("The open 45° cabinet front was closed with two catalog filler boards joined on one continuous miter.");
+		  // Include `placed`: a saved design restores after the accessory query can
+		  // settle, and the repair must then see the restored two cabinet runs instead
+		  // of the empty pre-restore ref. The repair is idempotent because it detects
+		  // its own front-miter-pair records.
+		  }, [catalogFillers, priceRows, room, styleId, placed]);
 
   const glassDoorAddonFor = useCallback((p: PlacedCabinet, resolvedStyleId: number) => {
     const linkedGlassDoorCode = glassDoorAddonCodeFor(p);
@@ -5522,17 +5525,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        );
 		        if (angledFiller) {
 		          const sourcePrices = angledFiller.fillers.map((filler) => unitPriceFor(filler));
-		          if (sourcePrices.some((sourcePrice) => sourcePrice == null || !Number.isFinite(sourcePrice) || sourcePrice <= 0)) {
-		            const message = `${angledFiller.fillers[0].masterCode} and ${finalCab.masterCode} were not added because each selected-line 45° filler piece requires a positive authorized price.`;
-		            setPlacementWarning(message);
-		            toast.error(message);
-		            return;
-		          } else {
-		            const resolution = appendCollisionFreePlacements(withoutProvisionalCornerFillers, angledFiller.fillers, room);
-		            if (angledFiller.fillers.every((filler) => resolution.placed.some((item) => item.uid === filler.uid))) {
-		              committedRun = resolution.placed;
-		              setFillerInsertionTransition({ uids: angledFiller.fillers.map((filler) => filler.uid), key: Date.now() });
+		          const resolution = appendCollisionFreePlacements(withoutProvisionalCornerFillers, angledFiller.fillers, room);
+		          if (angledFiller.fillers.every((filler) => resolution.placed.some((item) => item.uid === filler.uid))) {
+		            committedRun = resolution.placed;
+		            setFillerInsertionTransition({ uids: angledFiller.fillers.map((filler) => filler.uid), key: Date.now() });
+		            if (sourcePrices.every((sourcePrice) => sourcePrice != null && Number.isFinite(sourcePrice) && sourcePrice > 0)) {
 		              toast.success(`${angledFiller.fillers[0].masterCode} front filler A (${formatInches(angledFiller.ownerGapIn)}) and B (${formatInches(angledFiller.neighborGapIn)}) are each cut at 22.5° to form one tight 45° turn. Both real selected-line pieces are price-locked at $${sourcePrices.map((sourcePrice) => sourcePrice!.toFixed(2)).join(" + $")}; both cabinets remain independently supported.`);
+		            } else {
+		              toast.warning(`${angledFiller.fillers[0].masterCode} filler boards were added to close the 45° turn, but their active-line price is missing. They are red-flagged in the design and checkout is blocked until the catalog price is supplied.`);
 		            }
 		          }
 		        }

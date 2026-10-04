@@ -17,7 +17,7 @@ describe("Design Tool automatic angled front-miter workflow", () => {
     expect(source.slice(addStart, measureStart)).toContain('finalCab.placement === "wall" || finalCab.placement === "base" || finalCab.placement === "tall"');
     expect(workflow).toContain("catalogFillers");
     expect(workflow).toContain("angledFiller.fillers.map");
-    expect(workflow).toContain("appendCollisionFreePlacements(committedRun, angledFiller.fillers, room)");
+	    expect(workflow).toContain("appendCollisionFreePlacements(withoutProvisionalCornerFillers, angledFiller.fillers, room)");
     expect(workflow).toContain("angledFiller.fillers.every");
     expect(workflow).toContain("setFillerInsertionTransition({ uids: angledFiller.fillers.map");
     expect(workflow).toContain("front filler A");
@@ -26,16 +26,16 @@ describe("Design Tool automatic angled front-miter workflow", () => {
     expect(workflow).toContain("both cabinets remain independently supported");
   });
 
-	  it("keeps the cabinet transaction active and only blocks a filler piece that lacks an authorized price", () => {
-    const workflowStart = source.indexOf("const requiredTransition = measuredAngledWallTransition");
-    const workflow = source.slice(workflowStart, workflowStart + 3000);
-    expect(workflow).not.toContain("requiredTransition && !angledFiller");
-    expect(workflow).not.toContain("front 45° filler cuts were not added");
-    expect(workflow).toContain("const sourcePrices = angledFiller.fillers.map");
-    expect(workflow).toContain("sourcePrices.some");
-    expect(workflow).toContain("each selected-line 45° filler piece requires a positive authorized price");
-    expect(workflow).toContain("return;");
-    expect(workflow).not.toContain("makeFiller(");
+	  it("keeps the cabinet transaction active and flags, rather than drops, a filler piece with a missing price", () => {
+	    const workflowStart = source.indexOf("const requiredTransition = measuredAngledWallTransition");
+	    const workflow = source.slice(workflowStart, workflowStart + 3000);
+	    expect(workflow).not.toContain("requiredTransition && !angledFiller");
+	    expect(workflow).not.toContain("front 45° filler cuts were not added");
+	    expect(workflow).toContain("const sourcePrices = angledFiller.fillers.map");
+	    expect(workflow).toContain("sourcePrices.every");
+	    expect(workflow).toContain("filler boards were added to close the 45° turn");
+	    expect(workflow).toContain("checkout is blocked until the catalog price is supplied");
+	    expect(workflow).not.toContain("makeFiller(");
 	    expect(workflow).not.toContain('masterCode: "FILL');
 	  });
 
@@ -45,12 +45,14 @@ describe("Design Tool automatic angled front-miter workflow", () => {
 	    expect(source).toContain("if (!styleId || !priceRows || catalogFillers.length === 0) return;");
 	    expect(source).toContain("placedRef.current = repaired.placed;");
 	    expect(source).toContain("setFillerInsertionTransition({ uids: repaired.added.map");
-	    expect(source).toContain("The open 45° cabinet front was closed with two source-priced fillers joined on one continuous miter.");
+	    expect(source).toContain("The open 45° cabinet front was closed with two catalog filler boards joined on one continuous miter.");
+	    expect(source).toContain("Missing price is an explicit Part 1 flag and checkout block");
+	    expect(source).toContain("[catalogFillers, priceRows, room, styleId, placed]");
   });
 
   it("keeps both physical miter boards on the invoice with their real per-board cut note", () => {
     expect(source).toContain('const miterCutNote = p.fillerTransitionKind === "front-miter-pair"');
     expect(source).toContain('Mitered ${p.fillerMiterAngle ?? 22.5}° (forms 45° turn)');
-    expect(source).toContain('[p.description, sizeNote, miterCutNote, attrNote]');
+	    expect(source).toContain('fillerInstallNote, miterCutNote, attrNote]');
   });
 });

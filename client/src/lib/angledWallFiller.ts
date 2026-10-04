@@ -555,8 +555,11 @@ export function automaticAngledWallFiller(
  * Restores any missing source-priced front-miter pair after an older saved plan
  * or local draft loads. This is intentionally additive: existing cabinet
  * positions, manual fillers, countertops, and historical wedge records remain
- * untouched. A pair is committed only when both real catalog pieces carry a
- * positive authorized price and both exact footprints pass collision checks.
+ * untouched. A real, catalog-backed pair is committed whenever both exact
+ * footprints pass collision checks. Its price is deliberately not a geometry
+ * gate: an unpriced source board must remain visible in the design and then be
+ * caught by the shared Part 1 missing-price flag and checkout block, never
+ * leave an unexplained physical void.
  */
 export function repairMissingAngledWallFillers(
   placed: readonly PlacedCabinet[],
@@ -564,7 +567,6 @@ export function repairMissingAngledWallFillers(
   candidates: readonly CatalogFillerCandidate[],
   makeUid: () => string,
   styleId: number | null,
-  unitPriceFor: (filler: PlacedCabinet) => number | null,
 ): AngledWallFillerRepair {
   let next = [...placed];
   const added: PlacedCabinet[] = [];
@@ -572,8 +574,6 @@ export function repairMissingAngledWallFillers(
 	if (cabinet.fillerPieceGroupId || !isTransitionCabinetPlacement(cabinet.placement)) continue;
     const resolution = automaticAngledWallFiller(cabinet, room, next, candidates, makeUid, styleId);
     if (!resolution) continue;
-    const prices = resolution.fillers.map((filler) => unitPriceFor(filler));
-    if (prices.some((price) => price == null || !Number.isFinite(price) || price <= 0)) continue;
     const appended = appendCollisionFreePlacements(next, resolution.fillers, room);
     if (!resolution.fillers.every((filler) => appended.placed.some((item) => item.uid === filler.uid))) continue;
     next = appended.placed;

@@ -310,7 +310,6 @@ function pair(placement: "wall" | "base" | "tall") {
 	      [tallCuttableFiller],
 	      () => `peninsula-filler-${++number}`,
 	      7,
-	      () => 78.53,
 	    );
 	    expect(repaired.added).toHaveLength(2);
 	    expect(repaired.added.every((filler) => filler.masterCode === "F396" && filler.height === 34.5)).toBe(true);
@@ -320,7 +319,22 @@ function pair(placement: "wall" | "base" | "tall") {
 	    expect(appendCollisionFreePlacements([parentBase, childBase], repaired.added, peninsulaRoom).rejected).toEqual([]);
 	  });
 
-  it("price-locks both real front filler pieces at the authoritative selected-line unit price", () => {
+	  it("keeps real source filler boards visible when their selected-line price is missing", () => {
+	    const { neighbor, newlyPlaced } = pair("base");
+	    let number = 0;
+	    const repaired = repairMissingAngledWallFillers(
+	      [neighbor, newlyPlaced],
+	      room,
+	      [baseFiller],
+	      () => `unpriced-front-filler-${++number}`,
+	      7,
+	    );
+	    expect(repaired.added).toHaveLength(2);
+	    expect(repaired.added.every((filler) => filler.masterCode === baseFiller.masterCode)).toBe(true);
+	    expect(appendCollisionFreePlacements([neighbor, newlyPlaced], repaired.added, room).rejected).toEqual([]);
+	  });
+
+	  it("price-locks both real front filler pieces at the authoritative selected-line unit price", () => {
     const { neighbor, newlyPlaced } = pair("wall");
     let number = 0;
     const resolution = automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [wallFiller], () => `front-price-${++number}`, 7)!;
