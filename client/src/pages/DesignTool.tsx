@@ -13415,7 +13415,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <PaletteShell
           isMobile={panelDrawerMode}
           compact={isCompactWorkspace}
-          tablet={isTabletWorkspace}
           open={mobilePanel === "catalog"}
           onOpenChange={(o) => setMobilePanel(o ? "catalog" : null)}
         >
@@ -17837,39 +17836,19 @@ function MobileBarButton({
 // slide-in Sheet on mobile, so the heavy palette / pricing markup is written
 // once and reused for both layouts.
 function PaletteShell({
-  isMobile, compact = false, tablet = false, open, onOpenChange, children,
+  isMobile, compact = false, open, onOpenChange, children,
 }: {
   isMobile: boolean;
   compact?: boolean;
-  tablet?: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
 }) {
   const { t } = useLanguage();
-  const [tabletTall, setTabletTall] = useState(true);
-  useEffect(() => { if (open) setTabletTall(true); }, [open]);
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent
-          side={tablet ? "bottom" : "left"}
-          data-testid={tablet ? "tablet-catalog-bottom-sheet" : undefined}
-          data-tablet-snap={tablet ? (tabletTall ? "tall" : "half") : undefined}
-          className={tablet ? `${tabletTall ? "h-[82vh]" : "h-[48vh]"} rounded-t-2xl p-0 gap-0 flex flex-col transition-[height] duration-200` : compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}
-          style={tablet ? { paddingBottom: "env(safe-area-inset-bottom, 0px)" } : undefined}
-        >
-          {tablet && (
-            <button
-              type="button"
-              data-testid="tablet-catalog-snap-toggle"
-              aria-label={tabletTall ? "Shrink catalog to half height" : "Expand catalog"}
-              onClick={() => setTabletTall((v) => !v)}
-              className="mx-auto mt-1 flex h-7 w-24 shrink-0 items-center justify-center rounded-full active:scale-95"
-            >
-              <span className="h-1.5 w-12 rounded-full bg-muted-foreground/40" />
-            </button>
-          )}
+        <SheetContent side="left" className={compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col" : "w-[88vw] max-w-sm p-0 gap-0 flex flex-col"}>
           <SheetHeader className="px-3 py-2 border-b border-border text-left">
             <SheetTitle className="text-sm">{compact ? "Cabinet catalog — tablet view" : t("dt_pl_catalog")}</SheetTitle>
           </SheetHeader>

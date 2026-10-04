@@ -147,7 +147,7 @@ export function TopNav() {
 
   if (isDesignerTablet && immersive) {
     return (
-      <div data-testid="designer-immersive-header" className="pointer-events-none fixed left-2 top-2 z-[60]">
+      <div data-testid="designer-immersive-header" className="pointer-events-none fixed left-2 top-2 z-40">
         <button
           type="button"
           data-testid="designer-immersive-restore"

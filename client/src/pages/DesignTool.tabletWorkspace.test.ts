@@ -32,14 +32,11 @@ describe("tablet workspace layout (1024–1366px or touch)", () => {
     expect(designTool).toContain('isTabletPortrait ? "order-last border-b-0 border-t"');
   });
 
-  it("opens the catalog tall enough to show cabinets (82vh) with a half-height snap, and the editor at 70vh", () => {
-    expect(designTool).toContain('data-testid={tablet ? "tablet-catalog-bottom-sheet" : undefined}');
-    expect(designTool).toContain('${tabletTall ? "h-[82vh]" : "h-[48vh]"} rounded-t-2xl');
-    expect(designTool).toContain('data-testid="tablet-catalog-snap-toggle"');
-    expect(designTool).toContain("if (open) setTabletTall(true);");
+  it("keeps the catalog as the wide left-side panel and the cabinet editor as a dialog (owner preference)", () => {
+    expect(designTool).toContain('<SheetContent side="left" className={compact ? "w-[min(840px,96vw)] p-0 gap-0 flex flex-col"');
+    expect(designTool).not.toContain("tablet-catalog-bottom-sheet");
     const attributes = readFileSync(new URL("../components/design/CabinetAttributesDialog.tsx", import.meta.url), "utf8");
-    expect(attributes).toContain('data-testid={isTablet ? "tablet-cabinet-edit-bottom-sheet" : undefined}');
-    expect(attributes).toContain("if (isMobile || isTablet)");
+    expect(attributes).not.toContain("isTablet");
   });
 
   it("collapses the 3D floating row, fitted fillers, and pan pad on tablets", () => {
