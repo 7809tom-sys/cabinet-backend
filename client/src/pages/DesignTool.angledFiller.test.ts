@@ -39,15 +39,17 @@ describe("Design Tool automatic angled front-miter workflow", () => {
 	    expect(workflow).not.toContain('masterCode: "FILL');
 	  });
 
-  it("preloads selected-line filler prices and repairs an older saved peninsula after catalog hydration", () => {
+  it("repairs every physical 45-degree turn after filler-catalog hydration without waiting for price data", () => {
 	    expect(source).toContain("catalogFillers.filter(isCatalogFiller).forEach");
 	    expect(source).toContain("repairMissingAngledWallFillers(");
-	    expect(source).toContain("if (!styleId || !priceRows || catalogFillers.length === 0) return;");
+	    expect(source).toContain("if (catalogFillers.length === 0) return;");
+	    expect(source).not.toContain("if (!styleId || !priceRows || catalogFillers.length === 0) return;");
 	    expect(source).toContain("placedRef.current = repaired.placed;");
 	    expect(source).toContain("setFillerInsertionTransition({ uids: repaired.added.map");
+	    expect(source).toContain("Every physical 45-degree cabinet turn must close with its two finished");
 	    expect(source).toContain("The open 45° cabinet front was closed with two catalog filler boards joined on one continuous miter.");
-	    expect(source).toContain("Missing price is an explicit Part 1 flag and checkout block");
-	    expect(source).toContain("[catalogFillers, priceRows, room, styleId, placed]");
+	    expect(source).toContain("explicit Part 1 flag and checkout block—not a reason to leave a physical");
+	    expect(source).toContain("[catalogFillers, room, styleId, placed]");
   });
 
   it("keeps both physical miter boards on the invoice with their real per-board cut note", () => {

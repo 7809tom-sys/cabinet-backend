@@ -171,7 +171,7 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     expect(surfaces.some((surface) => surface.customWallCornerInfill)).toBe(false);
   });
 
-  it("does not invent a countertop miter at the same join when the explicit 45-degree wall is removed", () => {
+  it("extends the countertop across a physically drawn 45-degree turn even when it was not tagged as locked", () => {
     const rightAngleRoom = {
       ...room,
       customWalls: room.customWalls.map((wall) => wall.id === "diagonal" ? { ...wall, lockedAngle: undefined } : wall),
@@ -180,7 +180,17 @@ describe("measuredWallCountertopMiterSurfaces", () => {
     const diagonalBase = { ...baseCabinet("diagonal-base", "diagonal", diagonalLength - 24), rotation: 45 };
     const straightBase = baseCabinet("straight-base", "straight", 0);
 
-    expect(measuredWallCountertopMiterSurfaces([diagonalBase, straightBase], rightAngleRoom)).toEqual([]);
+    expect(measuredWallCountertopMiterSurfaces([diagonalBase, straightBase], rightAngleRoom)).toEqual([
+      expect.objectContaining({
+        customWallMiterWallIds: ["diagonal", "straight"],
+        customWallMiterVertexId: "v2",
+      }),
+    ]);
+    const surfaces = countertopSurfaces([diagonalBase, straightBase], rightAngleRoom);
+    expect(surfaces).toEqual(expect.arrayContaining([
+      expect.objectContaining({ customWallId: "diagonal", customWallMiterVertexId: "v2", miteredEnd: true }),
+      expect.objectContaining({ customWallId: "straight", customWallMiterVertexId: "v2", miteredStart: true }),
+    ]));
   });
 
   it("uses one flush square seam where two diagonal measured walls turn 90 degrees", () => {

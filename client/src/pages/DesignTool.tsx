@@ -3189,14 +3189,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return placed.find((cabinet) => cabinet.uid === selectedUid) ?? null;
   }, [selectedUid, styleId, missingPriceUids, dismissedMissingPricePopoverUid, placed]);
 
-		  // Older peninsula designs could preserve the 11-inch collision clearance at
-		  // a 45-degree return without creating the two finished face boards. Once the
-		  // selected-line filler catalog is available, add the exact two-piece miter
-		  // pair so Plan, 3D, BOM, cart, and saved drafts cannot show an open front
-		  // void. Missing price is an explicit Part 1 flag and checkout block—not a
-		  // reason to leave the physical cabinet transition open.
+		  // Every physical 45-degree cabinet turn must close with its two finished
+		  // face boards as soon as its selected-line filler catalog is available.
+		  // This covers direct catalog placement, drag/drop, Auto Fill, Wall Builder,
+		  // and restored drafts through the same shared resolver. Missing price is an
+		  // explicit Part 1 flag and checkout block—not a reason to leave a physical
+		  // cabinet transition or its countertop seam open.
 		  useEffect(() => {
-		    if (!styleId || !priceRows || catalogFillers.length === 0) return;
+		    if (catalogFillers.length === 0) return;
 		    const repaired = repairMissingAngledWallFillers(
 		      placedRef.current,
 		      room,
@@ -3213,7 +3213,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		  // settle, and the repair must then see the restored two cabinet runs instead
 		  // of the empty pre-restore ref. The repair is idempotent because it detects
 		  // its own front-miter-pair records.
-		  }, [catalogFillers, priceRows, room, styleId, placed]);
+		  }, [catalogFillers, room, styleId, placed]);
 
   const glassDoorAddonFor = useCallback((p: PlacedCabinet, resolvedStyleId: number) => {
     const linkedGlassDoorCode = glassDoorAddonCodeFor(p);

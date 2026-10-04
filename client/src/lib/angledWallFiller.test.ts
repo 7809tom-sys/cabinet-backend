@@ -354,12 +354,20 @@ function pair(placement: "wall" | "base" | "tall") {
     ]);
   });
 
-  it("does not fabricate a pair at a normal 90-degree wall join", () => {
+  it("closes a physically drawn 45-degree turn even when it was not tagged as locked", () => {
     const ninetyRoom = { ...room, customWalls: room.customWalls.map((wall) => wall.id === "diagonal" ? { ...wall, lockedAngle: undefined } : wall) };
     const diagonalLength = wallLength("diagonal" as any, ninetyRoom);
     const neighbor = cabinet("neighbor", "diagonal", diagonalLength - 24);
     const newlyPlaced = cabinet("new", "straight", 3);
-    expect(automaticAngledWallFiller(newlyPlaced, ninetyRoom, [neighbor, newlyPlaced], [wallFiller], () => "front-pair", null)).toBeNull();
+    const resolution = automaticAngledWallFiller(newlyPlaced, ninetyRoom, [neighbor, newlyPlaced], [wallFiller], () => "front-pair", null);
+    expect(resolution?.fillers).toHaveLength(2);
+    expect(resolution?.fillers.every((filler) => filler.fillerTransitionKind === "front-miter-pair")).toBe(true);
+  });
+
+  it("does not fabricate a pair at a physical 90-degree wall join", () => {
+    const neighbor = cabinet("ninety-neighbor", "straight", wallLength("straight" as any, room) - 24);
+    const newlyPlaced = cabinet("ninety-new", "return", 0);
+    expect(automaticAngledWallFiller(newlyPlaced, room, [neighbor, newlyPlaced], [wallFiller], () => "front-pair", null)).toBeNull();
   });
 
   it("does not invent a pair when the selected line lacks stock for either measured front cut", () => {

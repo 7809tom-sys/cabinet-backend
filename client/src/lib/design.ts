@@ -3067,9 +3067,10 @@ function hasSeatedCustomWallCornerPair(
 }
 
 /**
- * A saved mitered filler is a thin finish board for one named 45° continuous
- * wall vertex. It may touch the cabinet on the adjoining wall at that vertex,
- * but it must not disable collision checks for any other cabinet body.
+ * A saved mitered filler is a thin finish board for one named physical 45°
+ * continuous-wall vertex. It may touch the cabinet on the adjoining wall at
+ * that vertex, but it must not disable collision checks for any other cabinet
+ * body.
  */
 function isMiteredWallFillerJoinPeer(
   filler: PlacedCabinet,
@@ -3082,7 +3083,7 @@ function isMiteredWallFillerJoinPeer(
     && peer.uid !== filler.fillerTransitionNeighborUid) return false;
   const fillerWall = room.customWalls?.find((wall) => wall.id === filler.wallId);
   const peerWall = room.customWalls?.find((wall) => wall.id === peer.wallId);
-  if (!fillerWall || !peerWall || (!isLocked45Wall(fillerWall) && !isLocked45Wall(peerWall))) return false;
+  if (!fillerWall || !peerWall || !customWallJoinTurnsFortyFive(fillerWall, peerWall, room)) return false;
   const miterVertex = filler.fillerMiteredEnd === "start" ? fillerWall.startVertexId : fillerWall.endVertexId;
   if (peerWall.startVertexId !== miterVertex && peerWall.endVertexId !== miterVertex) return false;
   const peerLength = wallLength(peer.wallId as WallSide, room);
@@ -11428,16 +11429,19 @@ function sharedCustomWallVertex(
 /**
  * A diagonal segment is not itself a 45-degree corner. The installation hold
  * belongs only to the *turn* between two measured walls: 45 degrees between
- * their physical tangents, with an explicit locked-45 source wall involved.
- * Two diagonal walls meeting at 90 degrees therefore remain a normal flush
- * corner with no 11-inch reservation.
+ * their physical tangents. This intentionally uses the measured wall geometry
+ * rather than the optional `lockedAngle` authoring hint: a customer-drawn
+ * physical 45° turn needs the same two real filler boards and continuous top
+ * whether it originated in the Wall Builder or a restored/freehand room.
+ * Two diagonal walls meeting at 90 degrees remain a normal flush corner with
+ * no 11-inch reservation.
  */
 export function customWallJoinTurnsFortyFive(
   first: NonNullable<RoomData["customWalls"]>[number],
   second: NonNullable<RoomData["customWalls"]>[number],
   room: Pick<RoomData, "vertices">,
 ): boolean {
-  if (!room.vertices?.length || (!isLocked45Wall(first) && !isLocked45Wall(second))) return false;
+  if (!room.vertices?.length) return false;
   const firstAngle = polygonWallAngle(first, room.vertices);
   const secondAngle = polygonWallAngle(second, room.vertices);
   const raw = Math.abs(((firstAngle - secondAngle + Math.PI) % (Math.PI * 2)) - Math.PI);
