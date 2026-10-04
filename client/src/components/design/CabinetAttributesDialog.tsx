@@ -544,8 +544,8 @@ export function CabinetAttributesDialog({
       <div className="space-y-4 p-4" data-testid="mastertrac-attributes">
         <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
           <div className="font-semibold">{masterTrac.description} · {masterTrac.finish}</div>
-          <div className="mt-1 text-xs text-stone-600">Actual material: {masterTrac.widthIn}″ W × {masterTrac.heightIn}″ H × {masterTrac.depthIn}″ D · ¾″ board</div>
-          <div className="mt-1 text-xs text-stone-600">SKU dimensions are fixed; select a different material number to change the board size.</div>
+          <div className="mt-1 text-xs text-stone-600">Purchased stock: {masterTrac.widthIn}″ W × {masterTrac.heightIn}″ H × {masterTrac.depthIn}″ D · ¾″ board</div>
+          {cabinet.masterTracShelfCut ? <div data-testid="mastertrac-attributes-cut" className="mt-1 text-xs font-semibold text-amber-900">Installed clear width: {cabinet.masterTracShelfCut.installedWidthIn}″ · offcut {cabinet.masterTracShelfCut.offcutIn}″. Edit the connected tower to change the stock SKU or cut. Manufacturer templates and field reboring are required; this 3D view is not a cutting guide.</div> : <div className="mt-1 text-xs text-stone-600">SKU dimensions are fixed; select a different material number to change the board size.</div>}
           <div className="mt-2 text-xs font-semibold">${masterTrac.listEachUsd.toFixed(2)} List / each <span className="font-normal text-stone-500">({MASTERTRAC_PRICE_DATE})</span></div>
         </div>
         {canMoveBoard && (

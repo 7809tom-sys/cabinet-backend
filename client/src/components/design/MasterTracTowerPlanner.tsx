@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { masterTracFinishColor } from "@/lib/closet";
+import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
 import { cabinetWallRunSegment, type PlacedCabinet, type RoomData, type WallOpening, type WallSide } from "@/lib/design";
 import {
   planMasterTracTower, towerTotalWidth, towerWidths,
@@ -35,7 +35,7 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
         <div className="relative h-full shrink-0 border-x" style={{ ...board, width: `${Math.max(0.75, PANEL_PCT(total))}%` }} aria-hidden="true" />
         {config.bays.map((bay, index) => (
           <div key={index} className="relative h-full min-w-0" style={{ width: `${bay.widthIn / total * 100}%` }}>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[10px] font-bold text-stone-700">{bay.widthIn}″ clear</div>
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[10px] font-bold text-stone-700">{bay.widthIn}″ clear{bay.stockWidthIn && bay.stockWidthIn > bay.widthIn ? <span className="block text-[9px] font-normal">from {bay.stockWidthIn}″ stock</span> : null}</div>
             {[bay.fixedBottomIn, ...bay.adjustableHeightsIn, bay.fixedTopIn].map((height, shelfIndex) => (
               <div key={`${height}-${shelfIndex}`} className="absolute inset-x-0 border-y" style={{ ...board, height: "3px", bottom: `${height / config.heightIn * 100}%` }} aria-hidden="true" />
             ))}
@@ -50,7 +50,7 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
           </div>
         )).flatMap((element, index) => [element, <div key={`upright-${index}`} className="relative h-full shrink-0 border-x" style={{ ...board, width: `${Math.max(0.75, PANEL_PCT(total))}%` }} aria-hidden="true" />])}
       </div>
-      <p className="mt-2 text-[10px] leading-snug text-stone-600">Real SKU board widths and shared uprights. Drawer faces and shoe shelf tilt are <strong>illustrative only</strong>; slide clearance, drilling, fence profile, and cut details are not modeled.</p>
+      <p className="mt-2 text-[10px] leading-snug text-stone-600">Real stock SKUs and shared uprights; cut bays show finished installed widths. Drawer faces and shoe shelf tilt are <strong>illustrative only</strong>. 3D is not a cutting or drilling guide.</p>
     </div>
   );
 }
@@ -85,7 +85,10 @@ export function MasterTracTowerPlanner({
     })),
   }));
   const setDepth = (depthIn: 14.5 | 23.5) => setConfig((prev) => ({
-    ...prev, depthIn, bays: prev.bays.map((bay) => ({ ...bay, widthIn: towerWidths(depthIn).includes(bay.widthIn) ? bay.widthIn : 24 })),
+    ...prev, depthIn, bays: prev.bays.map((bay) => {
+      const stock = bay.stockWidthIn ?? bay.widthIn;
+      return towerWidths(depthIn).includes(stock) ? bay : { ...bay, widthIn: 24, stockWidthIn: undefined };
+    }),
   }));
   const submit = () => {
     setCommitError(null);
@@ -96,6 +99,15 @@ export function MasterTracTowerPlanner({
   const panelCount = config.bays.length + 1;
   const fixedCount = config.bays.length * 2;
   const adjustableCount = config.bays.reduce((sum, bay) => sum + bay.adjustableHeightsIn.length, 0);
+  const cutLines = new Map<string, { sku: string; quantity: number; bay: number; stock: number; installed: number; offcut: number; price: number }>();
+  if (preview.ok) for (const board of preview.plan.boards) {
+    const cut = board.masterTracShelfCut;
+    if (!cut) continue;
+    const key = `${board.masterTracTowerBayIndex}|${board.masterCode}|${cut.installedWidthIn}`;
+    const existing = cutLines.get(key);
+    if (existing) existing.quantity += 1;
+    else cutLines.set(key, { sku: board.masterCode, quantity: 1, bay: (board.masterTracTowerBayIndex ?? 0) + 1, stock: cut.stockWidthIn, installed: cut.installedWidthIn, offcut: cut.offcutIn, price: masterTracProduct(board.masterCode)?.listEachUsd ?? 0 });
+  }
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="flex max-h-[92vh] w-[min(96vw,910px)] max-w-[910px] flex-col gap-0 overflow-hidden p-0 sm:max-w-[910px]" data-testid="mastertrac-tower-planner">
@@ -125,9 +137,14 @@ export function MasterTracTowerPlanner({
               <div key={index} className="rounded-lg border border-stone-200 bg-white p-3 shadow-sm" data-testid={`tower-bay-${index + 1}`}>
                 <div className="flex items-center justify-between gap-2"><span className="text-xs font-bold text-stone-800">BAY {index + 1}</span><Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-xs" disabled={config.bays.length <= 2} onClick={() => setConfig((prev) => ({ ...prev, bays: prev.bays.filter((_, i) => i !== index) }))}><Trash2 className="mr-1 h-3 w-3" /> Remove</Button></div>
                 <div className="mt-2 grid grid-cols-3 gap-2">
-                  <div><Label className="text-[11px]">Clear width</Label><Select value={String(bay.widthIn)} onValueChange={(width) => updateBay(index, { widthIn: Number(width) })}><SelectTrigger aria-label={`Bay ${index + 1} clear width`} className="h-8 w-full text-xs"><SelectValue /></SelectTrigger><SelectContent>{towerWidths(config.depthIn).map((width) => <SelectItem key={width} value={String(width)}>{width}″</SelectItem>)}</SelectContent></Select></div>
+                  <div><Label className="text-[11px]">{bay.stockWidthIn != null ? "Stock shelf SKU width" : "Clear width"}</Label><Select value={String(bay.stockWidthIn ?? bay.widthIn)} onValueChange={(width) => updateBay(index, bay.stockWidthIn != null ? { stockWidthIn: Number(width), widthIn: Math.min(bay.widthIn, Number(width)) } : { widthIn: Number(width) })}><SelectTrigger aria-label={`Bay ${index + 1} ${bay.stockWidthIn != null ? "stock shelf width" : "clear width"}`} className="h-8 w-full text-xs"><SelectValue /></SelectTrigger><SelectContent>{towerWidths(config.depthIn).map((width) => <SelectItem key={width} value={String(width)}>{width}″</SelectItem>)}</SelectContent></Select></div>
                   <div><Label htmlFor={`tower-bottom-${index}`} className="text-[11px]">Fixed bottom</Label><Input id={`tower-bottom-${index}`} aria-label={`Bay ${index + 1} fixed bottom elevation`} type="number" step="0.25" className="h-8 text-xs" value={bay.fixedBottomIn} onChange={(event) => updateBay(index, { fixedBottomIn: Number(event.target.value) })} /></div>
                   <div><Label htmlFor={`tower-top-${index}`} className="text-[11px]">Fixed top</Label><Input id={`tower-top-${index}`} aria-label={`Bay ${index + 1} fixed top elevation`} type="number" step="0.25" className="h-8 text-xs" value={bay.fixedTopIn} onChange={(event) => updateBay(index, { fixedTopIn: Number(event.target.value) })} /></div>
+                </div>
+                <div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-2" data-testid={`tower-cut-to-fit-${index + 1}`}>
+                  <button type="button" aria-label={`Bay ${index + 1} cut stock shelf to fit`} aria-pressed={bay.stockWidthIn != null} disabled={Boolean(bay.storage)} className="text-[11px] font-semibold text-[#192432] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-stone-400" onClick={() => updateBay(index, bay.stockWidthIn != null ? { widthIn: bay.stockWidthIn, stockWidthIn: undefined } : { stockWidthIn: bay.widthIn })}>{bay.stockWidthIn != null ? "Use full stock width" : "Cut stock shelf to fit"}</button>
+                  {bay.stockWidthIn != null && <div className="mt-2 flex flex-wrap items-center gap-2"><Label htmlFor={`tower-cut-width-${index}`} className="text-[11px]">Installed clear width</Label><Input id={`tower-cut-width-${index}`} aria-label={`Bay ${index + 1} installed cut width in inches`} type="number" min={12} max={bay.stockWidthIn} step={0.125} value={bay.widthIn} onChange={(event) => updateBay(index, { widthIn: Number(event.target.value) })} className="h-8 w-24 bg-white text-xs" /><span className="text-[11px] text-stone-600">inches · offcut {Number.isFinite(bay.widthIn) ? Math.max(0, Math.round((bay.stockWidthIn - bay.widthIn) * 1000) / 1000) : "—"}″ per shelf</span></div>}
+                  {bay.stockWidthIn != null && <p className="mt-1 text-[10px] text-amber-900">Purchased stock SKU and full 2022 List price remain. Measure the clear opening on site. Adjustable shelves need the manufacturer template at the cut edge; fixed shelves need connector reboring. This preview is not a cutting or drilling guide.</p>}
                 </div>
                 <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/50 p-2" data-testid={`tower-storage-${index + 1}`}>
                   <Label className="text-[11px] font-semibold">2. What goes in this bay?</Label>
@@ -137,7 +154,7 @@ export function MasterTracTowerPlanner({
                     adjustableHeightsIn: value === "shelves" ? bay.adjustableHeightsIn : [],
                   })}>
                     <SelectTrigger aria-label={`Bay ${index + 1} storage type`} className="mt-1 h-8 bg-white text-xs"><SelectValue /></SelectTrigger>
-                    <SelectContent><SelectItem value="shelves">Open shelves</SelectItem><SelectItem value="drawers">Drawers · illustrated</SelectItem><SelectItem value="shoe">Shoe organizer · illustrated</SelectItem></SelectContent>
+                    <SelectContent><SelectItem value="shelves">Open shelves</SelectItem><SelectItem value="drawers" disabled={bay.stockWidthIn != null}>Drawers · illustrated</SelectItem><SelectItem value="shoe" disabled={bay.stockWidthIn != null}>Shoe organizer · illustrated</SelectItem></SelectContent>
                   </Select>
                   {bay.storage?.kind === "drawers" && <div className="mt-2 flex flex-wrap gap-2">
                     <Select value={bay.storage.drawerSize} onValueChange={(drawerSize) => updateBay(index, { storage: { ...bay.storage!, drawerSize: drawerSize as "small" | "large", frontStyle: drawerSize === "small" ? "slab" : (bay.storage as Extract<TowerStorage, { kind: "drawers" }>).frontStyle } as TowerStorage })}><SelectTrigger aria-label={`Bay ${index + 1} drawer size`} className="h-8 w-24 bg-white text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="small">5″ small</SelectItem><SelectItem value="large">10″ large</SelectItem></SelectContent></Select>
@@ -155,6 +172,7 @@ export function MasterTracTowerPlanner({
           </div>
           <div className="space-y-4 border-t border-stone-200 bg-[#fbfaf7] px-5 py-4 lg:border-l lg:border-t-0"><TowerDiagram config={config} />
             <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference takeoff</span><span>{panelCount + fixedCount + adjustableCount} measured boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves</p>
+              {cutLines.size > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-cut-skus"><p className="text-[11px] font-semibold text-amber-900">Stock shelf SKUs · field cuts</p>{Array.from(cutLines.values()).map((line) => <p key={`${line.bay}-${line.sku}`} className="text-[11px] text-stone-700">Bay {line.bay} · {line.quantity}× SKU {line.sku} · {line.stock}″ stock → {line.installed}″ installed · {line.offcut}″ offcut each · {money(line.price)} List each</p>)}</div>}
               {preview.ok && preview.plan.conceptualItems.length > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-concept-skus"><p className="text-[11px] font-semibold text-amber-900">Illustrated storage · verified SKU references</p>{preview.plan.conceptualItems.map((item, i) => <p key={`${item.sku}-${i}`} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>{item.quantity}× {item.sku} · {item.description}</span><span>{money(item.quantity * item.listEachUsd)}</span></p>)}</div>}
               <div className="mt-2 flex justify-between border-t border-stone-200 pt-2 text-sm font-bold"><span>MasterTrac materials</span><span>{preview.ok ? money(preview.plan.listSubtotal) : "—"}</span></div><p className="mt-1 text-[11px] text-stone-600">March 1, 2022 List reference only. Concept geometry and installation hardware not validated. Not added to checkout.</p></div>
             {!preview.ok && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800" data-testid="tower-validation-error">{preview.reason}</p>}

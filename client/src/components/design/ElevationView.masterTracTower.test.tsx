@@ -28,4 +28,17 @@ describe("MasterTrac tower elevation", () => {
     expect(toeKickLinearInches(planned.plan.boards)).toBe(0);
     expect(lightRailLinearInches(planned.plan.boards, room)).toBe(0);
   });
+  it("draws the installed 22.5-inch cut shelf but keeps the purchased 24-inch stock SKU visible", () => {
+    const config = defaultTowerConfig();
+    config.bays[0] = { ...config.bays[0], stockWidthIn: 24, widthIn: 22.5 };
+    const planned = planMasterTracTower(config, room, "top", 0, []);
+    expect(planned.ok).toBe(true);
+    if (!planned.ok) return;
+    const markup = renderToStaticMarkup(createElement(LanguageProvider, null, createElement(ElevationView, {
+      room, cabinets: planned.plan.boards, wall: "top", selectedUid: null, onSelect: () => undefined,
+    })));
+    expect(markup).toContain("width:90px"); // 22.5 installed inches × 4px/in, not stock 24
+    expect(markup).toContain("432529");
+    expect(markup).toContain("installed cut from 24 inch stock");
+  });
 });

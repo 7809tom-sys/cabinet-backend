@@ -11,8 +11,10 @@ import {
 } from "./design";
 
 export type TowerBay = {
-  /** Clear span: exactly the width of the selected manufacturer's shelf SKU. */
+  /** Finished clear span between upright faces; default equals stock SKU width. */
   widthIn: number;
+  /** Purchased stock shelf width if cut to a narrower installed bay. */
+  stockWidthIn?: number;
   fixedBottomIn: number;
   fixedTopIn: number;
   adjustableHeightsIn: number[];
@@ -141,24 +143,36 @@ export function planMasterTracTower(
   let sequence = 0;
   const boards: PlacedCabinet[] = [];
   const conceptualItems: TowerPlan["conceptualItems"] = [];
-  function addBoard(part: MasterTracProduct, role: PlacedCabinet["masterTracTowerRole"], bayIndex: number | null, along: number, mountBottom?: number) {
-    const position = wallPlacementAt(along, part.widthIn!, part.depthIn!, wall, room, undefined, false);
+  function addBoard(part: MasterTracProduct, role: PlacedCabinet["masterTracTowerRole"], bayIndex: number | null, along: number, mountBottom?: number, installedWidthIn = part.widthIn!) {
+    const position = wallPlacementAt(along, installedWidthIn, part.depthIn!, wall, room, undefined, false);
+    const cut = installedWidthIn < part.widthIn! - EPS ? {
+      stockWidthIn: part.widthIn!, installedWidthIn,
+      offcutIn: Math.round((part.widthIn! - installedWidthIn) * 1000) / 1000,
+    } : null;
     boards.push({
       uid: uid(sequence++), cabinetId: 0, masterCode: part.sku,
-      description: `${part.description} · ${part.finish}`,
+      description: `${part.description} · ${part.finish}${cut ? ` · cut to ${installedWidthIn}″` : ""}`,
       category: "MasterTrac Closet", subCategory: part.category,
       placement: part.placement!,
       x: position.x, y: position.y, rotation: position.rotation,
       wallId: position.wallId, wallOffset: position.wallOffset,
-      width: part.widthIn!, height: part.heightIn!, depth: part.depthIn!,
+      width: installedWidthIn, height: part.heightIn!, depth: part.depthIn!,
       nominalWidth: part.widthIn!, nominalHeight: part.heightIn!, nominalDepth: part.depthIn!,
       numberOfDoors: 0, numberOfDrawers: 0,
       ...(mountBottom == null ? {} : { mountBottom, mountBottomAdjusted: true }),
       masterTracTowerId: towerId, masterTracTowerRole: role, masterTracTowerBayIndex: bayIndex,
+      ...(cut ? { masterTracShelfCut: cut } : {}),
     });
   }
   for (let index = 0; index < config.bays.length; index++) {
     const bay = config.bays[index];
+    const stockWidthIn = bay.stockWidthIn ?? bay.widthIn;
+    if (!Number.isFinite(bay.widthIn) || !Number.isFinite(stockWidthIn)
+      || bay.widthIn < SHALLOW_WIDTHS[0] || bay.widthIn > stockWidthIn
+      || !towerWidths(config.depthIn).includes(stockWidthIn)) {
+      return { ok: false, reason: `Bay ${index + 1}: choose a sourced stock shelf with an installed width between 12 inches and its stock width.` };
+    }
+    if (bay.stockWidthIn != null && bay.storage) return { ok: false, reason: `Bay ${index + 1}: drawer/shoe fit is not verified with cut shelves. Choose open shelves or an uncut bay.` };
     if (bay.storage && bay.adjustableHeightsIn.length) return { ok: false, reason: `Bay ${index + 1}: choose storage or adjustable shelves here, not both.` };
     const storage = bay.storage ? towerStorageSkuReferences(bay.storage, bay.widthIn, config.depthIn, config.finish) : null;
     if (storage && !storage.ok) return { ok: false, reason: `Bay ${index + 1}: ${storage.reason}` };
@@ -168,7 +182,6 @@ export function planMasterTracTower(
     if (bay.storage && bay.fixedTopIn - bay.fixedBottomIn < illustrationHeight + PANEL_THICKNESS + 1) {
       return { ok: false, reason: `Bay ${index + 1} has too little open height for the selected illustrated storage. Separate the fixed shelves.` };
     }
-    if (!towerWidths(config.depthIn).includes(bay.widthIn)) return { ok: false, reason: `Bay ${index + 1} has no exact ${bay.widthIn}\" straight shelf in the selected depth.` };
     const elevations = [bay.fixedBottomIn, ...bay.adjustableHeightsIn, bay.fixedTopIn];
     if (bay.adjustableHeightsIn.length > 5 || elevations.some((v) => !Number.isFinite(v) || v < 0 || v + PANEL_THICKNESS > config.heightIn + EPS)
       || [...elevations].sort((a, b) => a - b).some((v, i, sorted) => i > 0 && v - sorted[i - 1] < PANEL_THICKNESS - EPS)) {
@@ -176,10 +189,10 @@ export function planMasterTracTower(
     }
     addBoard(uprights[index]!, index === 0 ? "left" : "center", null, cursor);
     cursor += PANEL_THICKNESS;
-    const fixed = exactPart(config, "Shelves", /\bFixed Shelf\b/i, bay.widthIn, PANEL_THICKNESS);
-    const adjustable = exactPart(config, "Shelves", /\b(?:Adj|Adjustable) Shelf\b/i, bay.widthIn, PANEL_THICKNESS);
-    if (!fixed || (bay.adjustableHeightsIn.length && !adjustable)) return { ok: false, reason: `No matching ${bay.widthIn}\" fixed/adjustable shelf SKU for bay ${index + 1}.` };
-    addBoard(fixed, "fixed-bottom", index, cursor, bay.fixedBottomIn);
+    const fixed = exactPart(config, "Shelves", /\bFixed Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
+    const adjustable = exactPart(config, "Shelves", /\b(?:Adj|Adjustable) Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
+    if (!fixed || (bay.adjustableHeightsIn.length && !adjustable)) return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed/adjustable shelf SKU for bay ${index + 1}.` };
+    addBoard(fixed, "fixed-bottom", index, cursor, bay.fixedBottomIn, bay.widthIn);
     if (storage?.ok && bay.storage) {
       const refs = storage.parts.map(({ product, quantity }) => {
         conceptualItems.push({ sku: product.sku, quantity, listEachUsd: product.listEachUsd, description: product.description });
@@ -187,8 +200,8 @@ export function planMasterTracTower(
       });
       boards.at(-1)!.masterTracConceptStorage = { ...bay.storage, fixedTopIn: bay.fixedTopIn, skuReferences: refs };
     }
-    bay.adjustableHeightsIn.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height));
-    addBoard(fixed, "fixed-top", index, cursor, bay.fixedTopIn);
+    bay.adjustableHeightsIn.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height, bay.widthIn));
+    addBoard(fixed, "fixed-top", index, cursor, bay.fixedTopIn, bay.widthIn);
     cursor += bay.widthIn;
   }
   addBoard(uprights.at(-1)!, "right", null, cursor);
@@ -222,8 +235,10 @@ export function towerConfigFromPlacements(placed: PlacedCabinet[], towerId: stri
     bays: panels.slice(0, -1).map((panel, index) => {
       const widthIn = (panels[index + 1].wallOffset ?? NaN) - (panel.wallOffset ?? NaN) - PANEL_THICKNESS;
       const shelf = (role: string) => group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === role)?.mountBottom;
+      const cut = group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "fixed-bottom")?.masterTracShelfCut;
       return {
         widthIn: Math.round(widthIn * 100) / 100,
+        ...(cut ? { stockWidthIn: cut.stockWidthIn } : {}),
         fixedBottomIn: shelf("fixed-bottom") ?? 6,
         fixedTopIn: shelf("fixed-top") ?? first.heightIn! - PANEL_THICKNESS,
         adjustableHeightsIn: group.filter((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "adjustable")

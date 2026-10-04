@@ -4771,7 +4771,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const colorKey = cabStyleId ?? "_";
       const discKey = p.discountPct ?? 0;
       const gdFlag = p.glassDoor ? "GD" : "";
-      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}|${discKey}|${gdFlag}`;
+      const key = `${p.masterCode}|${p.masterTracShelfCut ? `cut-${p.masterTracShelfCut.stockWidthIn}-${p.masterTracShelfCut.installedWidthIn}` : Math.round(p.width)}|${Math.round(placedHeight(p))}|${((p.rotation % 360) + 360) % 360}|${colorKey}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const unit = unitPriceFor(p);
       const existing = map.get(key);
@@ -15746,6 +15746,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             <span className="ml-1 font-semibold text-foreground/70">· {g.swing === "left" ? "L hinge" : "R hinge"}</span>
                           )}
                         </div>
+                        {g.sample.masterTracShelfCut && <div data-testid="mastertrac-cut-bom-line" className="text-[10px] font-medium leading-snug text-amber-800">Stock SKU {g.sample.masterCode} · {g.sample.masterTracShelfCut.stockWidthIn}″ → {g.sample.masterTracShelfCut.installedWidthIn}″ installed · {g.sample.masterTracShelfCut.offcutIn}″ offcut ea. Full stock List.</div>}
                         {/* Per-line color */}
                         {g.colorName && (
                           <div className="mt-0.5 flex items-center gap-1">

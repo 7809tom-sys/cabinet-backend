@@ -762,6 +762,9 @@ export interface PlacedCabinet {
   masterTracTowerId?: string | null;
   masterTracTowerRole?: "left" | "center" | "right" | "fixed-bottom" | "fixed-top" | "adjustable" | null;
   masterTracTowerBayIndex?: number | null;
+  /** One purchased shelf SKU, field-trimmed for an installed tower opening. Stock remains billable;
+   * installed width drives saved 2D/3D geometry. No cut labor, edge work, or drilling is priced. */
+  masterTracShelfCut?: { stockWidthIn: number; installedWidthIn: number; offcutIn: number } | null;
   /** Illustrative per-bay storage, anchored on the exact fixed-bottom board.
    * The referenced SKUs are 2022 List-only; shapes/rail positions are not installation drawings. */
   masterTracConceptStorage?: {

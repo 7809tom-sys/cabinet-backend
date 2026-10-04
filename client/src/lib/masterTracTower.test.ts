@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import * as THREE from "three";
+import { addCabinet, existingCabinetSku, existingCabinetTransform } from "@/components/design/InteractiveRoom3D";
 import { masterTracProduct } from "./closet";
 import { removeOverlappingPlacements, type RoomData, type WallOpening } from "./design";
 import { defaultTowerConfig, planMasterTracTower, towerConceptReferenceSubtotal, towerConfigFromPlacements, towerStorageSkuReferences, towerTotalWidth, towerWidths } from "./masterTracTower";
@@ -156,5 +158,42 @@ describe("MasterTrac connected tower planning", () => {
         expect(towerStorageSkuReferences({ kind: "shoe", count: 1, fenceFinish: "Chrome" }, width, 14.5, finish).ok).toBe(true);
       }
     }
+  });
+
+  it("uses real 24-inch stock SKUs and List while installing 22.5-inch fixed and adjustable boards", () => {
+    const cutConfig = { ...config, bays: [{ ...config.bays[0], stockWidthIn: 24, widthIn: 22.5 }, config.bays[1]] };
+    const result = planMasterTracTower(cutConfig, room, "top", 5, []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plan.totalWidthIn).toBe(48.75);
+    const cutBoards = result.plan.boards.filter((board) => board.masterTracTowerBayIndex === 0 && board.masterTracShelfCut);
+    expect(cutBoards).toHaveLength(4);
+    expect(cutBoards.every((board) => board.width === 22.5 && board.nominalWidth === 24
+      && board.masterTracShelfCut?.offcutIn === 1.5)).toBe(true);
+    expect(cutBoards.filter((board) => board.masterTracTowerRole === "adjustable").map((board) => board.masterCode)).toEqual(["432535", "432535"]);
+    expect(cutBoards.filter((board) => board.masterTracTowerRole === "fixed-bottom").map((board) => board.masterCode)).toEqual(["432529"]);
+    expect(result.plan.listSubtotal).toBe(231); // four full-stock boards, no fabricated cut discount
+    expect(result.plan.boards.filter((board) => board.masterTracTowerRole === "center")[0].wallOffset).toBe(28.25);
+    const firstShelf = cutBoards.find((board) => board.masterTracTowerRole === "fixed-bottom")!;
+    const root = new THREE.Group();
+    addCabinet(root, existingCabinetSku(firstShelf, room), null, {}, room.width, room.depth, "#eee", "#fff", undefined, existingCabinetTransform(firstShelf, room));
+    const mesh = root.children[0].children.find((node) => node.userData.masterTracBoardSurface)!;
+    const size = new THREE.Vector3();
+    new THREE.Box3().setFromObject(mesh).getSize(size);
+    expect(root.children[0].userData.masterTracBoard.sku).toBe("432529");
+    expect(root.children[0].userData.masterTracBoard.cut).toMatchObject({ stockWidthIn: 24, installedWidthIn: 22.5, offcutIn: 1.5 });
+    expect(size.x * 12).toBeCloseTo(22.5);
+    const restored = removeOverlappingPlacements(JSON.parse(JSON.stringify(result.plan.boards)), room);
+    expect(restored.rejected).toHaveLength(0);
+    expect(towerConfigFromPlacements(restored.placed, "tower-preview")?.config.bays[0]).toMatchObject({ stockWidthIn: 24, widthIn: 22.5 });
+  });
+
+  it("rejects unsupported stock, cuts shorter than 12 inches or wider than stock, and cuts in drawer bays", () => {
+    const withCut = (widthIn: number, stockWidthIn: number) => ({ ...config, bays: [{ ...config.bays[0], widthIn, stockWidthIn }, config.bays[1]] });
+    for (const invalid of [withCut(25, 24), withCut(11, 24), withCut(22, 23), withCut(NaN, 24)]) {
+      expect(planMasterTracTower(invalid, room, "top", 5, []).ok).toBe(false);
+    }
+    const drawers = { ...withCut(22, 24), bays: [{ ...withCut(22, 24).bays[0], adjustableHeightsIn: [], storage: { kind: "drawers" as const, count: 1, drawerSize: "small" as const, frontStyle: "slab" as const } }, config.bays[1]] };
+    expect(planMasterTracTower(drawers, room, "top", 5, [])).toMatchObject({ ok: false, reason: expect.stringContaining("drawer/shoe") });
   });
 });

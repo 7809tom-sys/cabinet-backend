@@ -159,6 +159,7 @@ type SceneSku = {
   /** Original product visual selected in the 2D appliance palette. */
   catalogImageUrl?: string | null;
   decorativeEnd?: "none" | "left" | "right" | "both";
+  masterTracShelfCut?: PlacedCabinet["masterTracShelfCut"];
 	  fillerPieceGroupId?: string | null;
 	  fillerTotalWidth?: number | null;
 		  fillerPlacementMode?: "left" | "right" | "split" | null;
@@ -3542,7 +3543,7 @@ export function addCabinet(
     const boardMaterial = new THREE.MeshStandardMaterial({ color: finish, roughness: 0.77 });
     const edgeMaterial = new THREE.MeshStandardMaterial({ color: finish.clone().offsetHSL(0, 0, 0.06), roughness: 0.73 });
     cabinet.position.y = (requestedMountBottom + resolvedHeightIn / 2) * INCH;
-    cabinet.userData.masterTracBoard = { sku: sku.masterCode, shape: masterTrac.shape, finish: masterTrac.finish, thicknessIn: masterTrac.thicknessIn, bottomIn: requestedMountBottom };
+    cabinet.userData.masterTracBoard = { sku: sku.masterCode, shape: masterTrac.shape, finish: masterTrac.finish, thicknessIn: masterTrac.thicknessIn, bottomIn: requestedMountBottom, ...(sku.masterTracShelfCut ? { cut: sku.masterTracShelfCut } : {}) };
     const board = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, resolvedHeightIn * INCH, bodyDepth), boardMaterial);
     board.castShadow = true;
     board.receiveShadow = true;
@@ -8216,6 +8217,7 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
+    masterTracShelfCut: cabinet.masterTracShelfCut,
     subCategory: cabinet.subCategory ?? null,
     placementType,
     // The placed record is primary. Older appliance records can lack one of
@@ -10797,7 +10799,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		                  <span className="truncate">{masterTracItem ? `MasterTrac · ${masterTracItem.finish}` : `${scene.materials?.cabinet.doorStyle ?? "Catalog"} · ${scene.materials?.cabinet.doorPanelType ?? "panel"}`}</span>
 		                  <span className={`font-semibold ${selectedPrice == null ? "text-rose-700" : "text-foreground"}`}>{selectedPrice == null ? "Unavailable" : `$${selectedPrice.toFixed(2)}${masterTracItem ? " · 2022 List reference" : ""}`}</span>
 		                </div>
-		                {selectedPlacedCabinet?.masterTracConceptStorage && <p className="mt-1 text-[10px] font-medium text-amber-800">Illustrative {selectedPlacedCabinet.masterTracConceptStorage.kind} in this bay · pictured configuration, not installation geometry. See reference SKU lines in Materials.</p>}
+			                {selectedPlacedCabinet?.masterTracConceptStorage && <p className="mt-1 text-[10px] font-medium text-amber-800">Illustrative {selectedPlacedCabinet.masterTracConceptStorage.kind} in this bay · pictured configuration, not installation geometry. See reference SKU lines in Materials.</p>}
+			                {selectedPlacedCabinet?.masterTracShelfCut && <p data-testid="three-d-mastertrac-cut" className="mt-1 text-[10px] font-semibold text-amber-800">Installed {selectedPlacedCabinet.masterTracShelfCut.installedWidthIn}″ from {selectedPlacedCabinet.masterTracShelfCut.stockWidthIn}″ purchased stock · {selectedPlacedCabinet.masterTracShelfCut.offcutIn}″ offcut. Field cut and template/rebore required.</p>}
 		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
 		                {refrigeratorBayProof && <div data-testid="three-d-refrigerator-bay-proof" className={`mt-1 rounded border px-1.5 py-1 text-[10px] ${refrigeratorBayProof.hasLeftPanel && refrigeratorBayProof.hasRightPanel && refrigeratorBayProof.bridgeCenterOffset != null ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
 		                  <div className="font-bold uppercase tracking-wide">Refrigerator dimensions · selected parts</div>

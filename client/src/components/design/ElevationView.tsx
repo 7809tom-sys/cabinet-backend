@@ -384,7 +384,7 @@ export function ElevationView({
         data-tower-id={p.masterTracTowerId ?? undefined}
         role="button"
         tabIndex={0}
-        aria-label={`${p.masterCode} ${masterTracBoard.description}, ${masterTracBoard.finish}, ${sizeAlong} by ${rawHeight} inches, bottom ${rawBottom} inches`}
+        aria-label={`${p.masterCode} ${masterTracBoard.description}, ${masterTracBoard.finish}, ${sizeAlong} by ${rawHeight} inches${p.masterTracShelfCut ? `, installed cut from ${p.masterTracShelfCut.stockWidthIn} inch stock` : ""}, bottom ${rawBottom} inches`}
         onClick={(event) => { event.stopPropagation(); onSelect(p.uid); }}
         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(p.uid); } }}
         className="absolute cursor-pointer border border-stone-500/60 focus-visible:outline-2 focus-visible:outline-amber-600"
@@ -397,7 +397,7 @@ export function ElevationView({
           boxShadow: selected ? "0 0 0 2px #c79130" : "inset 0 1px 0 rgba(255,255,255,.32)",
           zIndex: masterTracBoard.shape === "panel" ? 5 : 6,
         }}
-        title={`${p.masterCode} · ${masterTracBoard.description} · ${masterTracBoard.finish} · ${rawBottom}″ bottom`}
+        title={`${p.masterCode} · ${masterTracBoard.description} · ${masterTracBoard.finish}${p.masterTracShelfCut ? ` · cut ${p.masterTracShelfCut.stockWidthIn}″ stock to ${p.masterTracShelfCut.installedWidthIn}″ installed` : ""} · ${rawBottom}″ bottom`}
       />;
     }
     const isWall = p.placement === "wall";
