@@ -1,5 +1,6 @@
 // ─── Kitchen Design geometry & snapping engine ──────────────────────────────
 // All real-world units are INCHES. The canvas converts inches → pixels via PPI.
+import { freestandingCountertopSurfaces, isFreestandingBase } from "@/lib/freestandingRun";
 import {
   closestWall as closestPolygonWall,
   isLocked45Wall,
@@ -2903,12 +2904,23 @@ function convexPlanPolygonsIntersect(left: PlanFootprintPoint[], right: PlanFoot
   return true;
 }
 
-function cabinetPlanBodiesIntersect(left: PlacedCabinet, right: PlacedCabinet): boolean {
+export function cabinetPlanBodiesIntersect(left: PlacedCabinet, right: PlacedCabinet): boolean {
   return cabinetPlanBodyPolygons(left).some((leftPolygon) =>
     cabinetPlanBodyPolygons(right).some((rightPolygon) => convexPlanPolygonsIntersect(leftPolygon, rightPolygon)),
   );
 }
 
+/** True when either body is a free (unseated) standard base at an odd 45° turn. */
+function usesFreestandingFortyFiveBodyCheck(moving: PlacedCabinet, other: PlacedCabinet): boolean {
+  const isFreeFortyFive = (cabinet: PlacedCabinet) => {
+    const rotation = (((Math.round(Number(cabinet.rotation)) % 360) + 360) % 360);
+    return !cabinet.wallId
+      && cabinet.placement === "base"
+      && placedCornerGeometryKind(cabinet) === "standard"
+      && (rotation === 45 || rotation === 135 || rotation === 225 || rotation === 315);
+  };
+  return (moving.placement === "base" && other.placement === "base") && (isFreeFortyFive(moving) || isFreeFortyFive(other));
+}
 function usesPeninsulaCornerJoinBodyCheck(moving: PlacedCabinet, other: PlacedCabinet, room: RoomData): boolean {
   if (moving.placement !== "base" || other.placement !== "base") return false;
   const run = peninsulaRunById(room, moving.wallId);
@@ -3114,6 +3126,10 @@ export function cabinetPlacementCollisionDetail(
     // envelopes reject a valid DB24/dishwasher seam.
     if (hasSeatedCustomWallCornerPair(moving, other, room)) continue;
     if (usesPeninsulaCornerJoinBodyCheck(moving, other, room) && !cabinetPlanBodiesIntersect(moving, other)) continue;
+    // A free cabinet turned to 45° in the open room stores a diagonal screen
+    // envelope that overlaps its flush neighbour by design; only the true
+    // rotated bodies decide (edge contact at the miter stays valid).
+    if (usesFreestandingFortyFiveBodyCheck(moving, other) && !cabinetPlanBodiesIntersect(moving, other)) continue;
     return detail;
   }
   return null;
@@ -3243,7 +3259,14 @@ export function firstCollisionFreePeninsulaPlacement(
 }
 
 export function hasCollision(moving: PlacedCabinet, others: PlacedCabinet[]): boolean {
-  return cabinetCollisionDetail(moving, others) != null;
+  const detail = cabinetCollisionDetail(moving, others);
+  if (!detail) return false;
+  // Free 45° bodies: the diagonal envelope may overlap a flush neighbour while
+  // the real rotated boxes only share an edge at the miter.
+  if (usesFreestandingFortyFiveBodyCheck(moving, detail.cabinet) && !cabinetPlanBodiesIntersect(moving, detail.cabinet)) {
+    return hasCollision(moving, others.filter((other) => other.uid !== detail.cabinet.uid));
+  }
+  return true;
 }
 
 /**
@@ -10013,6 +10036,8 @@ export interface CountertopSurface {
    * connected slab, never a filler or an inferred countertop span.
    */
   peninsulaCornerSupportExtension?: boolean;
+  /** Free-standing (open-room) chain members covered by this one mitered slab. */
+  freestandingMemberUids?: string[];
 }
 
 export interface CountertopPlanPoint {
@@ -11890,6 +11915,10 @@ export function countertopSurfaces(
     // cabinet-supported slab. That avoids seams and maintains coverage over an
     // intentional void between two cabinets.
     if (peninsula) continue;
+    // Free-standing bases in the open room (no wall seat, not against a wall)
+    // are collected below into one mitered chain slab, exactly like the
+    // Continuous Wall Builder's 45° turn. Their top never snaps onto a wall.
+    if (isFreestandingBase(p, room, island)) continue;
     // A Lazy Susan/easy-reach base owns two physical cabinet legs. A drawn
     // room's straight-run branch below cannot replace that physical L with one
     // rectangle, including when its supporting wall is at 45°. Keep the exact
@@ -12057,6 +12086,7 @@ export function countertopSurfaces(
       out.push({ x: centerX - width / 2, y: centerY - depth / 2, width, depth, kind: "island" });
     }
   }
+  out.push(...freestandingCountertopSurfaces(placed, room, island));
   return out;
 }
 

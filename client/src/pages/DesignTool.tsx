@@ -1,3 +1,4 @@
+import { snapFreestandingFortyFive } from "@/lib/freestandingRun";
 import { useState, useMemo, useCallback, useEffect, useRef, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -8376,8 +8377,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        // Free-floating plan item (island run or a floor cabinet away from every
 	        // wall): the same rectangular room/cabinet edge snap as before.
 	        const freeBody = snapWallCabinetToOwningWall(requestedBody, room);
-	        const snappedPosition = magnet ? snapPosition(freeBody, room, peers, island) : null;
-	        alignedCabinet = snappedPosition
+	        // A free cabinet turned to 45° seats flush against the end of a
+	        // free-standing neighbour (back corners meet, fronts miter) — the
+	        // same gap-free join the Continuous Wall Builder gives an angled wall.
+	        const fortyFiveSeat = magnet ? snapFreestandingFortyFive(freeBody, peers, room, island) : null;
+	        const snappedPosition = fortyFiveSeat ?? (magnet ? snapPosition(freeBody, room, peers, island) : null);
+	        alignedCabinet = fortyFiveSeat
+	          ? { ...freeBody, x: fortyFiveSeat.x, y: fortyFiveSeat.y }
+	          : snappedPosition
 	          ? snapCabinetSeamOverlap(
 	            { ...freeBody, x: snappedPosition.x, y: snappedPosition.y },
 	            peers,

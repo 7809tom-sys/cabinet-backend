@@ -19,11 +19,22 @@ describe("free-standing base countertops in 3D", () => {
     cab({ uid: "a", x: 40, y: 70 }), cab({ uid: "b", x: 64, y: 70 }), cab({ uid: "c", x: 88, y: 70 }),
     cab({ uid: "d", x: 114, y: 74, rotation: 45 }),
   ];
-  it("draws no wall-snapped shared slab for cabinets it does not cover", () => {
-    expect(countertopSurfaces(freestanding, room).length).toBeGreaterThan(0);
-    expect(threeDStandardCountertopSurfaces(room, freestanding)).toEqual([]);
+  it("gives free-standing cabinets their own mitered chain slab and never a wall-snapped one", () => {
+    const surfaces = countertopSurfaces(freestanding, room);
+    // No slab is parked on a wall: every surface sits down in the room where the cabinets are.
+    for (const surface of surfaces) {
+      expect(surface.y).toBeGreaterThan(5);
+      expect(surface.x + surface.width).toBeLessThan(room.width - 5);
+    }
+    // The three touching bases share ONE chain slab; the loose 45° box (not flush yet) gets its own.
+    const chainSlabs = surfaces.filter((s) => s.freestandingMemberUids?.length);
+    expect(chainSlabs.length).toBeGreaterThanOrEqual(1);
+    expect(chainSlabs.some((s) => ["a", "b", "c"].every((uid) => s.freestandingMemberUids!.includes(uid)))).toBe(true);
+    // The 3D view trusts those slabs because each really covers its cabinets.
+    const shared = threeDStandardCountertopSurfaces(room, freestanding);
+    expect(shared.length).toBe(surfaces.length);
     for (const cabinet of freestanding) {
-      expect(countertopSurfaces(freestanding, room).some((s) => countertopSurfaceCoversCabinet(s, cabinet))).toBe(false);
+      expect(surfaces.some((s) => countertopSurfaceCoversCabinet(s, cabinet))).toBe(true);
     }
   });
   it("still uses one shared slab for a seated wall run", () => {
