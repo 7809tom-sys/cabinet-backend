@@ -9181,15 +9181,10 @@ export function reseatOnWallRun(p: PlacedCabinet, room: RoomData): PlacedCabinet
   const spot = wallPlacementAt(offset, span, depth, frame.id, room, p.peninsulaSide);
   if (Math.abs(spot.x - p.x) > WALL_RUN_SEAT_TOLERANCE_IN || Math.abs(spot.y - p.y) > WALL_RUN_SEAT_TOLERANCE_IN) return strip();
   const nextOffset = spot.wallOffset ?? offset;
-  // Trig round-trip noise (~1e-7 in) must not count as a move: re-seating a
-  // cabinet that is already seated flush against its neighbour would otherwise
-  // nudge it a hair into that neighbour and the load-time collision sweep
-  // would reject it (the missing 7th cabinet on a 45-degree Wall Builder run).
-  const SEAT_JITTER_IN = 1e-4;
-  const unchanged = Math.abs(spot.x - p.x) <= SEAT_JITTER_IN
-    && Math.abs(spot.y - p.y) <= SEAT_JITTER_IN
+  const unchanged = Math.abs(spot.x - p.x) <= COLLISION_EPSILON_IN
+    && Math.abs(spot.y - p.y) <= COLLISION_EPSILON_IN
     && p.wallOffset != null
-    && Math.abs(Number(p.wallOffset) - nextOffset) <= SEAT_JITTER_IN
+    && Math.abs(Number(p.wallOffset) - nextOffset) <= COLLISION_EPSILON_IN
     && (spot.wallId ?? frame.id) === p.wallId;
   if (unchanged) return p;
   return { ...p, x: spot.x, y: spot.y, wallId: spot.wallId ?? frame.id, wallOffset: nextOffset };
