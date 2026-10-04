@@ -5789,6 +5789,11 @@ export function existingCabinetTransform(
       && !cabinet.islandFace
       && !cabinet.depthPositionAdjusted
       && cabinet.placement === "base"
+      // The legacy anchor pulls a base flush to the nearest rectangular room
+      // wall. That is only meaningful for a quarter-turn cabinet; a free 45/135
+      // degree body in a run must keep its seated position, or it is dragged out
+      // of its run and the shared countertop is left hanging (twisted L piece).
+      && Number(cabinet.rotation) % 90 === 0
       ? threeDLegacyWallAnchor(cabinet, room as Pick<RoomData, "width" | "depth">)
       : null;
   if (legacyWall === "left") x = width / 2;
