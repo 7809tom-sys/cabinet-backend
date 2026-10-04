@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791122681,
+  "indexBundles": [
+    "index-X7mRZTlD.js"
+  ],
+  "designerBundles": [
+    "DesignTool-Bnq6tjRw.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-BcckjEgc.js"
+  ],
+  "marker": "open 45\u00b0 cabinet front was closed",
+  "markerFound": true
+}
