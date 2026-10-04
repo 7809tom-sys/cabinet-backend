@@ -758,6 +758,10 @@ export interface PlacedCabinet {
   // cabinet is flagged CUSTOM. Optional for backward-compat with older designs.
   nominalHeight?: number | null;
   nominalDepth?: number | null;
+  /** Optional board-level MasterTrac tower group; not an installation or hardware claim. */
+  masterTracTowerId?: string | null;
+  masterTracTowerRole?: "left" | "center" | "right" | "fixed-bottom" | "fixed-top" | "adjustable" | null;
+  masterTracTowerBayIndex?: number | null;
   // Per-cabinet door/hardware attributes (set from the right-click attributes
   // dialog). All optional for backward-compat with older saved designs.
   // noDoor: order this cabinet as an OPEN unit (no door/front) — e.g. open
@@ -5944,7 +5948,7 @@ export function crownLinearInches(placed: PlacedCabinet[], room?: RoomData): num
 
 export function toeKickLinearInches(placed: PlacedCabinet[]): number {
   return placed
-    .filter((p) => p.placement === "base" || p.placement === "tall")
+    .filter((p) => p.category !== "MasterTrac Closet" && (p.placement === "base" || p.placement === "tall"))
     .reduce((sum, p) => sum + alongRunSpan(p), 0);
 }
 
@@ -5956,6 +5960,7 @@ export interface LightRailTakeoff {
 }
 
 export function isLightRailEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
+  if (p.category === "MasterTrac Closet") return false;
   if (p.placement !== "wall") return false;
   if (usesRaisedFloorWallDoorPull(p)) return false;
   return !room || elevationBox(p, room).bottom > STD.TOE_KICK + COLLISION_EPSILON_IN;

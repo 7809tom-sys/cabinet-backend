@@ -27,6 +27,7 @@ import { isCustomCabinetProfile } from "@/lib/customCabinetProfiles";
 import { resolveCustomCabinetRender } from "@/lib/customCabinetRender";
 import { createContext, useContext, useRef, useEffect, useState, useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
 
 interface Props {
   room: RoomData;
@@ -374,6 +375,31 @@ export function ElevationView({
     const sizeAlong = wallRunSpan(p, side, room);
     const posAlong = seam ? 0 : wallRunOffset(p, side, room);
     const { bottom: rawBottom, height: rawHeight } = elevationBox(p, room);
+    const masterTracBoard = masterTracProduct(p.masterCode);
+    if (masterTracBoard?.placeable && masterTracBoard.shape) {
+      const selected = p.uid === selectedUid;
+      return <div
+        key={seam ? `${p.uid}-seam` : p.uid}
+        data-testid="mastertrac-elevation-board"
+        data-tower-id={p.masterTracTowerId ?? undefined}
+        role="button"
+        tabIndex={0}
+        aria-label={`${p.masterCode} ${masterTracBoard.description}, ${masterTracBoard.finish}, ${sizeAlong} by ${rawHeight} inches, bottom ${rawBottom} inches`}
+        onClick={(event) => { event.stopPropagation(); onSelect(p.uid); }}
+        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(p.uid); } }}
+        className="absolute cursor-pointer border border-stone-500/60 focus-visible:outline-2 focus-visible:outline-amber-600"
+        style={{
+          left: posAlong * ppi,
+          bottom: rawBottom * ppi,
+          width: Math.max(1, sizeAlong * ppi),
+          height: Math.max(1, rawHeight * ppi),
+          backgroundColor: masterTracFinishColor(masterTracBoard.finish),
+          boxShadow: selected ? "0 0 0 2px #c79130" : "inset 0 1px 0 rgba(255,255,255,.32)",
+          zIndex: masterTracBoard.shape === "panel" ? 5 : 6,
+        }}
+        title={`${p.masterCode} · ${masterTracBoard.description} · ${masterTracBoard.finish} · ${rawBottom}″ bottom`}
+      />;
+    }
     const isWall = p.placement === "wall";
     const refrigeratorEndPanel = isRefrigeratorEndPanel(p);
     // Toe kick is physical cabinet geometry: raise every floor-level base/tall

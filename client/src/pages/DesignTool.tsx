@@ -167,6 +167,8 @@ import {
   MASTERTRAC_BROCHURE_PHOTO, MASTERTRAC_PRICE_DATE,
 } from "@/lib/closet";
 import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview";
+import { MasterTracTowerPlanner } from "@/components/design/MasterTracTowerPlanner";
+import { defaultTowerConfig, planMasterTracTower, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
@@ -1612,6 +1614,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
   const [masterTracFinish, setMasterTracFinish] = useState("all");
+  const [towerDialog, setTowerDialog] = useState<{ config: MasterTracTowerConfig; wall: WallSide; startIn: number; editGroupId: string | null } | null>(null);
+  const towerCommitInProgressRef = useRef(false);
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
@@ -4066,6 +4070,32 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const masterTracListSubtotal = useMemo(() => placed.reduce(
     (sum, p) => sum + (masterTracProduct(p.masterCode)?.listEachUsd ?? 0), 0,
   ), [placed]);
+
+  const commitMasterTracTower = useCallback((config: MasterTracTowerConfig, wall: WallSide, startIn: number, editGroupId: string | null) => {
+    if (layoutLocked || cabinetsLocked) return { ok: false, reason: "Unlock the room and cabinets before placing or editing a tower." };
+    if (towerCommitInProgressRef.current) return { ok: false, reason: "Tower placement is already in progress." };
+    const current = placedRef.current;
+    if (editGroupId && !current.some((board) => board.masterTracTowerId === editGroupId)) {
+      return { ok: false, reason: "This saved tower is no longer in the design. Reopen the planner to create a new one." };
+    }
+    const retained = editGroupId ? current.filter((board) => board.masterTracTowerId !== editGroupId) : current;
+    const groupId = editGroupId ?? makeUid();
+    const result = planMasterTracTower(config, room, wall, startIn, retained, openings, groupId, () => makeUid());
+    if (!result.ok) return { ok: false, reason: result.reason };
+    towerCommitInProgressRef.current = true;
+    window.setTimeout(() => { towerCommitInProgressRef.current = false; }, 500);
+    const committed = [...retained, ...result.plan.boards];
+    placedRef.current = committed;
+    setPlaced(() => committed);
+    setSelectedUid(result.plan.boards.find((board) => board.masterTracTowerRole === "adjustable")?.uid ?? result.plan.boards[0].uid);
+    setActiveWall(wall);
+    setMasterTracFinish(config.finish);
+    setViewMode("threeD");
+    setPlacementWarning(null);
+    setTowerDialog(null);
+    toast.success(`${config.bays.length} connected MasterTrac bays · ${result.plan.count} exact SKU boards · $${result.plan.listSubtotal.toFixed(2)} March 2022 List reference, not checkout.`);
+    return { ok: true };
+  }, [cabinetsLocked, layoutLocked, openings, room, setPlaced]);
 
   const interactive3dOrderSummary = useMemo<InteractiveRoomOrderSummary>(() => {
     let subtotal = 0;
@@ -11519,6 +11549,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
   return (
     <div className="flex flex-col h-full min-h-0">
+      {towerDialog && <MasterTracTowerPlanner
+        key={towerDialog.editGroupId ?? "new"}
+        initialConfig={towerDialog.config}
+        initialWall={towerDialog.wall}
+        initialStartIn={towerDialog.startIn}
+        room={room}
+        placed={placed}
+        openings={openings}
+        editGroupId={towerDialog.editGroupId}
+        onClose={() => setTowerDialog(null)}
+        onCommit={commitMasterTracTower}
+      />}
       {/* Toolbar */}
       <div data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined} className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isTabletWorkspace ? `flex-nowrap overflow-visible gap-1.5 px-2 py-1 ${isTabletPortrait ? "order-last border-b-0 border-t" : tabletImmersiveHeader ? "pl-16" : ""}` : isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none lg:[&>*]:shrink-0" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
         {/* Title + badge — desktop only */}
@@ -13029,6 +13071,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <Wrench className="h-3.5 w-3.5" /> Attributes
                 </Button>
               )}
+              {selectedCab.masterTracTowerId && (
+                <Button type="button" variant="outline" size="sm" className="h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold" data-testid="edit-mastertrac-tower" onClick={() => {
+                  const current = towerConfigFromPlacements(placedRef.current, selectedCab.masterTracTowerId!);
+                  if (!current) { toast.error("This tower is incomplete. Rebuild it from the connected-tower planner or edit its boards individually."); return; }
+                  setTowerDialog({ ...current, editGroupId: selectedCab.masterTracTowerId! });
+                }}>
+                  <Columns3 className="h-3.5 w-3.5" /> Edit tower
+                </Button>
+              )}
               {(() => {
                 const editConfigHref = isAdmin
                   ? cabinetEditConfigHref(selectedCab.masterCode, selectedCab.cabinetId)
@@ -13769,6 +13820,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <div className="space-y-1.5 p-2">
                   <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
                   <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves have dimensioned 3D models; other parts are reference-only until their assembly geometry is verified.</p>
+                  <Button type="button" data-testid="open-mastertrac-tower-planner" className="h-9 w-full justify-start gap-2 bg-[#192432] px-3 text-xs font-semibold text-white hover:bg-[#2c3b4e]" onClick={() => setTowerDialog({ config: defaultTowerConfig(masterTracFinish), wall: activeWall, startIn: 12, editGroupId: null })}>
+                    <Columns3 className="h-4 w-4 text-[#d8b275]" /> Plan connected towers <span className="ml-auto text-[10px] font-normal text-stone-200">2–4 bays</span>
+                  </Button>
                   <div className="flex flex-wrap gap-1" aria-label="MasterTrac finish filter">
                     {["all", "Glacier White", "Slate Rift", "Spiced Mahogany"].map((finish) => (
                       <button type="button" key={finish} onClick={() => setMasterTracFinish(finish)} aria-pressed={masterTracFinish === finish} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${masterTracFinish === finish ? "border-primary bg-primary text-primary-foreground" : "border-stone-300 bg-white text-stone-700"}`}>
@@ -15822,7 +15876,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   <>
                     {cabinetSections.base.length > 0 && (
                       <SheetSection
-                        title={t("dt_bs_sec_base")}
+                        title={cabinetSections.base.every((group) => masterTracProduct(group.sample.masterCode)?.shape === "panel") ? "MasterTrac upright panels" : t("dt_bs_sec_base")}
                         count={cabinetSections.base.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("base")}
                         onToggle={() => toggleSheetSection("base")}
@@ -15832,7 +15886,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     )}
                     {cabinetSections.wall.length > 0 && (
                       <SheetSection
-                        title={t("dt_bs_sec_wall")}
+                        title={cabinetSections.wall.every((group) => masterTracProduct(group.sample.masterCode)?.shape === "shelf") ? "MasterTrac shelf boards" : t("dt_bs_sec_wall")}
                         count={cabinetSections.wall.reduce((n, g) => n + g.qty, 0)}
                         collapsed={collapsedSheet.has("wall")}
                         onToggle={() => toggleSheetSection("wall")}
