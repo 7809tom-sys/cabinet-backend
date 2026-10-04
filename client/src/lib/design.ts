@@ -5450,6 +5450,8 @@ export const OPENINGS: OpeningDef[] = [
 export interface WallOpening {
   uid: string;
   kind: OpeningKind;
+  /** Generic room-door illustration, not a catalog MasterTrac door or a hardware specification. */
+  doorStyle?: "bifold";
   label: string;
   side: WallSide;
   offset: number; // inches from the wall start (left for top/bottom, top for left/right)

@@ -1933,6 +1933,7 @@ export function ElevationView({
         {viewOpenings.map((o) => {
           const isDoor = o.kind === "door";
           const isOpening = o.kind === "opening";
+          const isBifold = isDoor && o.doorStyle === "bifold";
           // A cased opening is a hole in the wall: render it as an open gap
           // (light recessed fill, dashed casing) with no door slab or glazing.
           return (
@@ -1961,8 +1962,11 @@ export function ElevationView({
                   <div className="absolute top-1/2 left-0 right-0 h-px bg-[#1a2744]/40" />
                 </div>
               )}
+              {isBifold && <div data-testid="elevation-bifold-panels" className="pointer-events-none absolute inset-0 flex" aria-hidden="true">
+                {[0, 1, 2, 3].map((index) => <div key={index} className="h-full w-1/4 border-x border-[#694d34]/60 bg-gradient-to-r from-[#ad7e54] via-[#bf9267] to-[#ad7e54]" />)}
+              </div>}
               <span className={`relative text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}>
-                {isDoor ? t("dt_ev_door") : isOpening ? t("dt_ev_open") : t("dt_ev_window")}
+                {isBifold ? "Bi-fold" : isDoor ? t("dt_ev_door") : isOpening ? t("dt_ev_open") : t("dt_ev_window")}
               </span>
             </div>
           );

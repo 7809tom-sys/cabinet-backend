@@ -167,6 +167,7 @@ import {
   MASTERTRAC_BROCHURE_PHOTO, MASTERTRAC_PRICE_DATE,
 } from "@/lib/closet";
 import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview";
+import { REACH_IN_CLOSET_PRESETS, roomFromReachInPreset } from "@/lib/closetRoomPresets";
 import { MasterTracTowerPlanner } from "@/components/design/MasterTracTowerPlanner";
 import { defaultTowerConfig, planMasterTracTower, towerConfigFromPlacements, type MasterTracTowerConfig } from "@/lib/masterTracTower";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
@@ -11631,6 +11632,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           <RoomSizeControl
             room={room}
             onChange={applyRoom}
+            minimumDepthIn={roomType === "closet" ? 24 : undefined}
             drawMode={drawMode}
             onToggleDraw={() => {
               if (layoutLocked) return;
@@ -12072,6 +12074,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       <RoomSizeControl
                         room={room}
                         onChange={applyRoom}
+                        minimumDepthIn={roomType === "closet" ? 24 : undefined}
                         drawMode={drawMode}
                         onToggleDraw={() => {
                           if (layoutLocked) return;
@@ -13820,10 +13823,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <div className="space-y-1.5 p-2">
                   <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
                   <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves have dimensioned 3D models; other parts are reference-only until their assembly geometry is verified.</p>
-                  <Button type="button" data-testid="open-mastertrac-tower-planner" className="h-9 w-full justify-start gap-2 bg-[#192432] px-3 text-xs font-semibold text-white hover:bg-[#2c3b4e]" onClick={() => setTowerDialog({ config: defaultTowerConfig(masterTracFinish), wall: activeWall, startIn: 12, editGroupId: null })}>
-                    <Columns3 className="h-4 w-4 text-[#d8b275]" /> Plan connected towers <span className="ml-auto text-[10px] font-normal text-stone-200">2–4 bays</span>
-                  </Button>
-                  <div className="flex flex-wrap gap-1" aria-label="MasterTrac finish filter">
+	                  <Button type="button" data-testid="open-mastertrac-tower-planner" className="h-9 w-full justify-start gap-2 bg-[#192432] px-3 text-xs font-semibold text-white hover:bg-[#2c3b4e]" onClick={() => setTowerDialog({ config: defaultTowerConfig(masterTracFinish), wall: activeWall, startIn: 12, editGroupId: null })}>
+	                    <Columns3 className="h-4 w-4 text-[#d8b275]" /> Plan connected towers <span className="ml-auto text-[10px] font-normal text-stone-200">2–4 bays</span>
+	                  </Button>
+	                  <Button type="button" variant="outline" data-testid="open-closet-room-templates" className="h-auto min-h-9 w-full justify-start whitespace-normal py-1.5 text-left text-xs" onClick={() => setLayoutStarterOpen(true)}>
+	                    <LayoutGrid className="mr-2 h-3.5 w-3.5 shrink-0" /> Choose a bedroom closet room template
+	                  </Button>
+	                  <div className="flex flex-wrap gap-1" aria-label="MasterTrac finish filter">
                     {["all", "Glacier White", "Slate Rift", "Spiced Mahogany"].map((finish) => (
                       <button type="button" key={finish} onClick={() => setMasterTracFinish(finish)} aria-pressed={masterTracFinish === finish} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${masterTracFinish === finish ? "border-primary bg-primary text-primary-foreground" : "border-stone-300 bg-white text-stone-700"}`}>
                         {finish !== "all" && <span aria-hidden className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: masterTracFinishColor(finish) }} />}
@@ -17468,6 +17474,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <RoomSizeInline
                   room={room}
                   onChange={applyRoom}
+                  minimumDepthIn={roomType === "closet" ? 24 : undefined}
                   onApplied={() => setMobilePanel(null)}
                   isPolygon={isPolygonRoom}
                   onOpenWallCompass={() => {
@@ -17912,15 +17919,56 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           onPointerDownOutside={(event) => event.preventDefault()}
           onInteractOutside={(event) => event.preventDefault()}
         >
-          <DialogHeader className="border-b px-5 py-4">
-            <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
-            <DialogDescription>{continuousWallsEnabled
-              ? "Choose an existing room shape or build every connected wall continuously from exact measurements. Your advanced wall draft stays here until you explicitly clear it or apply it."
-              : "Choose an existing room shape to begin your kitchen. Continuous walls are coming soon to partner storefronts."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-5">
-            <RoomLayoutStarter
+	          <DialogHeader className="border-b px-5 py-4">
+	            <DialogTitle className="font-serif text-xl">Start with a room layout</DialogTitle>
+	            <DialogDescription>{roomType === "closet"
+	              ? "Start with an editable reach-in bedroom closet and a generic bi-fold room opening, or use the room shapes below. Measure your actual finished opening before ordering doors."
+	              : continuousWallsEnabled
+	              ? "Choose an existing room shape or build every connected wall continuously from exact measurements. Your advanced wall draft stays here until you explicitly clear it or apply it."
+	              : "Choose an existing room shape to begin your kitchen. Continuous walls are coming soon to partner storefronts."}
+	            </DialogDescription>
+	          </DialogHeader>
+	          <div className="space-y-5 p-5">
+	            <section data-testid="closet-room-templates" className="rounded-xl border border-[#c8a972]/60 bg-[#faf7f0] p-4">
+	              <div className="mb-1 text-sm font-semibold text-[#192432]">Bedroom closet · one-click room templates</div>
+	              <p className="mb-3 text-xs text-stone-600">Room width × interior depth. Bi-fold dimensions are nominal planning openings, not an orderable door or a rough-opening specification.</p>
+	              <div className="grid gap-2 sm:grid-cols-3">
+	                {REACH_IN_CLOSET_PRESETS.map((preset) => (
+	                  <button
+	                    key={preset.id}
+	                    type="button"
+	                    data-testid={`closet-template-${preset.id}`}
+	                    disabled={layoutLocked || Boolean(placed.length || openings.length || island || sinks.length || furniture.length || ponyWalls.length || annotations.length)}
+	                    onClick={() => {
+	                      if (layoutLocked || placed.length || openings.length || island || sinks.length || furniture.length || ponyWalls.length || annotations.length) return;
+	                      const { room: presetRoom, openings: presetOpenings } = roomFromReachInPreset(preset, makeUid());
+	                      applyRoom(presetRoom);
+	                      setOpenings(presetOpenings);
+	                      setSelectedLayoutPresetId(preset.id);
+	                      setRoomType("closet");
+	                      setPaletteType("closetparts");
+	                      setActiveWall("top");
+	                      setPlacementTarget("wall");
+	                      setViewMode("plan");
+	                      setSelectedUid(null);
+	                      setSelectedOpeningUid(null);
+	                      setPolygonEditMode(false);
+	                      setDrawMode(false);
+	                      setMeasureMode(false);
+	                      setLayoutStarterOpen(false);
+	                      toast.success(`${preset.label} applied. Measure your actual closet and bi-fold opening before ordering.`);
+	                    }}
+	                    className="rounded-lg border border-[#c8a972]/60 bg-white p-3 text-left shadow-sm transition-colors hover:border-[#a87f33] hover:bg-[#fffaf0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#192432] disabled:cursor-not-allowed disabled:opacity-50"
+	                  >
+	                    <span className="block text-sm font-semibold text-[#192432]">{preset.label}</span>
+	                    <span className="mt-1 block text-xs leading-5 text-stone-600">{preset.description}</span>
+	                  </button>
+	                ))}
+	              </div>
+	              {(placed.length > 0 || openings.length > 0 || Boolean(island) || sinks.length > 0 || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0) && <p className="mt-2 text-xs font-medium text-amber-800">Templates start a blank room. Save this design and start a new one before choosing a template; existing work will not be moved or erased.</p>}
+	              {layoutLocked && <p className="mt-2 text-xs font-medium text-amber-800">Unlock the room layout before choosing a template.</p>}
+	            </section>
+	            <RoomLayoutStarter
               selectedStyleId={styleId}
               selectedDistributorId={selectedStyleDistributorId}
               wallHeightIn={room.ceilingHeight ?? 96}

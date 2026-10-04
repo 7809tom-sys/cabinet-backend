@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/popover";
 import {
   RoomData, inchesToFeetInches, parseLengthToInches, clampRoomInches,
-  roomCeiling, CEILING_HEIGHT_PRESETS, MIN_CEILING_HEIGHT, MAX_CEILING_HEIGHT,
+  roomCeiling, CEILING_HEIGHT_PRESETS, MIN_CEILING_HEIGHT, MAX_CEILING_HEIGHT, ROOM_MIN_IN, ROOM_MAX_IN,
   type WallSide, type WallCeiling, wallCeiling, clampCeilingHeight,
 } from "@/lib/design";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -17,6 +17,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 interface Props {
   room: RoomData;
   onChange: (room: RoomData) => void;
+  /** Closet reach-in depth can be 24–30 in; kitchen room minimum remains unchanged. */
+  minimumDepthIn?: number;
   drawMode: boolean;
   onToggleDraw: () => void;
   /** Whether the room is currently in polygon (custom shape) mode. */
@@ -73,13 +75,17 @@ function parseDisplayToInches(str: string, metric: boolean): number | null {
 interface FormBodyProps {
   room: RoomData;
   onChange: (room: RoomData) => void;
+  minimumDepthIn?: number;
   onApplied?: () => void;
   /** Whether to show the Apply button (desktop popover uses it; inline always shows it). */
   showApply?: boolean;
 }
 
-function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormBodyProps) {
+function RoomSizeFormBody({ room, onChange, minimumDepthIn, onApplied, showApply = true }: FormBodyProps) {
   const { t } = useLanguage();
+  // Saved reach-in rooms must not expand to the 36-inch kitchen minimum simply
+  // because a room-type switch and a toolbar popover rendered in adjacent frames.
+  const roomMinimumDepthIn = minimumDepthIn ?? (room.depth < ROOM_MIN_IN ? 24 : undefined);
   const [metric, setMetric] = useState(false);
   const [showPerWall, setShowPerWall] = useState(
     () => !!room.wallCeilings && Object.keys(room.wallCeilings).length > 0,
@@ -136,7 +142,7 @@ function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormB
     }
     onChange({
       width: clampRoomInches(wParsed!),
-      depth: clampRoomInches(dParsed!),
+      depth: roomMinimumDepthIn == null ? clampRoomInches(dParsed!) : Math.max(roomMinimumDepthIn, Math.min(ROOM_MAX_IN, Math.round(dParsed!))),
       ceilingHeight: flat,
       wallCeilings: Object.keys(cleaned).length ? cleaned : undefined,
     });
@@ -278,7 +284,9 @@ function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormB
       </div>
 
       {/* Quick presets */}
-      <div>
+      {roomMinimumDepthIn != null ? (
+        <p className="text-[11px] leading-5 text-muted-foreground">Reach-in depth may be as shallow as 24″. For a different bi-fold opening, start a blank room with Bedroom closet room templates; changing only the room size does not replace or recenter an existing doorway.</p>
+      ) : <div>
         <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">{t("dt_rs_quick_presets")}</Label>
         <div className="mt-1 flex flex-wrap gap-1">
           {PRESETS.map((p) => (
@@ -293,7 +301,7 @@ function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormB
             </button>
           ))}
         </div>
-      </div>
+      </div>}
 
       {showApply && (
         <>
@@ -315,7 +323,7 @@ function RoomSizeFormBody({ room, onChange, onApplied, showApply = true }: FormB
 
 // ─── Desktop variant (Popover wrapper) ───────────────────────────────────────
 
-export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Props) {
+export function RoomSizeControl({ room, onChange, minimumDepthIn, drawMode, onToggleDraw }: Props) {
   const { t } = useLanguage();
   const [open, setOpen] = useState(false);
 
@@ -343,6 +351,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
           <RoomSizeFormBody
             room={room}
             onChange={onChange}
+            minimumDepthIn={minimumDepthIn}
             onApplied={() => setOpen(false)}
             showApply
           />
@@ -357,6 +366,7 @@ export function RoomSizeControl({ room, onChange, drawMode, onToggleDraw }: Prop
 interface InlineProps {
   room: RoomData;
   onChange: (room: RoomData) => void;
+  minimumDepthIn?: number;
   /** Called after the user taps Apply so the parent can close the sheet. */
   onApplied?: () => void;
   /** Activates the selected wall's direct 45° drag handle. */
@@ -364,12 +374,13 @@ interface InlineProps {
   isPolygon?: boolean;
 }
 
-export function RoomSizeInline({ room, onChange, onApplied, onOpenWallCompass, isPolygon }: InlineProps) {
+export function RoomSizeInline({ room, onChange, minimumDepthIn, onApplied, onOpenWallCompass, isPolygon }: InlineProps) {
   return (
     <div className="space-y-3">
       <RoomSizeFormBody
         room={room}
         onChange={onChange}
+        minimumDepthIn={minimumDepthIn}
         onApplied={onApplied}
         showApply
       />

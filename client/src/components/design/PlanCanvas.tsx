@@ -2229,6 +2229,7 @@ export function PlanCanvas({
 	          const isSinkWindowSnapTarget = sinkWindowSnap?.openingUid === o.uid;
           const isDoor = o.kind === "door";
           const isOpening = o.kind === "opening";
+          const isBifold = isDoor && o.doorStyle === "bifold";
           // Wall band thickness in px (how far the opening graphic extends into the room).
           const band = 10;
           const lenPx = o.width * ppi;
@@ -2296,11 +2297,14 @@ export function PlanCanvas({
               title={`${t("dt_pc_opening_drag", { label: o.label, width: Math.round(o.width) })} · Right-click or double-click to edit`}
 	              data-sink-window-snap-confirmed={isSinkWindowSnapTarget ? "true" : undefined}
             >
+              {isBifold && <span className="pointer-events-none absolute inset-0 flex" data-testid="plan-bifold-panels" aria-hidden="true">
+                {[0, 1, 2, 3].map((index) => <span key={index} className="h-full w-1/4 border-r border-[#f4e7d3]/80 last:border-r-0" />)}
+              </span>}
               <span
                 className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
                 style={{ transform: customFrame ? `rotate(${-customFrame.angleDeg}deg)` : horizontal ? "none" : "rotate(-90deg)" }}
               >
-                {isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
+                {isBifold ? "Bi-fold" : isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"
               </span>
 	              {isSinkWindowSnapTarget && (
 	                <span data-testid="sink-window-snap-window-indicator" className="pointer-events-none absolute left-1/2 top-0 -translate-x-1/2 -translate-y-[calc(100%+5px)] whitespace-nowrap rounded bg-emerald-700 px-1.5 py-0.5 text-[8px] font-bold leading-none text-white shadow">

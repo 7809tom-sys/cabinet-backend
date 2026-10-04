@@ -8050,12 +8050,14 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
   group.userData = { openingUid: opening.uid, kind: opening.kind, label: opening.label };
   const width = opening.width * INCH;
   const height = opening.height * INCH;
+  const isBifold = opening.kind === "door" && opening.doorStyle === "bifold";
   const trimMaterial = new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 });
   const openingDepth = 0.12;
   const trimWidth = Math.min(0.12, Math.max(0.055, width * 0.075));
   const backing = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2, height + trimWidth * 2, 0.07), trimMaterial);
   backing.userData = { architecturalOpeningBacking: true };
-  group.add(backing);
+  // A reach-in bi-fold is a room aperture, not a blank white wall behind its leaves.
+  if (!isBifold) group.add(backing);
   const trimPieces = [
     [width + trimWidth * 2, trimWidth, 0, height / 2 + trimWidth / 2],
     [width + trimWidth * 2, trimWidth, 0, -height / 2 - trimWidth / 2],
@@ -8069,6 +8071,18 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     group.add(trim);
   }
   const isWindow = opening.kind === "window";
+  if (isBifold) {
+    // Generic room-door reference only: four leaves across the nominal opening.
+    // This is not a MasterTrac SKU, hinge/swing specification, or rough-opening cut list.
+    const leafWidth = (width - 0.08) / 4;
+    const leafMaterial = new THREE.MeshStandardMaterial({ color: "#ad8059", roughness: 0.6, transparent: true, opacity: 0.38, depthWrite: false });
+    for (let index = 0; index < 4; index += 1) {
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(leafWidth - 0.012, height - 0.08, 0.055), leafMaterial);
+      leaf.position.set(-width / 2 + 0.04 + leafWidth * (index + 0.5), 0, 0.02);
+      leaf.userData = { architecturalBifoldLeaf: index + 1 };
+      group.add(leaf);
+    }
+  } else {
   const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0 }));
   pane.position.z = 0.01;
   group.add(pane);
@@ -8094,6 +8108,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     lowerPanel.userData = { architecturalDoorPanel: "lower" };
     handle.userData = { architecturalDoorHandle: true };
     group.add(upperPanel, lowerPanel, handle);
+  }
   }
   root.add(group);
 }
@@ -9301,7 +9316,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	    if (backsplashTexture && backsplashSegments.length > 0) {
 	      addThreeDBacksplash(catalogRoot, backsplashSegments, backsplashRoom, backsplashTexture);
 	    }
-	    for (const opening of openings) addWallOpening(catalogRoot, opening, room);
+	    for (const opening of openings) {
+	      // The clear-view control must reveal the narrow reach-in behind its four
+	      // architectural leaves. Keep every ordinary kitchen/window opening intact.
+	      if (!showRoomContext && opening.kind === "door" && opening.doorStyle === "bifold") continue;
+	      addWallOpening(catalogRoot, opening, room);
+	    }
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
     for (const potFiller of potFillers) {
       const mountedRange = potFillerMountedRange(potFiller, placed, room, island);
