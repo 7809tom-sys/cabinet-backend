@@ -2425,7 +2425,10 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // (12" spice pull-outs, 21" vanities, etc.) must keep their real depth. We only
   // enforce a small absolute minimum so nothing can vanish. Flat stock
   // (panels/skins/fillers) is intentionally thin and is exempt.
-  const isFlatStock = isPanelItem(p) || isLooseTrimItem(p);
+  // A closet upright is finished flat stock, even when its catalog description
+  // says "Left End" rather than "panel". Clamping it to a 6-inch kitchen box
+  // makes an actual shelf between two ¾-inch uprights collide on restore.
+  const isFlatStock = isPanelItem(p) || isLooseTrimItem(p) || p.category === "MasterTrac Closet";
   if (isFlatStock) return sz;
   const MIN_VISIBLE = 6; // inches — smallest a real cabinet box may render
   return { w: Math.max(sz.w, MIN_VISIBLE), d: Math.max(sz.d, MIN_VISIBLE) };
@@ -5857,6 +5860,8 @@ export function cabinetTakeoffWallId(p: PlacedCabinet, room: RoomData): string {
 // the four-inch allowance at both cut ends of each outside corner.
 export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boolean {
   if (p.placement !== "tall" && p.placement !== "wall") return false;
+  // MasterTrac boards are closet components, not upper kitchen casework.
+  if (p.category === "MasterTrac Closet" || /^CL-/.test(p.masterCode)) return false;
   // Island wall cabinets are floor/counter-height casework, never upper runs.
   // The explicit island marker remains authoritative for older saves whose
   // mountBottom may still contain a room-wall value.

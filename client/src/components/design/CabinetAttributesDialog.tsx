@@ -63,6 +63,7 @@ import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
 import { RollOutTrayPicker } from "@/components/design/RollOutTrayPicker";
 import { CABINET_ATTRIBUTES_DIALOG_CLASS } from "@/lib/cabinetAttributesDialogLayout";
 import { cabinetEditConfigLink } from "@/lib/cabinetEditConfigLink";
+import { masterTracProduct, MASTERTRAC_PRICE_DATE } from "@/lib/closet";
 import { trpc } from "@/lib/trpc";
 import type { PricingTier } from "@shared/pricingTier";
 
@@ -534,6 +535,49 @@ export function CabinetAttributesDialog({
 	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both";
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
+  const masterTrac = masterTracProduct(cabinet.masterCode);
+  if (masterTrac?.placeable) {
+    const isShelf = masterTrac.shape === "shelf";
+    const canMoveBoard = cabinet.placement === "wall" && typeof mountBottom === "number" && typeof onSetMountBottom === "function";
+    const topLimit = Math.max(0, maxMountBottom ?? 120);
+    const boardControls = (
+      <div className="space-y-4 p-4" data-testid="mastertrac-attributes">
+        <div className="rounded-lg border border-stone-200 bg-stone-50 p-3 text-sm">
+          <div className="font-semibold">{masterTrac.description} · {masterTrac.finish}</div>
+          <div className="mt-1 text-xs text-stone-600">Actual material: {masterTrac.widthIn}″ W × {masterTrac.heightIn}″ H × {masterTrac.depthIn}″ D · ¾″ board</div>
+          <div className="mt-1 text-xs text-stone-600">SKU dimensions are fixed; select a different material number to change the board size.</div>
+          <div className="mt-2 text-xs font-semibold">${masterTrac.listEachUsd.toFixed(2)} List / each <span className="font-normal text-stone-500">({MASTERTRAC_PRICE_DATE})</span></div>
+        </div>
+        {canMoveBoard && (
+          <div className="space-y-2" data-testid="mastertrac-shelf-height">
+            <div className="font-semibold">{isShelf ? "Shelf elevation" : "Hanging-panel elevation"}</div>
+            <p className="text-xs text-muted-foreground">Move this {isShelf ? "shelf" : "panel"} up or down. The number is the bottom edge above the finished floor; elevation and 3D update together.</p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" size="sm" aria-label={isShelf ? "Lower shelf one inch" : "Lower panel one inch"} onClick={() => onSetMountBottom(uid, Math.max(0, mountBottom - 1))}><Minus className="h-4 w-4" /></Button>
+              <Input type="number" min={0} max={topLimit} step={0.125} value={mountBottom} aria-label={isShelf ? "Shelf bottom height in inches" : "Panel bottom height in inches"} className="w-24 text-center" onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) onSetMountBottom(uid, Math.max(0, Math.min(topLimit, value))); }} />
+              <span className="text-xs text-muted-foreground">in. from floor</span>
+              <Button type="button" variant="outline" size="sm" aria-label={isShelf ? "Raise shelf one inch" : "Raise panel one inch"} onClick={() => onSetMountBottom(uid, Math.min(topLimit, mountBottom + 1))}><Plus className="h-4 w-4" /></Button>
+            </div>
+            {isShelf && <div className="flex flex-wrap gap-1.5">{[24, 36, 48, 60, 72].filter((height) => height <= topLimit).map((height) => <Button key={height} type="button" variant={Math.abs(mountBottom - height) < 0.01 ? "default" : "outline"} size="sm" className="h-7 px-2 text-xs" onClick={() => onSetMountBottom(uid, height)}>{height}″</Button>)}</div>}
+          </div>
+        )}
+        <p className="text-xs text-muted-foreground">Brochure-inspired 3D board in the named finish. Confirm compatible rails and hardware before installation.</p>
+      </div>
+    );
+    return isMobile ? (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-0">
+          <SheetHeader className="border-b p-4 text-left"><SheetTitle>MasterTrac {cabinet.masterCode}</SheetTitle><SheetDescription>{masterTrac.description}</SheetDescription></SheetHeader>
+          {boardControls}
+          <div className="border-t p-4"><Button type="button" className="w-full" onClick={() => onOpenChange(false)}>Done</Button></div>
+        </SheetContent>
+      </Sheet>
+    ) : (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg"><DialogHeader><DialogTitle>MasterTrac {cabinet.masterCode}</DialogTitle><DialogDescription>{masterTrac.description}</DialogDescription></DialogHeader>{boardControls}</DialogContent>
+      </Dialog>
+    );
+  }
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>

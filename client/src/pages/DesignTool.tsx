@@ -162,8 +162,11 @@ import {
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
 import {
-  closetPaletteByCategory, closetPartPrice, isClosetPart, CLOSET_PARTS,
+  closetPaletteByCategory, closetPartPrice, isClosetPart,
+  isMasterTracPlaceable, masterTracProduct, masterTracFinishColor,
+  MASTERTRAC_BROCHURE_PHOTO, MASTERTRAC_PRICE_DATE,
 } from "@/lib/closet";
+import { MasterTracPartPreview } from "@/components/design/MasterTracPartPreview";
 import { canCommitPlanStyleSwitchWithoutReview, planStyleReviewCandidates } from "@/lib/planStyleSwitch";
 import { autoFillSpan, makeFiller, type FillMode } from "@/lib/autofill";
 import { resolveTierPrice } from "@shared/pricingTier";
@@ -1605,6 +1608,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [layoutLocked, room]);
   // Palette filters
   const [paletteSearch, setPaletteSearch] = useState("");
+  const [masterTracFinish, setMasterTracFinish] = useState("all");
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
@@ -1769,9 +1773,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [nudgeStep, setNudgeStep] = useState<1 | 0.25>(1);
   // Accordion: which palette group headers the user has explicitly collapsed.
   // Keyed by `${paletteType}:${groupLabel}` so collapse state is per-tab. By
-  // default every group is OPEN; toggling adds/removes the key here. While
-  // searching we force all groups open (handled in render) so no match hides.
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set());
+  // The small kitchen catalog stays open by default. For MasterTrac, keep
+  // the placeable boards visible and collapse order-only categories until
+  // opened; searching still expands all matching categories.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set(
+    closetPaletteByCategory()
+      .filter((g) => !["Panels (Hang)", "Panels (Floor)", "Shelves"].includes(g.category))
+      .map((g) => `closetparts:${g.category}`),
+  ));
   const toggleGroup = useCallback((key: string) => {
     setCollapsedGroups((prev) => {
       const next = new Set(prev);
@@ -2671,7 +2680,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.info(`Replaced legacy WSC30 microwave bridge with the selected ${repaired.placed.find((cabinet) => repaired.repairedUids.includes(cabinet.uid))?.masterCode ?? "W30"} bridge at the 72″ datum.`);
   }, [placed, room, appliancePalette, wallCabPool, wallCabHeight]);
 
-  // Closet parts palette (placeholder products), grouped by category.
+  // Actual MasterTrac material numbers grouped by their worksheet categories.
   const closetGroups = useMemo(() => closetPaletteByCategory(), []);
 
   // Filtered palette
@@ -2683,7 +2692,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (paletteType === "closetparts") {
       const s0 = normalizePaletteSearch(paletteSearch);
       const all = closetGroups.flatMap((g) => g.items);
-      return all.filter((c) => matchesPaletteSearch(c, s0));
+      return all.filter((c) => {
+        const product = masterTracProduct(c.masterCode);
+        return (masterTracFinish === "all" || product?.finish === masterTracFinish)
+          && matchesPaletteSearch(c, s0);
+      });
     }
     // The unified "Corner" tab merges corner BASE cabinets (from the base-
     // placement query) with corner WALL cabinets (from the dedicated wall query),
@@ -2726,7 +2739,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         return true;
       })
       .filter((c) => matchesPaletteSearch(c, s));
-	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups]);
+	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups, masterTracFinish]);
   const paletteHeightOptions = useMemo(
     () => catalogHeightOptions(filteredPalette, paletteType, isCornerBase),
     [filteredPalette, paletteType, isCornerBase],
@@ -2790,13 +2803,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     };
     const sortGroups = (gs: { label: string; items: DesignCabinet[] }[]) =>
       gs.map((g) => ({ ...g, items: [...g.items].sort(byWidth) }));
-    // The Closet-parts tab groups by part category (Panels, Shelves, Hanging…).
+    // The MasterTrac tab preserves the worksheet's SKU/finish/category identity.
     if (paletteType === "closetparts") {
       const s = normalizePaletteSearch(paletteSearch);
       return closetGroups
         .map((g) => ({
           label: g.category,
-          items: g.items.filter((c) => matchesPaletteSearch(c, s)),
+          items: g.items.filter((c) =>
+            (masterTracFinish === "all" || masterTracProduct(c.masterCode)?.finish === masterTracFinish)
+            && matchesPaletteSearch(c, s)),
         }))
         .filter((g) => g.items.length > 0);
     }
@@ -2905,7 +2920,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           : t("dt_pl_grp_other"),
         items,
       })));
-  }, [heightFilteredPalette, paletteType, paletteSearch, closetGroups, isCornerBase, t]);
+  }, [heightFilteredPalette, paletteType, paletteSearch, closetGroups, masterTracFinish, isCornerBase, t]);
 
   // Pricing for placed cabinets (appliances carry cabinetId 0 and are unpriced).
   const placedCabinetIds = useMemo(
@@ -3034,8 +3049,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [priceRows, tier]);
 
   // Resolve a placed item's unit price at its EFFECTIVE finish. Closet parts
-  // carry id=0 (skipped by the cabinet pricing engine) so they price from the
-  // placeholder catalog; everything else prices from the DB price map keyed by
+  // carry id=0 (skipped by the kitchen pricing engine) so they price from the
+  // approved MasterTrac worksheet List column; other cabinets use the DB map keyed by
   // (cabinetId, effective styleId).
 	  const unitPriceFor = useCallback(
     (p: PlacedCabinet): number | null => {
@@ -4018,6 +4033,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   );
 
   const total = useMemo(() => calculateCartSubtotal(cartableLines), [cartableLines]);
+  // The owner supplied 2022 List prices, not a current supplier checkout feed.
+  // Show them for design reference, but do not quietly sell at historical prices.
+  const masterTracListSubtotal = useMemo(() => placed.reduce(
+    (sum, p) => sum + (masterTracProduct(p.masterCode)?.listEachUsd ?? 0), 0,
+  ), [placed]);
 
   const interactive3dOrderSummary = useMemo<InteractiveRoomOrderSummary>(() => {
     let subtotal = 0;
@@ -5356,7 +5376,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // starts at the owner-confirmed 72-inch datum. Specialized cases below
         // intentionally replace this: countertop WD18s, glass stackers,
         // over-range appliances, and refrigerator surrounds.
-        ...(accPlacement === "wall" ? { mountBottom: ordinaryWallMountBottom({ ...c, placement: accPlacement, height }) } : {}),
+        ...(accPlacement === "wall" ? { mountBottom: masterTracProduct(c.masterCode)?.shape === "shelf"
+          ? 42
+          : masterTracProduct(c.masterCode)?.shape === "panel"
+            ? Math.max(4, Math.min(roomCeiling(room) - height, 84 - height))
+            : ordinaryWallMountBottom({ ...c, placement: accPlacement, height }) } : {}),
 	        ...(accPlacement === "appliance" && (c as any).mountBottom != null ? { mountBottom: Number((c as any).mountBottom) } : {}),
 	        ...(isWd18CountertopDrawerCabinet({ masterCode: c.masterCode, placement: accPlacement }) ? { mountBottom: STD.COUNTERTOP_HEIGHT } : {}),
 		        ...(stackerMountBottom != null ? { mountBottom: stackerMountBottom } : {}),
@@ -12936,7 +12960,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {/* Per-cabinet finish (two-tone): give THIS cabinet a different
                   color/finish than the design default, within the locked supply
                   line. "Match design" clears the override. */}
-              {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && (
+              {styleId && uniqueDoorStyles.length > 0 && !cabinetsLocked && !isClosetPart(selectedCab.masterCode) && (
                 <>
                   <div className="h-4 w-px bg-border" />
                   <div className="flex items-center gap-1 rounded-md bg-[#d4a75a]/10 px-1.5 py-1 ring-1 ring-[#d4a75a]/30">
@@ -12969,7 +12993,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </div>
                 </>
               )}
-	              {selectedCab.placement === "wall" && (
+              {selectedCab.placement === "wall" && !isClosetPart(selectedCab.masterCode) && (
 	                <>
 	                  <div className="h-4 w-px bg-border" />
 	                  <SelectedCabinetDropActions
@@ -13461,15 +13485,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         </Button>
                       )}
                     </div>
-	                    <SelectedCabinetDropActions
-	                      touch
-	                      countertopLabel={t("dt_cx_drop_to_countertop")}
-	                      countertopTitle={t("dt_cx_drop_countertop")}
-	                      floorLabel={t("dt_cx_drop_to_floor")}
-	                      floorTitle={t("dt_cx_drop_island")}
-	                      onDropToCountertop={() => dropToCountertop(selectedCab.uid)}
-	                      onDropToFloor={() => dropToFloor(selectedCab.uid)}
-	                    />
+		                    {!isClosetPart(selectedCab.masterCode) && <SelectedCabinetDropActions
+		                      touch
+		                      countertopLabel={t("dt_cx_drop_to_countertop")}
+		                      countertopTitle={t("dt_cx_drop_countertop")}
+		                      floorLabel={t("dt_cx_drop_to_floor")}
+		                      floorTitle={t("dt_cx_drop_island")}
+		                      onDropToCountertop={() => dropToCountertop(selectedCab.uid)}
+		                      onDropToFloor={() => dropToFloor(selectedCab.uid)}
+		                    />}
                   </div>
                 )}
 
@@ -13652,9 +13676,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               ))}
             </div>
             {paletteType === "closetparts" && (
-              <p className="mb-2 rounded-md bg-amber-50 border border-amber-200 px-2 py-1 text-[10px] text-amber-700">
-                {t("dt_pl_closet_note")}
-              </p>
+              <div className="mb-2 overflow-hidden rounded-lg border border-stone-300 bg-stone-50" data-testid="mastertrac-palette-header">
+                <img src={MASTERTRAC_BROCHURE_PHOTO} alt="Assembled WoodTrac MasterTrac closet photographed in the supplied brochure; example installation, not a photograph of an individual SKU" className="h-24 w-full object-cover" />
+                <div className="space-y-1.5 p-2">
+                  <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
+                  <p className="text-[10px] leading-snug text-stone-600">List prices from the {MASTERTRAC_PRICE_DATE} sheet. Confirm availability and pricing before ordering. Panels and straight shelves have dimensioned 3D models; other parts are reference-only until their assembly geometry is verified.</p>
+                  <div className="flex flex-wrap gap-1" aria-label="MasterTrac finish filter">
+                    {["all", "Glacier White", "Slate Rift", "Spiced Mahogany"].map((finish) => (
+                      <button type="button" key={finish} onClick={() => setMasterTracFinish(finish)} aria-pressed={masterTracFinish === finish} className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] ${masterTracFinish === finish ? "border-primary bg-primary text-primary-foreground" : "border-stone-300 bg-white text-stone-700"}`}>
+                        {finish !== "all" && <span aria-hidden className="h-2.5 w-2.5 rounded-full border border-black/20" style={{ backgroundColor: masterTracFinishColor(finish) }} />}
+                        {finish === "all" ? "All finishes" : finish}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             )}
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
                 still exposes cabinets + the Door/Win tool so a closet can hold
@@ -13998,6 +14034,34 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       {t("dt_pl_no_category")}
                     </div>
                   ) : group.items.map((c) => {
+                    if (paletteType === "closetparts") {
+                      const product = masterTracProduct(c.masterCode);
+                      if (!product) return null;
+                      return (
+                        <button
+                          type="button"
+                          key={product.sku}
+                          data-testid={`mastertrac-sku-${product.sku}`}
+                          disabled={!isMasterTracPlaceable(product.sku)}
+                          draggable={product.placeable}
+                          onDragStart={(event) => { if (product.placeable) { dragDataRef.current = c; setCatalogDragPreview(c); event.dataTransfer.effectAllowed = "copy"; } }}
+                          onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
+                          onClick={() => { if (product.placeable) addCabinet(c); }}
+                          className={`mb-1 flex w-full items-center gap-2 rounded-lg border p-2 text-left transition-colors ${product.placeable ? "border-stone-300 bg-white hover:border-primary hover:bg-stone-50" : "cursor-default border-stone-200 bg-stone-50"}`}
+                          title={product.placeable ? `Place exact ${product.widthIn}″W × ${product.heightIn}″H × ${product.depthIn}″D MasterTrac board` : "SKU and list price reference only — installation geometry not yet verified"}
+                        >
+                          <MasterTracPartPreview product={product} />
+                          <span className="min-w-0 flex-1">
+                            <span className="block font-mono text-[11px] font-semibold text-stone-900">{product.sku}</span>
+                            <span className="block text-[10px] leading-snug text-stone-700">{product.description}</span>
+                            <span className="block text-[9px] text-stone-500">{product.finish}{product.placeable ? ` · ${product.widthIn}″W × ${product.heightIn}″H × ${product.depthIn}″D` : ""}</span>
+                            <span className="block text-[10px] font-semibold text-primary">{product.packQty > 1 ? `$${product.listPackUsd.toFixed(2)} List / pack of ${product.packQty}` : `$${product.listEachUsd.toFixed(2)} List / each`}</span>
+                            <span className="block text-[9px] text-stone-500">{product.placeable ? product.shape === "shelf" ? "Place shelf · adjust elevation in Attributes" : "Place ¾″ panel" : "Reference only · no verified 3D model"}</span>
+                          </span>
+                          {product.placeable && <Plus className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />}
+                        </button>
+                      );
+                    }
                     // Accessories & Trim: only PHYSICAL placeable items
                     // (decorative/end panels, skins, appliance garages) appear —
                     // they drop onto the drawing like a cabinet box. Loose
@@ -15529,11 +15593,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       <div className="flex items-center gap-1 shrink-0">
                         <div className="text-right">
 	                          <div
-                              className={`font-semibold leading-none ${styleId && lineTotal == null && !isLayoutAppliance ? "text-rose-700" : ""}`}
+	                              className={`font-semibold leading-none ${(styleId || isClosetPart(g.sample.masterCode)) && lineTotal == null && !isLayoutAppliance ? "text-rose-700" : ""}`}
                               title={isLayoutAppliance ? "Appliance price is not included in the cabinet estimate." : undefined}
                             >
-	                            {styleId ? (isLayoutAppliance ? "Not included" : lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable") : "—"}
+	                            {styleId || isClosetPart(g.sample.masterCode) ? (isLayoutAppliance ? "Not included" : lineTotal != null ? `$${lineTotal.toFixed(2)}` : "Unavailable") : "—"}
 	                          </div>
+	                          {masterTracProduct(g.sample.masterCode) && <div className="mt-0.5 text-[9px] text-muted-foreground">2022 List · reference</div>}
 	                          {isLayoutAppliance && (
                               <div className="mt-0.5 text-[9px] text-muted-foreground">Appliance price not included</div>
                             )}
@@ -16011,9 +16076,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 );
               }
               return (
+                <>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-medium text-muted-foreground">{activeBundlePriceLock ? "Verified bundle price" : t("dt_bs_estimated_total")}</span>
+                    <span className="text-sm font-medium text-muted-foreground">{activeBundlePriceLock ? "Verified bundle price" : masterTracListSubtotal > 0 ? "Checkout-ready total" : t("dt_bs_estimated_total")}</span>
                     {noteItems.length > 0 && (
                       <Popover>
                         <PopoverTrigger asChild>
@@ -16040,6 +16106,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </div>
                   <span className="font-serif text-2xl font-bold text-foreground">${total.toFixed(2)}</span>
                 </div>
+                {masterTracListSubtotal > 0 && (
+                  <div data-testid="mastertrac-list-subtotal" className="mb-2 flex items-start justify-between gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-950">
+                    <span><strong>MasterTrac materials</strong><br />{MASTERTRAC_PRICE_DATE} List · reference, not added to checkout</span>
+                    <strong>${masterTracListSubtotal.toFixed(2)}</strong>
+                  </div>
+                )}
+                </>
               );
             })()}
             {/* Mixed-warehouse shipping surcharge warning */}

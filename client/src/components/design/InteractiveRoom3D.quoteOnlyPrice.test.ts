@@ -9,7 +9,9 @@ describe("3D itemized quote-only pricing", () => {
     expect(source).toContain('line.unitPrice == null ? " · Quote required"');
     expect(source).toContain('line.lineTotal == null ? "Quote required"');
     expect(source).not.toContain('line.unitPrice == null ? " · Price pending"');
-    expect(source).toContain('line?.lineTotal == null ? "Unavailable"');
-    expect(source).not.toContain('line?.lineTotal == null ? "Price pending"');
+    expect(source).toContain('const selectedPrice = line?.lineTotal ?? masterTracItem?.listEachUsd ?? null');
+    expect(source).toContain('selectedPrice == null ? "Unavailable"');
+    expect(source).toContain('masterTracItem ? " 2022 List" : ""');
+    expect(source).not.toContain('selectedPrice == null ? "Price pending"');
   });
 });

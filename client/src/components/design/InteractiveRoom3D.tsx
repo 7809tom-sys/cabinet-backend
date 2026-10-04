@@ -24,6 +24,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
 import { toast } from "sonner";
+import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
 
 export const THREE_D_PATH_TRACE_PREVIEW = {
   width: 1920,
@@ -3471,6 +3472,36 @@ export function addCabinet(
     } : {}),
     ...(isPlacedHood ? { wallMountedAppliance: true, noCabinetBacking: true } : {}),
   };
+  // MasterTrac sells distinct ¾-inch board SKUs, not kitchen cabinet boxes.
+  // The workbook supplies their physical dimensions; render only the verified
+  // rectangular panel/shelf families and never invent a door, drawer, rod,
+  // toe-kick, countertop, or attachment detail for an order-only SKU.
+  const masterTrac = masterTracProduct(sku.masterCode);
+  if (masterTrac?.placeable && masterTrac.shape) {
+    const finish = new THREE.Color(masterTracFinishColor(masterTrac.finish));
+    const boardMaterial = new THREE.MeshStandardMaterial({ color: finish, roughness: 0.77 });
+    const edgeMaterial = new THREE.MeshStandardMaterial({ color: finish.clone().offsetHSL(0, 0, 0.06), roughness: 0.73 });
+    cabinet.position.y = (requestedMountBottom + resolvedHeightIn / 2) * INCH;
+    cabinet.userData.masterTracBoard = { sku: sku.masterCode, shape: masterTrac.shape, finish: masterTrac.finish, thicknessIn: masterTrac.thicknessIn, bottomIn: requestedMountBottom };
+    const board = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, resolvedHeightIn * INCH, bodyDepth), boardMaterial);
+    board.castShadow = true;
+    board.receiveShadow = true;
+    board.userData.masterTracBoardSurface = true;
+    const boardOutline = new THREE.LineSegments(
+      new THREE.EdgesGeometry(board.geometry),
+      new THREE.LineBasicMaterial({ color: "#655e55", transparent: true, opacity: 0.5 }),
+    );
+    boardOutline.userData.masterTracBoardOutline = true;
+    board.add(boardOutline);
+    cabinet.add(board);
+    const frontEdge = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, resolvedHeightIn * INCH, 0.04 * INCH), edgeMaterial);
+    frontEdge.position.z = bodyDepth / 2 + 0.02 * INCH;
+    frontEdge.userData.masterTracEdgeBand = true;
+    cabinet.add(frontEdge);
+    applyThreeDPlacementIdentity(cabinet, { uid: sku.placementUid ?? null, masterCode: sku.masterCode, description: sku.description ?? null, distributorSkuId: sku.distributorSkuId });
+    root.add(cabinet);
+    return;
+  }
   // FSB catalog rows can carry generic base metadata, so recognize their
   // code/description at scene construction as well as in profile resolution.
   const specialty = isFarmhouseSinkBase
@@ -10631,8 +10662,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	            <MobileThreeDViewerNavigation onZoom={zoomViewer} onReset={resetViewerNavigation} onShare={shareCurrentView} onPhotoRender={openPhotoRenderDialog} onPan={panViewer} />
 	          </>}
 	      </div>
-      {selectedCabinet && (() => {
-	        const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
+	      {selectedCabinet && (() => {
+		        const line = threeDOrderLineForSelectedCabinet(orderLines, selectedCabinet);
+		        const masterTracItem = masterTracProduct(selectedCabinet.masterCode);
+		        const selectedPrice = line?.lineTotal ?? masterTracItem?.listEachUsd ?? null;
 		        const description = threeDSelectedCabinetDescription(selectedCabinet);
 		        const selectedPlacedCabinet = selectedCabinet.uid ? placed.find((cabinet) => cabinet.uid === selectedCabinet.uid) ?? null : null;
 		        const selectedStackerParent = selectedPlacedCabinet?.stackedOnCabinetUid
@@ -10664,7 +10697,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		            <Info className="h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
 		            <p className="shrink-0 text-xs font-bold">{selectedCabinet.masterCode}</p>
 		            <p data-testid="three-d-cabinet-description" className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={description}>{description}</p>
-		            <span className={`shrink-0 text-xs font-semibold ${line?.lineTotal == null ? "text-rose-700" : "text-foreground"}`}>{line?.lineTotal == null ? "Unavailable" : `$${line.lineTotal.toFixed(2)}`}</span>
+		            <span className={`shrink-0 text-xs font-semibold ${selectedPrice == null ? "text-rose-700" : "text-foreground"}`}>{selectedPrice == null ? "Unavailable" : `$${selectedPrice.toFixed(2)}${masterTracItem ? " 2022 List" : ""}`}</span>
 		            <button type="button" data-testid="three-d-expand-cabinet-attributes" aria-expanded="false" onClick={() => setSelectedCabinetInspectorExpanded(true)} className="inline-flex h-7 shrink-0 items-center gap-1 rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95">Details <ChevronDown className="h-3.5 w-3.5" /></button>
 		          </div>
 		  <div className={`grid min-w-0 gap-1 pr-6 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)_auto_auto] md:items-center ${embedded && !selectedCabinetInspectorExpanded ? "hidden" : ""}`}>
@@ -10676,8 +10709,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		                  <p data-testid="three-d-cabinet-description" className="min-w-0 truncate text-muted-foreground" title={description}>{description}</p>
 		                </div>
 		                <div className="mt-0.5 flex min-w-0 flex-wrap gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
-		                  <span className="truncate">{scene.materials?.cabinet.doorStyle ?? "Catalog"} · {scene.materials?.cabinet.doorPanelType ?? "panel"}</span>
-		                  <span className={`font-semibold ${line?.lineTotal == null ? "text-rose-700" : "text-foreground"}`}>{line?.lineTotal == null ? "Unavailable" : `$${line.lineTotal.toFixed(2)}`}</span>
+		                  <span className="truncate">{masterTracItem ? `MasterTrac · ${masterTracItem.finish}` : `${scene.materials?.cabinet.doorStyle ?? "Catalog"} · ${scene.materials?.cabinet.doorPanelType ?? "panel"}`}</span>
+		                  <span className={`font-semibold ${selectedPrice == null ? "text-rose-700" : "text-foreground"}`}>{selectedPrice == null ? "Unavailable" : `$${selectedPrice.toFixed(2)}${masterTracItem ? " · 2022 List reference" : ""}`}</span>
 		                </div>
 		                {fittedFillerWidthText && <p data-testid="three-d-fitted-filler-width" className="mt-1 inline-flex max-w-full rounded border border-[#d9c196] bg-[#fffaf1] px-1.5 py-0.5 font-semibold text-[#634b20]">{fittedFillerWidthText}</p>}
 		                {refrigeratorBayProof && <div data-testid="three-d-refrigerator-bay-proof" className={`mt-1 rounded border px-1.5 py-1 text-[10px] ${refrigeratorBayProof.hasLeftPanel && refrigeratorBayProof.hasRightPanel && refrigeratorBayProof.bridgeCenterOffset != null ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-amber-300 bg-amber-50 text-amber-950"}`}>
@@ -10725,10 +10758,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 			            {selectedCabinet.uid && <div data-testid="three-d-cabinet-actions" className="flex min-w-0 items-center gap-1 overflow-x-auto pt-0.5 md:pt-0">
 			              {embedded && <button type="button" data-testid="three-d-collapse-cabinet-attributes" aria-expanded="true" onClick={() => setSelectedCabinetInspectorExpanded(false)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><ChevronDown className="h-3.5 w-3.5 rotate-180" />Collapse</button>}
 			              {canSnapSelectedGlassToFront && <button type="button" data-testid="three-d-glass-stacker-snap-to-front" onClick={() => { preserveCurrentCameraView(); setAutoRotate(false); setCabinetMoveResult(onSnapGlassCabinetToFront!(selectedCabinet.uid!)); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-emerald-400 bg-emerald-50 px-2 font-semibold text-emerald-900 transition hover:bg-emerald-100 active:scale-95" title={`Align with the front of ${selectedStackerParent?.masterCode ?? "the deeper parent cabinet"}`}><Magnet className="h-3 w-3" />Snap to Front</button>}
-			              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">Cabinet attributes</button>}
-		              {onOpenCabinetEditor && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
-			              {onRequestFiller && selectedPlacedCabinet && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
-			              {onRequestFiller && selectedPlacedCabinet && fittedFillerWidthText && <button type="button" data-testid="three-d-edit-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">Edit filler</button>}
+			              {onOpenCabinetEditor && <button type="button" data-testid="three-d-edit-cabinet" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded bg-[#1a2744] px-2 font-semibold text-white shadow-sm transition hover:bg-[#1a2744]/85 active:scale-95">{masterTracItem ? "Board elevation & SKU" : "Cabinet attributes"}</button>}
+		              {onOpenCabinetEditor && !masterTracItem && <button type="button" data-testid="three-d-end-panel-treatment" onClick={() => onOpenCabinetEditor(selectedCabinet.uid!)} className="h-7 shrink-0 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">End panels</button>}
+			              {onRequestFiller && !masterTracItem && selectedPlacedCabinet && ["base", "wall", "tall"].includes(selectedPlacedCabinet.placement) && !fittedFillerWidthText && <button type="button" data-testid="three-d-add-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95"><Plus className="h-3 w-3" />Add filler</button>}
+			              {onRequestFiller && !masterTracItem && selectedPlacedCabinet && fittedFillerWidthText && <button type="button" data-testid="three-d-edit-filler" onClick={() => onRequestFiller(selectedCabinet.uid!)} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/30 bg-amber-50 px-2 font-semibold text-[#765416] transition hover:bg-amber-100 active:scale-95">Edit filler</button>}
 		              {adminConfigHref && <a data-testid="three-d-admin-edit-config" href={adminConfigHref} target="_blank" rel="noopener noreferrer" className="inline-flex h-7 shrink-0 items-center whitespace-nowrap rounded border border-slate-300 bg-white px-2 font-semibold text-slate-700 transition hover:bg-slate-50 active:scale-95">Admin: Edit Config ↗</a>}
 			              {onRemoveCabinet && <button type="button" data-testid="three-d-remove-cabinet" onClick={() => { preserveCurrentCameraView(); onRemoveCabinet(selectedCabinet.uid!); setSelectedCabinet(null); setMovePanelOpen(false); }} className="inline-flex h-7 shrink-0 items-center gap-1 whitespace-nowrap px-1 font-medium text-red-700 underline-offset-4 hover:underline"><Trash2 className="h-3 w-3" />{fittedFillerWidthText ? "Remove filler" : "Remove"}</button>}
 		            </div>}
