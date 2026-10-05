@@ -144,12 +144,12 @@ export function towerTotalWidth(config: MasterTracTowerConfig): number {
 }
 
 export type CornerShelfClearance = {
-  kind: "primary" | "adjustable";
+  kind: "primary" | "adjustable" | "fixed-bottom";
   index?: number;
   bottomIn: number;
   issue: "clear" | "touching" | "overlap" | "out-of-panel" | "invalid-height";
   /** Gap between board surfaces; negative means physical overlap. No installation clearance is implied. */
-  nearest?: { kind: "primary" | "adjustable"; index?: number; bottomIn: number; clearIn: number };
+  nearest?: { kind: "primary" | "adjustable" | "fixed-bottom"; index?: number; bottomIn: number; clearIn: number };
 };
 
 /** Inspect every corner board at its entered bottom height; no arbitrary adjustable-shelf count cap. */
@@ -159,6 +159,8 @@ export function cornerShelfClearances(config: MasterTracTowerConfig): CornerShel
   const shelves: Omit<CornerShelfClearance, "issue" | "nearest">[] = [
     { kind: "primary", bottomIn: config.cornerElevationIn ?? adjacentTop },
     ...(config.cornerAdjustableHeightsIn ?? []).map((bottomIn, index) => ({ kind: "adjustable" as const, index, bottomIn })),
+    ...((config.cornerShelfType ?? "fixed") === "fixed" ? [{ kind: "fixed-bottom" as const,
+      bottomIn: (config.corner === "start" ? config.bays[0] : config.bays.at(-1)!).fixedBottomIn }] : []),
   ];
   return shelves.map((shelf, shelfIndex) => {
     if (!Number.isFinite(shelf.bottomIn)) return { ...shelf, issue: "invalid-height" as const };
@@ -178,9 +180,12 @@ export function cornerShelfClearances(config: MasterTracTowerConfig): CornerShel
 /** Propose the middle of the widest open vertical slot; no arbitrary corner shelf count limit. */
 export function nextAvailableCornerShelfElevation(config: MasterTracTowerConfig): number | null {
   if (!config.corner) return null;
-  const adjacentTop = config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn;
-  const bottoms = [config.cornerElevationIn ?? adjacentTop, ...(config.cornerAdjustableHeightsIn ?? [])].sort((a, b) => a - b);
+  const adjacentBay = config.corner === "start" ? config.bays[0] : config.bays.at(-1)!;
+  const bottoms = cornerShelfClearances(config).map((shelf) => shelf.bottomIn).sort((a, b) => a - b);
   if (bottoms.some((height) => !Number.isFinite(height))) return null;
+  const matchingBayLevel = adjacentBay.adjustableHeightsIn.find((height) =>
+    Number.isFinite(height) && !bottoms.some((bottom) => Math.abs(bottom - height) < PANEL_THICKNESS - CORNER_CLEARANCE_EPS));
+  if (matchingBayLevel != null) return matchingBayLevel;
   let lower = 0;
   let best: { lower: number; upper: number } | null = null;
   for (const height of [...bottoms, config.heightIn]) {
@@ -299,7 +304,7 @@ export function planMasterTracTower(
     return { ok: false, reason: "The illustrated corner shelf must start or end at the selected wall segment's corner." };
   }
   const roomDepthOnWall = wall === "top" || wall === "bottom" ? room.depth : room.width;
-  if (config.corner && roomDepthOnWall < CORNER_FOOTPRINT_IN - EPS) return { ok: false, reason: "The corner shelf's 29.5-inch source footprint exceeds the room depth." };
+  if (config.corner && roomDepthOnWall < CORNER_FOOTPRINT_IN + PANEL_THICKNESS - EPS) return { ok: false, reason: "The corner shelf and its perpendicular upright need 29.5 inches plus a ¾-inch panel along the side wall." };
   if (startIn < run.start - EPS || startIn + totalWidthIn > run.start + run.length + EPS) {
     return { ok: false, reason: `The ${totalWidthIn}\" tower does not fit the selected wall segment (${run.length}\" available). Move its start or choose narrower bays.` };
   }
@@ -313,6 +318,17 @@ export function planMasterTracTower(
   const roleIndex = (role: "left" | "center" | "right") => role === "left" ? 0 : role === "center" ? 1 : 2;
   const uprights = uprightRoles.map((role) => exactPart(config, "Panels (Floor)", uprightNames[roleIndex(role)], PANEL_THICKNESS, config.heightIn));
   if (uprights.some((part) => !part)) return { ok: false, reason: "A matching left, center, or right upright SKU is missing for this finish, height, and depth." };
+  // The return is an actual matching 2022 board, not an unpriced floating 3D prop.
+  // It ends the illustrated corner only; a complete perpendicular bay is separate work.
+  const returnUpright = config.corner ? exactPart(config, "Panels (Floor)", /\bCenter Upright\b/i, PANEL_THICKNESS, config.heightIn) : null;
+  if (config.corner && !returnUpright) return { ok: false, reason: "No matching sourced upright is available for the perpendicular side of the corner." };
+  const returnWall: WallSide | null = config.corner ? ({ top: config.corner === "start" ? "left" : "right",
+    bottom: config.corner === "start" ? "left" : "right", left: config.corner === "start" ? "top" : "bottom",
+    right: config.corner === "start" ? "top" : "bottom" } as const)[wall as "top" | "bottom" | "left" | "right"] : null;
+  if (returnWall && (config.heightIn > wallCeilingMin(room, returnWall) + EPS
+    || openings.some((opening) => opening.side === returnWall && opening.offset < CORNER_FOOTPRINT_IN + PANEL_THICKNESS - EPS && opening.offset + opening.width > CORNER_FOOTPRINT_IN + EPS))) {
+    return { ok: false, reason: "The perpendicular corner upright intersects a side-wall opening or exceeds that wall's ceiling." };
+  }
 
   let cursor = startIn;
   let sequence = 0;
@@ -361,10 +377,16 @@ export function planMasterTracTower(
   if (config.corner === "start") {
     addCorner(cursor, "start", cornerType, cornerElevation);
     extraCornerHeights.forEach((height) => addCorner(cursor, "start", "adjustable", height));
+    if (cornerType === "fixed") addCorner(cursor, "start", "fixed", config.bays[0].fixedBottomIn);
     cursor += CORNER_FOOTPRINT_IN;
   }
   for (let index = 0; index < config.bays.length; index++) {
     const bay = config.bays[index];
+    const adjacentToCorner = config.corner && index === (config.corner === "start" ? 0 : config.bays.length - 1);
+    const adjustableHeightsIn = adjacentToCorner
+      ? [...bay.adjustableHeightsIn, ...extraCornerHeights.filter((height) =>
+        !bay.adjustableHeightsIn.some((existing) => Math.abs(existing - height) < CORNER_CLEARANCE_EPS))]
+      : bay.adjustableHeightsIn;
     const stockWidthIn = bay.stockWidthIn ?? bay.widthIn;
     if (!Number.isFinite(bay.widthIn) || !Number.isFinite(stockWidthIn)
       || bay.widthIn < SHALLOW_WIDTHS[0] || bay.widthIn > stockWidthIn
@@ -386,8 +408,8 @@ export function planMasterTracTower(
     if (bay.storage && bay.fixedTopIn - bay.fixedBottomIn < illustrationHeight + PANEL_THICKNESS + 1) {
       return { ok: false, reason: `Bay ${index + 1} has too little open height for the selected illustrated storage. Separate the fixed shelves.` };
     }
-    const elevations = [bay.fixedBottomIn, ...bay.adjustableHeightsIn, bay.fixedTopIn];
-    if (bay.adjustableHeightsIn.length > 5 || elevations.some((v) => !Number.isFinite(v) || v < 0 || v + PANEL_THICKNESS > config.heightIn + EPS)
+    const elevations = [bay.fixedBottomIn, ...adjustableHeightsIn, bay.fixedTopIn];
+    if (elevations.some((v) => !Number.isFinite(v) || v < 0 || v + PANEL_THICKNESS > config.heightIn + EPS)
       || [...elevations].sort((a, b) => a - b).some((v, i, sorted) => i > 0 && v - sorted[i - 1] < PANEL_THICKNESS - EPS)) {
       return { ok: false, reason: `Bay ${index + 1} shelves must be inside the uprights, with at least ¾\" between shelf bottoms and no overlaps.` };
     }
@@ -395,7 +417,7 @@ export function planMasterTracTower(
     cursor += PANEL_THICKNESS;
     const fixed = exactPart(config, "Shelves", /\bFixed Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
     const adjustable = exactPart(config, "Shelves", /\b(?:Adj|Adjustable) Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
-    if (!fixed || (bay.adjustableHeightsIn.length && !adjustable)) return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed/adjustable shelf SKU for bay ${index + 1}.` };
+    if (!fixed || (adjustableHeightsIn.length && !adjustable)) return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed/adjustable shelf SKU for bay ${index + 1}.` };
     const cleat = cleatForBay(config.finish, stockWidthIn);
     if (!cleat) return { ok: false, reason: `Bay ${index + 1}: no matching ${stockWidthIn} inch wall cleat SKU in ${config.finish}; nothing was placed.` };
     conceptualItems.push({ sku: cleat.sku, quantity: 1, listEachUsd: cleat.listEachUsd, description: `${cleat.description} · ${cleat.finish}${bay.widthIn < stockWidthIn - EPS ? ` · cut to ${bay.widthIn}″; rebore per manual` : ""}` });
@@ -408,7 +430,7 @@ export function planMasterTracTower(
       boards.at(-1)!.masterTracConceptStorage = { ...bay.storage, fixedTopIn: bay.fixedTopIn,
         ...(bay.storage.kind === "rod" ? { rodHeightsIn: bay.storage.heightsIn } : {}), skuReferences: refs };
     }
-    bay.adjustableHeightsIn.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height, bay.widthIn));
+    adjustableHeightsIn.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height, bay.widthIn));
     addBoard(fixed, "fixed-top", index, cursor, bay.fixedTopIn, bay.widthIn);
     cursor += bay.widthIn;
   }
@@ -417,6 +439,20 @@ export function planMasterTracTower(
   if (config.corner === "end") {
     addCorner(cursor, "end", cornerType, cornerElevation);
     extraCornerHeights.forEach((height) => addCorner(cursor, "end", "adjustable", height));
+    if (cornerType === "fixed") addCorner(cursor, "end", "fixed", config.bays.at(-1)!.fixedBottomIn);
+  }
+  if (returnWall && returnUpright) {
+    const position = wallPlacementAt(CORNER_FOOTPRINT_IN, PANEL_THICKNESS, config.depthIn, returnWall, room, undefined, false);
+    boards.push({
+      uid: uid(sequence++), cabinetId: 0, masterCode: returnUpright.sku,
+      description: `${returnUpright.description} · ${returnUpright.finish} · perpendicular corner support (joint illustrated)`,
+      category: "MasterTrac Closet", subCategory: returnUpright.category, placement: returnUpright.placement!,
+      x: position.x, y: position.y, rotation: position.rotation, wallId: position.wallId, wallOffset: position.wallOffset,
+      width: PANEL_THICKNESS, height: config.heightIn, depth: config.depthIn,
+      nominalWidth: PANEL_THICKNESS, nominalHeight: config.heightIn, nominalDepth: config.depthIn,
+      numberOfDoors: 0, numberOfDrawers: 0,
+      masterTracTowerId: towerId, masterTracTowerRole: "corner-return", masterTracTowerBayIndex: null,
+    });
   }
   for (const hardware of towerRodHardwareTakeoff(boards)) conceptualItems.push({ sku: hardware.cupSku, quantity: hardware.cupPacks,
     listEachUsd: hardware.cupListPackUsd, description: `${hardware.finish} rod cups: ${hardware.cupCount} required (${hardware.cupPacks} pack${hardware.cupPacks === 1 ? "" : "s"} of ${hardware.cupPackSize})` });

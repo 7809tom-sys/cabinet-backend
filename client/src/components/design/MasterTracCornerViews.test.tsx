@@ -39,11 +39,16 @@ describe("Closet-only illustrative MasterTrac corner views", () => {
       expect(size.y * 12).toBeCloseTo(0.75);
       const upright = result.plan.boards.find((board) => board.masterTracTowerRole === (side === "start" ? "left" : "right"))!;
       const cornerEdge = side === "start" ? bounds.max.x : bounds.min.x;
-      const uprightX = ((upright.wallOffset ?? 0) - Math.min(...result.plan.boards.map((board) => board.wallOffset ?? 0))) / 12;
+      const uprightX = ((upright.wallOffset ?? 0) - Math.min(...result.plan.boards.filter((board) => board.masterTracTowerRole !== "corner-return").map((board) => board.wallOffset ?? 0))) / 12;
       expect(cornerEdge).toBeCloseTo(side === "start" ? uprightX : uprightX + 0.75 / 12);
       expect(corner.userData.masterTracCorner).toMatchObject({ connectionEdgeIn: 14.5, returnModeled: false, camLockGeometry: false });
-      expect(root.children.filter((object) => object.userData.masterTracCorner)).toHaveLength(1);
+      expect(root.children.filter((object) => object.userData.masterTracCorner)).toHaveLength(2);
       expect(root.children.filter((object) => object.userData.masterTracStraightBoard)).toHaveLength(11);
+      const perpendicular = root.children.find((object) => object.userData.masterTracCornerReturn) as THREE.Mesh;
+      expect(perpendicular.userData).toMatchObject({ sourcedDimensions: true, camLockGeometry: false });
+      const supportBounds = new THREE.Box3().setFromObject(perpendicular);
+      expect((supportBounds.max.z - bounds.max.z) * 12).toBeCloseTo(0.75);
+      expect((supportBounds.max.x - supportBounds.min.x) * 12).toBeCloseTo(14.5);
       expect(root.children.every((object) => !object.userData.toeKickHeightIn && !object.userData.countertop)).toBe(true);
       const markup = renderToStaticMarkup(createElement(MasterTracCornerElevation, { placed: result.plan.boards, wall: "top", onEdit: () => {} }));
       expect(markup).toContain('data-testid="mastertrac-corner-elevation"');
@@ -51,7 +56,8 @@ describe("Closet-only illustrative MasterTrac corner views", () => {
       expect(markup).toContain('432786');
       expect(markup).toContain('433176');
       expect(markup).toContain('illustrative, not installation geometry');
-      expect(markup).toContain('perpendicular return is not modeled');
+      expect(markup).toContain('data-testid="corner-return-elevation"');
+      expect(markup).toContain('a complete return bay is not modeled');
     });
 
     it(`renders every adjustable shelf stacked at the ${side} corner in 3D and elevation`, () => {
@@ -61,13 +67,13 @@ describe("Closet-only illustrative MasterTrac corner views", () => {
       if (!result.ok) return;
       const root = masterTracCornerAssembly(result.plan.boards)!;
       const corners = root.children.filter((object) => object.userData.masterTracCorner) as THREE.Group[];
-      expect(corners).toHaveLength(4);
-      expect(corners.map((object) => object.userData.masterTracCorner.sku)).toEqual(["432786", "432787", "432787", "432787"]);
-      expect(corners.map((object) => object.position.y * 12)).toEqual([87, 18.75, 40.75, 64.75]);
-      expect(root.userData.cornerCount).toBe(4);
+      expect(corners).toHaveLength(5);
+      expect(corners.map((object) => object.userData.masterTracCorner.sku)).toEqual(["432786", "432787", "432787", "432787", "432786"]);
+      expect(corners.map((object) => object.position.y * 12)).toEqual([87, 18.75, 40.75, 64.75, 6.75]);
+      expect(root.userData.cornerCount).toBe(5);
       const markup = renderToStaticMarkup(createElement(MasterTracCornerElevation, { placed: result.plan.boards, wall: "top", onEdit: () => {} }));
-      expect(markup.match(/data-testid="mastertrac-corner-elevation-shelf"/g)).toHaveLength(4);
-      expect(markup).toContain("4 curved corner shelves");
+      expect(markup.match(/data-testid="mastertrac-corner-elevation-shelf"/g)).toHaveLength(5);
+      expect(markup).toContain("5 curved corner shelves");
       expect(markup).toContain("432786");
       expect(markup).toContain("432787");
     });

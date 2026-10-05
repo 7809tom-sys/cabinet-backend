@@ -27,7 +27,7 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
   const isWhite = config.finish === "Glacier White";
   const board = { backgroundColor: color, borderColor: isWhite ? "#92918d" : "#221f1d" };
   const cornerHeight = config.cornerElevationIn ?? (config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn);
-  const cornerHeights = [cornerHeight, ...(config.cornerAdjustableHeightsIn ?? [])];
+  const cornerHeights = [cornerHeight, ...(config.cornerAdjustableHeightsIn ?? []), ...((config.cornerShelfType ?? "fixed") === "fixed" && config.corner ? [(config.corner === "start" ? config.bays[0] : config.bays.at(-1)!).fixedBottomIn] : [])];
   const cornerClearances = cornerShelfClearances(config);
   const cornerFace = config.corner && <div className="relative h-full shrink-0 border-x border-dashed border-amber-600 bg-amber-50/40" style={{ width: `${CORNER_FOOTPRINT_IN / total * 100}%` }} data-testid="tower-corner-elevation-face">
     {cornerClearances.some((shelf) => shelf.issue === "overlap") && <span data-testid="tower-corner-elevation-collision-badge" className="absolute inset-x-1 top-2 z-10 rounded bg-red-700 px-1 py-0.5 text-center text-[9px] font-bold leading-tight text-white">Overlapping shelves</span>}
@@ -45,7 +45,7 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
         {config.bays.map((bay, index) => (
           <div key={index} className="relative h-full min-w-0" style={{ width: `${bay.widthIn / total * 100}%` }}>
             <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[10px] font-bold text-stone-700">{bay.widthIn}″ clear{bay.stockWidthIn && bay.stockWidthIn > bay.widthIn ? <span className="block text-[9px] font-normal">from {bay.stockWidthIn}″ stock</span> : null}</div>
-            {[bay.fixedBottomIn, ...bay.adjustableHeightsIn, bay.fixedTopIn].map((height, shelfIndex) => (
+            {[bay.fixedBottomIn, ...bay.adjustableHeightsIn, ...(config.corner && index === (config.corner === "start" ? 0 : config.bays.length - 1) ? (config.cornerAdjustableHeightsIn ?? []).filter((height) => !bay.adjustableHeightsIn.some((original) => Math.abs(original - height) < 0.000001)) : []), bay.fixedTopIn].map((height, shelfIndex) => (
               <div key={`${height}-${shelfIndex}`} className="absolute inset-x-0 border-y" style={{ ...board, height: "3px", bottom: `${height / config.heightIn * 100}%` }} aria-hidden="true" />
             ))}
             {bay.storage?.kind === "drawers" && Array.from({ length: bay.storage.count }, (_, drawerIndex) => {
@@ -125,7 +125,7 @@ export function MasterTracTowerPlanner({
     const result = onCommit(config, wall, effectiveStartIn, editGroupId);
     if (!result.ok) setCommitError(result.reason ?? "The tower could not be placed. No boards were added.");
   };
-  const panelCount = config.bays.length + 1;
+  const panelCount = config.bays.length + 1 + (config.corner ? 1 : 0);
   const fixedCount = config.bays.length * 2;
   const adjustableCount = config.bays.reduce((sum, bay) => sum + bay.adjustableHeightsIn.length, 0);
   const cornerParts = config.corner ? masterTracCornerParts(config.finish, config.cornerShelfType ?? "fixed") : null;
@@ -135,7 +135,7 @@ export function MasterTracTowerPlanner({
   const cornerClearances = cornerShelfClearances(config);
   const invalidCornerIssues = ["overlap", "out-of-panel", "invalid-height"];
   const hardCornerIssue = cornerClearances.find((shelf) => invalidCornerIssues.includes(shelf.issue));
-  const shelfName = (shelf: { kind: "primary" | "adjustable"; index?: number }) => shelf.kind === "primary" ? "Primary corner shelf" : `Shelf ${(shelf.index ?? 0) + 1}`;
+  const shelfName = (shelf: { kind: "primary" | "adjustable" | "fixed-bottom"; index?: number }) => shelf.kind === "primary" ? "Primary corner shelf" : shelf.kind === "fixed-bottom" ? "Fixed bottom corner shelf" : `Shelf ${(shelf.index ?? 0) + 1}`;
   const gapLabel = (gap: number) => Number(gap.toFixed(4)).toString();
   const clearanceNote = (shelf: (typeof cornerClearances)[number]) => shelf.issue === "invalid-height"
     ? `${shelfName(shelf)} needs a valid bottom height in inches.`
@@ -210,7 +210,7 @@ export function MasterTracTowerPlanner({
                 </div>
                 <p className="text-[10px] text-stone-600">Minimum ¾″ between shelf bottoms = actual board thickness, not an installation clearance. Add as many sourced shelves as physically fit; support spacing is not specified.</p>
               </div>}
-              <p className="mt-1.5 text-[11px] text-stone-600">Actual shelf SKU/finish and 29.5 × 29.5 × 0.75″ catalog bounding size. The 3D curve uses two 14.5″ straight mating edges as described by the owner; the cam-lock holes and perpendicular return are <strong>not modeled</strong>. This is not an installation drawing. {config.corner === "end" ? "End" : "Start"} corner anchors to the selected wall end. {config.corner && config.depthIn !== 14.5 ? "Select 14.5″ straight bays for this documented H-joint reference." : ""}</p>
+              <p className="mt-1.5 text-[11px] text-stone-600">Actual shelf SKU/finish and 29.5 × 29.5 × 0.75″ catalog bounding size. The curved front faces the room between two 14.5″-deep sourced uprights on perpendicular walls. Fixed corners include top and bottom at the adjacent bay levels; adjustable corners pair with real adjacent bay shelves. One return upright is included in the List reference; a complete return bay and cam-lock holes remain <strong>unmodeled</strong>. This is not an installation drawing. {config.corner === "end" ? "End" : "Start"} corner anchors to the selected wall end. {config.corner && config.depthIn !== 14.5 ? "Select 14.5″ straight bays for this documented H-joint reference." : ""}</p>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2"><Label htmlFor="tower-start" className="shrink-0 text-xs">Start on wall</Label><Input id="tower-start" aria-label="Tower start in inches" type="number" min="0" step="0.25" value={effectiveStartIn} disabled={Boolean(config.corner)} onChange={(event) => setStartIn(Number(event.target.value))} className="h-8 w-24 bg-white" /><span className="text-xs text-stone-600">inches from wall start · {towerTotalWidth(config).toFixed(2)}″ overall</span></div>
             <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Bay openings <span className="font-normal text-stone-500">({config.bays.length} shared)</span></h3><Button type="button" variant="outline" size="sm" className="h-8 text-xs" disabled={config.bays.length >= 4} onClick={() => setConfig((prev) => ({ ...prev, bays: [...prev.bays, { widthIn: towerWidths(prev.depthIn)[0] === 12 ? 24 : towerWidths(prev.depthIn)[0], fixedBottomIn: 6, fixedTopIn: prev.heightIn - 0.75, adjustableHeightsIn: [30, 54] }] }))}><Plus className="mr-1 h-3.5 w-3.5" /> Add bay</Button></div>
@@ -258,12 +258,12 @@ export function MasterTracTowerPlanner({
             ))}
           </div>
           <div className="space-y-4 border-t border-stone-200 bg-[#fbfaf7] px-5 py-4 lg:border-l lg:border-t-0"><TowerDiagram config={config} />
-            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference cart · not checkout</span><span>{panelCount + fixedCount + adjustableCount + (config.corner ? 1 + cornerExtraCount : 0)} sourced boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center) · {fixedCount} fixed shelves · {adjustableCount} adjustable shelves{config.corner ? ` · ${1 + cornerExtraCount} corner ${cornerExtraCount ? "shelves" : "shelf"}` : ""}</p>
+            <div className="rounded-lg border border-stone-200 bg-white p-3" data-testid="tower-takeoff"><div className="flex justify-between text-sm font-semibold"><span>MasterTrac reference cart · not checkout</span><span>{preview.ok ? preview.plan.count : panelCount + fixedCount + adjustableCount + (config.corner ? 1 + cornerExtraCount + ((config.cornerShelfType ?? "fixed") === "fixed" ? 1 : 0) : 0)} sourced boards</span></div><p className="mt-1 text-xs text-stone-600">{panelCount} uprights ({config.bays.length - 1} shared center{config.corner ? ", 1 perpendicular corner" : ""}) · {fixedCount} straight fixed shelves · {adjustableCount} selected straight adjustable shelves{config.corner ? ` · ${1 + cornerExtraCount + ((config.cornerShelfType ?? "fixed") === "fixed" ? 1 : 0)} corner shelves (2 fixed when structural)` : ""}</p>
               {cornerParts && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2 text-[11px] text-stone-700" data-testid="tower-corner-reference-lines">
                 <p className="font-semibold text-amber-900">{config.corner === "start" ? "Left/start" : "Right/end"} · illustrated 29.5 × 29.5″ corner</p>
-                <p>{1 + ((config.cornerShelfType ?? "fixed") === "adjustable" ? cornerExtraCount : 0)}× SKU {cornerParts.shelf.sku} · {cornerParts.shelf.description} · {cornerParts.shelf.finish} · {money(cornerParts.shelf.listEachUsd)} List each</p>
+                <p>{((config.cornerShelfType ?? "fixed") === "fixed" ? 2 : 1 + cornerExtraCount)}× SKU {cornerParts.shelf.sku} · {cornerParts.shelf.description} · {cornerParts.shelf.finish} · {money(cornerParts.shelf.listEachUsd)} List each</p>
                 {(config.cornerShelfType ?? "fixed") === "fixed" && additionalCornerParts && <p>{cornerExtraCount}× SKU {additionalCornerParts.shelf.sku} · {additionalCornerParts.shelf.description} · {additionalCornerParts.shelf.finish} · {money(additionalCornerParts.shelf.listEachUsd)} List each</p>}
-                {cornerParts.joint && <p>1× SKU {cornerParts.joint.sku} · {cornerParts.joint.description} · {cornerParts.joint.finish} finish · {money(cornerParts.joint.listEachUsd)} List each · join location illustrative</p>}
+                {cornerParts.joint && <p>2× SKU {cornerParts.joint.sku} · {cornerParts.joint.description} · {cornerParts.joint.finish} finish · {money(cornerParts.joint.listEachUsd)} List each · join location illustrative</p>}
                 {!cornerParts.joint && <p>Adjustable shelf: no fixed-shelf H-joint priced or implied. Confirm support with installer.</p>}
               </div>}
               {cutLines.size > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-cut-skus"><p className="text-[11px] font-semibold text-amber-900">Stock shelf SKUs · field cuts</p>{Array.from(cutLines.values()).map((line) => <p key={`${line.bay}-${line.sku}`} className="text-[11px] text-stone-700">Bay {line.bay} · {line.quantity}× SKU {line.sku} · {line.stock}″ stock → {line.installed}″ installed · {line.offcut}″ offcut each · {money(line.price)} List each</p>)}</div>}
