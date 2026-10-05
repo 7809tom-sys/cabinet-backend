@@ -1,5 +1,7 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { doorStylePhotoUrl, styleImageRetryUrl } from "./ResilientStyleImage";
+import { ResilientStyleImage, doorStylePhotoUrl, styleImageRetryUrl } from "./ResilientStyleImage";
 
 describe("failed cabinet-style image retry", () => {
   it("retries the identical authentic extensionless room-scene path through a fresh URL", () => {
@@ -21,5 +23,17 @@ describe("failed cabinet-style image retry", () => {
     expect(doorStylePhotoUrl("https://example.com/kitchen.jpg")).toBe("https://example.com/kitchen.jpg");
     expect(doorStylePhotoUrl("/manus-storage/media-library/other?size=small")).toBe("/manus-storage/media-library/other?size=small");
     expect(doorStylePhotoUrl("/manus-storage/private/example.jpg")).toBe("/manus-storage/private/example.jpg");
+  });
+
+  it("starts with the original fast catalog photo, not the recovery endpoint", () => {
+    const original = "/manus-storage/media-library/1785260582020_classic_cream_room_scene_18c5ad57";
+    const html = renderToStaticMarkup(createElement(ResilientStyleImage, {
+      src: original,
+      alt: "Aura Cream kitchen",
+      style: { ourName: "Aura Cream", color: "#F2E8D0" },
+      className: "scene",
+    }));
+    expect(html).toContain(original);
+    expect(html).not.toContain("/api/door-style-photo/");
   });
 });

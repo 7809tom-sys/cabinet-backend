@@ -1,4 +1,4 @@
-import type { Express, Response } from "express";
+import type { Express, Request, Response } from "express";
 import { Readable } from "stream";
 import { ENV } from "./env";
 
@@ -98,12 +98,22 @@ export function registerStorageProxy(app: Express) {
   // Retain the local legacy path, but the public platform redirects /manus-storage
   // to the CDN before Express can handle it. The distinct /api route reaches this app.
   app.get("/manus-storage/*", (req, res) => serveStorageKey((req.params as Record<string, string>)[0], res));
-  app.get("/api/door-style-photo/:imageKey", (req, res) => {
+  const servePublicCatalogMedia = (req: Request, res: Response) => {
     const imageKey = req.params.imageKey;
     if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(imageKey)) {
-      res.status(400).send("Invalid door style photo key");
+      res.status(400).send("Invalid catalog media key");
       return;
     }
     return serveStorageKey(`media-library/${imageKey}`, res);
+  };
+  app.get("/api/door-style-photo/:imageKey", servePublicCatalogMedia);
+  app.get("/api/catalog-media/:imageKey", servePublicCatalogMedia);
+  app.get("/api/catalog-sku-photo/:imageKey", (req, res) => {
+    const imageKey = req.params.imageKey;
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(imageKey)) {
+      res.status(400).send("Invalid catalog SKU image key");
+      return;
+    }
+    return serveStorageKey(`sku-images/${imageKey}`, res);
   });
 }

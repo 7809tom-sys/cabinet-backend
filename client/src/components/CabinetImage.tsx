@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { cabinetAltText, isSquareDoubleDoorBaseEnd, type CabinetLike } from "@/lib/cabinetGraphics";
+import { catalogMediaRecoveryUrl, newCatalogMediaRetryNonce } from "@/lib/catalogMediaImage";
 
 interface CabinetImageProps {
   cabinet: CabinetLike;
@@ -29,24 +30,26 @@ export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl
   const url = isSquareDoubleDoorBaseEnd(cabinet)
     ? null
     : overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
-  const [failed, setFailed] = useState(false);
-
-  // Reset the error state whenever a new master or approved image is selected.
-  useEffect(() => {
-    setFailed(false);
-  }, [url, cabinet.masterCode]);
-
-  if (!url || failed) {
+  const [failed, setFailed] = useState<{ url: string; attempts: number; retryUrl: string | null } | null>(null);
+  const attempts = url && failed?.url === url ? failed.attempts : 0;
+  if (!url || attempts >= 2) {
     return <CabinetDrawing cabinet={cabinet} finishColor={finishColor} className={className} />;
   }
 
   return (
     <img
-      src={url}
+      src={attempts === 1 ? failed!.retryUrl ?? url : url}
       alt={cabinetAltText(cabinet)}
       className={className}
       loading="lazy"
-      onError={() => setFailed(true)}
+      onError={() => {
+        if (attempts === 0) {
+          const retryUrl = catalogMediaRecoveryUrl(url, newCatalogMediaRetryNonce());
+          setFailed({ url, attempts: retryUrl ? 1 : 2, retryUrl });
+        } else {
+          setFailed({ url, attempts: 2, retryUrl: failed?.retryUrl ?? null });
+        }
+      }}
       style={{ objectFit: "contain" }}
     />
   );

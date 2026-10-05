@@ -1,0 +1,360 @@
+{
+  "url": "https://www.cabinetdealz.com/styles?chrome-image-proof=1791236502",
+  "failMode": "",
+  "images": [
+    {
+      "style": "Aura Cream (Ashford)",
+      "src": "/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+      "naturalWidth": 1920,
+      "complete": true,
+      "alt": "Classic Cream kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Zenith Sage (Ashford)",
+      "src": "/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88",
+      "naturalWidth": 776,
+      "complete": true,
+      "alt": "Fresh Sage kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Terra Shaker (Ashford)",
+      "src": "/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919",
+      "naturalWidth": 684,
+      "complete": true,
+      "alt": "Carmel Shaker kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Serene Harbor (Madison)",
+      "src": "/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c",
+      "naturalWidth": 1376,
+      "complete": true,
+      "alt": "Haven Harbor kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Nova Blanc (Madison)",
+      "src": "/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43",
+      "naturalWidth": 1417,
+      "complete": false,
+      "alt": "Shaker White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Cobalt Abyss (Preston)",
+      "src": "/api/door-style-photo/1789958452492_cobalt_blue_d94df091",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1789958452492_cobalt_blue_d94df091",
+      "naturalWidth": 720,
+      "complete": true,
+      "alt": "Navy Blue kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Stone Gray (Preston)",
+      "src": "/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee",
+      "naturalWidth": 2000,
+      "complete": true,
+      "alt": "Shaker Gray kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Edge Blanc (Madison)",
+      "src": "/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Edgeline White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Onyx Core (Madison)",
+      "src": "/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493",
+      "naturalWidth": 1416,
+      "complete": false,
+      "alt": "Shaker Black kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Honey Core (Madison)",
+      "src": "/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e",
+      "naturalWidth": 1416,
+      "complete": true,
+      "alt": "Shaker Honey kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Carbon Frost",
+      "src": "/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4",
+      "naturalWidth": 0,
+      "complete": false,
+      "alt": "Aspen Charcoal kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Virid Echo (Preston)",
+      "src": "/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b",
+      "naturalWidth": 0,
+      "complete": false,
+      "alt": "Aston Green kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Casselberry Blanc (Madison)",
+      "src": "/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602",
+      "naturalWidth": 0,
+      "complete": false,
+      "alt": "Casselberry Antique White kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Walnut Haven (Madison)",
+      "src": "/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1",
+      "naturalWidth": 0,
+      "complete": false,
+      "alt": "Casselberry Saddle kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    },
+    {
+      "style": "Natura Maple (Ashford)",
+      "src": "/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d",
+      "absoluteSrc": "https://www.cabinetdealz.com/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d",
+      "naturalWidth": 0,
+      "complete": false,
+      "alt": "Designer Natural kitchen",
+      "hasSwatch": false,
+      "fallbackText": null
+    }
+  ],
+  "detail": {
+    "name": "Aura Cream (Ashford)Shaker",
+    "images": [
+      {
+        "src": "/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+        "naturalWidth": 1920,
+        "complete": true,
+        "alt": "Classic Cream kitchen"
+      },
+      {
+        "src": "/api/door-style-photo/1785260616500_classic_cream_door_3f7be09d",
+        "naturalWidth": 0,
+        "complete": false,
+        "alt": "Classic Cream door sample"
+      },
+      {
+        "src": "/manus-storage/media-library/1786710006445_11201_93d61e10",
+        "naturalWidth": 83,
+        "complete": true,
+        "alt": "Aura Cream (Ashford) door sample"
+      }
+    ],
+    "fallbackCount": 0
+  },
+  "imageResponses": [
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1785262748765_double_dove_white_door_e3607993",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1785771706716_shaker_white_door_219edf23",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1785773080642_white_shaker_door_d2b8c1e4",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1785528407210_slim_dove_white_door_b0df5275",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1785263945346_high_gloss_white_door_8ad1a475",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/catalog-images/1784682553083_Edgeline_White_62ca7dca.webp",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785773093378_white_shaker_room_scene_057407e0",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785771742207_shaker_white_2_08f9cd43",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785262411480_carmel_shaker_room_scene_d06d8919",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785261123212_fresh_sage_room_scene_88505a88",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785260405189_shaker_gray_room_scene_ccb728ee",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1789958452492_cobalt_blue_d94df091",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785772098895_edgeline_white_room_b00f1b8c",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1789887991361_harbor__hh__madison_15b88c3c",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1790014689711_casselberry_antique_white_2_4c071602",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1790962388862_screenshot_2026_10_02_123013_e430afd4",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785510309136_shaker_black_2_8f2c5493",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785512235443_shaker_honey_2_a9173b1e",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785772670109_aston_green_shaker_room_scene_05374f9b",
+      "status": 200,
+      "type": "image/webp"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785772781400_casselberry_saddle_2_875b26b1",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785262740490_double_dove_white_room_scene_02a29a7f",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785263939184_high_gloss_white_room_scene_0cc987a9",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785263630890_haven_dune_2_cd1433c9",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1789923999472_haven_sage_78847564",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1788664040186_espresso_sept_5_23c198f8",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785773384138_lunar_gray_room_192eb74b",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785437053982_iron_black_2_1efcc586",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785263841441_hign_gloss_gray_room_scene_c5688733",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785261606525_hickory_shaker_room_scene_9511fe0c",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785437985088_designer_natural_room_scene_1a9d196d",
+      "status": 200,
+      "type": "image/png"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785263427028_greek_villa_room_scene_38964326",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785262831217_double_smokey_gray_room_scene_d0cbd321",
+      "status": 200,
+      "type": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/manus-storage/media-library/1786710006445_11201_93d61e10",
+      "status": 307,
+      "type": null
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/door-style-photo/1785260616500_classic_cream_door_3f7be09d",
+      "status": 200,
+      "type": "image/png"
+    }
+  ],
+  "badResponses": [],
+  "blockedRequests": [],
+  "browserErrors": []
+}

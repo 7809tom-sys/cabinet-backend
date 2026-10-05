@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { doorPanelKind } from "@/lib/design";
+import { catalogMediaRecoveryUrl, newCatalogMediaRetryNonce } from "@/lib/catalogMediaImage";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DoorStyleSwatch
@@ -174,18 +175,27 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
   const sw = useMemo(() => resolveSwatch(style), [style]);
   const kind = useMemo(() => doorPanelKind(style.doorStyle ?? style.ourName ?? style.aliasName ?? style.name), [style]);
   const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
+  const [photoRetry, setPhotoRetry] = useState<{ original: string; url: string } | null>(null);
 
   // If a real door photo is available, show it instead of the SVG illustration.
   const photoUrl = style.thumbnailImageUrl || style.doorSampleImageUrl;
   if (photoUrl && failedPhotoUrl !== photoUrl) {
     return (
       <img
-        src={photoUrl}
+        src={photoRetry?.original === photoUrl ? photoRetry.url : photoUrl}
         alt={`${style.aliasName || style.ourName || style.name || style.styleCode || "Door"} door sample`}
         className={className}
         style={{ objectFit: "cover", display: "block" }}
         loading="lazy"
-        onError={() => setFailedPhotoUrl(photoUrl)}
+        onError={() => {
+          if (photoRetry?.original === photoUrl) {
+            setFailedPhotoUrl(photoUrl);
+            return;
+          }
+          const retryUrl = catalogMediaRecoveryUrl(photoUrl, newCatalogMediaRetryNonce());
+          if (retryUrl) setPhotoRetry({ original: photoUrl, url: retryUrl });
+          else setFailedPhotoUrl(photoUrl);
+        }}
       />
     );
   }

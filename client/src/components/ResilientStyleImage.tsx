@@ -41,7 +41,7 @@ export function ResilientStyleImage({ src, alt, style, className, loading, decod
 
   return (
     <img
-      src={attempts === 1 ? styleImageRetryUrl(photoSrc, failed!.nonce) : photoSrc}
+      src={attempts === 1 ? styleImageRetryUrl(photoSrc, failed!.nonce) : src}
       alt={alt}
       loading={loading}
       decoding={decoding}

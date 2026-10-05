@@ -122,4 +122,50 @@ describe("storage proxy image delivery", () => {
       server.close();
     }
   });
+
+  it("serves approved cabinet artwork through the restricted catalog-media alias", async () => {
+    const fetched: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      fetched.push(url);
+      return url.includes("presign/get")
+        ? new Response(JSON.stringify({ url: "https://cdn.example.com/approved-b12-art" }), { headers: { "content-type": "application/json" } })
+        : new Response(png as unknown as BodyInit, { headers: { "content-type": "application/octet-stream" } });
+    }) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      const resp = await realFetch(`${baseUrl}/api/catalog-media/1790257199386_b12_b21_4dedff25?cd-image-retry-nonce=one`);
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get("content-type")).toContain("image/png");
+      expect(new Uint8Array(await resp.arrayBuffer())).toEqual(png);
+      expect(new URL(fetched[0]).searchParams.get("path")).toBe("media-library/1790257199386_b12_b21_4dedff25");
+      expect((await realFetch(`${baseUrl}/api/catalog-media/bad%2Fkey`)).status).toBe(400);
+      expect(fetched).toHaveLength(2);
+    } finally {
+      server.close();
+    }
+  });
+
+  it("recovers the exact B12 supplier SKU JPEG with image/jpeg rather than octet-stream", async () => {
+    const fetched: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      fetched.push(url);
+      return url.includes("presign/get")
+        ? new Response(JSON.stringify({ url: "https://cdn.example.com/approved-b12-sku" }), { headers: { "content-type": "application/json" } })
+        : new Response(jpeg as unknown as BodyInit, { headers: { "content-type": "application/octet-stream" } });
+    }) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      const photo = await realFetch(`${baseUrl}/api/catalog-sku-photo/1784390003470_ASP-B12_738a416d.jpg?cd-image-retry-nonce=one`);
+      expect(photo.status).toBe(200);
+      expect(photo.headers.get("content-type")).toContain("image/jpeg");
+      expect(new Uint8Array(await photo.arrayBuffer())).toEqual(jpeg);
+      expect(new URL(fetched[0]).searchParams.get("path")).toBe("sku-images/1784390003470_ASP-B12_738a416d.jpg");
+      expect((await realFetch(`${baseUrl}/api/catalog-sku-photo/bad%2Fkey`)).status).toBe(400);
+      expect(fetched).toHaveLength(2);
+    } finally {
+      server.close();
+    }
+  });
 });

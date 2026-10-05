@@ -103,6 +103,7 @@ import {
 } from "@/lib/smallGapFiller";
 import { buildRemoteDesignSessionUrl } from "@/lib/designShare";
 import { availableLs3612ShelfReplacementChoices, isUnpricedLs3612 } from "@/lib/ls3612Replacement";
+import { unavailableSavedStyleIds } from "@/lib/unavailableSavedStyles";
 import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkCeilingBlocksAtHeight, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -1938,6 +1939,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Data — door-style-first: members pick a door style; the supply line behind
   // it is resolved server-side and never shown.
   const { data: doorStylesRaw } = trpc.doorStyles.list.useQuery();
+  const unavailableStyleIds = useMemo(
+    () => doorStylesRaw?.length
+      ? unavailableSavedStyleIds(styleId, [styleA, styleB, ...placed.map((cabinet) => cabinet.styleId)], doorStylesRaw.map((style) => style.id))
+      : [],
+    [doorStylesRaw, styleId, styleA, styleB, placed],
+  );
   const selectedStyleMissingFromPicker =
     styleId != null && !(doorStylesRaw ?? []).some((style) => style.id === styleId);
   const { data: persistedSelectedStyle } = trpc.doorStyles.byId.useQuery(
@@ -14161,8 +14168,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            </div>}
 	          </div>
 
-	          <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {/* Door-style-first prompt: the palette is empty until a door style
+		          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+		            {unavailableStyleIds.length > 0 && (
+		              <div role="status" data-testid="unavailable-saved-style-warning" className="mb-2 rounded-lg border border-amber-500/60 bg-amber-50 px-3 py-3 text-xs text-amber-950">
+		                <p className="font-semibold">Saved door style unavailable in the current priced catalog: {unavailableStyleIds.map((id) => `Style #${id}`).join(", ")}</p>
+		                <p className="mt-1 leading-snug">The cabinets and drawing are preserved. Prices and availability cannot be inferred for this finish; choose a currently available door style and review each flagged cabinet before checkout.</p>
+		                <button type="button" className="mt-2 rounded border border-amber-600 px-2 py-1 font-semibold hover:bg-amber-100" onClick={() => {
+		                  if (panelDrawerMode) setMobilePanel("style");
+		                  else document.getElementById("door-style-picker-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+		                }}>Review current door styles</button>
+		              </div>
+		            )}
+	            {/* Door-style-first prompt: the palette is empty until a door style
                 is picked (catalog + pricing key off it). Make that obvious with a
                 clear call-out + a jump to the picker, instead of leaving users
                 staring at an empty list. */}
