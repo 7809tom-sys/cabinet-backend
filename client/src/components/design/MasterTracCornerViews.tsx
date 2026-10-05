@@ -6,6 +6,8 @@ import type { PlacedCabinet, WallSide } from "@/lib/design";
 import { CORNER_FOOTPRINT_IN, isMasterTracCornerBoard, type MasterTracCornerBoard } from "@/lib/masterTracTower";
 
 const IN = 1 / 12;
+/** Owner-described straight mating edges. The source SKU still supplies the 29.5-inch bounding size. */
+const CORNER_MATING_EDGE_IN = 14.5;
 
 function groupBoards(placed: PlacedCabinet[]) {
   const corner = placed.find(isMasterTracCornerBoard);
@@ -17,16 +19,25 @@ function groupBoards(placed: PlacedCabinet[]) {
   return { corner, boards, start, width: end - start, height };
 }
 
-/** Source-authorized illustrative concave edge within the *actual SKU bounding box*. Not a CNC or support profile. */
-export function illustrativeMasterTracCornerGeometry(): THREE.ExtrudeGeometry {
+/** User-described 14.5-inch straight mating edges; the curve remains an illustration, not a CNC or support profile. */
+export function illustrativeMasterTracCornerShape(): THREE.Shape {
   const b = CORNER_FOOTPRINT_IN * IN;
+  const mating = CORNER_MATING_EDGE_IN * IN;
   const shape = new THREE.Shape();
   shape.moveTo(0, 0);
   shape.lineTo(b, 0);
-  shape.lineTo(b, b);
-  shape.lineTo(b * 0.77, b);
-  shape.bezierCurveTo(b * 0.69, b * 0.79, b * 0.49, b * 0.58, 0, b * 0.58);
+  // x=b meets the existing upright over z=0..14.5. The unmodeled perpendicular
+  // return meets z=b over x=0..14.5. Only the opening-facing transition is curved.
+  shape.lineTo(b, mating);
+  shape.bezierCurveTo(b, b * 0.75, b * 0.75, b, mating, b);
+  shape.lineTo(0, b);
   shape.lineTo(0, 0);
+  return shape;
+}
+
+/** Extrudes only the sourced ¾-inch board, never a cam lock or a second, unpriced return run. */
+export function illustrativeMasterTracCornerGeometry(): THREE.ExtrudeGeometry {
+  const shape = illustrativeMasterTracCornerShape();
   const geometry = new THREE.ExtrudeGeometry(shape, { depth: 0.75 * IN, bevelEnabled: false, steps: 1, curveSegments: 28 });
   // Source outline is XY; lay it horizontally in XZ. Extrusion extends downward from the SKU's top.
   geometry.rotateX(Math.PI / 2);
@@ -47,7 +58,7 @@ export function addIllustrativeMasterTracCorner(parent: THREE.Group, board: Mast
   group.add(shelf);
   group.position.set((localXIn + (board.masterTracCorner.side === "end" ? CORNER_FOOTPRINT_IN : 0)) * IN, ((board.mountBottom ?? 0) + 0.75) * IN, 0);
   if (board.masterTracCorner.side === "end") group.scale.x = -1;
-  group.userData = { masterTracCorner: { sku: board.masterCode, finish, side: board.masterTracCorner.side, widthIn: 29.5, depthIn: 29.5, illustrative: true } };
+  group.userData = { masterTracCorner: { sku: board.masterCode, finish, side: board.masterTracCorner.side, widthIn: CORNER_FOOTPRINT_IN, depthIn: CORNER_FOOTPRINT_IN, connectionEdgeIn: CORNER_MATING_EDGE_IN, returnModeled: false, camLockGeometry: false, illustrative: true } };
   parent.add(group);
   return group;
 }
@@ -154,7 +165,7 @@ export function MasterTracCornerElevation({ placed, wall, onEdit }: { placed: Pl
         <text x={svgWidth / 2} y={svgHeight - 14} textAnchor="middle" fontSize="14" fill="#554c43">{group.width.toFixed(2)}″ total · two or more straight bays · shared upright at corner join</text>
       </svg>
     </div>
-    <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2 text-[11px] text-stone-700"><span>29.5 × 29.5 × 0.75″ is the sourced SKU bounding size. Dashed curved edge and H-joint location are <strong>illustrative, not installation geometry</strong>.{placed.length > group.boards.length && ` Focused view: ${placed.length - group.boards.length} other placed items not shown.`}</span><button type="button" onClick={onEdit} className="rounded border border-stone-400 px-2 py-1 font-semibold">Edit connected towers</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2 text-[11px] text-stone-700"><span>29.5 × 29.5 × 0.75″ is the sourced SKU bounding size. The two 14.5″ straight mating edges follow the owner's description; the perpendicular return is not modeled. Dashed curve, cam-lock connection, and H-joint location are <strong>illustrative, not installation geometry</strong>.{placed.length > group.boards.length && ` Focused view: ${placed.length - group.boards.length} other placed items not shown.`}</span><button type="button" onClick={onEdit} className="rounded border border-stone-400 px-2 py-1 font-semibold">Edit connected towers</button></div>
   </div>;
 }
 
@@ -235,6 +246,6 @@ export function MasterTracCorner3D({ placed, wall, onEdit }: { placed: PlacedCab
   return <div className="flex h-full flex-col bg-[#eeeae0]" data-testid="mastertrac-corner-3d">
     <Heading placed={placed} wall={wall} view="3D closet assembly" />
     <div ref={mount} className="min-h-[320px] flex-1 overflow-hidden" aria-label="Rotateable MasterTrac curved-corner shelf and connected tower visualization" />
-    <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2 text-[11px] text-stone-700"><span>Illustrative curve inside the real 29.5″ SKU footprint · shared upright visible · 2022 List reference only. Rotate to inspect; not an installation drawing.{placed.length > group.boards.length && ` Focused view: ${placed.length - group.boards.length} other placed items not shown.`}</span><button type="button" onClick={onEdit} className="rounded border border-stone-400 px-2 py-1 font-semibold">Edit connected towers</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-2 bg-white px-4 py-2 text-[11px] text-stone-700"><span>Illustrative curve in the real 29.5″ SKU footprint · two owner-described 14.5″ mating edges. One upright shown; the perpendicular return is not modeled. Cam-lock holes/fasteners are not illustrated or priced. March 2022 List reference only; not an installation drawing.{placed.length > group.boards.length && ` Focused view: ${placed.length - group.boards.length} other placed items not shown.`}</span><button type="button" onClick={onEdit} className="rounded border border-stone-400 px-2 py-1 font-semibold">Edit connected towers</button></div>
   </div>;
 }
