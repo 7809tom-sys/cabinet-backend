@@ -52,7 +52,10 @@ const STRUCTURAL_FINISHES = ["Glacier White", "Slate Rift", "Spiced Mahogany"] a
 const SHALLOW_WIDTHS = [12, 18, 24, 30, 36, 42] as const;
 const DEEP_WIDTHS = [24, 30] as const;
 const EPS = 0.01;
+const CORNER_CLEARANCE_EPS = 0.000001;
 const PANEL_THICKNESS = 0.75;
+/** A sourced board's actual vertical thickness, NOT a manufacturer-specified installation gap. */
+export const CORNER_SHELF_THICKNESS_IN = PANEL_THICKNESS;
 export const CORNER_FOOTPRINT_IN = 29.5;
 export type MasterTracCornerBoard = PlacedCabinet & {
   masterTracCorner: { side: "start" | "end"; type: "fixed" | "adjustable"; illustrative: true; hJointSku: string | null };
@@ -138,6 +141,38 @@ export function defaultTowerConfig(finish = "Glacier White"): MasterTracTowerCon
 export function towerTotalWidth(config: MasterTracTowerConfig): number {
   return config.bays.reduce((sum, bay) => sum + bay.widthIn, 0) + (config.bays.length + 1) * PANEL_THICKNESS
     + (config.corner ? CORNER_FOOTPRINT_IN : 0);
+}
+
+export type CornerShelfClearance = {
+  kind: "primary" | "adjustable";
+  index?: number;
+  bottomIn: number;
+  issue: "clear" | "touching" | "overlap" | "out-of-panel" | "invalid-height";
+  /** Gap between board surfaces; negative means physical overlap. No installation clearance is implied. */
+  nearest?: { kind: "primary" | "adjustable"; index?: number; bottomIn: number; clearIn: number };
+};
+
+/** Inspect every corner board at its entered bottom height; no arbitrary adjustable-shelf count cap. */
+export function cornerShelfClearances(config: MasterTracTowerConfig): CornerShelfClearance[] {
+  if (!config.corner) return [];
+  const adjacentTop = config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn;
+  const shelves: Omit<CornerShelfClearance, "issue" | "nearest">[] = [
+    { kind: "primary", bottomIn: config.cornerElevationIn ?? adjacentTop },
+    ...(config.cornerAdjustableHeightsIn ?? []).map((bottomIn, index) => ({ kind: "adjustable" as const, index, bottomIn })),
+  ];
+  return shelves.map((shelf, shelfIndex) => {
+    if (!Number.isFinite(shelf.bottomIn)) return { ...shelf, issue: "invalid-height" as const };
+    if (shelf.bottomIn < -CORNER_CLEARANCE_EPS || shelf.bottomIn + CORNER_SHELF_THICKNESS_IN > config.heightIn + CORNER_CLEARANCE_EPS) {
+      return { ...shelf, issue: "out-of-panel" as const };
+    }
+    const nearest = shelves.flatMap((other, index) => index !== shelfIndex && Number.isFinite(other.bottomIn)
+      ? [{ kind: other.kind, index: other.index, bottomIn: other.bottomIn,
+        clearIn: Math.abs(other.bottomIn - shelf.bottomIn) - CORNER_SHELF_THICKNESS_IN }] : [])
+      .sort((a, b) => a.clearIn - b.clearIn)[0];
+    const rawClear = nearest?.clearIn ?? null;
+    return { ...shelf, issue: rawClear != null && rawClear < -CORNER_CLEARANCE_EPS ? "overlap" as const
+      : rawClear != null && rawClear <= CORNER_CLEARANCE_EPS ? "touching" as const : "clear" as const, ...(nearest ? { nearest } : {}) };
+  });
 }
 
 /** Propose the middle of the widest open vertical slot; no arbitrary corner shelf count limit. */
@@ -251,9 +286,7 @@ export function planMasterTracTower(
   if (config.corner && extraCornerHeights.length && !adjustableCornerParts) return { ok: false, reason: "No matching 2022 adjustable corner shelf SKU is available in this finish." };
   const adjacentTop = config.corner === "start" ? config.bays[0].fixedTopIn : config.bays.at(-1)!.fixedTopIn;
   const cornerElevation = config.cornerElevationIn ?? adjacentTop;
-  const cornerElevations = [cornerElevation, ...extraCornerHeights].sort((a, b) => a - b);
-  if (config.corner && (cornerElevations.some((height) => !Number.isFinite(height) || height < 0 || height + PANEL_THICKNESS > config.heightIn + EPS)
-    || cornerElevations.some((height, index) => index > 0 && height - cornerElevations[index - 1] < PANEL_THICKNESS - EPS))) {
+  if (config.corner && cornerShelfClearances(config).some((shelf) => shelf.issue === "overlap" || shelf.issue === "out-of-panel" || shelf.issue === "invalid-height")) {
     return { ok: false, reason: "Corner shelves must fit the selected panel height with at least ¾ inch between shelf bottoms and no overlaps." };
   }
   if (config.corner && cornerType === "fixed" && Math.abs(cornerElevation - adjacentTop) > EPS) {

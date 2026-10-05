@@ -51,4 +51,41 @@ describe("MasterTrac corner shelf elevation controls", () => {
     expect(screen.getByRole("button", { name: "Raise adjustable corner shelf 3 by one inch" })).toHaveProperty("disabled", true);
     expect(screen.queryByTestId("tower-validation-error")).toBeNull();
   });
+
+  it("highlights both colliding boards in the controls and elevation, blocks placement, then clears when corrected", () => {
+    renderPlanner([42]);
+    const field = screen.getByRole("spinbutton", { name: "Adjustable corner shelf 1 elevation" });
+    fireEvent.change(field, { target: { value: "86" } }); // fixed primary is at 86.25 in
+    const warning = screen.getByTestId("corner-clearance-warning");
+    expect(warning.getAttribute("role")).toBe("alert");
+    expect(warning.textContent).toMatch(/¾.*between shelf bottoms/i);
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByTestId("corner-shelf-elevation-row").getAttribute("data-clearance-state")).toBe("overlap");
+    expect(screen.getAllByTestId("tower-corner-elevation-level").filter((level) => level.getAttribute("data-clearance-state") === "overlap")).toHaveLength(2);
+    expect(screen.getByTestId("tower-corner-elevation-collision-badge").textContent).toMatch(/overlapping shelves/i);
+    expect(screen.getByTestId("place-connected-tower")).toHaveProperty("disabled", true);
+    fireEvent.change(field, { target: { value: "85.5" } }); // exactly ¾ in below the primary
+    expect(screen.queryByTestId("corner-clearance-warning")).toBeNull();
+    expect(field.getAttribute("aria-invalid")).toBe("false");
+    expect(screen.getByTestId("corner-shelf-elevation-row").getAttribute("data-clearance-state")).toBe("touching");
+    expect(screen.getByTestId("corner-clearance-contact").textContent).toMatch(/no clear gap.*support spacing not specified/i);
+    expect(screen.queryByTestId("tower-corner-elevation-collision-badge")).toBeNull();
+    expect(screen.getByTestId("place-connected-tower")).toHaveProperty("disabled", false);
+    fireEvent.change(field, { target: { value: "84" } });
+    expect(screen.getByTestId("corner-shelf-elevation-row").getAttribute("data-clearance-state")).toBe("clear");
+    expect(screen.queryByTestId("corner-clearance-contact")).toBeNull();
+  });
+
+  it("flags an out-of-panel or empty typed height instead of silently accepting zero", () => {
+    renderPlanner([42]);
+    const field = screen.getByRole("spinbutton", { name: "Adjustable corner shelf 1 elevation" });
+    fireEvent.change(field, { target: { value: "87" } });
+    expect(screen.getByTestId("corner-shelf-elevation-row").getAttribute("data-clearance-state")).toBe("out-of-panel");
+    expect(screen.getByTestId("corner-clearance-warning").textContent).toMatch(/panel height/i);
+    expect(screen.getByTestId("place-connected-tower")).toHaveProperty("disabled", true);
+    fireEvent.change(field, { target: { value: "" } });
+    expect(field).toHaveProperty("value", "");
+    expect(screen.getByTestId("corner-shelf-elevation-row").getAttribute("data-clearance-state")).toBe("invalid-height");
+    expect(screen.getByTestId("place-connected-tower")).toHaveProperty("disabled", true);
+  });
 });

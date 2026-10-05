@@ -3,7 +3,7 @@ import { buildDesignCabinetCartLines } from "./designCartLines";
 import { removeOverlappingPlacements, type RoomData } from "./design";
 import { masterTracProduct } from "./closet";
 import {
-  CORNER_FOOTPRINT_IN, defaultTowerConfig, isMasterTracCornerBoard,
+  CORNER_FOOTPRINT_IN, CORNER_SHELF_THICKNESS_IN, cornerShelfClearances, defaultTowerConfig, isMasterTracCornerBoard,
   masterTracCornerParts, nextAvailableCornerShelfElevation, planMasterTracTower, towerConceptReferenceSubtotal, towerCornerReferenceItems,
   towerConfigFromPlacements, towerTotalWidth, type MasterTracTowerConfig,
 } from "./masterTracTower";
@@ -128,6 +128,27 @@ describe("MasterTrac illustrative curved corner with real 2022 catalog SKUs", ()
       expect(result.ok, `corner levels ${heights.join(",")}`).toBe(false);
       if (!result.ok) expect(result.reason).toMatch(/corner shel(?:f|ves)/i);
     }
+  });
+
+  it("reports real board overlap or contact without inventing an installation clearance", () => {
+    expect(CORNER_SHELF_THICKNESS_IN).toBe(0.75);
+    const config: MasterTracTowerConfig = { ...defaultTowerConfig(), corner: "start", cornerShelfType: "adjustable", cornerElevationIn: 44, cornerAdjustableHeightsIn: [44.5, 60] };
+    expect(cornerShelfClearances(config)).toMatchObject([
+      { kind: "primary", issue: "overlap", nearest: { kind: "adjustable", index: 0, clearIn: -0.25 } },
+      { kind: "adjustable", index: 0, issue: "overlap", nearest: { kind: "primary", clearIn: -0.25 } },
+      { kind: "adjustable", index: 1, issue: "clear" },
+    ]);
+    expect(planMasterTracTower(config, room, "top", 0, []).ok).toBe(false);
+    config.cornerAdjustableHeightsIn = [44.75, 60];
+    expect(cornerShelfClearances(config).slice(0, 2).map((shelf) => shelf.issue)).toEqual(["touching", "touching"]);
+    expect(planMasterTracTower(config, room, "top", 0, []).ok).toBe(true);
+    config.cornerAdjustableHeightsIn = [44.749];
+    expect(cornerShelfClearances(config)[1].issue).toBe("overlap");
+    expect(planMasterTracTower(config, room, "top", 0, []).ok).toBe(false);
+    config.cornerAdjustableHeightsIn = [86.5];
+    expect(cornerShelfClearances(config)[1].issue).toBe("out-of-panel");
+    config.cornerAdjustableHeightsIn = [Number.NaN];
+    expect(cornerShelfClearances(config)[1].issue).toBe("invalid-height");
   });
 
   it("rejects noncorner positions, deep bays, conflicting pieces and mismatched fixed shelf heights without partial placement", () => {
