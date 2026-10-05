@@ -12225,10 +12225,140 @@ function peninsulaVoidFillSurfaces(
   }
   return fills;
 }
+/**
+ * Shared post-merge countertop pass for BOTH the standard rectangle and drawn
+ * (Continuous Wall) rooms: (a) closes the square left open where two
+ * perpendicular runs meet at an inside 90-degree corner, and (b) trims a slab
+ * at the near face of any interior (non-peninsula) pony wall so no top crosses
+ * it. It only adds a corner fill or removes stone past a wall; existing
+ * slab geometry, 45-degree miters and pricing inputs are left untouched.
+ */
+function closeInsideCornersAndClipInteriorWalls(
+  surfaces: CountertopSurface[],
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  ponyWalls: readonly PonyWall[] = [],
+): CountertopSurface[] {
+  type Pt = CountertopPlanPoint;
+  const inside = (pt: Pt, poly: readonly Pt[]) => {
+    let hit = false;
+    for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
+      const a = poly[k]!, b = poly[m]!;
+      if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  const wallOf = (surface: CountertopSurface): string | null =>
+    surface.peninsulaRunId || surface.raisedBar ? null : surface.customWallId ?? surface.supportWallId ?? null;
+  const result = surfaces.slice();
+  const frames = roomWallRunFrames(room).filter((frame) => frame.kind !== "peninsula");
+  const seen = new Set<string>();
+  for (const frame of frames) {
+    for (const at of ["start", "end"] as const) {
+      const join = wallRunJoinAt(frame, at, room);
+      if (!join || join.turnDeg !== 90) continue;
+      const key = [frame.id, join.frame.id].sort().join("|") + (at === "start" ? frame.start.x : frame.end.x);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const V = at === "start" ? frame.start : frame.end;
+      const slabA = result.find((surface) => wallOf(surface) === frame.id);
+      const slabB = result.find((surface) => wallOf(surface) === join.frame.id);
+      if (!slabA || !slabB) continue;
+      const polyA = countertopSurfacePlanPolygon(slabA), polyB = countertopSurfacePlanPolygon(slabB);
+      const axis = (f: typeof frame, end: "start" | "end") => {
+        const far = end === "start" ? f.end : f.start;
+        const len = Math.hypot(far.x - V.x, far.y - V.y) || 1;
+        return { x: (far.x - V.x) / len, y: (far.y - V.y) / len };
+      };
+      const uA = axis(frame, at);
+      const bAt = Math.hypot(join.frame.start.x - V.x, join.frame.start.y - V.y) <= 0.01 ? "start" : "end";
+      const uB = axis(join.frame, bAt);
+      const dot = (a: Pt, b: Pt) => a.x * b.x + a.y * b.y;
+      if (Math.abs(dot(uA, uB)) > 0.01) continue;
+      const ext = (poly: Pt[], u: Pt) => {
+        const values = poly.map((pt) => dot({ x: pt.x - V.x, y: pt.y - V.y }, u));
+        return { min: Math.min(...values), max: Math.max(...values) };
+      };
+      // Each band's thickness is its extent perpendicular to its own wall.
+      const thickA = ext(polyA, uB), thickB = ext(polyB, uA);
+      const dA = Math.max(Math.abs(thickA.min), Math.abs(thickA.max)), dB = Math.max(Math.abs(thickB.min), Math.abs(thickB.max));
+      const reachA = ext(polyA, uA).min, reachB = ext(polyB, uB).min;
+      if (dA < 1 || dB < 1 || reachA > dB + 1 || reachB > dA + 1) continue;
+      const sA = thickA.max >= -thickA.min ? 1 : -1, sB = thickB.max >= -thickB.min ? 1 : -1;
+      const quad: Pt[] = [
+        { x: V.x, y: V.y },
+        { x: V.x + sB * dB * uA.x, y: V.y + sB * dB * uA.y },
+        { x: V.x + sB * dB * uA.x + sA * dA * uB.x, y: V.y + sB * dB * uA.y + sA * dA * uB.y },
+        { x: V.x + sA * dA * uB.x, y: V.y + sA * dA * uB.y },
+      ];
+      // sB/sA are +1 here because uA/uB already point along the run; the band
+      // sits on the room side, which is where the cabinets' own slabs are.
+      const xs = quad.map((pt) => pt.x), ys = quad.map((pt) => pt.y);
+      let total = 0, covered = 0;
+      for (let gx = 0; gx < 8; gx += 1) for (let gy = 0; gy < 8; gy += 1) {
+        const pt = { x: Math.min(...xs) + ((gx + 0.5) / 8) * (Math.max(...xs) - Math.min(...xs)), y: Math.min(...ys) + ((gy + 0.5) / 8) * (Math.max(...ys) - Math.min(...ys)) };
+        if (!inside(pt, quad)) continue;
+        total += 1;
+        if (inside(pt, polyA) || inside(pt, polyB)) covered += 1;
+      }
+      if (total === 0 || covered / total > 0.99) continue;
+      const blocked = placed.some((cabinet) => {
+        if (cabinet.placement === "wall" || bearsCountertop(cabinet)) return false;
+        const f = placedFootprint(cabinet);
+        return cabinet.x < Math.max(...xs) - 0.1 && cabinet.x + f.w > Math.min(...xs) + 0.1
+          && cabinet.y < Math.max(...ys) - 0.1 && cabinet.y + f.d > Math.min(...ys) + 0.1;
+      });
+      if (blocked) continue;
+      const fill = countertopSurfaceFromWorldPolygon(quad);
+      if (fill) result.push({ ...fill, linearInches: fill.width, areaInches: countertopPolygonArea(quad), cabinetRunId: `corner-fill:${key}` });
+    }
+  }
+  // (b) trim against interior (non-peninsula) pony walls.
+  for (const wall of ponyWalls) {
+    if (wall.peninsulaRunId) continue;
+    const pf = ponyWallPlanFrame(wall, room);
+    const dx = pf.end.x - pf.start.x, dy = pf.end.y - pf.start.y;
+    const len = Math.hypot(dx, dy);
+    if (len < 1) continue;
+    const u = { x: dx / len, y: dy / len }, n = { x: -u.y, y: u.x };
+    const half = pf.depth / 2;
+    const local = (pt: Pt) => ({ a: (pt.x - pf.start.x) * u.x + (pt.y - pf.start.y) * u.y, b: (pt.x - pf.start.x) * n.x + (pt.y - pf.start.y) * n.y });
+    for (let i = 0; i < result.length; i += 1) {
+      const surface = result[i]!;
+      if (surface.raisedBar || surface.peninsulaRunId) continue;
+      const poly = countertopSurfacePlanPolygon(surface);
+      const L = poly.map(local);
+      const crosses = L.some((q) => q.b > -half) && L.some((q) => q.b < half)
+        && Math.max(...L.map((q) => q.a)) > 0 && Math.min(...L.map((q) => q.a)) < len
+        && (Math.min(...L.map((q) => q.b)) < half && Math.max(...L.map((q) => q.b)) > -half);
+      if (!crosses) continue;
+      const cb = L.reduce((t, q) => t + q.b, 0) / L.length;
+      const side = cb >= 0 ? 1 : -1;
+      const keep = (q: { a: number; b: number }) => side * q.b >= half;
+      const out2: Pt[] = [];
+      for (let k = 0; k < poly.length; k += 1) {
+        const P = poly[k]!, Q = poly[(k + 1) % poly.length]!, lp = L[k]!, lq = L[(k + 1) % L.length]!;
+        if (keep(lp)) out2.push(P);
+        if (keep(lp) !== keep(lq)) {
+          const t = (side * half - lp.b) / (lq.b - lp.b);
+          out2.push({ x: P.x + (Q.x - P.x) * t, y: P.y + (Q.y - P.y) * t });
+        }
+      }
+      if (out2.length < 3) { result.splice(i, 1); i -= 1; continue; }
+      const clipped = countertopSurfaceFromWorldPolygon(out2);
+      if (!clipped) continue;
+      const { x: _x, y: _y, width: _w, depth: _d, polygon: _pg, rotation: _r, ...meta } = surface as CountertopSurface & Record<string, unknown>;
+      result[i] = { ...(meta as Partial<CountertopSurface>), ...clipped, areaInches: countertopPolygonArea(out2), linearInches: clipped.width } as CountertopSurface;
+    }
+  }
+  return result;
+}
+
 export function countertopSurfaces(
   placed: PlacedCabinet[],
   room: RoomData,
-  island?: IslandZone | null
+  island?: IslandZone | null,
+  ponyWalls: readonly PonyWall[] = [],
 ): CountertopSurface[] {
   const out: CountertopSurface[] = [];
   const D = COUNTERTOP_DEPTH_IN;
@@ -12345,6 +12475,10 @@ export function countertopSurfaces(
   // peninsula returns. Both cabinet-supported pieces meet at one physical seam;
   // do not add a third, decorative bridge triangle over the cabinet geometry.
   out.splice(0, out.length, ...miteredMeasuredWallCountertopSurfaces(out, placed, room));
+  // Shared by the standard room and the Continuous Wall Builder: fill any open
+  // inside 90-degree corner square and keep every top on its own side of an
+  // interior pony wall.
+  out.splice(0, out.length, ...closeInsideCornersAndClipInteriorWalls(out, room, placed, ponyWalls));
   // A peninsula follows the same cabinet-run rule as every other wall: touching
   // counter-bearing pieces share one slab, while an actual unsupported gap ends
   // the run. Appliances remain explicit openings inside a supported run.

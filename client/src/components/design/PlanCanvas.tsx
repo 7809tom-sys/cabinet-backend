@@ -483,7 +483,7 @@ export function PlanCanvas({
   const countertopShapes = useMemo(() => {
     if (!countertopMaterialId) return [] as CountertopSurface[];
     const geometryIsland = snapshotIsland;
-    const perimeterSurfaces = countertopSurfaces(snapshotCabinets, snapshotRoom, geometryIsland).filter((surface) => surface.kind !== "island");
+    const perimeterSurfaces = countertopSurfaces(snapshotCabinets, snapshotRoom, geometryIsland, ponyWalls).filter((surface) => surface.kind !== "island");
     const islandSurfaces: CountertopSurface[] = geometryIsland
       ? [
           ...islandCountertopVisibleRects(geometryIsland, snapshotCabinets).map((surface) => ({ ...surface, kind: "island" as const })),
@@ -491,7 +491,7 @@ export function PlanCanvas({
         ]
       : [];
     return [...perimeterSurfaces, ...islandSurfaces];
-  }, [countertopMaterialId, snapshotRoom, snapshotCabinets, snapshotIsland]);
+  }, [countertopMaterialId, snapshotRoom, snapshotCabinets, snapshotIsland, ponyWalls]);
   const dimensionUnitSystem: FloorPlanDimensionUnit = room.dimensionLabelStyle?.unitSystem === "metric" ? "metric" : "imperial";
   const formatDisplayDimension = (inches: number) => formatFloorPlanDimension(inches, dimensionUnitSystem);
   // View-only preference: hide annotations without changing saved geometry or

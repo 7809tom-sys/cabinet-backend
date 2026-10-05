@@ -6195,9 +6195,10 @@ export function threeDStandardCountertopSurfaces(
   room: RoomData,
   placed: PlacedCabinet[],
   island?: IslandZone | null,
+  ponyWalls: PonyWall[] = [],
 ): CountertopSurface[] {
   const bases = placed.filter((cabinet) => bearsCountertop(cabinet));
-  const all = countertopSurfaces(placed, room, island);
+  const all = countertopSurfaces(placed, room, island, ponyWalls);
   // A free-standing chain is one fabricated path from the Continuous Wall
   // Builder's code (leg slabs + the 45° corner infill). Keep the whole path when
   // any member cabinet is under it, so the small corner piece is not dropped.
@@ -6210,6 +6211,7 @@ export function threeDStandardCountertopSurfaces(
     !surface.peninsulaRunId && !surface.customWallId && surface.kind !== "island"
     && (
       bases.some((cabinet) => countertopSurfaceCoversCabinet(surface, cabinet))
+      || Boolean(surface.cabinetRunId?.startsWith("corner-fill"))
       || (surface.freestandingMemberUids?.length ? coveredChains.has(surface.cabinetRunId ?? "") : false)
     )
   ));
@@ -6222,8 +6224,9 @@ export function addThreeDStandardCountertops(
   counterColor: string,
   countertopTexture?: THREE.Texture | null,
   island?: IslandZone | null,
+  ponyWalls: PonyWall[] = [],
 ) {
-  const surfaces = threeDStandardCountertopSurfaces(room, placed, island);
+  const surfaces = threeDStandardCountertopSurfaces(room, placed, island, ponyWalls);
   for (const surface of surfaces) {
     const length = Math.max(0.1, surface.linearInches ?? surface.width);
     const depth = Math.max(0.1, surface.depth);
@@ -9385,7 +9388,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (!disposed) setDoorTextureState(state);
     };
     if (renderExistingDesign) {
-	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, placed, island);
+	      const sharedStandardCountertopSurfaces = threeDStandardCountertopSurfaces(room, placed, island, ponyWalls);
       for (const cabinet of placed) {
 	        if (!shouldRenderSavedSceneCabinet(cabinet, placed)) continue;
 	        const baseSku = existingCabinetSku(cabinet, room);
@@ -9432,7 +9435,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      if (toeKick && continuousToeKickSegments.length > 0) {
 		        addThreeDContinuousToeKicks(catalogRoot, continuousToeKickSegments, room, visibleCabinetFinishOverrides, finish);
 		      }
-		      addThreeDStandardCountertops(catalogRoot, room, placed, materialDefaults.countertop, countertopTexture, island);
+		      addThreeDStandardCountertops(catalogRoot, room, placed, materialDefaults.countertop, countertopTexture, island, ponyWalls);
 		      if (roomOverride) {
 		        addThreeDMeasuredWallMiterCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
 		        addThreeDPeninsulaCountertops(catalogRoot, roomOverride, placed, materialDefaults.countertop, countertopTexture);
