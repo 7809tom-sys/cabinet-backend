@@ -1219,7 +1219,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    countertopSeatingOverhang: 0 | 10 | 12 | 15;
 	    countertopPonyWallBarOverhang: 0 | 10 | 12 | 15;
 	    countertopRaisedBar: boolean;
-	    countertopRaisedBarOverhang: 12 | 15;
+	    countertopRaisedBarOverhang: 1.5 | 12 | 15;
 	    countertopWaterfallEnd: boolean;
 	    drywallBackPonyWall: boolean;
 	    drywallColor: string;
@@ -1316,7 +1316,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      countertopSeatingOverhang: peninsula ? peninsulaCountertopSeatingOverhang(peninsula, room) : 0,
 	      countertopPonyWallBarOverhang: peninsula ? peninsulaCountertopPonyWallBarOverhang(peninsula, room) : 0,
 	      countertopRaisedBar: peninsula ? peninsulaCountertopRaisedBarEnabled(peninsula, room) : false,
-	      countertopRaisedBarOverhang: peninsula ? peninsulaCountertopRaisedBarOverhang(peninsula, room) : 15,
+	      countertopRaisedBarOverhang: peninsula ? peninsulaCountertopRaisedBarOverhang(peninsula, room) : 1.5,
 	      countertopWaterfallEnd: peninsula ? peninsulaCountertopWaterfallEnd(peninsula, room) : false,
 	      drywallBackPonyWall: Boolean(existingDrywallBack),
 	      drywallColor: existingDrywallBack?.drywallColor ?? DEFAULT_DRYWALL_PONY_WALL_COLOR,
@@ -2298,7 +2298,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
       countertopRaisedBar: draft.countertopTreatment === 'split-level',
-      countertopRaisedBarOverhang: 15,
+      countertopRaisedBarOverhang: 1.5,
       countertopWaterfallEnd: draft.waterfall,
       label: 'Peninsula · straight',
     };
@@ -4551,7 +4551,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
       countertopRaisedBar: draft.countertopTreatment === 'split-level',
-      countertopRaisedBarOverhang: 15,
+      countertopRaisedBarOverhang: 1.5,
       countertopWaterfallEnd: draft.waterfall,
       wizardRecipe,
       label: 'Peninsula · straight',
@@ -4752,18 +4752,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("The split-level bar support would extend outside the measured room. Adjust the length, 45° end, or cabinet side.");
       return;
     }
-    // Bar stools are furniture-only space-planning markers: no SKU, quote, or
-    // material-list line. They sit on the opposite side of cabinet faces, never
-    // in front of doors, and are omitted when the user selected no seating top.
+    // Bar stools are furniture-only space-planning markers for an explicit
+    // regular-level seating projection. The raised split-level bar follows the
+    // cabinet footprint and 1½-inch edge, so it does not invent extra stool
+    // clearance beyond the cabinet structure.
     const stoolDefinition = FURNITURE_CATALOG.find((item) => item.id === "stool-counter") ?? null;
-    const hasSeatingSide = draft.countertopTreatment === "split-level" || draft.seatingOverhang >= 12;
+    const hasSeatingSide = draft.countertopTreatment !== "split-level" && draft.seatingOverhang >= 12;
     const wizardStools: PlacedFurniture[] = [];
     if (draft.showBarStools && hasSeatingSide && stoolDefinition) {
       const frame = wallRunFrame(run.id as WallSide, nextRoom);
       if (frame) {
-        const projection = draft.countertopTreatment === "split-level"
-          ? 4.5 + 15
-          : Math.max(0, draft.seatingOverhang);
+        const projection = Math.max(0, draft.seatingOverhang);
         const outward = { x: -frame.inward.x, y: -frame.inward.y };
         const stoolOffsets = run.length >= 44 ? [run.length / 3, (run.length * 2) / 3] : [run.length / 2];
         stoolOffsets.forEach((offset, index) => {
@@ -9485,6 +9484,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    const cabinet = attrUid ? placed.find((item) => item.uid === attrUid) : null;
 	    return cabinet?.peninsulaWizardId ? editablePeninsulaWizard(room, cabinet.peninsulaWizardId) : null;
 	  }, [attrUid, placed, room]);
+	  const attrRefrigeratorPanelsRequestedButMissing = useMemo(() => {
+	    const refrigerator = attrUid ? placed.find((item) => item.uid === attrUid) : null;
+	    if (!refrigerator || !isRefrigerator(refrigerator)) return false;
+	    const requested = refrigerator.refrigeratorPanelMode ?? "none";
+	    if (requested === "none") return false;
+	    const roles = new Set(
+	      placed
+	        .filter((item) => item.refrigeratorAssemblyId === refrigerator.uid)
+	        .map((item) => item.refrigeratorAssemblyRole),
+	    );
+	    return (requested === "left" || requested === "both") && !roles.has("left-panel")
+	      || (requested === "right" || requested === "both") && !roles.has("right-panel");
+	  }, [attrUid, placed]);
 	  const jumpCabinetToWizard = useCallback((uid: string) => {
 	    const cabinet = placedRef.current.find((item) => item.uid === uid);
 	    if (!cabinet?.peninsulaWizardId || !editablePeninsulaWizard(room, cabinet.peninsulaWizardId)) {
@@ -15366,20 +15378,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        <PanelTop className="h-4 w-4 shrink-0 text-[#775113]" />
 	                        <div className="min-w-0 flex-1">
 	                          <Label htmlFor="peninsula-raised-bar-toggle" className="text-xs font-semibold text-[#1a2744]">Split-level raised seating bar</Label>
-	                          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">A separate top follows this full connected peninsula and its 45° return: 42″ finished height (6″ above the worktop), behind the cabinet backs.</p>
-	                          {wallSettingsDraft.countertopRaisedBar && (
-	                            <label className="mt-2 grid gap-1 text-[10px] font-semibold text-[#634b20]">Seating projection beyond pony wall
-	                              <select
-	                                value={wallSettingsDraft.countertopRaisedBarOverhang}
-	                                aria-label="Raised seating bar projection"
-	                                onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopRaisedBarOverhang: Number(event.target.value) as 12 | 15 } : draft)}
-	                                className="h-8 rounded-md border border-input bg-background px-2 text-xs font-normal text-foreground"
-	                              >
-	                                <option value={12}>12 in. seating projection</option>
-	                                <option value={15}>15 in. seating projection</option>
-	                              </select>
-	                            </label>
-	                          )}
+	                          <p className="mt-0.5 text-[10px] leading-4 text-muted-foreground">A separate 42″ top follows the same cabinet footprint and 1½″ finished edge through the full connected peninsula and 45° return.</p>
 	                        </div>
 	                        <Switch
 	                          id="peninsula-raised-bar-toggle"
@@ -15388,9 +15387,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                          onCheckedChange={(enabled) => setWallSettingsDraft((draft) => draft ? {
 	                            ...draft,
 	                            countertopRaisedBar: enabled,
-	                            countertopRaisedBarOverhang: draft.countertopRaisedBarOverhang || 15,
-	                            // The requested raised bar stands on its own: it needs a
-	                            // supporting pony wall, while the lower worktop stays 36″.
+	                            countertopRaisedBarOverhang: 1.5,
+	                            // The raised level shares the cabinet-supported plan outline;
+	                            // it changes height, never countertop projection.
 	                            drywallBackPonyWall: enabled ? true : draft.drywallBackPonyWall,
 	                            countertopSeatingOverhang: enabled ? 0 : draft.countertopSeatingOverhang,
 	                          } : draft)}
@@ -15631,16 +15630,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         ))}
                       </div>
                     </div>
-                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Countertop treatment
-                      <select data-testid="peninsula-wizard-countertop-treatment" value={peninsulaWizardDraft.countertopTreatment} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, countertopTreatment: event.target.value as "regular" | "split-level" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-                        <option value="regular">Regular counter-height worktop</option>
-                        <option value="split-level">Split-level: 42 in. raised seating bar · 15 in. projection</option>
-                      </select>
-                      {peninsulaWizardDraft.countertopTreatment === "split-level" && <span className="font-normal leading-4 text-muted-foreground">The Wizard creates the 42 in. raised bar and its continuous drywall support behind the straight leg and selected 45° return.</span>}
-                      <label className="mt-1 flex items-start gap-2 rounded border border-[#d7c28e] bg-white/70 px-2 py-1.5 text-[11px] font-normal text-[#634b20]">
-                        <input type="checkbox" checked={peninsulaWizardDraft.showBarStools} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, showBarStools: event.target.checked } : draft)} />
-                        <span><strong>Show counter stools on the seating side</strong> <span className="text-muted-foreground">— planning only, never priced or added to the material list.</span></span>
-                      </label>
+	                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Countertop treatment
+	                      <select data-testid="peninsula-wizard-countertop-treatment" value={peninsulaWizardDraft.countertopTreatment} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, countertopTreatment: event.target.value as "regular" | "split-level", seatingOverhang: event.target.value === "split-level" ? 0 : draft.seatingOverhang } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                        <option value="regular">Regular counter-height worktop</option>
+	                        <option value="split-level">Split-level: 42 in. raised bar · cabinet footprint + 1½ in. edge</option>
+	                      </select>
+	                      {peninsulaWizardDraft.countertopTreatment === "split-level" && <span className="font-normal leading-4 text-muted-foreground">The Wizard creates the 42 in. raised bar on the same cabinet-supported outline and continuous 45° miter as the lower worktop.</span>}
+	                      {peninsulaWizardDraft.countertopTreatment !== "split-level" && (
+	                        <label className="mt-1 flex items-start gap-2 rounded border border-[#d7c28e] bg-white/70 px-2 py-1.5 text-[11px] font-normal text-[#634b20]">
+	                          <input type="checkbox" checked={peninsulaWizardDraft.showBarStools} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, showBarStools: event.target.checked } : draft)} />
+	                          <span><strong>Show counter stools on the seating side</strong> <span className="text-muted-foreground">— planning only, never priced or added to the material list.</span></span>
+	                        </label>
+	                      )}
                     </label>
 	                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Appliance in this run
 	                      <select value={peninsulaWizardDraft.applianceCode} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, applianceCode: event.target.value as "none" | "DW-24" | "WINE-24" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
@@ -15648,19 +15649,26 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      </select>
 	                    </label>
 	                    <div className="grid grid-cols-2 gap-2">
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Front edge / seating overhang
-	                        <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-	                          <option value={0}>Standard 1½ in. cabinet edge</option>
-	                          {peninsulaWizardDraft.seatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
-	                          <option value={12}>12 in. seating</option>
-	                          <option value={15}>15 in. seating</option>
-	                        </select>
-	                      </label>
+	                      {peninsulaWizardDraft.countertopTreatment === "split-level" ? (
+	                        <div className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] px-2 py-1.5 text-xs font-semibold text-[#634b20]">
+	                          <span>Cabinet footprint</span>
+	                          <span className="font-normal text-muted-foreground">24 in. base depth + 1½ in. finished edge on both levels</span>
+	                        </div>
+	                      ) : (
+	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Front edge / seating overhang
+	                          <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+	                            <option value={0}>Standard 1½ in. cabinet edge</option>
+	                            {peninsulaWizardDraft.seatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
+	                            <option value={12}>12 in. seating</option>
+	                            <option value={15}>15 in. seating</option>
+	                          </select>
+	                        </label>
+	                      )}
 	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground">
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
 	                      </label>
 	                    </div>
-	                    <p className="text-[11px] leading-4 text-muted-foreground">Regular base cabinets receive the standard 1½ in. finished edge. Choose 12 or 15 in. only for actual seating; the seating side is always opposite the cabinet faces, where bar stools belong. The first run comes straight out from the selected wall; add an optional 45° return only after you finish its cabinet list. The Wizard uses no manual run lengths, stops each countertop at the final supported cabinet, and blocks any top that would cross a room wall.</p>
+	                    <p className="text-[11px] leading-4 text-muted-foreground">Every Wizard countertop level follows the base-cabinet structure with its standard 1½ in. finished front edge. The 42 in. split-level bar changes height only; it shares the same cabinet footprint and physical 45° miter. The Wizard uses no manual run lengths, stops each countertop at the final supported cabinet, and blocks any top that would cross a room wall.</p>
 	                  </div>
 	                </div>
 	              )}
@@ -17096,6 +17104,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        }}
 	        wizardBuiltEditable={Boolean(attrCabinetWizard)}
 	        onJumpToWizard={attrCabinetWizard ? jumpCabinetToWizard : undefined}
+	        refrigeratorPanelsRequestedButMissing={attrRefrigeratorPanelsRequestedButMissing}
+	        onSetRefrigeratorSidePanels={(uid) => {
+	          // The full Refrigerator Options dialog resolves real, selected-line
+	          // panels and prices; never create a generic visual panel from this
+	          // shortcut or silently modify neighboring cabinets.
+	          setAttrOpen(false);
+	          setAttrUid(null);
+	          setFridgeDialog({ fridgeUid: uid });
+	        }}
 	        customFee={CUSTOM_SIZE_FEE}
         onSetWidth={(_uid, v) => setCustomWidth(v)}
         onSetHeight={(_uid, v) => setCustomHeight(v)}

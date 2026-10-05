@@ -45,4 +45,13 @@ describe("Cabinet Attributes active target highlighting", () => {
     expect(dialogSource).toContain('data-testid="jump-to-peninsula-wizard"');
     expect(dialogSource).toContain("This cabinet belongs to an editable Peninsula Wizard assembly.");
   });
+
+  it("tells a saved refrigerator when requested panels have no real source-SKU placements", () => {
+    expect(dialogSource).toContain("refrigeratorPanelsRequestedButMissing?: boolean;");
+    expect(dialogSource).toContain("no real catalog panel SKUs are placed");
+    expect(dialogSource).toContain('aria-label="Configure refrigerator side panels"');
+    expect(designToolSource).toContain("attrRefrigeratorPanelsRequestedButMissing");
+    expect(designToolSource).toContain("onSetRefrigeratorSidePanels={(uid) => {");
+    expect(designToolSource).toContain("setFridgeDialog({ fridgeUid: uid });");
+  });
 });

@@ -680,7 +680,7 @@ describe("side-aware peninsula countertop meshes", () => {
 	    expect(slab.position.y - slabHeight / 2).toBeCloseTo(34.5 / 12, 10);
 	  });
 
-  it("ends seating slabs at an unsupported cabinet void and keeps the exposed-end waterfall", () => {
+  it("ends cabinet-supported slabs at an unsupported void and keeps the exposed-end waterfall", () => {
     const root = new THREE.Group();
     const room: RoomData = {
       width: 144,
@@ -703,8 +703,8 @@ describe("side-aware peninsula countertop meshes", () => {
 
     const run = room.peninsulaRuns![0]!;
     const surface = countertopSurfaces(placed, room).find((item) => item.peninsulaRunId === run.id && item.runStartIn === 0)!;
-    // The 3D slab is centered on the same plan surface: the 12-inch seat is
-    // behind the run, leaving the cabinet-facing front at 24 + 1½ inches.
+    // Historical seating values cannot widen the finished top: the 3D slab is
+    // centered on the same 24-inch cabinet + 1½-inch edge as the plan surface.
     expect(slabs[0]!.position.x * 12).toBeCloseTo(surface.x + surface.width / 2, 6);
     expect(slabs[0]!.position.z * 12).toBeCloseTo(surface.y + surface.depth / 2, 6);
     const endpoints = peninsulaRunEndpoints(run, room);
@@ -713,7 +713,7 @@ describe("side-aware peninsula countertop meshes", () => {
       + (slabs[0]!.position.z * 12 - endpoints.start.y) * face.y;
     const waterfallCrossCenter = (waterfalls[0]!.position.x * 12 - endpoints.start.x) * face.x
       + (waterfalls[0]!.position.z * 12 - endpoints.start.y) * face.y;
-    expect(slabCrossCenter).toBeCloseTo((COUNTERTOP_DEPTH_IN - 12) / 2, 6);
+    expect(slabCrossCenter).toBeCloseTo(COUNTERTOP_DEPTH_IN / 2, 6);
     expect(waterfallCrossCenter).toBeCloseTo(slabCrossCenter, 6);
   });
 

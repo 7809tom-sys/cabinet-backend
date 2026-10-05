@@ -10,21 +10,23 @@ const area = (pts: { x: number; y: number }[]) =>
   Math.abs(pts.reduce((s, p, i) => { const n = pts[(i + 1) % pts.length]!; return s + p.x * n.y - n.x * p.y; }, 0)) / 2;
 
 describe("peninsula + 45 degree return void fill", () => {
-  it("bridges the empty wedge between the run end slab and the return slab", () => {
+  it("bridges the cabinet-supported 1½-inch seam between the run end and return", () => {
     const surfaces = countertopSurfaces(d.placed, d.room);
     const polys = surfaces
       .filter((s) => s.peninsulaRunId || s.peninsulaRunIds)
       .map((s) => countertopSurfacePlanPolygon(s));
-    // a slab spans the seam point between the 9" slab (x=83) and the return (82.3,115.4)
-    const bridge = polys.find((p) => p.some((q) => Math.abs(q.x - 83) < 0.2 && Math.abs(q.y - 156.3) < 0.2)
-      && p.some((q) => Math.abs(q.x - 53.6) < 0.2 && Math.abs(q.y - 144.1) < 0.2));
+    // The smaller structural seam runs from the 9" end slab at x=83 to the
+    // 45° return's actual miter point. It is not the former 12/15" projection.
+    const bridge = polys.find((p) => p.some((q) => Math.abs(q.x - 83) < 0.2 && Math.abs(q.y - 141.25) < 0.2)
+      && p.some((q) => Math.abs(q.x - 64.22) < 0.2 && Math.abs(q.y - 133.47) < 0.2));
     expect(bridge).toBeTruthy();
-    expect(area(bridge!)).toBeGreaterThan(300);
+    expect(area(bridge!)).toBeGreaterThan(200);
+    expect(area(bridge!)).toBeLessThan(300);
   });
 
-  it("the bridge only fills the void (about 610 sq in), nothing stacked", () => {
+  it("the bridge only fills the structural 45-degree seam, nothing stacked", () => {
     const polys = countertopSurfaces(d.placed, d.room).map((s) => countertopSurfacePlanPolygon(s));
-    const bridges = polys.filter((p) => p.some((q) => Math.abs(q.x - 53.6) < 0.2 && Math.abs(q.y - 144.1) < 0.2) && area(p) < 700 && area(p) > 500);
+    const bridges = polys.filter((p) => p.some((q) => Math.abs(q.x - 64.22) < 0.2 && Math.abs(q.y - 133.47) < 0.2) && area(p) < 300 && area(p) > 200);
     expect(bridges.length).toBe(1);
   });
 
@@ -34,8 +36,8 @@ describe("peninsula + 45 degree return void fill", () => {
     const fills = (root.children as THREE.Mesh[]).filter((mesh) => mesh.userData.peninsulaCountertop && mesh.geometry.type === "ExtrudeGeometry")
       .filter((mesh) => {
         const box = new THREE.Box3().setFromObject(mesh);
-        return box.min.x * 12 > 53 && box.min.x * 12 < 54 && box.max.x * 12 > 82 && box.max.x * 12 < 84
-          && box.min.z * 12 < 116 && box.max.z * 12 > 156;
+        return box.min.x * 12 > 64 && box.min.x * 12 < 65 && box.max.x * 12 > 82 && box.max.x * 12 < 84
+          && box.min.z * 12 < 116 && box.max.z * 12 > 141;
       });
     expect(fills).toHaveLength(1);
   });
@@ -76,7 +78,7 @@ describe("peninsula + 45 degree return void fill", () => {
     }
   });
 
-  it("still bridges the 45-degree void after draft restoration seats both fitted fillers on the parent run", () => {
+  it("still bridges the structural 45-degree seam after draft restoration seats both fitted fillers on the parent run", () => {
     const restored = d.placed.map((cabinet: { uid: string; masterCode: string }) => cabinet.masterCode === "WF642"
       ? { ...cabinet, wallId: d.room.peninsulaRuns[0].id,
         wallOffset: cabinet.uid.endsWith("_3") ? 96 : 98, depth: 24,
@@ -84,8 +86,8 @@ describe("peninsula + 45 degree return void fill", () => {
       : cabinet);
     const surfaces = countertopSurfaces(restored, d.room);
     const bridge = surfaces.find((surface) => surface.peninsulaRunId
-      && surface.areaInches! > 500 && surface.areaInches! < 700
-      && countertopSurfacePlanPolygon(surface).some((p) => Math.abs(p.x - 53.6) < 0.2 && Math.abs(p.y - 144.1) < 0.2));
+      && surface.areaInches! > 200 && surface.areaInches! < 300
+      && countertopSurfacePlanPolygon(surface).some((p) => Math.abs(p.x - 64.22) < 0.2 && Math.abs(p.y - 133.47) < 0.2));
     expect(bridge).toBeTruthy();
     const scene = new THREE.Group();
     addThreeDPeninsulaCountertops(scene, d.room, restored, "#ffffff");

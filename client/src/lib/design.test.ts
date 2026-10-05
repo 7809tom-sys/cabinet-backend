@@ -2093,8 +2093,8 @@ describe("countertopSurfaces", () => {
     ]);
 	});
 
-	it("merges touching bases into one countertop per run and stops at refrigerator bay panels", () => {
-	  const leftA = cab({ uid: "left-a", masterCode: "B24", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+		it("merges touching bases into one countertop per run and stops at refrigerator bay panels", () => {
+		  const leftA = cab({ uid: "left-a", masterCode: "B24", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
 	  const leftB = cab({ uid: "left-b", masterCode: "B30", placement: "base", width: 30, depth: 24, x: 24, y: 0 });
 	  const refrigerator = cab({ uid: "fridge", masterCode: "FRIDGE-36", description: "Refrigerator 36", placement: "appliance", width: 36, depth: 24, x: 54, y: 0 });
 	  const leftPanel = cab({ uid: "fridge-left-panel", masterCode: "REPV2496", description: "Refrigerator End Panel", placement: "tall", width: 0.75, depth: 25.5, x: 53.25, y: 0, refrigeratorAssemblyId: "fridge", refrigeratorAssemblyRole: "left-panel" });
@@ -2103,10 +2103,31 @@ describe("countertopSurfaces", () => {
 	  expect(countertopSurfaces([leftA, leftB, refrigerator, leftPanel, rightPanel, right], ROOM_12x10)).toMatchObject([
 	    { x: 0, y: 0, width: 54, depth: CT_DEPTH, cabinetRunId: "wall:top:0-54" },
 	    { x: 91.25, y: 0, width: 24, depth: CT_DEPTH, cabinetRunId: "wall:top:91.25-115.25" },
-	  ]);
-	});
+		  ]);
+		});
 
-	it("pins a front-wall slab to the bottom of the room", () => {
+		it("keeps a rotated left-wall run continuous when its last cabinet reaches the bottom corner", () => {
+		  const upper = cab({ uid: "left-upper", masterCode: "SB36", placement: "base", width: 36, depth: 24, x: 0, y: 51, rotation: 90 });
+		  // This cabinet touches the left AND bottom room edges. Its rotation means
+		  // it belongs to the left-wall run; treating the AABB as a bottom-wall run
+		  // used to split the supported countertop at this corner.
+		  const cornerEnd = cab({ uid: "left-corner-end", masterCode: "B33", placement: "base", width: 33, depth: 24, x: 0, y: 87, rotation: 90 });
+		  expect(countertopSurfaces([upper, cornerEnd], ROOM_12x10)).toMatchObject([
+		    { x: 0, y: 51, width: CT_DEPTH, depth: 69, cabinetRunId: "wall:left:51-120" },
+		  ]);
+		});
+
+		it("runs countertop flush to both sides of a range without bridging its appliance opening", () => {
+		  const left = cab({ uid: "range-left", masterCode: "B24", placement: "base", width: 24, depth: 24, x: 0, y: 0 });
+		  const range = cab({ uid: "range", masterCode: "RANGE-30", description: "30 inch Gas Range", placement: "appliance", width: 30, depth: 25, height: 36, x: 24, y: 0 });
+		  const right = cab({ uid: "range-right", masterCode: "B27", placement: "base", width: 27, depth: 24, x: 54, y: 0 });
+		  expect(countertopSurfaces([left, range, right], ROOM_12x10)).toMatchObject([
+		    { x: 0, y: 0, width: 24, depth: CT_DEPTH, cabinetRunId: "wall:top:0-24" },
+		    { x: 54, y: 0, width: 27, depth: CT_DEPTH, cabinetRunId: "wall:top:54-81" },
+		  ]);
+		});
+
+		it("pins a front-wall slab to the bottom of the room", () => {
     const front = cab({ placement: "base", width: 24, depth: 24, x: 10, y: 96 });
     const [s] = countertopSurfaces([front], ROOM_12x10);
     expect(s.y).toBe(ROOM_12x10.depth - CT_DEPTH);

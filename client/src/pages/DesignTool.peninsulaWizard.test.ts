@@ -22,12 +22,12 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('45° end from the straight run');
   });
 
-  it("defaults ordinary peninsula cabinets to the 1½-inch finished edge and limits new seating choices to 12 or 15 inches", () => {
+  it("uses the cabinet footprint and 1½-inch finished edge for every new Wizard countertop level", () => {
     expect(source).toContain('seatingOverhang: 0,');
     expect(source).toContain('Standard 1½ in. cabinet edge');
-    expect(source).toContain('12 in. seating');
-    expect(source).toContain('15 in. seating');
-    expect(source).toContain('Regular base cabinets receive the standard 1½ in. finished edge');
+    expect(source).toContain('countertopRaisedBarOverhang: 1.5,');
+    expect(source).toContain('cabinet footprint + 1½ in. edge');
+    expect(source).toContain('same cabinet footprint and physical 45° miter');
   });
 
   it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {

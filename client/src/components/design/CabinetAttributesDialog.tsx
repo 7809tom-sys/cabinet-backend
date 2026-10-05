@@ -406,8 +406,10 @@ export interface CabinetAttributesDialogProps {
   wallPosition?: CabinetWallPosition | null;
   onSetWallOffset?: (uid: string, offsetIn: number) => void;
 	  cornerClearance?: CabinetCornerClearance | null;
-	  /** Adds or removes both finished refrigerator enclosure side panels as one unit. */
+	  /** Opens the source-backed refrigerator surround selector for this appliance. */
 	  onSetRefrigeratorSidePanels?: (uid: string, enabled: boolean) => void;
+	  /** A saved refrigerator requested panels but has no actual source SKU placements yet. */
+	  refrigeratorPanelsRequestedButMissing?: boolean;
   onResetSize: (uid: string) => void;
   onSetSwing: (uid: string, swing: "left" | "right" | "double") => void;
   onSetNoDoor: (uid: string, noDoor: boolean) => void;
@@ -466,10 +468,11 @@ export function CabinetAttributesDialog({
   onSetMountBottom,
   onMoveInOut,
   wallPosition,
-  onSetWallOffset,
-	  cornerClearance,
-	  onSetRefrigeratorSidePanels,
-  onResetSize,
+	  onSetWallOffset,
+		  cornerClearance,
+		  onSetRefrigeratorSidePanels,
+		  refrigeratorPanelsRequestedButMissing = false,
+	  onResetSize,
   onSetSwing,
   onSetNoDoor,
   onSetHandleSide,
@@ -538,7 +541,7 @@ export function CabinetAttributesDialog({
 	  const canMoveInOut = typeof onMoveInOut === "function";
 	  const canMoveAlongWall = Boolean(wallPosition && typeof onSetWallOffset === "function");
 	  const isRefrigeratorCabinet = isRefrigerator(cabinet);
-	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both";
+	  const hasRefrigeratorSidePanels = cabinet.refrigeratorPanelMode === "both" && !refrigeratorPanelsRequestedButMissing;
   const custom =
     isCustomWidth(cabinet) || isCustomHeight(cabinet) || isCustomDepth(cabinet);
   const masterTrac = masterTracProduct(cabinet.masterCode);
@@ -724,15 +727,17 @@ export function CabinetAttributesDialog({
 	              <div className="min-w-0">
 	                <h4 className="text-sm font-semibold text-amber-950">Finished refrigerator side panels</h4>
 	                <p className="text-[11px] text-amber-900/80">
-	                  {hasRefrigeratorSidePanels
-	                    ? "Both finished side panels are included. Turn this off to remove both panels while keeping the refrigerator and over-fridge cabinet."
-	                    : "Add both finished side panels to this refrigerator enclosure. The refrigerator remains a 36-inch appliance; ¾-inch panels finish outside it."}
+	                  {refrigeratorPanelsRequestedButMissing
+	                    ? "Panels were requested on this saved refrigerator, but no real catalog panel SKUs are placed. Configure the enclosure to add the verified, priced panels."
+	                    : hasRefrigeratorSidePanels
+	                      ? "Both finished side panels are included. Configure to change the enclosure while keeping the refrigerator and over-fridge cabinet."
+	                      : "Configure both finished side panels from the active line. The refrigerator remains a 36-inch appliance; real ¾-inch panels finish outside it."}
 	                </p>
 	              </div>
 	              <Switch
 	                checked={hasRefrigeratorSidePanels}
 	                onCheckedChange={(enabled) => onSetRefrigeratorSidePanels(uid, enabled)}
-	                aria-label="Add refrigerator side panels"
+	                aria-label="Configure refrigerator side panels"
 	              />
 	            </section>
 	          )}

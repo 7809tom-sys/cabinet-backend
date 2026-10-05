@@ -1,0 +1,11 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "styleId": 330028,
+  "options": [],
+  "fridge": {
+    "masterCode": "FRIDGE-36",
+    "refrigeratorPanelMode": "both",
+    "uid": "cmun3eeap_21"
+  },
+  "errors": []
+}
