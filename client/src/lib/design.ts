@@ -12415,7 +12415,26 @@ export function countertopSurfaces(
       if (bar) raisedBars.push(bar);
     }
   }
-  out.push(...miteredPeninsulaCountertopSurfaces(raisedBars, room));
+  // A raised seating bar follows the same physical run, 45° miter, and
+  // connected-outline rules as the cabinet-supported countertop beneath it.
+  // Its only distinct properties are its 42-inch finished height and its
+  // seating-side support depth. Leaving it as two independent mitered boxes
+  // made the return look detached even when their apex coordinates matched.
+  const unifiedRaisedBars = unifiedFortyFivePeninsulaCountertopSurfaces(
+    miteredPeninsulaCountertopSurfaces(raisedBars, room),
+    room,
+  );
+  out.push(...unifiedRaisedBars.map((surface) => {
+    const owningRun = peninsulaRunById(room, surface.peninsulaRunId);
+    return {
+      ...surface,
+      raisedBar: true,
+      raisedBarOverhangIn: owningRun
+        ? peninsulaCountertopRaisedBarOverhang(owningRun, room)
+        : 15,
+      countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+    };
+  }));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {

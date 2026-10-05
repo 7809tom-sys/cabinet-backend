@@ -4,6 +4,7 @@ import { addThreeDPeninsulaCountertops } from "@/components/design/InteractiveRo
 import {
   COUNTERTOP_DEPTH_IN,
   RAISED_BAR_HEIGHT_IN,
+  countertopPolygonSelfIntersects,
   countertopSurfaces,
   countertopSurfacePlanPolygon,
   peninsulaCountertopSurface,
@@ -87,7 +88,7 @@ describe("split-level countertop geometry", () => {
     });
   });
 
-  it("keeps the worktop low and builds a separate 42-inch, 15-inch raised bar through a 45-degree return", () => {
+  it("uses the same continuous 45-degree countertop outline for the raised seating bar", () => {
     const placed = [
       baseOnRun("main-base", root, 0, 72),
       baseOnRun("return-base", return45, 0, 42),
@@ -96,52 +97,45 @@ describe("split-level countertop geometry", () => {
     const raised = surfaces.filter((surface) => surface.raisedBar);
     const worktops = surfaces.filter((surface) => surface.peninsulaRunId && !surface.raisedBar);
 
-    // The lower worktop may be fabricated as one unified 45-degree surface;
-    // the upper bar deliberately remains separately mitered at its own height.
+    // The raised bar follows the countertop's unified physical outline. It is
+    // still a distinct 42-inch slab, but it is never two independent boxes at
+    // the same 45-degree turn.
     expect(worktops.length).toBeGreaterThanOrEqual(1);
-    expect(raised).toHaveLength(2);
-    expect(raised).toEqual(expect.arrayContaining([
-      expect.objectContaining({ peninsulaRunId: "main", countertopHeightIn: RAISED_BAR_HEIGHT_IN, raisedBarOverhangIn: 15, depth: 19.5 }),
-      expect.objectContaining({ peninsulaRunId: "return-45", countertopHeightIn: RAISED_BAR_HEIGHT_IN, raisedBarOverhangIn: 15, depth: 19.5 }),
-    ]));
-    expect(raised.every((surface) => surface.miteredStart || surface.miteredEnd)).toBe(true);
-
-    // The seating bar lives on the side opposite the cabinet-facing worktop.
-    // Its two 45° pieces must share the complete miter edge—not only one apex.
-    // A single shared point lets Three.js create a visibly detached triangle at
-    // the raised return even when the plan metadata says both segments exist.
-    const mainBar = raised.find((surface) => surface.peninsulaRunId === "main")!;
-    const returnBar = raised.find((surface) => surface.peninsulaRunId === "return-45")!;
-    const sharedMiter = countertopSurfacePlanPolygon(mainBar).filter((point) => (
-      countertopSurfacePlanPolygon(returnBar).some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 1e-6)
-    ));
-    expect(sharedMiter).toHaveLength(2);
-    expect(Math.hypot(
-      sharedMiter[0]!.x - sharedMiter[1]!.x,
-      sharedMiter[0]!.y - sharedMiter[1]!.y,
-    )).toBeGreaterThan(0.1);
+    expect(raised).toHaveLength(1);
+    const [raisedBar] = raised;
+    expect(raisedBar).toMatchObject({
+      peninsulaRunId: "main",
+      peninsulaRunIds: ["main", "return-45"],
+      countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+      raisedBarOverhangIn: 15,
+      raisedBar: true,
+    });
+    expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(raisedBar!))).toBe(false);
+    expect(countertopSurfacePlanPolygon(raisedBar!).length).toBeGreaterThan(4);
 
     const scene = new THREE.Group();
     addThreeDPeninsulaCountertops(scene, room, placed, "#ffffff");
     scene.updateMatrixWorld(true);
-    for (const bar of [mainBar, returnBar]) {
-      const mesh = scene.children.find((item) => (
-        item.userData.raisedBar && item.userData.peninsulaRunId === bar.peninsulaRunId
-      )) as THREE.Mesh | undefined;
-      expect(mesh).toBeTruthy();
-      const positions = mesh!.geometry.getAttribute("position");
-      const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
-        .fromBufferAttribute(positions, index)
-        .applyMatrix4(mesh!.matrixWorld));
-      for (const point of sharedMiter) {
-        expect(worldVertices.some((vertex) => (
-          Math.hypot(vertex.x * 12 - point.x, vertex.z * 12 - point.y) < 1e-5
-        ))).toBe(true);
-      }
+    const raisedMeshes = scene.children.filter((item) => item.userData.raisedBar) as THREE.Mesh[];
+    expect(raisedMeshes).toHaveLength(1);
+    const [mesh] = raisedMeshes;
+    expect(mesh!.userData).toMatchObject({
+      peninsulaRunId: "main",
+      peninsulaRunIds: ["main", "return-45"],
+      countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+    });
+    const positions = mesh!.geometry.getAttribute("position");
+    const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
+      .fromBufferAttribute(positions, index)
+      .applyMatrix4(mesh!.matrixWorld));
+    for (const point of countertopSurfacePlanPolygon(raisedBar!)) {
+      expect(worldVertices.some((vertex) => (
+        Math.hypot(vertex.x * 12 - point.x, vertex.z * 12 - point.y) < 1e-5
+      ))).toBe(true);
     }
   });
 
-  it("keeps the full seating-side miter edge connected for either cabinet side and 45-degree direction", () => {
+  it("unifies the raised bar through either cabinet side and 45-degree direction", () => {
     for (const cabinetSide of ["left", "right"] as const) {
       for (const direction of ["left", "right"] as const) {
         const variantRoom: RoomData = {
@@ -171,16 +165,17 @@ describe("split-level countertop geometry", () => {
           placeBase("variant-main-base", variantMain, 72),
           placeBase("variant-return-base", variantReturn, 42),
         ], variantRoom).filter((surface) => surface.raisedBar);
-        expect(raised).toHaveLength(2);
-        const [mainBar, returnBar] = raised;
-        const sharedMiter = countertopSurfacePlanPolygon(mainBar!).filter((point) => (
-          countertopSurfacePlanPolygon(returnBar!).some((candidate) => Math.hypot(candidate.x - point.x, candidate.y - point.y) < 1e-6)
-        ));
-        expect(sharedMiter).toHaveLength(2);
-        expect(Math.hypot(
-          sharedMiter[0]!.x - sharedMiter[1]!.x,
-          sharedMiter[0]!.y - sharedMiter[1]!.y,
-        )).toBeGreaterThan(0.1);
+        expect(raised).toHaveLength(1);
+        const [bar] = raised;
+        expect(bar).toMatchObject({
+          peninsulaRunId: "variant-main",
+          peninsulaRunIds: ["variant-main", "variant-return"],
+          countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+          raisedBarOverhangIn: 15,
+        });
+        const outline = countertopSurfacePlanPolygon(bar!);
+        expect(outline.length).toBeGreaterThan(4);
+        expect(countertopPolygonSelfIntersects(outline)).toBe(false);
       }
     }
   });
@@ -207,7 +202,7 @@ describe("split-level countertop geometry", () => {
     expect(bars[0]!.y).toBeLessThan(placed[0]!.y);
   });
 
-  it("renders each 45-degree raised-bar segment at 42 inches, separate from the 36-inch worktop", () => {
+  it("renders one shared 45-degree raised bar at 42 inches above the 36-inch worktop", () => {
     const placed = [baseOnRun("mesh-main", root, 0, 72), baseOnRun("mesh-return", return45, 0, 42)];
     const scene = new THREE.Group();
     addThreeDPeninsulaCountertops(scene, room, placed, "#ffffff");
@@ -217,9 +212,10 @@ describe("split-level countertop geometry", () => {
       if (node.userData.raisedBar) raised.push(node);
       if (node.userData.peninsulaCountertop && !node.userData.raisedBar) worktops.push(node);
     });
-    expect(raised).toHaveLength(2);
+    expect(raised).toHaveLength(1);
     expect(worktops.length).toBeGreaterThan(0);
     expect(raised.every((node) => node.userData.countertopHeightIn === 42 && node.userData.raisedBarOverhangIn === 15)).toBe(true);
+    expect(raised[0]!.userData.peninsulaRunIds).toEqual(["main", "return-45"]);
     expect(worktops.every((node) => node.userData.countertopHeightIn === 36)).toBe(true);
   });
 });
