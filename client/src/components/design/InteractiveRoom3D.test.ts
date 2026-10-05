@@ -648,6 +648,36 @@ describe("side-aware peninsula countertop meshes", () => {
 	    expect(slabs.every((item) => item.userData.bridgesCabinetVoids === false)).toBe(true);
 	  });
 
+	  it("keeps both side-wall slabs 25½ inches deep as adjoining bases lengthen each run", () => {
+	    const room: RoomData = { width: 192, depth: 144, ceilingHeight: 96 };
+	    const base = (uid: string, x: number, y: number, width: number, wallId: "left" | "right" | "top") => ({
+	      uid, cabinetId: 1, masterCode: `B${width}`, description: "Base", placement: "base",
+	      x, y, width, depth: 24, height: 34.5, rotation: wallId === "top" ? 0 : 90, wallId,
+	    } as PlacedCabinet);
+	    const placed = [base("front", 36, 0, 24, "top")];
+	    for (let count = 1; count <= 3; count += 1) {
+	      placed.push(base(`left-${count}`, 0, 36 + (count - 1) * 30, 30, "left"));
+	      placed.push(base(`right-${count}`, 168, 36 + (count - 1) * 30, 30, "right"));
+	      const root = new THREE.Group();
+	      addThreeDStandardCountertops(root, room, placed, "#ffffff");
+	      root.updateMatrixWorld(true);
+	      const slabs = root.children.filter((child) => child.userData.standardRunCountertop) as THREE.Mesh[];
+	      for (const [side, minX, maxX] of [["left", 0, 25.5], ["right", 166.5, 192]] as const) {
+	        const slab = slabs.find((child) => String(child.userData.cabinetRunId).startsWith(`wall:${side}:`));
+	        expect(slab).toBeDefined();
+	        const bounds = new THREE.Box3().setFromObject(slab!);
+	        expect(bounds.min.x * 12).toBeCloseTo(minX, 5);
+	        expect(bounds.max.x * 12).toBeCloseTo(maxX, 5);
+	        expect(bounds.min.z * 12).toBeCloseTo(36, 5);
+	        expect(bounds.max.z * 12).toBeCloseTo(36 + count * 30, 5);
+	      }
+	      const front = slabs.find((child) => String(child.userData.cabinetRunId).startsWith("wall:top:"));
+	      const frontBounds = new THREE.Box3().setFromObject(front!);
+	      expect(frontBounds.min.x * 12).toBeCloseTo(36, 5);
+	      expect(frontBounds.max.x * 12).toBeCloseTo(60, 5);
+	    }
+	  });
+
 	  it("keeps the true-L cardinal LSB36 top in the same shared 3D surface path", () => {
 	    const root = new THREE.Group();
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };

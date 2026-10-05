@@ -6228,7 +6228,9 @@ export function addThreeDStandardCountertops(
 ) {
   const surfaces = threeDStandardCountertopSurfaces(room, placed, island, ponyWalls);
   for (const surface of surfaces) {
-    const length = Math.max(0.1, surface.linearInches ?? surface.width);
+    // `linearInches` is the along-wall takeoff. On a side wall it is the Z run
+    // length, not the slab's physical X width; use the plan surface dimensions.
+    const length = Math.max(0.1, surface.width);
     const depth = Math.max(0.1, surface.depth);
     const rotation = threeDPlanRotation((surface.rotation ?? 0) * Math.PI / 180);
     const centerX = surface.x + surface.width / 2;
