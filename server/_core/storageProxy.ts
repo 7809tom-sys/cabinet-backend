@@ -60,15 +60,25 @@ export function registerStorageProxy(app: Express) {
       }
 
       const reader = imageResp.body.getReader();
-      const first = await reader.read();
-      if (first.done || !first.value?.length) {
+      const prefixChunks: Uint8Array[] = [];
+      let prefixLength = 0;
+      while (prefixLength < 12) {
+        const next = await reader.read();
+        if (next.done) break;
+        if (next.value.length) {
+          prefixChunks.push(next.value);
+          prefixLength += next.value.length;
+        }
+      }
+      if (!prefixLength) {
         res.status(502).send("Empty image body");
         return;
       }
+      const prefix = Buffer.concat(prefixChunks, prefixLength);
       const upstreamType = imageResp.headers.get("content-type") || "application/octet-stream";
       // Do not turn unrelated downloads into images; only correct actual image signatures.
       const contentType = upstreamType === "application/octet-stream"
-        ? imageMimeFromBytes(first.value) ?? upstreamType
+        ? imageMimeFromBytes(prefix) ?? upstreamType
         : upstreamType;
       const contentLength = imageResp.headers.get("content-length");
       res.set("Cache-Control", "public, max-age=31536000, immutable");
@@ -76,14 +86,14 @@ export function registerStorageProxy(app: Express) {
       if (contentLength) res.set("Content-Length", contentLength);
 
       const body = (async function* () {
-        yield first.value;
+        for (const chunk of prefixChunks) yield chunk;
         while (true) {
           const next = await reader.read();
           if (next.done) break;
           yield next.value;
         }
       })();
-      Readable.from(body).pipe(res);
+      Readable.from(body).on("error", (err) => res.destroy(err)).pipe(res);
     } catch (err) {
       console.error("[StorageProxy] failed:", err);
       if (!res.headersSent) res.status(502).send("Storage proxy error");

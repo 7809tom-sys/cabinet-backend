@@ -76,4 +76,26 @@ describe("storage proxy image delivery", () => {
       server.close();
     }
   });
+
+  it("detects JPEG correctly even if the upstream sends the signature one byte per chunk", async () => {
+    global.fetch = vi.fn(async (input: string | URL | Request) =>
+      String(input).includes("presign/get")
+        ? new Response(JSON.stringify({ url: "https://cdn.example.com/slow-jpeg" }), { headers: { "content-type": "application/json" } })
+        : new Response(new ReadableStream({
+            start(controller) {
+              for (const byte of Array.from(jpeg)) controller.enqueue(Uint8Array.of(byte));
+              controller.close();
+            },
+          }), { headers: { "content-type": "application/octet-stream" } }),
+    ) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      const resp = await realFetch(`${baseUrl}/manus-storage/slow-jpeg`);
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get("content-type")).toContain("image/jpeg");
+      expect(new Uint8Array(await resp.arrayBuffer())).toEqual(jpeg);
+    } finally {
+      server.close();
+    }
+  });
 });
