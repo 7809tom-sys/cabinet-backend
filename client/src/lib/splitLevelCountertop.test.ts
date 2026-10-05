@@ -109,6 +109,7 @@ describe("split-level countertop geometry", () => {
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
       raisedBarOverhangIn: 15,
       raisedBar: true,
+      raisedBarUsesSharedCountertopOutline: true,
     });
     expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(raisedBar!))).toBe(false);
     expect(countertopSurfacePlanPolygon(raisedBar!).length).toBeGreaterThan(4);
@@ -123,6 +124,7 @@ describe("split-level countertop geometry", () => {
       peninsulaRunId: "main",
       peninsulaRunIds: ["main", "return-45"],
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+      raisedBarUsesSharedCountertopOutline: true,
     });
     const positions = mesh!.geometry.getAttribute("position");
     const worldVertices = Array.from({ length: positions.count }, (_, index) => new THREE.Vector3()
@@ -172,6 +174,7 @@ describe("split-level countertop geometry", () => {
           peninsulaRunIds: ["variant-main", "variant-return"],
           countertopHeightIn: RAISED_BAR_HEIGHT_IN,
           raisedBarOverhangIn: 15,
+          raisedBarUsesSharedCountertopOutline: true,
         });
         const outline = countertopSurfacePlanPolygon(bar!);
         expect(outline.length).toBeGreaterThan(4);
@@ -216,6 +219,7 @@ describe("split-level countertop geometry", () => {
     expect(worktops.length).toBeGreaterThan(0);
     expect(raised.every((node) => node.userData.countertopHeightIn === 42 && node.userData.raisedBarOverhangIn === 15)).toBe(true);
     expect(raised[0]!.userData.peninsulaRunIds).toEqual(["main", "return-45"]);
+    expect(raised[0]!.userData.raisedBarUsesSharedCountertopOutline).toBe(true);
     expect(worktops.every((node) => node.userData.countertopHeightIn === 36)).toBe(true);
   });
 });

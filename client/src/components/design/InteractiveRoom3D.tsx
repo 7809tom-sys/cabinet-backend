@@ -5980,7 +5980,26 @@ export function addThreeDPeninsulaCountertops(
     slab.position.set(centerX * INCH, (finishedHeight - STD.COUNTERTOP_THICKNESS / 2) * INCH, centerZ * INCH);
     slab.rotation.y = rotation;
     const lowerWorktopExtensionIn = surface.raisedBar ? 0 : peninsulaLowerWorktopOppositeSideExtensionIn(run, room);
-    slab.userData = { peninsulaCountertop: true, peninsulaRunId: run.id, peninsulaRunIds: surface.peninsulaRunIds ?? [run.id], unifiedPeninsulaAssembly: isUnifiedAssembly, runStartIn: surface.runStartIn ?? 0, physicalDepthIn: depth, lowerWorktopExtensionIn, seatingOverhangIn: surface.raisedBar ? 0 : peninsulaCountertopSeatingOverhang(run, room), ponyWallBarOverhangIn: surface.raisedBar ? 0 : peninsulaCountertopPonyWallBarOverhang(run, room), ponyWallBackExtensionIn: surface.raisedBar ? 0 : peninsulaCountertopPonyWallBackExtensionIn(run, room), raisedBar: Boolean(surface.raisedBar), raisedBarOverhangIn: surface.raisedBarOverhangIn ?? null, countertopHeightIn: finishedHeight, bridgesCabinetVoids: false, preservesRangeOpening: true, miteredStart: surface.miteredStart ?? false, miteredEnd: surface.miteredEnd ?? false };
+    slab.userData = {
+      peninsulaCountertop: true,
+      peninsulaRunId: run.id,
+      peninsulaRunIds: surface.peninsulaRunIds ?? [run.id],
+      unifiedPeninsulaAssembly: isUnifiedAssembly,
+      runStartIn: surface.runStartIn ?? 0,
+      physicalDepthIn: depth,
+      lowerWorktopExtensionIn,
+      seatingOverhangIn: surface.raisedBar ? 0 : peninsulaCountertopSeatingOverhang(run, room),
+      ponyWallBarOverhangIn: surface.raisedBar ? 0 : peninsulaCountertopPonyWallBarOverhang(run, room),
+      ponyWallBackExtensionIn: surface.raisedBar ? 0 : peninsulaCountertopPonyWallBackExtensionIn(run, room),
+      raisedBar: Boolean(surface.raisedBar),
+      raisedBarUsesSharedCountertopOutline: Boolean(surface.raisedBarUsesSharedCountertopOutline),
+      raisedBarOverhangIn: surface.raisedBarOverhangIn ?? null,
+      countertopHeightIn: finishedHeight,
+      bridgesCabinetVoids: false,
+      preservesRangeOpening: true,
+      miteredStart: surface.miteredStart ?? false,
+      miteredEnd: surface.miteredEnd ?? false,
+    };
     root.add(slab);
     if (surface.raisedBar) continue;
     const terminalRun = surface.peninsulaTerminalRunId

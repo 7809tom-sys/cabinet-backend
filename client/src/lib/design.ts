@@ -10154,6 +10154,8 @@ export interface CountertopSurface {
   ponyWallBackExtensionIn?: number;
   /** A separately fabricated 42-inch seating bar, drawn above the worktop in 3D. */
   raisedBar?: boolean;
+  /** Raised bar follows the same connected countertop outline across its return. */
+  raisedBarUsesSharedCountertopOutline?: boolean;
   /** Seating projection beyond its supporting pony wall. */
   raisedBarOverhangIn?: 12 | 15;
   /** Finished installation height for the separate seating bar. */
@@ -12429,6 +12431,7 @@ export function countertopSurfaces(
     return {
       ...surface,
       raisedBar: true,
+      raisedBarUsesSharedCountertopOutline: true,
       raisedBarOverhangIn: owningRun
         ? peninsulaCountertopRaisedBarOverhang(owningRun, room)
         : 15,
