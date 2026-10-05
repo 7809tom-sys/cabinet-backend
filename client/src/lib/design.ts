@@ -784,6 +784,8 @@ export interface PlacedCabinet {
     fixedTopIn?: number;
     skuReferences: string[];
   } | null;
+  /** Additive positioned Closet contents; absent for unchanged legacy storage layouts. */
+  masterTracStorageItems?: import("./masterTracTower").TowerStorageItem[];
   // Per-cabinet door/hardware attributes (set from the right-click attributes
   // dialog). All optional for backward-compat with older saved designs.
   // noDoor: order this cabinet as an OPEN unit (no door/front) — e.g. open

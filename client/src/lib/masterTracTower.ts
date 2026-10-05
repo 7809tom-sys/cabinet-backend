@@ -20,7 +20,14 @@ export type TowerBay = {
   adjustableHeightsIn: number[];
   /** Optional pictured MasterTrac storage concept; not a fabrication drawing. */
   storage?: TowerStorage;
+  /** Additive ordered items; absent on legacy bays, which continue using storage unchanged. Bottom elevations in inches. */
+  storageItems?: TowerStorageItem[];
 };
+export type TowerStorageItem =
+  | { kind: "drawer"; elevationIn: number; drawerSize: "small" | "large"; frontStyle: "slab" | "shaker" }
+  | { kind: "shoe"; elevationIn: number; fenceFinish: "Chrome" | "Matt Nickel" }
+  | { kind: "rod"; elevationIn: number; rodFinish: "Chrome" | "Matt Nickel" }
+  | { kind: "shelf"; elevationIn: number };
 export type TowerStorage =
   | { kind: "drawers"; count: number; drawerSize: "small" | "large"; frontStyle: "slab" | "shaker" }
   | { kind: "shoe"; count: number; fenceFinish: "Chrome" | "Matt Nickel" }
@@ -92,8 +99,8 @@ export function towerStorageSkuReferences(
 ): { ok: true; parts: { product: MasterTracProduct; quantity: number }[] } | { ok: false; reason: string } {
   const reject = (reason: string) => ({ ok: false as const, reason });
   if (storage.kind === "rod") {
-    if (!["Chrome", "Matt Nickel"].includes(storage.rodFinish) || ![1, 2].includes(storage.count)
-      || storage.heightsIn.length !== storage.count) return reject("Choose one or two rods with an elevation for each.");
+    if (!["Chrome", "Matt Nickel"].includes(storage.rodFinish) || !Number.isInteger(storage.count) || storage.count < 1
+      || storage.heightsIn.length !== storage.count) return reject("Choose rods with an elevation for each.");
     if (widthIn > 96 || widthIn < 12) return reject("This bay cannot be cut from the sourced 8-foot rod stock.");
     const rod = singleRod(storage.rodFinish);
     const cups = rodCupPack(storage.rodFinish);
@@ -104,7 +111,7 @@ export function towerStorageSkuReferences(
   const find = (category: string, match: (part: MasterTracProduct) => boolean) =>
     CLOSET_PARTS.find((part) => part.category === category && part.packQty === 1 && match(part));
   if (storage.kind === "drawers") {
-    if (!Number.isInteger(storage.count) || storage.count < 1 || storage.count > (storage.drawerSize === "small" ? 3 : 2)) return reject("Choose one to three small or one to two large illustrative drawers per bay.");
+    if (!Number.isInteger(storage.count) || storage.count < 1) return reject("Choose at least one illustrative drawer.");
     if (storage.drawerSize === "small" && storage.frontStyle !== "slab") return reject("The 2022 assortment has no matching small Shaker drawer-front SKU.");
     const box = find("Drawer Boxes", (p) => p.finish === "Hard Maple" && !/Hutch/i.test(p.description)
       && new RegExp(`^${widthIn}[\"'’]*\\s+${storage.drawerSize}\\s+Drawer`, "i").test(p.description));
@@ -113,7 +120,7 @@ export function towerStorageSkuReferences(
     if (!box || !front) return reject(`No matching ${widthIn}-inch ${storage.drawerSize} drawer assembly and ${storage.frontStyle} front for ${finish} in the 2022 source.`);
     return { ok: true, parts: [{ product: box, quantity: storage.count }, { product: front, quantity: storage.count }] };
   }
-  if (storage.kind !== "shoe" || !Number.isInteger(storage.count) || storage.count < 1 || storage.count > 4 || !["Chrome", "Matt Nickel"].includes(storage.fenceFinish)) return reject("Choose one to four illustrated shoe shelves and a sourced Chrome or Matt Nickel fence for each.");
+  if (storage.kind !== "shoe" || !Number.isInteger(storage.count) || storage.count < 1 || !["Chrome", "Matt Nickel"].includes(storage.fenceFinish)) return reject("Choose illustrated shoe shelves and a sourced Chrome or Matt Nickel fence for each.");
   const shelf = find("Shelves", (p) => p.finish === finish && new RegExp(`^${widthIn}[\"'’]*\\s+Shoe Shelf`, "i").test(p.description));
   const fence = find("Accessories", (p) => p.finish === storage.fenceFinish && new RegExp(`^${widthIn}[\"'’”]*\\s+Shoe Fence`, "i").test(p.description));
   if (!shelf || !fence) return reject(`No matching ${widthIn}-inch shoe shelf and ${storage.fenceFinish} fence in the 2022 source.`);
@@ -121,7 +128,47 @@ export function towerStorageSkuReferences(
 }
 
 export function towerWidths(depthIn: 14.5 | 23.5): number[] {
+  // The face heights are sourced; shoe board thickness is sourced. Rod hardware,
+  // tilt and clearance envelopes are unknown: passing this fit is not installation certification.
   return [...(depthIn === 14.5 ? SHALLOW_WIDTHS : DEEP_WIDTHS)];
+}
+
+export function towerStorageItemHeight(item: TowerStorageItem): number {
+  return item.kind === "drawer" ? (item.drawerSize === "small" ? 5 : 10)
+    : item.kind === "shoe" || item.kind === "shelf" ? PANEL_THICKNESS : 0;
+}
+
+export function towerStorageItemReferences(item: TowerStorageItem, widthIn: number, depthIn: number, finish: string) {
+  if (item.kind === "shelf") return { ok: true as const, parts: [] as { product: MasterTracProduct; quantity: number }[] };
+  const storage: TowerStorage = item.kind === "drawer" ? { kind: "drawers", count: 1, drawerSize: item.drawerSize, frontStyle: item.frontStyle }
+    : item.kind === "shoe" ? { kind: "shoe", count: 1, fenceFinish: item.fenceFinish }
+      : { kind: "rod", count: 1, rodFinish: item.rodFinish, heightsIn: [item.elevationIn] };
+  return towerStorageSkuReferences(storage, widthIn, depthIn, finish);
+}
+
+export function towerConceptStorageReferenceItems(placed: PlacedCabinet[]) {
+  const rows = new Map<string, { sku: string; quantity: number; listEachUsd: number; description: string }>();
+  for (const board of placed) {
+    if (board.masterTracTowerRole !== "fixed-bottom") continue;
+    const add = (sku: string, quantity: number) => {
+      const product = masterTracProduct(sku);
+      if (!product) return;
+      const row = rows.get(sku);
+      if (row) row.quantity += quantity;
+      else rows.set(sku, { sku, quantity, listEachUsd: product.listEachUsd, description: product.description });
+    };
+    if (board.masterTracStorageItems) {
+      board.masterTracStorageItems.forEach((item) => {
+        if (item.kind === "rod" || item.kind === "shelf") return;
+        const refs = towerStorageItemReferences(item, board.width, board.depth, masterTracProduct(board.masterCode)?.finish ?? "");
+        if (refs.ok) refs.parts.forEach(({ product, quantity }) => add(product.sku, quantity));
+      });
+    } else {
+      const storage = board.masterTracConceptStorage;
+      if (storage && storage.kind !== "rod") storage.skuReferences.forEach((sku) => add(sku, storage.count));
+    }
+  }
+  return Array.from(rows.values());
 }
 
 export function defaultTowerConfig(finish = "Glacier White"): MasterTracTowerConfig {
@@ -227,7 +274,9 @@ export function towerRodHardwareTakeoff(placed: PlacedCabinet[]) {
   return (["Chrome", "Matt Nickel"] as const).flatMap((finish) => {
     const rodCount = placed.reduce((sum, board) => {
       const storage = board.masterTracConceptStorage;
-      return sum + (board.masterTracTowerRole === "fixed-bottom" && storage?.kind === "rod" && storage.rodFinish === finish ? storage.count : 0);
+      return sum + (board.masterTracTowerRole === "fixed-bottom" ? board.masterTracStorageItems
+        ? board.masterTracStorageItems.filter((item) => item.kind === "rod" && item.rodFinish === finish).length
+        : storage?.kind === "rod" && storage.rodFinish === finish ? storage.count : 0 : 0);
     }, 0);
     const pack = rodCount && rodCupPack(finish);
     const rod = rodCount && singleRod(finish);
@@ -382,10 +431,13 @@ export function planMasterTracTower(
   }
   for (let index = 0; index < config.bays.length; index++) {
     const bay = config.bays[index];
+    const mixed = bay.storageItems !== undefined;
+    const itemShelves = mixed && Array.isArray(bay.storageItems)
+      ? bay.storageItems.filter((item) => item?.kind === "shelf").map((item) => item.elevationIn) : [];
     const adjacentToCorner = config.corner && index === (config.corner === "start" ? 0 : config.bays.length - 1);
     const adjustableHeightsIn = adjacentToCorner
       ? [...bay.adjustableHeightsIn, ...extraCornerHeights.filter((height) =>
-        !bay.adjustableHeightsIn.some((existing) => Math.abs(existing - height) < CORNER_CLEARANCE_EPS))]
+        ![...bay.adjustableHeightsIn, ...itemShelves].some((existing) => Math.abs(existing - height) < CORNER_CLEARANCE_EPS))]
       : bay.adjustableHeightsIn;
     const stockWidthIn = bay.stockWidthIn ?? bay.widthIn;
     if (!Number.isFinite(bay.widthIn) || !Number.isFinite(stockWidthIn)
@@ -393,6 +445,7 @@ export function planMasterTracTower(
       || !towerWidths(config.depthIn).includes(stockWidthIn)) {
       return { ok: false, reason: `Bay ${index + 1}: choose a sourced stock shelf with an installed width between 12 inches and its stock width.` };
     }
+    if (mixed && (!Array.isArray(bay.storageItems) || bay.storage)) return { ok: false, reason: `Bay ${index + 1}: choose positioned items or legacy storage, not both.` };
     if (bay.stockWidthIn != null && bay.storage) return { ok: false, reason: `Bay ${index + 1}: drawer/shoe fit is not verified with cut shelves. Choose open shelves or an uncut bay.` };
     if (bay.storage && bay.adjustableHeightsIn.length) return { ok: false, reason: `Bay ${index + 1}: choose storage or adjustable shelves here, not both.` };
     const storage = bay.storage ? towerStorageSkuReferences(bay.storage, bay.widthIn, config.depthIn, config.finish) : null;
@@ -401,23 +454,37 @@ export function planMasterTracTower(
       ? bay.storage.count * (bay.storage.drawerSize === "small" ? 7 : 12)
       : bay.storage?.kind === "shoe" ? bay.storage.count * 12 : 0;
     if (bay.storage?.kind === "rod" && (bay.stockWidthIn != null
-      || bay.storage.heightsIn.some((height) => !Number.isFinite(height) || height < bay.fixedBottomIn + 2 || height > bay.fixedTopIn - 2)
-      || (bay.storage.count === 2 && bay.storage.heightsIn[1] - bay.storage.heightsIn[0] < 20))) {
-      return { ok: false, reason: `Bay ${index + 1}: rod elevations must clear the fixed shelves, with at least 20″ between illustrated hanging levels. Cut-stock rod bays are not supported.` };
+      || bay.storage.heightsIn.some((height) => !Number.isFinite(height) || height <= bay.fixedBottomIn + PANEL_THICKNESS || height >= bay.fixedTopIn))) {
+      return { ok: false, reason: `Bay ${index + 1}: rods must sit between fixed shelves. Cut-stock rod bays are not supported.` };
     }
     if (bay.storage && bay.fixedTopIn - bay.fixedBottomIn < illustrationHeight + PANEL_THICKNESS + 1) {
       return { ok: false, reason: `Bay ${index + 1} has too little open height for the selected illustrated storage. Separate the fixed shelves.` };
     }
-    const elevations = [bay.fixedBottomIn, ...adjustableHeightsIn, bay.fixedTopIn];
+    const elevations = [bay.fixedBottomIn, ...adjustableHeightsIn, ...itemShelves, bay.fixedTopIn];
     if (elevations.some((v) => !Number.isFinite(v) || v < 0 || v + PANEL_THICKNESS > config.heightIn + EPS)
       || [...elevations].sort((a, b) => a - b).some((v, i, sorted) => i > 0 && v - sorted[i - 1] < PANEL_THICKNESS - EPS)) {
-      return { ok: false, reason: `Bay ${index + 1} shelves must be inside the uprights, with at least ¾\" between shelf bottoms and no overlaps.` };
+      return { ok: false, reason: `Bay ${index + 1} shelves must be inside the uprights, with at least ¾" between shelf bottoms and no overlaps.` };
+    }
+    if (mixed) {
+      const occupied = elevations.map((bottom) => ({ bottom, top: bottom + PANEL_THICKNESS }));
+      for (const item of bay.storageItems!) {
+        if (!item || !["drawer", "shoe", "rod", "shelf"].includes(item.kind) || !Number.isFinite(item.elevationIn)) return { ok: false, reason: `Bay ${index + 1}: every item needs a valid kind and finite elevation.` };
+        if (item.kind !== "shelf") {
+          if (bay.stockWidthIn != null) return { ok: false, reason: `Bay ${index + 1}: drawer/shoe/rod fit is not verified with cut shelves.` };
+          const refs = towerStorageItemReferences(item, bay.widthIn, config.depthIn, config.finish);
+          if (!refs.ok) return { ok: false, reason: `Bay ${index + 1}: ${refs.reason}` };
+          occupied.push({ bottom: item.elevationIn, top: item.elevationIn + towerStorageItemHeight(item) });
+        }
+        if (item.elevationIn < bay.fixedBottomIn + PANEL_THICKNESS - EPS || item.elevationIn + towerStorageItemHeight(item) > bay.fixedTopIn + EPS) return { ok: false, reason: `Bay ${index + 1}: ${item.kind} must fit between fixed shelves inside the actual panel height.` };
+      }
+      occupied.sort((a, b) => a.bottom - b.bottom);
+      if (occupied.some((part, i) => i > 0 && part.bottom < occupied[i - 1].top - EPS)) return { ok: false, reason: `Bay ${index + 1}: positioned items overlap; adjust elevations. Hardware fit is not certified.` };
     }
     addBoard(uprights[index]!, index === 0 ? "left" : "center", null, cursor);
     cursor += PANEL_THICKNESS;
     const fixed = exactPart(config, "Shelves", /\bFixed Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
     const adjustable = exactPart(config, "Shelves", /\b(?:Adj|Adjustable) Shelf\b/i, stockWidthIn, PANEL_THICKNESS);
-    if (!fixed || (adjustableHeightsIn.length && !adjustable)) return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed/adjustable shelf SKU for bay ${index + 1}.` };
+    if (!fixed || ((adjustableHeightsIn.length || itemShelves.length) && !adjustable)) return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed/adjustable shelf SKU for bay ${index + 1}.` };
     const cleat = cleatForBay(config.finish, stockWidthIn);
     if (!cleat) return { ok: false, reason: `Bay ${index + 1}: no matching ${stockWidthIn} inch wall cleat SKU in ${config.finish}; nothing was placed.` };
     conceptualItems.push({ sku: cleat.sku, quantity: 1, listEachUsd: cleat.listEachUsd, description: `${cleat.description} · ${cleat.finish}${bay.widthIn < stockWidthIn - EPS ? ` · cut to ${bay.widthIn}″; rebore per manual` : ""}` });
@@ -430,7 +497,15 @@ export function planMasterTracTower(
       boards.at(-1)!.masterTracConceptStorage = { ...bay.storage, fixedTopIn: bay.fixedTopIn,
         ...(bay.storage.kind === "rod" ? { rodHeightsIn: bay.storage.heightsIn } : {}), skuReferences: refs };
     }
+    if (mixed) {
+      boards.at(-1)!.masterTracStorageItems = bay.storageItems!.map((item) => ({ ...item }));
+      for (const item of bay.storageItems!) {
+        const refs = towerStorageItemReferences(item, bay.widthIn, config.depthIn, config.finish);
+        if (refs.ok) refs.parts.forEach(({ product, quantity }) => conceptualItems.push({ sku: product.sku, quantity, listEachUsd: product.listEachUsd, description: product.description }));
+      }
+    }
     adjustableHeightsIn.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height, bay.widthIn));
+    itemShelves.forEach((height) => addBoard(adjustable!, "adjustable", index, cursor, height, bay.widthIn));
     addBoard(fixed, "fixed-top", index, cursor, bay.fixedTopIn, bay.widthIn);
     cursor += bay.widthIn;
   }
@@ -468,8 +543,9 @@ export function towerConceptReferenceSubtotal(placed: PlacedCabinet[]): number {
   return Math.round((placed.reduce((sum, board) => {
     const storage = board.masterTracConceptStorage;
     const corner = isMasterTracCornerBoard(board) && board.masterTracCorner.hJointSku ? masterTracProduct(board.masterTracCorner.hJointSku)?.listEachUsd ?? 0 : 0;
-    return sum + corner + (storage && storage.kind !== "rod" ? storage.skuReferences.reduce((partSum, sku) => partSum + (masterTracProduct(sku)?.listEachUsd ?? 0) * storage.count, 0) : 0);
+    return sum + corner;
   }, 0) + towerCleatReferenceItems(placed).reduce((sum, item) => sum + item.quantity * item.listEachUsd, 0)
+    + towerConceptStorageReferenceItems(placed).reduce((sum, item) => sum + item.quantity * item.listEachUsd, 0)
     + towerRodHardwareTakeoff(placed).reduce((sum, item) => sum + item.rodCount * item.rodListEachUsd + item.cupPacks * item.cupListPackUsd, 0)) * 100) / 100;
 }
 
@@ -503,8 +579,11 @@ export function towerConfigFromPlacements(placed: PlacedCabinet[], towerId: stri
         ...(cut ? { stockWidthIn: cut.stockWidthIn } : {}),
         fixedBottomIn: shelf("fixed-bottom") ?? 6,
         fixedTopIn: shelf("fixed-top") ?? first.heightIn! - PANEL_THICKNESS,
-        adjustableHeightsIn: group.filter((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "adjustable")
+        adjustableHeightsIn: group.filter((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "adjustable"
+          && !group.find((anchor) => anchor.masterTracTowerBayIndex === index && anchor.masterTracTowerRole === "fixed-bottom")?.masterTracStorageItems?.some((item) => item.kind === "shelf" && Math.abs(item.elevationIn - (board.mountBottom ?? 0)) < EPS))
           .map((board) => board.mountBottom ?? 0).sort((a, b) => a - b),
+        ...(group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "fixed-bottom")?.masterTracStorageItems
+          ? { storageItems: group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "fixed-bottom")!.masterTracStorageItems!.map((item) => ({ ...item })) } : {}),
         storage: (() => {
           const saved = group.find((board) => board.masterTracTowerBayIndex === index && board.masterTracTowerRole === "fixed-bottom")?.masterTracConceptStorage;
           if (saved?.kind === "shoe") return { kind: "shoe" as const, count: saved.count, fenceFinish: saved.fenceFinish ?? "Chrome" };

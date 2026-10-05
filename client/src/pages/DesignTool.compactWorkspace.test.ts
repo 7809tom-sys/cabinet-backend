@@ -22,6 +22,15 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
+  it("routes positioned Closet drawer/shoe/rod mixes to their own 3D/elevation and List-only reference takeoff", () => {
+    expect(source).toContain('board.masterTracStorageItems?.some((item) => item.kind !== "shelf")');
+    expect(source).toContain('if (rodTowerBoard) return <MasterTracRod3D');
+    expect(source).toContain('rodTowerBoard ? <MasterTracRodElevation');
+    expect(source).toContain('towerConceptStorageReferenceItems(placed).map((item)');
+    expect(source).toContain('not checkout');
+    expect(source).toContain('const total = useMemo(() => calculateCartSubtotal(cartableLines)');
+  });
+
   it("reveals the design after a successful connected Closet tower placement on a phone or tablet", () => {
     const start = source.indexOf("const commitMasterTracTower = useCallback(");
     const end = source.indexOf("const interactive3dOrderSummary", start);

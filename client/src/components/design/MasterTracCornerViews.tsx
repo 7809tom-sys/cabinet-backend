@@ -99,13 +99,15 @@ export function addCornerReturnUpright(parent: THREE.Group, board: PlacedCabinet
 /** SKU and measured span are real; diameter, cup profile and hole location are illustrative. */
 export function addIllustrativeTowerRods(parent: THREE.Group, anchor: PlacedCabinet, localXIn: number) {
   const storage = anchor.masterTracConceptStorage;
-  if (storage?.kind !== "rod" || !storage.rodHeightsIn?.length) return;
-  const material = new THREE.MeshStandardMaterial({ color: storage.rodFinish === "Matt Nickel" ? 0x747574 : 0xa7a8aa, metalness: 0.72, roughness: 0.29 });
-  storage.rodHeightsIn.forEach((height, level) => {
+  const rods = anchor.masterTracStorageItems
+    ? anchor.masterTracStorageItems.filter((item) => item.kind === "rod").map((item) => ({ height: item.elevationIn, finish: item.rodFinish }))
+    : storage?.kind === "rod" ? (storage.rodHeightsIn ?? []).map((height) => ({ height, finish: storage.rodFinish ?? "Chrome" })) : [];
+  rods.forEach(({ height, finish }, level) => {
+    const material = new THREE.MeshStandardMaterial({ color: finish === "Matt Nickel" ? 0x747574 : 0xa7a8aa, metalness: 0.72, roughness: 0.29 });
     const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * IN, 0.42 * IN, anchor.width * IN, 12), material);
     rod.rotation.z = Math.PI / 2;
     rod.position.set((localXIn + anchor.width / 2) * IN, height * IN, anchor.depth * 0.5 * IN);
-    rod.userData = { masterTracRodIllustration: true, stockSku: storage.skuReferences[0], finish: storage.rodFinish, level, installedSpanIn: anchor.width, notInstallationGeometry: true };
+    rod.userData = { masterTracRodIllustration: true, stockSku: anchor.masterTracStorageItems ? undefined : storage?.skuReferences[0], finish, level, installedSpanIn: anchor.width, notInstallationGeometry: true };
     parent.add(rod);
     for (const end of [0, anchor.width]) {
       const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.55 * IN, 0.55 * IN, 0.12 * IN, 12), material);
@@ -115,6 +117,30 @@ export function addIllustrativeTowerRods(parent: THREE.Group, anchor: PlacedCabi
       parent.add(cup);
     }
   });
+}
+
+/** Source-backed pieces represented as intentionally schematic faces/tilted boards. */
+export function addIllustrativeTowerMixedStorage(parent: THREE.Group, anchor: PlacedCabinet, localXIn: number) {
+  if (anchor.masterTracTowerRole !== "fixed-bottom" || !anchor.masterTracStorageItems) return;
+  for (const item of anchor.masterTracStorageItems) {
+    if (item.kind !== "drawer" && item.kind !== "shoe") continue;
+    const drawer = item.kind === "drawer";
+    const height = drawer ? item.drawerSize === "small" ? 5 : 10 : 0.75;
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry((anchor.width - 0.4) * IN, height * IN, (drawer ? 0.5 : anchor.depth * 0.94) * IN),
+      new THREE.MeshStandardMaterial({ color: drawer ? 0xb49b79 : masterTracFinishColor(masterTracProduct(anchor.masterCode)?.finish ?? "Glacier White") }));
+    mesh.position.set((localXIn + anchor.width / 2) * IN, (item.elevationIn + height / 2) * IN, (drawer ? anchor.depth - 0.3 : anchor.depth / 2) * IN);
+    // Mixed rows use only the sourced board thickness; an undocumented tilt
+    // would intersect a neighboring ¾-inch level that the real-board fit accepts.
+    mesh.userData = { masterTracConceptComponent: drawer ? "drawer-front-illustration" : "shoe-board-illustration", illustrative: true, notInstallationGeometry: true };
+    parent.add(mesh);
+    if (!drawer) {
+      const fence = new THREE.Mesh(new THREE.BoxGeometry((anchor.width - 0.5) * IN, 0.15 * IN, 0.15 * IN),
+        new THREE.MeshStandardMaterial({ color: item.fenceFinish === "Chrome" ? 0xa7a8aa : 0x747574, metalness: 0.6 }));
+      fence.position.set(mesh.position.x, item.elevationIn * IN, (anchor.depth - 0.35) * IN);
+      fence.userData = { masterTracConceptComponent: "shoe-fence-illustration", illustrative: true, notInstallationGeometry: true };
+      parent.add(fence);
+    }
+  }
 }
 
 export function masterTracCornerAssembly(placed: PlacedCabinet[]): THREE.Group | null {
@@ -131,6 +157,7 @@ export function masterTracCornerAssembly(placed: PlacedCabinet[]): THREE.Group |
     else {
       addStraightBoard(root, board, offset);
       addIllustrativeTowerRods(root, board, offset);
+      addIllustrativeTowerMixedStorage(root, board, offset);
     }
   }
   const corners = group.boards.filter(isMasterTracCornerBoard);
@@ -187,10 +214,17 @@ export function MasterTracCornerElevation({ placed, wall, onEdit }: { placed: Pl
             <text x={x + (group.corner.masterTracCorner.side === "start" ? 72 : -72)} y="18" textAnchor="middle" fontSize="10" fill="#384756">Perpendicular upright · side view</text>
           </g>;
         })}
-        {group.boards.filter((board) => board.masterTracTowerRole === "fixed-bottom" && board.masterTracConceptStorage?.kind === "rod").flatMap((board) => (board.masterTracConceptStorage?.rodHeightsIn ?? []).map((height, index) => {
+        {group.boards.filter((board) => board.masterTracTowerRole === "fixed-bottom").flatMap((board) => (board.masterTracStorageItems
+          ? board.masterTracStorageItems.filter((item) => item.kind === "rod").map((item) => item.elevationIn)
+          : board.masterTracConceptStorage?.kind === "rod" ? board.masterTracConceptStorage.rodHeightsIn ?? [] : []).map((height, index) => {
           const x = pad + ((board.wallOffset ?? group.start) - group.start) * scale;
           const y = baseline - height * scale;
           return <g key={`${board.uid}-rod-${index}`} data-testid="mastertrac-rod-elevation"><line x1={x} x2={x + board.width * scale} y1={y} y2={y} stroke="#7f8487" strokeWidth="5" /><text x={x + board.width * scale / 2} y={y - 7} textAnchor="middle" fontSize="10" fill="#3f484b">Rod · {height}″</text></g>;
+        }))}
+        {group.boards.filter((board) => board.masterTracTowerRole === "fixed-bottom").flatMap((board) => (board.masterTracStorageItems ?? []).filter((item) => item.kind === "drawer" || item.kind === "shoe").map((item, index) => {
+          const x = pad + ((board.wallOffset ?? group.start) - group.start) * scale;
+          const h = item.kind === "drawer" ? item.drawerSize === "small" ? 5 : 10 : 0.75;
+          return <g key={`${board.uid}-item-${index}`} data-testid={`mastertrac-mixed-${item.kind}-elevation`}><rect x={x + 2} y={baseline - (item.elevationIn + h) * scale} width={board.width * scale - 4} height={Math.max(3, h * scale)} fill={item.kind === "drawer" ? "#b49b79" : "#b8a58b"} stroke="#756457" /><title>{item.kind} · {item.elevationIn}″ · illustrative</title></g>;
         }))}
         <text x={svgWidth / 2} y={svgHeight - 14} textAnchor="middle" fontSize="14" fill="#554c43">{group.width.toFixed(2)}″ straight-wall span · corner between two sourced uprights</text>
       </svg>

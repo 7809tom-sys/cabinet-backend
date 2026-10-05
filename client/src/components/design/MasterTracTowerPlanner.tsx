@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { masterTracFinishColor, masterTracProduct } from "@/lib/closet";
 import { cabinetWallRunSegment, type PlacedCabinet, type RoomData, type WallOpening, type WallSide } from "@/lib/design";
 import {
-  CORNER_FOOTPRINT_IN, CORNER_SHELF_THICKNESS_IN, cornerShelfClearances, masterTracCornerParts, nextAvailableCornerShelfElevation, planMasterTracTower, towerCleatReferenceItems, towerRodHardwareTakeoff, towerTotalWidth, towerWidths,
-  type MasterTracTowerConfig, type TowerBay, type TowerStorage,
+  CORNER_FOOTPRINT_IN, CORNER_SHELF_THICKNESS_IN, cornerShelfClearances, masterTracCornerParts, nextAvailableCornerShelfElevation, planMasterTracTower, towerCleatReferenceItems, towerConceptStorageReferenceItems, towerRodHardwareTakeoff, towerTotalWidth, towerWidths,
+  type MasterTracTowerConfig, type TowerBay, type TowerStorage, type TowerStorageItem,
 } from "@/lib/masterTracTower";
 
 const FINISHES = ["Glacier White", "Slate Rift", "Spiced Mahogany"];
@@ -20,6 +20,37 @@ const WALLS: { value: WallSide; label: string }[] = [
   { value: "right", label: "Right wall" },
 ];
 const money = (amount: number) => `$${amount.toFixed(2)}`;
+
+function positionedItems(bay: TowerBay): TowerStorageItem[] {
+  if (bay.storageItems) return bay.storageItems;
+  return [
+    ...bay.adjustableHeightsIn.map((elevationIn): TowerStorageItem => ({ kind: "shelf", elevationIn })),
+    ...(bay.storage?.kind === "rod" ? bay.storage.heightsIn.map((elevationIn): TowerStorageItem => ({ kind: "rod", elevationIn, rodFinish: bay.storage!.kind === "rod" ? bay.storage!.rodFinish : "Chrome" })) : []),
+    ...(bay.storage?.kind === "drawers" ? Array.from({ length: bay.storage.count }, (_, n): TowerStorageItem => ({ kind: "drawer", elevationIn: bay.fixedBottomIn + 1 + n * (bay.storage!.kind === "drawers" && bay.storage!.drawerSize === "large" ? 12 : 7), drawerSize: bay.storage!.kind === "drawers" ? bay.storage!.drawerSize : "small", frontStyle: bay.storage!.kind === "drawers" ? bay.storage!.frontStyle : "slab" })) : []),
+    ...(bay.storage?.kind === "shoe" ? Array.from({ length: bay.storage.count }, (_, n): TowerStorageItem => ({ kind: "shoe", elevationIn: bay.fixedTopIn - 10 - n * 12, fenceFinish: bay.storage!.kind === "shoe" ? bay.storage!.fenceFinish : "Chrome" })) : []),
+  ];
+}
+
+function mixedItemVisualHeight(item: TowerStorageItem): number {
+  return item.kind === "drawer" ? item.drawerSize === "small" ? 5 : 10 : item.kind === "rod" ? 0 : CORNER_SHELF_THICKNESS_IN;
+}
+
+function defaultMixedItem(bay: TowerBay, kind: TowerStorageItem["kind"]): TowerStorageItem {
+  const elevationIn = bay.fixedBottomIn + 1;
+  return kind === "drawer" ? { kind, elevationIn, drawerSize: "small", frontStyle: "slab" }
+    : kind === "shoe" ? { kind, elevationIn, fenceFinish: "Chrome" }
+      : kind === "rod" ? { kind, elevationIn, rodFinish: "Chrome" }
+        : { kind, elevationIn };
+}
+
+function nextMixedItemElevation(bay: TowerBay, item: TowerStorageItem): number | null {
+  const occupied = [...positionedItems(bay), { kind: "shelf" as const, elevationIn: bay.fixedBottomIn }, { kind: "shelf" as const, elevationIn: bay.fixedTopIn }];
+  const size = mixedItemVisualHeight(item);
+  for (let elevation = bay.fixedBottomIn + CORNER_SHELF_THICKNESS_IN; elevation + size <= bay.fixedTopIn; elevation += 0.25) {
+    if (occupied.every((entry) => elevation >= entry.elevationIn + mixedItemVisualHeight(entry) - 0.001 || elevation + size <= entry.elevationIn + 0.001)) return elevation;
+  }
+  return null;
+}
 
 function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
   const total = towerTotalWidth(config);
@@ -57,6 +88,7 @@ function TowerDiagram({ config }: { config: MasterTracTowerConfig }) {
             })}
             {bay.storage?.kind === "shoe" && Array.from({ length: bay.storage.count }, (_, shoeIndex) => <div key={`shoe-${shoeIndex}`} className="absolute inset-x-1 border-b-[3px] border-stone-600" style={{ bottom: `${(bay.fixedTopIn - 10 - shoeIndex * 12) / config.heightIn * 100}%`, transform: "rotate(-8deg)" }} aria-hidden="true" />)}
             {bay.storage?.kind === "rod" && bay.storage.heightsIn.map((height, rodIndex) => <div key={`rod-${rodIndex}`} className="absolute inset-x-0 border-b-[4px] border-[#84817d]" style={{ bottom: `${height / config.heightIn * 100}%` }} aria-label={`Hanging rod at ${height} inches · illustrated diameter`} />)}
+            {bay.storageItems?.map((item, itemIndex) => <div key={`mixed-${itemIndex}`} data-testid={`tower-diagram-${item.kind}`} title={`${item.kind} at ${item.elevationIn}″ · illustrative`} className={`absolute inset-x-1 border ${item.kind === "rod" ? "border-[#84817d]" : item.kind === "shoe" ? "border-stone-600 bg-[#b8a58b]" : item.kind === "drawer" ? "border-stone-600 bg-[#b49b79]" : "border-stone-600"}`} style={{ bottom: `${item.elevationIn / config.heightIn * 100}%`, height: item.kind === "drawer" ? `${(item.drawerSize === "small" ? 5 : 10) / config.heightIn * 100}%` : "3px" }} aria-label={`${item.kind} at ${item.elevationIn} inches`} />)}
           </div>
         )).flatMap((element, index) => [element, <div key={`upright-${index}`} className="relative h-full shrink-0 border-x" style={{ ...board, width: `${Math.max(0.75, PANEL_PCT(total))}%` }} aria-hidden="true" />])}
         {config.corner === "end" && cornerFace}
@@ -86,12 +118,21 @@ export function MasterTracTowerPlanner({
   const [commitError, setCommitError] = useState<string | null>(null);
   const cornerShelfListRef = useRef<HTMLDivElement>(null);
   const scrollAfterCornerAddRef = useRef(false);
+  const mixedItemListsRef = useRef<Record<number, HTMLDivElement | null>>({});
+  const scrollAfterMixedAddRef = useRef<number | null>(null);
   useEffect(() => {
     if (!scrollAfterCornerAddRef.current) return;
     scrollAfterCornerAddRef.current = false;
     const list = cornerShelfListRef.current;
     if (list) list.scrollTop = list.scrollHeight;
   }, [config.cornerAdjustableHeightsIn?.length]);
+  useEffect(() => {
+    const index = scrollAfterMixedAddRef.current;
+    if (index == null) return;
+    scrollAfterMixedAddRef.current = null;
+    const list = mixedItemListsRef.current[index];
+    if (list) list.scrollTop = list.scrollHeight;
+  }, [config.bays]);
   const available = useMemo(() => placed.filter((board) => board.masterTracTowerId !== editGroupId || !editGroupId), [placed, editGroupId]);
   const run = cabinetWallRunSegment(wall, room);
   const effectiveStartIn = config.corner === "start" ? run.start : config.corner === "end"
@@ -100,6 +141,15 @@ export function MasterTracTowerPlanner({
   const updateBay = (index: number, patch: Partial<TowerBay>) => setConfig((prev) => ({
     ...prev, bays: prev.bays.map((bay, bayIndex) => bayIndex === index ? { ...bay, ...patch } : bay),
   }));
+  const addMixedItem = (index: number, kind: TowerStorageItem["kind"]) => setConfig((prev) => ({ ...prev, bays: prev.bays.map((bay, i) => {
+    if (i !== index) return bay;
+    const existing = positionedItems(bay);
+    const item = defaultMixedItem(bay, kind);
+    const elevation = nextMixedItemElevation(bay, item);
+    if (elevation == null) return bay;
+    item.elevationIn = elevation;
+    return { ...bay, storage: undefined, adjustableHeightsIn: [], storageItems: [...existing, item] };
+  }) }));
   const setHeight = (heightIn: 87 | 94) => setConfig((prev) => ({
     ...prev, heightIn, cornerElevationIn: prev.cornerShelfType === "adjustable" ? prev.cornerElevationIn : undefined, bays: prev.bays.map((bay) => ({
       ...bay, fixedTopIn: heightIn - 0.75,
@@ -223,11 +273,25 @@ export function MasterTracTowerPlanner({
                   <div><Label htmlFor={`tower-top-${index}`} className="text-[11px]">Fixed top</Label><Input id={`tower-top-${index}`} aria-label={`Bay ${index + 1} fixed top elevation`} type="number" step="0.25" className="h-8 text-xs" value={bay.fixedTopIn} onChange={(event) => updateBay(index, { fixedTopIn: Number(event.target.value) })} /></div>
                 </div>
                 <div className="mt-2 rounded-md border border-stone-200 bg-stone-50 p-2" data-testid={`tower-cut-to-fit-${index + 1}`}>
-                  <button type="button" aria-label={`Bay ${index + 1} cut stock shelf to fit`} aria-pressed={bay.stockWidthIn != null} disabled={Boolean(bay.storage)} className="text-[11px] font-semibold text-[#192432] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-stone-400" onClick={() => updateBay(index, bay.stockWidthIn != null ? { widthIn: bay.stockWidthIn, stockWidthIn: undefined } : { stockWidthIn: bay.widthIn })}>{bay.stockWidthIn != null ? "Use full stock width" : "Cut stock shelf to fit"}</button>
+                  <button type="button" aria-label={`Bay ${index + 1} cut stock shelf to fit`} aria-pressed={bay.stockWidthIn != null} disabled={Boolean(bay.storage) || Boolean(bay.storageItems?.some((item) => item.kind !== "shelf"))} className="text-[11px] font-semibold text-[#192432] underline underline-offset-2 disabled:cursor-not-allowed disabled:text-stone-400" onClick={() => updateBay(index, bay.stockWidthIn != null ? { widthIn: bay.stockWidthIn, stockWidthIn: undefined } : { stockWidthIn: bay.widthIn })}>{bay.stockWidthIn != null ? "Use full stock width" : "Cut stock shelf to fit"}</button>
                   {bay.stockWidthIn != null && <div className="mt-2 flex flex-wrap items-center gap-2"><Label htmlFor={`tower-cut-width-${index}`} className="text-[11px]">Installed clear width</Label><Input id={`tower-cut-width-${index}`} aria-label={`Bay ${index + 1} installed cut width in inches`} type="number" min={12} max={bay.stockWidthIn} step={0.125} value={bay.widthIn} onChange={(event) => updateBay(index, { widthIn: Number(event.target.value) })} className="h-8 w-24 bg-white text-xs" /><span className="text-[11px] text-stone-600">inches · offcut {Number.isFinite(bay.widthIn) ? Math.max(0, Math.round((bay.stockWidthIn - bay.widthIn) * 1000) / 1000) : "—"}″ per shelf</span></div>}
                   {bay.stockWidthIn != null && <p className="mt-1 text-[10px] text-amber-900">Purchased stock SKU and full 2022 List price remain. Measure the clear opening on site. Adjustable shelves need the manufacturer template at the cut edge; fixed shelves need connector reboring. This preview is not a cutting or drilling guide.</p>}
                 </div>
                 <div className="mt-3 rounded-md border border-amber-200 bg-amber-50/50 p-2" data-testid={`tower-storage-${index + 1}`}>
+                  <div data-testid={`tower-mixed-storage-${index + 1}`} className="mb-3 rounded border border-amber-300 bg-white p-2">
+                    <p className="text-[11px] font-semibold">Mix positioned contents · any quantity and order</p>
+                    <div className="mt-2 grid grid-cols-2 gap-2">{(["drawer", "shoe", "rod", "shelf"] as const).map((kind) => <Button key={kind} type="button" variant="outline" className="h-11 px-2 text-xs" disabled={(bay.stockWidthIn != null && kind !== "shelf") || nextMixedItemElevation(bay, defaultMixedItem(bay, kind)) == null} title={nextMixedItemElevation(bay, defaultMixedItem(bay, kind)) == null ? "No remaining vertical slot; move or remove an item" : undefined} onClick={() => { scrollAfterMixedAddRef.current = index; addMixedItem(index, kind); }}>+ Add {kind === "drawer" ? "Drawer" : kind === "shoe" ? "Shoe" : kind === "rod" ? "Rod" : "Shelf"}</Button>)}</div>
+                    <div ref={(element) => { mixedItemListsRef.current[index] = element; }} data-testid={`tower-mixed-items-${index + 1}`} className="max-h-[min(40dvh,19rem)] overflow-y-auto overscroll-contain pr-1">
+                    {bay.storageItems?.map((item, itemIndex) => <div key={itemIndex} data-testid="tower-mixed-item-row" className="mt-2 rounded border border-stone-200 p-2">
+                      <div className="flex items-center justify-between"><span className="text-xs font-semibold capitalize">{item.kind} {itemIndex + 1}</span><Button type="button" variant="ghost" className="h-11 w-11 p-0" aria-label={`Remove bay ${index + 1} ${item.kind} ${itemIndex + 1}`} onClick={() => updateBay(index, { storageItems: bay.storageItems!.filter((_, i) => i !== itemIndex) })}><Trash2 className="h-4 w-4" /></Button></div>
+                      <div className="grid grid-cols-2 gap-2"><label className="text-[11px]">Bottom elevation (in)<Input type="number" inputMode="decimal" step="0.25" value={Number.isFinite(item.elevationIn) ? item.elevationIn : ""} aria-label={`Bay ${index + 1} ${item.kind} ${itemIndex + 1} elevation`} className="h-11 text-base" onChange={(event) => updateBay(index, { storageItems: bay.storageItems!.map((old, i) => i === itemIndex ? { ...old, elevationIn: event.target.valueAsNumber } : old) })} /></label>
+                      {item.kind === "drawer" ? <div className="space-y-1"><Select value={item.drawerSize} onValueChange={(drawerSize) => updateBay(index, { storageItems: bay.storageItems!.map((old, i) => i === itemIndex && old.kind === "drawer" ? { ...old, drawerSize: drawerSize as "small" | "large", frontStyle: drawerSize === "small" ? "slab" : old.frontStyle } : old) })}><SelectTrigger aria-label={`Bay ${index + 1} drawer ${itemIndex + 1} size`} className="h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="small">5″ small</SelectItem><SelectItem value="large">10″ large</SelectItem></SelectContent></Select>{item.drawerSize === "large" && <Select value={item.frontStyle} onValueChange={(frontStyle) => updateBay(index, { storageItems: bay.storageItems!.map((old, i) => i === itemIndex && old.kind === "drawer" ? { ...old, frontStyle: frontStyle as "slab" | "shaker" } : old) })}><SelectTrigger aria-label={`Bay ${index + 1} drawer ${itemIndex + 1} front`} className="h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="slab">Slab</SelectItem><SelectItem value="shaker">Shaker</SelectItem></SelectContent></Select>}</div>
+                        : item.kind === "shoe" || item.kind === "rod" ? <Select value={item.kind === "rod" ? item.rodFinish : item.fenceFinish} onValueChange={(finish) => updateBay(index, { storageItems: bay.storageItems!.map((old, i) => i === itemIndex ? old.kind === "rod" ? { ...old, rodFinish: finish as "Chrome" | "Matt Nickel" } : old.kind === "shoe" ? { ...old, fenceFinish: finish as "Chrome" | "Matt Nickel" } : old : old) })}><SelectTrigger aria-label={`Bay ${index + 1} ${item.kind} ${itemIndex + 1} finish`} className="h-11"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="Chrome">Chrome</SelectItem><SelectItem value="Matt Nickel">Matt Nickel</SelectItem></SelectContent></Select> : null}</div>
+                    </div>)}
+                    </div>
+                    <p className="mt-1 text-[10px] text-stone-600">Vertical fit checks sourced face heights and ¾″ boards. Shoe tilt, slides, rod diameter and installation clearances are not certified; verify with installer.</p>
+                  </div>
+                  {!bay.storageItems && <>
                   <Label className="text-[11px] font-semibold">2. What goes in this bay?</Label>
                   <Select value={bay.storage?.kind ?? "shelves"} onValueChange={(value) => updateBay(index, {
                     storage: value === "drawers" ? { kind: "drawers", count: 1, drawerSize: "small", frontStyle: "slab" }
@@ -250,10 +314,11 @@ export function MasterTracTowerPlanner({
                     <p className="text-[10px] text-stone-600">One 8′ stock rod per level, cut for the actual bay. Manufacturer manual calls for 2 cups per rod; billed in full 10-cup packs for the whole tower. Rod thickness/cup holes shown only schematically; verify installation height and load.</p>
                   </div>}
                   {bay.storage?.kind !== "rod" && <p className="mt-1 text-[10px] text-stone-600">18/24/30″ shallow bays only for drawers/shoes. Drawer envelope, tilt angle and hardware clearances are illustrative.</p>}
+                  </>}
                 </div>
-                {!bay.storage && <div className="mt-2 flex flex-wrap items-center gap-1.5"><span className="mr-1 text-[11px] text-stone-600">3. Adjustable shelves · bottom height</span>{bay.adjustableHeightsIn.map((height, shelfIndex) => (
+                {!bay.storage && !bay.storageItems && <div className="mt-2 flex flex-wrap items-center gap-1.5"><span className="mr-1 text-[11px] text-stone-600">3. Adjustable shelves · bottom height</span>{bay.adjustableHeightsIn.map((height, shelfIndex) => (
                   <span key={shelfIndex} className="inline-flex items-center rounded border border-stone-200 bg-stone-50"><Input aria-label={`Bay ${index + 1} adjustable shelf ${shelfIndex + 1} elevation`} type="number" step="0.25" value={height} onChange={(event) => updateBay(index, { adjustableHeightsIn: bay.adjustableHeightsIn.map((old, i) => i === shelfIndex ? Number(event.target.value) : old) })} className="h-7 w-16 border-0 bg-transparent px-1 text-center text-xs" /><span className="text-[10px]">″</span><button aria-label={`Remove shelf ${shelfIndex + 1} from bay ${index + 1}`} type="button" onClick={() => updateBay(index, { adjustableHeightsIn: bay.adjustableHeightsIn.filter((_, i) => i !== shelfIndex) })} className="px-1.5 text-stone-500 hover:text-red-700">×</button></span>
-                ))}<button type="button" disabled={bay.adjustableHeightsIn.length >= 5} onClick={() => updateBay(index, { adjustableHeightsIn: [...bay.adjustableHeightsIn, bay.adjustableHeightsIn.length ? Math.min(config.heightIn - 1.5, Math.max(...bay.adjustableHeightsIn) + 12) : 42] })} className="rounded border border-dashed border-stone-400 px-2 py-1 text-[10px] font-medium text-stone-700 hover:bg-stone-100 disabled:opacity-40">+ Shelf</button></div>}
+                ))}<button type="button" onClick={() => addMixedItem(index, "shelf")} className="h-11 rounded border border-dashed border-stone-400 px-2 text-xs font-medium text-stone-700 hover:bg-stone-100">+ Shelf</button></div>}
               </div>
             ))}
           </div>
@@ -269,7 +334,7 @@ export function MasterTracTowerPlanner({
               {cutLines.size > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-cut-skus"><p className="text-[11px] font-semibold text-amber-900">Stock shelf SKUs · field cuts</p>{Array.from(cutLines.values()).map((line) => <p key={`${line.bay}-${line.sku}`} className="text-[11px] text-stone-700">Bay {line.bay} · {line.quantity}× SKU {line.sku} · {line.stock}″ stock → {line.installed}″ installed · {line.offcut}″ offcut each · {money(line.price)} List each</p>)}</div>}
               {preview.ok && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-required-cleats"><p className="text-[11px] font-semibold text-amber-900">Required wall cleats · one between each pair of uprights</p>{towerCleatReferenceItems(preview.plan.boards).map((item, i) => <p key={`${item.sku}-${i}`} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>1× SKU {item.sku} · {item.stockIn}″ stock{item.installedIn < item.stockIn ? ` → ${item.installedIn}″ installed; rebore per manual` : ""}</span><span>{money(item.listEachUsd)}</span></p>)}</div>}
               {preview.ok && towerRodHardwareTakeoff(preview.plan.boards).length > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-rod-hardware"><p className="text-[11px] font-semibold text-amber-900">Hanging poles · hardware computed from the design</p>{towerRodHardwareTakeoff(preview.plan.boards).map((item) => <div key={item.finish} className="space-y-0.5 text-[11px] text-stone-700"><p>{item.rodCount}× SKU {item.rodSku} · 8′ {item.finish} rod stock · {money(item.rodCount * item.rodListEachUsd)} List</p><p>{item.cupCount} cups needed · {item.cupPacks}× SKU {item.cupSku} · pack of {item.cupPackSize} · {money(item.cupPacks * item.cupListPackUsd)} List</p></div>)}</div>}
-              {preview.ok && preview.plan.conceptualItems.some((item) => item.sku !== cornerParts?.joint?.sku && !/\bCleat\b|\bRod\b/i.test(item.description)) && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-concept-skus"><p className="text-[11px] font-semibold text-amber-900">Illustrated storage · verified SKU references</p>{preview.plan.conceptualItems.filter((item) => item.sku !== cornerParts?.joint?.sku && !/\bCleat\b|\bRod\b/i.test(item.description)).map((item, i) => <p key={`${item.sku}-${i}`} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>{item.quantity}× {item.sku} · {item.description}</span><span>{money(item.quantity * item.listEachUsd)}</span></p>)}</div>}
+              {preview.ok && towerConceptStorageReferenceItems(preview.plan.boards).length > 0 && <div className="mt-2 space-y-1 border-t border-stone-200 pt-2" data-testid="tower-concept-skus"><p className="text-[11px] font-semibold text-amber-900">Illustrated storage · verified SKU references</p>{towerConceptStorageReferenceItems(preview.plan.boards).map((item) => <p key={item.sku} className="flex justify-between gap-2 text-[11px] text-stone-700"><span>{item.quantity}× {item.sku} · {item.description}</span><span>{money(item.quantity * item.listEachUsd)}</span></p>)}</div>}
               <div className="mt-2 flex justify-between border-t border-stone-200 pt-2 text-sm font-bold"><span>MasterTrac materials</span><span>{preview.ok ? money(preview.plan.listSubtotal) : "—"}</span></div><p className="mt-1 text-[11px] text-stone-600">March 1, 2022 List reference only. Cleats are sourced; screws/anchors vary by wall substrate and are not estimated. Concept geometry is not an installation guide. Not added to checkout.</p></div>
             {!preview.ok && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800" data-testid="tower-validation-error">{preview.reason}</p>}
             {commitError && <p role="alert" className="rounded-md border border-red-200 bg-red-50 p-2 text-xs text-red-800">{commitError}</p>}

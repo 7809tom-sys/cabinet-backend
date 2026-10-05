@@ -175,7 +175,9 @@ describe("MasterTrac connected tower planning", () => {
     expect(result.plan.conceptualItems.find((item) => item.sku === "433225")?.quantity).toBe(1);
     expect(towerConceptReferenceSubtotal(result.plan.boards)).toBe(18 + 3 * 29 + 30.5);
     expect(towerConfigFromPlacements(JSON.parse(JSON.stringify(result.plan.boards)), "tower-preview")?.config.bays.map((bay) => bay.storage)).toEqual(rods.bays.map((bay) => bay.storage));
-    expect(planMasterTracTower({ ...rods, bays: [{ ...rods.bays[0], storage: { kind: "rod" as const, count: 2, rodFinish: "Chrome" as const, heightsIn: [40, 44] } }, rods.bays[1]] }, room, "top", 0, []).ok).toBe(false);
+    // The source does not specify a twenty-inch between-rod installation clearance.
+    // User-entered elevations remain a visual reference, not a certified hanging fit.
+    expect(planMasterTracTower({ ...rods, bays: [{ ...rods.bays[0], storage: { kind: "rod" as const, count: 2, rodFinish: "Chrome" as const, heightsIn: [40, 44] } }, rods.bays[1]] }, room, "top", 0, []).ok).toBe(true);
     const six = planMasterTracTower({ ...rods, bays: Array.from({ length: 3 }, () => ({ ...rods.bays[0] })) }, room, "top", 0, []);
     expect(six.ok).toBe(true);
     if (six.ok) expect(towerRodHardwareTakeoff(six.plan.boards)[0]).toMatchObject({ rodCount: 6, cupCount: 12, cupPacks: 2 });

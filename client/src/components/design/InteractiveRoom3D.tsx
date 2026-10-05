@@ -3309,6 +3309,52 @@ export function wallEndOpenShelfBoardGeometry(
  * Their 2022 SKU references and actual List prices live on the bay anchor;
  * this group's visual dimensions are deliberately never presented as specs. */
 export function addMasterTracConceptStorage(root: THREE.Group, anchor: PlacedCabinet, room: RoomData, currentFixedTopIn?: number) {
+  if (anchor.masterTracTowerRole === "fixed-bottom" && anchor.masterTracStorageItems) {
+    for (const item of anchor.masterTracStorageItems) {
+      if (item.kind === "shelf") continue; // Actual adjustable board rendered independently.
+      if (item.kind === "rod") {
+        const transform = existingCabinetTransform(anchor, room);
+        const group = new THREE.Group();
+        group.position.set(transform.x * INCH, 0, transform.z * INCH);
+        group.rotation.y = transform.rotation;
+        const material = new THREE.MeshStandardMaterial({ color: item.rodFinish === "Chrome" ? 0xa7a8aa : 0x747574, metalness: 0.7, roughness: 0.3 });
+        const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.42 * INCH, 0.42 * INCH, anchor.width * INCH, 12), material);
+        bar.rotation.z = Math.PI / 2;
+        bar.position.set(0, item.elevationIn * INCH, 0);
+        bar.userData = { masterTracRodIllustration: true, notInstallationGeometry: true };
+        group.add(bar);
+        for (const end of [-1, 1]) {
+          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.55 * INCH, 0.55 * INCH, 0.12 * INCH, 12), material);
+          cup.rotation.z = Math.PI / 2;
+          cup.position.set(end * anchor.width / 2 * INCH, item.elevationIn * INCH, 0);
+          cup.userData = { masterTracCupIllustration: true, notInstallationGeometry: true };
+          group.add(cup);
+        }
+        root.add(group);
+      } else if (item.kind === "shoe") {
+        const transform = existingCabinetTransform(anchor, room);
+        const group = new THREE.Group();
+        group.position.set(transform.x * INCH, 0, transform.z * INCH);
+        group.rotation.y = transform.rotation;
+        const board = new THREE.Mesh(new THREE.BoxGeometry((anchor.width - 0.4) * INCH, 0.75 * INCH, (anchor.depth - 0.6) * INCH),
+          new THREE.MeshStandardMaterial({ color: masterTracFinishColor(masterTracProduct(anchor.masterCode)?.finish ?? "Glacier White") }));
+        board.position.y = (item.elevationIn + 0.375) * INCH;
+        board.userData = { masterTracConceptComponent: "shoe-board-illustration", notInstallationGeometry: true };
+        group.add(board);
+        const fence = new THREE.Mesh(new THREE.BoxGeometry((anchor.width - 0.5) * INCH, 0.15 * INCH, 0.15 * INCH),
+          new THREE.MeshStandardMaterial({ color: item.fenceFinish === "Chrome" ? "#95938e" : "#74736f", metalness: 0.58 }));
+        fence.position.set(0, item.elevationIn * INCH, anchor.depth * 0.45 * INCH);
+        fence.userData = { masterTracConceptComponent: "shoe-fence-illustration", notInstallationGeometry: true };
+        group.add(fence);
+        root.add(group);
+      } else {
+        const storage = { kind: "drawers" as const, count: 1, drawerSize: item.drawerSize, frontStyle: item.frontStyle, skuReferences: [] };
+        addMasterTracConceptStorage(root, { ...anchor, masterTracStorageItems: undefined, masterTracConceptStorage: storage,
+          mountBottom: item.elevationIn - 1.25 }, room, currentFixedTopIn);
+      }
+    }
+    return;
+  }
   const storage = anchor.masterTracConceptStorage;
   if (!storage || anchor.masterTracTowerRole !== "fixed-bottom") return;
   const transform = existingCabinetTransform(anchor, room);
@@ -9377,7 +9423,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          suppressFarmhouseSinkPlaceholder: hasExactFarmhouseFixture,
 		          hardwareStyleId,
 		        });
-		        if (cabinet.masterTracConceptStorage) {
+		        if (cabinet.masterTracConceptStorage || cabinet.masterTracStorageItems) {
 		          const fixedTopIn = placed.find((board) => board.masterTracTowerId === cabinet.masterTracTowerId
 		            && board.masterTracTowerBayIndex === cabinet.masterTracTowerBayIndex && board.masterTracTowerRole === "fixed-top")?.mountBottom;
 		          addMasterTracConceptStorage(catalogRoot, cabinet, room, fixedTopIn ?? undefined);
