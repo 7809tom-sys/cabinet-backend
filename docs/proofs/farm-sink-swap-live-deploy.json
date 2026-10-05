@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791205472,
+  "indexBundles": [
+    "index-t2elrDPo.js"
+  ],
+  "designerBundles": [
+    "DesignTool-DgHiHZdd.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-UCs4zwPd.js"
+  ],
+  "marker": "swap-farm-sink-base",
+  "markerFound": true
+}
