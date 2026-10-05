@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791166090,
+  "indexBundles": [
+    "index-D-mmQGq3.js"
+  ],
+  "designerBundles": [
+    "DesignTool-DNYhcsmH.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-qJZJpoyL.js"
+  ],
+  "marker": "no real catalog panel SKUs are placed",
+  "markerFound": true
+}
