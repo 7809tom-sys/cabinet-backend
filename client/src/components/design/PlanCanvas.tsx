@@ -20,7 +20,7 @@ import {
 	} from "@/lib/design";
 import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, PanelTop, Plus, RotateCw, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { cabinetDrawingType } from "@/lib/cabinetGraphics";
+import { cabinetDrawingType, isSquareDoubleDoorBaseEnd } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects } from "@/lib/islandScene";
@@ -217,7 +217,9 @@ export function planCornerGeometry(cabinet: PlacedCabinet) {
   const drawingType = cabinetDrawingType({ ...cabinet, graphicType: cabinet.customProfile ?? null });
   const isEndAngle = drawingType === "end-angle";
   const isEndReturn = drawingType === "end-return";
-  const isEndCabinet = isEndAngle || isEndReturn;
+  // Older BEC24 placements can retain triangle/angled Config flags. The exact
+  // square end-of-run identity must not acquire a corner clip or 45° marker.
+  const isEndCabinet = isEndAngle || isEndReturn || isSquareDoubleDoorBaseEnd(cabinet);
   const configuredCorner = isEndCabinet ? null : cabinet.cornerType ?? null;
   const sharedKind = placedCornerGeometryKind(cabinet);
   const isCorner = !isEndCabinet && (configuredCorner !== null || isCornerCabinet(cabinet.masterCode, cabinet.description));

@@ -152,6 +152,13 @@ const WORD_NUM: Record<string, number> = {
   four: 4, five: 5, six: 6,
 };
 
+/** Exact BEC24 family only; neither BA nor AW shares this square end profile. */
+export function isSquareDoubleDoorBaseEnd(cab: Pick<CabinetLike, "masterCode">): boolean {
+  return String(cab.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "") === "BEC24";
+}
+
+export const BEC24_DISPLAY_NAME = "Square Double-Door Base End Cabinet";
+
 /**
  * Resolve how many door panels and drawer fronts a cabinet should DRAW so that
  * the picture always agrees with the visible label. The catalog's numeric
@@ -172,6 +179,10 @@ export function resolveDoorDrawerCounts(cab: CabinetLike): {
   const sub = lc(cab.subCategory);
   const code = lc(cab.masterCode);
   const w = toNum(cab.width);
+
+  // The owner-approved BEC24 is a 24×24 square END cabinet with two coplanar
+  // doors and no drawer. Ignore stale angled/one-door Config face metadata.
+  if (isSquareDoubleDoorBaseEnd(cab)) return { doors: 2, drawers: 0 };
 
   // Code owns the drawer contract for roll-out-shelf base families. A full-height
   // B##FH#RS cabinet has no utility drawer; a regular B###RS base keeps its one
@@ -322,6 +333,10 @@ export function cabinetDrawingType(cab: CabinetLike): CabinetDrawingType {
   if (/^rhf[-_]?\d+$/.test(code) || /range\s*hood\s*front/.test(hay)) {
     return "range-hood-front";
   }
+
+  // BEC24 is a square end-of-run box, never a diagonal corner or an angled
+  // end. The exact code must beat older graphicType/description overrides.
+  if (isSquareDoubleDoorBaseEnd(cab)) return "standard-door";
 
   // Cabinet Config's explicitly authored graphic type takes precedence over
   // inconsistent supplier category or corner fields on saved placements.
@@ -552,6 +567,10 @@ export function baseSubGroup(cab: CabinetLike): BaseSubGroup {
   const hay = `${sub} ${desc} ${code}`;
   const type = cabinetDrawingType(cab);
 
+  // The BEC24 shape draws a rectangular body, but its role is a dedicated
+  // two-door run END—not an interchangeable ordinary base cabinet.
+  if (isSquareDoubleDoorBaseEnd(cab)) return "specialty";
+
   // 1) Sink fronts/bases first — a sink base often also has drawers/doors, so it
   //    must be classified before the drawer/standard checks.
   if (
@@ -635,6 +654,8 @@ export function cabinetTypeLabel(cab: CabinetLike): string {
   const type = cabinetDrawingType(cab);
   const { doors, drawers } = resolveDoorDrawerCounts(cab);
 
+  if (isSquareDoubleDoorBaseEnd(cab)) return BEC24_DISPLAY_NAME;
+
   const placement =
     cat === "wall" ? "Wall" :
     cat === "tall" ? "Tall" :
@@ -709,6 +730,9 @@ export function cabinetImageSlug(cab: CabinetLike): string {
  */
 export function cabinetAltText(cab: CabinetLike): string {
   const code = cab.masterCode ?? "";
+  if (isSquareDoubleDoorBaseEnd(cab)) {
+    return `${BEC24_DISPLAY_NAME} (${code}) — 24 by 24 inch square end-of-run box with two doors on one flat front`;
+  }
   const w = toNum(cab.width);
   const type = cabinetDrawingType(cab);
   const nomenclature = parseCatalogNomenclature(code);

@@ -17,7 +17,7 @@ import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITUR
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
-import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
+import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -2139,8 +2139,11 @@ export function threeDApplianceFrontVisualUrl(sku: Pick<SceneSku, "masterCode" |
 }
 
 /** A supplied Cabinet Config product visual is authoritative for a cabinet front. */
-export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "placementType" | "catalogImageUrl">): string | null {
+export function threeDCabinetFrontVisualUrl(sku: Pick<SceneSku, "masterCode" | "placementType" | "catalogImageUrl">): string | null {
   if ((sku.placementType ?? "").toLowerCase() === "appliance") return null;
+  // The existing BEC24 source image is a quarter-octagon front. It must not
+  // cover the two physical, coplanar doors of the owner-approved square end.
+  if (isSquareDoubleDoorBaseEnd(sku)) return null;
   return sku.catalogImageUrl?.trim() || null;
 }
 
@@ -3151,10 +3154,10 @@ export function resolvedThreeDFaceLayout(input: {
 export function resolvedThreeDSpecialtyProfile(sku: Pick<SceneSku, "graphicType" | "customProfile" | "facePattern" | "cornerType" | "cornerGeometryKind" | "masterCode" | "description">) {
   const graphic = `${sku.graphicType ?? ""} ${sku.customProfile ?? ""}`.toLowerCase();
   const normalizedCode = (sku.masterCode ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase();
-  // Capital's BEC24 source specification is a 30 × 34½ × 24 base end cabinet
-  // with a single 45-degree exposed end and one door. Its former 24-inch,
-  // two-face return profile was an imported error, so never let stale Config
-  // metadata turn this exact code back into the retired diamond/end-return mesh.
+  // BEC24's active master is a 24 × 34½ × 24 two-door base end cabinet.
+  // The owner-approved visible body is a square end-of-run box with two doors
+  // on one flat front. Do not borrow a diagonal or two-face corner mesh from
+  // stale graphicType, customProfile, or legacy supplier descriptions.
   if (normalizedCode === "BEC24") return { kind: "standard" as const, pattern: null };
   if (cabinetDrawingType({
     masterCode: sku.masterCode,
@@ -4425,7 +4428,10 @@ export function addCabinet(
     }
   };
   const singleDoorHinge: "left" | "right" = sku.swing === "right" ? "right" : "left";
-  const isOvenCabinet = !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
+  // BEC24's source description says "Quarter-Octagon". The generic OC oven
+  // code matcher otherwise sees the "-Oc" substring and draws an oven door
+  // over this square, two-door end cabinet. Keep all actual oven paths intact.
+  const isOvenCabinet = !isSquareDoubleDoorBaseEnd(sku) && !isPlacedAppliance && Boolean(sku.ovenType || /(?:^|[-_])(UOC|OC|OVEN)|oven cabinet/i.test(sku.masterCode + " " + (sku.description ?? "")));
   if (specialty.kind === "range-hood-front") {
     const hoodFront = rangeHoodFrontGeometry(widthIn, heightIn, depthIn);
     frontGroup.userData = {

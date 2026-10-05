@@ -6956,32 +6956,49 @@ describe("interactive 3D room scene helpers", () => {
     expect(becDoors.every((door) => door.userData.doorWidthIn === 8.45 && door.userData.referenceFaceSideIn === 24 && door.userData.attachedEndFront)).toBe(true);
   });
 
-  it("keeps BEC24 as its 30-inch one-door base body instead of resurrecting the retired two-face return mesh", () => {
+  it("renders BEC24 as a 24-inch square end cabinet with two doors on one flat front", () => {
     const sku = {
       distributorSkuId: -24,
       cabinetId: 9390014,
-      masterCode: "BEC-24",
-      description: '30" × 34.5" × 24" Base End Cabinet — 45° Angled End, 1 Door',
+      masterCode: "BEC24",
+      description: '24" Base End Cabinet — Quarter-Octagon Shape, 2 Doors',
       placementType: "base",
-      width: 30,
+      width: 24,
       height: 34.5,
       depth: 24,
-      numberOfDoors: 1,
+      numberOfDoors: 2,
       numberOfDrawers: 0,
-      customProfile: "base_end_return",
+      customProfile: "base-end-quarter-octagon",
     } as never;
     expect(resolvedThreeDSpecialtyProfile(sku)).toEqual({ kind: "standard", pattern: null });
 
     const root = new THREE.Group();
     addCabinet(root, sku, null, {}, 144, 120, "#8a9ba8", "#f8f8f6");
     const retiredFaces: THREE.Object3D[] = [];
-    const standardDoors: THREE.Object3D[] = [];
+    const standardDoors: THREE.Mesh[] = [];
+    const bodies: THREE.Mesh[] = [];
     root.traverse((node) => {
       if (node.userData.nonCornerEndReturnDoor) retiredFaces.push(node);
-      if (node.userData.cabinetFront && !node.userData.cabinetDrawerFront) standardDoors.push(node);
+      if (node instanceof THREE.Mesh && node.userData.cabinetFront && !node.userData.cabinetDrawerFront) standardDoors.push(node);
+      if (node instanceof THREE.Mesh && node.userData.selectedStyleSideSkin && !node.userData.baseToeKick) bodies.push(node);
     });
     expect(retiredFaces).toHaveLength(0);
-    expect(standardDoors).toHaveLength(1);
+    expect(standardDoors).toHaveLength(2);
+    // "Quarter-Octagon" contains "-Oc". A broad OC oven-code match formerly
+    // rendered two oven-zone doors plus black oven glass instead of BEC fronts.
+    expect(standardDoors.every((door) => !door.userData.ovenCabinetDoor)).toBe(true);
+    const falseOvenParts: THREE.Object3D[] = [];
+    root.traverse((node) => { if (node.userData.ovenCabinetOpening || node.userData.ovenCabinetDoor) falseOvenParts.push(node); });
+    expect(falseOvenParts).toHaveLength(0);
+    expect(bodies).toHaveLength(1);
+    root.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(bodies[0]!);
+    expect(box.max.x - box.min.x).toBeCloseTo(24 / 12, 6);
+    expect(box.max.z - box.min.z).toBeCloseTo(24 / 12, 6);
+    const doorBoxes = standardDoors.map((door) => new THREE.Box3().setFromObject(door));
+    expect(doorBoxes[0]!.max.x).toBeLessThan(doorBoxes[1]!.min.x);
+    expect(doorBoxes[0]!.min.z).toBeCloseTo(doorBoxes[1]!.min.z, 6);
+    expect(doorBoxes[0]!.max.z).toBeCloseTo(doorBoxes[1]!.max.z, 6);
   });
 
   it("keeps standard configured doors and drawers fully outside their physical carcass face without overhanging its width", () => {
@@ -7995,9 +8012,10 @@ describe("interactive 3D room scene helpers", () => {
     // function guards this with: `!doorSampleUrl` in the condition.
     //
     // Test the helper contract:
-    const baseCabWithLineArt = { placementType: "base", catalogImageUrl: "/manus-storage/ls3612-line-art.png" };
-    const applianceWithImage = { placementType: "appliance", catalogImageUrl: "/manus-storage/range.webp" };
-    const baseCabNoImage = { placementType: "base", catalogImageUrl: null };
+    const baseCabWithLineArt = { masterCode: "B24", placementType: "base", catalogImageUrl: "/manus-storage/ls3612-line-art.png" };
+    const applianceWithImage = { masterCode: "RANGE30", placementType: "appliance", catalogImageUrl: "/manus-storage/range.webp" };
+    const baseCabNoImage = { masterCode: "B24", placementType: "base", catalogImageUrl: null };
+    const becWithWrongImage = { masterCode: "BEC24", placementType: "base", catalogImageUrl: "/manus-storage/bec-quarter-octagon.png" };
 
     // The helper resolves a URL for base cabinets with a catalogImageUrl
     expect(threeDCabinetFrontVisualUrl(baseCabWithLineArt)).toBe("/manus-storage/ls3612-line-art.png");
@@ -8005,6 +8023,8 @@ describe("interactive 3D room scene helpers", () => {
     expect(threeDCabinetFrontVisualUrl(applianceWithImage)).toBeNull();
     // And cabinets without a catalogImageUrl get null
     expect(threeDCabinetFrontVisualUrl(baseCabNoImage)).toBeNull();
+    // The wrong BEC24 quarter-octagon image must not cover its square two-door mesh.
+    expect(threeDCabinetFrontVisualUrl(becWithWrongImage)).toBeNull();
 
     // The door sample texture helpers confirm the door sample takes priority:
     expect(threeDUsesDoorSampleTexture("/manus-storage/natura-maple-door-sample.png")).toBe(true);

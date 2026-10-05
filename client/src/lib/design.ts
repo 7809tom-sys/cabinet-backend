@@ -2484,9 +2484,9 @@ export function placedFootprint(p: PlacedCabinet): { w: number; d: number } {
   // displace an adjoining cabinet run.
   if (p.integratedWallBlindFiller) return { w: 0, d: 0 };
   const cornerKind = placedCornerGeometryKind(p);
-  // BEC-24 is a square 24x24 end-return box with a distinct two-face graphic.
-  // Its footprint must remain stable through rotation, snapping, and collision
-  // handling without putting it on any L-corner or filler path.
+  // BEC24 is a 24×24 square end-of-run box with two doors on its one flat
+  // front. Preserve this plan envelope through rotation, snap and collision;
+  // it is neither a diagonal corner nor a folded two-face return.
   if (cornerKind === "base-end") {
     return { w: STD.BASE_DEPTH, d: STD.BASE_DEPTH };
   }

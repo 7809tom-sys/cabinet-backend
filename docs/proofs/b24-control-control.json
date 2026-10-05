@@ -1,0 +1,15 @@
+{
+  "url": "http://127.0.0.1:3000",
+  "catalogCard": "B24\n24\" 2 Door Single Drawer Base Cabinet with Adjustable Shelf Looks like: 2 doors and 1 drawer; door style and edge profile per selected line.\n24\"W \u00d7 34\u00bd\"H",
+  "placed": [
+    {
+      "masterCode": "B24",
+      "description": "24\" 2 Door Single Drawer Base Cabinet with Adjustable Shelf Looks like: 2 doors and 1 drawer; door style and edge profile per selected line.",
+      "width": 24,
+      "depth": 24,
+      "cornerType": null,
+      "customProfile": "base_2door_1drawer"
+    }
+  ],
+  "errors": []
+}

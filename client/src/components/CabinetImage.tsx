@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
-import { cabinetAltText, type CabinetLike } from "@/lib/cabinetGraphics";
+import { cabinetAltText, isSquareDoubleDoorBaseEnd, type CabinetLike } from "@/lib/cabinetGraphics";
 
 interface CabinetImageProps {
   cabinet: CabinetLike;
@@ -23,7 +23,12 @@ interface CabinetImageProps {
  * not replace approved product artwork.
  */
 export function CabinetImage({ cabinet, finishColor, className, overrideImageUrl }: CabinetImageProps) {
-  const url = overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
+  // BEC24's legacy thumbnail shows a diagonal/quarter-octagon that contradicts
+  // its owner-approved square double-door end shape. Only this code falls back
+  // to the shared deterministic drawing; other catalog art is untouched.
+  const url = isSquareDoubleDoorBaseEnd(cabinet)
+    ? null
+    : overrideImageUrl?.trim() || cabinet.catalogImageUrl?.trim() || null;
   const [failed, setFailed] = useState(false);
 
   // Reset the error state whenever a new master or approved image is selected.
