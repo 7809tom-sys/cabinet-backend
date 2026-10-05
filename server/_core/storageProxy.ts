@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Response } from "express";
 import { Readable } from "stream";
 import { ENV } from "./env";
 
@@ -13,8 +13,7 @@ export function imageMimeFromBytes(bytes: Uint8Array): string | null {
 }
 
 export function registerStorageProxy(app: Express) {
-  app.get("/manus-storage/*", async (req, res) => {
-    const key = (req.params as Record<string, string>)[0];
+  async function serveStorageKey(key: string | undefined, res: Response) {
     if (!key) {
       res.status(400).send("Missing storage key");
       return;
@@ -26,12 +25,8 @@ export function registerStorageProxy(app: Express) {
     }
 
     try {
-      const forgeUrl = new URL(
-        "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
-      );
+      const forgeUrl = new URL("v1/storage/presign/get", ENV.forgeApiUrl.replace(/\/+$/, "") + "/");
       forgeUrl.searchParams.set("path", key);
-
       const forgeResp = await fetch(forgeUrl, {
         headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
       });
@@ -48,7 +43,7 @@ export function registerStorageProxy(app: Express) {
         return;
       }
 
-      // Serve stable, cacheable bytes rather than an expiring CDN redirect.
+      // Stream original bytes from the signed source, never substitute another image.
       const imageResp = await fetch(url);
       if (!imageResp.ok) {
         res.status(502).send("Failed to fetch image from storage");
@@ -76,7 +71,6 @@ export function registerStorageProxy(app: Express) {
       }
       const prefix = Buffer.concat(prefixChunks, prefixLength);
       const upstreamType = imageResp.headers.get("content-type") || "application/octet-stream";
-      // Do not turn unrelated downloads into images; only correct actual image signatures.
       const contentType = upstreamType === "application/octet-stream"
         ? imageMimeFromBytes(prefix) ?? upstreamType
         : upstreamType;
@@ -99,5 +93,17 @@ export function registerStorageProxy(app: Express) {
       if (!res.headersSent) res.status(502).send("Storage proxy error");
       else res.destroy(err instanceof Error ? err : undefined);
     }
+  }
+
+  // Retain the local legacy path, but the public platform redirects /manus-storage
+  // to the CDN before Express can handle it. The distinct /api route reaches this app.
+  app.get("/manus-storage/*", (req, res) => serveStorageKey((req.params as Record<string, string>)[0], res));
+  app.get("/api/door-style-photo/:imageKey", (req, res) => {
+    const imageKey = req.params.imageKey;
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/.test(imageKey)) {
+      res.status(400).send("Invalid door style photo key");
+      return;
+    }
+    return serveStorageKey(`media-library/${imageKey}`, res);
   });
 }

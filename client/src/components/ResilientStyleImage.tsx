@@ -7,6 +7,12 @@ export function styleImageRetryUrl(src: string, nonce: string): string {
   return `${src}${src.includes("?") ? "&" : "?"}cd-image-retry-nonce=${encodeURIComponent(nonce)}`;
 }
 
+/** The public platform redirects /manus-storage to a generic-type CDN before Express. */
+export function doorStylePhotoUrl(src: string): string {
+  const match = /^\/manus-storage\/media-library\/([A-Za-z0-9][A-Za-z0-9_.-]*)$/.exec(src);
+  return match ? `/api/door-style-photo/${match[1]}` : src;
+}
+
 interface ResilientStyleImageProps {
   src: string | null | undefined;
   alt: string;
@@ -22,6 +28,7 @@ export function ResilientStyleImage({ src, alt, style, className, loading, decod
   const [failed, setFailed] = useState<{ src: string; attempts: number; nonce: string } | null>(null);
   const attempts = src && failed?.src === src ? failed.attempts : 0;
   const swatchStyle: DoorStyleLike = { ...style, thumbnailImageUrl: null, doorSampleImageUrl: null };
+  const photoSrc = src ? doorStylePhotoUrl(src) : "";
 
   if (!src || attempts >= 2) {
     return (
@@ -34,7 +41,7 @@ export function ResilientStyleImage({ src, alt, style, className, loading, decod
 
   return (
     <img
-      src={attempts === 1 ? styleImageRetryUrl(src, failed!.nonce) : src}
+      src={attempts === 1 ? styleImageRetryUrl(photoSrc, failed!.nonce) : photoSrc}
       alt={alt}
       loading={loading}
       decoding={decoding}

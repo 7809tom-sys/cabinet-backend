@@ -98,4 +98,28 @@ describe("storage proxy image delivery", () => {
       server.close();
     }
   });
+
+  it("serves the exact media-library photo through an app-owned API route with verified MIME", async () => {
+    const fetched: string[] = [];
+    global.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      fetched.push(url);
+      return url.includes("presign/get")
+        ? new Response(JSON.stringify({ url: "https://cdn.example.com/exact-scene" }), { headers: { "content-type": "application/json" } })
+        : new Response(jpeg as unknown as BodyInit, { headers: { "content-type": "application/octet-stream" } });
+    }) as unknown as typeof fetch;
+    const { server, baseUrl } = await startProxy();
+    try {
+      const resp = await realFetch(`${baseUrl}/api/door-style-photo/1785260582020_classic_cream_room_scene_18c5ad57?cd-image-retry-nonce=test`);
+      expect(resp.status).toBe(200);
+      expect(resp.headers.get("content-type")).toContain("image/jpeg");
+      expect(new Uint8Array(await resp.arrayBuffer())).toEqual(jpeg);
+      expect(new URL(fetched[0]).searchParams.get("path")).toBe("media-library/1785260582020_classic_cream_room_scene_18c5ad57");
+      const blocked = await realFetch(`${baseUrl}/api/door-style-photo/bad%2Fkey`);
+      expect(blocked.status).toBe(400);
+      expect(fetched).toHaveLength(2);
+    } finally {
+      server.close();
+    }
+  });
 });
