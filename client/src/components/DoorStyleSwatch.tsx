@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { doorPanelKind } from "@/lib/design";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -173,10 +173,11 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
   // Hooks must be called unconditionally (Rules of Hooks)
   const sw = useMemo(() => resolveSwatch(style), [style]);
   const kind = useMemo(() => doorPanelKind(style.doorStyle ?? style.ourName ?? style.aliasName ?? style.name), [style]);
+  const [failedPhotoUrl, setFailedPhotoUrl] = useState<string | null>(null);
 
   // If a real door photo is available, show it instead of the SVG illustration.
   const photoUrl = style.thumbnailImageUrl || style.doorSampleImageUrl;
-  if (photoUrl) {
+  if (photoUrl && failedPhotoUrl !== photoUrl) {
     return (
       <img
         src={photoUrl}
@@ -184,10 +185,7 @@ export function DoorStyleSwatch({ style, className }: DoorStyleSwatchProps) {
         className={className}
         style={{ objectFit: "cover", display: "block" }}
         loading="lazy"
-        onError={(e) => {
-          // If photo fails to load, hide the img so the parent can show a fallback
-          (e.currentTarget as HTMLImageElement).style.display = "none";
-        }}
+        onError={() => setFailedPhotoUrl(photoUrl)}
       />
     );
   }

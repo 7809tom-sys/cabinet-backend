@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useSeo } from "@/hooks/useSeo";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
+import { ResilientStyleImage } from "@/components/ResilientStyleImage";
 import {
   DOOR_COLOR_SPECTRUM_PAGE_SIZE,
   doorColorSpectrumGradient,
@@ -81,6 +82,7 @@ function displayName(style: DoorStyle): string {
 function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: string | null }) {
   const { t } = useLanguage();
   const [showDoor, setShowDoor] = useState(false);
+  const [sceneUnavailable, setSceneUnavailable] = useState(false);
   const isSpecificationReference = Boolean(
     style.specificationStatus && style.specificationStatus !== "purchasable",
   );
@@ -104,12 +106,15 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
           {/* Room scene as the primary visual — door sample available via toggle */}
           <div className="h-48 flex items-center justify-center border-b border-border overflow-hidden relative bg-gradient-to-b from-muted/40 to-muted/70">
             {heroSrc ? (
-              <img
+              <ResilientStyleImage
+                key={heroSrc}
                 src={heroSrc}
                 alt={showDoor ? `${style.ourName || style.styleCode} door sample` : `${style.ourName || style.styleCode} kitchen`}
+                style={style}
                 loading="lazy"
                 decoding="async"
                 className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                onFallback={!showDoor ? () => setSceneUnavailable(true) : undefined}
               />
             ) : (
               <DoorStyleSwatch
@@ -129,7 +134,7 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
               </button>
             )}
             <span className="absolute bottom-2 left-2 text-[10px] font-medium text-white bg-black/55 px-2 py-0.5 rounded-full">
-              {showDoor ? "Door sample" : "Room scene"}
+              {showDoor ? "Door sample" : sceneUnavailable ? "Door-color preview" : "Room scene"}
             </span>
           </div>
 
@@ -200,20 +205,23 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
 
         {/* Primary: room scene (full-width hero), then door sample thumbnail below */}
         {roomScene && (
-          <div className="rounded-lg overflow-hidden border border-border">
-            <img
+          <div className="min-h-48 rounded-lg overflow-hidden border border-border">
+            <ResilientStyleImage
               src={roomScene}
               alt={`${style.ourName || style.styleCode} kitchen`}
+              style={style}
               className="w-full h-auto block"
+              unavailableLabel="Kitchen image unavailable in this browser"
             />
           </div>
         )}
         {/* Door sample — shown as secondary if room scene is present, or primary if not */}
         <div className={`rounded-lg overflow-hidden border border-border bg-gradient-to-b from-muted/40 to-muted/70 ${roomScene ? "flex items-center gap-3 p-3" : ""}`}>
           {doorSample ? (
-            <img
+            <ResilientStyleImage
               src={doorSample}
               alt={`${style.ourName || style.styleCode} door sample`}
+              style={style}
               className={roomScene ? "h-24 w-auto rounded object-contain" : "w-full h-auto block"}
             />
           ) : (
@@ -677,7 +685,7 @@ export default function DoorStyles() {
                     </div>
                     <div className="order-1 aspect-[4/3] overflow-hidden rounded-lg border border-[#d4a75a]/40 bg-muted sm:order-2">
                       {previewImage ? (
-                        <img src={previewImage} alt={`${previewName} cabinet kitchen preview`} className="h-full w-full object-cover" />
+                        <ResilientStyleImage key={selectedPreview.id} src={previewImage} style={selectedPreview} alt={`${previewName} cabinet kitchen preview`} className="h-full w-full object-cover" unavailableLabel="Kitchen image unavailable in this browser" />
                       ) : (
                         <DoorStyleSwatch style={selectedPreview} className="h-full w-full object-cover" />
                       )}

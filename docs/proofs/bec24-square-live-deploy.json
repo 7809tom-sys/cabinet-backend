@@ -1,0 +1,15 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "checkedAtEpoch": 1791234653,
+  "indexBundles": [
+    "index-Ds__W8GC.js"
+  ],
+  "designerBundles": [
+    "DesignTool-ZAEGJWK9.js"
+  ],
+  "rendererBundles": [
+    "InteractiveRoom3D-BqBIKOTp.js"
+  ],
+  "marker": "Square Double-Door Base End Cabinet",
+  "markerFound": false
+}
