@@ -1,0 +1,33 @@
+{
+  "base": "http://127.0.0.1:3000",
+  "before": [
+    [
+      "SB36",
+      36,
+      24
+    ]
+  ],
+  "after": {
+    "code": "FSB36",
+    "cabinetId": 9360037,
+    "width": 36,
+    "depth": 24,
+    "x": 0,
+    "y": 0,
+    "wallId": "top",
+    "sameUid": true
+  },
+  "sinks": [
+    {
+      "type": "farmhouse",
+      "width": 33,
+      "depth": 21,
+      "x": 1.5,
+      "y": 3,
+      "apronFront": true,
+      "cabinetUid": "cmuuq441g_1",
+      "faucet": true
+    }
+  ],
+  "errors": []
+}

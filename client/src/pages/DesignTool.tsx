@@ -79,6 +79,7 @@ import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPrevie
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
+import { swapStandardSinkBaseForFarmSink, matchingFarmSinkBase } from "@/lib/farmSinkBaseSwap";
 import { editablePeninsulaWizard, peninsulaWizardAssemblyRunIds, type PeninsulaWizardEditDraft } from "@/lib/peninsulaWizardEdit";
 import { buildRequiredBlindCornerFiller, isRequiredBlindCornerFillerGroupId, removePlacedCabinetWithRequiredBlindCornerFiller, requiredBlindCornerFillerGroupId } from "@/lib/blindCornerRequiredFiller";
 import {
@@ -8237,6 +8238,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const moveSink = useCallback((uid: string, x: number, y: number) => {
     setSinks((prev) => prev.map((s) => (s.uid === uid ? { ...s, x, y } : s)));
   }, []);
+
+  const swapSelectedSinkBaseToFarmSink = useCallback((cabinetUid: string) => {
+    if (cabinetsLocked) { toast.info(t("dt_gap_locked")); return; }
+    const target = placedRef.current.find((cabinet) => cabinet.uid === cabinetUid);
+    if (!target) return;
+    const result = swapStandardSinkBaseForFarmSink(
+      target,
+      (liveMasterCabinets ?? []) as DesignCabinet[],
+      sinks,
+      room,
+      fixtureBelongsToCabinet,
+    );
+    if (!result.ok) { toast.error(result.reason); return; }
+    setPlaced((current) => current.map((cabinet) => (cabinet.uid === cabinetUid ? result.cabinet : cabinet)));
+    setSinks((current) => [...current.filter((sink) => !result.removedSinkUids.includes(sink.uid)), result.sink]);
+    setSelectedSinkUid(result.sink.uid);
+    setCountertop(true);
+    toast.success(`${result.fromCode} swapped for ${result.toCode} with a 33" farmhouse apron-front sink. Pick a verified apron-front sink in Sink & faucet options to replace the generic one.`);
+  }, [cabinetsLocked, liveMasterCabinets, sinks, room, setPlaced, t]);
 
   const deleteSink = useCallback((uid: string) => {
     setSinks((prev) => prev.filter((s) => s.uid !== uid));
@@ -16576,6 +16596,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <Droplets className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger><TooltipContent>Sink &amp; faucet options</TooltipContent></Tooltip>
+              )}
+              {selectedCab && selectedCab.placement === "base" && isSinkBaseCabinet(selectedCab) && !isFarmSinkBasePaletteItem(selectedCab)
+                && matchingFarmSinkBase(selectedCab, (liveMasterCabinets ?? []) as DesignCabinet[]) && (
+                <Tooltip><TooltipTrigger asChild>
+                  <Button aria-label="Swap for farm sink base" data-testid="swap-farm-sink-base" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[11px] font-bold text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => swapSelectedSinkBaseToFarmSink(selectedCab.uid)}>
+                    FSB
+                  </Button>
+                </TooltipTrigger><TooltipContent>Swap for the matching FSB farm sink base and seat a 33&quot; apron-front sink</TooltipContent></Tooltip>
               )}
               {selectedCab && isRangeOrCooktop(selectedCab) && (
                 <Tooltip><TooltipTrigger asChild>
