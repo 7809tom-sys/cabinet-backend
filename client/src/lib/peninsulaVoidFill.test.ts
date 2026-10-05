@@ -97,3 +97,11 @@ describe("peninsula + 45 degree return void fill", () => {
       hit.object.userData.peninsulaCountertop && Math.abs(hit.point.y * 12 - 36) < 0.01)).toBe(true);
   });
 });
+
+describe("void-fill edge pairing", () => {
+  it("never bridges a long edge to a short edge across open floor", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync(new URL("./design.ts", import.meta.url), "utf8");
+    expect(source).toContain("Math.max(aLen, bLen) > score * 2.5 + 6");
+  });
+});

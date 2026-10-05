@@ -12188,6 +12188,10 @@ function peninsulaVoidFillSurfaces(
           if (gap > MAX_GAP) continue;
           const score = Math.min(aLen, bLen);
           if (score < 6 || (best && score < best.score - 1e-6)) continue;
+          // A real miter void joins two edges of comparable length. A long edge
+          // paired with a short one would sweep a sliver across open floor with
+          // no cabinet beneath it, so it is never a physical countertop.
+          if (Math.max(aLen, bLen) > score * 2.5 + 6) continue;
           for (const quad of [[a0, a1, b0, b1], [a0, a1, b1, b0]]) {
             if (countertopPolygonSelfIntersects(quad)) continue;
             const area = countertopPolygonArea(quad);
