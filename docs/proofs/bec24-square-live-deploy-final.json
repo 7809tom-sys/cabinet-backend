@@ -1,0 +1,24 @@
+{
+  "verifiedAtUtc": "2026-10-05T22:26:33.829115+00:00",
+  "origin": "https://www.cabinetdealz.com",
+  "behaviorCheckpoint": "ade0ec9a",
+  "bundles": {
+    "index": "index-D5pz9139.js",
+    "DesignTool": "DesignTool-CkfyRwiU.js",
+    "cabinetGraphics": "cabinetGraphics--Sdtd22K.js",
+    "PlanCanvas": "PlanCanvas-BFT_FNzw.js",
+    "InteractiveRoom3D": "InteractiveRoom3D-Bn_g4d9b.js"
+  },
+  "proof": {
+    "catalogName": "Square Double-Door Base End Cabinet",
+    "neighbor": "B12",
+    "endCabinet": "BEC24",
+    "alongWallGapInches": 0,
+    "endWidthInches": 24,
+    "endDepthInches": 24,
+    "doors": 2,
+    "cornerType": null,
+    "pageErrors": []
+  },
+  "sourceDataNote": "Existing catalog description/customProfile still say quarter-octagon; no catalog row, SKU, invoice, dimensions, or price was mutated. Current Designer display and geometry are square-end-specific."
+}
