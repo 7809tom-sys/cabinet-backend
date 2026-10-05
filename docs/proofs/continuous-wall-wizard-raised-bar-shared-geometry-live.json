@@ -1,0 +1,30 @@
+{
+  "base": "https://www.cabinetdealz.com",
+  "selectedContinuousWallId": "cw_muujbhkd_5",
+  "attachmentOptions": [
+    {
+      "value": "cw_muujbhkd_5",
+      "text": "Wall 1 \u00b7 180\""
+    },
+    {
+      "value": "cw_muujbhkd_6",
+      "text": "Wall 2 \u00b7 144\""
+    },
+    {
+      "value": "cw_muujbhkd_7",
+      "text": "Wall 3 \u00b7 180\""
+    },
+    {
+      "value": "cw_muujbhkd_8",
+      "text": "Wall 4 \u00b7 144\""
+    }
+  ],
+  "rootParentWall": "cw_muujbhkd_5",
+  "rootStartOffset": 90,
+  "rootCabinetSide": "left",
+  "rootRaisedBar": true,
+  "childRunId": "peninsula_wizard_muujblf3_45_end",
+  "wizardBadgeCount": 2,
+  "reopenedFrom45Child": true,
+  "applicationErrors": []
+}
