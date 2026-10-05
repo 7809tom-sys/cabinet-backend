@@ -4149,15 +4149,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const committed = [...retained, ...result.plan.boards];
     placedRef.current = committed;
     setPlaced(() => committed);
+    if (isMobile) { justPlacedRef.current = true; setCabEditSheetOpen(false); }
     setSelectedUid(result.plan.boards.find((board) => board.masterTracTowerRole === "adjustable")?.uid ?? result.plan.boards[0].uid);
     setActiveWall(wall);
     setMasterTracFinish(config.finish);
     setViewMode("threeD");
     setPlacementWarning(null);
     setTowerDialog(null);
+    if (panelDrawerMode) setMobilePanel(null);
     toast.success(`${config.bays.length} connected MasterTrac bays · ${result.plan.count} exact SKU boards${result.plan.conceptualItems.length ? ` + ${result.plan.conceptualItems.reduce((sum, item) => sum + item.quantity, 0)} illustrated storage parts` : ""} · $${result.plan.listSubtotal.toFixed(2)} March 2022 List reference, not checkout.`);
     return { ok: true };
-  }, [cabinetsLocked, layoutLocked, openings, room, setPlaced]);
+  }, [cabinetsLocked, isMobile, layoutLocked, openings, panelDrawerMode, room, setPlaced]);
 
   const interactive3dOrderSummary = useMemo<InteractiveRoomOrderSummary>(() => {
     let subtotal = 0;

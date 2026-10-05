@@ -22,6 +22,17 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Price &amp; cart");
   });
 
+  it("reveals the design after a successful connected Closet tower placement on a phone or tablet", () => {
+    const start = source.indexOf("const commitMasterTracTower = useCallback(");
+    const end = source.indexOf("const interactive3dOrderSummary", start);
+    expect(start).toBeGreaterThan(0);
+    expect(end).toBeGreaterThan(start);
+    const commit = source.slice(start, end);
+    expect(commit).toContain('if (isMobile) { justPlacedRef.current = true; setCabEditSheetOpen(false); }');
+    expect(commit).toContain('setViewMode("threeD");');
+    expect(commit).toContain('setTowerDialog(null);\n    if (panelDrawerMode) setMobilePanel(null);');
+  });
+
   it("lets tablet Closet members reveal the brochure and complete historical-List notes without covering the parts list by default", () => {
     expect(source).toContain('data-testid="mastertrac-palette-header"');
     expect(source).toContain('const [masterTracIntroExpanded, setMasterTracIntroExpanded] = useState(false)');
