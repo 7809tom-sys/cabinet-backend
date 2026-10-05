@@ -1,0 +1,54 @@
+{
+  "origin": "https://www.cabinetdealz.com",
+  "tag": "live-zenith-sku-first-failure",
+  "failedOriginalRequests": true,
+  "items": [
+    {
+      "code": "B12",
+      "image": "/api/catalog-sku-photo/1784390003470_ASP-B12_738a416d.jpg?cd-image-retry-nonce=1791238662067-k2e9dizoabo",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B15",
+      "image": "/api/catalog-sku-photo/1784393809475_ASP-B15_e1d5c5c8.jpg?cd-image-retry-nonce=1791238662069-ny7kbjbkxze",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B18",
+      "image": "/api/catalog-sku-photo/1784393826892_ASP-B18_51605b2d.jpg?cd-image-retry-nonce=1791238662069-h96obopcofs",
+      "width": 800,
+      "fallback": false
+    },
+    {
+      "code": "B21",
+      "image": "/api/catalog-sku-photo/1784389955389_ASP-B21_0818bcf5.jpg?cd-image-retry-nonce=1791238662070-sz3xgi77wo",
+      "width": 800,
+      "fallback": false
+    }
+  ],
+  "appResponses": [
+    {
+      "url": "https://www.cabinetdealz.com/api/catalog-sku-photo/1784390003470_ASP-B12_738a416d.jpg?cd-image-retry-nonce=1791238662067-k2e9dizoabo",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/catalog-sku-photo/1784393809475_ASP-B15_e1d5c5c8.jpg?cd-image-retry-nonce=1791238662069-ny7kbjbkxze",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/catalog-sku-photo/1784389955389_ASP-B21_0818bcf5.jpg?cd-image-retry-nonce=1791238662070-sz3xgi77wo",
+      "status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "url": "https://www.cabinetdealz.com/api/catalog-sku-photo/1784393826892_ASP-B18_51605b2d.jpg?cd-image-retry-nonce=1791238662069-h96obopcofs",
+      "status": 200,
+      "mime": "image/jpeg"
+    }
+  ],
+  "pageErrors": []
+}
