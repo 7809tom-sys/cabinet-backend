@@ -1,13 +1,59 @@
 import { describe, expect, it } from "vitest";
 import {
-  addStudioBay, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioItem,
+  addStudioBay, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioCornerShelf, moveStudioItem, removeStudioBasketReference,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioCollision, studioPartReferences, studioTakeoff, studioWidth,
-  STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioItemHeight,
+  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
 
 describe("isolated vendor Closet Studio", () => {
+  it("adds only a source-SKU-linked 29.5-inch visual-planning curved corner envelope at a free two-wall corner", () => {
+    const base = createStudioDesign();
+    expect(STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN).toBe(29.5);
+    const fixed = addStudioCornerShelf(base, "back-right", "fixed", 36, "corner-fixed");
+    expect(fixed.ok).toBe(true);
+    if (!fixed.ok) return;
+    const shelf = fixed.design.cornerShelves?.[0];
+    expect(shelf).toMatchObject({ id: "corner-fixed", sku: "432556", finish: "Glacier White", mount: "fixed", profile: "curved-illustrative", cornerId: "back-right", wallIds: ["back", "right"], elevationIn: 36, nominalFootprintIn: 29.5, geometryRevision: STUDIO_CORNER_SHELF_GEOMETRY_REVISION });
+    expect(studioCornerPlanningFootprint(fixed.design, shelf!)).toEqual({ xMin: 90.5, xMax: 120, zMin: 0, zMax: 29.5 });
+    expect(studioCornerMeasuredGap(fixed.design, shelf!).towerGapIn).toBeGreaterThan(0);
+
+    const bill = studioTakeoff(fixed.design);
+    expect(bill.lines.some((line) => line.sku === "432556" && /2026 planning envelope.*reference only/i.test(line.label))).toBe(true);
+    expect(bill.lines.some((line) => /H-Joint/i.test(line.label))).toBe(false);
+    expect(bill.missing.some((line) => /29\.5.*planning envelope.*29¼/i.test(line))).toBe(true);
+    expect(restoreStudioDesign(JSON.stringify(fixed.design))).toEqual(fixed.design);
+
+    const overlap = addStudioCornerShelf(fixed.design, "back-right", "adjustable", 36, "corner-overlap");
+    expect(overlap).toMatchObject({ ok: false });
+    const raised = addStudioCornerShelf(fixed.design, "back-right", "adjustable", 40, "corner-adjustable");
+    expect(raised.ok).toBe(true);
+    if (!raised.ok) return;
+    expect(raised.design.cornerShelves).toHaveLength(2);
+    expect(moveStudioCornerShelf(raised.design, "corner-adjustable", 36).ok).toBe(false);
+    expect(addStudioCornerShelf(base, "back-left", "fixed", 36, "tower-intersection")).toMatchObject({ ok: false });
+    expect(addStudioCornerShelf({ ...base, mount: "hanging" }, "back-right", "fixed", 36, "hanging-corner")).toMatchObject({ ok: false });
+  });
+
+  it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {
+    expect(STUDIO_BASKET_REFERENCE_OPTIONS).toHaveLength(9);
+    expect(STUDIO_BASKET_REFERENCE_OPTIONS.find((option) => option.sku === "432902")).toMatchObject({ nominalHeightIn: 17, nominalWidthIn: 24, finish: "Chrome" });
+    expect(studioFitCapability("432902")).toMatchObject({ family: "basket", status: "referenceOnly" });
+    expect(studioFitCapability("446812")).toBeUndefined();
+
+    const added = addStudioBasketReference(createStudioDesign(), "432902", "basket-17x24");
+    expect(added.ok).toBe(true);
+    if (!added.ok) return;
+    expect(added.reference).toMatchObject({ id: "basket-17x24", sku: "432902", nominalHeightIn: 17, nominalWidthIn: 24, capability: "referenceOnly", sourceRevision: "floor-579554-p13-historical-reference-v1" });
+    expect(studioBasketReferences(added.design)).toHaveLength(1);
+    expect(studioTakeoff(added.design).lines.some((line) => line.sku === "432902")).toBe(false);
+    expect(studioTakeoff(added.design).missing.some((line) => /432902.*not placed.*outer envelope.*extension travel/i.test(line))).toBe(true);
+    expect(restoreStudioDesign(JSON.stringify(added.design))).toEqual(added.design);
+    expect(addStudioBasketReference(createStudioDesign(), "446812").ok).toBe(false);
+    expect(removeStudioBasketReference(added.design, "basket-17x24").basketReferences).toEqual([]);
+  });
+
   it("keeps every public MasterTrac source record discoverable as a non-placeable List reference without private workbook fields", () => {
     const references = masterTracPublicReferenceCatalog();
     expect(references).toHaveLength(CLOSET_PARTS.length);

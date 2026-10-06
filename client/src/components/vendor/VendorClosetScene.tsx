@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { StudioDesign, StudioKind } from "@/lib/vendorClosetStudio";
-import { STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
+import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioCornerPlanningFootprint, studioCornerShelves, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
 
 const IN = 1 / 12;
 const MAT: Record<StudioDesign["finish"], { face: string; edge: string; grain: string }> = {
@@ -26,9 +26,10 @@ function woodTexture(finish: StudioDesign["finish"]) {
 }
 
 /** This scene is completely independent of InteractiveRoom3D and kitchen/Wall Builder geometry. */
-export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBay, onPlace, onError }: {
+export function VendorClosetScene({ design, selectedBay, selectedCornerId = null, partToPlace, onSelectBay, onPlace, onError }: {
   design: StudioDesign;
   selectedBay: number;
+  selectedCornerId?: string | null;
   partToPlace: StudioKind | null;
   onSelectBay: (bayIndex: number) => void;
   onPlace: (bayIndex: number, bottomIn: number, kind: StudioKind) => void;
@@ -43,8 +44,11 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#e9e5db");
     const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 130);
-    const w = studioWidth(design) * IN;
-    camera.position.set(w * 0.63, 5.7, Math.max(12, w * 2.3));
+    const hasCornerPlanning = studioCornerShelves(design).length > 0;
+    const towerWidth = studioWidth(design) * IN;
+    const w = hasCornerPlanning ? design.wallWidthIn * IN : towerWidth;
+    const roomDepth = hasCornerPlanning ? design.roomDepthIn * IN : 12;
+    camera.position.set(w * 0.63, 5.7, Math.max(12, Math.max(w, roomDepth) * 2.3));
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
@@ -61,7 +65,7 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
     controls.maxPolarAngle = Math.PI * 0.52;
     controls.minDistance = 4.3;
     controls.maxDistance = 26;
-    controls.target.set(w / 2, 3.6, 0);
+    controls.target.set(w / 2, 3.6, hasCornerPlanning ? roomDepth / 2 : 0);
     controls.update();
 
     scene.add(new THREE.HemisphereLight(0xfff6e8, 0xa9a2a0, 2.1));
@@ -77,10 +81,10 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
     fill.position.set(-2, 4, -5); scene.add(fill);
     const room = new THREE.Group(); scene.add(room);
     const oak = new THREE.MeshStandardMaterial({ color: 0xb69a77, roughness: 0.78 });
-    const floor = new THREE.Mesh(new THREE.BoxGeometry(Math.max(17, w + 9), 0.13, 12), oak);
-    floor.position.set(w / 2, -0.1, 1.75); floor.receiveShadow = true; room.add(floor);
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(Math.max(17, w + 9), 0.13, Math.max(12, roomDepth + 4)), oak);
+    floor.position.set(w / 2, -0.1, hasCornerPlanning ? roomDepth / 2 : 1.75); floor.receiveShadow = true; room.add(floor);
     const seamMaterial = new THREE.LineBasicMaterial({ color: 0x967d62, transparent: true, opacity: 0.35 });
-    for (let z = -4; z <= 7; z += 0.44) {
+    for (let z = -4; z <= (hasCornerPlanning ? roomDepth + 4 : 7); z += 0.44) {
       const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-9, -0.033, z), new THREE.Vector3(w + 9, -0.033, z)]), seamMaterial); room.add(line);
     }
     const wall = new THREE.Mesh(new THREE.BoxGeometry(Math.max(16, w + 4), 9, 0.14), new THREE.MeshStandardMaterial({ color: 0xf3eee5, roughness: 0.95 }));
@@ -95,6 +99,8 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
     const shoeMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.72 });
     const drawerMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.6 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xb9a37b, metalness: 0.7, roughness: 0.33 });
+    const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xb98550, roughness: 0.48, transparent: true, opacity: 0.62, side: THREE.DoubleSide });
+    const cornerOutlineMat = new THREE.LineBasicMaterial({ color: 0x6f4527 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
     const parts = new THREE.Group(); scene.add(parts);
@@ -165,6 +171,20 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
       cursor += bay.widthIn + 0.75;
     }
     box(0.75, panelHeight, depth, cursor + 0.375, panelHeight / 2 + (design.mount === "hanging" ? 6 : 0), depth / 2, boardMat);
+    // This is deliberately a rectangular 29.5-inch 2026 planning envelope, not a fabricated curved board profile or support assembly.
+    for (const shelf of studioCornerShelves(design)) {
+      const footprint = studioCornerPlanningFootprint(design, shelf);
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN), cornerEnvelopeMat);
+      mesh.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);
+      mesh.castShadow = true; mesh.receiveShadow = true;
+      mesh.userData = { cornerShelfPlanningEnvelope: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
+      parts.add(mesh);
+      if (shelf.id === selectedCornerId) {
+        const outline = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), cornerOutlineMat);
+        outline.position.copy(mesh.position); outline.userData = { cornerShelfSelectionMarker: true, cornerId: shelf.cornerId };
+        parts.add(outline);
+      }
+    }
     const ray = new THREE.Raycaster();
     const point = new THREE.Vector2();
     const pick = (clientX: number, clientY: number) => {
@@ -212,11 +232,11 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line) object.geometry.dispose();
       });
-      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, hintMat, hitMat]) {
+      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, hintMat, hitMat]) {
         if (Array.isArray(material)) material.forEach((mat) => mat.dispose()); else material.dispose();
       }
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);
     };
-  }, [design, selectedBay]);
+  }, [design, selectedBay, selectedCornerId]);
   return <div ref={mount} className="h-full min-h-0 w-full touch-none" role="group" aria-label="Vendor closet 3D design canvas" data-testid="vendor-closet-3d" />;
 }
