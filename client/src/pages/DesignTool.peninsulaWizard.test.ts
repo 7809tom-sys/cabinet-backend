@@ -24,12 +24,12 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('45° end from the straight run');
   });
 
-  it("uses the cabinet footprint and 1½-inch finished edge for every new Wizard countertop level", () => {
+  it("uses a six-inch higher, 15-inch outward raised level while keeping the lower worktop standard", () => {
     expect(source).toContain('seatingOverhang: 0,');
     expect(source).toContain('Standard 1½ in. cabinet edge');
-    expect(source).toContain('countertopRaisedBarOverhang: 1.5,');
-    expect(source).toContain('cabinet footprint + 1½ in. edge');
-    expect(source).toContain('same cabinet footprint and physical 45° miter');
+    expect(source).toContain('countertopRaisedBarOverhang: 15,');
+    expect(source).toContain('42 in. raised bar · +6 in. high · 15 in. outward');
+    expect(source).toContain('15 in. outward seating projection');
   });
 
   it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
