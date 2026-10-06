@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  addStudioBay, canStageStudioPart, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioItem,
-  restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioCollision, studioTakeoff, studioWidth,
+  addStudioBay, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioItem,
+  restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioCollision, studioPartReferences, studioTakeoff, studioWidth,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS } from "./closet";
@@ -98,5 +98,49 @@ describe("isolated vendor Closet Studio", () => {
     expect(lines.find((line) => line.sku === "432798")?.label).toContain("Small Slab Drawer Front · Spiced Mahogany");
     expect(lines.find((line) => line.sku === "432385")?.label).toContain("Small Drawer w/SC slides · Hard Maple");
     expect(lines.some((line) => line.section === "panel" && line.qty > 1)).toBe(false);
+  });
+
+  it("keeps the purchased fixed and adjustable 24-inch shelf SKUs and full dated List when a 22.5-inch bay is field-cut", () => {
+    const fitted = configureStudioBayCut(createStudioDesign(), 0, 24, 22.5);
+    expect(fitted.ok).toBe(true);
+    if (!fitted.ok) return;
+
+    expect(fitted.design.bays[0]).toMatchObject({ stockWidthIn: 24, widthIn: 22.5 });
+    expect(studioBayCut(fitted.design.bays[0])).toEqual({ stockWidthIn: 24, installedWidthIn: 22.5, offcutIn: 1.5 });
+    expect(studioPartReferences(fitted.design, 0, "shelf")?.[0].sku).toBe("432535");
+    expect(studioPartReferences(fitted.design, 0, "fixedShelf")?.[0].sku).toBe("432529");
+
+    const bill = studioTakeoff(fitted.design);
+    expect(bill.lines.find((line) => line.sku === "432529")).toMatchObject({ qty: 2, installedWidthIn: 22.5, stockWidthIn: 24, offcutIn: 1.5 });
+    expect(bill.lines.find((line) => line.sku === "432535")).toMatchObject({ qty: 1, installedWidthIn: 22.5, stockWidthIn: 24, offcutIn: 1.5 });
+    expect(bill.lines.find((line) => line.sku === "432529")?.label).toContain("cut from 24″ stock");
+    expect(bill.lines.find((line) => line.sku === "432529")?.packNote).toContain("planning difference");
+    expect(restoreStudioDesign(JSON.stringify(fitted.design))).toEqual(fitted.design);
+  });
+
+  it("offers cut-to-fit only where every selected finish and 18/24/30 stock width resolves to real fixed and adjustable shelves", () => {
+    for (const finish of STUDIO_FINISHES) for (const stockWidthIn of [18, 24, 30] as const) {
+      const initial: StudioDesign = { ...createStudioDesign(), finish, bays: [{ id: `cut-${finish}-${stockWidthIn}`, widthIn: 24, items: [] }] };
+      const fitted = configureStudioBayCut(initial, 0, stockWidthIn, stockWidthIn - 0.5);
+      expect(fitted.ok).toBe(true);
+      if (!fitted.ok) continue;
+      expect(studioPartReferences(fitted.design, 0, "fixedShelf")?.[0].widthIn).toBe(stockWidthIn);
+      expect(studioPartReferences(fitted.design, 0, "shelf")?.[0].widthIn).toBe(stockWidthIn);
+    }
+  });
+
+  it("rejects unsupported stock, under-planning-width cuts, and cuts in bays that hold unverified drawer or shoe fit", () => {
+    const base = createStudioDesign();
+    expect(configureStudioBayCut(base, 0, 24, 24.25).ok).toBe(false);
+    expect(configureStudioBayCut(base, 0, 24, 11.75).ok).toBe(false);
+    expect(configureStudioBayCut(base, 0, 23 as 18 | 24 | 30, 22.5).ok).toBe(false);
+    expect(configureStudioBayCut({ ...base, mount: "hanging" }, 0, 24, 22.5).ok).toBe(false);
+
+    const drawer = snapStudioPart(base, 0, "drawer", 20, "drawer-cut-block");
+    expect(drawer.ok).toBe(true);
+    if (!drawer.ok) return;
+    const rejected = configureStudioBayCut(drawer.design, 0, 24, 22.5);
+    expect(rejected.ok).toBe(false);
+    if (!rejected.ok) expect(rejected.reason).toMatch(/drawer|fit/i);
   });
 });

@@ -98,4 +98,23 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.click(list);
     expect(within(screen.getByTestId("vendor-tablet-options-dock")).getByTestId("vendor-tablet-material-list")).toBeTruthy();
   });
+
+  it("lets a tablet user plan a sourced straight shelf cut in the right dock without exposing unverified accessory cuts", () => {
+    window.history.replaceState(null, "", "/closet?demo=mixed");
+    render(<VendorClosetStudio />);
+
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    fireEvent.click(within(dock).getByRole("button", { name: "Select Tower 1" }));
+    const cut = within(dock).getByTestId("vendor-cut-to-fit");
+    expect(within(cut).getByRole("combobox", { name: "Cut-to-fit stock shelf width" })).toBeTruthy();
+    const measured = within(cut).getByRole("spinbutton", { name: "Installed clear shelf width in inches" });
+    fireEvent.change(measured, { target: { value: "22.5" } });
+    fireEvent.click(within(cut).getByRole("button", { name: "Apply measured width" }));
+    expect(within(dock).getByText("Cut planned")).toBeTruthy();
+    const updatedCut = within(dock).getByTestId("vendor-cut-to-fit");
+    expect(updatedCut.textContent).toMatch(/planning difference.*1\.5/i);
+    expect(within(updatedCut).getByRole("button", { name: "Full stock" })).toBeTruthy();
+    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
+    expect(scene).toContain("if (!studioBayCut(bay))");
+  });
 });
