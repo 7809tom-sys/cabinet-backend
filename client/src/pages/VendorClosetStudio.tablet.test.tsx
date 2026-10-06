@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { readFileSync } from "node:fs";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import VendorClosetStudio from "./VendorClosetStudio";
 
 vi.mock("@/components/vendor/VendorClosetScene", () => ({
@@ -14,28 +14,28 @@ describe("Closet Studio tablet workspace", () => {
     window.history.replaceState(null, "", "/closet");
   });
 
-  it("keeps Room and historical List as reversible, mutually exclusive drawers while preserving the selected tower and parts", () => {
+  it("keeps Room reversible while the tablet Material List stays a compact right-dock disclosure with tower and part controls", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
 
     const room = screen.getByRole("button", { name: "Room and wall settings" });
-    const reference = screen.getByRole("button", { name: "Material reference" });
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    const reference = within(dock).getByRole("button", { name: "Material reference details" });
     expect(room.getAttribute("aria-expanded")).toBe("false");
     expect(reference.getAttribute("aria-expanded")).toBe("false");
     expect(screen.getByTestId("mock-vendor-scene")).toBeTruthy();
-    expect(screen.getByTestId("vendor-part-tray")).toBeTruthy();
+    expect(within(dock).getByRole("button", { name: "Select Tower 2" })).toBeTruthy();
+    expect(within(dock).getByRole("combobox", { name: "More parts for selected tower" })).toBeTruthy();
 
     fireEvent.click(room);
     expect(room.getAttribute("aria-expanded")).toBe("true");
     expect(screen.getAllByRole("button", { name: "Close room settings" })).toHaveLength(2);
     fireEvent.click(reference);
-    expect(room.getAttribute("aria-expanded")).toBe("false");
     expect(reference.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getByTestId("vendor-controls").className).toContain("hidden");
-    fireEvent.click(screen.getByRole("button", { name: "Close material reference" }));
+    expect(within(dock).getByTestId("vendor-tablet-material-list")).toBeTruthy();
+    fireEvent.click(reference);
     expect(reference.getAttribute("aria-expanded")).toBe("false");
-    expect(screen.getByTestId("vendor-part-tray")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Select Tower 2" })).toBeTruthy();
+    expect(within(dock).getByRole("button", { name: "Select Tower 2" })).toBeTruthy();
   });
 
   it("keeps the three-column layout for wide desktops but uses on-demand panels at tablet CSS widths", () => {
@@ -45,11 +45,57 @@ describe("Closet Studio tablet workspace", () => {
     const referencePanel = screen.getByTestId("vendor-reference-panel");
     expect(referencePanel.parentElement?.parentElement?.className).toContain("min-[1800px]:block");
     expect(screen.getByTestId("vendor-part-tray").className).toContain("overflow-hidden");
-    const more = screen.getByRole("combobox", { name: "More parts for selected tower" });
+    const more = within(screen.getByTestId("vendor-tablet-options-dock")).getByRole("combobox", { name: "More parts for selected tower" });
     expect(more.className).toContain("h-full");
     expect(more.className).toContain("inset-0");
     const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
     expect(scene).toContain('className="h-full min-h-0 w-full touch-none"');
     expect(screen.getByTestId("mock-vendor-scene")).toBeTruthy();
+  });
+
+  it("moves every tablet design option into the right dock and keeps the dated material list as a compact dropdown", () => {
+    window.history.replaceState(null, "", "/closet?demo=mixed");
+    render(<VendorClosetStudio />);
+
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    const material = within(dock).getByTestId("vendor-tablet-material-disclosure");
+    const toggle = within(material).getByRole("button", { name: "Material reference details" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(screen.getByTestId("vendor-tower-controls").className).toContain("hidden");
+    expect(screen.getByTestId("vendor-tower-controls").className).toContain("min-[1800px]:block");
+    expect(screen.getByTestId("vendor-part-tray").className).toContain("hidden");
+    expect(screen.getByTestId("vendor-part-tray").className).toContain("min-[1800px]:block");
+    expect(within(dock).getByRole("button", { name: "Select Tower 2" })).toBeTruthy();
+    expect(within(dock).getByRole("combobox", { name: "More parts for selected tower" })).toBeTruthy();
+
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(within(material).getByTestId("vendor-tablet-material-list").textContent).toMatch(/March 1, 2022 customer List/i);
+    expect(within(material).getByTestId("vendor-reference-total")).toBeTruthy();
+  });
+
+  it("uses the Kitchen-style phone action strip to open focused Room, Tower, Parts, and List sheets instead of bottom editing controls", () => {
+    window.history.replaceState(null, "", "/closet?demo=mixed");
+    render(<VendorClosetStudio />);
+
+    const strip = screen.getByTestId("vendor-phone-action-strip");
+    expect(within(strip).getByRole("button", { name: "Room settings" })).toBeTruthy();
+    const tower = within(strip).getByRole("button", { name: "Tower controls" });
+    const parts = within(strip).getByRole("button", { name: "Add closet parts" });
+    const list = within(strip).getByRole("button", { name: "Material reference" });
+    expect(screen.getByTestId("vendor-tower-controls").className).toContain("hidden");
+    expect(screen.getByTestId("vendor-tower-controls").className).toContain("min-[1800px]:block");
+
+    fireEvent.click(tower);
+    expect(screen.getByTestId("vendor-tablet-options-dock").className).toContain("fixed inset-x-0 bottom-0");
+    expect(within(screen.getByTestId("vendor-tablet-options-dock")).getByRole("button", { name: "Select Tower 2" })).toBeTruthy();
+    fireEvent.click(parts);
+    expect(within(screen.getByTestId("vendor-tablet-options-dock")).getByRole("combobox", { name: "More parts for selected tower" })).toBeTruthy();
+    fireEvent.click(within(screen.getByTestId("vendor-tablet-options-dock")).getByRole("button", { name: /Adjustable shelf/ }));
+    expect(screen.getByTestId("vendor-tablet-options-dock").className).toContain("hidden");
+    const source = readFileSync(`${process.cwd()}/client/src/pages/VendorClosetStudio.tsx`, "utf8");
+    expect(source).toContain('partToPlace ? "top-24 sm:top-28" : "bottom-3 sm:bottom-5"');
+    fireEvent.click(list);
+    expect(within(screen.getByTestId("vendor-tablet-options-dock")).getByTestId("vendor-tablet-material-list")).toBeTruthy();
   });
 });
