@@ -325,17 +325,21 @@ export function normalizeDoorHardwareFramePosition(
 
 /**
  * Horizontal centerline for door hardware, measured from the left edge of one
- * physical door face. Left/right positions are centered on the 3-inch stile.
+ * physical door face. Left/right positions are centered on the actual stile;
+ * ordinary framed doors retain the default three-inch value.
  * Center is accepted only for backward compatibility with older direct callers;
  * cabinet-door renderers normalize that retired choice to an opening edge.
  */
 export function doorHardwareCenterFromLeftIn(
   faceWidthIn: number,
   position: "left" | "center" | "right",
+  stileWidthIn: number | null | undefined = FRAMED_STILE_WIDTH_IN,
 ): number {
   const width = Number.isFinite(faceWidthIn) ? Math.max(0, faceWidthIn) : 0;
   if (position === "center") return width / 2;
-  const edgeInset = Math.min(FRAMED_STILE_CENTER_IN, width / 2);
+  const requestedStile = Number(stileWidthIn);
+  const resolvedStile = Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile : FRAMED_STILE_WIDTH_IN;
+  const edgeInset = Math.min(resolvedStile / 2, width / 2);
   return position === "left" ? edgeInset : width - edgeInset;
 }
 
@@ -343,9 +347,10 @@ export function doorHardwareCenterFromLeftIn(
 export function doorHardwareOffsetFromFaceCenterIn(
   faceWidthIn: number,
   position: "left" | "center" | "right",
+  stileWidthIn?: number | null,
 ): number {
   const width = Number.isFinite(faceWidthIn) ? Math.max(0, faceWidthIn) : 0;
-  return doorHardwareCenterFromLeftIn(width, position) - width / 2;
+  return doorHardwareCenterFromLeftIn(width, position, stileWidthIn) - width / 2;
 }
 
 /**

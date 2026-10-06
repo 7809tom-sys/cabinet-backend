@@ -18,7 +18,7 @@ import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRec
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
-import { doorHardwareOffsetFromFaceCenterIn, FRAMED_STILE_CENTER_IN, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
+import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -4284,6 +4284,14 @@ export function addCabinet(
     frontGroup.add(endPanel);
   }
   const profileKind = doorProfileKind(doorProfile?.doorStyle, doorProfile?.doorPanelType);
+
+  // The active profile arrives from the same Door Style metric resolver that
+  // drives elevation. Slim Shaker therefore carries its actual one-inch stile
+  // into both physical rails and hardware placement; ordinary Shaker remains 3.
+  const requestedProfileStile = Number(doorProfile?.stileWidth);
+  const profileFrameWidthIn = Number.isFinite(requestedProfileStile) && requestedProfileStile > 0
+    ? requestedProfileStile
+    : 3;
 	  const addShakerFrame = (faceWidth: number, faceHeight: number, x: number, y: number, z = 0.036, rotationY = 0, forceGlassFrame = false) => {
 	    const raisedProfile = !forceGlassFrame && (profileKind === "raised" || doorProfile?.panelConstruction === "raised");
 	    const framedProfile = forceGlassFrame || raisedProfile || threeDUsesPhysicalShakerRails(profileKind, Boolean(doorTexture));
@@ -4402,6 +4410,7 @@ export function addCabinet(
       : x + doorHardwareOffsetFromFaceCenterIn(
         faceWidth / INCH,
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
+        profileFrameWidthIn,
       ) * INCH;
     const pullY = drawer ? y : raisedFloorWallDoorPull || requestedTopCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, isKnob ? z + 0.012 : z);
@@ -4414,7 +4423,7 @@ export function addCabinet(
       pullEdge: raisedFloorWallDoorPull ? "raised-door-rail" : horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (drawer ? "center" : "opposite-hinge") : resolvedHardwarePosition,
       ...(hingeSide ? { hingeSide, handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : resolvedHardwarePosition } : { handleSide: horizontalTopRailPull ? "top-center" : resolvedHardwarePosition === "auto" || resolvedHardwarePosition === "paired" ? (automaticSide < 0 ? "left" : "right") : resolvedHardwarePosition }),
       hardwarePosition: resolvedHardwarePosition,
-      ...(drawer || explicitSide === 0 ? {} : { frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN }),
+      ...(drawer || explicitSide === 0 ? {} : { frameWidthIn: profileFrameWidthIn, frameCenterInsetIn: profileFrameWidthIn / 2 }),
       dimensionalCabinetDetail: true,
     };
     frontGroup.add(pull);
@@ -5019,6 +5028,7 @@ export function addCabinet(
         const pullOffset = doorHardwareOffsetFromFaceCenterIn(
           faceWidth / INCH,
           handleSide < 0 ? "left" : handleSide > 0 ? "right" : "center",
+          profileFrameWidthIn,
         ) * INCH;
         const tangentX = Math.cos(door.rotation.y);
         const tangentZ = -Math.sin(door.rotation.y);
@@ -5029,7 +5039,7 @@ export function addCabinet(
           door.position.z + tangentZ * pullOffset + normalZ * 0.058,
         );
         pull.rotation.y = door.rotation.y;
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, hingeSide: singleDoorHinge, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? singleDoorHinge === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN, dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", diagonalDoorPull: true, verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, hingeSide: singleDoorHinge, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? singleDoorHinge === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, frameWidthIn: profileFrameWidthIn, frameCenterInsetIn: profileFrameWidthIn / 2, dimensionalCabinetDetail: true };
         frontGroup.add(pull);
         for (const offset of [-1, 1] as const) {
           const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.05, 10), hardwareMaterial);
@@ -5132,6 +5142,7 @@ export function addCabinet(
         const pullOffset = doorHardwareOffsetFromFaceCenterIn(
           targetWidth / INCH,
           offset < 0 ? "left" : offset > 0 ? "right" : "center",
+          profileFrameWidthIn,
         ) * INCH;
         const pull = new THREE.Mesh(new THREE.BoxGeometry(0.022, pullLength, 0.026), hardwareMaterial);
         if (targetDoor === backDoor) {
@@ -5140,7 +5151,7 @@ export function addCabinet(
           pull.position.set(sideDoor.position.x + 0.066, upperOpeningPullY, sideDoor.position.z - pullOffset);
           pull.rotation.y = Math.PI / 2;
         }
-        pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: hardwarePosition === "auto" || hardwarePosition === "paired", verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, pullHeight: "upper-opening-edge", hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, frameWidthIn: 3, frameCenterInsetIn: FRAMED_STILE_CENTER_IN, dimensionalCabinetDetail: true };
+        pull.userData = { cabinetHardware: true, cabinetPull: "door", lCornerHingeOppositePull: hardwarePosition === "auto" || hardwarePosition === "paired", verticalPull: true, pullEdge: hardwarePosition === "auto" || hardwarePosition === "paired" ? "opposite-hinge" : hardwarePosition, pullHeight: "upper-opening-edge", hingeSide, handleSide: hardwarePosition === "auto" || hardwarePosition === "paired" ? hingeSide === "left" ? "right" : "left" : hardwarePosition, hardwarePosition, frameWidthIn: profileFrameWidthIn, frameCenterInsetIn: profileFrameWidthIn / 2, dimensionalCabinetDetail: true };
         frontGroup.add(pull);
       }
     }

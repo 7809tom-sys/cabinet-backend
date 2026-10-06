@@ -3941,6 +3941,54 @@ describe("interactive 3D room scene helpers", () => {
     });
   });
 
+  it("builds Slim Shaker rails, stiles, and door pull at one inch from the exact selected profile", () => {
+    const cabinet = {
+      uid: "slim-shaker-one-inch",
+      cabinetId: 1,
+      masterCode: "B-18",
+      description: "18 inch Single Door Base",
+      placement: "base",
+      x: 0,
+      y: 0,
+      width: 18,
+      depth: 24,
+      height: 34.5,
+      rotation: 0,
+      numberOfDoors: 1,
+      numberOfDrawers: 0,
+      hardwarePosition: "right",
+    } as never;
+    const root = new THREE.Group();
+    addCabinetWithBarPulls(
+      root,
+      existingCabinetSku(cabinet),
+      null,
+      {},
+      144,
+      120,
+      "#d1ba8f",
+      "#ffffff",
+      { doorStyle: "Slim Shaker", doorPanelType: null, railWidth: 1, stileWidth: 1 },
+      existingCabinetTransform(cabinet),
+    );
+    const rails: THREE.Mesh[] = [];
+    const stiles: THREE.Mesh[] = [];
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node.userData.physicalRail && node instanceof THREE.Mesh) {
+        if (node.userData.grainPiece === "rail") rails.push(node);
+        if (node.userData.grainPiece === "stile") stiles.push(node);
+      }
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") pulls.push(node);
+    });
+    expect(rails.length).toBeGreaterThanOrEqual(2);
+    expect(stiles.length).toBeGreaterThanOrEqual(2);
+    expect(rails.every((rail) => (rail.geometry as THREE.BoxGeometry).parameters.height === 1 / 12)).toBe(true);
+    expect(stiles.every((stile) => (stile.geometry as THREE.BoxGeometry).parameters.width === 1 / 12)).toBe(true);
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]!.userData).toMatchObject({ frameWidthIn: 1, frameCenterInsetIn: 0.5 });
+  });
+
   it("centers every drawer pull even when the cabinet’s door hardware preference is left or right", () => {
     const cabinet = {
       uid: "drawer-centering-rule",

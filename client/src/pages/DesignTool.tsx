@@ -74,7 +74,7 @@ import { buildPreSavePlanReview, unsuitableWallCabinetAboveRefrigerator, type Pr
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliateStyleName";
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
-import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
+import { designerDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
@@ -3889,16 +3889,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     });
     return m;
   }, [doorStyles]);
-  // Per-style frame inset map: uses the authored stile width from the Door Style
-  // information page. Zenith Sage's documented 3-inch stile becomes a 12px
-  // elevation reveal so its recessed panels match the real cabinet profile. A
-  // partial record intentionally falls back to the neutral face; never infer a
-  // missing companion stile or rail.
+  // Per-style frame inset map. Source-bound measurements remain authoritative;
+  // the catalog-wide Slim Shaker family rule is the sole exception and always
+  // supplies its verified 1-inch rail and stile for every rendered face.
   const frameInsetById = useMemo(() => {
     const m = new Map<number, number>();
     doorStyles?.forEach((d) => {
       const s = d as { id: number; stileWidth?: string | number | null; railWidth?: string | number | null };
-      const frame = completeDoorFrameMetrics(s);
+      const frame = designerDoorFrameMetrics(s);
       const inset = frameInsetPxFromInches(frame?.stileWidth);
       if (inset != null) m.set(s.id, inset);
     });
@@ -3915,7 +3913,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const m = new Map<number, { stileInches?: number | null; railInches?: number | null }>();
     doorStyles?.forEach((d) => {
       const s = d as { id: number; stileWidth?: string | number | null; railWidth?: string | number | null };
-      const frame = completeDoorFrameMetrics(s);
+      const frame = designerDoorFrameMetrics(s);
       if (frame) m.set(s.id, { stileInches: frame.stileWidth, railInches: frame.railWidth });
     });
     return m;
@@ -11488,7 +11486,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
         finishSheen?: "satin" | "matte" | "gloss" | null;
       };
-      const frame = completeDoorFrameMetrics(frameStyle);
+      const frame = designerDoorFrameMetrics(frameStyle);
       return [[cabinet.uid, {
         doorStyle: assignedStyle.doorStyle ?? null,
         doorPanelType: assignedStyle.doorPanelType ?? null,
@@ -11675,7 +11673,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
 	          finishSheen?: "satin" | "matte" | "gloss" | null;
 	        };
-	        const frame = completeDoorFrameMetrics(styleProfile);
+	        const frame = designerDoorFrameMetrics(styleProfile);
 	        return {
 	          doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
 	          doorPanelType: activeStyle.doorPanelType ?? null,
@@ -15047,6 +15045,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 panelKindFor={panelKindForCab}
                 doorSampleUrlFor={doorSampleForCab}
                 drawerSampleUrlFor={drawerSampleForCab}
+                frameInsetFor={frameInsetForCab}
+                frameMetricsFor={frameMetricsForCab}
               />
             </div>
           )}
@@ -18490,7 +18490,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
 	                    finishSheen?: "satin" | "matte" | "gloss" | null;
 	                  };
-	                  const frame = completeDoorFrameMetrics(styleProfile);
+	                  const frame = designerDoorFrameMetrics(styleProfile);
 	                  return {
 	                    doorStyle: activeStyle.doorStyle ?? activeStyle.ourName ?? null,
 	                    doorPanelType: activeStyle.doorPanelType ?? null,

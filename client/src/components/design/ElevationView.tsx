@@ -659,6 +659,7 @@ export function ElevationView({
               swing={resolveSwing(p)}
               isWall={isWall}
               faceWidthIn={sizeAlong}
+              frameStileIn={cabFrameMetrics?.stileInches}
             />
           )}
           {/* Appliance-specific detail overlays */}
@@ -2046,7 +2047,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, raisedDoorPullOnRail = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, raisedDoorPullOnRail = false,
 }: {
   doors: number;
   drawers: number;
@@ -2057,6 +2058,7 @@ export function HardwareOverlay({
   swing?: "left" | "right" | "double" | "none" | null;
   isWall?: boolean;
   faceWidthIn: number;
+  frameStileIn?: number | null;
   raisedDoorPullOnRail?: boolean;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
@@ -2087,12 +2089,17 @@ export function HardwareOverlay({
         ? position
         : swing === "right" ? "left" : "right";
     const centerFromLeftIn = pairedDoorPull
-      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition)
-      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition);
+      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn)
+      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn);
     const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
+    const requestedStile = Number(frameStileIn);
+    const edgeInsetIn = Math.min(
+      Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile / 2 : FRAMED_STILE_CENTER_IN,
+      doorWidthIn / 2,
+    );
     const measuredHardwareData = isDoor ? {
       "data-hardware-center-in": centerFromLeftIn,
-      "data-hardware-edge-inset-in": horizontalPosition === "center" ? undefined : FRAMED_STILE_CENTER_IN,
+      "data-hardware-edge-inset-in": horizontalPosition === "center" ? undefined : edgeInsetIn,
     } : {};
     if (kind === "knob") {
       return (
@@ -2204,12 +2211,12 @@ export function StylePanel({ kind, edge, face, drawer = false, doorSampleUrl, dr
         />
       );
     }
-    // Shaker / framed styles: preserve the authored 3" vertical stiles while
-    // using shallower horizontal rails so short drawers retain a center panel.
-    const sideInset = drawerPanelInsetPx(elevationFrameInsetPx(kind, frameInsetPx), isShaker);
+    // Shaker / framed styles preserve their shared physical profile. Slim
+    // Shaker uses its one-inch rails and stiles; ordinary Shaker remains 3-inch.
+    const sideInset = drawerPanelInsetPx(elevationFrameInsetPx(kind, frameInsetPx), isShaker, kind);
     const railInset = isShaker ? sideInset : Math.max(3, Math.min(6, Math.round(sideInset * 0.5)));
     const physicalGeometry = isShaker
-      ? shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.drawerCount, faceHeightIn ?? inheritedFace.drawerHeightIn)
+      ? shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.drawerCount, faceHeightIn ?? inheritedFace.drawerHeightIn, inheritedFace.frameMetrics ?? undefined, kind)
       : null;
     return (
       <div
@@ -3502,9 +3509,9 @@ export function SingleDoorPanel({ kind, edge, face, stroke, doorSampleUrl, isWal
   };
   // Per-style frame inset: how many px from the door edge to the recessed panel.
   // Derived from the style's stileWidth (in inches) scaled to px at ~4px/in.
-  // Fallback defaults: slim-shaker=3, shaker/raised/beaded=6, double-shaker=6, inset=5.
+  // Fallback defaults: slim-shaker=4px (1in), shaker/raised/beaded=12px (3in), double-shaker=12px, inset=5px.
   const resolvedInset = (fi: number) => elevationFrameInsetPx(kind, frameInsetPx) ?? fi;
-  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn, inheritedFace.frameMetrics ?? undefined);
+  const shakerGeometry = shakerFacePanelGeometry(faceWidthIn ?? inheritedFace.widthIn / inheritedFace.doorCount, faceHeightIn ?? inheritedFace.doorHeightIn, inheritedFace.frameMetrics ?? undefined, kind);
 	if (glassDoor.enabled) {
 	  const paneLeft = `${shakerGeometry.horizontalInsetPercent}%`;
 	  const paneTop = `${shakerGeometry.verticalInsetPercent}%`;

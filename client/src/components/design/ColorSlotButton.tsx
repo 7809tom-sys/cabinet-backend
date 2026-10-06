@@ -17,7 +17,7 @@ import { useIsMobile } from "@/hooks/useMobile";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
-import { completeDoorFrameMetrics } from "@/lib/doorFrameMetrics";
+import { designerDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -164,7 +164,7 @@ export function ColorSlotButton({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
-  const selectedFrameMetrics = completeDoorFrameMetrics(style as StyleOption | null);
+  const selectedFrameMetrics = designerDoorFrameMetrics(style as StyleOption | null);
 
   // Group the styles by distributor (supply line) via the shared, unit-tested
   // helper. Groups are ordered by their neutral label so the list is stable;
@@ -557,7 +557,7 @@ export function ColorSlotButton({
                 ? t("dt_cs_click_use")
                 : t("dt_cs_optional_second")}
           </span>
-          {/* Only a complete frame record can represent the selected style. */}
+          {/* Slim Shaker has an explicit one-inch family rule; other profiles stay source-bound. */}
           {hasStyle && selectedFrameMetrics && (
             <span className="block text-[9px] text-muted-foreground/80 mt-0.5">
               Rail {selectedFrameMetrics.railWidth}&quot; · Stile {selectedFrameMetrics.stileWidth}&quot;

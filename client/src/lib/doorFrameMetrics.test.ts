@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { completeDoorFrameMetrics, designerFrameCompliance } from "./doorFrameMetrics";
+import {
+  completeDoorFrameMetrics,
+  designerDoorFrameMetrics,
+  designerFrameCompliance,
+  SLIM_SHAKER_FRAME_INCHES,
+} from "./doorFrameMetrics";
 
 describe("completeDoorFrameMetrics", () => {
   it("keeps a complete style's own rail and stile dimensions", () => {
@@ -26,6 +31,22 @@ describe("completeDoorFrameMetrics", () => {
     expect(completeDoorFrameMetrics({ railWidth: 0, stileWidth: 2, sourceSpecification: "Official catalog" })).toBeNull();
     expect(completeDoorFrameMetrics({ railWidth: 2, stileWidth: 2, sourceSpecification: null })).toBeNull();
     expect(completeDoorFrameMetrics(null)).toBeNull();
+  });
+
+  it("uses the one-inch Slim Shaker construction rule without changing ordinary uncited Shaker", () => {
+    expect(designerDoorFrameMetrics({
+      doorStyle: "Slim Shaker",
+      doorPanelType: "Five-piece solid wood with MDF center panel",
+      railWidth: "3.00",
+      stileWidth: "3.00",
+      sourceSpecification: null,
+    })).toEqual({ railWidth: SLIM_SHAKER_FRAME_INCHES, stileWidth: SLIM_SHAKER_FRAME_INCHES });
+    expect(designerDoorFrameMetrics({
+      doorStyle: "Shaker",
+      railWidth: "1.00",
+      stileWidth: "1.00",
+      sourceSpecification: null,
+    })).toBeNull();
   });
 
   it("marks a Featured Door Style noncompliant until measurements and its official citation are present", () => {

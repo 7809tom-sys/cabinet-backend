@@ -1,6 +1,8 @@
 export const ELEVATION_PIXELS_PER_INCH = 4;
 export const SHAKER_FACE_FRAME_INCHES = 3;
 export const SHAKER_FACE_FRAME_PX = SHAKER_FACE_FRAME_INCHES * ELEVATION_PIXELS_PER_INCH;
+export const SLIM_SHAKER_FACE_FRAME_INCHES = 1;
+export const SLIM_SHAKER_FACE_FRAME_PX = SLIM_SHAKER_FACE_FRAME_INCHES * ELEVATION_PIXELS_PER_INCH;
 
 export interface ShakerFacePanelGeometry {
   stileInches: number;
@@ -13,16 +15,23 @@ export interface ShakerFacePanelGeometry {
 
 /**
  * Physical Shaker face geometry. Verified stile and rail values may be supplied
- * by the authorized Door Style record; absent values retain the neutral 3-inch
- * profile. The center panel remains independent of screen zoom.
+ * by the authorized Door Style record; absent ordinary Shaker values retain the
+ * neutral 3-inch profile while Slim Shaker retains its 1-inch family rule. The
+ * center panel remains independent of screen zoom.
  */
-export function shakerFacePanelGeometry(faceWidthInches: number, faceHeightInches: number, verified?: { stileInches?: number | null; railInches?: number | null }): ShakerFacePanelGeometry {
+export function shakerFacePanelGeometry(
+  faceWidthInches: number,
+  faceHeightInches: number,
+  verified?: { stileInches?: number | null; railInches?: number | null },
+  kind?: string,
+): ShakerFacePanelGeometry {
   const width = Math.max(0.1, faceWidthInches);
   const height = Math.max(0.1, faceHeightInches);
   const requestedStile = Number(verified?.stileInches);
   const requestedRail = Number(verified?.railInches);
-  const stile = Math.min(Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile : SHAKER_FACE_FRAME_INCHES, width / 2);
-  const rail = Math.min(Number.isFinite(requestedRail) && requestedRail > 0 ? requestedRail : SHAKER_FACE_FRAME_INCHES, height / 2);
+  const fallback = kind === "slim-shaker" ? SLIM_SHAKER_FACE_FRAME_INCHES : SHAKER_FACE_FRAME_INCHES;
+  const stile = Math.min(Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile : fallback, width / 2);
+  const rail = Math.min(Number.isFinite(requestedRail) && requestedRail > 0 ? requestedRail : fallback, height / 2);
   return {
     stileInches: stile,
     railInches: rail,
@@ -41,12 +50,7 @@ export function isFlatPanelElevationStyle(kind: string): boolean {
   return kind === "slab";
 }
 
-/**
- * Converts a cabinet style's authored face-frame width in inches into the
- * elevation renderer's pixel-scale inset. The renderer's standard elevation
- * scale is approximately four pixels per inch, so a 3-inch stile/rail becomes
- * a 12-pixel recessed-panel reveal.
- */
+/** Converts an authored face-frame width in inches into the elevation pixel inset. */
 export function frameInsetPxFromInches(value: string | number | null | undefined): number | null {
   if (value == null) return null;
   const inches = Number.parseFloat(String(value));
@@ -55,19 +59,21 @@ export function frameInsetPxFromInches(value: string | number | null | undefined
 }
 
 /**
- * Every framed face uses a verified authored stile inset when present; the
- * neutral three-inch Shaker inset remains the fallback for blank fields.
+ * Every framed face uses an authored stile inset when present. Slim Shaker has
+ * a one-inch family fallback; ordinary Shaker remains three inches.
  */
 export function elevationFrameInsetPx(kind: string, authoredInset?: number | null): number | null {
   if (isFlatPanelElevationStyle(kind)) return null;
-  return authoredInset ?? (isShakerElevationStyle(kind) ? SHAKER_FACE_FRAME_PX : null);
+  if (authoredInset != null) return authoredInset;
+  if (kind === "slim-shaker") return SLIM_SHAKER_FACE_FRAME_PX;
+  return isShakerElevationStyle(kind) ? SHAKER_FACE_FRAME_PX : null;
 }
 
 /**
  * Drawer fronts are shorter than doors, so preserve the authored frame width
  * while keeping enough visible recessed-panel area for the elevation drawing.
  */
-export function drawerPanelInsetPx(frameInsetPx: number | null | undefined, isShaker = false): number {
-  if (isShaker) return frameInsetPx ?? SHAKER_FACE_FRAME_PX;
+export function drawerPanelInsetPx(frameInsetPx: number | null | undefined, isShaker = false, kind?: string): number {
+  if (isShaker) return frameInsetPx ?? (kind === "slim-shaker" ? SLIM_SHAKER_FACE_FRAME_PX : SHAKER_FACE_FRAME_PX);
   return Math.min(10, Math.max(3, Math.round(frameInsetPx ?? 3)));
 }

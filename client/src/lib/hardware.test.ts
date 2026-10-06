@@ -209,6 +209,14 @@ describe("hardware placement spec", () => {
     expect(normalizeDoorHardwareFramePosition("top-center")).toBe("top-center");
   });
 
+  it("centers Slim Shaker hardware on its one-inch stile without changing the standard three-inch default", () => {
+    expect(doorHardwareCenterFromLeftIn(18, "left", 1)).toBe(0.5);
+    expect(doorHardwareCenterFromLeftIn(18, "right", 1)).toBe(17.5);
+    expect(doorHardwareOffsetFromFaceCenterIn(18, "left", 1)).toBe(-8.5);
+    expect(doorHardwareOffsetFromFaceCenterIn(18, "right", 1)).toBe(8.5);
+    expect(doorHardwareCenterFromLeftIn(18, "left")).toBe(1.5);
+  });
+
   it("classifies framed vs slab door styles", () => {
     expect(doorConstruction("Shaker")).toBe("framed");
     expect(doorConstruction("Slim Shaker")).toBe("framed");

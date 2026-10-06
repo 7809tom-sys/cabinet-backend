@@ -49,6 +49,19 @@ describe("elevation face-frame geometry", () => {
     expect(elevationFrameInsetPx("slim-shaker", 4)).toBe(4);
   });
 
+  it("keeps every Slim Shaker fallback at a one-inch frame while regular Shaker stays three inches", () => {
+    expect(shakerFacePanelGeometry(21, 30, undefined, "slim-shaker")).toMatchObject({
+      stileInches: 1,
+      railInches: 1,
+      centerPanelWidthInches: 19,
+      centerPanelHeightInches: 28,
+    });
+    expect(elevationFrameInsetPx("slim-shaker", null)).toBe(4);
+    expect(drawerPanelInsetPx(null, true, "slim-shaker")).toBe(4);
+    expect(elevationFrameInsetPx("shaker", null)).toBe(SHAKER_FACE_FRAME_PX);
+    expect(drawerPanelInsetPx(null, true, "shaker")).toBe(SHAKER_FACE_FRAME_PX);
+  });
+
   it("uses real partial face height for 3-inch top and bottom rails", () => {
     // A 30-inch oven door keeps a 24-inch center panel after two 3-inch rails.
     expect(shakerFacePanelGeometry(12, 30)).toMatchObject({

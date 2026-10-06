@@ -19,4 +19,11 @@ describe("island elevation waterfall ends", () => {
     expect(source).toContain("zoneWaterfallEnds.includes(face)");
     expect(source).toContain("Legacy per-cabinet flags remain a fallback for older plans");
   });
+
+  it("receives the shared Slim Shaker metric map rather than falling back to an island-only three-inch frame", () => {
+    expect(source).toContain("frameMetricsFor?:");
+    expect(source).toContain('cabPanelKind === "slim-shaker"');
+    expect(source).toContain("frameInsetPx={cabPanelKind === \"slim-shaker\" ? cabFrameInset ?? 4 : undefined}");
+    expect(source).toContain("frameStileIn={cabFrameStileIn}");
+  });
 });

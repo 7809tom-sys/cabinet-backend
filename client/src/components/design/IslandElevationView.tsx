@@ -73,7 +73,7 @@ function RecessedPanel({
 }
 
 function DoorFront({
-  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, facePattern,
+  kind, edge, face, doors, drawers, isWall, doorSampleUrl, drawerSampleUrl, cabinetType, blindOnLeft, cabinetHeightIn, facePattern, frameInsetPx,
 }: {
   kind: DoorPanelKind; edge: string; face: string;
   doors: number; drawers: number; isWall: boolean;
@@ -83,6 +83,7 @@ function DoorFront({
   blindOnLeft: boolean;
   cabinetHeightIn: number;
   facePattern?: "slats" | "criss-cross" | "lattice" | "open" | null;
+  frameInsetPx?: number | null;
 }) {
   void drawerSampleUrl; // reserved for future drawer-front photo rendering in island view
   // Face-pattern override: render specialty open-front pattern instead of door panels
@@ -192,7 +193,7 @@ function DoorFront({
     case "slim-shaker":
       return (
         <div className="absolute inset-0" style={railBevel}>
-          <RecessedPanel inset={3} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
+          <RecessedPanel inset={frameInsetPx ?? 4} face={face} edge={edge} doorSampleUrl={doorSampleUrl} />
         </div>
       );
     case "shaker":
@@ -206,7 +207,7 @@ function DoorFront({
 }
 
 export function IslandHardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn, raisedDoorPullOnRail = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, faceWidthIn, frameStileIn, raisedDoorPullOnRail = false,
 }: {
   doors: number; drawers: number;
   doorPiece: "knob" | "pull" | "none";
@@ -215,6 +216,7 @@ export function IslandHardwareOverlay({
   hardwarePosition?: "auto" | "left" | "center" | "right" | "paired" | "top-center" | null;
   swing?: "left" | "right" | "double" | "none" | null;
   faceWidthIn: number;
+  frameStileIn?: number | null;
   raisedDoorPullOnRail?: boolean;
 }) {
   const metal = `linear-gradient(135deg, color-mix(in srgb, ${accent} 55%, #ffffff) 0%, ${accent} 38%, color-mix(in srgb, ${accent} 70%, #000000) 72%, color-mix(in srgb, ${accent} 88%, #ffffff) 100%)`;
@@ -239,12 +241,17 @@ export function IslandHardwareOverlay({
         ? hSide
         : swing === "right" ? "left" : "right";
     const centerFromLeftIn = pairedDoorPull
-      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition)
-      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition);
+      ? (index === 0 ? 0 : doorWidthIn) + doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn)
+      : doorHardwareCenterFromLeftIn(doorWidthIn, horizontalPosition, frameStileIn);
     const leftPos = physicalWidthIn > 0 ? `${(centerFromLeftIn / physicalWidthIn) * 100}%` : "50%";
+    const requestedStile = Number(frameStileIn);
+    const edgeInsetIn = Math.min(
+      Number.isFinite(requestedStile) && requestedStile > 0 ? requestedStile / 2 : FRAMED_STILE_CENTER_IN,
+      doorWidthIn / 2,
+    );
     const measuredHardwareData = isDoor ? {
       "data-hardware-center-in": centerFromLeftIn,
-      "data-hardware-edge-inset-in": FRAMED_STILE_CENTER_IN,
+      "data-hardware-edge-inset-in": edgeInsetIn,
     } : {};
     if (kind === "knob") {
       return (
@@ -315,6 +322,8 @@ interface Props {
   panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
   doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
   drawerSampleUrlFor?: (cab: PlacedCabinet) => string | null;
+  frameInsetFor?: (cab: PlacedCabinet) => number | null;
+  frameMetricsFor?: (cab: PlacedCabinet) => { stileInches?: number | null; railInches?: number | null } | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -334,7 +343,7 @@ export function IslandElevationView({
   finish = DEFAULT_FINISH_COLORS,
   crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", hardwareStyleId = null,
-  finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor,
+  finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, frameInsetFor, frameMetricsFor,
 }: Props) {
   const { t } = useLanguage();
   const hw = resolveHardwareStyle(hardwareStyleId);
@@ -414,6 +423,11 @@ export function IslandElevationView({
     const cabPanelKind = panelKindFor ? panelKindFor(p) : panelKind;
     const cabDoorSampleUrl = !isAppliance && doorSampleUrlFor ? doorSampleUrlFor(p) : null;
     const cabDrawerSampleUrl = !isAppliance && drawerSampleUrlFor ? (drawerSampleUrlFor(p) ?? cabDoorSampleUrl) : cabDoorSampleUrl;
+    const cabFrameInset = !isAppliance && frameInsetFor ? frameInsetFor(p) : null;
+    const cabFrameMetrics = !isAppliance && frameMetricsFor ? frameMetricsFor(p) : null;
+    const cabFrameStileIn = cabPanelKind === "slim-shaker"
+      ? cabFrameMetrics?.stileInches ?? 1
+      : undefined;
     const faceFill = isAppliance
       ? "linear-gradient(115deg, #eef1f5 0%, #d3d9e1 22%, #c2c9d4 52%, #d9dee6 78%, #c8cfd8 100%)"
       : `linear-gradient(180deg, color-mix(in srgb, ${cabFinish.face} 88%, #ffffff) 0%, ${cabFinish.face} 40%, ${cabFinish.face} 62%, color-mix(in srgb, ${cabFinish.face} 90%, #000000) 100%)`;
@@ -471,6 +485,7 @@ export function IslandElevationView({
               blindOnLeft={blindLeft}
               cabinetHeightIn={height}
               facePattern={p.facePattern ?? null}
+              frameInsetPx={cabPanelKind === "slim-shaker" ? cabFrameInset ?? 4 : undefined}
             />
           )}
           {!isAppliance && hw.id !== "none" && (
@@ -484,6 +499,7 @@ export function IslandElevationView({
               raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
               swing={resolveSwing(p)}
               faceWidthIn={cabSizeAlong}
+              frameStileIn={cabFrameStileIn}
             />
           )}
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 5 }}>

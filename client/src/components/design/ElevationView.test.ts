@@ -230,6 +230,16 @@ describe("Shaker elevation front rendering", () => {
     expect(wide).toMatch(/right:14\.2857/);
   });
 
+  it("draws the Slim Shaker family’s one-inch rails and stiles for the same cabinet face", () => {
+    const markup = renderToStaticMarkup(createElement(SingleDoorPanel, {
+      kind: "slim-shaker", edge: "#1a2744", face: "#d8d4c8", stroke: "#1a274499", faceWidthIn: 12, faceHeightIn: 30,
+    }));
+
+    // The elevation scale is 4px/in, so Slim Shaker's 1-inch frame becomes a
+    // four-pixel recessed inset instead of the generic 3-inch Shaker profile.
+    expect(markup).toContain("inset:4px");
+  });
+
   it("draws measured 3-inch top and bottom rails on a 12-inch partial-height Shaker drawer", () => {
     const markup = renderToStaticMarkup(
       createElement(StylePanel, {
