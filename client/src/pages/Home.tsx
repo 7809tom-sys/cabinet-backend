@@ -140,6 +140,12 @@ function Hero() {
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
+              <Link href="/closet">
+                <Button size="lg" variant="outline" className="border-white/80 text-white bg-white/5 hover:bg-white/15 hover:border-white gap-2">
+                  Plan a Closet
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </div>
 

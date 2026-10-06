@@ -48,6 +48,7 @@ const AffiliateDashboard = lazy(() => import("@/pages/AffiliateDashboard"));
 const ContractorDashboard = lazy(() => import("@/pages/ContractorDashboard"));
 const Cart = lazy(() => import("@/pages/Cart"));
 const VendorPortal = lazy(() => import("@/pages/VendorPortal"));
+const VendorClosetStudio = lazy(() => import("@/pages/VendorClosetStudio"));
 const PhotoToCart = lazy(() => import("@/pages/PhotoToCart"));
 const FixturePhotoToCart = lazy(() => import("@/pages/FixturePhotoToCart"));
 const SignIn = lazy(() => import("@/pages/SignIn"));
@@ -488,6 +489,14 @@ export default function App() {
           <DesignerRoute />
         </Route>
 
+        {/* The public Closet program is separate from the kitchen Designer.
+            Keep the existing /design route for saved legacy plans. */}
+        <Route path="/closet">
+          <Suspense fallback={<PageLoader />}>
+            <VendorClosetStudio />
+          </Suspense>
+        </Route>
+
         <Route path="/designer-guide">
           <AppLayout>
             <Suspense fallback={<PageLoader />}>
@@ -616,6 +625,12 @@ export default function App() {
 
         <Route path="/distributor">
           <DistributorPortalRedirect />
+        </Route>
+
+        <Route path="/vendor/closet-studio">
+          <Suspense fallback={<PageLoader />}>
+            <VendorClosetStudio />
+          </Suspense>
         </Route>
 
         <Route path="/vendor">

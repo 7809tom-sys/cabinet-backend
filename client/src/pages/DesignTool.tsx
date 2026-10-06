@@ -14019,6 +14019,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 <button
                   key={rt.value}
 	                  onClick={() => {
+	                    if (rt.value === "closet" && !affiliateSlug && !placedRef.current.some((item) => isClosetPart(item.masterCode))) {
+	                      // New Closet plans belong in Studio. An existing MasterTrac
+	                      // draft stays here so its saved geometry is not lost.
+	                      window.location.assign("/closet");
+	                      return;
+	                    }
 	                    setRoomType(rt.value);
 	                    if (rt.value === "closet") setViewMode("plan");
                     // Pick a sensible starting tab for the chosen room type
@@ -14045,6 +14051,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               <div className="mb-2 overflow-hidden rounded-lg border border-stone-300 bg-stone-50" data-testid="mastertrac-palette-header">
                 {!isTabletWorkspace && <img src={MASTERTRAC_BROCHURE_PHOTO} alt="Assembled WoodTrac MasterTrac closet photographed in the supplied brochure; example installation, not a photograph of an individual SKU" className="h-24 w-full object-cover" />}
                 <div className="space-y-1.5 p-2">
+	                  {!affiliateSlug && <><a href="/closet" data-testid="open-closet-studio-from-legacy" className="flex min-h-10 items-center justify-center rounded-md bg-[#244338] px-3 text-center text-xs font-semibold text-white hover:bg-[#315444]">Open the new Closet Studio</a>
+	                    <p className="text-[10px] leading-snug text-stone-600">Existing Closet plans remain editable here. Studio starts a separate local design; it does not import this plan.</p></>}
 	                  <div className="flex items-center justify-between gap-2">
                     <div className="text-[11px] font-semibold">WoodTrac MasterTrac · 454 manufacturer SKUs</div>
                     {isTabletWorkspace && <button type="button" data-testid="mastertrac-palette-about" aria-expanded={masterTracIntroExpanded} aria-controls="mastertrac-about-panel" onClick={() => setMasterTracIntroExpanded((expanded) => !expanded)} className="inline-flex shrink-0 items-center gap-1 rounded border border-stone-300 bg-white px-2 py-1 text-[10px] font-semibold text-[#1a2744] hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1a2744]">About <ChevronDown className={`h-3 w-3 motion-safe:transition-transform motion-safe:duration-200 motion-reduce:transition-none ${masterTracIntroExpanded ? "rotate-180" : ""}`} /></button>}

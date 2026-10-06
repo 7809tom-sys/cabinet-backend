@@ -18,6 +18,7 @@ export const SITE_STRINGS = {
     nav_stonecreek: "StoneCreek",
     nav_plumbers_choice: "Plumber's Choice",
     nav_design_tool: "3D Designer",
+    nav_closet_studio: "Closet Studio",
     // --- Top nav: more dropdown ---
     nav_more: "More",
     nav_kitchen_planning: "Kitchen Planning Guide",
@@ -1340,6 +1341,7 @@ export const SITE_STRINGS = {
     nav_stonecreek: "Colección StoneCreek",
     nav_plumbers_choice: "Selección del Plomero",
     nav_design_tool: "Diseñador 3D",
+    nav_closet_studio: "Estudio de Clósets",
     // --- Barra superior: menú "Más" ---
     nav_more: "Más",
     nav_kitchen_planning: "Guía para Planificar la Cocina",
@@ -3094,6 +3096,7 @@ export const SITE_STRINGS = {
     nav_countertops: "台面",
     nav_stonecreek: "StoneCreek",
     nav_design_tool: "3D设计器",
+    nav_closet_studio: "衣帽间设计室",
     nav_build_an_order: "创建订单",
     nav_become_vendor: "成为供应商",
     nav_account: "账户",
