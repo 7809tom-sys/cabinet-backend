@@ -5,9 +5,17 @@ import {
   STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
-import { CLOSET_PARTS } from "./closet";
+import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
 
 describe("isolated vendor Closet Studio", () => {
+  it("keeps every public MasterTrac source record discoverable as a non-placeable List reference without private workbook fields", () => {
+    const references = masterTracPublicReferenceCatalog();
+    expect(references).toHaveLength(CLOSET_PARTS.length);
+    expect(references.find((part) => part.sku === "432556")).toMatchObject({ description: "Fixed Corner Shelf", finish: "Glacier White" });
+    expect(references.find((part) => part.sku === "432602")).toMatchObject({ description: "24\" Hamper Shaker Door", finish: "Glacier White" });
+    expect(references.every((part) => "sourceRow" in part === false && "invoiceUsd" in part === false && "wholesaleUsd" in part === false)).toBe(true);
+  });
+
   it("starts with one bay, sourced panels, two fixed shelves and cleat first, outside checkout", () => {
     const design = createStudioDesign();
     expect(design.bays).toHaveLength(1);

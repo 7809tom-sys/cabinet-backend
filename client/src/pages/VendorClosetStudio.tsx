@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight, Check, ChevronDown, CircleHelp, Download, FileText, Layers3, Move3D, Plus, RotateCcw, Ruler, ShoppingBag, Trash2, WandSparkles } from "lucide-react";
 import { VendorClosetScene } from "@/components/vendor/VendorClosetScene";
+import { MASTERTRAC_PRICE_DATE, masterTracPublicReferenceCatalog, type MasterTracPublicReference } from "@/lib/closet";
 import {
   addStudioBay, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioItem,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, STUDIO_MODES, STUDIO_PART_KINDS, STUDIO_WALLS,
@@ -40,7 +41,7 @@ function ReferenceRows({ bill, compact = false }: { bill: StudioReference; compa
       if (!items.length) return null;
       const heading = { cleat: "01 · Start with the cleat", panel: "02 · Uprights / shared sides", shelf: "03 · Shelves", accessory: "04 · Placed accessories", hardware: "05 · Verified hardware" }[section];
       return <section key={section} className={compact ? "mb-4" : "mb-6"}><h3 className="mb-2 border-b border-[#eae4da] pb-2 text-[10px] font-bold uppercase tracking-[0.14em] text-[#837565]">{heading}</h3>
-        <div className={compact ? "space-y-2" : "space-y-3"}>{items.map((item) => <div key={`${section}-${item.sku}`} className="flex gap-3 text-xs">
+        <div className={compact ? "space-y-2" : "space-y-3"}>{items.map((item) => <div key={`${section}-${item.sku}-${item.label}`} className="flex gap-3 text-xs">
           <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#eae7df] font-semibold text-[#5e5449]">{item.qty}×</span>
           <div className="min-w-0 flex-1"><p className="font-semibold leading-snug text-[#343b3d]">{item.label}</p><p className="text-[11px] text-[#918779]">SKU {item.sku}{item.packNote ? ` · ${item.packNote}` : ""}</p></div>
           <span className="shrink-0 font-semibold tabular-nums text-[#343b3d]">{money(item.qty * item.unitUsd)}</span>
@@ -48,6 +49,57 @@ function ReferenceRows({ bill, compact = false }: { bill: StudioReference; compa
     })}
     <div className="rounded-xl border border-[#e6d6bd] bg-[#fff6e6] p-3 text-[11px] leading-relaxed text-[#6c5b41]"><strong>Not an installation-ready bill.</strong> {bill.missing.join(" ")}</div>
   </>;
+}
+
+const STUDIO_SOURCE_CATALOG = masterTracPublicReferenceCatalog();
+const STUDIO_SOURCE_CATEGORIES = Array.from(new Set(STUDIO_SOURCE_CATALOG.map((part) => part.category)));
+
+function catalogDimensions(part: MasterTracPublicReference) {
+  const values = [
+    part.widthIn != null ? `W ${part.widthIn}″` : null,
+    part.heightIn != null ? `H ${part.heightIn}″` : null,
+    part.depthIn != null ? `D ${part.depthIn}″` : null,
+    part.lengthIn != null ? `L ${part.lengthIn}″` : null,
+    part.thicknessIn != null ? `T ${part.thicknessIn}″` : null,
+  ].filter(Boolean);
+  return values.length ? values.join(" · ") : "Source dimensions not published";
+}
+
+/** Complete public 2022 source catalog: discovery only, never a placement or installation claim. */
+function SourceCatalogReference({ compact = false }: { compact?: boolean }) {
+  const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const normalizedQuery = query.trim().toLowerCase();
+  const visible = useMemo(() => STUDIO_SOURCE_CATALOG.filter((part) =>
+    (category === "All" || part.category === category)
+    && (!normalizedQuery || [part.sku, part.description, part.finish, part.category].some((value) => value.toLowerCase().includes(normalizedQuery))),
+  ), [category, normalizedQuery]);
+  const grouped = useMemo(() => STUDIO_SOURCE_CATEGORIES.map((name) => ({ name, parts: visible.filter((part) => part.category === name) })).filter((group) => group.parts.length), [visible]);
+  const referenceOnlyCount = STUDIO_SOURCE_CATALOG.filter((part) => !part.placeable).length;
+
+  return <section className={`border-t border-[#e8e0d6] ${compact ? "mt-4 pt-4" : "mt-6 pt-5"}`} data-testid="vendor-source-catalog">
+    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#997851]">MasterTrac source catalog</p>
+    <h3 className="mt-1 font-serif text-lg text-[#29352f]">Every sourced part, clearly separated from placement.</h3>
+    <p className="mt-2 text-[11px] leading-relaxed text-[#766f65]">{STUDIO_SOURCE_CATALOG.length} public {MASTERTRAC_PRICE_DATE} List records. This browser is a source reference—not a checkout quote, installation guide, or approval to place a part in 3D. {referenceOnlyCount} records are catalog-reference-only; all entries remain unavailable for Studio placement until geometry, attachment, and fit are verified.</p>
+    <p className="mt-2 rounded-md bg-[#fff6e7] px-2 py-2 text-[10px] leading-relaxed text-[#76563a]">Corner shelves and hamper kits are included by their real source names and SKUs. The catalog/manual corner dimensions conflict (29.5″ catalog versus 29¼″ manual), and no corner profile, hamper assembly fit, attachment, or installation geometry is claimed here.</p>
+    <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+      <label className="text-[10px] font-semibold text-[#766f65]">Find a source part<input aria-label="Search MasterTrac source catalog" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="SKU, hamper, basket…" className="mt-1 h-10 w-full rounded-md border border-[#dfd8cc] bg-white px-2 text-xs text-[#39443f]" /></label>
+      <label className="text-[10px] font-semibold text-[#766f65]">Category<select aria-label="Filter MasterTrac source catalog by category" value={category} onChange={(event) => setCategory(event.target.value)} className="mt-1 h-10 min-w-32 rounded-md border border-[#dfd8cc] bg-white px-2 text-xs text-[#39443f]"><option value="All">All categories</option>{STUDIO_SOURCE_CATEGORIES.map((name) => <option key={name} value={name}>{name}</option>)}</select></label>
+    </div>
+    <p className="mt-3 text-[10px] font-semibold text-[#766f65]">{visible.length} matching source record{visible.length === 1 ? "" : "s"}</p>
+    <div className={`mt-2 ${compact ? "space-y-2" : "space-y-3"}`}>
+      {grouped.map((group) => <details key={group.name} open={Boolean(normalizedQuery) || category === group.name} className="rounded-lg border border-[#e7e0d6] bg-white">
+        <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-[#4a554e]">{group.name} <span className="font-normal text-[#887d70]">· {group.parts.length}</span></summary>
+        <div className="border-t border-[#eee8df] p-2">
+          {group.parts.map((part) => <article key={part.sku} className="border-b border-[#f0ebe3] px-1 py-2 last:border-0" data-testid={`vendor-source-part-${part.sku}`}>
+            <div className="flex items-start justify-between gap-2"><div className="min-w-0"><strong className="block text-[11px] leading-snug text-[#343b3d]">{part.description}</strong><span className="text-[10px] text-[#887d70]">SKU {part.sku} · {part.finish} · {catalogDimensions(part)}</span></div><span className="shrink-0 text-[10px] font-semibold tabular-nums text-[#5c665f]">{money(part.packQty > 1 ? part.listPackUsd : part.listEachUsd)}</span></div>
+            <p className="mt-1 text-[10px] leading-relaxed text-[#876a4c]">Reference only · not a Studio placement or fit confirmation{part.packQty > 1 ? ` · pack of ${part.packQty}` : ""}</p>
+          </article>)}
+        </div>
+      </details>)}
+      {!grouped.length && <p className="rounded-md border border-dashed border-[#d8cbb9] p-3 text-xs text-[#766f65]">No public 2022 MasterTrac source record matches that search.</p>}
+    </div>
+  </section>;
 }
 
 function TabletMaterialDisclosure({ design, expanded, onToggle }: { design: StudioDesign; expanded: boolean; onToggle: () => void }) {
@@ -60,6 +112,7 @@ function TabletMaterialDisclosure({ design, expanded, onToggle }: { design: Stud
     {expanded && <div id="vendor-tablet-material-list" data-testid="vendor-tablet-material-list" className="max-h-[min(42dvh,370px)] overflow-y-auto border-t border-[#e8e0d6] px-3 py-3">
       <p className="mb-3 text-[11px] leading-relaxed text-[#776f64]">March 1, 2022 customer List. Historical reference only—<strong>not checkout pricing</strong>.</p>
       <ReferenceRows bill={bill} compact />
+      <SourceCatalogReference compact />
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#e8e0d6] pt-3"><span className="text-[10px] font-bold uppercase tracking-wider text-[#766a5d]">2022 List reference</span><strong className="font-serif text-xl tabular-nums text-[#24322e]" data-testid="vendor-reference-total">{money(bill.subtotalUsd)}</strong></div>
       <button type="button" onClick={() => downloadMaterialReference(design, bill)} className="mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#243b32] text-xs font-bold text-white hover:bg-[#385348]"><Download className="h-4 w-4" /> Download material reference</button>
     </div>}
@@ -97,7 +150,7 @@ function Reference({ design, onClose }: { design: StudioDesign; onClose: () => v
       <div><p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#ae7950]">Material reference</p><h2 className="mt-1 font-serif text-2xl text-[#282e32]">Every piece, accounted for.</h2><p className="mt-2 text-xs leading-relaxed text-[#776f64]">March 1, 2022 customer List. Historical reference only—<strong>not checkout pricing</strong>.</p></div>
       <button type="button" onClick={onClose} aria-label="Close material reference" className="min-h-11 rounded-lg border border-[#dfd7cc] px-3 text-xs min-[1800px]:hidden">Close</button>
     </div>
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4"><ReferenceRows bill={bill} /></div>
+    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4"><ReferenceRows bill={bill} /><SourceCatalogReference /></div>
     <div className="border-t border-[#e5dfd5] bg-white p-5"><div className="flex items-baseline justify-between gap-4"><span className="text-xs font-semibold uppercase tracking-wider text-[#766a5d]">2022 List reference</span><strong className="font-serif text-3xl tabular-nums text-[#24322e]" data-testid="vendor-reference-total">{money(bill.subtotalUsd)}</strong></div><button type="button" onClick={() => downloadMaterialReference(design, bill)} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-md bg-[#243b32] text-xs font-bold text-white hover:bg-[#385348]"><Download className="h-4 w-4" /> Download material reference</button></div>
   </aside>;
 }

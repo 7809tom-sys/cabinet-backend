@@ -28,6 +28,23 @@ export const MASTERTRAC_BROCHURE_PHOTO = "/manus-storage/mastertrac-room-from-br
 export const CLOSET_PARTS: MasterTracProduct[] = catalog as MasterTracProduct[];
 const bySku = new Map(CLOSET_PARTS.map((p) => [p.sku, p]));
 
+/** Browser-safe source fields for discoverability only; reference records never establish placement, fit, or installation. */
+export type MasterTracPublicReference = Pick<MasterTracProduct,
+  "sku" | "description" | "finish" | "category" | "listEachUsd" | "listPackUsd" | "packQty" |
+  "lengthIn" | "thicknessIn" | "depthIn" | "widthIn" | "heightIn" | "placeable">;
+
+/**
+ * The complete public 2022 List catalog for a searchable reference browser.
+ * This deliberately excludes source rows and all private workbook values.
+ */
+export function masterTracPublicReferenceCatalog(): MasterTracPublicReference[] {
+  return CLOSET_PARTS.map(({ sku, description, finish, category, listEachUsd, listPackUsd, packQty,
+    lengthIn, thicknessIn, depthIn, widthIn, heightIn, placeable }) => ({
+    sku, description, finish, category, listEachUsd, listPackUsd, packQty,
+    lengthIn, thicknessIn, depthIn, widthIn, heightIn, placeable,
+  })).sort((a, b) => a.category.localeCompare(b.category) || a.description.localeCompare(b.description) || a.finish.localeCompare(b.finish) || a.sku.localeCompare(b.sku));
+}
+
 export function masterTracProduct(masterCode: string): MasterTracProduct | undefined {
   return bySku.get(masterCode);
 }

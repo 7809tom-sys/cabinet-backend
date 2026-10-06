@@ -134,4 +134,24 @@ describe("Closet Studio tablet workspace", () => {
     const shoeBranch = scene.split('else if (item.kind === "shoe")')[1]?.split('else if (item.kind === "drawer")')[0];
     expect(shoeBranch).toContain("illustrativePitchDeg");
   });
+
+  it("makes every public MasterTrac source record searchable in the List dock without treating corner shelves or hampers as placeable", () => {
+    window.history.replaceState(null, "", "/closet?demo=mixed");
+    render(<VendorClosetStudio />);
+
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    fireEvent.click(within(dock).getByRole("button", { name: "Material reference details" }));
+    const catalog = within(dock).getByTestId("vendor-source-catalog");
+    expect(catalog.textContent).toMatch(/454 public March 1, 2022 List records/i);
+    expect(catalog.textContent).toMatch(/not a checkout quote, installation guide, or approval to place a part in 3D/i);
+
+    const search = within(catalog).getByRole("textbox", { name: "Search MasterTrac source catalog" });
+    fireEvent.change(search, { target: { value: "432602" } });
+    expect(within(catalog).getByTestId("vendor-source-part-432602").textContent).toMatch(/24" Hamper Shaker Door.*Reference only/i);
+    expect(within(catalog).queryByRole("button", { name: /hamper/i })).toBeNull();
+
+    fireEvent.change(search, { target: { value: "432556" } });
+    expect(within(catalog).getByTestId("vendor-source-part-432556").textContent).toMatch(/Fixed Corner Shelf.*Reference only/i);
+    expect(catalog.textContent).toMatch(/29\.5.*29¼.*no corner profile, hamper assembly fit, attachment, or installation geometry is claimed/i);
+  });
 });
