@@ -197,5 +197,5 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);
     };
   }, [design, selectedBay]);
-  return <div ref={mount} className="h-full min-h-[300px] w-full touch-none" role="group" aria-label="Vendor closet 3D design canvas" data-testid="vendor-closet-3d" />;
+  return <div ref={mount} className="h-full min-h-0 w-full touch-none" role="group" aria-label="Vendor closet 3D design canvas" data-testid="vendor-closet-3d" />;
 }
