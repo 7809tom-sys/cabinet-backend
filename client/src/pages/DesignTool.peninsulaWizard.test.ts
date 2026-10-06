@@ -9,6 +9,8 @@ describe("Peninsula Wizard", () => {
   it("creates a straight selected-side run with an optional connected 45-degree end from the active line", () => {
     expect(source).toContain("const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);");
     expect(source).toContain("const buildPeninsulaWizardLayout = useCallback(() => {");
+    expect(source).toContain('The Peninsula Wizard is no longer open. Reopen it and try again.');
+    expect(source).toContain('Unlock the room layout before applying the Peninsula Wizard plan.');
     expect(source).toContain('turn: 90,');
     expect(source).toContain('label: "Peninsula · straight",');
     expect(source).toContain('parentRunId: run.id,');

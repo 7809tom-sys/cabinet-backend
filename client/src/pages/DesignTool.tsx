@@ -4492,9 +4492,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         : "Compass wall split undone. The previous wall was restored.",
     );
   }, [compassSplitUndo, room, setPlacementTarget]);
-  const buildPeninsulaWizardLayout = useCallback(() => {
-    const draft = peninsulaWizardDraft;
-    if (!draft || layoutLocked) return;
+	  const buildPeninsulaWizardLayout = useCallback(() => {
+	    const draft = peninsulaWizardDraft;
+	    if (!draft) {
+	      toast.error("The Peninsula Wizard is no longer open. Reopen it and try again.");
+	      return;
+	    }
+	    if (layoutLocked) {
+	      toast.info("Unlock the room layout before applying the Peninsula Wizard plan.");
+	      return;
+	    }
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
     if (pool.length === 0) {
       toast.error("Choose a cabinet line and door style before building a peninsula.");
