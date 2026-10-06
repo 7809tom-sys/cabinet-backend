@@ -53,8 +53,9 @@ describe("Phase 2 shared takeoffs when wall seating metadata is cleared", () => 
       const [rotatedUpper, rotatedBase] = syncWallRunOffsets([
         { ...upper, rotation: 90 }, { ...base, rotation: 45 },
       ], room);
-      expect(rotatedUpper!.wallId).toBeUndefined();
-      expect(rotatedBase!.wallId).toBeUndefined();
+      // The commit-boundary sync restores ownership for seated rotated bodies.
+      expect(rotatedUpper!.wallId).toBe(wall);
+      expect(rotatedBase!.wallId).toBe(wall);
       expect(cabinetTakeoffWallId(rotatedUpper!, room)).toBe(wall);
       expect(crownLinearInches([rotatedUpper!], room)).toBe(33);
       const renderedCrown = crownTakeoffFromExposedSegments(threeDCrownPerimeterSegments([rotatedUpper!], room));

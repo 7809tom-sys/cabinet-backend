@@ -35,6 +35,14 @@ describe("public Closet Studio replacement boundary", () => {
     expect(nav).toContain('const ALL_LINKS: NavLink[] = [...PRIMARY_LINKS, ...MORE_LINKS]');
   });
 
+  it("offers a labeled Kitchen Designer return from both Studio screens without removing the room-choice back action", () => {
+    expect((studio.match(/data-testid="closet-to-kitchen"/g) ?? [])).toHaveLength(2);
+    expect((studio.match(/href="\/design"/g) ?? [])).toHaveLength(2);
+    expect(studio).toContain("Kitchen Designer");
+    expect(studio).toContain('aria-label="Back to room choice"');
+    expect(studio).toContain('if (!isReviewDemo) localStorage.setItem(STORAGE_KEY, JSON.stringify(design))');
+  });
+
   it("keeps source-priced reference outside checkout and sample mode outside personal local drafts", () => {
     expect(studio).toContain('if (!isReviewDemo) localStorage.setItem(STORAGE_KEY, JSON.stringify(design))');
     expect(studio).toContain('Historical reference only—<strong>not checkout pricing</strong>.');

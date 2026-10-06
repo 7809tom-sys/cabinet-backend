@@ -29,11 +29,12 @@ import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricin
 // locks the distributor too. We never expose the underlying supplier identity.
 
 /** The customer-facing shape of a cabinet family (door style). */
-function toFamily(row: {
+export function toFamily(row: {
   id: number;
   styleCode: string;
   ourName: string;
   featuredLabel?: string | null;
+  whiteLabel: boolean;
   doorStyle: string | null;
   woodSpecies: string | null;
   finish: string | null;
@@ -49,12 +50,16 @@ function toFamily(row: {
   roomSceneImageUrl: string | null;
   thumbnailImageUrl: string | null;
 }) {
+  // Internal style names can contain supplier identity. Public white-labeled
+  // responses must use the explicitly customer-facing label, never ourName.
+  const publicName = row.whiteLabel
+    ? row.featuredLabel?.trim() || row.styleCode
+    : row.featuredLabel?.trim() || row.ourName;
   return {
     styleId: row.id,
     styleCode: row.styleCode,
-    // Use white-label name when set; fall back to internal name.
-    name: row.featuredLabel || row.ourName,
-    ourName: row.ourName,
+    name: publicName,
+    ourName: row.whiteLabel ? publicName : row.ourName,
     doorStyle: row.doorStyle,
     woodSpecies: row.woodSpecies,
     finish: row.finish,
@@ -178,6 +183,7 @@ export const storefrontRouter = router({
           styleCode: doorStyles.styleCode,
           ourName: doorStyles.ourName,
           featuredLabel: doorStyles.featuredLabel,
+          whiteLabel: distributors.whiteLabel,
           doorStyle: doorStyles.doorStyle,
           woodSpecies: doorStyles.woodSpecies,
           finish: doorStyles.finish,
@@ -205,7 +211,9 @@ export const storefrontRouter = router({
             ...toFamily(r),
             featured: featuredStyleIds.has(r.id),
           };
-          if (brandNameMap.has(r.id)) {
+          // Affiliate-entered brandName is not a verified neutral style label.
+          // Never let it override a supply line explicitly marked white-label.
+          if (!r.whiteLabel && brandNameMap.has(r.id)) {
             fam.name = brandNameMap.get(r.id)!;
           }
           if (roomSceneMap.has(r.id)) {
@@ -253,6 +261,7 @@ export const storefrontRouter = router({
           styleCode: doorStyles.styleCode,
           ourName: doorStyles.ourName,
           featuredLabel: doorStyles.featuredLabel,
+          whiteLabel: distributors.whiteLabel,
           doorStyle: doorStyles.doorStyle,
           woodSpecies: doorStyles.woodSpecies,
           finish: doorStyles.finish,
@@ -269,6 +278,7 @@ export const storefrontRouter = router({
           thumbnailImageUrl: doorStyles.thumbnailImageUrl,
         })
         .from(doorStyles)
+        .innerJoin(distributors, eq(doorStyles.distributorId, distributors.id))
         .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.isActive, true)))
         .limit(1);
       return rows[0] ? toFamily(rows[0]) : null;

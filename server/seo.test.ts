@@ -136,8 +136,9 @@ describe("SEO routes", () => {
       sitemap.res,
     );
     expect(sitemap.state.body).toContain(
-      "http://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
+      "https://reaves-way-cabinet-shop.cabinetdealz.com/store/reaves-way-cabinet-shop",
     );
     expect(sitemap.state.body).not.toContain("/family/");
+    expect(sitemap.state.body).not.toContain("/design");
   });
 });

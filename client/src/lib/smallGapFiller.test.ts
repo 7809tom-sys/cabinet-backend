@@ -8,6 +8,7 @@ import {
 	canSplitSmallGapFiller,
 	findSmallGapFillerOpportunity,
 	findFirstCabinet45CornerFillerOpportunity,
+	findPreferredSmallGapFillerOpportunity,
 	findIslandSmallGapFillerOpportunity,
 	installedFillerVerticalSpec,
 	installedSmallGapFillerEditOpportunity,
@@ -37,9 +38,15 @@ const cabinet: PlacedCabinet = {
 					{ id: "close", startVertexId: "v4", endVertexId: "v1" },
 				],
 			};
-			const spot = wallPlacementAt(11, 27, 12, "straight", cornerRoom);
+			// A 12-inch upper has half the 11-inch 45-degree hold of a 24-inch base.
+			const spot = wallPlacementAt(5.5, 27, 12, "straight", cornerRoom);
 			const firstUpper: PlacedCabinet = { ...cabinet, uid: "first-45-upper", masterCode: "B27FH", placement: "wall", width: 27, depth: 12, height: 42, mountBottom: 54, ...spot };
-			expect(findSmallGapFillerOpportunity(cornerRoom, [firstUpper], [], firstUpper.uid)).toBeNull();
+			// The dedicated protected-corner result must win over any generic seam.
+			expect(findPreferredSmallGapFillerOpportunity(cornerRoom, [firstUpper], [], firstUpper.uid)).toMatchObject({
+				cabinetUid: firstUpper.uid,
+				remaining: 1,
+				cornerMiterProvisional: { at: "start" },
+			});
 			expect(findFirstCabinet45CornerFillerOpportunity(cornerRoom, [firstUpper], firstUpper.uid)).toMatchObject({
 				cabinetUid: firstUpper.uid,
 				remaining: 1,

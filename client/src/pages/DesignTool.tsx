@@ -89,8 +89,7 @@ import {
   automaticSmallGapFillerMode,
   canSplitSmallGapFiller,
 	findIslandSmallGapFillerOpportunity,
-	findFirstCabinet45CornerFillerOpportunity,
-	findSmallGapFillerOpportunity,
+	findPreferredSmallGapFillerOpportunity,
   installedSmallGapFillerEditOpportunity,
   installedFillerVerticalSpec,
   installableSmallGapRemainder,
@@ -2484,8 +2483,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [catalogFillers, pricingCabinetIdFor],
   );
   const queueSmallGapFillerOpportunity = useCallback((nextPlaced: PlacedCabinet[], cabinetUid: string) => {
-    const opportunity = findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)
-      ?? findFirstCabinet45CornerFillerOpportunity(room, nextPlaced, cabinetUid);
+    const opportunity = findPreferredSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid);
     // Queue the measured opening immediately. The accessory catalog query can
     // finish after placement; smallGapFillerDefinition will resolve as soon as
     // the active style's filler arrives instead of silently losing the prompt.
@@ -2525,7 +2523,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const islandMember = island && isOnIsland(cabinet, island) ? island : null;
     const opportunity = islandMember
       ? findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)
-      : findSmallGapFillerOpportunity(room, placed, openings, cabinetUid);
+      : findPreferredSmallGapFillerOpportunity(room, placed, openings, cabinetUid);
     if (!opportunity) {
       const fit = islandMember
         ? islandFaceFitMeasure(cabinet, islandMember, placed)
@@ -7078,7 +7076,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const opportunity = overrideOpportunity ?? (requestedCabinet
 	    ? requestedCabinet.islandFace && island
 	      ? findIslandSmallGapFillerOpportunity(island, committedPlaced, requestedCabinet.uid)
-	      : findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)
+	      : findPreferredSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)
 	    : null);
 	  const cutWidth = requestedCutWidth == null ? opportunity?.remaining ?? 0 : Math.round(requestedCutWidth * 8) / 8;
 	  const cutIsValid = opportunity != null

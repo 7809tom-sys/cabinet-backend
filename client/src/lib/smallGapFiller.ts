@@ -321,6 +321,17 @@ export function findFirstCabinet45CornerFillerOpportunity(
   return null;
 }
 
+/** Prefer the protected 45-degree first-cabinet transition to a generic edge gap. */
+export function findPreferredSmallGapFillerOpportunity(
+  room: RoomData,
+  placed: readonly PlacedCabinet[],
+  openings: readonly WallOpening[],
+  cabinetUid: string,
+): SmallGapFillerOpportunity | null {
+  return findFirstCabinet45CornerFillerOpportunity(room, placed, cabinetUid)
+    ?? findSmallGapFillerOpportunity(room, placed, openings, cabinetUid);
+}
+
 /** Uses the selected island face's own run length and neighbors, never a room wall. */
 export function findIslandSmallGapFillerOpportunity(
   island: IslandZone,

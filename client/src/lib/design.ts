@@ -1447,7 +1447,7 @@ export function ceilingFitViolations(
 // so 30"/36"/42" boxes all start at 54" and rise higher as they get taller.
 export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 
-/** A non-stacker 12-inch wall box starts at the customer-confirmed 72-inch datum. */
+/** Short ordinary wall boxes finish at the standard 84-inch upper-run top line. */
 export const TWELVE_INCH_WALL_MOUNT_BOTTOM = 72;
 
 /** The default mount for a room-wall cabinet before a user applies an override. */
@@ -1458,8 +1458,9 @@ export function ordinaryWallMountBottom(p: {
   description?: string | null;
   subCategory?: string | null;
 }): number {
-  return p.placement === "wall" && !isStacker(p) && Math.abs(Number(p.height) - 12) <= 0.01
-    ? TWELVE_INCH_WALL_MOUNT_BOTTOM
+  const height = Number(p.height);
+  return p.placement === "wall" && !isStacker(p) && height > 0 && height < 30
+    ? WALL_CABINET_TOP - height
     : WALL_MOUNT_BOTTOM;
 }
 
@@ -2546,8 +2547,8 @@ export function fmtIn(n: number): string {
 // Width/depth are rotation-aware (a turned cabinet swaps its footprint), while
 // height comes from the placed height (with a sensible bucket fallback).
 export function dimLabel(p: PlacedCabinet): string {
-  // Product dimensions describe the manufactured cabinet, not its screen-space
-  // axis-aligned envelope. A 3DB18 stays 18-by-24 when it is seated on a 45°
+  // The 45-degree bounding envelope is not a product dimension. A 3DB18 stays
+  // 18-by-24 when it is seated on a 45°
   // continuous wall; reporting its 29.70-inch diagonal bounding box falsely
   // makes the user think that a different product was placed and obscures the
   // true run span used by snapping, collision, pricing, and materials.
@@ -2566,6 +2567,10 @@ export function dimLabel(p: PlacedCabinet): string {
       w = nomW;
       d = runDepth;
     }
+  } else if (Math.abs((((p.rotation ?? 0) % 360) + 360) % 180 - 90) < 0.01) {
+    // A cardinal quarter-turn swaps the room-facing width and depth labels;
+    // never use the much larger diagonal bounding box of a 45-degree turn.
+    [w, d] = [d, w];
   }
   const base = `${fmtIn(w)}"W \u00d7 ${fmtIn(h)}"H \u00d7 ${fmtIn(d)}"D`;
   return isCustomSize(p) ? `${base} \u00b7 Custom` : base;

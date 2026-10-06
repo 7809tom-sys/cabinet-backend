@@ -58,8 +58,8 @@ describe("placedHeight / standardHeight", () => {
   });
 });
 
-describe("elevationBox — wall cabinets are BOTTOM-anchored at 54\" by default", () => {
-  // Rule: standard wall cabinets (>= 18" tall) hang with their BOTTOM at the
+describe("elevationBox — ordinary short wall cabinets finish at the top line", () => {
+  // Rule: ordinary wall cabinets (>= 30" tall) hang with their BOTTOM at the
   // 54" mount line (18" above a 36" counter), rising higher as they get taller.
   // Short cabinets (< 30") instead stay TOP-anchored at the 84" line, riding up
   // so their top finishes flush with standard uppers (a 12" bottoms at 72", a
@@ -81,6 +81,14 @@ describe("elevationBox — wall cabinets are BOTTOM-anchored at 54\" by default"
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 24 }));
     expect(box.bottom + box.height).toBe(WALL_CABINET_TOP); // 84
     expect(box.bottom).toBe(60);
+  });
+  it("an 18\" ordinary upper rises to 66\", while an explicitly moved upper stays where placed", () => {
+    expect(elevationBox(mk({ uid: "short", placement: "wall", height: 18 })).bottom).toBe(66);
+    expect(elevationBox({ ...mk({ uid: "moved", placement: "wall", height: 24 }), mountBottom: 57 }).bottom).toBe(57);
+  });
+  it("a glass stacker remains mounted above the upper run rather than top-anchored", () => {
+    const stacker = mk({ uid: "stack", placement: "wall", masterCode: "W3030GD", description: "Glass stacker", height: 12 });
+    expect(elevationBox(stacker).bottom).toBe(WALL_CABINET_TOP);
   });
   it("a 42\" wall cabinet bottoms at 54\" (tops at 96\")", () => {
     const box = elevationBox(mk({ uid: "a", placement: "wall", height: 42 }));
@@ -146,6 +154,13 @@ describe("dimLabel — full W x H x D", () => {
   it("swaps width/depth when rotated 90 degrees", () => {
     const cab = mk({ uid: "a", placement: "base", width: 24, depth: 12, height: 34.5, rotation: 90 });
     expect(dimLabel(cab)).toBe('12"W \u00d7 34.5"H \u00d7 24"D');
+  });
+  it("preserves the manufactured size at 45 and 180 degrees but swaps at 270", () => {
+    const cab = mk({ uid: "a", placement: "base", width: 24, depth: 12, height: 34.5 });
+    expect(dimLabel({ ...cab, rotation: 45 })).toBe('24"W \u00d7 34.5"H \u00d7 12"D');
+    expect(dimLabel({ ...cab, rotation: 180 })).toBe('24"W \u00d7 34.5"H \u00d7 12"D');
+    expect(dimLabel({ ...cab, rotation: 270 })).toBe('12"W \u00d7 34.5"H \u00d7 24"D');
+    expect(dimLabel({ ...cab, masterCode: "FILL-3", rotation: 90 })).toContain('3"W');
   });
 });
 

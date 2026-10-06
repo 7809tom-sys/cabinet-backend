@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { resolvePresentation } from "./lib/presentation";
+import { toFamily } from "./routers/storefront";
 
 function publicCtx(): TrpcContext {
   return {
@@ -27,6 +28,21 @@ function assertNoBrandLeak(payload: unknown) {
 }
 
 describe("white-label model: public APIs never leak a hidden supplier brand", () => {
+  it("serializes a supplier-bearing internal style name using only an approved public label", () => {
+    const source = {
+      id: 330013, styleCode: "WS", ourName: "White Shaker (Clark and Son)",
+      featuredLabel: "Nova White (Ashford)", whiteLabel: true, distributorId: 210001,
+      doorStyle: null, woodSpecies: null, finish: null, color: null,
+      boxConstruction: null, drawerConstruction: null, hardware: null,
+      frameSize: null, overlayType: null, doorPanelType: null,
+      doorSampleImageUrl: null, roomSceneImageUrl: null, thumbnailImageUrl: null,
+    };
+    expect(toFamily(source)).toMatchObject({ name: "Nova White (Ashford)", ourName: "Nova White (Ashford)" });
+    assertNoBrandLeak(toFamily(source));
+    expect(toFamily({ ...source, featuredLabel: null }).ourName).toBe("WS");
+    expect(toFamily({ ...source, whiteLabel: false }).ourName).toBe(source.ourName);
+  });
+
   it("storefront.families carries no real supplier brand", async () => {
     const caller = appRouter.createCaller(publicCtx());
     const families = await caller.storefront.families();
