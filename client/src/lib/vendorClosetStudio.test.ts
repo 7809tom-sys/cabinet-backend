@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  addStudioBay, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioCornerShelf, moveStudioItem, removeStudioBasketReference,
+  addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, updateStudioBasketPlacement,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
-  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
+  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
@@ -79,7 +79,7 @@ describe("isolated vendor Closet Studio", () => {
   it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {
     expect(STUDIO_BASKET_REFERENCE_OPTIONS).toHaveLength(9);
     expect(STUDIO_BASKET_REFERENCE_OPTIONS.find((option) => option.sku === "432902")).toMatchObject({ nominalHeightIn: 17, nominalWidthIn: 24, finish: "Chrome" });
-    expect(studioFitCapability("432902")).toMatchObject({ family: "basket", status: "referenceOnly" });
+    expect(studioFitCapability("432902")).toMatchObject({ family: "basket", status: "visualPlanning" });
     expect(studioFitCapability("446812")).toBeUndefined();
 
     const added = addStudioBasketReference(createStudioDesign(), "432902", "basket-17x24");
@@ -92,6 +92,39 @@ describe("isolated vendor Closet Studio", () => {
     expect(restoreStudioDesign(JSON.stringify(added.design))).toEqual(added.design);
     expect(addStudioBasketReference(createStudioDesign(), "446812").ok).toBe(false);
     expect(removeStudioBasketReference(added.design, "basket-17x24").basketReferences).toEqual([]);
+  });
+
+  it("places historical baskets as wall-owned visual planning envelopes without treating them as rails, slides, or a cuttable assembly", () => {
+    const base = createStudioDesign();
+    expect(STUDIO_BASKET_VISUAL_DEPTH_IN).toBe(14.5);
+    const basket = addStudioBasketPlacement(base, 0, "432901", 42, "basket-back-11x24");
+    expect(basket.ok).toBe(true);
+    if (!basket.ok) return;
+    expect(basket.placement).toMatchObject({ id: "basket-back-11x24", sku: "432901", finish: "Chrome", nominalHeightIn: 11, nominalWidthIn: 24, nominalDepthIn: 14.5, bottomIn: 42, wallId: "back", bayId: "bay-1", capability: "visualPlanning" });
+    expect(studioBasketPlacementsForWall(basket.design, "back")).toHaveLength(1);
+    expect(studioBasketPlacementsForWall(basket.design, "left")).toEqual([]);
+    expect(studioTakeoff(basket.design).lines.find((line) => line.sku === "432901")).toMatchObject({ qty: 1, section: "accessory" });
+    expect(studioTakeoff(basket.design).missing.some((line) => /432901.*visual planning only.*rail.*clearance/i.test(line))).toBe(true);
+
+    expect(addStudioBasketPlacement(base, 0, "432905", 42, "too-wide-17x30")).toMatchObject({ ok: false });
+    expect(addStudioBasketPlacement(basket.design, 0, "432900", 46, "intersecting-basket")).toMatchObject({ ok: false });
+    expect(studioCollision(basket.design, 0, { id: "basket-shelf", kind: "shelf", bottomIn: 48 })).toMatch(/intersects/i);
+    const resized = updateStudioBasketPlacement(basket.design, "basket-back-11x24", "432900");
+    expect(resized).toMatchObject({ ok: true, placement: { sku: "432900", nominalHeightIn: 6, nominalWidthIn: 24 } });
+    const left = switchStudioWall(basket.design, "left");
+    const leftTower = addStudioBay(left, 24);
+    expect(leftTower.ok).toBe(true);
+    if (!leftTower.ok) return;
+    const leftBasket = addStudioBasketPlacement(leftTower.design, 0, "432901", 42, "basket-left-11x24");
+    expect(leftBasket.ok).toBe(true);
+    if (!leftBasket.ok) return;
+    const backAgain = switchStudioWall(leftBasket.design, "back");
+    expect(studioBasketPlacementsForWall(backAgain, "back").map((placement) => placement.id)).toEqual(["basket-back-11x24"]);
+    expect(studioBasketPlacementsForWall(backAgain, "left").map((placement) => placement.id)).toEqual(["basket-left-11x24"]);
+    expect(studioTakeoff(backAgain).lines.find((line) => line.sku === "432901")?.qty).toBe(2);
+    expect(moveStudioBasketPlacement(backAgain, "basket-back-11x24", 38).ok).toBe(false);
+    expect(removeStudioBasketPlacement(backAgain, "basket-back-11x24").basketPlacements).toHaveLength(1);
+    expect(restoreStudioDesign(JSON.stringify(backAgain))).toEqual(backAgain);
   });
 
   it("keeps every public MasterTrac source record discoverable as a non-placeable List reference without private workbook fields", () => {
