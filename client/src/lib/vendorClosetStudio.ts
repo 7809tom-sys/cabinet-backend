@@ -10,12 +10,6 @@ export type StudioReferenceKind = StudioKind | "fixedShelf";
 export type StudioItem = { id: string; kind: StudioKind; bottomIn: number; wallId?: StudioWall };
 export type StudioCornerId = "back-left" | "back-right" | "front-left" | "front-right";
 export type StudioCornerShelfMount = "fixed" | "adjustable";
-/** Keeps the 2026 curved CFS/CAS identity distinct from the historical List finish label retained for pricing reference. */
-export type StudioCornerShelf2026Identity = {
-  partId: "CFS" | "CAS";
-  specFinish: "Glacier White" | "Ashton Oak" | "Vintage Walnut" | null;
-  reconciliation: "exact-2026-finish" | "same-sku-historical-list-name" | "historical-list-finish-not-in-supplied-2026-page";
-};
 /** A planning-only record: the source does not yet provide the board profile, support layout, or installation connection details. */
 export type StudioCornerShelf = {
   id: string;
@@ -29,7 +23,6 @@ export type StudioCornerShelf = {
   nominalFootprintIn: number;
   geometryRevision: string;
   geometrySource: "MasterTrac Spec Book NP 2026 p. 13";
-  sourceIdentity: StudioCornerShelf2026Identity;
   capability: "visualPlanning";
 };
 /** A saved product-reference selection only: no bay, elevation, decorative mesh, collision envelope, material line, or installation claim is created. */
@@ -42,27 +35,13 @@ export type StudioBasketReference = {
   sourceRevision: "floor-579554-p13-historical-reference-v1";
   capability: "referenceOnly";
 };
-/** A source-identified basket visual envelope. The 14.5-in depth is the Studio board depth, not a published basket outer dimension, rail, slide, travel, or clearance. */
-export type StudioBasketPlacement = {
-  id: string;
-  sku: string;
-  finish: "Chrome";
-  nominalHeightIn: 6 | 11 | 17;
-  nominalWidthIn: 18 | 24 | 30;
-  nominalDepthIn: 14.5;
-  bottomIn: number;
-  wallId: StudioWall;
-  bayId: string;
-  sourceRevision: "floor-579554-p13-historical-basket-visual-envelope-v1";
-  capability: "visualPlanning";
-};
 /** `widthIn` is the measured installed clear width; `stockWidthIn` retains the purchased shelf SKU width when field-cut. */
 /** New v2 tower groups retain their wall identity; it is optional only while v1 drafts are migrated on restore. */
 export type StudioBay = { id: string; widthIn: number; stockWidthIn?: 18 | 24 | 30; wallId?: StudioWall; items: StudioItem[] };
 export type StudioWallLayout = { wallId: StudioWall; bays: StudioBay[] };
 export type StudioWallOccupancy = { wallId: StudioWall; usedSpanIn: number; availableSpanIn: number; bayCount: number; itemCount: number; cornerCount: number; filled: boolean };
 export type StudioDesign = {
-  version: 1 | 2 | 3;
+  version: 1 | 2;
   mode: StudioMode;
   mount: StudioMount;
   finish: "Glacier White" | "Slate Rift" | "Spiced Mahogany";
@@ -74,7 +53,6 @@ export type StudioDesign = {
   bays: StudioBay[];
   cornerShelves?: StudioCornerShelf[];
   basketReferences?: StudioBasketReference[];
-  basketPlacements?: StudioBasketPlacement[];
 };
 export type StudioShelfCut = { stockWidthIn: 18 | 24 | 30; installedWidthIn: number; offcutIn: number };
 export type ReferenceLine = { sku: string; label: string; qty: number; unitUsd: number; section: "cleat" | "panel" | "shelf" | "accessory" | "hardware"; packNote?: string; stockWidthIn?: number; installedWidthIn?: number; offcutIn?: number };
@@ -86,33 +64,18 @@ const CUT_PLANNING_MIN_IN = 12;
 const EPS = 0.000001;
 const STUDIO_SHOE_SHELF_DEPTH_IN = 14.5;
 const STUDIO_SHOE_FENCE_HEIGHT_IN = 0.16;
-/** Conservative visual depth equals the source-backed Studio bay depth; it is not an asserted basket outer dimension. */
-export const STUDIO_BASKET_VISUAL_DEPTH_IN = 14.5;
 export const STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN = 29.5;
 export const STUDIO_CORNER_SHELF_THICKNESS_IN = 0.75;
 /** 2026 nominal envelope only. The 2022 floor manual lists 29¼ in actual but does not publish the curved profile. */
 export const STUDIO_CORNER_SHELF_GEOMETRY_REVISION = "mastertrac-np-2026-p13-nominal-envelope-v1";
-/** Approved public 2022 List identities for the one 29.5-in visual-planning envelope per supported Studio finish. */
-export const STUDIO_CORNER_SHELF_SKUS: Record<StudioDesign["finish"], Record<StudioCornerShelfMount, string>> = {
-  "Glacier White": { fixed: "432556", adjustable: "432557" },
-  "Spiced Mahogany": { fixed: "432786", adjustable: "432787" },
-  "Slate Rift": { fixed: "430833", adjustable: "430834" },
-};
-export const studioCornerShelfSku = (finish: StudioDesign["finish"], mount: StudioCornerShelfMount) => STUDIO_CORNER_SHELF_SKUS[finish][mount];
-/** The supplied 2026 page uses Vintage Walnut for the historical List SKU pair shown as Spiced Mahogany. Slate Rift is not renamed without a supplied crosswalk. */
-export function studioCornerShelf2026Identity(finish: StudioDesign["finish"], mount: StudioCornerShelfMount): StudioCornerShelf2026Identity {
-  const partId = mount === "fixed" ? "CFS" : "CAS";
-  if (finish === "Glacier White") return { partId, specFinish: "Glacier White", reconciliation: "exact-2026-finish" };
-  if (finish === "Spiced Mahogany") return { partId, specFinish: "Vintage Walnut", reconciliation: "same-sku-historical-list-name" };
-  return { partId, specFinish: null, reconciliation: "historical-list-finish-not-in-supplied-2026-page" };
-}
 export type StudioFitCapabilityStatus = "referenceOnly" | "visualPlanning" | "fitVerified";
 export type StudioFitCapability = { sku: string; family: "cornerShelf" | "basket"; status: StudioFitCapabilityStatus; source: string; reason: string };
 export type StudioBasketReferenceOption = { sku: string; nominalHeightIn: 6 | 11 | 17; nominalWidthIn: 18 | 24 | 30; finish: "Chrome"; sourceRevision: StudioBasketReference["sourceRevision"] };
 /** Source version, geometry status, and missing-fit boundary. This is not a sales or installation registry. */
 export const STUDIO_FIT_CAPABILITY_REGISTRY: readonly StudioFitCapability[] = [
-  ...Object.values(STUDIO_CORNER_SHELF_SKUS).flatMap((variants) => Object.values(variants).map((sku) => ({ sku, family: "cornerShelf" as const, status: "visualPlanning" as const, source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." }))),
-  ...["432897", "432898", "432899", "432900", "432901", "432902", "432903", "432904", "432905"].map((sku) => ({ sku, family: "basket" as const, status: "visualPlanning" as const, source: "Floor Mount 579554 p. 13 / MasterTrac Spec Book NP 2026 p. 46", reason: "Visual envelope is limited to sourced nominal width/height and Studio bay depth; rails, mounting offsets, travel, doors, and clearances are not source-verified." })),
+  { sku: "432556", family: "cornerShelf", status: "visualPlanning", source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." },
+  { sku: "432557", family: "cornerShelf", status: "visualPlanning", source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." },
+  ...["432897", "432898", "432899", "432900", "432901", "432902", "432903", "432904", "432905"].map((sku) => ({ sku, family: "basket" as const, status: "referenceOnly" as const, source: "Floor Mount 579554 p. 13 / MasterTrac Spec Book NP 2026 p. 46", reason: "Outer envelope, rails, mounting offsets, travel, and clearances are not source-verified." })),
 ];
 /** Historical 2022 basket identification only. The 2026 446807–446815 family is deliberately not substituted here. */
 export const STUDIO_BASKET_REFERENCE_OPTIONS: readonly StudioBasketReferenceOption[] = [
@@ -159,7 +122,7 @@ export const studioBays = (design: StudioDesign, wall: StudioWall = design.wall)
 export function replaceStudioWallBays(design: StudioDesign, wall: StudioWall, bays: StudioBay[]): StudioDesign {
   const layouts = { ...blankWallLayouts(), ...design.wallLayouts, [wall]: { wallId: wall, bays: withWallIdentity(bays, wall) } };
   const activeBays = wall === design.wall ? layouts[wall].bays : studioBays(design, design.wall);
-  return { ...design, version: design.version === 3 ? 3 : 2, wallLayouts: layouts, bays: activeBays };
+  return { ...design, version: 2, wallLayouts: layouts, bays: activeBays };
 }
 
 /** Switch walls without copying any tower, part, or material state into the destination. */
@@ -168,7 +131,7 @@ export function switchStudioWall(design: StudioDesign, wall: StudioWall): Studio
   const layouts = { ...blankWallLayouts(), ...design.wallLayouts };
   layouts[design.wall] = { wallId: design.wall, bays: withWallIdentity(design.bays, design.wall) };
   const activeBays = layouts[wall]?.bays ?? [];
-  return { ...design, version: design.version === 3 ? 3 : 2, wall, wallLayouts: layouts, bays: activeBays };
+  return { ...design, version: 2, wall, wallLayouts: layouts, bays: activeBays };
 }
 
 export const studioCornerShelvesForWall = (design: StudioDesign, wall: StudioWall = design.wall) => studioCornerShelves(design).filter((shelf) => shelf.wallIds.includes(wall));
@@ -227,7 +190,7 @@ export function studioCornerMeasuredGap(design: StudioDesign, shelf: Pick<Studio
 }
 
 const studioCornerProduct = (design: StudioDesign, mount: StudioCornerShelfMount) => {
-  const sku = studioCornerShelfSku(design.finish, mount);
+  const sku = mount === "fixed" ? "432556" : "432557";
   const product = masterTracProduct(sku);
   return product?.finish === design.finish && product.category === "Shelves" && /Corner Shelf/i.test(product.description) ? product : undefined;
 };
@@ -236,7 +199,6 @@ function studioCornerPlacementError(design: StudioDesign, candidate: StudioCorne
   if (design.mount !== "floor") return "Corner planning is limited to the floor-mounted visual-planning envelope; hanging support is not verified.";
   if (candidate.nominalFootprintIn !== STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN || candidate.profile !== "curved-illustrative") return "Use the saved 2026 29.5 in curved-shelf planning envelope; the precise profile is not source-verified.";
   if (candidate.geometryRevision !== STUDIO_CORNER_SHELF_GEOMETRY_REVISION || candidate.geometrySource !== "MasterTrac Spec Book NP 2026 p. 13") return "This corner shelf geometry source is not supported by the Studio planning registry.";
-  if (JSON.stringify(candidate.sourceIdentity) !== JSON.stringify(studioCornerShelf2026Identity(design.finish, candidate.mount))) return "This curved corner shelf must retain the reconciled 2026 CFS/CAS source identity for its historical List SKU.";
   if (candidate.wallIds[0] !== CORNER_WALL_IDS[candidate.cornerId][0] || candidate.wallIds[1] !== CORNER_WALL_IDS[candidate.cornerId][1]) return "Choose the two incident walls of a 90° room corner.";
   if (design.wallWidthIn < candidate.nominalFootprintIn || design.roomDepthIn < candidate.nominalFootprintIn) return "The room is too small for the conservative 29.5 in corner planning envelope.";
   if (!Number.isFinite(candidate.elevationIn) || candidate.elevationIn < studioFixedBottom(design) + THICKNESS || candidate.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN > studioFixedTop(design)) return `Corner shelf elevation must fit between the fixed shelves (${studioFixedBottom(design) + THICKNESS}–${studioFixedTop(design)} in within the panel).`;
@@ -265,7 +227,7 @@ export function studioCornerDesignError(design: StudioDesign): string | null {
 
 export function addStudioCornerShelf(design: StudioDesign, cornerId: StudioCornerId, mount: StudioCornerShelfMount, elevationIn: number, id = `corner-${Date.now()}`):
   { ok: true; design: StudioDesign; shelf: StudioCornerShelf } | { ok: false; reason: string } {
-  const shelf: StudioCornerShelf = { id, sku: studioCornerShelfSku(design.finish, mount), finish: design.finish, mount, profile: "curved-illustrative", cornerId, wallIds: CORNER_WALL_IDS[cornerId], elevationIn: Math.round(elevationIn), nominalFootprintIn: STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, geometryRevision: STUDIO_CORNER_SHELF_GEOMETRY_REVISION, geometrySource: "MasterTrac Spec Book NP 2026 p. 13", sourceIdentity: studioCornerShelf2026Identity(design.finish, mount), capability: "visualPlanning" };
+  const shelf: StudioCornerShelf = { id, sku: mount === "fixed" ? "432556" : "432557", finish: design.finish, mount, profile: "curved-illustrative", cornerId, wallIds: CORNER_WALL_IDS[cornerId], elevationIn: Math.round(elevationIn), nominalFootprintIn: STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, geometryRevision: STUDIO_CORNER_SHELF_GEOMETRY_REVISION, geometrySource: "MasterTrac Spec Book NP 2026 p. 13", capability: "visualPlanning" };
   const error = studioCornerPlacementError(design, shelf);
   if (error) return { ok: false, reason: error };
   return { ok: true, shelf, design: { ...design, cornerShelves: [...studioCornerShelves(design), shelf] } };
@@ -285,8 +247,6 @@ export function removeStudioCornerShelf(design: StudioDesign, id: string): Studi
 }
 
 export const studioBasketReferences = (design: StudioDesign) => design.basketReferences ?? [];
-export const studioBasketPlacements = (design: StudioDesign) => design.basketPlacements ?? [];
-export const studioBasketPlacementsForWall = (design: StudioDesign, wall: StudioWall = design.wall) => studioBasketPlacements(design).filter((placement) => placement.wallId === wall);
 
 export function studioFitCapability(sku: string): StudioFitCapability | undefined {
   return STUDIO_FIT_CAPABILITY_REGISTRY.find((entry) => entry.sku === sku);
@@ -297,7 +257,7 @@ export function addStudioBasketReference(design: StudioDesign, sku: string, id =
   const option = STUDIO_BASKET_REFERENCE_OPTIONS.find((entry) => entry.sku === sku);
   const product = masterTracProduct(sku);
   const capability = studioFitCapability(sku);
-  if (!option || !product || product.finish !== option.finish || product.category !== "Accessories" || product.placeable || product.packQty !== 1 || capability?.status !== "visualPlanning")
+  if (!option || !product || product.finish !== option.finish || product.category !== "Accessories" || product.placeable || product.packQty !== 1 || capability?.status !== "referenceOnly")
     return { ok: false, reason: "This historical basket reference is not available from the approved source registry." };
   const reference: StudioBasketReference = { id, sku, finish: option.finish, nominalHeightIn: option.nominalHeightIn, nominalWidthIn: option.nominalWidthIn, sourceRevision: option.sourceRevision, capability: "referenceOnly" };
   return { ok: true, reference, design: { ...design, basketReferences: [...studioBasketReferences(design), reference] } };
@@ -311,92 +271,6 @@ export function updateStudioBasketReference(design: StudioDesign, id: string, sk
   if (!studioBasketReferences(design).some((reference) => reference.id === id)) return { ok: false, reason: "Choose a saved basket reference first." };
   const staged = addStudioBasketReference(removeStudioBasketReference(design, id), sku, id);
   return staged;
-}
-
-const basketOption = (sku: string) => STUDIO_BASKET_REFERENCE_OPTIONS.find((option) => option.sku === sku);
-const basketPlacementCapability = (sku: string) => {
-  const option = basketOption(sku);
-  const product = masterTracProduct(sku);
-  const capability = studioFitCapability(sku);
-  return option && product?.finish === option.finish && product.category === "Accessories" && product.packQty === 1 && capability?.status === "visualPlanning" ? option : undefined;
-};
-
-/** Validate only a conservative visual envelope; the source does not establish rail, slide, door, travel, or installation clearance geometry. */
-function studioBasketPlacementError(design: StudioDesign, bayIndex: number, candidate: StudioBasketPlacement, excludeId?: string): string | null {
-  const bay = studioBays(design)[bayIndex];
-  if (!bay) return "Choose a tower bay for the basket visual plan.";
-  if (design.mount !== "floor") return "Basket visual planning is limited to floor-mounted towers until hanging support and rail fit are source-verified.";
-  if (candidate.wallId !== design.wall || candidate.bayId !== bay.id) return "Choose a basket location on the active wall and selected tower bay.";
-  const option = basketPlacementCapability(candidate.sku);
-  if (!option || candidate.finish !== "Chrome" || candidate.nominalHeightIn !== option.nominalHeightIn || candidate.nominalWidthIn !== option.nominalWidthIn
-    || candidate.nominalDepthIn !== STUDIO_BASKET_VISUAL_DEPTH_IN || candidate.sourceRevision !== "floor-579554-p13-historical-basket-visual-envelope-v1" || candidate.capability !== "visualPlanning")
-    return "This basket is not available from the approved historical visual-planning registry.";
-  if (studioBayCut(bay)) return "Basket fit is not verified in a field-cut shelf bay. Restore full stock width before visual planning.";
-  if (candidate.nominalWidthIn > bay.widthIn + EPS) return `SKU ${candidate.sku} is ${candidate.nominalWidthIn} in nominal width and exceeds this ${bay.widthIn} in clear bay. Baskets are never resized or cut to fit.`;
-  const fixedBottom = studioFixedBottom(design);
-  const fixedTop = studioFixedTop(design);
-  if (!Number.isFinite(candidate.bottomIn) || candidate.bottomIn < fixedBottom + THICKNESS || candidate.bottomIn + candidate.nominalHeightIn > fixedTop)
-    return `Basket visual envelope must fit between the fixed shelves (${fixedBottom + THICKNESS}–${fixedTop} in within the panel).`;
-  const occupied = [
-    { id: "fixed-bottom", bottomIn: fixedBottom, heightIn: THICKNESS, label: "fixed shelf" },
-    { id: "fixed-top", bottomIn: fixedTop, heightIn: THICKNESS, label: "fixed shelf" },
-    ...bay.items.map((item) => ({ id: item.id, bottomIn: item.bottomIn, heightIn: studioItemHeight(item.kind), label: item.kind })),
-    ...studioBasketPlacementsForWall(design).filter((placement) => placement.id !== excludeId && placement.bayId === bay.id).map((placement) => ({ id: placement.id, bottomIn: placement.bottomIn, heightIn: placement.nominalHeightIn, label: "basket" })),
-  ];
-  for (const other of occupied) if (intervalsOverlap(candidate.bottomIn, candidate.bottomIn + candidate.nominalHeightIn, other.bottomIn, other.bottomIn + other.heightIn))
-    return `At ${candidate.bottomIn} in this basket visual envelope intersects ${other.label} at ${other.bottomIn} in. Move it; rails and clearance remain supplier-verification items.`;
-  return null;
-}
-
-export function addStudioBasketPlacement(design: StudioDesign, bayIndex: number, sku: string, bottomIn: number, id = `basket-${Date.now()}`):
-  { ok: true; design: StudioDesign; placement: StudioBasketPlacement } | { ok: false; reason: string } {
-  const bay = studioBays(design)[bayIndex];
-  const option = basketOption(sku);
-  if (!bay || !option) return { ok: false, reason: "Choose a sourced basket and tower bay first." };
-  const placement: StudioBasketPlacement = { id, sku, finish: "Chrome", nominalHeightIn: option.nominalHeightIn, nominalWidthIn: option.nominalWidthIn, nominalDepthIn: STUDIO_BASKET_VISUAL_DEPTH_IN, bottomIn: Math.round(bottomIn), wallId: design.wall, bayId: bay.id, sourceRevision: "floor-579554-p13-historical-basket-visual-envelope-v1", capability: "visualPlanning" };
-  const error = studioBasketPlacementError(design, bayIndex, placement);
-  if (error) return { ok: false, reason: error };
-  return { ok: true, placement, design: { ...design, version: 3, basketPlacements: [...studioBasketPlacements(design), placement] } };
-}
-
-export function moveStudioBasketPlacement(design: StudioDesign, id: string, bottomIn: number): { ok: true; design: StudioDesign; placement: StudioBasketPlacement } | { ok: false; reason: string } {
-  const current = studioBasketPlacements(design).find((placement) => placement.id === id && placement.wallId === design.wall);
-  if (!current) return { ok: false, reason: "Choose a placed basket on this wall first." };
-  const bayIndex = studioBays(design).findIndex((bay) => bay.id === current.bayId);
-  const placement = { ...current, bottomIn: Math.round(bottomIn) };
-  const error = studioBasketPlacementError(design, bayIndex, placement, id);
-  if (error) return { ok: false, reason: error };
-  return { ok: true, placement, design: { ...design, version: 3, basketPlacements: studioBasketPlacements(design).map((item) => item.id === id ? placement : item) } };
-}
-
-export function updateStudioBasketPlacement(design: StudioDesign, id: string, sku: string): { ok: true; design: StudioDesign; placement: StudioBasketPlacement } | { ok: false; reason: string } {
-  const current = studioBasketPlacements(design).find((placement) => placement.id === id && placement.wallId === design.wall);
-  const option = basketOption(sku);
-  if (!current || !option) return { ok: false, reason: "Choose a placed basket and sourced replacement SKU first." };
-  const bayIndex = studioBays(design).findIndex((bay) => bay.id === current.bayId);
-  const placement: StudioBasketPlacement = { ...current, sku, nominalHeightIn: option.nominalHeightIn, nominalWidthIn: option.nominalWidthIn };
-  const error = studioBasketPlacementError(design, bayIndex, placement, id);
-  if (error) return { ok: false, reason: error };
-  return { ok: true, placement, design: { ...design, version: 3, basketPlacements: studioBasketPlacements(design).map((item) => item.id === id ? placement : item) } };
-}
-
-export function removeStudioBasketPlacement(design: StudioDesign, id: string): StudioDesign {
-  return { ...design, basketPlacements: studioBasketPlacements(design).filter((placement) => placement.id !== id) };
-}
-
-export function studioBasketPlacementErrorForBay(design: StudioDesign, bayIndex: number, placement: StudioBasketPlacement, excludeId?: string) {
-  return studioBasketPlacementError(design, bayIndex, placement, excludeId);
-}
-
-/** Revalidate every saved visual basket when a tower, wall, or room edit could change its envelope. */
-export function studioBasketDesignError(design: StudioDesign): string | null {
-  for (const placement of studioBasketPlacements(design)) {
-    const scoped = switchStudioWall(design, placement.wallId);
-    const bayIndex = studioBays(scoped).findIndex((bay) => bay.id === placement.bayId);
-    const error = studioBasketPlacementError(scoped, bayIndex, placement, placement.id);
-    if (error) return error;
-  }
-  return null;
 }
 /** The sourced board remains 0.75-inch thick; a shoe organizer reserves its taller, explicitly illustrative 45-degree visual envelope. */
 export const studioItemHeight = (kind: StudioKind) => kind === "drawer" ? 5 : kind === "rod" ? 0 : kind === "shoe" ? STUDIO_ILLUSTRATIVE_SHOE_ENVELOPE_HEIGHT_IN : THICKNESS;
@@ -417,15 +291,14 @@ export function studioCollision(design: StudioDesign, bayIndex: number, candidat
   if (!Number.isFinite(candidate.bottomIn) || candidate.bottomIn < bottom + THICKNESS || candidate.bottomIn + height > top)
     return `This item must fit between the fixed shelves (${bottom + THICKNESS}–${top} in within the panel).`;
   const occupied = [
-    { id: "fixed-bottom", bottomIn: bottom, kind: "shelf" as const, heightIn: THICKNESS, label: "fixed shelf" },
-    { id: "fixed-top", bottomIn: top, kind: "shelf" as const, heightIn: THICKNESS, label: "fixed shelf" },
-    ...bay.items.filter((item) => item.id !== excludeId).map((item) => ({ ...item, heightIn: studioItemHeight(item.kind), label: item.kind })),
-    ...studioBasketPlacementsForWall(design).filter((placement) => placement.id !== excludeId && placement.bayId === bay.id).map((placement) => ({ id: placement.id, bottomIn: placement.bottomIn, kind: "basket" as const, heightIn: placement.nominalHeightIn, label: "basket" })),
+    { id: "fixed-bottom", bottomIn: bottom, kind: "shelf" as const },
+    { id: "fixed-top", bottomIn: top, kind: "shelf" as const },
+    ...bay.items.filter((item) => item.id !== excludeId),
   ];
   for (const other of occupied) {
     if (candidate.kind === "rod" && other.kind === "rod") continue; // Rod-to-rod clearance is unspecified.
-    if (candidate.bottomIn < other.bottomIn + other.heightIn - 0.000001 &&
-      other.bottomIn < candidate.bottomIn + height - 0.000001) return `At ${candidate.bottomIn} in this item intersects ${other.label} at ${other.bottomIn} in. Keep actual parts physically separate.`;
+    if (candidate.bottomIn < other.bottomIn + studioItemHeight(other.kind) - 0.000001 &&
+      other.bottomIn < candidate.bottomIn + height - 0.000001) return `At ${candidate.bottomIn} in this item intersects ${other.kind} at ${other.bottomIn} in. Keep actual parts physically separate.`;
   }
   return null;
 }
@@ -475,13 +348,9 @@ export function configureStudioBayCut(design: StudioDesign, bayIndex: number, st
     return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed and adjustable shelf SKU is available in the selected finish.` };
   if (candidateBay.stockWidthIn && candidateBay.items.some((item) => item.kind !== "shelf"))
     return { ok: false, reason: "Drawer, shoe organizer, and rod fit is not verified in a field-cut bay. Remove those items or restore full stock width." };
-  if (candidateBay.stockWidthIn && studioBasketPlacementsForWall(design).some((placement) => placement.bayId === bay.id))
-    return { ok: false, reason: "Basket fit is not verified in a field-cut shelf bay. Remove the basket visual plan or restore full stock width." };
   if (studioWidth(candidate) > studioWallLength(candidate)) return { ok: false, reason: "The connected towers exceed the selected wall length." };
   const cornerError = studioCornerDesignError(candidate);
   if (cornerError) return { ok: false, reason: cornerError };
-  const basketError = studioBasketDesignError(candidate);
-  if (basketError) return { ok: false, reason: basketError };
   return { ok: true, design: candidate };
 }
 
@@ -528,8 +397,6 @@ export function addStudioBay(design: StudioDesign, widthIn: 18 | 24 | 30 = 24):
   if (studioWidth(candidate) > studioWallLength(candidate)) return { ok: false, reason: "No wall space for a neighboring tower. Choose another wall or a narrower bay." };
   const cornerError = studioCornerDesignError(candidate);
   if (cornerError) return { ok: false, reason: cornerError };
-  const basketError = studioBasketDesignError(candidate);
-  if (basketError) return { ok: false, reason: basketError };
   return { ok: true, design: candidate };
 }
 
@@ -606,17 +473,11 @@ export function studioTakeoff(design: StudioDesign): StudioTakeoff {
     const corner = masterTracProduct(shelf.sku);
     const key = `shelf:${shelf.sku}:corner:${shelf.mount}:${shelf.geometryRevision}`;
     const row = rows.get(key);
-    const identity = shelf.sourceIdentity ?? studioCornerShelf2026Identity(shelf.finish, shelf.mount);
-    const sourceFinish = identity.specFinish ? `2026 ${identity.partId} · ${identity.specFinish}` : `2026 ${identity.partId} · no supplied finish-name crosswalk`;
-    const cornerLabel = `${corner?.description ?? "Corner Shelf"} · historical List ${shelf.finish} · ${sourceFinish} · ${shelf.mount} · 2026 planning envelope 29.5″ × 29.5″ · reference only`;
-    const cornerNote = `Visual planning only · ${identity.reconciliation === "same-sku-historical-list-name" ? "same SKU, 2026 source uses Vintage Walnut while historical List uses Spiced Mahogany" : identity.reconciliation === "exact-2026-finish" ? "2026 source finish matches the historical List label" : "historical List finish is not renamed from the supplied 2026 page"} · 2022 manual lists 29¼″ actual · curved profile, supports, connectors, H-joint applicability, and installation fit are unverified`;
+    const cornerLabel = `${corner?.description ?? "Corner Shelf"} · ${shelf.finish} · ${shelf.mount} · 2026 planning envelope 29.5″ × 29.5″ · reference only`;
+    const cornerNote = "Visual planning only · 2026 nominal envelope; 2022 manual lists 29¼″ actual · curved profile, supports, connectors, H-joint applicability, and installation fit are unverified";
     if (!corner) missing.push(`Corner shelf ${shelf.sku} is not available in the public historical source catalog.`);
     else if (row) row.qty += 1;
     else rows.set(key, { sku: corner.sku, label: cornerLabel, qty: 1, unitUsd: corner.packQty > 1 ? corner.listPackUsd : corner.listEachUsd, section: "shelf", packNote: cornerNote });
-  }
-  for (const placement of studioBasketPlacements(design)) {
-    const product = masterTracProduct(placement.sku);
-    add(product, "accessory", 1, `Visual planning only · ${placement.wallId} wall · ${placement.nominalWidthIn}″ W × ${placement.nominalHeightIn}″ H nominal envelope at ${placement.bottomIn}″ · supplier rail, door, travel, mounting, and clearance verification required`);
   }
   if (rods) {
     const cups = CLOSET_PARTS.find((p) => p.category === "Accessories" && p.finish === "Chrome" && p.packQty === 10 && /^Rod Cup \(10 Each\)/i.test(p.description));
@@ -626,12 +487,8 @@ export function studioTakeoff(design: StudioDesign): StudioTakeoff {
     missing.push("Shoe organizer 45° pitch is illustrative; verify supplier fit, attachment, and support requirements before ordering or installation.");
   if (studioCornerShelves(design).length)
     missing.push("Corner shelves use a 2026 29.5″ visual-planning envelope, not the unavailable curved-board profile or installation drawing. The 2022 manual lists 29¼″ actual; verify profile, supports, connectors, adjacent assembly, and fit before ordering or installation.");
-  if (rods)
-    missing.push("Clothes-hanger outlines are illustrative only and are not material products. Hanger spacing, garment clearance, rod capacity, rod cut length, and cup locations are not source-verified.");
   if (studioBasketReferences(design).length)
     missing.push(`Basket references selected: ${studioBasketReferences(design).map((reference) => reference.sku).join(", ")}. They are not placed, priced in the material lines, or fit-approved because outer envelope, rails, mounting offsets, extension travel, and clearance requirements are not source-verified.`);
-  if (studioBasketPlacements(design).length)
-    missing.push(`${studioBasketPlacements(design).map((placement) => `Basket ${placement.sku} is visual planning only`).join("; ")}. Each uses only its sourced nominal width/height and the Studio 14.5″ bay depth as a conservative visual envelope; supplier rail/slide inclusion, mounting offsets, door occlusion, extension travel, vertical clearance, hardware, and installation fit remain unverified.`);
   if (STUDIO_WALLS.some((wallId) => studioBays(design, wallId).some((bay) => studioBayCut(bay)))) missing.push("Field-cut shelf planning: measure the finished opening; use the manufacturer’s adjustable-shelf template or fixed-shelf connector-hole jig as applicable. This Studio is not a cutting or drilling guide.");
   missing.push("Wall anchors, cleat fasteners, connector/cam-lock quantities, and drawer slide hardware are not verified by the provided sources; obtain the installation schedule before ordering.");
   if (design.mount === "hanging") missing.push("Hanging-panel installation elevation and fastener locations are not certified here; the 3D height is illustrative.");
@@ -646,13 +503,12 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== "object") return null;
     const v = value as Partial<StudioDesign>;
-    if ((v.version !== 1 && v.version !== 2 && v.version !== 3) || !STUDIO_MODES.includes(v.mode!) || !["floor", "hanging"].includes(v.mount!)
+    if ((v.version !== 1 && v.version !== 2) || !STUDIO_MODES.includes(v.mode!) || !["floor", "hanging"].includes(v.mount!)
       || !STUDIO_FINISHES.includes(v.finish!) || !STUDIO_WALLS.includes(v.wall!)
       || !Number.isFinite(v.wallWidthIn) || !Number.isFinite(v.roomDepthIn)
       || v.wallWidthIn! < 24 || v.wallWidthIn! > 360 || v.roomDepthIn! < 24 || v.roomDepthIn! > 360
       || (v.cornerShelves != null && !Array.isArray(v.cornerShelves))
-      || (v.basketReferences != null && !Array.isArray(v.basketReferences))
-      || (v.basketPlacements != null && !Array.isArray(v.basketPlacements))) return null;
+      || (v.basketReferences != null && !Array.isArray(v.basketReferences))) return null;
     const validBays = (bays: unknown, wallId: StudioWall, requireIdentity: boolean): bays is StudioBay[] => Array.isArray(bays) && bays.length <= 4 && bays.every((bay: StudioBay) => !!bay && typeof bay.id === "string" && Number.isFinite(bay.widthIn)
       && bay.widthIn >= CUT_PLANNING_MIN_IN && bay.widthIn <= 30
       && (!requireIdentity || bay.wallId === wallId)
@@ -674,7 +530,7 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
         wallLayouts[wallId] = { wallId, bays: withWallIdentity(layout.bays, wallId) };
       }
       if (!Array.isArray(v.bays) || JSON.stringify(v.bays) !== JSON.stringify(wallLayouts[v.wall!].bays)) return null;
-      design = { ...(v as StudioDesign), version: v.version, wallLayouts, bays: wallLayouts[v.wall!].bays, ...(v.basketPlacements ? { basketPlacements: v.basketPlacements } : {}) };
+      design = { ...(v as StudioDesign), version: 2, wallLayouts, bays: wallLayouts[v.wall!].bays };
     }
     for (const wallId of STUDIO_WALLS) {
       const scoped = switchStudioWall(design, wallId);
@@ -687,20 +543,14 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
       }
     }
     const seenCornerIds = new Set<string>();
-    const normalizedCornerShelves = studioCornerShelves(design).map((shelf) => ({
-      ...shelf,
-      sourceIdentity: (shelf as Partial<StudioCornerShelf>).sourceIdentity ?? studioCornerShelf2026Identity(design.finish, shelf.mount),
-    }));
-    design = { ...design, ...(normalizedCornerShelves.length ? { cornerShelves: normalizedCornerShelves } : {}) };
     for (const shelf of studioCornerShelves(design)) {
       if (!shelf || typeof shelf.id !== "string" || seenCornerIds.has(shelf.id)
-        || shelf.finish !== design.finish || !["fixed", "adjustable"].includes(shelf.mount)
-        || shelf.sku !== studioCornerShelfSku(design.finish, shelf.mount) || shelf.profile !== "curved-illustrative"
+        || !["432556", "432557"].includes(shelf.sku) || shelf.finish !== design.finish
+        || !["fixed", "adjustable"].includes(shelf.mount) || shelf.profile !== "curved-illustrative"
         || !["back-left", "back-right", "front-left", "front-right"].includes(shelf.cornerId)
         || !Array.isArray(shelf.wallIds) || shelf.wallIds.length !== 2 || !STUDIO_WALLS.includes(shelf.wallIds[0]) || !STUDIO_WALLS.includes(shelf.wallIds[1])
         || !Number.isFinite(shelf.elevationIn) || shelf.nominalFootprintIn !== STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN
-        || shelf.geometryRevision !== STUDIO_CORNER_SHELF_GEOMETRY_REVISION || shelf.geometrySource !== "MasterTrac Spec Book NP 2026 p. 13" || shelf.capability !== "visualPlanning"
-        || JSON.stringify(shelf.sourceIdentity) !== JSON.stringify(studioCornerShelf2026Identity(design.finish, shelf.mount))) return null;
+        || shelf.geometryRevision !== STUDIO_CORNER_SHELF_GEOMETRY_REVISION || shelf.geometrySource !== "MasterTrac Spec Book NP 2026 p. 13" || shelf.capability !== "visualPlanning") return null;
       seenCornerIds.add(shelf.id);
     }
     if (studioCornerDesignError(design)) return null;
@@ -711,23 +561,9 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
       if (!reference || typeof reference.id !== "string" || seenBasketIds.has(reference.id)
         || reference.finish !== "Chrome" || reference.capability !== "referenceOnly" || reference.sourceRevision !== "floor-579554-p13-historical-reference-v1"
         || !option || reference.nominalHeightIn !== option.nominalHeightIn || reference.nominalWidthIn !== option.nominalWidthIn
-        || !product || product.finish !== "Chrome" || product.category !== "Accessories" || product.placeable || studioFitCapability(reference.sku)?.status !== "visualPlanning") return null;
+        || !product || product.finish !== "Chrome" || product.category !== "Accessories" || product.placeable || studioFitCapability(reference.sku)?.status !== "referenceOnly") return null;
       seenBasketIds.add(reference.id);
     }
-    const seenBasketPlacementIds = new Set<string>();
-    for (const placement of studioBasketPlacements(design)) {
-      const option = basketOption(placement?.sku);
-      const product = placement ? masterTracProduct(placement.sku) : undefined;
-      if (!placement || typeof placement.id !== "string" || seenBasketPlacementIds.has(placement.id)
-        || !STUDIO_WALLS.includes(placement.wallId) || !option || placement.finish !== "Chrome"
-        || placement.nominalHeightIn !== option.nominalHeightIn || placement.nominalWidthIn !== option.nominalWidthIn
-        || placement.nominalDepthIn !== STUDIO_BASKET_VISUAL_DEPTH_IN || !Number.isFinite(placement.bottomIn)
-        || typeof placement.bayId !== "string" || placement.sourceRevision !== "floor-579554-p13-historical-basket-visual-envelope-v1"
-        || placement.capability !== "visualPlanning" || !product || product.finish !== "Chrome" || product.category !== "Accessories"
-        || studioFitCapability(placement.sku)?.status !== "visualPlanning") return null;
-      seenBasketPlacementIds.add(placement.id);
-    }
-    if (studioBasketDesignError(design)) return null;
     return design;
   } catch { return null; }
 }

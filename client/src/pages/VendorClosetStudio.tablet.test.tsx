@@ -180,72 +180,38 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.change(within(corner).getByRole("spinbutton", { name: "Corner shelf planning elevation in inches" }), { target: { value: "36" } });
     fireEvent.click(within(corner).getByRole("button", { name: "Add visual plan" }));
     expect(within(corner).getByText(/Adjustable corner.*SKU 432557.*Front-right.*36 in/i)).toBeTruthy();
-    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/illustrative pie shelf.*conservative 29\.5.*Elevation: 36.*0\.75.*supplier profile and support/i);
+    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/29\.5.*Elevation: 36.*0\.75.*curve.profile intentionally not drawn/i);
     expect(within(corner).getByText(/tower-envelope gap.*verify assembly fit/i)).toBeTruthy();
     fireEvent.click(within(corner).getByRole("button", { name: "Undo corner" }));
     expect(within(corner).queryByText(/Adjustable corner.*SKU 432557/i)).toBeNull();
 
     const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
     expect(scene).toContain("cornerShelfPlanningEnvelope: true");
-    expect(scene).toContain("CylinderGeometry(radius, radius, STUDIO_CORNER_SHELF_THICKNESS_IN");
-    expect(scene).toContain("illustrativePieShape: true");
-    expect(scene).toContain("conservativeSquareOccupancy: true");
     expect(scene).toContain("profileIllustrative: true");
     expect(scene).toContain("installationFitToVerify: true");
-    expect(scene).toContain("quarter-round display inside it is illustrative only");
+    expect(scene).toContain("not a fabricated curved board profile or support assembly");
   });
 
-  it("makes finish-matched 29.5-inch corner planning, the clothes-hanging rod, and the click-to-place drawer front action obvious", () => {
+  it("keeps every historical basket as an editable source reference in Parts, with no physical placement or 2026 substitution", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
 
     const dock = screen.getByTestId("vendor-tablet-options-dock");
-    expect(within(dock).getAllByRole("button", { name: /Clothes hanging rod/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
-    expect(within(dock).getByTestId("vendor-hanger-caveat").textContent).toMatch(/clothes-hanger outlines.*illustrative only.*not material products.*spacing.*garment clearance.*capacity.*cup locations/i);
-    expect(within(dock).getAllByRole("button", { name: /Drawer front \+ box/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
-    const corner = within(dock).getByTestId("vendor-corner-planning-controls");
-    expect(corner.textContent).toMatch(/29\.5.*Spiced Mahogany source SKU.*visual planning only/i);
-    expect(within(corner).getByRole("combobox", { name: "Corner shelf type" }).textContent).toMatch(/Fixed.*432786.*CFS.*Adjustable.*432787.*CAS/i);
-    expect(within(corner).getByTestId("vendor-corner-planning-caveat").textContent).toMatch(/2026 CFS.CAS.*Vintage Walnut.*historical List label remains Spiced Mahogany/i);
-
-    fireEvent.click(within(dock).getByRole("button", { name: "Plan 29.5-inch curved corner shelf" }));
-    expect(screen.getByTestId("vendor-tablet-options-dock").className).toMatch(/flex/);
-    const source = readFileSync(`${process.cwd()}/client/src/pages/VendorClosetStudio.tsx`, "utf8");
-    expect(source).toContain("studioCornerShelfSku(design.finish, \"fixed\")");
-    expect(source).toContain('title: "Clothes hanging rod"');
-    expect(source).toContain('title: "Drawer front + box"');
-    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
-    expect(scene).toContain("illustrativeClothesHangers: true");
-    expect(scene).toContain("hangerProductNotInTakeoff: true");
-    expect(scene).toContain("hangerSpacingNotSourceVerified: true");
-    expect(scene).toContain('sourcedRodSku: "433223"');
-  });
-
-  it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {
-    window.history.replaceState(null, "", "/closet?demo=mixed");
-    render(<VendorClosetStudio />);
-
-    const dock = screen.getByTestId("vendor-tablet-options-dock");
-    const basket = within(dock).getByTestId("vendor-basket-planning-controls");
-    expect(within(basket).getByTestId("vendor-basket-planning-caveat").textContent).toMatch(/visual planning only.*supplier rail and clearance verification.*14\.5.*outer basket.*rail.*mounting offsets.*travel.*446807.*446815.*not substituted/i);
-    const source = within(basket).getByRole("combobox", { name: "Basket visual-planning source SKU" });
+    const basket = within(dock).getByTestId("vendor-basket-reference-controls");
+    expect(within(basket).getByTestId("vendor-basket-reference-caveat").textContent).toMatch(/outer envelope.*rails.*mounting offsets.*extension travel.*446807.*446815.*not substituted/i);
+    const source = within(basket).getByRole("combobox", { name: "Historical basket source SKU" });
     fireEvent.change(source, { target: { value: "432902" } });
-    fireEvent.change(within(basket).getByRole("spinbutton", { name: "Basket visual-planning bottom elevation in inches" }), { target: { value: "42" } });
-    fireEvent.click(within(basket).getByRole("button", { name: "Place visual basket" }));
-    expect(within(basket).getByText(/17″ H × 24″ W basket.*SKU 432902.*Tower 2.*42 in/i)).toBeTruthy();
-    expect(within(basket).getByTestId("vendor-basket-plan-elevation").textContent).toMatch(/24.*14\.5.*Elevation: 42.*17.*visual planning only.*supplier rail/i);
-    fireEvent.change(within(basket).getByRole("combobox", { name: "Edit selected basket visual-planning SKU" }), { target: { value: "432901" } });
-    expect(within(basket).getByText(/11″ H × 24″ W basket.*SKU 432901.*42 in/i)).toBeTruthy();
+    fireEvent.click(within(basket).getByRole("button", { name: "Save source reference — not placeable" }));
+    expect(within(basket).getByText(/17″ × 24″ basket.*SKU 432902.*reference only/i)).toBeTruthy();
+    expect(within(basket).queryByRole("button", { name: /place.*basket/i })).toBeNull();
+    fireEvent.click(within(basket).getByText(/17″ × 24″ basket.*SKU 432902/i));
+    fireEvent.change(within(basket).getByRole("combobox", { name: "Edit selected basket source SKU" }), { target: { value: "432897" } });
+    expect(within(basket).getByText(/6″ × 18″ basket.*SKU 432897.*reference only/i)).toBeTruthy();
     fireEvent.click(within(basket).getByRole("button", { name: "Undo basket" }));
-    expect(within(basket).getByText(/17″ H × 24″ W basket.*SKU 432902.*42 in/i)).toBeTruthy();
-
-    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
-    expect(scene).toContain("basketVisualPlanningEnvelope: true");
-    expect(scene).toContain("decorativeWireLook: true");
-    expect(scene).toContain("supplierRailAndClearanceToVerify: true");
+    expect(within(basket).getByText(/17″ × 24″ basket.*SKU 432902.*reference only/i)).toBeTruthy();
   });
 
-  it("makes every public MasterTrac source record searchable while keeping hampers reference-only and basket planning explicitly restricted", () => {
+  it("makes every public MasterTrac source record searchable in the List dock without treating corner shelves or hampers as placeable", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
 
@@ -253,7 +219,7 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.click(within(dock).getByRole("button", { name: "Material reference details" }));
     const catalog = within(dock).getByTestId("vendor-source-catalog");
     expect(catalog.textContent).toMatch(/454 public March 1, 2022 List records/i);
-    expect(catalog.textContent).toMatch(/not a checkout quote or installation guide.*corner SKUs and baskets 432897.*restricted.*visual-planning.*never fit-verified/i);
+    expect(catalog.textContent).toMatch(/not a checkout quote or installation guide.*restricted.*visual-planning.*never a fit-verified placement/i);
 
     const search = within(catalog).getByRole("textbox", { name: "Search MasterTrac source catalog" });
     fireEvent.change(search, { target: { value: "432602" } });
@@ -262,6 +228,6 @@ describe("Closet Studio tablet workspace", () => {
 
     fireEvent.change(search, { target: { value: "432556" } });
     expect(within(catalog).getByTestId("vendor-source-part-432556").textContent).toMatch(/Fixed Corner Shelf.*Visual planning only.*not a profile, fit, or installation confirmation/i);
-    expect(catalog.textContent).toMatch(/29\.5.*29¼.*no curve.profile, support, connector, or installation geometry.*historical baskets 432897.*14\.5.*rails.*mounting offsets.*alternate 2026 basket SKUs.*not substituted/i);
+    expect(catalog.textContent).toMatch(/29\.5.*29¼.*no curve.profile, support, connector, or installation geometry.*historical baskets 432897.*outer envelope.*alternate 2026 basket SKUs.*not substituted/i);
   });
 });

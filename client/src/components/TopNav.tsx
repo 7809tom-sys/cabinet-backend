@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useSearch } from "wouter";
-import { Menu, X, ShoppingCart, ChevronDown, Languages, LogOut } from "lucide-react";
+import { Menu, X, ShoppingCart, ChevronDown, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { useCart } from "@/contexts/CartContext";
@@ -17,7 +17,6 @@ import {
 } from "@/lib/designerMobileCartBridge";
 import { affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
 import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
-import { toast } from "sonner";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -92,7 +91,7 @@ export function TopNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [location] = useLocation();
   const search = useSearch();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const { count: cartCount } = useCart();
   const { t } = useLanguage();
   const isDesignerMobile = useIsMobile(1024) && location.startsWith("/design");
@@ -109,20 +108,6 @@ export function TopNav() {
   }, [isDesignerMobile]);
 
   const visibleCartCount = isDesignerMobile ? designCartCount : cartCount;
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-      // Remove only the transient auth snapshot. Saved Designer drafts and
-      // customer cart data remain available for the next sign-in.
-      window.localStorage.removeItem("manus-runtime-user-info");
-      setMobileOpen(false);
-      toast.success(t("acc_signed_out"));
-      if (location !== "/") window.location.assign("/");
-    } catch {
-      toast.error(t("acc_signout_err"));
-    }
-  };
 
   // Check if the current user is a linked affiliate (partner role or has affiliate record)
   const { data: myAffiliateData } = trpc.affiliates.myReferrals.useQuery(undefined, {
@@ -368,17 +353,6 @@ export function TopNav() {
               <Link href="/account">
                 <Button variant="outline" size="sm" title="Manage your personal sign-in and profile">My Account</Button>
               </Link>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-                title="Sign out"
-                aria-label="Sign out"
-                className="text-muted-foreground hover:text-destructive"
-              >
-                <LogOut className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                Sign out
-              </Button>
             </div>
           ) : (
             <Link href="/signin">
@@ -463,19 +437,6 @@ export function TopNav() {
               <Link href="/account" onClick={() => setMobileOpen(false)} className="px-3">
                 <Button variant="outline" className="w-full">{t("nav_account")}</Button>
               </Link>
-            )}
-            {user && (
-              <div className="px-3">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-muted-foreground hover:text-destructive"
-                  onClick={handleLogout}
-                  aria-label="Sign out"
-                >
-                  <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Sign out
-                </Button>
-              </div>
             )}
             {!user && (
               <Link href="/signin" onClick={() => setMobileOpen(false)} className="px-3">
