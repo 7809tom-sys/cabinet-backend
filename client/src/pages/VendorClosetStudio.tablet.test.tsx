@@ -11,7 +11,34 @@ vi.mock("@/components/vendor/VendorClosetScene", () => ({
 describe("Closet Studio tablet workspace", () => {
   afterEach(() => {
     cleanup();
+    window.localStorage.clear();
     window.history.replaceState(null, "", "/closet");
+  });
+
+  it("keeps a wall's layout separate and exposes filled or empty status through the upper-right bird's-eye overview", () => {
+    window.localStorage.clear();
+    render(<VendorClosetStudio />);
+    fireEvent.click(screen.getByRole("button", { name: "Start with one tower" }));
+
+    const overview = screen.getByTestId("vendor-room-overview");
+    const back = within(overview).getByRole("button", { name: /Back wall: filled, 25\.5 of 120 inches used/i });
+    const left = within(overview).getByRole("button", { name: /Left wall: empty, 0 of 96 inches used/i });
+    expect(back.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(left);
+
+    expect(within(overview).getByRole("button", { name: /Left wall: empty, 0 of 96 inches used/i }).getAttribute("aria-pressed")).toBe("true");
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    expect(within(dock).getByText(/This wall is empty.*other walls remain unchanged/i)).toBeTruthy();
+    fireEvent.click(within(dock).getByRole("button", { name: "Add first tower" }));
+    expect(within(dock).getByRole("button", { name: "Select Tower 1" })).toBeTruthy();
+    expect(within(dock).getByText(/25\.5 of 96 in on left wall/i)).toBeTruthy();
+
+    fireEvent.click(back);
+    expect(within(dock).getByText(/25\.5 of 120 in on back wall/i)).toBeTruthy();
+    expect(within(overview).getByRole("button", { name: /Left wall: filled, 25\.5 of 96 inches used/i })).toBeTruthy();
+    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
+    expect(scene).toContain("studioCornerShelvesForWall(design)");
+    expect(scene).toContain("if (design.bays.length) box");
   });
 
   it("keeps Room reversible while the tablet Material List stays a compact right-dock disclosure with tower and part controls", () => {
@@ -94,7 +121,7 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.click(within(screen.getByTestId("vendor-tablet-options-dock")).getByRole("button", { name: /Adjustable shelf/ }));
     expect(screen.getByTestId("vendor-tablet-options-dock").className).toContain("hidden");
     const source = readFileSync(`${process.cwd()}/client/src/pages/VendorClosetStudio.tsx`, "utf8");
-    expect(source).toContain('partToPlace ? "top-24 sm:top-28" : "bottom-3 sm:bottom-5"');
+    expect(source).toContain('partToPlace && hasBay ? "top-24 sm:top-28" : "bottom-3 sm:bottom-5"');
     fireEvent.click(list);
     expect(within(screen.getByTestId("vendor-tablet-options-dock")).getByTestId("vendor-tablet-material-list")).toBeTruthy();
   });
@@ -139,6 +166,8 @@ describe("Closet Studio tablet workspace", () => {
     window.history.replaceState(null, "", "/closet");
     render(<VendorClosetStudio />);
     fireEvent.click(screen.getByRole("button", { name: "Start with one tower" }));
+
+    fireEvent.click(within(screen.getByTestId("vendor-room-overview")).getByRole("button", { name: /Right wall: empty/i }));
 
     const dock = screen.getByTestId("vendor-tablet-options-dock");
     const corner = within(dock).getByTestId("vendor-corner-planning-controls");

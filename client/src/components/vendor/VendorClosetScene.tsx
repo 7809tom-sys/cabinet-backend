@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { StudioDesign, StudioKind } from "@/lib/vendorClosetStudio";
-import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioCornerPlanningFootprint, studioCornerShelves, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
+import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioCornerPlanningFootprint, studioCornerShelvesForWall, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
 
 const IN = 1 / 12;
 const MAT: Record<StudioDesign["finish"], { face: string; edge: string; grain: string }> = {
@@ -44,7 +44,8 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#e9e5db");
     const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 130);
-    const hasCornerPlanning = studioCornerShelves(design).length > 0;
+    const visibleCornerShelves = studioCornerShelvesForWall(design);
+    const hasCornerPlanning = visibleCornerShelves.length > 0;
     const towerWidth = studioWidth(design) * IN;
     const w = hasCornerPlanning ? design.wallWidthIn * IN : towerWidth;
     const roomDepth = hasCornerPlanning ? design.roomDepthIn * IN : 12;
@@ -170,9 +171,9 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       targets.push(hit); parts.add(hit);
       cursor += bay.widthIn + 0.75;
     }
-    box(0.75, panelHeight, depth, cursor + 0.375, panelHeight / 2 + (design.mount === "hanging" ? 6 : 0), depth / 2, boardMat);
+    if (design.bays.length) box(0.75, panelHeight, depth, cursor + 0.375, panelHeight / 2 + (design.mount === "hanging" ? 6 : 0), depth / 2, boardMat);
     // This is deliberately a rectangular 29.5-inch 2026 planning envelope, not a fabricated curved board profile or support assembly.
-    for (const shelf of studioCornerShelves(design)) {
+    for (const shelf of visibleCornerShelves) {
       const footprint = studioCornerPlanningFootprint(design, shelf);
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN), cornerEnvelopeMat);
       mesh.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);

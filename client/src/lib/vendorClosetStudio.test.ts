@@ -1,13 +1,53 @@
 import { describe, expect, it } from "vitest";
 import {
   addStudioBay, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioCornerShelf, moveStudioItem, removeStudioBasketReference,
-  restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioCollision, studioPartReferences, studioTakeoff, studioWidth,
+  restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
   STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
 
 describe("isolated vendor Closet Studio", () => {
+  it("keeps each wall's towers and parts independent while preserving all walls, one shared corner identity, and legacy drafts", () => {
+    const back = createStudioDesign();
+    expect(studioBays(back, "back")).toHaveLength(1);
+    expect(studioWallOccupancy(back).back).toMatchObject({ filled: true, usedSpanIn: 25.5, bayCount: 1 });
+    expect(studioWallOccupancy(back).left).toMatchObject({ filled: false, usedSpanIn: 0, bayCount: 0 });
+
+    const emptyLeft = switchStudioWall(back, "left");
+    expect(emptyLeft.wall).toBe("left");
+    expect(studioBays(emptyLeft)).toEqual([]);
+    const addedLeft = addStudioBay(emptyLeft, 18);
+    expect(addedLeft.ok).toBe(true);
+    if (!addedLeft.ok) return;
+    const leftShelf = snapStudioPart(addedLeft.design, 0, "shelf", 46, "left-shelf");
+    expect(leftShelf.ok).toBe(true);
+    if (!leftShelf.ok) return;
+
+    const backAgain = switchStudioWall(leftShelf.design, "back");
+    expect(studioBays(backAgain)).toHaveLength(1);
+    expect(studioBays(backAgain)[0]?.items).toMatchObject([{ id: "shelf-1", wallId: "back" }]);
+    const leftAgain = switchStudioWall(backAgain, "left");
+    expect(studioBays(leftAgain)[0]?.items).toMatchObject([{ id: "left-shelf", wallId: "left" }]);
+    expect(studioWallOccupancy(leftAgain)).toMatchObject({ back: { usedSpanIn: 25.5 }, left: { usedSpanIn: 19.5 }, right: { filled: false } });
+
+    const corner = addStudioCornerShelf(backAgain, "back-right", "fixed", 36, "corner-shared");
+    expect(corner.ok).toBe(true);
+    if (!corner.ok) return;
+    const rightView = switchStudioWall(corner.design, "right");
+    expect(studioCornerShelvesForWall(rightView, "right").map((shelf) => shelf.id)).toEqual(["corner-shared"]);
+    expect(studioCornerShelvesForWall(rightView, "back").map((shelf) => shelf.id)).toEqual(["corner-shared"]);
+    expect(studioTakeoff(rightView).lines.find((line) => line.sku === "432556")?.qty).toBe(1);
+    expect(studioTakeoff(rightView).lines.filter((line) => line.section === "panel").reduce((sum, line) => sum + line.qty, 0)).toBe(4);
+    expect(restoreStudioDesign(JSON.stringify(rightView))).toEqual(rightView);
+
+    const legacy = { version: 1, mode: "closet", mount: "floor", finish: "Glacier White", wall: "left", wallWidthIn: 120, roomDepthIn: 96, bays: [{ id: "legacy-bay", widthIn: 24, items: [{ id: "legacy-shelf", kind: "shelf", bottomIn: 38 }] }] };
+    const migrated = restoreStudioDesign(JSON.stringify(legacy));
+    expect(migrated?.version).toBe(2);
+    expect(studioBays(migrated!, "left")[0]?.items[0]).toMatchObject({ id: "legacy-shelf", wallId: "left" });
+    expect(studioBays(migrated!, "back")).toEqual([]);
+  });
+
   it("adds only a source-SKU-linked 29.5-inch visual-planning curved corner envelope at a free two-wall corner", () => {
     const base = createStudioDesign();
     expect(STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN).toBe(29.5);

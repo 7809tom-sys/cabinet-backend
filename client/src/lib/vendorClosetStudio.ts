@@ -6,7 +6,8 @@ export type StudioMount = "floor" | "hanging";
 export type StudioWall = "back" | "left" | "right" | "front";
 export type StudioKind = "shelf" | "rod" | "drawer" | "shoe";
 export type StudioReferenceKind = StudioKind | "fixedShelf";
-export type StudioItem = { id: string; kind: StudioKind; bottomIn: number };
+/** New v2 records retain their physical wall identity; it is optional only while v1 drafts are migrated on restore. */
+export type StudioItem = { id: string; kind: StudioKind; bottomIn: number; wallId?: StudioWall };
 export type StudioCornerId = "back-left" | "back-right" | "front-left" | "front-right";
 export type StudioCornerShelfMount = "fixed" | "adjustable";
 /** A planning-only record: the source does not yet provide the board profile, support layout, or installation connection details. */
@@ -35,15 +36,20 @@ export type StudioBasketReference = {
   capability: "referenceOnly";
 };
 /** `widthIn` is the measured installed clear width; `stockWidthIn` retains the purchased shelf SKU width when field-cut. */
-export type StudioBay = { id: string; widthIn: number; stockWidthIn?: 18 | 24 | 30; items: StudioItem[] };
+/** New v2 tower groups retain their wall identity; it is optional only while v1 drafts are migrated on restore. */
+export type StudioBay = { id: string; widthIn: number; stockWidthIn?: 18 | 24 | 30; wallId?: StudioWall; items: StudioItem[] };
+export type StudioWallLayout = { wallId: StudioWall; bays: StudioBay[] };
+export type StudioWallOccupancy = { wallId: StudioWall; usedSpanIn: number; availableSpanIn: number; bayCount: number; itemCount: number; cornerCount: number; filled: boolean };
 export type StudioDesign = {
-  version: 1;
+  version: 1 | 2;
   mode: StudioMode;
   mount: StudioMount;
   finish: "Glacier White" | "Slate Rift" | "Spiced Mahogany";
   wall: StudioWall;
   wallWidthIn: number;
   roomDepthIn: number;
+  /** v2 canonical per-wall tower layout. `bays` remains the selected-wall render cache for legacy component compatibility. */
+  wallLayouts?: Partial<Record<StudioWall, StudioWallLayout>>;
   bays: StudioBay[];
   cornerShelves?: StudioCornerShelf[];
   basketReferences?: StudioBasketReference[];
@@ -98,21 +104,68 @@ export const MODE_RECOMMENDATIONS: Record<StudioMode, StudioKind[]> = {
   closet: ["shelf", "rod", "shoe"], pantry: ["shelf", "drawer"], mudroom: ["shoe", "rod", "shelf"],
 };
 
+const blankWallLayouts = (): Record<StudioWall, StudioWallLayout> => ({
+  back: { wallId: "back", bays: [] }, left: { wallId: "left", bays: [] }, right: { wallId: "right", bays: [] }, front: { wallId: "front", bays: [] },
+});
+const withWallIdentity = (bays: StudioBay[], wallId: StudioWall): StudioBay[] => bays.map((bay) => ({ ...bay, wallId, items: bay.items.map((item) => ({ ...item, wallId })) }));
+const hasWallLayouts = (design: StudioDesign) => Boolean(design.wallLayouts && STUDIO_WALLS.some((wall) => design.wallLayouts?.[wall]));
+
+/** Return the canonical tower groups for a particular room wall; v1 remains readable only for its original selected wall until restore migrates it. */
+export const studioBays = (design: StudioDesign, wall: StudioWall = design.wall): StudioBay[] => {
+  if (wall === design.wall) return design.bays;
+  const layout = design.wallLayouts?.[wall];
+  if (layout) return layout.bays;
+  return [];
+};
+
+/** Replace one wall atomically and keep the current render cache synchronized. */
+export function replaceStudioWallBays(design: StudioDesign, wall: StudioWall, bays: StudioBay[]): StudioDesign {
+  const layouts = { ...blankWallLayouts(), ...design.wallLayouts, [wall]: { wallId: wall, bays: withWallIdentity(bays, wall) } };
+  const activeBays = wall === design.wall ? layouts[wall].bays : studioBays(design, design.wall);
+  return { ...design, version: 2, wallLayouts: layouts, bays: activeBays };
+}
+
+/** Switch walls without copying any tower, part, or material state into the destination. */
+export function switchStudioWall(design: StudioDesign, wall: StudioWall): StudioDesign {
+  if (!STUDIO_WALLS.includes(wall)) return design;
+  const layouts = { ...blankWallLayouts(), ...design.wallLayouts };
+  layouts[design.wall] = { wallId: design.wall, bays: withWallIdentity(design.bays, design.wall) };
+  const activeBays = layouts[wall]?.bays ?? [];
+  return { ...design, version: 2, wall, wallLayouts: layouts, bays: activeBays };
+}
+
+export const studioCornerShelvesForWall = (design: StudioDesign, wall: StudioWall = design.wall) => studioCornerShelves(design).filter((shelf) => shelf.wallIds.includes(wall));
+export const studioCornerIdsForWall = (wall: StudioWall) => STUDIO_CORNER_IDS.filter((cornerId) => CORNER_WALL_IDS[cornerId].includes(wall));
+export const studioWidthForWall = (design: StudioDesign, wall: StudioWall = design.wall) => studioBays(design, wall).reduce((sum, bay) => sum + bay.widthIn, 0) + (studioBays(design, wall).length ? THICKNESS * (studioBays(design, wall).length + 1) : 0);
+export const studioWallOccupancy = (design: StudioDesign): Record<StudioWall, StudioWallOccupancy> => Object.fromEntries(STUDIO_WALLS.map((wallId) => {
+  const bays = studioBays(design, wallId);
+  const corners = studioCornerShelvesForWall(design, wallId);
+  const usedSpanIn = studioWidthForWall(design, wallId);
+  return [wallId, { wallId, usedSpanIn, availableSpanIn: studioWallLength(design, wallId), bayCount: bays.length, itemCount: bays.reduce((sum, bay) => sum + bay.items.length, 0), cornerCount: corners.length, filled: bays.length > 0 || corners.length > 0 }];
+})) as Record<StudioWall, StudioWallOccupancy>;
+
 export function createStudioDesign(): StudioDesign {
-  return { version: 1, mode: "closet", mount: "floor", finish: "Glacier White", wall: "back", wallWidthIn: 120, roomDepthIn: 96,
-    bays: [{ id: "bay-1", widthIn: 24, items: [{ id: "shelf-1", kind: "shelf", bottomIn: 38 }] }] };
+  const wallLayouts = blankWallLayouts();
+  wallLayouts.back = { wallId: "back", bays: [{ id: "bay-1", wallId: "back", widthIn: 24, items: [{ id: "shelf-1", wallId: "back", kind: "shelf", bottomIn: 38 }] }] };
+  return { version: 2, mode: "closet", mount: "floor", finish: "Glacier White", wall: "back", wallWidthIn: 120, roomDepthIn: 96, wallLayouts, bays: wallLayouts.back.bays };
 }
 export const studioPanelHeight = (design: StudioDesign) => design.mount === "hanging" ? 80 : 87;
 export const studioFixedBottom = (design: StudioDesign) => design.mount === "hanging" ? 1.5 : 6;
 export const studioFixedTop = (design: StudioDesign) => studioPanelHeight(design) - THICKNESS;
-export const studioWidth = (design: StudioDesign) => design.bays.reduce((sum, bay) => sum + bay.widthIn, 0) + THICKNESS * (design.bays.length + 1);
-export const studioWallLength = (design: StudioDesign) => design.wall === "left" || design.wall === "right" ? design.roomDepthIn : design.wallWidthIn;
+export const studioWidth = (design: StudioDesign) => studioWidthForWall(design, design.wall);
+export const studioWallLength = (design: StudioDesign, wall: StudioWall = design.wall) => wall === "left" || wall === "right" ? design.roomDepthIn : design.wallWidthIn;
 export const studioCornerShelves = (design: StudioDesign) => design.cornerShelves ?? [];
 const CORNER_WALL_IDS: Record<StudioCornerId, [StudioWall, StudioWall]> = {
   "back-left": ["back", "left"], "back-right": ["back", "right"], "front-left": ["front", "left"], "front-right": ["front", "right"],
 };
 type StudioFootprint = { xMin: number; xMax: number; zMin: number; zMax: number };
-const studioTowerFootprint = (design: StudioDesign): StudioFootprint => ({ xMin: 0, xMax: studioWidth(design), zMin: 0, zMax: 14.5 });
+const studioTowerFootprint = (design: StudioDesign, wall: StudioWall = design.wall): StudioFootprint => {
+  const span = studioWidthForWall(design, wall);
+  if (wall === "front") return { xMin: 0, xMax: span, zMin: design.roomDepthIn - 14.5, zMax: design.roomDepthIn };
+  if (wall === "left") return { xMin: 0, xMax: 14.5, zMin: 0, zMax: span };
+  if (wall === "right") return { xMin: design.wallWidthIn - 14.5, xMax: design.wallWidthIn, zMin: 0, zMax: span };
+  return { xMin: 0, xMax: span, zMin: 0, zMax: 14.5 };
+};
 const intervalsOverlap = (aMin: number, aMax: number, bMin: number, bMax: number) => aMin < bMax - EPS && bMin < aMax - EPS;
 const footprintsOverlap = (a: StudioFootprint, b: StudioFootprint) => intervalsOverlap(a.xMin, a.xMax, b.xMin, b.xMax) && intervalsOverlap(a.zMin, a.zMax, b.zMin, b.zMax);
 
@@ -152,7 +205,10 @@ function studioCornerPlacementError(design: StudioDesign, candidate: StudioCorne
   const product = studioCornerProduct(design, candidate.mount);
   if (!product || product.sku !== candidate.sku) return "No matching historical corner shelf SKU is available for the selected finish and fixed/adjustable choice.";
   const footprint = studioCornerPlanningFootprint(design, candidate);
-  if (footprintsOverlap(footprint, studioTowerFootprint(design))) return "This 29.5 in corner planning envelope intersects the straight tower. Move the tower or choose a free room corner; shared support is not verified.";
+  for (const wallId of candidate.wallIds) {
+    const wallBays = studioBays(design, wallId);
+    if (wallBays.length && footprintsOverlap(footprint, studioTowerFootprint(design, wallId))) return `This 29.5 in corner planning envelope intersects the ${wallId} wall tower. Move that tower or choose a free room corner; shared support is not verified.`;
+  }
   for (const existing of studioCornerShelves(design)) {
     if (existing.id === excludeId) continue;
     if (footprintsOverlap(footprint, studioCornerPlanningFootprint(design, existing))
@@ -227,7 +283,7 @@ export function studioBayCut(bay: StudioBay): StudioShelfCut | null {
 
 /** Shelf top/bottom and drawer face thickness are sourced; rod diameter and drawer body remain schematic. */
 export function studioCollision(design: StudioDesign, bayIndex: number, candidate: StudioItem, excludeId?: string): string | null {
-  const bay = design.bays[bayIndex];
+  const bay = studioBays(design)[bayIndex];
   if (!bay) return "Choose a tower bay.";
   const bottom = studioFixedBottom(design);
   const top = studioFixedTop(design);
@@ -253,7 +309,7 @@ export function studioProduct(design: StudioDesign, category: string, descriptio
     && (heightIn == null || p.heightIn === heightIn) && (category === "Cleats" || p.depthIn === 14.5));
 }
 export function studioPartReferences(design: StudioDesign, bayIndex: number, kind: StudioReferenceKind): MasterTracProduct[] | null {
-  const bay = design.bays[bayIndex];
+  const bay = studioBays(design)[bayIndex];
   if (!bay) return null;
   const stockWidthIn = studioStockWidth(bay);
   if (kind === "shelf" || kind === "fixedShelf") {
@@ -276,7 +332,8 @@ export function studioPartReferences(design: StudioDesign, bayIndex: number, kin
 /** Plans a measured straight-shelf cut; this is not a cutting, drilling, or installation instruction. */
 export function configureStudioBayCut(design: StudioDesign, bayIndex: number, stockWidthIn: 18 | 24 | 30, installedWidthIn: number):
   { ok: true; design: StudioDesign } | { ok: false; reason: string } {
-  const bay = design.bays[bayIndex];
+  const bays = studioBays(design);
+  const bay = bays[bayIndex];
   if (!bay) return { ok: false, reason: "Choose a tower bay." };
   if (design.mount !== "floor") return { ok: false, reason: "Cut-to-fit planning is documented here only for floor-mounted straight shelves." };
   if (!WIDTHS.includes(stockWidthIn)) return { ok: false, reason: "Choose a sourced 18, 24, or 30 inch stock shelf." };
@@ -285,12 +342,12 @@ export function configureStudioBayCut(design: StudioDesign, bayIndex: number, st
   const normalizedInstalled = Math.round(installedWidthIn * 1000) / 1000;
   const candidateBay: StudioBay = { ...bay, widthIn: normalizedInstalled, ...(normalizedInstalled < stockWidthIn - EPS ? { stockWidthIn } : {}) };
   if (normalizedInstalled >= stockWidthIn - EPS) delete candidateBay.stockWidthIn;
-  if (!studioPartReferences({ ...design, bays: design.bays.map((current, index) => index === bayIndex ? candidateBay : current) }, bayIndex, "fixedShelf")
-    || !studioPartReferences({ ...design, bays: design.bays.map((current, index) => index === bayIndex ? candidateBay : current) }, bayIndex, "shelf"))
+  const candidate = replaceStudioWallBays(design, design.wall, bays.map((current, index) => index === bayIndex ? candidateBay : current));
+  if (!studioPartReferences(candidate, bayIndex, "fixedShelf")
+    || !studioPartReferences(candidate, bayIndex, "shelf"))
     return { ok: false, reason: `No matching ${stockWidthIn} inch stock fixed and adjustable shelf SKU is available in the selected finish.` };
   if (candidateBay.stockWidthIn && candidateBay.items.some((item) => item.kind !== "shelf"))
     return { ok: false, reason: "Drawer, shoe organizer, and rod fit is not verified in a field-cut bay. Remove those items or restore full stock width." };
-  const candidate: StudioDesign = { ...design, bays: design.bays.map((current, index) => index === bayIndex ? candidateBay : current) };
   if (studioWidth(candidate) > studioWallLength(candidate)) return { ok: false, reason: "The connected towers exceed the selected wall length." };
   const cornerError = studioCornerDesignError(candidate);
   if (cornerError) return { ok: false, reason: cornerError };
@@ -298,7 +355,7 @@ export function configureStudioBayCut(design: StudioDesign, bayIndex: number, st
 }
 
 export function canStageStudioPart(design: StudioDesign, bayIndex: number, kind: StudioKind): string | null {
-  if (!design.bays[bayIndex]) return "Choose a tower bay.";
+  if (!studioBays(design)[bayIndex]) return "Choose a tower bay.";
   if (!studioPartReferences(design, bayIndex, kind)) return `No verified March 2022 ${kind} SKU combination fits this bay and finish.`;
   if (studioWidth(design) > studioWallLength(design)) return "The connected towers exceed the selected wall length.";
   return null;
@@ -316,26 +373,27 @@ export function snapStudioPart(design: StudioDesign, bayIndex: number, kind: Stu
   const candidates = Array.from({ length: Math.floor((max - min) * 4) + 1 }, (_, i) => Math.round((min + i * 0.25) * 100) / 100);
   candidates.sort((a, b) => Math.abs(a - clamped) - Math.abs(b - clamped) || a - b);
   for (const bottomIn of candidates) {
-    const item = { id, kind, bottomIn };
+    const item = { id, kind, bottomIn, wallId: design.wall };
     if (studioCollision(design, bayIndex, item)) continue;
-    return { ok: true, item, design: { ...design, bays: design.bays.map((bay, index) => index === bayIndex ? { ...bay, items: [...bay.items, item] } : bay) } };
+    return { ok: true, item, design: replaceStudioWallBays(design, design.wall, studioBays(design).map((bay, index) => index === bayIndex ? { ...bay, items: [...bay.items, item] } : bay)) };
   }
   return { ok: false, reason: `There is no physical space left in Tower ${bayIndex + 1}; move or remove an item first.` };
 }
 export function moveStudioItem(design: StudioDesign, bayIndex: number, itemId: string, bottomIn: number):
   { ok: true; design: StudioDesign } | { ok: false; reason: string } {
-  const item = design.bays[bayIndex]?.items.find((candidate) => candidate.id === itemId);
+  const item = studioBays(design)[bayIndex]?.items.find((candidate) => candidate.id === itemId);
   if (!item) return { ok: false, reason: "Choose a placed part first." };
   const next = { ...item, bottomIn: Math.round(bottomIn) };
   const error = studioCollision(design, bayIndex, next, itemId);
   if (error) return { ok: false, reason: error };
-  return { ok: true, design: { ...design, bays: design.bays.map((bay, i) => i === bayIndex
-    ? { ...bay, items: bay.items.map((existing) => existing.id === itemId ? next : existing) } : bay) } };
+  return { ok: true, design: replaceStudioWallBays(design, design.wall, studioBays(design).map((bay, i) => i === bayIndex
+    ? { ...bay, items: bay.items.map((existing) => existing.id === itemId ? next : existing) } : bay)) };
 }
 export function addStudioBay(design: StudioDesign, widthIn: 18 | 24 | 30 = 24):
   { ok: true; design: StudioDesign } | { ok: false; reason: string } {
-  if (!WIDTHS.includes(widthIn) || design.bays.length >= 4) return { ok: false, reason: "Choose up to four sourced tower bays." };
-  const candidate: StudioDesign = { ...design, bays: [...design.bays, { id: `bay-${Date.now()}`, widthIn, items: [] }] };
+  const bays = studioBays(design);
+  if (!WIDTHS.includes(widthIn) || bays.length >= 4) return { ok: false, reason: "Choose up to four sourced tower bays." };
+  const candidate = replaceStudioWallBays(design, design.wall, [...bays, { id: `bay-${Date.now()}`, wallId: design.wall, widthIn, items: [] }]);
   if (studioWidth(candidate) > studioWallLength(candidate)) return { ok: false, reason: "No wall space for a neighboring tower. Choose another wall or a narrower bay." };
   const cornerError = studioCornerDesignError(candidate);
   if (cornerError) return { ok: false, reason: cornerError };
@@ -381,28 +439,34 @@ export function studioTakeoff(design: StudioDesign): StudioTakeoff {
       });
     }
   };
-  for (let i = 0; i < design.bays.length; i++) {
-    const bay = design.bays[i];
-    const cut = studioBayCut(bay);
-    if (cut) missing.push(`Tower ${i + 1}: a matching cleat at the cut installed width is not verified; it is not substituted in the material reference.`);
-    else add(studioProduct(design, "Cleats", /\bCleat\b/i, bay.widthIn), "cleat");
-  }
   const panelCategory = design.mount === "hanging" ? "Panels (Hang)" : "Panels (Floor)";
   const panelHeight = studioPanelHeight(design);
-  add(studioProduct(design, panelCategory, /\bLeft End\b/i, 0.75, panelHeight), "panel");
-  for (let i = 1; i < design.bays.length; i++) add(studioProduct(design, panelCategory, /\bCenter Upright\b/i, 0.75, panelHeight), "panel");
-  add(studioProduct(design, panelCategory, /\bRight End\b/i, 0.75, panelHeight), "panel");
   let rods = 0;
-  for (let i = 0; i < design.bays.length; i++) {
-    const bay = design.bays[i];
-    const cut = studioBayCut(bay);
-    const fixed = studioPartReferences(design, i, "fixedShelf")?.[0];
-    add(fixed, "shelf", 2, undefined, cut);
-    for (const item of bay.items) {
-      const parts = studioPartReferences(design, i, item.kind);
-      if (!parts) { missing.push(`Tower ${i + 1}: ${item.kind} has no compatible verified SKU.`); continue; }
-      if (item.kind === "rod") { rods++; add(parts[0], "accessory"); }
-      else parts.forEach((part) => add(part, item.kind === "shelf" ? "shelf" : "accessory", 1, undefined, item.kind === "shelf" ? cut : null));
+  for (const wallId of STUDIO_WALLS) {
+    const scoped = switchStudioWall(design, wallId);
+    const bays = studioBays(scoped);
+    for (let i = 0; i < bays.length; i++) {
+      const bay = bays[i];
+      const cut = studioBayCut(bay);
+      if (cut) missing.push(`${wallId} wall Tower ${i + 1}: a matching cleat at the cut installed width is not verified; it is not substituted in the material reference.`);
+      else add(studioProduct(scoped, "Cleats", /\bCleat\b/i, bay.widthIn), "cleat");
+    }
+    if (bays.length) {
+      add(studioProduct(scoped, panelCategory, /\bLeft End\b/i, 0.75, panelHeight), "panel");
+      for (let i = 1; i < bays.length; i++) add(studioProduct(scoped, panelCategory, /\bCenter Upright\b/i, 0.75, panelHeight), "panel");
+      add(studioProduct(scoped, panelCategory, /\bRight End\b/i, 0.75, panelHeight), "panel");
+    }
+    for (let i = 0; i < bays.length; i++) {
+      const bay = bays[i];
+      const cut = studioBayCut(bay);
+      const fixed = studioPartReferences(scoped, i, "fixedShelf")?.[0];
+      add(fixed, "shelf", 2, undefined, cut);
+      for (const item of bay.items) {
+        const parts = studioPartReferences(scoped, i, item.kind);
+        if (!parts) { missing.push(`${wallId} wall Tower ${i + 1}: ${item.kind} has no compatible verified SKU.`); continue; }
+        if (item.kind === "rod") { rods++; add(parts[0], "accessory"); }
+        else parts.forEach((part) => add(part, item.kind === "shelf" ? "shelf" : "accessory", 1, undefined, item.kind === "shelf" ? cut : null));
+      }
     }
   }
   for (const shelf of studioCornerShelves(design)) {
@@ -419,13 +483,13 @@ export function studioTakeoff(design: StudioDesign): StudioTakeoff {
     const cups = CLOSET_PARTS.find((p) => p.category === "Accessories" && p.finish === "Chrome" && p.packQty === 10 && /^Rod Cup \(10 Each\)/i.test(p.description));
     add(cups, "hardware", Math.ceil(rods * 2 / 10), `${rods * 2} cups required · sold in packs of 10`);
   }
-  if (design.bays.some((bay) => bay.items.some((item) => item.kind === "shoe")))
+  if (STUDIO_WALLS.some((wallId) => studioBays(design, wallId).some((bay) => bay.items.some((item) => item.kind === "shoe"))))
     missing.push("Shoe organizer 45° pitch is illustrative; verify supplier fit, attachment, and support requirements before ordering or installation.");
   if (studioCornerShelves(design).length)
     missing.push("Corner shelves use a 2026 29.5″ visual-planning envelope, not the unavailable curved-board profile or installation drawing. The 2022 manual lists 29¼″ actual; verify profile, supports, connectors, adjacent assembly, and fit before ordering or installation.");
   if (studioBasketReferences(design).length)
     missing.push(`Basket references selected: ${studioBasketReferences(design).map((reference) => reference.sku).join(", ")}. They are not placed, priced in the material lines, or fit-approved because outer envelope, rails, mounting offsets, extension travel, and clearance requirements are not source-verified.`);
-  if (design.bays.some((bay) => studioBayCut(bay))) missing.push("Field-cut shelf planning: measure the finished opening; use the manufacturer’s adjustable-shelf template or fixed-shelf connector-hole jig as applicable. This Studio is not a cutting or drilling guide.");
+  if (STUDIO_WALLS.some((wallId) => studioBays(design, wallId).some((bay) => studioBayCut(bay)))) missing.push("Field-cut shelf planning: measure the finished opening; use the manufacturer’s adjustable-shelf template or fixed-shelf connector-hole jig as applicable. This Studio is not a cutting or drilling guide.");
   missing.push("Wall anchors, cleat fasteners, connector/cam-lock quantities, and drawer slide hardware are not verified by the provided sources; obtain the installation schedule before ordering.");
   if (design.mount === "hanging") missing.push("Hanging-panel installation elevation and fastener locations are not certified here; the 3D height is illustrative.");
   const order: ReferenceLine["section"][] = ["cleat", "panel", "shelf", "accessory", "hardware"];
@@ -439,25 +503,43 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
     const value: unknown = JSON.parse(raw);
     if (!value || typeof value !== "object") return null;
     const v = value as Partial<StudioDesign>;
-    if (v.version !== 1 || !STUDIO_MODES.includes(v.mode!) || !["floor", "hanging"].includes(v.mount!)
+    if ((v.version !== 1 && v.version !== 2) || !STUDIO_MODES.includes(v.mode!) || !["floor", "hanging"].includes(v.mount!)
       || !STUDIO_FINISHES.includes(v.finish!) || !STUDIO_WALLS.includes(v.wall!)
       || !Number.isFinite(v.wallWidthIn) || !Number.isFinite(v.roomDepthIn)
       || v.wallWidthIn! < 24 || v.wallWidthIn! > 360 || v.roomDepthIn! < 24 || v.roomDepthIn! > 360
-      || !Array.isArray(v.bays) || !v.bays.length || v.bays.length > 4
       || (v.cornerShelves != null && !Array.isArray(v.cornerShelves))
       || (v.basketReferences != null && !Array.isArray(v.basketReferences))) return null;
-    if (v.bays.some((bay) => !bay || typeof bay.id !== "string" || !Number.isFinite(bay.widthIn)
-      || bay.widthIn < CUT_PLANNING_MIN_IN || bay.widthIn > 30
-      || (bay.stockWidthIn != null && (!WIDTHS.includes(bay.stockWidthIn) || bay.widthIn > bay.stockWidthIn + EPS))
-      || (!bay.stockWidthIn && !WIDTHS.includes(bay.widthIn as 18 | 24 | 30))
-      || !Array.isArray(bay.items) || bay.items.some((item) => !item || typeof item.id !== "string" || !STUDIO_PART_KINDS.includes(item.kind) || !Number.isFinite(item.bottomIn)))) return null;
-    const design = v as StudioDesign;
-    if (studioWidth(design) > studioWallLength(design)) return null;
-    for (let i = 0; i < design.bays.length; i++) {
-      if (studioBayCut(design.bays[i]) && design.mount !== "floor") return null;
-      if (!studioPartReferences(design, i, "fixedShelf")) return null;
-      for (const item of design.bays[i].items) {
-        if (studioCollision(design, i, item, item.id) || !studioPartReferences(design, i, item.kind)) return null;
+    const validBays = (bays: unknown, wallId: StudioWall, requireIdentity: boolean): bays is StudioBay[] => Array.isArray(bays) && bays.length <= 4 && bays.every((bay: StudioBay) => !!bay && typeof bay.id === "string" && Number.isFinite(bay.widthIn)
+      && bay.widthIn >= CUT_PLANNING_MIN_IN && bay.widthIn <= 30
+      && (!requireIdentity || bay.wallId === wallId)
+      && (bay.stockWidthIn == null || (WIDTHS.includes(bay.stockWidthIn) && bay.widthIn <= bay.stockWidthIn + EPS))
+      && (bay.stockWidthIn != null || WIDTHS.includes(bay.widthIn as 18 | 24 | 30))
+      && Array.isArray(bay.items) && bay.items.every((item: StudioItem) => !!item && typeof item.id === "string" && STUDIO_PART_KINDS.includes(item.kind) && Number.isFinite(item.bottomIn) && (!requireIdentity || item.wallId === wallId)));
+    let design: StudioDesign;
+    if (v.version === 1) {
+      if (!validBays(v.bays, v.wall!, false) || !v.bays.length) return null;
+      const wallLayouts = blankWallLayouts();
+      wallLayouts[v.wall!] = { wallId: v.wall!, bays: withWallIdentity(v.bays, v.wall!) };
+      design = { ...(v as StudioDesign), version: 2, wallLayouts, bays: wallLayouts[v.wall!].bays };
+    } else {
+      if (!v.wallLayouts || typeof v.wallLayouts !== "object") return null;
+      const wallLayouts = blankWallLayouts();
+      for (const wallId of STUDIO_WALLS) {
+        const layout = v.wallLayouts[wallId];
+        if (!layout || layout.wallId !== wallId || !validBays(layout.bays, wallId, true)) return null;
+        wallLayouts[wallId] = { wallId, bays: withWallIdentity(layout.bays, wallId) };
+      }
+      if (!Array.isArray(v.bays) || JSON.stringify(v.bays) !== JSON.stringify(wallLayouts[v.wall!].bays)) return null;
+      design = { ...(v as StudioDesign), version: 2, wallLayouts, bays: wallLayouts[v.wall!].bays };
+    }
+    for (const wallId of STUDIO_WALLS) {
+      const scoped = switchStudioWall(design, wallId);
+      const bays = studioBays(scoped);
+      if (studioWidth(scoped) > studioWallLength(scoped)) return null;
+      for (let i = 0; i < bays.length; i++) {
+        if (studioBayCut(bays[i]) && scoped.mount !== "floor") return null;
+        if (!studioPartReferences(scoped, i, "fixedShelf")) return null;
+        for (const item of bays[i].items) if (studioCollision(scoped, i, item, item.id) || !studioPartReferences(scoped, i, item.kind)) return null;
       }
     }
     const seenCornerIds = new Set<string>();
