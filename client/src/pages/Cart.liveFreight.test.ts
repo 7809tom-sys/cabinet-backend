@@ -41,12 +41,12 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain('? "estimated" : "verified"');
   });
 
-  it("offers a UPS-first check that falls back to the configured LTL estimate without treating a pallet as a UPS carton", () => {
+  it("offers a UPS-only check without treating a pallet as a UPS carton", () => {
     expect(cartSource).toContain('id="ups-parcel-quote"');
     expect(cartSource).toContain("Prefer a UPS package quote");
     expect(cartSource).toContain('carrierPreference: requestUpsParcelQuote ? "ups" as const : undefined');
     expect(cartSource).toContain("Check UPS / freight");
-    expect(cartSource).toContain("automatically returns the configured LTL freight estimate instead");
+    expect(cartSource).toContain("uncheck this option to request the configured LTL/live-freight path");
     expect(cartSource).toContain("cartFreightEstimate.data.reason");
   });
 

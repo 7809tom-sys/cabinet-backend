@@ -430,12 +430,13 @@ async function resolvePackages(
     const packageLength = sourcePackageLength ?? pkg?.l ?? genericPackage?.lengthIn ?? null;
     const packageWidth = sourcePackageWidth ?? pkg?.w ?? genericPackage?.widthIn ?? null;
     const packageHeight = sourcePackageHeight ?? pkg?.h ?? genericPackage?.heightIn ?? null;
-    const usesEstimatedPackage = genericPackage != null && [
-      sourcePackageWeight,
-      sourcePackageLength,
-      sourcePackageWidth,
-      sourcePackageHeight,
-    ].some((value) => value == null || value <= 0);
+    const hasSourcePackage = [
+      sourcePackageWeight ?? pkg?.packageWeight,
+      sourcePackageLength ?? pkg?.l,
+      sourcePackageWidth ?? pkg?.w,
+      sourcePackageHeight ?? pkg?.h,
+    ].every((value) => value != null && value > 0);
+    const usesEstimatedPackage = genericPackage != null && !hasSourcePackage;
 
     const resolvedWeight =
       it.weightLbs != null
@@ -463,8 +464,7 @@ async function resolvePackages(
       ) || null,
       isTrim: genericPackage?.isTrim === true || pkg?.isTrim === true,
     });
-    const hasAuthoritativePackage = [packageLength, packageWidth, packageHeight, packageWeight]
-      .every((value) => value != null && value > 0);
+    const hasAuthoritativePackage = hasSourcePackage;
     for (let unit = 0; unit < it.qty; unit += 1) {
       parcelPackages.push({
         lengthIn: packageLength,
@@ -1472,6 +1472,7 @@ export const freightRouter = router({
         const rateGroups: FreightRateGroup[] = [];
         const shipmentGroups: FreightShipmentGroup[] = [];
         const failedGroups: string[] = [];
+        const upsOnlyRequested = liveProvider === "ups" || input.carrierPreference === "ups";
         let totalBillableWeightLbs = 0;
 
         for (const group of styleGroups) {
@@ -1530,6 +1531,7 @@ export const freightRouter = router({
           const directUpsParcel = (liveProvider === "ups" || input.carrierPreference === "ups")
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
+          const upsParcelMustNotBecomeLtl = directUpsParcel && upsOnlyRequested;
           const easyPostParcel = liveProvider === "easypost" && parcelDecision.mode === "parcel";
           if (directUpsParcel || easyPostParcel) {
             const parcelCartons: LiveParcel[] = parcelDecision.packageResults.map((result, index) => {
@@ -1616,7 +1618,7 @@ export const freightRouter = router({
                 transitDays: live.transitDays,
                 estimatedDeliveryDate: live.estimatedDeliveryDate,
               });
-            } else {
+            } else if (!upsParcelMustNotBecomeLtl) {
               totalBillableWeightLbs += plan.totalWeightLbs;
               shipmentGroups.push({
                 label: group.label,
@@ -1638,6 +1640,8 @@ export const freightRouter = router({
                 })),
               });
               failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
+            } else {
+              failedGroups.push(`${group.label}: UPS parcel rate unavailable — ${live.error ?? "UPS did not return a rate"}`);
             }
             continue;
           }
@@ -1645,27 +1649,8 @@ export const freightRouter = router({
           // The customer specifically selected the UPS package-quote option.
           // Preserve the honest pallet plan for reference, but never fall back
           // to an LTL estimate or invented carton just to show a UPS price.
-          if (input.carrierPreference === "ups") {
+          if (upsOnlyRequested) {
             totalBillableWeightLbs += plan.totalWeightLbs;
-            shipmentGroups.push({
-              label: group.label,
-              originZip: group.originZip,
-              freightClass: groupFreightClass,
-              transportMode: "ltl",
-              palletCount: plan.palletCount,
-              totalWeightLbs: plan.totalWeightLbs,
-              totalContentsWeightLbs: plan.totalContentsWeightLbs,
-              totalCubicFt: plan.totalCubicFt,
-              estimatedPackageCount,
-              pallets: plan.pallets.map((pallet) => ({
-                lengthIn: pallet.lengthIn,
-                widthIn: pallet.widthIn,
-                heightIn: pallet.heightIn,
-                weightLbs: pallet.weightLbs,
-                contentsWeightLbs: pallet.contentsWeightLbs,
-                contentsCubicFt: pallet.contentsCubicFt,
-              })),
-            });
             failedGroups.push(`${group.label}: UPS parcel quoting requires every carton to have verified package dimensions and weight and to meet the UPS parcel limits. ${parcelDecision.reasons[0] ?? "This shipment remains LTL freight."}`);
             continue;
           }
@@ -1735,6 +1720,21 @@ export const freightRouter = router({
         }
 
         if (failedGroups.length > 0) {
+          if (upsOnlyRequested) {
+            return {
+              available: false,
+              zoneName: null,
+              billableWeightLbs: totalBillableWeightLbs,
+              lines: [],
+              freightBeforeMarkupCents: 0,
+              markupCents: 0,
+              damageFeeCents: 0,
+              totalCents: 0,
+              freeFreightApplied: false,
+              shipmentGroups,
+              reason: failedGroups.join(" "),
+            };
+          }
           const fallback = await configuredFreightEstimate({
             destinationZip: input.destinationZip,
             totalWeightLbs: totalBillableWeightLbs,

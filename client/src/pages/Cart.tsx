@@ -626,7 +626,7 @@ export default function Cart() {
                 Prefer a UPS package quote
               </span>
               <span className="mt-0.5 block text-xs text-amber-900/85 dark:text-amber-100/85">
-                Checks verified cartons for UPS first. If the cart is not UPS-eligible, the site automatically returns the configured LTL freight estimate instead.
+                Checks verified cartons for UPS only. If the cart is not UPS-eligible or UPS cannot return a rate, uncheck this option to request the configured LTL/live-freight path.
               </span>
             </span>
           </label>
@@ -636,7 +636,7 @@ export default function Cart() {
                 <p className="text-sm font-semibold">Shipping quote</p>
                 <p className="text-xs text-muted-foreground">
                   {requestUpsParcelQuote
-                    ? "Checks UPS first, then automatically uses the LTL freight estimate when cabinets require freight."
+                    ? "UPS parcel only: the quote must come from UPS. Uncheck this option to request the configured LTL/live-freight path."
                     : "Uses the actual eligible cabinet items and pallet plan in this cart."}
                 </p>
               </div>
