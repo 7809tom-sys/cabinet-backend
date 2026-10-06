@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { StudioDesign, StudioKind } from "@/lib/vendorClosetStudio";
-import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioCornerPlanningFootprint, studioCornerShelvesForWall, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
+import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBayCut, studioCornerPlanningFootprint, studioCornerShelvesForWall, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
 
 const IN = 1 / 12;
 const MAT: Record<StudioDesign["finish"], { face: string; edge: string; grain: string }> = {
@@ -102,6 +102,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const brass = new THREE.MeshStandardMaterial({ color: 0xb9a37b, metalness: 0.7, roughness: 0.33 });
     const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xb98550, roughness: 0.48, transparent: true, opacity: 0.62, side: THREE.DoubleSide });
     const cornerOutlineMat = new THREE.LineBasicMaterial({ color: 0x6f4527 });
+    const basketWireMat = new THREE.LineBasicMaterial({ color: 0x697b7c, transparent: true, opacity: 0.9 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
     const parts = new THREE.Group(); scene.add(parts);
@@ -126,8 +127,8 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
         const cleat = box(bay.widthIn, 5.5, 0.75, cursor + 0.75 + bay.widthIn / 2, panelHeight - 3 + (design.mount === "hanging" ? 6 : 0), -0.14, edgeMat, false);
         cleat.userData = { realSkuReference: true, hardwareShapeIllustrative: true };
       }
+      const cx = cursor + 0.75 + bay.widthIn / 2;
       for (const item of bay.items) {
-        const cx = cursor + 0.75 + bay.widthIn / 2;
         const bottom = item.bottomIn + (design.mount === "hanging" ? 6 : 0);
         if (item.kind === "shelf") box(bay.widthIn, 0.75, depth, cx, bottom + 0.375, depth / 2, boardMat);
         else if (item.kind === "shoe") {
@@ -159,6 +160,14 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
           rod.rotation.z = Math.PI / 2; rod.position.set(cx * IN, bottom * IN, depth * 0.58 * IN);
           rod.userData = { illustrativeDiameter: true }; parts.add(rod);
         }
+      }
+      for (const placement of studioBasketPlacementsForWall(design).filter((basket) => basket.bayId === bay.id)) {
+        // The wire treatment is decorative. This box is the deliberately conservative visual envelope, not sourced rail, slide, travel, door, or mounting geometry.
+        const basketGeometry = new THREE.BoxGeometry(placement.nominalWidthIn * IN, placement.nominalHeightIn * IN, placement.nominalDepthIn * IN);
+        const basketOutline = new THREE.LineSegments(new THREE.EdgesGeometry(basketGeometry), basketWireMat);
+        basketOutline.position.set(cx * IN, (placement.bottomIn + placement.nominalHeightIn / 2) * IN, (placement.nominalDepthIn / 2) * IN);
+        basketOutline.userData = { basketVisualPlanningEnvelope: true, decorativeWireLook: true, sku: placement.sku, wallId: placement.wallId, bayId: placement.bayId, nominalWidthIn: placement.nominalWidthIn, nominalHeightIn: placement.nominalHeightIn, nominalDepthIn: placement.nominalDepthIn, supplierRailAndClearanceToVerify: true };
+        parts.add(basketOutline);
       }
       if (index === selectedBay) {
         const trim = box(bay.widthIn + 1.2, 0.18, 0.18, cursor + bay.widthIn / 2 + 0.75, 0.05, depth + 1, brass, false);
@@ -233,7 +242,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line) object.geometry.dispose();
       });
-      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, hintMat, hitMat]) {
+      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, basketWireMat, hintMat, hitMat]) {
         if (Array.isArray(material)) material.forEach((mat) => mat.dispose()); else material.dispose();
       }
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);

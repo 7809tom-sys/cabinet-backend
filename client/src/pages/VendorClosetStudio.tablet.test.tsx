@@ -192,26 +192,31 @@ describe("Closet Studio tablet workspace", () => {
     expect(scene).toContain("not a fabricated curved board profile or support assembly");
   });
 
-  it("keeps every historical basket as an editable source reference in Parts, with no physical placement or 2026 substitution", () => {
+  it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
 
     const dock = screen.getByTestId("vendor-tablet-options-dock");
-    const basket = within(dock).getByTestId("vendor-basket-reference-controls");
-    expect(within(basket).getByTestId("vendor-basket-reference-caveat").textContent).toMatch(/outer envelope.*rails.*mounting offsets.*extension travel.*446807.*446815.*not substituted/i);
-    const source = within(basket).getByRole("combobox", { name: "Historical basket source SKU" });
+    const basket = within(dock).getByTestId("vendor-basket-planning-controls");
+    expect(within(basket).getByTestId("vendor-basket-planning-caveat").textContent).toMatch(/visual planning only.*supplier rail and clearance verification.*14\.5.*outer basket.*rail.*mounting offsets.*travel.*446807.*446815.*not substituted/i);
+    const source = within(basket).getByRole("combobox", { name: "Basket visual-planning source SKU" });
     fireEvent.change(source, { target: { value: "432902" } });
-    fireEvent.click(within(basket).getByRole("button", { name: "Save source reference — not placeable" }));
-    expect(within(basket).getByText(/17″ × 24″ basket.*SKU 432902.*reference only/i)).toBeTruthy();
-    expect(within(basket).queryByRole("button", { name: /place.*basket/i })).toBeNull();
-    fireEvent.click(within(basket).getByText(/17″ × 24″ basket.*SKU 432902/i));
-    fireEvent.change(within(basket).getByRole("combobox", { name: "Edit selected basket source SKU" }), { target: { value: "432897" } });
-    expect(within(basket).getByText(/6″ × 18″ basket.*SKU 432897.*reference only/i)).toBeTruthy();
+    fireEvent.change(within(basket).getByRole("spinbutton", { name: "Basket visual-planning bottom elevation in inches" }), { target: { value: "42" } });
+    fireEvent.click(within(basket).getByRole("button", { name: "Place visual basket" }));
+    expect(within(basket).getByText(/17″ H × 24″ W basket.*SKU 432902.*Tower 2.*42 in/i)).toBeTruthy();
+    expect(within(basket).getByTestId("vendor-basket-plan-elevation").textContent).toMatch(/24.*14\.5.*Elevation: 42.*17.*visual planning only.*supplier rail/i);
+    fireEvent.change(within(basket).getByRole("combobox", { name: "Edit selected basket visual-planning SKU" }), { target: { value: "432901" } });
+    expect(within(basket).getByText(/11″ H × 24″ W basket.*SKU 432901.*42 in/i)).toBeTruthy();
     fireEvent.click(within(basket).getByRole("button", { name: "Undo basket" }));
-    expect(within(basket).getByText(/17″ × 24″ basket.*SKU 432902.*reference only/i)).toBeTruthy();
+    expect(within(basket).getByText(/17″ H × 24″ W basket.*SKU 432902.*42 in/i)).toBeTruthy();
+
+    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
+    expect(scene).toContain("basketVisualPlanningEnvelope: true");
+    expect(scene).toContain("decorativeWireLook: true");
+    expect(scene).toContain("supplierRailAndClearanceToVerify: true");
   });
 
-  it("makes every public MasterTrac source record searchable in the List dock without treating corner shelves or hampers as placeable", () => {
+  it("makes every public MasterTrac source record searchable while keeping hampers reference-only and basket planning explicitly restricted", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
 
@@ -219,7 +224,7 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.click(within(dock).getByRole("button", { name: "Material reference details" }));
     const catalog = within(dock).getByTestId("vendor-source-catalog");
     expect(catalog.textContent).toMatch(/454 public March 1, 2022 List records/i);
-    expect(catalog.textContent).toMatch(/not a checkout quote or installation guide.*restricted.*visual-planning.*never a fit-verified placement/i);
+    expect(catalog.textContent).toMatch(/not a checkout quote or installation guide.*corner SKUs and baskets 432897.*restricted.*visual-planning.*never fit-verified/i);
 
     const search = within(catalog).getByRole("textbox", { name: "Search MasterTrac source catalog" });
     fireEvent.change(search, { target: { value: "432602" } });
@@ -228,6 +233,6 @@ describe("Closet Studio tablet workspace", () => {
 
     fireEvent.change(search, { target: { value: "432556" } });
     expect(within(catalog).getByTestId("vendor-source-part-432556").textContent).toMatch(/Fixed Corner Shelf.*Visual planning only.*not a profile, fit, or installation confirmation/i);
-    expect(catalog.textContent).toMatch(/29\.5.*29¼.*no curve.profile, support, connector, or installation geometry.*historical baskets 432897.*outer envelope.*alternate 2026 basket SKUs.*not substituted/i);
+    expect(catalog.textContent).toMatch(/29\.5.*29¼.*no curve.profile, support, connector, or installation geometry.*historical baskets 432897.*14\.5.*rails.*mounting offsets.*alternate 2026 basket SKUs.*not substituted/i);
   });
 });
