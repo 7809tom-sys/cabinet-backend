@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addStudioBay, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioItem,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioCollision, studioPartReferences, studioTakeoff, studioWidth,
+  STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS } from "./closet";
@@ -49,6 +50,27 @@ describe("isolated vendor Closet Studio", () => {
     expect(bill.lines.some((line) => /Shoe Shelf/.test(line.label))).toBe(true);
     expect(bill.lines.find((line) => /Rod Cup/.test(line.label))?.packNote).toContain("2 cups required");
     expect(restoreStudioDesign(JSON.stringify(rod.design))).toEqual(rod.design);
+  });
+
+  it("uses the owner-approved 45-degree shoe presentation while reserving its full visual rise from nearby parts", () => {
+    expect(STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG).toBe(45);
+    expect(studioItemHeight("shoe")).toBeGreaterThan(9);
+    const initial = createStudioDesign();
+    const base: StudioDesign = { ...initial, bays: [{ ...initial.bays[0], items: [] }] };
+    const shoe = snapStudioPart(base, 0, "shoe", 30, "shoe-45");
+    expect(shoe.ok).toBe(true);
+    if (!shoe.ok) return;
+    expect(studioCollision(shoe.design, 0, { id: "nearby-shelf", kind: "shelf", bottomIn: 36 })).toMatch(/intersects/i);
+    expect(studioCollision(shoe.design, 0, { id: "nearby-drawer", kind: "drawer", bottomIn: 35 })).toMatch(/intersects/i);
+    expect(studioCollision(shoe.design, 0, { id: "nearby-shoe", kind: "shoe", bottomIn: 40 })).toMatch(/intersects/i);
+    expect(studioCollision(base, 0, { id: "ceiling-shoe", kind: "shoe", bottomIn: 76 })).toMatch(/must fit/i);
+    expect(restoreStudioDesign(JSON.stringify(shoe.design))).toEqual(shoe.design);
+
+    const bill = studioTakeoff(shoe.design);
+    const sourceParts = studioPartReferences(shoe.design, 0, "shoe") ?? [];
+    expect(sourceParts).not.toHaveLength(0);
+    expect(sourceParts.every((part) => bill.lines.some((line) => line.sku === part.sku && line.unitUsd === (part.packQty > 1 ? part.listPackUsd : part.listEachUsd)))).toBe(true);
+    expect(bill.missing.some((line) => /45° pitch.*verify supplier fit/i.test(line))).toBe(true);
   });
 
   it("rejects overlapping slides and unsupported baskets without silently altering the design", () => {

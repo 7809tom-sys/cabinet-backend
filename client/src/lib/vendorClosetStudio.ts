@@ -27,10 +27,18 @@ const THICKNESS = 0.75;
 const WIDTHS = [18, 24, 30] as const;
 const CUT_PLANNING_MIN_IN = 12;
 const EPS = 0.000001;
+const STUDIO_SHOE_SHELF_DEPTH_IN = 14.5;
+const STUDIO_SHOE_FENCE_HEIGHT_IN = 0.16;
 export const STUDIO_MODES: StudioMode[] = ["closet", "pantry", "mudroom"];
 export const STUDIO_PART_KINDS: StudioKind[] = ["shelf", "rod", "drawer", "shoe"];
 export const STUDIO_WALLS: StudioWall[] = ["back", "left", "right", "front"];
 export const STUDIO_FINISHES: StudioDesign["finish"][] = ["Glacier White", "Slate Rift", "Spiced Mahogany"];
+/** Owner-approved visual presentation only; the supplied catalog does not certify this pitch, attachment, or clearances. */
+export const STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG = 45;
+const STUDIO_ILLUSTRATIVE_SHOE_PITCH_RAD = STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG * Math.PI / 180;
+/** Conservative rise for the 14.5-inch shoe board plus its illustrative fence, used only to keep the visual clear of adjacent parts. */
+const STUDIO_ILLUSTRATIVE_SHOE_ENVELOPE_HEIGHT_IN = STUDIO_SHOE_SHELF_DEPTH_IN * Math.sin(STUDIO_ILLUSTRATIVE_SHOE_PITCH_RAD)
+  + (THICKNESS + STUDIO_SHOE_FENCE_HEIGHT_IN) * Math.cos(STUDIO_ILLUSTRATIVE_SHOE_PITCH_RAD);
 export const MODE_RECOMMENDATIONS: Record<StudioMode, StudioKind[]> = {
   closet: ["shelf", "rod", "shoe"], pantry: ["shelf", "drawer"], mudroom: ["shoe", "rod", "shelf"],
 };
@@ -44,7 +52,8 @@ export const studioFixedBottom = (design: StudioDesign) => design.mount === "han
 export const studioFixedTop = (design: StudioDesign) => studioPanelHeight(design) - THICKNESS;
 export const studioWidth = (design: StudioDesign) => design.bays.reduce((sum, bay) => sum + bay.widthIn, 0) + THICKNESS * (design.bays.length + 1);
 export const studioWallLength = (design: StudioDesign) => design.wall === "left" || design.wall === "right" ? design.roomDepthIn : design.wallWidthIn;
-export const studioItemHeight = (kind: StudioKind) => kind === "drawer" ? 5 : kind === "rod" ? 0 : THICKNESS;
+/** The sourced board remains 0.75-inch thick; a shoe organizer reserves its taller, explicitly illustrative 45-degree visual envelope. */
+export const studioItemHeight = (kind: StudioKind) => kind === "drawer" ? 5 : kind === "rod" ? 0 : kind === "shoe" ? STUDIO_ILLUSTRATIVE_SHOE_ENVELOPE_HEIGHT_IN : THICKNESS;
 export const studioStockWidth = (bay: StudioBay) => bay.stockWidthIn ?? bay.widthIn;
 export function studioBayCut(bay: StudioBay): StudioShelfCut | null {
   const stockWidthIn = studioStockWidth(bay);
@@ -232,6 +241,8 @@ export function studioTakeoff(design: StudioDesign): StudioTakeoff {
     const cups = CLOSET_PARTS.find((p) => p.category === "Accessories" && p.finish === "Chrome" && p.packQty === 10 && /^Rod Cup \(10 Each\)/i.test(p.description));
     add(cups, "hardware", Math.ceil(rods * 2 / 10), `${rods * 2} cups required · sold in packs of 10`);
   }
+  if (design.bays.some((bay) => bay.items.some((item) => item.kind === "shoe")))
+    missing.push("Shoe organizer 45° pitch is illustrative; verify supplier fit, attachment, and support requirements before ordering or installation.");
   if (design.bays.some((bay) => studioBayCut(bay))) missing.push("Field-cut shelf planning: measure the finished opening; use the manufacturer’s adjustable-shelf template or fixed-shelf connector-hole jig as applicable. This Studio is not a cutting or drilling guide.");
   missing.push("Wall anchors, cleat fasteners, connector/cam-lock quantities, and drawer slide hardware are not verified by the provided sources; obtain the installation schedule before ordering.");
   if (design.mount === "hanging") missing.push("Hanging-panel installation elevation and fastener locations are not certified here; the 3D height is illustrative.");

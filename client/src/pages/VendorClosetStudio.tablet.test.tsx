@@ -117,4 +117,21 @@ describe("Closet Studio tablet workspace", () => {
     const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
     expect(scene).toContain("if (!studioBayCut(bay))");
   });
+
+  it("keeps the 45-degree shoe pitch caveat accessible through the tablet and phone Parts controls, with renderer metadata scoped to shoes", () => {
+    window.history.replaceState(null, "", "/closet?demo=mixed");
+    render(<VendorClosetStudio />);
+
+    const dock = screen.getByTestId("vendor-tablet-options-dock");
+    expect(within(dock).getByTestId("vendor-shoe-pitch-caveat").textContent).toMatch(/45° illustrative shoe pitch.*supplier fit and attachment/i);
+    fireEvent.click(within(screen.getByTestId("vendor-phone-action-strip")).getByRole("button", { name: "Add closet parts" }));
+    expect(within(dock).getByTestId("vendor-shoe-pitch-caveat").textContent).toMatch(/45° illustrative shoe pitch/i);
+
+    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
+    expect(scene).toContain("STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG");
+    expect(scene).toContain("shoeGroup.rotation.x = shoePitchRad");
+    expect(scene).toContain("sourcedShelfThicknessIn: 0.75");
+    const shoeBranch = scene.split('else if (item.kind === "shoe")')[1]?.split('else if (item.kind === "drawer")')[0];
+    expect(shoeBranch).toContain("illustrativePitchDeg");
+  });
 });

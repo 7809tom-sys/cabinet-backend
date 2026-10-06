@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import type { StudioDesign, StudioKind } from "@/lib/vendorClosetStudio";
-import { studioBayCut, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
+import { STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBayCut, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
 
 const IN = 1 / 12;
 const MAT: Record<StudioDesign["finish"], { face: string; edge: string; grain: string }> = {
@@ -124,8 +124,26 @@ export function VendorClosetScene({ design, selectedBay, partToPlace, onSelectBa
         const bottom = item.bottomIn + (design.mount === "hanging" ? 6 : 0);
         if (item.kind === "shelf") box(bay.widthIn, 0.75, depth, cx, bottom + 0.375, depth / 2, boardMat);
         else if (item.kind === "shoe") {
-          box(bay.widthIn, 0.75, depth * 0.94, cx, bottom + 0.375, depth / 2, shoeMat);
-          box(bay.widthIn - 0.4, 0.16, 0.16, cx, bottom + 0.75, depth - 0.5, metalMat, false);
+          // The front low edge stays at the selected elevation. This owner-approved pitch is illustrative, not a supplier fit/attachment claim.
+          const shoeDepth = depth * 0.94;
+          const shoePitchRad = STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG * Math.PI / 180;
+          const shoeGroup = new THREE.Group();
+          shoeGroup.position.set(cx * IN, bottom * IN, depth * IN);
+          shoeGroup.rotation.x = shoePitchRad;
+          shoeGroup.userData = { illustrativePitchDeg: STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, sourcedShelfThicknessIn: 0.75, supplierFitToVerify: true };
+
+          const shoeBoard = new THREE.Mesh(new THREE.BoxGeometry(bay.widthIn * IN, 0.75 * IN, shoeDepth * IN), shoeMat);
+          shoeBoard.position.set(0, 0.375 * IN, -shoeDepth / 2 * IN);
+          shoeBoard.castShadow = true; shoeBoard.receiveShadow = true;
+          shoeBoard.userData = { illustrativePitchDeg: STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, sourcedShelfThicknessIn: 0.75, visualGeometryIllustrative: true };
+          shoeGroup.add(shoeBoard);
+
+          const shoeFence = new THREE.Mesh(new THREE.BoxGeometry((bay.widthIn - 0.4) * IN, 0.16 * IN, 0.16 * IN), metalMat);
+          shoeFence.position.set(0, (0.75 + 0.08) * IN, -0.5 * IN);
+          shoeFence.castShadow = false; shoeFence.receiveShadow = true;
+          shoeFence.userData = { illustrativePitchDeg: STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, fenceGeometryIllustrative: true };
+          shoeGroup.add(shoeFence);
+          parts.add(shoeGroup);
         } else if (item.kind === "drawer") {
           const slabFront = box(bay.widthIn - 0.3, 5, 0.65, cx, bottom + 2.5, depth - 0.25, drawerMat);
           slabFront.userData = { sourcedStyle: "Small Slab Drawer Front", exactFaceMeasurementsIllustrative: true };
