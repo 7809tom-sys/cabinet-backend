@@ -201,10 +201,12 @@ describe("Closet Studio tablet workspace", () => {
 
     const dock = screen.getByTestId("vendor-tablet-options-dock");
     expect(within(dock).getAllByRole("button", { name: /Clothes hanging rod/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
+    expect(within(dock).getByTestId("vendor-hanger-caveat").textContent).toMatch(/clothes-hanger outlines.*illustrative only.*not material products.*spacing.*garment clearance.*capacity.*cup locations/i);
     expect(within(dock).getAllByRole("button", { name: /Drawer front \+ box/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
     const corner = within(dock).getByTestId("vendor-corner-planning-controls");
     expect(corner.textContent).toMatch(/29\.5.*Spiced Mahogany source SKU.*visual planning only/i);
-    expect(within(corner).getByRole("combobox", { name: "Corner shelf type" }).textContent).toMatch(/Fixed.*432786.*Adjustable.*432787/i);
+    expect(within(corner).getByRole("combobox", { name: "Corner shelf type" }).textContent).toMatch(/Fixed.*432786.*CFS.*Adjustable.*432787.*CAS/i);
+    expect(within(corner).getByTestId("vendor-corner-planning-caveat").textContent).toMatch(/2026 CFS.CAS.*Vintage Walnut.*historical List label remains Spiced Mahogany/i);
 
     fireEvent.click(within(dock).getByRole("button", { name: "Plan 29.5-inch curved corner shelf" }));
     expect(screen.getByTestId("vendor-tablet-options-dock").className).toMatch(/flex/);
@@ -212,6 +214,11 @@ describe("Closet Studio tablet workspace", () => {
     expect(source).toContain("studioCornerShelfSku(design.finish, \"fixed\")");
     expect(source).toContain('title: "Clothes hanging rod"');
     expect(source).toContain('title: "Drawer front + box"');
+    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
+    expect(scene).toContain("illustrativeClothesHangers: true");
+    expect(scene).toContain("hangerProductNotInTakeoff: true");
+    expect(scene).toContain("hangerSpacingNotSourceVerified: true");
+    expect(scene).toContain('sourcedRodSku: "433223"');
   });
 
   it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {

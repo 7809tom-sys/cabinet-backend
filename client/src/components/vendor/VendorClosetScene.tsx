@@ -103,6 +103,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xb98550, roughness: 0.48, transparent: true, opacity: 0.62, side: THREE.DoubleSide });
     const cornerOutlineMat = new THREE.LineBasicMaterial({ color: 0x6f4527 });
     const basketWireMat = new THREE.LineBasicMaterial({ color: 0x697b7c, transparent: true, opacity: 0.9 });
+    const hangerWireMat = new THREE.LineBasicMaterial({ color: 0x687270, transparent: true, opacity: 0.82 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
     const parts = new THREE.Group(); scene.add(parts);
@@ -158,7 +159,28 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
         } else {
           const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, bay.widthIn * IN, 14), metalMat);
           rod.rotation.z = Math.PI / 2; rod.position.set(cx * IN, bottom * IN, depth * 0.58 * IN);
-          rod.userData = { illustrativeDiameter: true }; parts.add(rod);
+          rod.userData = { illustrativeDiameter: true, sourcedRodSku: "433223", sourcedRodCupSku: "433225", rodCutLengthToVerify: true, cupLocationsToVerify: true }; parts.add(rod);
+
+          // These outlines communicate use only. The supplied source identifies the rod/cups, not hanger products, spacing, garment depth, capacity, or exact cup locations.
+          const hangerGroup = new THREE.Group();
+          const hangerCount = Math.max(2, Math.min(4, Math.floor(bay.widthIn / 8)));
+          const hangerSpan = Math.min(5.25, Math.max(3.4, bay.widthIn / Math.max(hangerCount, 1) - 1.2));
+          for (let hangerIndex = 0; hangerIndex < hangerCount; hangerIndex++) {
+            const offset = ((hangerIndex + 0.5) / hangerCount - 0.5) * Math.max(0, bay.widthIn - 4);
+            const hook = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(0, 0.05 * IN, 0), new THREE.Vector3(0.24 * IN, 0.22 * IN, 0), new THREE.Vector3(0.35 * IN, 0.4 * IN, 0), new THREE.Vector3(0.15 * IN, 0.53 * IN, 0), new THREE.Vector3(0, 0.48 * IN, 0),
+            ]), hangerWireMat);
+            const hanger = new THREE.Line(new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(0, 0, 0), new THREE.Vector3(-hangerSpan / 2 * IN, -2.15 * IN, 0), new THREE.Vector3(hangerSpan / 2 * IN, -2.15 * IN, 0), new THREE.Vector3(0, 0, 0),
+            ]), hangerWireMat);
+            const position = new THREE.Vector3((cx + offset) * IN, bottom * IN, depth * 0.66 * IN);
+            hook.position.copy(position); hanger.position.copy(position);
+            hook.userData = { illustrativeClothesHanger: true, sourcedRodSku: "433223", hangerProductNotInTakeoff: true, hangerSpacingNotSourceVerified: true, rodCapacityNotSourceVerified: true, cupLocationsNotSourceVerified: true };
+            hanger.userData = { illustrativeClothesHanger: true, sourcedRodSku: "433223", hangerProductNotInTakeoff: true, hangerSpacingNotSourceVerified: true, rodCapacityNotSourceVerified: true, cupLocationsNotSourceVerified: true };
+            hangerGroup.add(hook, hanger);
+          }
+          hangerGroup.userData = { illustrativeClothesHangers: true, sourcedRodSku: "433223", sourcedRodCupSku: "433225", hangerProductNotInTakeoff: true, hangerSpacingNotSourceVerified: true, garmentClearanceNotSourceVerified: true, rodCapacityNotSourceVerified: true, cupLocationsNotSourceVerified: true };
+          parts.add(hangerGroup);
         }
       }
       for (const placement of studioBasketPlacementsForWall(design).filter((basket) => basket.bayId === bay.id)) {
@@ -254,7 +276,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line) object.geometry.dispose();
       });
-      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, basketWireMat, hintMat, hitMat]) {
+      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, basketWireMat, hangerWireMat, hintMat, hitMat]) {
         if (Array.isArray(material)) material.forEach((mat) => mat.dispose()); else material.dispose();
       }
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);

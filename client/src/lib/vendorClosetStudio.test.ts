@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, updateStudioBasketPlacement,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
-  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioCornerShelfSku, studioFitCapability, studioItemHeight,
+  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioCornerShelf2026Identity, studioCornerShelfSku, studioFitCapability, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
@@ -101,6 +101,28 @@ describe("isolated vendor Closet Studio", () => {
         expect(rodSkus).toEqual(["433223", "433225"]);
       }
     }
+  });
+
+  it("stores the 2026 curved CFS/CAS identity with each 29.5-inch pie visual while preserving the historical List finish label", () => {
+    expect(studioCornerShelf2026Identity("Glacier White", "fixed")).toEqual({ partId: "CFS", specFinish: "Glacier White", reconciliation: "exact-2026-finish" });
+    expect(studioCornerShelf2026Identity("Spiced Mahogany", "adjustable")).toEqual({ partId: "CAS", specFinish: "Vintage Walnut", reconciliation: "same-sku-historical-list-name" });
+    expect(studioCornerShelf2026Identity("Slate Rift", "fixed")).toEqual({ partId: "CFS", specFinish: null, reconciliation: "historical-list-finish-not-in-supplied-2026-page" });
+
+    const curved = addStudioCornerShelf({ ...createStudioDesign(), finish: "Spiced Mahogany" }, "back-right", "fixed", 36, "curved-cfs");
+    expect(curved).toMatchObject({ ok: true, shelf: { sku: "432786", profile: "curved-illustrative", sourceIdentity: { partId: "CFS", specFinish: "Vintage Walnut", reconciliation: "same-sku-historical-list-name" } } });
+    if (!curved.ok) return;
+    expect(studioTakeoff(curved.design).lines.find((line) => line.sku === "432786")?.unitUsd).toBe(57.5);
+    expect(restoreStudioDesign(JSON.stringify(curved.design))).toEqual(curved.design);
+  });
+
+  it("keeps clothes hanger outlines illustrative and tied to sourced rod/cup references without adding hanger products or installation claims", () => {
+    const rod = snapStudioPart(createStudioDesign(), 0, "rod", 64, "rod-with-hangers");
+    expect(rod.ok).toBe(true);
+    if (!rod.ok) return;
+    expect(studioPartReferences(rod.design, 0, "rod")?.map((part) => part.sku)).toEqual(["433223", "433225"]);
+    const bill = studioTakeoff(rod.design);
+    expect(bill.lines.some((line) => /hanger/i.test(line.label))).toBe(false);
+    expect(bill.missing.some((line) => /clothes-hanger outlines.*illustrative.*spacing.*capacity.*cup locations/i)).toBe(true);
   });
 
   it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {
