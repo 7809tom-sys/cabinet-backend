@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, updateStudioBasketPlacement,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
-  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
+  STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioCornerShelfSku, studioFitCapability, studioItemHeight,
   type StudioDesign,
 } from "./vendorClosetStudio";
 import { CLOSET_PARTS, masterTracPublicReferenceCatalog } from "./closet";
@@ -74,6 +74,33 @@ describe("isolated vendor Closet Studio", () => {
     expect(moveStudioCornerShelf(raised.design, "corner-adjustable", 36).ok).toBe(false);
     expect(addStudioCornerShelf(base, "back-left", "fixed", 36, "tower-intersection")).toMatchObject({ ok: false });
     expect(addStudioCornerShelf({ ...base, mount: "hanging" }, "back-right", "fixed", 36, "hanging-corner")).toMatchObject({ ok: false });
+  });
+
+  it("uses the source-matched 29.5-inch corner SKU for every Studio finish while retaining a sourced clothes hanging rod", () => {
+    const expected = {
+      "Glacier White": { fixed: "432556", adjustable: "432557" },
+      "Spiced Mahogany": { fixed: "432786", adjustable: "432787" },
+      "Slate Rift": { fixed: "430833", adjustable: "430834" },
+    } as const;
+
+    for (const [finish, skus] of Object.entries(expected) as [StudioDesign["finish"], typeof expected[StudioDesign["finish"]]][]) {
+      const base = { ...createStudioDesign(), finish };
+      expect(studioCornerShelfSku(finish, "fixed")).toBe(skus.fixed);
+      expect(studioCornerShelfSku(finish, "adjustable")).toBe(skus.adjustable);
+      const fixed = addStudioCornerShelf(base, "back-right", "fixed", 36, `fixed-${finish}`);
+      expect(fixed).toMatchObject({ ok: true, shelf: { sku: skus.fixed, finish, nominalFootprintIn: 29.5 } });
+      if (!fixed.ok) continue;
+      const adjustable = addStudioCornerShelf(fixed.design, "back-right", "adjustable", 40, `adjustable-${finish}`);
+      expect(adjustable).toMatchObject({ ok: true, shelf: { sku: skus.adjustable, finish } });
+      expect(studioTakeoff(adjustable.ok ? adjustable.design : fixed.design).lines.some((line) => line.sku === skus.fixed)).toBe(true);
+
+      const rod = snapStudioPart(base, 0, "rod", 64, `rod-${finish}`);
+      expect(rod).toMatchObject({ ok: true, item: { kind: "rod" } });
+      if (rod.ok) {
+        const rodSkus = studioPartReferences(rod.design, 0, "rod")?.map((part) => part.sku) ?? [];
+        expect(rodSkus).toEqual(["433223", "433225"]);
+      }
+    }
   });
 
   it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {

@@ -181,13 +181,25 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       cursor += bay.widthIn + 0.75;
     }
     if (design.bays.length) box(0.75, panelHeight, depth, cursor + 0.375, panelHeight / 2 + (design.mount === "hanging" ? 6 : 0), depth / 2, boardMat);
-    // This is deliberately a rectangular 29.5-inch 2026 planning envelope, not a fabricated curved board profile or support assembly.
+    // The conservative 29.5-inch square remains the collision envelope. The quarter-round display inside it is illustrative only—not a sourced curve/profile or support assembly.
     for (const shelf of visibleCornerShelves) {
       const footprint = studioCornerPlanningFootprint(design, shelf);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN), cornerEnvelopeMat);
-      mesh.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);
+      const radius = shelf.nominalFootprintIn * IN;
+      const pieRotation: Record<typeof shelf.cornerId, number> = { "back-left": 0, "back-right": -Math.PI / 2, "front-right": Math.PI, "front-left": Math.PI / 2 };
+      const pieCenter = {
+        "back-left": [footprint.xMin, footprint.zMin],
+        "back-right": [footprint.xMax, footprint.zMin],
+        "front-right": [footprint.xMax, footprint.zMax],
+        "front-left": [footprint.xMin, footprint.zMax],
+      } as const;
+      // A sector of a cylinder makes the visual cue visibly pie-shaped without asserting an actual supplier radius or curve profile.
+      const cornerPieGeometry = new THREE.CylinderGeometry(radius, radius, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, 36, 1, false, 0, Math.PI / 2);
+      const mesh = new THREE.Mesh(cornerPieGeometry, cornerEnvelopeMat);
+      const [centerX, centerZ] = pieCenter[shelf.cornerId];
+      mesh.position.set(centerX * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, centerZ * IN);
+      mesh.rotation.y = pieRotation[shelf.cornerId];
       mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.userData = { cornerShelfPlanningEnvelope: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
+      mesh.userData = { cornerShelfPlanningEnvelope: true, illustrativePieShape: true, conservativeSquareOccupancy: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
       parts.add(mesh);
       if (shelf.id === selectedCornerId) {
         const outline = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), cornerOutlineMat);

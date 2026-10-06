@@ -85,13 +85,19 @@ export const STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN = 29.5;
 export const STUDIO_CORNER_SHELF_THICKNESS_IN = 0.75;
 /** 2026 nominal envelope only. The 2022 floor manual lists 29¼ in actual but does not publish the curved profile. */
 export const STUDIO_CORNER_SHELF_GEOMETRY_REVISION = "mastertrac-np-2026-p13-nominal-envelope-v1";
+/** Approved public 2022 List identities for the one 29.5-in visual-planning envelope per supported Studio finish. */
+export const STUDIO_CORNER_SHELF_SKUS: Record<StudioDesign["finish"], Record<StudioCornerShelfMount, string>> = {
+  "Glacier White": { fixed: "432556", adjustable: "432557" },
+  "Spiced Mahogany": { fixed: "432786", adjustable: "432787" },
+  "Slate Rift": { fixed: "430833", adjustable: "430834" },
+};
+export const studioCornerShelfSku = (finish: StudioDesign["finish"], mount: StudioCornerShelfMount) => STUDIO_CORNER_SHELF_SKUS[finish][mount];
 export type StudioFitCapabilityStatus = "referenceOnly" | "visualPlanning" | "fitVerified";
 export type StudioFitCapability = { sku: string; family: "cornerShelf" | "basket"; status: StudioFitCapabilityStatus; source: string; reason: string };
 export type StudioBasketReferenceOption = { sku: string; nominalHeightIn: 6 | 11 | 17; nominalWidthIn: 18 | 24 | 30; finish: "Chrome"; sourceRevision: StudioBasketReference["sourceRevision"] };
 /** Source version, geometry status, and missing-fit boundary. This is not a sales or installation registry. */
 export const STUDIO_FIT_CAPABILITY_REGISTRY: readonly StudioFitCapability[] = [
-  { sku: "432556", family: "cornerShelf", status: "visualPlanning", source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." },
-  { sku: "432557", family: "cornerShelf", status: "visualPlanning", source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." },
+  ...Object.values(STUDIO_CORNER_SHELF_SKUS).flatMap((variants) => Object.values(variants).map((sku) => ({ sku, family: "cornerShelf" as const, status: "visualPlanning" as const, source: "MasterTrac Spec Book NP 2026 p. 13", reason: "29.5 in nominal envelope accepted for visual planning; curved profile, supports, and connections remain unverified." }))),
   ...["432897", "432898", "432899", "432900", "432901", "432902", "432903", "432904", "432905"].map((sku) => ({ sku, family: "basket" as const, status: "visualPlanning" as const, source: "Floor Mount 579554 p. 13 / MasterTrac Spec Book NP 2026 p. 46", reason: "Visual envelope is limited to sourced nominal width/height and Studio bay depth; rails, mounting offsets, travel, doors, and clearances are not source-verified." })),
 ];
 /** Historical 2022 basket identification only. The 2026 446807–446815 family is deliberately not substituted here. */
@@ -207,7 +213,7 @@ export function studioCornerMeasuredGap(design: StudioDesign, shelf: Pick<Studio
 }
 
 const studioCornerProduct = (design: StudioDesign, mount: StudioCornerShelfMount) => {
-  const sku = mount === "fixed" ? "432556" : "432557";
+  const sku = studioCornerShelfSku(design.finish, mount);
   const product = masterTracProduct(sku);
   return product?.finish === design.finish && product.category === "Shelves" && /Corner Shelf/i.test(product.description) ? product : undefined;
 };
@@ -244,7 +250,7 @@ export function studioCornerDesignError(design: StudioDesign): string | null {
 
 export function addStudioCornerShelf(design: StudioDesign, cornerId: StudioCornerId, mount: StudioCornerShelfMount, elevationIn: number, id = `corner-${Date.now()}`):
   { ok: true; design: StudioDesign; shelf: StudioCornerShelf } | { ok: false; reason: string } {
-  const shelf: StudioCornerShelf = { id, sku: mount === "fixed" ? "432556" : "432557", finish: design.finish, mount, profile: "curved-illustrative", cornerId, wallIds: CORNER_WALL_IDS[cornerId], elevationIn: Math.round(elevationIn), nominalFootprintIn: STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, geometryRevision: STUDIO_CORNER_SHELF_GEOMETRY_REVISION, geometrySource: "MasterTrac Spec Book NP 2026 p. 13", capability: "visualPlanning" };
+  const shelf: StudioCornerShelf = { id, sku: studioCornerShelfSku(design.finish, mount), finish: design.finish, mount, profile: "curved-illustrative", cornerId, wallIds: CORNER_WALL_IDS[cornerId], elevationIn: Math.round(elevationIn), nominalFootprintIn: STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, geometryRevision: STUDIO_CORNER_SHELF_GEOMETRY_REVISION, geometrySource: "MasterTrac Spec Book NP 2026 p. 13", capability: "visualPlanning" };
   const error = studioCornerPlacementError(design, shelf);
   if (error) return { ok: false, reason: error };
   return { ok: true, shelf, design: { ...design, cornerShelves: [...studioCornerShelves(design), shelf] } };
@@ -664,8 +670,8 @@ export function restoreStudioDesign(raw: string | null): StudioDesign | null {
     const seenCornerIds = new Set<string>();
     for (const shelf of studioCornerShelves(design)) {
       if (!shelf || typeof shelf.id !== "string" || seenCornerIds.has(shelf.id)
-        || !["432556", "432557"].includes(shelf.sku) || shelf.finish !== design.finish
-        || !["fixed", "adjustable"].includes(shelf.mount) || shelf.profile !== "curved-illustrative"
+        || shelf.finish !== design.finish || !["fixed", "adjustable"].includes(shelf.mount)
+        || shelf.sku !== studioCornerShelfSku(design.finish, shelf.mount) || shelf.profile !== "curved-illustrative"
         || !["back-left", "back-right", "front-left", "front-right"].includes(shelf.cornerId)
         || !Array.isArray(shelf.wallIds) || shelf.wallIds.length !== 2 || !STUDIO_WALLS.includes(shelf.wallIds[0]) || !STUDIO_WALLS.includes(shelf.wallIds[1])
         || !Number.isFinite(shelf.elevationIn) || shelf.nominalFootprintIn !== STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN
