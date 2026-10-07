@@ -71,6 +71,26 @@ export interface CabinetLike {
   graphicType?: string | null;
 }
 
+export type VanityComboFaceLayout = {
+  kind: "double-drawer-stack";
+  sideDrawerCount: 3;
+  centerDoorCount: 2;
+  hasLongDrawerFront: true;
+};
+
+/**
+ * Explicit face contract for the sourced VDDB48 vanity combo. VDB48 remains a
+ * different master SKU and must not inherit this combo layout.
+ */
+export function resolvedVanityComboFaceLayout(
+  cabinet: Pick<CabinetLike, "masterCode">,
+): VanityComboFaceLayout | null {
+  const code = String(cabinet.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return code === "VDDB48"
+    ? { kind: "double-drawer-stack", sideDrawerCount: 3, centerDoorCount: 2, hasLongDrawerFront: true }
+    : null;
+}
+
 /**
  * Resolves face counts without ever overwriting an authored Cabinet Config value.
  * A configured zero is meaningful: it suppresses generic descriptive/width-based

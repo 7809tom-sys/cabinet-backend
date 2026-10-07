@@ -17,7 +17,7 @@ import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITUR
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
-import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
+import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -5352,8 +5352,56 @@ export function addCabinet(
       frontGroup.add(bar);
     }
   } else {
+  const vanityComboFaceLayout = resolvedVanityComboFaceLayout(sku);
   const vanityFaceLayout = resolvedThreeDVanityFaceLayout(sku.layoutSpec);
-  if (vanityFaceLayout) {
+  if (vanityComboFaceLayout) {
+    // VDDB48 is a sourced 48-inch vanity combo: three drawers on each side,
+    // two centered lower doors, and one long drawer front above the doors.
+    // Keep this explicit by master SKU so VDB48 does not inherit the combo.
+    const faceHeight = bodyHeight - 0.08;
+    const centerFaceWidth = Math.max(0.2, bodyWidth * (23.5 / 48));
+    const sideFaceWidth = Math.max(0.2, (bodyWidth - centerFaceWidth - 0.08) / 2);
+    const longDrawerHeight = Math.min(6 * INCH, faceHeight * 0.22);
+    const lowerFaceHeight = Math.max(0.2, faceHeight - longDrawerHeight);
+    const sideDrawerHeight = lowerFaceHeight / vanityComboFaceLayout.sideDrawerCount;
+    const centerDoorWidth = (centerFaceWidth - 0.025) / vanityComboFaceLayout.centerDoorCount;
+    const centerX = 0;
+    const leftSideX = -bodyWidth / 2 + sideFaceWidth / 2 + 0.04;
+    const rightSideX = bodyWidth / 2 - sideFaceWidth / 2 - 0.04;
+    const lowerTop = -faceHeight / 2 + lowerFaceHeight;
+    const longDrawer = new THREE.Mesh(new THREE.BoxGeometry(centerFaceWidth, longDrawerHeight - 0.025, 0.048), faceMaterial);
+    longDrawer.position.set(centerX, bodyHeight / 2 - 0.04 - longDrawerHeight / 2, 0.004);
+    longDrawer.userData = { cabinetFront: true, cabinetDrawerFront: true, vanityComboLongDrawerFront: true, flushPhysicalFace: true };
+    frontGroup.add(longDrawer);
+    addDrawerReveal(centerFaceWidth, longDrawerHeight - 0.025, longDrawer.position.x, longDrawer.position.y);
+    addShakerFrame(centerFaceWidth, longDrawerHeight - 0.025, longDrawer.position.x, longDrawer.position.y);
+    addFaceShadow(centerFaceWidth, longDrawerHeight - 0.025, longDrawer.position.x, longDrawer.position.y);
+    addPull(centerFaceWidth, longDrawerHeight - 0.025, longDrawer.position.x, longDrawer.position.y, true);
+
+    for (const side of [-1, 1] as const) {
+      const sideX = side === -1 ? leftSideX : rightSideX;
+      for (let index = 0; index < vanityComboFaceLayout.sideDrawerCount; index++) {
+        const drawer = new THREE.Mesh(new THREE.BoxGeometry(sideFaceWidth, sideDrawerHeight - 0.025, 0.048), faceMaterial);
+        drawer.position.set(sideX, lowerTop - sideDrawerHeight * (index + 0.5), 0.004);
+        drawer.userData = { cabinetFront: true, cabinetDrawerFront: true, vanityComboSide: side === -1 ? "left" : "right", vanityDrawerFront: true, flushPhysicalFace: true };
+        frontGroup.add(drawer);
+        addDrawerReveal(sideFaceWidth, sideDrawerHeight - 0.025, drawer.position.x, drawer.position.y);
+        addShakerFrame(sideFaceWidth, sideDrawerHeight - 0.025, drawer.position.x, drawer.position.y);
+        addFaceShadow(sideFaceWidth, sideDrawerHeight - 0.025, drawer.position.x, drawer.position.y);
+        addPull(sideFaceWidth, sideDrawerHeight - 0.025, drawer.position.x, drawer.position.y, true);
+      }
+    }
+
+    for (let index = 0; index < vanityComboFaceLayout.centerDoorCount; index++) {
+      const door = new THREE.Mesh(new THREE.BoxGeometry(centerDoorWidth, lowerFaceHeight - 0.025, 0.045), faceMaterial);
+      door.position.set(-centerFaceWidth / 2 + centerDoorWidth * (index + 0.5), -faceHeight / 2 + lowerFaceHeight / 2, 0);
+      door.userData = { cabinetFront: true, vanityComboCenterDoor: index + 1, flushPhysicalFace: true };
+      frontGroup.add(door);
+      if (profileKind === "shaker") addShakerFrame(centerDoorWidth, lowerFaceHeight - 0.025, door.position.x, door.position.y);
+      addFaceShadow(centerDoorWidth, lowerFaceHeight - 0.025, door.position.x, door.position.y);
+      addPull(centerDoorWidth, lowerFaceHeight - 0.025, door.position.x, door.position.y, false, 0.086, "lower", index === 0 ? "right" : "left");
+    }
+  } else if (vanityFaceLayout) {
     const availableWidth = bodyWidth - 0.08;
     const drawerBankWidth = availableWidth * vanityFaceLayout.drawerBankRatio;
     const doorWidth = availableWidth - drawerBankWidth;

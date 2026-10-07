@@ -12,8 +12,24 @@ import {
   threeDrawerBaseRowHeights,
   standardDoorCountForFaceWidth,
   baseSubGroup,
+  resolvedVanityComboFaceLayout,
   type CabinetLike,
 } from "./cabinetGraphics";
+
+describe("vanity combo face contract", () => {
+  it("resolves VDDB48 to three drawers on each side, two center doors, and a long drawer above", () => {
+    expect(resolvedVanityComboFaceLayout({ masterCode: "VDDB48" })).toEqual({
+      kind: "double-drawer-stack",
+      sideDrawerCount: 3,
+      centerDoorCount: 2,
+      hasLongDrawerFront: true,
+    });
+  });
+
+  it("does not map the distinct VDB48 vanity drawer base to the combo face", () => {
+    expect(resolvedVanityComboFaceLayout({ masterCode: "VDB48" })).toBeNull();
+  });
+});
 
 describe("wall blind-corner family", () => {
   it("recognizes every WBC height without classifying base blind corners", () => {

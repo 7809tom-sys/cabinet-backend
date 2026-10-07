@@ -47,6 +47,18 @@ describe("customer manual AI render handoff", () => {
   });
 });
 
+describe("VDDB48 vanity combo 3D face contract", () => {
+  it("keeps the sourced 2-door/6-drawer construction explicit in the renderer", () => {
+    const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(source).toContain("resolvedVanityComboFaceLayout(sku)");
+    expect(source).toContain("vanityComboLongDrawerFront");
+    expect(source).toContain("vanityComboSide");
+    expect(source).toContain("vanityComboCenterDoor");
+    expect(source).toContain("sideDrawerCount");
+    expect(source).toContain("centerDoorCount");
+  });
+});
+
 describe("embedded 3D workspace viewport", () => {
   it("keeps kitchen details open but starts selected MasterTrac boards compact on tablets with a Details action", () => {
     const source = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
