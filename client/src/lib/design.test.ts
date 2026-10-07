@@ -1704,6 +1704,32 @@ describe("countertopArea", () => {
     expect(m.hasIsland).toBe(false);
   });
 
+  it("uses a 22.5-inch finished countertop over a source 21-inch bathroom vanity", () => {
+    const vanity = cab({
+      masterCode: "VSD42",
+      description: '42" Vanity Combo',
+      category: "Vanity",
+      placement: "base",
+      width: 42,
+      depth: 21,
+      x: 0,
+      y: 0,
+    });
+    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+    const [surface] = countertopSurfaces([vanity], room);
+
+    expect(surface).toMatchObject({ x: 0, y: 0, width: 42, depth: 22.5, supportWallId: "top" });
+    // 42 × 22.5 ÷ 144 = 6.5625, rounded up to the Designer's 0.1 sq ft.
+    expect(countertopArea([vanity])).toMatchObject({ runInches: 42, squareFeet: 6.6, perimeterSquareFeet: 6.6 });
+  });
+
+  it("keeps a standard 24-inch kitchen base on its existing 25.5-inch countertop rule", () => {
+    const kitchenBase = cab({ masterCode: "B36", description: '36" Base Cabinet', placement: "base", width: 36, depth: 24 });
+    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+    expect(countertopSurfaces([kitchenBase], room)[0]).toMatchObject({ depth: 25.5 });
+    expect(countertopArea([kitchenBase]).squareFeet).toBe(6.4);
+  });
+
   it("ignores wall and tall cabinets", () => {
     const wall = cab({ placement: "wall", width: 30, depth: 12 });
     const tall = cab({ placement: "tall", width: 24, depth: 24 });

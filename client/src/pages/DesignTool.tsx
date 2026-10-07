@@ -53,7 +53,7 @@ import {
   migrateLegacyDesignerDraftToOwner,
   resolveStoreScope,
 } from "@/lib/affiliateContext";
-import { isPelicanSinkCompatibleWithBase, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
+import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -1096,6 +1096,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const addRecommendedSurface = (
     item: SelectedSurface,
     role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet" | "range-top"
+      | "bathroom-sink" | "bathroom-faucet" | "toilet-bidet" | "bathtub"
+      | "shower-door" | "shower-surround" | "shower-system"
   ) => {
     if (role === "countertop") {
       const already = activeCountertopForScope(selectedSurfaces, "perimeter")?.id === item.id;
@@ -7324,19 +7326,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     { role: "range-top", limit: 6 },
     { enabled: !!sinkBaseDialog }
   );
-  // Recommended sink products fetched from Stone Creek catalog.
+  // Bathroom vanities use Pelican's separately verified porcelain basin palette,
+  // never the kitchen sink list. The same distinction applies to vanity faucets.
+  const bathroomSinkDialog = Boolean(sinkBaseDialog && roomType === "bathroom");
+  // Recommended sink products fetched from the matching Pelican catalog role.
   const selectedFarmSinkBaseForGuide = placed.some(
     (cabinet) => cabinet.uid === selectedUid && isFarmSinkBasePaletteItem(cabinet),
   );
   const { data: sinkBaseProducts } = trpc.surfaces.recommended.useQuery(
     // Fetch a broader set only while the sink-base dialog is open so verified
     // compatible products can be prioritized without altering catalog ranking.
-    { role: "sink", limit: 24 },
+    { role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 24 },
     { enabled: !!sinkBaseDialog || selectedFarmSinkBaseForGuide }
   );
   // Recommended faucet products fetched from Stone Creek catalog.
   const { data: faucetBaseProducts } = trpc.surfaces.recommended.useQuery(
-    { role: "faucet", limit: 6 },
+    { role: bathroomSinkDialog ? "vanity-faucet" : "faucet", limit: 6 },
     { enabled: !!sinkBaseDialog }
   );
   const { data: potFillerProducts } = trpc.surfaces.recommended.useQuery(
@@ -14254,10 +14259,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  </Button>
 	                </div>
 	              )}
-	              <RecommendedSurfaces
-	                selected={selectedSurfaces}
-	                onToggle={addRecommendedSurface}
-	                onBrowseAll={() => setSurfacesOpen(true)}
+              <RecommendedSurfaces
+                selected={selectedSurfaces}
+                onToggle={addRecommendedSurface}
+                onBrowseAll={() => setSurfacesOpen(true)}
+                roomType={roomType}
 	              />
 	              {/* Flooring Layout Pattern Picker */}
               {flooringMaterialId && (() => {
@@ -16973,6 +16979,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        selected={selectedSurfaces}
 	        activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}
 	        onSetActiveThreeDBacksplash={setActiveBacksplashSurface}
+	        roomType={roomType}
 	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
 	        countertopPriceLines={surfaceCartLines
 	          .filter((line) => /countertop|quartz\s+slab/i.test(line.category ?? ""))
@@ -17339,10 +17346,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           id: number; pelicanCode?: string | null; name: string; description?: string | null; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
         }>;
         const sinkBaseCabinet = placed.find((p) => p.uid === sinkBaseDialog.cabinetUid) ?? null;
-        const sinkBaseKind = sinkBaseCabinet && isFarmSinkBasePaletteItem(sinkBaseCabinet) ? "farmhouse" : "standard";
+        // A selected sink base in the Bathroom room type always receives the
+        // bathroom-only fixture path. This prevents a legacy/general base from
+        // reopening the kitchen sink palette after it is used in a bath plan.
+        const isBathroomVanity = roomType === "bathroom";
+        const sinkBaseKind = !isBathroomVanity && sinkBaseCabinet && isFarmSinkBasePaletteItem(sinkBaseCabinet) ? "farmhouse" : "standard";
         const sinkBaseOpeningWidth = sinkBaseOpeningWidthIn(sinkBaseCabinet ?? undefined);
         const filteredSinks = allRecommendedSinks
-          .filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))
+          .filter((product) => isBathroomVanity
+            ? isVerifiedPelicanVanitySink(product.pelicanCode)
+            : isPelicanSinkCompatibleWithBase(product, sinkBaseKind))
           .filter((product) => {
             const profile = verifiedPelicanSinkProfile(product.pelicanCode);
             return Boolean(profile && verifiedPelicanSinkFitsCabinet(profile, sinkBaseOpeningWidth));
@@ -17371,22 +17384,31 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         };
         const filteredFaucets = ((faucetBaseProducts ?? []) as Array<{
           id: number; pelicanCode?: string | null; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
-        }>).filter((product) => Boolean(verifiedPelicanFaucetProfile(product.pelicanCode)));
+        }>).filter((product) => Boolean(verifiedPelicanFaucetProfile(product.pelicanCode)))
+          .filter((product) => isBathroomVanity ? isVerifiedPelicanVanityFaucet(product.pelicanCode) : !isVerifiedPelicanVanityFaucet(product.pelicanCode));
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
           const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
           const cabinetWidth = sinkBaseOpeningWidthIn(cab ?? undefined);
-          const targetBaseKind = cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
+          const targetBaseKind = !isBathroomVanity && cab && isFarmSinkBasePaletteItem(cab) ? "farmhouse" : "standard";
           if (!sinkProduct || !verifiedProfile) {
-            toast.error("Choose a source-verified Pelican sink before adding it to this kitchen plan.");
+            toast.error(`Choose a source-verified Pelican ${isBathroomVanity ? "vanity sink" : "sink"} before adding it to this ${isBathroomVanity ? "bathroom" : "kitchen"} plan.`);
             return;
           }
           if (faucetProduct && !verifiedFaucetProfile) {
-            toast.error("Choose a source-verified Pelican faucet before adding it to this kitchen plan.");
+            toast.error(`Choose a source-verified Pelican ${isBathroomVanity ? "vanity faucet" : "faucet"} before adding it to this ${isBathroomVanity ? "bathroom" : "kitchen"} plan.`);
             return;
           }
-          if (sinkProduct && !isPelicanSinkCompatibleWithBase(sinkProduct, targetBaseKind)) {
+          if (isBathroomVanity && !isVerifiedPelicanVanitySink(sinkProduct.pelicanCode)) {
+            toast.error("This bathroom vanity requires a source-verified Pelican vanity sink.");
+            return;
+          }
+          if (isBathroomVanity && faucetProduct && !isVerifiedPelicanVanityFaucet(faucetProduct.pelicanCode)) {
+            toast.error("This bathroom vanity requires a source-verified Pelican vanity faucet.");
+            return;
+          }
+          if (!isBathroomVanity && sinkProduct && !isPelicanSinkCompatibleWithBase(sinkProduct, targetBaseKind)) {
             toast.error(`${pelicanSinkBaseKind(sinkProduct) === "farmhouse" ? "Farmhouse/apron-front" : "Standard"} sinks do not fit this ${targetBaseKind === "farmhouse" ? "farmhouse/apron-front" : "standard"} sink base.`);
             return;
           }
@@ -17450,7 +17472,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           setSinkBaseDialog(null);
           setRangeTopStep("choose");
           setPendingSinkProduct(null);
-          toast.success(faucetProduct ? "Sink & faucet added" : "Sink added");
+          toast.success(faucetProduct ? `${isBathroomVanity ? "Vanity sink" : "Sink"} & ${isBathroomVanity ? "vanity faucet" : "faucet"} added` : `${isBathroomVanity ? "Vanity sink" : "Sink"} added`);
         };
         return (
           <div className="fixed inset-0 z-[300] flex items-center justify-center" role="dialog" aria-modal="true">
@@ -17459,11 +17481,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               {rangeTopStep === "choose" && (
                 <>
                   <div>
-                    <h2 className="text-lg font-semibold text-foreground">What goes on top?</h2>
-                    <p className="text-sm text-muted-foreground mt-1">Choose what will be installed on this sink base cabinet.</p>
+                    <h2 className="text-lg font-semibold text-foreground">{isBathroomVanity ? "Choose a vanity sink" : "What goes on top?"}</h2>
+                    <p className="text-sm text-muted-foreground mt-1">{isBathroomVanity ? "Choose a Pelican porcelain vanity sink and matching vanity faucet." : "Choose what will be installed on this sink base cabinet."}</p>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <button
+                  <div className={`grid gap-3 ${isBathroomVanity ? "grid-cols-1" : "grid-cols-2"}`}>
+                    {!isBathroomVanity && <button
                       className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
                       onClick={(e) => { e.stopPropagation(); setRangeTopStep("range-type"); }}
                     >
@@ -17474,7 +17496,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <div className="text-sm font-semibold">Range Top</div>
                         <div className="text-xs text-muted-foreground">Gas / Electric / Smooth</div>
                       </div>
-                    </button>
+                    </button>}
                     <button
                       className="flex flex-col items-center gap-3 rounded-xl border-2 border-border hover:border-[#a87f33] p-5 transition-colors group"
                       onClick={(e) => { e.stopPropagation(); setRangeTopStep("sink"); }}
@@ -17483,8 +17505,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <Droplets className="h-7 w-7 text-blue-500" />
                       </div>
                       <div className="text-center">
-                        <div className="text-sm font-semibold">Sink</div>
-                        <div className="text-xs text-muted-foreground">Kitchen / Bar / Farm</div>
+                        <div className="text-sm font-semibold">{isBathroomVanity ? "Vanity sink" : "Sink"}</div>
+                        <div className="text-xs text-muted-foreground">{isBathroomVanity ? "Pelican porcelain bathroom basin" : "Kitchen / Bar / Farm"}</div>
                       </div>
                     </button>
                   </div>
@@ -17496,9 +17518,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("choose")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
-                    <h2 className="text-lg font-semibold text-foreground">Choose a Sink</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Choose a {isBathroomVanity ? "Vanity Sink" : "Sink"}</h2>
                   </div>
-                  <p className="text-sm text-muted-foreground -mt-2">Showing only {sinkBaseKind === "farmhouse" ? "farmhouse / apron-front" : "standard"} Pelican sinks that fit this base.</p>
+                  <p className="text-sm text-muted-foreground -mt-2">{isBathroomVanity ? "Showing only standard Pelican porcelain vanity sinks that fit this vanity base." : `Showing only ${sinkBaseKind === "farmhouse" ? "farmhouse / apron-front" : "standard"} Pelican sinks that fit this base.`}</p>
                   {filteredSinks.length === 0 ? (
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => { setPendingSinkProduct(null); setRangeTopStep("faucet"); }}>Continue without a sink product</button>
                   ) : (
@@ -17525,7 +17547,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     <button className="text-muted-foreground hover:text-foreground transition-colors" onClick={() => setRangeTopStep("sink")}>
                       <ChevronRight className="h-4 w-4 rotate-180" />
                     </button>
-                    <h2 className="text-lg font-semibold text-foreground">Choose a Faucet</h2>
+                    <h2 className="text-lg font-semibold text-foreground">Choose a {isBathroomVanity ? "Vanity Faucet" : "Faucet"}</h2>
                   </div>
                   {pendingSinkProduct && (
                     <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-xs">
@@ -17534,7 +17556,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       <span className="font-medium line-clamp-1">{pendingSinkProduct.name}</span>
                     </div>
                   )}
-                  <p className="text-sm text-muted-foreground -mt-2">Pick a matching faucet from Stone Creek, or skip to finish.</p>
+                  <p className="text-sm text-muted-foreground -mt-2">Pick a matching source-verified Pelican {isBathroomVanity ? "vanity faucet" : "faucet"}, or skip to finish.</p>
                   {filteredFaucets.length === 0 ? (
                     <button className="w-full text-xs text-muted-foreground border border-dashed rounded-lg py-3" onClick={() => applySink(pendingSinkProduct, null)}>Finish without a faucet</button>
                   ) : (

@@ -121,6 +121,54 @@ describe("surfaces.recommended", () => {
     }
   });
 
+  it("keeps Pelican bathroom catalog families out of kitchen sink and faucet recommendations", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const bathroomSinks = (await caller.surfaces.recommended({ role: "bathroom-sink", limit: 24 })) as Rec[];
+    const bathroomFaucets = (await caller.surfaces.recommended({ role: "bathroom-faucet", limit: 48 })) as Rec[];
+
+    expect(bathroomSinks.length).toBeGreaterThan(0);
+    expect(bathroomFaucets.length).toBeGreaterThan(0);
+    for (const row of bathroomSinks) {
+      expect(row.category).toBe("Sinks & Faucets");
+      expect(`${row.name}`.toLowerCase()).not.toContain("kitchen");
+      expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+    }
+    for (const row of bathroomFaucets) {
+      expect(row.category).toBe("Sinks & Faucets");
+      expect(`${row.name}`.toLowerCase()).not.toContain("kitchen");
+      expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+    }
+
+    const kitchenSinks = (await caller.surfaces.recommended({ role: "sink", limit: 48 })) as Rec[];
+    const kitchenFaucets = (await caller.surfaces.recommended({ role: "faucet", limit: 48 })) as Rec[];
+    expect(kitchenSinks.some((row) => /\b(?:bathroom|vanity|vessel)\b/i.test(row.name))).toBe(false);
+    expect(kitchenFaucets.some((row) => /\b(?:bathroom|vanity|vessel|tub)\b/i.test(row.name))).toBe(false);
+  });
+
+  it("returns source-priced Pelican toilets, tubs, and shower families for the bathroom palette", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const roles = [
+      ["toilet-bidet", "Toilets & Bidets"],
+      ["bathtub", "Sinks & Faucets"],
+      ["shower-door", "Shower & Bath"],
+      ["shower-surround", "Shower & Bath"],
+      ["shower-system", "Shower & Bath"],
+    ] as const;
+
+    for (const [role, category] of roles) {
+      const rows = (await caller.surfaces.recommended({ role, limit: 12 })) as Rec[];
+      expect(rows.length).toBeGreaterThan(0);
+      for (const row of rows) {
+        expect(row.category).toBe(category);
+        expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("honors the requested limit", async () => {
     const db = await getDb();
     if (!db) return;

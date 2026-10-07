@@ -11,7 +11,17 @@ const ACCESSORY = /\b(clip|strainer|\bgrid\b|template|mounting|drain assembly|fl
 const NON_FIXTURE = /\b(countertop|prefab|slab|backsplash|tile|molding|trim)\b/i;
 const SINK = /\b(sink|basin|farmhouse|undermount|drop[ -]?in|workstation|apron[ -]?front|lavatory)\b/i;
 const FAUCET = /\b(faucet|pot filler|kitchen tap|bar tap|shower faucet)\b/i;
-const KITCHEN_DESIGNER_EXCLUDED_CODES = /^PL-3099(?:\s|$)/i;
+const KITCHEN_DESIGNER_EXCLUDED_CODES = /^(?:PL-3099|PL-3608|PL-8112)(?:\s|$)/i;
+
+/** Exact source-backed bathroom vanity sink records, independent of imported product text. */
+export function isPelicanVanitySinkCode(code: string | null | undefined): boolean {
+  return /^(?:PL-3099|PL-3608)(?:\s|$)/i.test(code?.trim() ?? "");
+}
+
+/** Exact source-backed bathroom vanity faucet records, independent of imported product text. */
+export function isPelicanVanityFaucetCode(code: string | null | undefined): boolean {
+  return /^PL-8112\s+(?:BN|CHR)$/i.test(code?.trim() ?? "");
+}
 
 /**
  * Recover the actual fixture family from imported Pelican text. The importer
@@ -20,10 +30,11 @@ const KITCHEN_DESIGNER_EXCLUDED_CODES = /^PL-3099(?:\s|$)/i;
  * repeat those source labels as customer-facing placement rules.
  */
 export function pelicanFixtureRole(source: PelicanFixtureSource): PelicanFixtureRole | null {
-  // Pelican's PL-3099 is a documented porcelain vanity sink. A legacy imported
-  // display name calls it "Farmhouse Reserve," so source text alone could make it
-  // look like a kitchen sink. Keep its catalog record intact, but never surface it
-  // in the kitchen sink-base workflow.
+  // Pelican's PL-3099 and PL-3608 are documented porcelain vanity sinks and
+  // PL-8112 is a documented vanity faucet. Legacy imported labels may call
+  // PL-3099 a farmhouse sink, so text alone could make the bathroom fixtures
+  // look like kitchen products. Keep their catalog records intact, but surface
+  // them only through the bathroom vanity workflow.
   if (KITCHEN_DESIGNER_EXCLUDED_CODES.test(source.pelicanCode?.trim() ?? "")) return null;
   const text = `${source.name ?? ""} ${source.description ?? ""}`;
   if (ACCESSORY.test(text) || NON_FIXTURE.test(text)) return null;

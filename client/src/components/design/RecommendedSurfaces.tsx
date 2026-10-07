@@ -11,7 +11,19 @@ import type { SelectedSurface } from "./SurfacesPickerDialog";
  * where a category is shared, e.g. Sinks & Faucets). Kept in sync with the
  * server-side `surfaces.recommended` roleFilter.
  */
-export type RecommendedRole = "flooring" | "backsplash" | "countertop" | "sink" | "faucet";
+export type RecommendedRole =
+  | "flooring"
+  | "backsplash"
+  | "countertop"
+  | "sink"
+  | "faucet"
+  | "bathroom-sink"
+  | "bathroom-faucet"
+  | "toilet-bidet"
+  | "bathtub"
+  | "shower-door"
+  | "shower-surround"
+  | "shower-system";
 
 export const RECOMMENDED_SECTIONS: {
   role: RecommendedRole;
@@ -25,8 +37,24 @@ export const RECOMMENDED_SECTIONS: {
   { role: "faucet", label: "Faucet", blurb: "StoneCreek faucets" },
 ];
 
+/** Bathroom sections intentionally never share kitchen sink or faucet roles. */
+export const BATHROOM_RECOMMENDED_SECTIONS: {
+  role: RecommendedRole;
+  label: string;
+  blurb: string;
+}[] = [
+  { role: "bathroom-sink", label: "Vanity Sinks", blurb: "Pelican bath basins & vanity tops" },
+  { role: "bathroom-faucet", label: "Vanity & Tub Faucets", blurb: "Pelican bathroom faucet lines" },
+  { role: "toilet-bidet", label: "Toilets & Bidets", blurb: "Pelican toilet and bidet fixtures" },
+  { role: "bathtub", label: "Bathtubs", blurb: "Pelican acrylic soaking & skirted tubs" },
+  { role: "shower-door", label: "Shower & Tub Doors", blurb: "Pelican enclosure doors" },
+  { role: "shower-surround", label: "Shower Surrounds", blurb: "Pelican shower wall systems" },
+  { role: "shower-system", label: "Shower Systems", blurb: "Pelican valves & systems" },
+];
+
 type RecItem = {
   id: number;
+  pelicanCode?: string | null;
   slug: string;
   name: string;
   category: string;
@@ -40,6 +68,7 @@ type RecItem = {
 function toSurface(p: RecItem): SelectedSurface {
   return {
     id: p.id,
+    pelicanCode: p.pelicanCode ?? null,
     slug: p.slug,
     name: p.name,
     category: p.category,
@@ -176,22 +205,27 @@ export function RecommendedSurfaces({
   selected,
   onToggle,
   onBrowseAll,
+  roomType = "kitchen",
   limit = 8,
 }: {
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
   onBrowseAll: () => void;
+  roomType?: string;
   limit?: number;
 }) {
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
+  const isBathroom = roomType === "bathroom";
+  const sections = isBathroom ? BATHROOM_RECOMMENDED_SECTIONS : RECOMMENDED_SECTIONS;
 
   return (
     <div className="space-y-4">
       <p className="px-1 text-[11px] leading-snug text-muted-foreground">
-        Recommended Pelican surfaces & fixtures. Tap to add to your design — they
-        appear in your quote and unlock the 3D View. Tap again to remove.
+        {isBathroom
+          ? "Bathroom-only Pelican fixtures. Tap to add a source-priced selection to this bathroom design; vanity basins and faucets install through a compatible vanity base."
+          : "Recommended Pelican surfaces & fixtures. Tap to add to your design — they appear in your quote and unlock the 3D View. Tap again to remove."}
       </p>
-      {RECOMMENDED_SECTIONS.map((s) => (
+      {sections.map((s) => (
         <RecommendedRow
           key={s.role}
           role={s.role}

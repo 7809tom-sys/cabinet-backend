@@ -7244,12 +7244,22 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
   const brushedStainlessSteel = new THREE.MeshPhysicalMaterial({ color: "#c0c8cc", metalness: 0.7, roughness: 0.28, clearcoat: 0.18, clearcoatRoughness: 0.32 });
   const stainlessBasinInterior = sinkInteriorStencilMaterial(new THREE.MeshPhysicalMaterial({ color: "#b6c0c5", metalness: 0.58, roughness: 0.3, clearcoat: 0.2, clearcoatRoughness: 0.3, side: THREE.DoubleSide }), sinkStencilRef);
   const isGunmetalBlack = sink.surfaceFinish === "gunmetal-black";
+  const isVitreousChina = sink.surfaceFinish?.startsWith("vitreous-china") === true;
+  const vitreousChinaColor = sink.surfaceFinish === "vitreous-china-black"
+    ? "#292827"
+    : sink.surfaceFinish === "vitreous-china-bone"
+      ? "#e6dcc4"
+      : sink.surfaceFinish === "vitreous-china-grey"
+        ? "#a7a5a0"
+        : "#f6f5f0";
+  const vitreousChina = new THREE.MeshPhysicalMaterial({ color: vitreousChinaColor, metalness: 0.01, roughness: 0.14, clearcoat: 0.52, clearcoatRoughness: 0.12 });
+  const vitreousChinaInterior = sinkInteriorStencilMaterial(new THREE.MeshPhysicalMaterial({ color: vitreousChinaColor, metalness: 0.01, roughness: 0.16, clearcoat: 0.46, clearcoatRoughness: 0.15, side: THREE.DoubleSide }), sinkStencilRef);
   const gunmetalSteel = new THREE.MeshPhysicalMaterial({ color: "#25292c", metalness: 0.78, roughness: 0.24, clearcoat: 0.2, clearcoatRoughness: 0.3 });
   const brushedGunmetalSteel = new THREE.MeshPhysicalMaterial({ color: "#383d41", metalness: 0.7, roughness: 0.32, clearcoat: 0.14, clearcoatRoughness: 0.36 });
   const gunmetalBasinInterior = sinkInteriorStencilMaterial(new THREE.MeshPhysicalMaterial({ color: "#202427", metalness: 0.66, roughness: 0.36, clearcoat: 0.16, clearcoatRoughness: 0.38, side: THREE.DoubleSide }), sinkStencilRef);
-  const steel = isGunmetalBlack ? gunmetalSteel : stainlessSteel;
+  const steel = isVitreousChina ? vitreousChina : isGunmetalBlack ? gunmetalSteel : stainlessSteel;
   const brushedSteel = isGunmetalBlack ? brushedGunmetalSteel : brushedStainlessSteel;
-  const basinInterior = isGunmetalBlack ? gunmetalBasinInterior : stainlessBasinInterior;
+  const basinInterior = isVitreousChina ? vitreousChinaInterior : isGunmetalBlack ? gunmetalBasinInterior : stainlessBasinInterior;
   const sourceBowlWidth = sink.bowlWidth ?? Math.max(0, sink.sourceWidth ?? sink.width) - 3;
   const sourceBowlDepth = sink.bowlDepth ?? Math.max(0, sink.sourceDepth ?? sink.depth) - 3;
   const measuredDoubleBowl = sink.bowlCount === 2;
@@ -7324,7 +7334,7 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     );
     rimSegment.position.set(centerX + segment.x, countertopTop + 0.018, centerZ + segment.z);
     rimSegment.renderOrder = 24;
-    rimSegment.userData = { sinkRim: true, sinkRimFrameSegment: true, sinkRimSide: segment.side, openSinkCutout: true, fixtureDetail: true };
+    rimSegment.userData = { sinkRim: true, sinkRimFrameSegment: true, sinkRimSide: segment.side, sinkMaterial: isVitreousChina ? "vitreous-china" : isGunmetalBlack ? "gunmetal-black" : "stainless-steel", openSinkCutout: true, fixtureDetail: true };
     addFixtureNode(rimSegment);
   });
   const openingWidth = Math.max(0.04, openingMaxX - openingMinX);
@@ -7378,17 +7388,19 @@ export function addSinkFixture(root: THREE.Group, sink: SinkFixture) {
     const bowl = new THREE.Mesh(bowlGeometry, basinInterior);
     bowl.position.set(bowlX, countertopTop, bowlZ);
     bowl.renderOrder = 20;
-    bowl.userData = { sinkBowl: true, recessedSinkBowl: true, openSinkBowl: true, visibleInteriorDepth: true, bowlDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    bowl.userData = { sinkBowl: true, recessedSinkBowl: true, openSinkBowl: true, visibleInteriorDepth: true, bowlDepthIn: bowlHeightForIndex / INCH, sinkMaterial: isVitreousChina ? "vitreous-china" : isGunmetalBlack ? "gunmetal-black" : "stainless-steel", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     addFixtureNode(bowl);
     const floorInset = bowlGeometry.userData as { bottomWidth: number; bottomDepth: number };
-    const bowlFloorMaterial = sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
+    const bowlFloorMaterial = isVitreousChina
+      ? sinkInteriorStencilMaterial(vitreousChina.clone(), sinkStencilRef)
+      : sinkInteriorStencilMaterial(brushedSteel.clone(), sinkStencilRef);
     const bowlFloor = new THREE.Mesh(
       new RoundedBoxGeometry(floorInset.bottomWidth, 0.025, floorInset.bottomDepth, 4, Math.min(0.08, floorInset.bottomWidth * 0.07, floorInset.bottomDepth * 0.07)),
       bowlFloorMaterial,
     );
     bowlFloor.position.set(bowlX, countertopTop - bowlHeightForIndex + 0.014, bowlZ);
     bowlFloor.renderOrder = 21;
-    bowlFloor.userData = { sinkBowlFloor: true, visibleSinkBowlBottom: true, recessedDepthIn: bowlHeightForIndex / INCH, fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
+    bowlFloor.userData = { sinkBowlFloor: true, visibleSinkBowlBottom: true, recessedDepthIn: bowlHeightForIndex / INCH, sinkMaterial: isVitreousChina ? "vitreous-china" : isGunmetalBlack ? "gunmetal-black" : "stainless-steel", fixtureDetail: true, pelicanProfileId: sink.pelicanProfileId, sinkBowlIndex: bowlIndex + 1 };
     addFixtureNode(bowlFloor);
     const drainRadius = Math.min(1.75 * INCH, bowlInnerWidth * 0.12, bowlInnerDepth * 0.12);
     const drainMaterial = sinkInteriorStencilMaterial(steel.clone(), sinkStencilRef);

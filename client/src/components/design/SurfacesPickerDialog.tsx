@@ -25,6 +25,7 @@ import {
   formatPrice,
   type PelicanCategory,
 } from "@/lib/pelican";
+import { BATHROOM_RECOMMENDED_SECTIONS, type RecommendedRole } from "./RecommendedSurfaces";
 import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
 import { Search, Plus, Check, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
@@ -83,6 +84,7 @@ export function SurfacesPickerDialog({
   onCountertopBacksplashHeightChange,
   activeThreeDBacksplashId = null,
   onSetActiveThreeDBacksplash,
+  roomType = "kitchen",
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -104,8 +106,12 @@ export function SurfacesPickerDialog({
   /** The one selected tile/mosaic product currently dressing 3D wall segments. */
   activeThreeDBacksplashId?: number | null;
   onSetActiveThreeDBacksplash?: (item: SelectedSurface) => void;
+  /** Keeps bathroom catalog choices isolated from kitchen-only fixture families. */
+  roomType?: string;
 }) {
+  const isBathroom = roomType === "bathroom";
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
+  const [bathroomRole, setBathroomRole] = useState<RecommendedRole>("bathroom-sink");
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
@@ -119,7 +125,7 @@ export function SurfacesPickerDialog({
   // Which categories actually have designer-visible items
   const { data: cats } = trpc.pelican.categories.useQuery(
     { scope: "designer" },
-    { enabled: open }
+    { enabled: open && !isBathroom }
   );
   const availableCats = useMemo(() => {
     const have = new Set((cats ?? []).map((c) => c.category));
@@ -142,7 +148,11 @@ export function SurfacesPickerDialog({
       limit: PAGE_LIMIT,
       offset: 0,
     },
-    { enabled: open && category !== "Preferred" }
+    { enabled: open && !isBathroom && category !== "Preferred" }
+  );
+  const { data: bathroomData, isLoading: bathroomLoading } = trpc.surfaces.recommended.useQuery(
+    { role: bathroomRole, limit: PAGE_LIMIT },
+    { enabled: open && isBathroom },
   );
 
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
@@ -168,13 +178,18 @@ export function SurfacesPickerDialog({
       coverageSqFt: product.coverageSqFt ?? null,
       unsupportedOverhangLimitIn: product.unsupportedOverhangLimitIn ?? null,
     })), [verifiedPreferredProducts]);
-  const items = category === "Preferred" ? preferredItems : data?.items ?? [];
-  const paletteLoading = category === "Preferred" ? preferredProductsLoading : isLoading;
+  const items: SelectedSurface[] = (isBathroom
+    ? bathroomData ?? []
+    : category === "Preferred"
+      ? preferredItems
+      : data?.items ?? []) as SelectedSurface[];
+  const paletteLoading = isBathroom ? bathroomLoading : category === "Preferred" ? preferredProductsLoading : isLoading;
   const visibleItems = useMemo(() => {
     const searched = category !== "Preferred" || !debounced
       ? items
       : items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(debounced.toLowerCase()));
     return searched.filter((item) => {
+      if (isBathroom) return true;
       if (item.category === "Sinks & Faucets") return hasVerifiedPelicanFixtureProfile(item.pelicanCode);
       const isMaterialRole = item.category === "Flooring"
         || item.category === "Tile & Mosaic"
@@ -188,7 +203,7 @@ export function SurfacesPickerDialog({
       }
       return isMaterialRole && Boolean(item.materialImageUrl?.trim());
     });
-  }, [category, countertopSwatchFilter, debounced, items]);
+  }, [category, countertopSwatchFilter, debounced, isBathroom, items]);
   const countertopSwatchCounts = useMemo(() => {
     const countertops = items.filter((item) => item.category === "Quartz Slabs (Countertops)");
     const ready = countertops.filter((item) => matchesCountertopSwatchFilter(item, "swatch-ready")).length;
@@ -200,17 +215,19 @@ export function SurfacesPickerDialog({
       <DialogContent className="flex h-[85vh] max-h-[85vh] max-w-4xl flex-col gap-0 overflow-hidden p-0">
         <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Waves className="h-5 w-5 text-[var(--color-gold)]" /> Surfaces & Fixtures
+            <Waves className="h-5 w-5 text-[var(--color-gold)]" /> {isBathroom ? "Bathroom Fixtures" : "Surfaces & Fixtures"}
           </DialogTitle>
           <DialogDescription className="hidden sm:block text-xs sm:text-sm">
-            Add source-ready Pelican finishes and fixtures to this design. A new flooring or backsplash choice replaces the prior material everywhere in the final kitchen.
+            {isBathroom
+              ? "Browse active, source-priced Pelican bathroom fixtures only. Catalog selections are retained in the design; only verified vanity basins and faucets receive a measured 3D installation through a compatible vanity base."
+              : "Add source-ready Pelican finishes and fixtures to this design. A new flooring or backsplash choice replaces the prior material everywhere in the final kitchen."}
           </DialogDescription>
         </DialogHeader>
 
         {/* Category tabs + search */}
         <div className="shrink-0 flex flex-col gap-2 sm:gap-3 border-b border-border px-4 py-2 sm:px-6 sm:py-3">
           <div className="flex gap-2 overflow-x-auto pb-1 -mb-1 scrollbar-none">
-            {preferredItems.length > 0 && (
+            {!isBathroom && preferredItems.length > 0 && (
               <Button
                 size="sm"
                 variant={category === "Preferred" ? "default" : "outline"}
@@ -220,7 +237,17 @@ export function SurfacesPickerDialog({
                 Preferred ({preferredItems.length})
               </Button>
             )}
-            {availableCats.map((c) => (
+            {isBathroom ? BATHROOM_RECOMMENDED_SECTIONS.map((section) => (
+              <Button
+                key={section.role}
+                size="sm"
+                variant={section.role === bathroomRole ? "default" : "outline"}
+                className="h-7 text-xs whitespace-nowrap shrink-0"
+                onClick={() => setBathroomRole(section.role)}
+              >
+                {section.label}
+              </Button>
+            )) : availableCats.map((c) => (
               <Button
                 key={c}
                 size="sm"
@@ -238,7 +265,7 @@ export function SurfacesPickerDialog({
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder={category === "Preferred" ? "Search preferred products…" : `Search ${category.toLowerCase()}…`}
+                placeholder={isBathroom ? "Search bathroom fixtures…" : category === "Preferred" ? "Search preferred products…" : `Search ${category.toLowerCase()}…`}
                 className="pl-9"
               />
             </div>
@@ -255,10 +282,10 @@ export function SurfacesPickerDialog({
               </Select>
             )}
           </div>
-          {category === "Preferred" && (
+          {!isBathroom && category === "Preferred" && (
             <p className="text-[10px] leading-relaxed text-muted-foreground">Saved favorites remain in your catalog list. This Designer view shows only favorites that are active, priced, Designer-enabled, and verified for an exact material or fixture role.</p>
           )}
-          {category === "Sinks & Faucets" && (
+          {!isBathroom && category === "Sinks & Faucets" && (
             <p className="text-[10px] leading-relaxed text-muted-foreground">Only fixtures with a source-verified 3D profile are shown here. Choose a sink and faucet through a compatible sink base to place their measured 3D models in the kitchen; adding an item here also retains it in the quote.</p>
           )}
           {category === "Tile & Mosaic" && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
@@ -314,7 +341,7 @@ export function SurfacesPickerDialog({
               </div>
             ) : visibleItems.length === 0 ? (
               <div className="py-14 text-center text-sm text-muted-foreground">
-                {category === "Preferred" ? "No saved products currently meet the verified Designer gate." : `No ${category.toLowerCase()} items match your search.`}
+                {isBathroom ? "No source-priced bathroom fixtures match your search." : category === "Preferred" ? "No saved products currently meet the verified Designer gate." : `No ${category.toLowerCase()} items match your search.`}
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">

@@ -8,6 +8,7 @@ import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
 import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
+import { isPelicanVanityFaucetCode, isPelicanVanitySinkCode } from "../lib/pelicanFixtureRole";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -58,14 +59,89 @@ async function toReferenceUrl(imageUrl: string | null | undefined): Promise<stri
 const SelectionItem = z.object({
   id: z.number().int().positive(),
   category: z.string(),
-  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet", "pot-filler", "range-top"]).optional(),
+  role: z.enum(["flooring", "tile", "countertop", "sink", "faucet", "vanity-sink", "vanity-faucet", "pot-filler", "range-top"]).optional(),
 });
 
 // Roles the Designer surfaces into: each maps to a real Pelican category (and
 // subCategory where a category is shared, e.g. Sinks & Faucets). This is the
 // single server-side source of truth for the Designer's recommended lists.
-const RECOMMENDED_ROLE = z.enum(["flooring", "backsplash", "countertop", "sink", "faucet", "pot-filler", "range-top"]);
+const RECOMMENDED_ROLE = z.enum([
+  "flooring",
+  "backsplash",
+  "countertop",
+  "sink",
+  "faucet",
+  "vanity-sink",
+  "vanity-faucet",
+  "bathroom-sink",
+  "bathroom-faucet",
+  "toilet-bidet",
+  "bathtub",
+  "shower-door",
+  "shower-surround",
+  "shower-system",
+  "pot-filler",
+  "range-top",
+]);
 type RecommendedRole = z.infer<typeof RECOMMENDED_ROLE>;
+
+const BATHROOM_CATALOG_ROLES = new Set<RecommendedRole>([
+  "bathroom-sink",
+  "bathroom-faucet",
+  "toilet-bidet",
+  "bathtub",
+  "shower-door",
+  "shower-surround",
+  "shower-system",
+]);
+
+function isBathroomCatalogRole(role: RecommendedRole): boolean {
+  return BATHROOM_CATALOG_ROLES.has(role);
+}
+
+function bathroomSourceText(product: { name?: string | null; description?: string | null }): string {
+  return `${product.name ?? ""} ${product.description ?? ""}`.toLowerCase();
+}
+
+/**
+ * Imported categories are not reliable bathroom families: tubs are historically
+ * stored under Sink & Faucet Accessories and a few vanity basins are misnamed.
+ * These predicates preserve the source records while keeping kitchen products
+ * out of the bathroom palette.
+ */
+function matchesBathroomCatalogRole(
+  product: { category: string; subCategory?: string | null; pelicanCode?: string | null; name?: string | null; description?: string | null },
+  role: RecommendedRole,
+): boolean {
+  const text = bathroomSourceText(product);
+  switch (role) {
+    case "bathroom-sink":
+      return isPelicanVanitySinkCode(product.pelicanCode)
+        || (product.category === "Sinks & Faucets"
+          && /\b(?:bathroom|vanity|vessel|lavatory)\b/.test(text)
+          && /\b(?:sink|basin|vanity top)\b/.test(text));
+    case "bathroom-faucet":
+      return product.category === "Sinks & Faucets"
+        && (isPelicanVanityFaucetCode(product.pelicanCode)
+          || (/\b(?:bathroom|vanity|vessel|tub)\b/.test(text) && /\bfaucet\b/.test(text)));
+    case "toilet-bidet":
+      return product.category === "Toilets & Bidets";
+    case "bathtub":
+      return product.category === "Sinks & Faucets"
+        && /\b(?:bathtub|soaking tub)\b/.test(text)
+        // A complete Pelican tub correctly mentions its included drain
+        // assembly; only stand-alone faucet products are excluded here.
+        && !/\bfaucet\b/.test(text);
+    case "shower-door":
+      return product.category === "Shower & Bath" && product.subCategory === "Shower & Tub Doors";
+    case "shower-surround":
+      return product.category === "Shower & Bath" && product.subCategory === "Shower Surrounds";
+    case "shower-system":
+      return product.category === "Shower & Bath" && product.subCategory === "Shower Valves & Systems";
+    default:
+      return false;
+  }
+}
 
 function roleFilter(role: RecommendedRole) {
   switch (role) {
@@ -81,10 +157,21 @@ function roleFilter(role: RecommendedRole) {
       return eq(pelicanProducts.category, "Quartz Slabs (Countertops)");
     case "sink":
     case "faucet":
+    case "vanity-sink":
+    case "vanity-faucet":
+    case "bathroom-sink":
+    case "bathroom-faucet":
+    case "bathtub":
     case "pot-filler":
       // Imported subcategories contain historical misclassifications. The
       // response below derives the final placement family from product text.
       return eq(pelicanProducts.category, "Sinks & Faucets");
+    case "toilet-bidet":
+      return eq(pelicanProducts.category, "Toilets & Bidets");
+    case "shower-door":
+    case "shower-surround":
+    case "shower-system":
+      return eq(pelicanProducts.category, "Shower & Bath");
     case "range-top":
       return eq(pelicanProducts.category, "Range Tops");
   }
@@ -116,9 +203,18 @@ export const surfacesRouter = router({
             // Pot fillers are intentionally excluded from the generic Designer
             // palette until this explicit range-wall workflow attaches them to
             // an eligible range/cooktop and records a project mount datum.
-            input.role === "pot-filler" ? undefined : eq(pelicanProducts.showInDesigner, true),
-            isNotNull(pelicanProducts.imageUrl),
-            ne(pelicanProducts.imageUrl, "")
+            // Pelican's bathroom rows predate the kitchen-only Designer flag.
+            // Filter them by active source identity and documented family below,
+            // rather than hiding valid tubs or shower items because they were
+            // never intended for the original kitchen palette.
+            input.role === "pot-filler" || isBathroomCatalogRole(input.role)
+              ? undefined
+              : eq(pelicanProducts.showInDesigner, true),
+            // Bathroom catalog selections are still source-priced and active
+            // when the supplier has not delivered a card image. The UI shows a
+            // labeled fallback rather than hiding a real toilet, tub, or door.
+            isBathroomCatalogRole(input.role) ? undefined : isNotNull(pelicanProducts.imageUrl),
+            isBathroomCatalogRole(input.role) ? undefined : ne(pelicanProducts.imageUrl, "")
           )
         )
         .orderBy(
@@ -128,7 +224,7 @@ export const surfacesRouter = router({
         )
         // Sink/faucet source labels need post-query classification; request
         // sufficient candidates so misplaced fixtures do not get starved.
-        .limit(input.role === "sink" || input.role === "faucet" || input.role === "pot-filler" ? 480 : input.limit + 12);
+        .limit(input.role === "sink" || input.role === "faucet" || input.role === "vanity-sink" || input.role === "vanity-faucet" || input.role === "pot-filler" || isBathroomCatalogRole(input.role) ? 480 : input.limit + 12);
       const recommendations = rows
         .map((r) => ({
           id: r.id,
@@ -146,8 +242,14 @@ export const surfacesRouter = router({
           sellPrice: sellPriceOf(r, map),
         }))
         .filter((r) => r.sellPrice != null && r.sellPrice > 0)
-        .filter((r) => pelicanDesignerRole(r) === input.role)
-        .filter((r) => input.role === "pot-filler" ? true : isPelicanDesignerSelectable(r));
+        .filter((r) => isBathroomCatalogRole(input.role)
+          ? matchesBathroomCatalogRole(r, input.role)
+          : input.role === "vanity-sink"
+            ? isPelicanVanitySinkCode(r.pelicanCode)
+            : input.role === "vanity-faucet"
+              ? isPelicanVanityFaucetCode(r.pelicanCode)
+              : pelicanDesignerRole(r) === input.role)
+        .filter((r) => isBathroomCatalogRole(input.role) || input.role === "vanity-sink" || input.role === "vanity-faucet" || input.role === "pot-filler" ? true : isPelicanDesignerSelectable(r));
       return recommendations.slice(0, input.limit);
     }),
 

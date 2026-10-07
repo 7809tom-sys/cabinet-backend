@@ -6265,6 +6265,23 @@ export function trimPiecesNeeded(
 // Island tops use the island footprint directly.
 export const COUNTERTOP_DEPTH_IN = 25.5;
 
+/**
+ * A bathroom vanity keeps its catalog body depth in the shared countertop
+ * geometry. Pelican vanity bases are 21 inches deep, so their finished top is
+ * 22.5 inches (the standard 1.5-inch front overhang), not the kitchen-only
+ * 25.5-inch depth. Other base/filler/corner families retain the established
+ * 24-inch kitchen base standard and therefore remain 25.5 inches deep.
+ */
+export function countertopDepthForCabinet(cabinet: Pick<PlacedCabinet, "masterCode" | "description" | "category" | "subCategory" | "depth">): number {
+  const source = `${cabinet.masterCode ?? ""} ${cabinet.category ?? ""} ${cabinet.subCategory ?? ""} ${cabinet.description ?? ""}`;
+  const isVanity = /\bvanity\b/i.test(source) || /^(?:VSD|VDB|VDDB|VS)\d/i.test((cabinet.masterCode ?? "").trim());
+  const cabinetDepth = Number(cabinet.depth);
+  if (isVanity && Number.isFinite(cabinetDepth) && cabinetDepth > 0) {
+    return cabinetDepth + 1.5;
+  }
+  return COUNTERTOP_DEPTH_IN;
+}
+
 export interface CountertopMeasurement {
   linearFeet: number; // total run of base cabinets that take a top, in feet
   squareFeet: number; // run x countertop depth (+ island + waterfall), in sq ft
@@ -6296,16 +6313,19 @@ export function countertopArea(
   );
   const perimeterPlaced = island ? placed.filter((item) => !isIslandMember(item)) : placed;
   const peninsulaRunIds = new Set((room?.peninsulaRuns ?? []).map((run) => run.id));
-  const straightRunInches = perimeterPlaced
-    .filter((p) => p.placement === "base" && !peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM)))
+  const straightBases = perimeterPlaced
+    .filter((p) => p.placement === "base" && !peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM)));
+  const straightRunInches = straightBases
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
+  const straightCountertopSquareIn = straightBases
+    .reduce((sum, p) => sum + rotatedSize(p).w * countertopDepthForCabinet(p), 0);
   const peninsulaSurfaces = room
     ? countertopSurfaces(perimeterPlaced, room).filter((surface) => Boolean(surface.peninsulaRunId))
     : [];
   const peninsulaRunInches = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.runLinearInches ?? surface.linearInches ?? 0), 0);
   const peninsulaSquareIn = peninsulaSurfaces.reduce((sum, surface) => sum + (surface.areaInches ?? 0), 0);
   const runInches = straightRunInches + peninsulaRunInches;
-  let squareIn = straightRunInches * COUNTERTOP_DEPTH_IN + peninsulaSquareIn;
+  let squareIn = straightCountertopSquareIn + peninsulaSquareIn;
   let islandSquareIn = 0;
   const islandSupports = island ? placed.filter((item) => isIslandMember(item) && bearsIslandCountertop(item)) : [];
   const measuredIslandSquareIn = island && islandSlabs != null
@@ -6363,7 +6383,7 @@ export function countertopArea(
   }
   squareIn += waterfallSqIn;
   const waterfallSqFt = Math.ceil((waterfallSqIn / 144) * 10) / 10;
-  const perimeterSquareFeet = Math.ceil(((straightRunInches * COUNTERTOP_DEPTH_IN + peninsulaSquareIn + waterfallSqIn) / 144) * 10) / 10;
+  const perimeterSquareFeet = Math.ceil(((straightCountertopSquareIn + peninsulaSquareIn + waterfallSqIn) / 144) * 10) / 10;
   const islandSquareFeet = Math.ceil((islandSquareIn / 144) * 10) / 10;
   return {
     runInches,
@@ -12366,13 +12386,13 @@ export function countertopSurfaces(
   ponyWalls: readonly PonyWall[] = [],
 ): CountertopSurface[] {
   const out: CountertopSurface[] = [];
-  const D = COUNTERTOP_DEPTH_IN;
   for (const p of placed) {
     // Countertop-bearing bases and confirmed installed filler pieces get a slab.
     // Loose fillers, tall cabinets, appliances, and panels remain excluded.
     if (!bearsCountertop(p)) continue;
     if (island && isOnIsland(p, island)) continue;
     const side = cabinetWall(p, room);
+    const D = countertopDepthForCabinet(p);
     const footprint = placedFootprint(p);
     const peninsula = peninsulaRunById(room, side);
     // Explicit peninsula runs are collected below into a single continuous
@@ -12635,7 +12655,7 @@ export interface SinkFixture {
   /** A farmhouse/apron-front sink exposes a measured front below the countertop. */
   apronFront?: boolean;
   /** Source-documented sink surface finish for deterministic physical fixture rendering. */
-  surfaceFinish?: "stainless-steel" | "gunmetal-black";
+  surfaceFinish?: "stainless-steel" | "gunmetal-black" | "vitreous-china" | "vitreous-china-black" | "vitreous-china-bone" | "vitreous-china-grey";
   /** Selected Pelican faucet identity and source-verified parametric profile, when present. */
   pelicanFaucetProductId?: number;
   pelicanFaucetProductName?: string;

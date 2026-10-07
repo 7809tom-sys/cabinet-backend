@@ -6352,6 +6352,21 @@ describe("interactive 3D room scene helpers", () => {
     expect(counterBounds.max.z * 12).toBeCloseTo(25.5, 8);
   });
 
+  it("uses a 22½-inch countertop depth on a 21-inch bathroom vanity base", () => {
+    expect(threeDCountertopDepthIn(21)).toBe(22.5);
+    const root = new THREE.Group();
+    addCabinet(root, {
+      distributorSkuId: -421, cabinetId: 421, masterCode: "VSD42", description: "42 inch Vanity Combo", category: "Vanity", placementType: "base",
+      width: 42, height: 34.5, depth: 21, numberOfDoors: 2, numberOfDrawers: 3,
+    } as never, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", undefined, { x: 48, z: 10.5, rotation: 0, bottom: 0 });
+    let countertop: THREE.Mesh | null = null;
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.countertopDepthIn === 22.5) countertop = node;
+    });
+    expect(countertop).not.toBeNull();
+    expect(((countertop!.geometry as THREE.BoxGeometry).parameters.depth) * 12).toBeCloseTo(22.5, 8);
+  });
+
   it("extends an installed shallow filler countertop to the full 25½-inch base-run depth", () => {
     const filler = {
       fillerPieceGroupId: "filler-group",

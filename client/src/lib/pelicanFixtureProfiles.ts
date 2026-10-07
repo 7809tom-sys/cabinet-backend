@@ -33,7 +33,7 @@ export type VerifiedPelicanSinkProfile = {
   /** Source-documented inset from the bowl's rear edge to its drain center. */
   drainInsetBackIn?: number;
   /** Source-documented physical sink finish persisted for deterministic fixture rendering. */
-  surfaceFinish?: "stainless-steel" | "gunmetal-black";
+  surfaceFinish?: "stainless-steel" | "gunmetal-black" | "vitreous-china" | "vitreous-china-black" | "vitreous-china-bone" | "vitreous-china-grey";
   minimumCabinetWidthIn: number;
   specificationUrl: string;
 };
@@ -83,6 +83,18 @@ export type VerifiedPelicanPotFillerProfile = {
 };
 
 const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
+  "PL-3099": {
+    id: "pelican-pl-3099-pearl-porcelain-undermount-vanity", pelicanCode: "PL-3099", name: "PL-3099 Pearl Series Porcelain Undermount Vanity Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 20.875, exteriorDepthIn: 15.625, exteriorHeightIn: 7.75, bowlWidthIn: 18, bowlDepthIn: 13, bowlHeightIn: 6, surfaceFinish: "vitreous-china", minimumCabinetWidthIn: 20.875,
+    specificationUrl: "https://cdn.accentuate.io/7876660789388/1729870296544/PL-3099-Spec-Sheet.pdf?v=1729870296544",
+  },
+  "PL-3608": {
+    id: "pelican-pl-3608-pearl-porcelain-undermount-vanity", pelicanCode: "PL-3608", name: "PL-3608 Pearl Series Porcelain Undermount Vanity Sink",
+    installation: "undermount", sinkType: "single", apronFront: false,
+    exteriorWidthIn: 19, exteriorDepthIn: 16, exteriorHeightIn: 5.5, bowlWidthIn: 16.5, bowlDepthIn: 13.5, bowlHeightIn: 3.5, surfaceFinish: "vitreous-china", minimumCabinetWidthIn: 19,
+    specificationUrl: "https://cdn.accentuate.io/7876647551116/1729870423997/PL-3608-Spec-Sheet.pdf?v=1729870423997",
+  },
   "PL-HA109": {
     id: "pelican-pl-ha109-stainless-undermount", pelicanCode: "PL-HA109", name: "PL-HA109 Stainless Steel Undermount Sink",
     installation: "undermount", sinkType: "single", apronFront: false,
@@ -350,6 +362,16 @@ const VERIFIED_PELICAN_SINKS: Record<string, VerifiedPelicanSinkProfile> = {
 };
 
 const VERIFIED_PELICAN_FAUCETS: Record<string, VerifiedPelicanFaucetProfile> = {
+  "PL-8112 BN": {
+    id: "pelican-pl-8112-cascade-vanity-brushed-nickel", pelicanCode: "PL-8112 BN", name: "PL-8112 Cascade Series Vanity Faucet — Brushed Nickel",
+    installation: "single-hole", overallHeightIn: 12.4375, spoutLengthIn: 3.9375, spoutHeightIn: 7.6875, profile: "standard-arc", finish: "brushed-nickel",
+    specificationUrl: "https://cdn.accentuate.io/7876661543052/1729880913717/PL-8112-Spec-Sheet.pdf?v=1734119006276",
+  },
+  "PL-8112 CHR": {
+    id: "pelican-pl-8112-cascade-vanity-chrome", pelicanCode: "PL-8112 CHR", name: "PL-8112 Cascade Series Vanity Faucet — Chrome",
+    installation: "single-hole", overallHeightIn: 12.4375, spoutLengthIn: 3.9375, spoutHeightIn: 7.6875, profile: "standard-arc", finish: "chrome",
+    specificationUrl: "https://cdn.accentuate.io/7876661543052/1729880913717/PL-8112-Spec-Sheet.pdf?v=1734119006276",
+  },
   "PL-8203": {
     id: "pelican-pl-8203-fountain-pull-down", pelicanCode: "PL-8203", name: "PL-8203 Fountain Series Pull-Down Kitchen Faucet",
     installation: "single-hole", overallHeightIn: 27.1875, spoutLengthIn: 9.875, spoutHeightIn: 4.9375, profile: "pull-down", finish: "brushed-nickel",
@@ -554,6 +576,7 @@ const VERIFIED_PELICAN_POT_FILLERS: Record<string, VerifiedPelicanPotFillerProfi
 
 function normalizedPelicanCode(value: string | null | undefined): string {
   const normalized = (value ?? "").trim().toUpperCase().replace(/\s+\(OLD\)$/, "").replace(/\s+(?:BLACK|GREY|WHITE)$/, "");
+  if (/^PL-3099(?:\s|$)/.test(normalized)) return "PL-3099";
   if (/^PL-HA109\s+ADA\s+R(?:0|15)\s+18G$/.test(normalized)) return "PL-HA109 ADA";
   if (/^PL-HA109\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA109";
   if (/^PL-HA115\s+R(?:0|15)\s+(?:16|18)G$/.test(normalized)) return "PL-HA115";
@@ -601,7 +624,17 @@ function normalizedPelicanCode(value: string | null | undefined): string {
 }
 
 export function verifiedPelicanSinkProfile(code: string | null | undefined): VerifiedPelicanSinkProfile | null {
-  return VERIFIED_PELICAN_SINKS[normalizedPelicanCode(code)] ?? null;
+  const profile = VERIFIED_PELICAN_SINKS[normalizedPelicanCode(code)] ?? null;
+  if (!profile || profile.pelicanCode !== "PL-3099") return profile;
+  const normalized = (code ?? "").trim().toUpperCase();
+  const surfaceFinish = /MATTE\s+BLACK|GLOSS\s+BLACK/.test(normalized)
+    ? "vitreous-china-black" as const
+    : /MATTE\s+GREY/.test(normalized)
+      ? "vitreous-china-grey" as const
+      : /\bBONE\b/.test(normalized)
+        ? "vitreous-china-bone" as const
+        : "vitreous-china" as const;
+  return { ...profile, surfaceFinish };
 }
 
 export function verifiedPelicanFaucetProfile(code: string | null | undefined): VerifiedPelicanFaucetProfile | null {
@@ -617,6 +650,17 @@ export function verifiedPelicanPotFillerProfile(code: string | null | undefined)
 
 export function hasVerifiedPelicanFixtureProfile(code: string | null | undefined): boolean {
   return Boolean(verifiedPelicanSinkProfile(code) || verifiedPelicanFaucetProfile(code) || verifiedPelicanPotFillerProfile(code));
+}
+
+/** Bathroom-only profiles keep vanity fixtures out of the kitchen sink/faucet workflow. */
+export function isVerifiedPelicanVanitySink(code: string | null | undefined): boolean {
+  const profile = verifiedPelicanSinkProfile(code);
+  return profile?.pelicanCode === "PL-3099" || profile?.pelicanCode === "PL-3608";
+}
+
+/** Bathroom-only profiles keep vanity faucets out of the kitchen sink/faucet workflow. */
+export function isVerifiedPelicanVanityFaucet(code: string | null | undefined): boolean {
+  return /^PL-8112\s+(?:BN|CHR)$/.test((code ?? "").trim().toUpperCase());
 }
 
 export function verifiedPelicanSinkFitsCabinet(profile: VerifiedPelicanSinkProfile, cabinetWidthIn: number): boolean {

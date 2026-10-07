@@ -239,8 +239,10 @@ describe("DesignTool island scene and glass catalog wiring", () => {
   });
 
   it("prioritizes verified compatible Pelican sinks in the sink-base dialog without changing catalog popularity data", () => {
-    expect(source).toContain('{ role: "sink", limit: 24 }');
-    expect(source).toContain(".filter((product) => isPelicanSinkCompatibleWithBase(product, sinkBaseKind))");
+    expect(source).toContain('{ role: bathroomSinkDialog ? "vanity-sink" : "sink", limit: 24 }');
+    expect(source).toContain('bathroomSinkDialog ? "vanity-faucet" : "faucet"');
+    expect(source).toContain("? isVerifiedPelicanVanitySink(product.pelicanCode)");
+    expect(source).toContain(": isPelicanSinkCompatibleWithBase(product, sinkBaseKind))");
     expect(source).toContain("sinkBaseOpeningWidthIn(sinkBaseCabinet ?? undefined)");
     expect(source).toContain("verifiedPelicanSinkFitsCabinet(profile, sinkBaseOpeningWidth)");
     expect(source).toContain("verifiedPelicanSinkProfile(right.pelicanCode)");
