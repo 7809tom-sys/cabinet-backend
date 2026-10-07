@@ -203,6 +203,9 @@ describe("Closet Studio tablet workspace", () => {
     expect(scene).toContain("profileIllustrative: true");
     expect(scene).toContain("installationFitToVerify: true");
     expect(scene).toContain("conservative 29.5-in collision envelope");
+    expect(scene).not.toContain("cornerShelfCollisionEnvelope");
+    expect(scene).not.toContain("cornerShelfSelectionMarker");
+    expect(scene).not.toContain("cornerOutlineMat");
   });
 
   it("keeps an always-visible Corner shelf action targeted at the actual planner rather than requiring dock scrolling", () => {

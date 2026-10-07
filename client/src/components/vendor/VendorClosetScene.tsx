@@ -108,7 +108,6 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const drawerMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.6 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xb9a37b, metalness: 0.7, roughness: 0.33 });
     const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xca9255, roughness: 0.46, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
-    const cornerOutlineMat = new THREE.LineBasicMaterial({ color: 0x6f4527 });
     const basketWireMat = new THREE.LineBasicMaterial({ color: 0x697b7c, transparent: true, opacity: 0.9 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -228,7 +227,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       else if (design.wall === "left") { activeTowerParts.rotation.y = Math.PI / 2; activeTowerParts.position.set(footprint.xMin * IN, 0, footprint.zMax * IN); }
       else { activeTowerParts.rotation.y = Math.PI; activeTowerParts.position.set(footprint.xMax * IN, 0, footprint.zMax * IN); }
     }
-    // The visible board is a deliberately illustrative pie; the dashed square below remains the conservative 29.5-in collision envelope.
+    // The visible board is a deliberately illustrative pie; the conservative 29.5-in collision envelope remains model-only.
     for (const shelf of visibleCornerShelves) {
       const footprint = studioCornerPlanningFootprint(design, shelf);
       const r = shelf.nominalFootprintIn * IN;
@@ -247,15 +246,6 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       mesh.castShadow = true; mesh.receiveShadow = true;
       mesh.userData = { cornerShelfPlanningEnvelope: true, illustrativePieShelf: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
       parts.add(mesh);
-      const envelope = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN)), cornerOutlineMat);
-      envelope.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);
-      envelope.userData = { cornerShelfCollisionEnvelope: true, visualPlanningOnly: true, nominalFootprintIn: shelf.nominalFootprintIn };
-      parts.add(envelope);
-      if (shelf.id === selectedCornerId) {
-        const outline = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), cornerOutlineMat);
-        outline.position.copy(mesh.position); outline.userData = { cornerShelfSelectionMarker: true, cornerId: shelf.cornerId };
-        parts.add(outline);
-      }
       if (shelf.towerConnection === "visualAligned") {
         const companionWall = shelf.wallIds.find((wall) => wall !== design.wall);
         if (companionWall) renderCompanionTower(companionWall);
@@ -308,7 +298,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line) object.geometry.dispose();
       });
-      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, cornerOutlineMat, basketWireMat, hintMat, hitMat]) {
+      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, basketWireMat, hintMat, hitMat]) {
         if (Array.isArray(material)) material.forEach((mat) => mat.dispose()); else material.dispose();
       }
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);
