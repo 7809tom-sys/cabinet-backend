@@ -100,6 +100,33 @@ describe("source-measured Pelican bathroom fixtures", () => {
     });
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "alcove-tub-well")).toBe(true);
   });
+
+  it("renders Pelican's sliding shower door as a labelled visual envelope without inventing an enclosure", () => {
+    const root = new THREE.Group();
+    addFurniture(root, {
+      uid: "pelican-shower-door",
+      defId: "pelican-shower-door-pl-03a42s",
+      pelicanCode: "PL-03A42S",
+      x: 18,
+      y: 42,
+      rotation: 0,
+    });
+    const fixture = root.children.find((child) => child.userData.pelicanBathroomFixture);
+    expect(fixture?.userData).toMatchObject({
+      pelicanCode: "PL-03A42S",
+      fixtureKind: "shower-door",
+      sourceEnvelopeIn: { width: 60, depth: 0.5, height: 76 },
+    });
+    expect(fixture?.children.filter((child) => child.userData.pelicanBathroomFixturePart === "shower-door-glass-panel")).toHaveLength(2);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "shower-door-rail")).toBe(true);
+  });
+
+  it("renders a Bathroom starter zone as a non-product planning overlay", () => {
+    const root = new THREE.Group();
+    addFurniture(root, { uid: "bath-zone", defId: "bathroom-zone-vanity-60", x: 0, y: 0, rotation: 0 });
+    const zone = root.children.flatMap((group) => group.children).find((child) => child.userData.bathroomPlanningZone === true);
+    expect(zone?.userData).toMatchObject({ bathroomPlanningZone: true, planningOnly: true, furnitureDefId: "bathroom-zone-vanity-60" });
+  });
 });
 
 describe("embedded 3D workspace viewport", () => {

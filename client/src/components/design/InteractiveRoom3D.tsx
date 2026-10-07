@@ -8238,7 +8238,26 @@ function addPelicanBathroomFixture(
     group.add(mesh);
   };
 
-  if (profile.kind === "toilet") {
+  if (profile.kind === "shower-door" || profile.kind === "tub-door") {
+    // Pelican publishes nominal width and exact overall / door heights. This
+    // source-bounded glass plane deliberately does not invent a curb, wall,
+    // track setback, or finished installation opening.
+    const panelHeight = (profile.visiblePanelHeightIn ?? profile.heightIn) * INCH;
+    const glass = new THREE.MeshPhysicalMaterial({ color: "#d8eef4", roughness: 0.05, metalness: 0, transmission: 0.68, transparent: true, opacity: 0.38, side: THREE.DoubleSide });
+    const metal = new THREE.MeshStandardMaterial({ color: "#77828a", roughness: 0.28, metalness: 0.85 });
+    for (const x of [-width / 4, width / 4]) {
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(width / 2 - 0.006, panelHeight, Math.max(depth, 0.015)), glass);
+      panel.position.set(x, panelHeight / 2, 0);
+      add(panel, "shower-door-glass-panel");
+    }
+    const rail = new THREE.Mesh(new THREE.BoxGeometry(width, 0.045, 0.045), metal);
+    rail.position.y = height - 0.0225;
+    add(rail, "shower-door-rail");
+  } else if (profile.kind === "shower-wall") {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(width, height, Math.max(depth, 0.02)), new THREE.MeshStandardMaterial({ color: "#e7e2dc", roughness: 0.72 }));
+    panel.position.y = height / 2;
+    add(panel, "shower-wall-panel");
+  } else if (profile.kind === "toilet") {
     const bowlHeight = Math.min(height * 0.55, (profile.seatHeightIn ?? profile.heightIn * 0.48) * INCH);
     const bowl = new THREE.Mesh(new RoundedBoxGeometry(width * 0.78, bowlHeight, depth * 0.62, Math.min(width, depth) * 0.09, 5), shell);
     bowl.position.set(0, bowlHeight / 2, depth * 0.13);
@@ -8301,6 +8320,18 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
   group.position.set(transform.x, 0, transform.z);
   group.rotation.y = transform.rotation;
   group.userData = { furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
+  if (def.category === "bathroom-zone") {
+    const zoneMaterial = new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
+    const zone = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, depth), zoneMaterial);
+    zone.position.y = 0.0125;
+    zone.userData = { bathroomPlanningZone: true, planningOnly: true, furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
+    const border = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(width, 0.025, depth)), new THREE.LineBasicMaterial({ color: def.color }));
+    border.position.y = 0.025;
+    border.userData = { bathroomPlanningZoneBorder: true, planningOnly: true };
+    group.add(zone, border);
+    root.add(group);
+    return;
+  }
   const material = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7 });
   const height = def.category === "table" ? 2.5 : def.category === "stool" ? 2.1 : 1.5;
   const body = def.shape === "round"

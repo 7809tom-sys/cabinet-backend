@@ -13523,7 +13523,7 @@ export type FurnitureShape = "rect" | "round";
 export interface FurnitureDef {
   id: string;
   name: string;
-  category: "table" | "chair" | "stool" | "bench" | "other" | "bathroom-fixture";
+  category: "table" | "chair" | "stool" | "bench" | "other" | "bathroom-fixture" | "bathroom-zone";
   shape: FurnitureShape;
   /** Width in inches (diameter for round items) */
   w: number;
@@ -13549,6 +13549,11 @@ export const FURNITURE_CATALOG: FurnitureDef[] = [
   { id: "stool-counter", name: "Counter Stool",           category: "stool", shape: "round", w: 16, d: 16, clearance: 0,  color: "#6b5b45" },
   { id: "bench-48",      name: 'Bench 48"',               category: "bench", shape: "rect",  w: 48, d: 14, clearance: 0,  color: "#7a6a50" },
   { id: "bench-60",      name: 'Bench 60"',               category: "bench", shape: "rect",  w: 60, d: 14, clearance: 0,  color: "#7a6a50" },
+  // Non-cartable, movable planning zones used only by the Bathroom starter.
+  // These are intentionally not substitutes for actual source-priced fixtures.
+  { id: "bathroom-zone-vanity-60", name: 'Vanity zone · 60"', category: "bathroom-zone", shape: "rect", w: 60, d: 24, clearance: 0, color: "#2f6690" },
+  { id: "bathroom-zone-toilet", name: "Toilet zone", category: "bathroom-zone", shape: "rect", w: 30, d: 54, clearance: 0, color: "#79654d" },
+  { id: "bathroom-zone-tub-60", name: 'Tub zone · 60"', category: "bathroom-zone", shape: "rect", w: 60, d: 32, clearance: 0, color: "#5a879d" },
   ...VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.map((profile): FurnitureDef => ({
     id: profile.id,
     name: profile.name,
@@ -13587,8 +13592,8 @@ export function makeFurniture(defId: string, x: number, y: number): PlacedFurnit
 }
 
 /**
- * Persist a price-locked, source-measured Pelican toilet, bidet, or tub as a
- * movable floor-plan fixture. Image-only catalog rows, including the 67-inch
+ * Persist a price-locked, source-measured Pelican bathroom fixture as a movable
+ * floor-plan fixture. Image-only catalog rows, including the 67-inch
  * freestanding variants, cannot become 3D geometry until Pelican publishes a
  * full width × depth × height technical sheet.
  */

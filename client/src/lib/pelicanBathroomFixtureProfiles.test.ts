@@ -55,6 +55,39 @@ describe("Pelican bathroom fixture placement profiles", () => {
     expect(pelicanBathroomFixturePlacementText('PL-02146 67"')).toContain("pending");
   });
 
+  it("uses Pelican's nominal shower-door and tub-door dimensions only as visual planning envelopes", () => {
+    expect(verifiedPelicanBathroomFixtureProfile("PL-03A42S")).toMatchObject({
+      kind: "shower-door",
+      widthIn: 60,
+      depthIn: 0.5,
+      heightIn: 76,
+      visiblePanelHeightIn: 71 + 5 / 8,
+      planningOnly: true,
+    });
+    expect(verifiedPelicanBathroomFixtureProfile("PL-03A42T")).toMatchObject({
+      kind: "tub-door",
+      widthIn: 60,
+      depthIn: 0.5,
+      heightIn: 59 + 1 / 6,
+      visiblePanelHeightIn: 54 + 13 / 16,
+      planningOnly: true,
+    });
+    expect(verifiedPelicanBathroomFixtureProfile("PL-03A42S60 MB")).toMatchObject({
+      id: "pelican-shower-door-pl-03a42s",
+      pelicanCode: "PL-03A42S60 MB",
+      widthIn: 60,
+      planningOnly: true,
+    });
+    expect(verifiedPelicanBathroomFixtureProfile("PL-603074 Brick")).toMatchObject({
+      id: "pelican-shower-wall-pl-603074",
+      pelicanCode: "PL-603074 BRICK",
+      widthIn: 60,
+      depthIn: 30,
+      heightIn: 74,
+    });
+    expect(pelicanBathroomFixturePlacementText("PL-03A42S")).toContain("visual planning envelope");
+  });
+
   it("rejects non-current and unresolved catalog rows from measured placement", () => {
     expect(isPelicanBathroomFixtureProfileVerified("PL-12228")).toBe(false);
     expect(isPelicanBathroomFixtureProfileVerified("PL-12243")).toBe(false);

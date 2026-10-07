@@ -54,7 +54,8 @@ import {
   resolveStoreScope,
 } from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
-import { isPelicanBathroomFixtureProfileVerified } from "@/lib/pelicanBathroomFixtureProfiles";
+import { isPelicanBathroomFixtureProfileVerified, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
+import { BATHROOM_STARTER_TEMPLATE, bathroomPlanningGuidance, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -1679,6 +1680,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
+  const selectedBathroomPlanningGuidance = useMemo(() => {
+    const selected = selectedFurnUid ? furniture.find((item) => item.uid === selectedFurnUid) ?? null : null;
+    const definition = selected ? FURNITURE_CATALOG.find((item) => item.id === selected.defId) ?? null : null;
+    return bathroomPlanningGuidance(verifiedPelicanBathroomFixtureProfile(selected?.pelicanCode ?? definition?.pelicanCode));
+  }, [furniture, selectedFurnUid]);
   const bathroomFixtureQuantityByProduct = useMemo(() => {
     // A selected bathroom fixture is cartable only when an actual persisted
     // plan/3D placement owns it. Seed selected source profiles at zero so a
@@ -8514,6 +8520,37 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setIsland((prev) => clampIslandToRoom(prev, next));
   }, []);
 
+  const applyBathroomStarterTemplate = useCallback(() => {
+    const existingItems = placed.length + openings.length + sinks.length + furniture.length + ponyWalls.length + annotations.length + (island ? 1 : 0);
+    if (layoutLocked) {
+      toast.info("Unlock the room layout before choosing a template.");
+      return;
+    }
+    if (existingItems > 0) {
+      toast.info("Bathroom starter templates begin with a blank room. Save this design and start a new one so existing work is never overwritten.");
+      return;
+    }
+    const starter = makeBathroomStarterTemplate();
+    applyRoom(starter.room);
+    setFurniture(starter.furniture);
+    setRoomType("bathroom");
+    setPaletteType("surfaces");
+    setBathroomCatalogMode("fixtures");
+    setSelectedLayoutPresetId(BATHROOM_STARTER_TEMPLATE.id);
+    setActiveWall("top");
+    setPlacementTarget("wall");
+    setViewMode("plan");
+    setSelectedUid(null);
+    setSelectedOpeningUid(null);
+    setSelectedFurnUid(starter.furniture[0]?.uid ?? null);
+    setPolygonEditMode(false);
+    setDrawMode(false);
+    setMeasureMode(false);
+    setLayoutStarterOpen(false);
+    setMobilePanel(null);
+    toast.success("Bathroom starter applied. Move the labeled planning zones, then select actual Pelican products from Bathroom Fixtures.");
+  }, [annotations.length, applyRoom, furniture.length, island, layoutLocked, openings.length, placed.length, ponyWalls.length, sinks.length]);
+
   const continuousWallBlockedReason = useMemo(() => {
     const existingItems = placed.length
       + openings.length
@@ -14990,7 +15027,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              onDeletePonyWall={(uid: string) => { setPonyWalls(prev => prev.filter(p => p.uid !== uid)); setSelectedPonyWallUid(null); }}
 	            />
 	          )}
-          {viewMode === "plan" && peninsulaDraft && (
+	          {viewMode === "plan" && selectedBathroomPlanningGuidance && (
+	            <aside data-testid="bathroom-fixture-clearance-guidance" className="absolute bottom-3 left-3 z-30 max-w-[min(31rem,calc(100%-1.5rem))] rounded-xl border border-sky-300/70 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+	              <div className="flex items-start gap-2">
+	                <Info className="mt-0.5 h-4 w-4 shrink-0 text-sky-700" aria-hidden />
+	                <div className="min-w-0">
+	                  <p className="font-semibold text-[#1a2744]">{selectedBathroomPlanningGuidance.title}</p>
+	                  <p className="mt-1 leading-relaxed text-slate-600">{selectedBathroomPlanningGuidance.text}</p>
+	                  <a href={selectedBathroomPlanningGuidance.sourceUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex font-semibold text-sky-700 underline underline-offset-2 hover:text-sky-900">Source guidance / technical sheet</a>
+	                </div>
+	              </div>
+	            </aside>
+	          )}
+	          {viewMode === "plan" && peninsulaDraft && (
             <section
               data-testid="peninsula-inline-builder"
               className="absolute right-3 top-3 z-40 flex max-h-[calc(100%-1.5rem)] w-[min(19rem,calc(100%-1.5rem))] flex-col overflow-hidden border border-[#d4a75a] bg-white/95 shadow-lg backdrop-blur"
@@ -18331,6 +18380,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            </DialogDescription>
 	          </DialogHeader>
 	          <div className="space-y-5 p-5">
+	            <section data-testid="bathroom-room-template" className="rounded-xl border border-sky-300/70 bg-sky-50/60 p-4">
+	              <div className="mb-1 text-sm font-semibold text-[#192432]">Bathroom · movable planning-zone template</div>
+	              <p className="mb-3 text-xs leading-5 text-slate-600">Starts a blank 10 ft × 8 ft planning room with non-cartable vanity, toilet, and tub zones. Drag, rotate, or remove the zones, then choose source-priced Pelican fixtures. It does not add a product, price, or installation claim.</p>
+	              <button
+	                type="button"
+	                data-testid="bathroom-template-standard-zones"
+	                disabled={layoutLocked || Boolean(placed.length || openings.length || island || sinks.length || furniture.length || ponyWalls.length || annotations.length)}
+	                onClick={applyBathroomStarterTemplate}
+	                className="w-full rounded-lg border border-sky-400 bg-white p-3 text-left shadow-sm transition-colors hover:border-sky-600 hover:bg-sky-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#192432] disabled:cursor-not-allowed disabled:opacity-50"
+	              >
+	                <span className="block text-sm font-semibold text-[#192432]">{BATHROOM_STARTER_TEMPLATE.label}</span>
+	                <span className="mt-1 block text-xs leading-5 text-slate-600">{BATHROOM_STARTER_TEMPLATE.description}</span>
+	              </button>
+	              {(placed.length > 0 || openings.length > 0 || Boolean(island) || sinks.length > 0 || furniture.length > 0 || ponyWalls.length > 0 || annotations.length > 0) && <p className="mt-2 text-xs font-medium text-amber-800">Templates start a blank room. Save this design and start a new one before choosing a template; existing work will not be moved or erased.</p>}
+	              {layoutLocked && <p className="mt-2 text-xs font-medium text-amber-800">Unlock the room layout before choosing a template.</p>}
+	            </section>
 	            <section data-testid="closet-room-templates" className="rounded-xl border border-[#c8a972]/60 bg-[#faf7f0] p-4">
 	              <div className="mb-1 text-sm font-semibold text-[#192432]">Bedroom closet · one-click room templates</div>
 	              <p className="mb-3 text-xs text-stone-600">Room width × interior depth. Bi-fold dimensions are nominal planning openings, not an orderable door or a rough-opening specification.</p>

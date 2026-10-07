@@ -66,6 +66,49 @@ export type SelectedSurface = {
 const PAGE_LIMIT = 200;
 
 export type CountertopSwatchFilter = "all" | "swatch-ready" | "swatch-pending";
+export type BathroomFixtureFinishFilter = "all" | "white" | "matte-black" | "chrome" | "brushed-nickel" | "brushed-gold" | "other";
+export type BathroomFixtureSizeFilter = "all" | "up-to-24" | "25-to-36" | "37-plus";
+
+export function bathroomFixtureFinishFilter(item: Pick<SelectedSurface, "name" | "pelicanCode" | "size">): Exclude<BathroomFixtureFinishFilter, "all"> {
+  const text = `${item.name} ${item.pelicanCode ?? ""} ${item.size ?? ""}`.toLowerCase();
+  // Pelican's active catalog often expresses a finish in the SKU suffix rather
+  // than the product title. Decode only the documented tokens, alongside their
+  // written forms, so a filter never guesses a finish from a product photo.
+  if (/matte black|gloss black|\bblack\b|\bmb\b/.test(text)) return "matte-black";
+  if (/brushed nickel|\bbn\b/.test(text)) return "brushed-nickel";
+  if (/brushed gold|\bgold\b|\bbg\b/.test(text)) return "brushed-gold";
+  if (/chrome|\bchr\b/.test(text)) return "chrome";
+  if (/white|porcelain|vitreous|toilet|bidet|acrylic/.test(text)) return "white";
+  return "other";
+}
+
+export function bathroomFixtureWidthIn(item: Pick<SelectedSurface, "size" | "pelicanCode">): number | null {
+  const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode);
+  if (profile) return profile.widthIn;
+  const raw = item.size ?? "";
+  const match = raw.match(/(\d+(?:\.\d+)?)(?:\s*[- ]\s*(\d+)\s*\/\s*(\d+))?/);
+  if (!match) return null;
+  const whole = Number(match[1]);
+  const numerator = Number(match[2] ?? 0);
+  const denominator = Number(match[3] ?? 1);
+  const parsed = whole + (denominator > 0 ? numerator / denominator : 0);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+export function filterBathroomFixtureItems(
+  items: SelectedSurface[],
+  finish: BathroomFixtureFinishFilter,
+  size: BathroomFixtureSizeFilter,
+) {
+  return items.filter((item) => {
+    const finishMatch = finish === "all" || bathroomFixtureFinishFilter(item) === finish;
+    const width = bathroomFixtureWidthIn(item);
+    const sizeMatch = size === "all" || width == null || (
+      size === "up-to-24" ? width <= 24 : size === "25-to-36" ? width > 24 && width <= 36 : width >= 37
+    );
+    return finishMatch && sizeMatch;
+  });
+}
 
 /** Keeps the countertop menu source-complete while allowing a quick preview-readiness view. */
 export function matchesCountertopSwatchFilter(
@@ -127,6 +170,8 @@ export function SurfacesPickerDialog({
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
+  const [bathroomFinish, setBathroomFinish] = useState<BathroomFixtureFinishFilter>("all");
+  const [bathroomSize, setBathroomSize] = useState<BathroomFixtureSizeFilter>("all");
   const { products: preferredProducts } = usePreferredProducts();
   const bathroomSections = bathroomPaletteMode === "fixtures"
     ? BATHROOM_FIXTURE_RECOMMENDED_SECTIONS
@@ -218,7 +263,7 @@ export function SurfacesPickerDialog({
       : category !== "Preferred" || !debounced
         ? items
         : items.filter((item) => `${item.name} ${item.subCategory ?? ""} ${item.size ?? ""}`.toLowerCase().includes(debounced.toLowerCase()));
-    return searched.filter((item) => {
+    const compatible = searched.filter((item) => {
       if (isBathroom) return true;
       if (item.category === "Sinks & Faucets") return hasVerifiedPelicanFixtureProfile(item.pelicanCode);
       const isMaterialRole = item.category === "Flooring"
@@ -233,7 +278,10 @@ export function SurfacesPickerDialog({
       }
       return isMaterialRole && Boolean(item.materialImageUrl?.trim());
     });
-  }, [category, countertopSwatchFilter, debounced, isBathroom, items]);
+    return isBathroom && bathroomPaletteMode === "fixtures"
+      ? filterBathroomFixtureItems(compatible, bathroomFinish, bathroomSize)
+      : compatible;
+  }, [bathroomFinish, bathroomPaletteMode, bathroomSize, category, countertopSwatchFilter, debounced, isBathroom, items]);
   const countertopSwatchCounts = useMemo(() => {
     const countertops = items.filter((item) => item.category === "Quartz Slabs (Countertops)");
     const ready = countertops.filter((item) => matchesCountertopSwatchFilter(item, "swatch-ready")).length;
@@ -312,6 +360,35 @@ export function SurfacesPickerDialog({
                   <SelectItem value="swatch-pending">Neutral preview — swatch pending ({countertopSwatchCounts.pending})</SelectItem>
                 </SelectContent>
               </Select>
+            )}
+            {isBathroom && bathroomPaletteMode === "fixtures" && (
+              <>
+                <Select value={bathroomFinish} onValueChange={(value) => setBathroomFinish(value as BathroomFixtureFinishFilter)}>
+                  <SelectTrigger data-testid="bathroom-fixture-finish-filter" aria-label="Filter bathroom fixtures by finish" className="w-full sm:w-[182px]">
+                    <SelectValue placeholder="Finish" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All finishes</SelectItem>
+                    <SelectItem value="white">White / porcelain</SelectItem>
+                    <SelectItem value="matte-black">Matte black</SelectItem>
+                    <SelectItem value="chrome">Chrome</SelectItem>
+                    <SelectItem value="brushed-nickel">Brushed nickel</SelectItem>
+                    <SelectItem value="brushed-gold">Brushed gold</SelectItem>
+                    <SelectItem value="other">Other / supplier detail</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={bathroomSize} onValueChange={(value) => setBathroomSize(value as BathroomFixtureSizeFilter)}>
+                  <SelectTrigger data-testid="bathroom-fixture-size-filter" aria-label="Filter bathroom fixtures by first listed size" className="w-full sm:w-[160px]">
+                    <SelectValue placeholder="Size" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sizes</SelectItem>
+                    <SelectItem value="up-to-24">Up to 24 in.</SelectItem>
+                    <SelectItem value="25-to-36">25–36 in.</SelectItem>
+                    <SelectItem value="37-plus">37 in. and up</SelectItem>
+                  </SelectContent>
+                </Select>
+              </>
             )}
           </div>
           {!isBathroom && category === "Preferred" && (
@@ -435,7 +512,7 @@ export function SurfacesPickerDialog({
                             {hasApprovedMaterialSwatch ? "3D material swatch ready" : "3D material swatch pending — neutral preview"}
                           </p>
                         )}
-                        {isBathroom && (activeBathroomRole === "toilet-bidet" || activeBathroomRole === "bathtub") && (
+                        {isBathroom && (activeBathroomRole === "toilet-bidet" || activeBathroomRole === "bathtub" || activeBathroomRole === "shower-door" || activeBathroomRole === "shower-surround") && (
                           <p data-testid={`bathroom-fixture-placement-${p.id}`} className={`text-[10px] font-medium leading-snug ${bathroomFixtureProfile ? "text-emerald-700" : "text-amber-800"}`}>
                             {pelicanBathroomFixturePlacementText(item.pelicanCode)}
                           </p>
@@ -483,7 +560,7 @@ export function SurfacesPickerDialog({
                             data-testid={`place-bathroom-fixture-${p.id}`}
                             onClick={() => onPlaceBathroomFixture(item)}
                           >
-                            Place in floor plan & 3D
+                            {bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
                           </Button>
                         )}
                       </div>

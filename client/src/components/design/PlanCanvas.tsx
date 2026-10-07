@@ -3339,6 +3339,8 @@ export function PlanCanvas({
           const pxW = fp.w * ppi;
           const pxD = fp.d * ppi;
           const isRound = def.shape === "round";
+          const bathroomPlanningZone = def.category === "bathroom-zone";
+          const showerEnvelope = bathroomFixture?.kind === "shower-door" || bathroomFixture?.kind === "tub-door" || bathroomFixture?.kind === "shower-wall";
           return (
             <div
               key={f.uid}
@@ -3348,8 +3350,8 @@ export function PlanCanvas({
                 top: f.y * ppi,
                 width: pxW,
                 height: pxD,
-                background: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#232323" : bathroomFixture ? "#fbfcfa" : def.color + "33",
-                border: `2px solid ${isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
+                background: bathroomPlanningZone ? `${def.color}22` : showerEnvelope ? bathroomFixture?.kind === "shower-wall" ? "#e7e2dc" : "#d8eef466" : bathroomFixture?.finish === "vitreous-china-matte-black" ? "#232323" : bathroomFixture ? "#fbfcfa" : def.color + "33",
+                border: `2px ${bathroomPlanningZone || showerEnvelope ? "dashed" : "solid"} ${isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
                 borderRadius: bathroomFixture?.kind === "freestanding-tub" ? "48% / 26%" : bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet" ? "42% 42% 30% 30%" : isRound ? "50%" : 4,
                 transform: `rotate(${f.rotation}deg)`,
                 transformOrigin: "center",
@@ -3366,6 +3368,13 @@ export function PlanCanvas({
               {bathroomFixture?.kind === "alcove-tub" && (
                 <div className="pointer-events-none absolute inset-x-[9%] top-[12%] bottom-[13%] rounded-[22%] border border-slate-400/70 bg-slate-100/80" />
               )}
+              {showerEnvelope && (
+                <>
+                  {bathroomFixture?.kind === "shower-wall" ? <div className="pointer-events-none absolute inset-x-[8%] top-[12%] bottom-[12%] border border-stone-400/70 bg-stone-100/60" /> : <><div className="pointer-events-none absolute left-1/2 top-0 h-full border-l border-slate-500/80" /><div className="pointer-events-none absolute inset-y-[14%] left-[10%] right-[10%] border-y border-slate-400/60" /></>}
+                  <span className="pointer-events-none absolute bottom-0.5 left-1 right-1 rounded bg-white/75 px-0.5 text-center text-[7px] font-semibold uppercase tracking-wide text-slate-600">Visual envelope</span>
+                </>
+              )}
+              {bathroomPlanningZone && <span className="pointer-events-none absolute bottom-0.5 left-1 right-1 rounded bg-white/80 px-0.5 text-center text-[7px] font-semibold uppercase tracking-wide" style={{ color: def.color }}>Movable planning zone</span>}
               {(bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet") && (
                 <div className="pointer-events-none absolute left-[20%] right-[20%] top-[27%] bottom-[12%] rounded-[48%] border border-slate-400/70 bg-slate-100/80" />
               )}

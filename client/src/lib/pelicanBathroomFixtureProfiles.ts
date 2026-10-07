@@ -10,7 +10,7 @@
  * - bathtubs-PL-*.txt
  */
 
-export type PelicanBathroomFixtureKind = "toilet" | "bidet" | "freestanding-tub" | "alcove-tub";
+export type PelicanBathroomFixtureKind = "toilet" | "bidet" | "freestanding-tub" | "alcove-tub" | "shower-door" | "tub-door" | "shower-wall";
 
 export type VerifiedPelicanBathroomFixtureProfile = {
   /** Stable browser-safe furniture definition identity. */
@@ -27,9 +27,13 @@ export type VerifiedPelicanBathroomFixtureProfile = {
   heightIn: number;
   /** Published seating height when the supplier sheet provides one. */
   seatHeightIn?: number;
-  finish: "vitreous-china-white" | "vitreous-china-matte-black" | "acrylic-white";
+  finish: "vitreous-china-white" | "vitreous-china-matte-black" | "acrylic-white" | "clear-tempered-glass" | "shower-panel";
   drain: "center" | "left" | "right" | null;
   toiletStyle?: "one-piece" | "two-piece" | "smart";
+  /** Supplier-stated glass/panel height when it is distinct from the full assembly height. */
+  visiblePanelHeightIn?: number;
+  /** Technical sheets label these as nominal; this stays a planning envelope, not an install opening. */
+  planningOnly?: boolean;
   /** Official technical sheet, not a catalog image. */
   specificationUrl: string;
 };
@@ -73,6 +77,14 @@ export const VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES: readonly VerifiedPelica
   { id: "pelican-tub-pl-02850-right", pelicanCode: "PL-02850R", name: "PL-02850R Right-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 32 + 1 / 64, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "right", specificationUrl: spec("pl-2850") },
   { id: "pelican-tub-pl-02851-left", pelicanCode: "PL-02851L", name: "PL-02851L Left-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 35 + 63 / 64, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "left", specificationUrl: spec("pl-2851") },
   { id: "pelican-tub-pl-02851-right", pelicanCode: "PL-02851R", name: "PL-02851R Right-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 35 + 63 / 64, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "right", specificationUrl: spec("pl-2851") },
+
+  // Pelican's official enclosure sheets give nominal width ranges and exact
+  // overall / door heights. The shallow depth below is a deliberately visible
+  // floor-plan plane for moving and viewing the glass; it is not a wall stud,
+  // curb, rail setback, or installation opening dimension.
+  { id: "pelican-shower-door-pl-03a42s", pelicanCode: "PL-03A42S", name: "PL-03A42S Frameless Double Sliding Shower Door", kind: "shower-door", widthIn: 60, depthIn: 0.5, heightIn: 76, visiblePanelHeightIn: 71 + 5 / 8, finish: "clear-tempered-glass", drain: null, planningOnly: true, specificationUrl: "https://cdn.accentuate.io/8980582301836/1776111489998/PL-03A42S.pdf?v=1776111489998" },
+  { id: "pelican-tub-door-pl-03a42t", pelicanCode: "PL-03A42T", name: "PL-03A42T Frameless Double Sliding Tub Door", kind: "tub-door", widthIn: 60, depthIn: 0.5, heightIn: 59 + 1 / 6, visiblePanelHeightIn: 54 + 13 / 16, finish: "clear-tempered-glass", drain: null, planningOnly: true, specificationUrl: "https://cdn.accentuate.io/8980582301836/1776111498496/PL-03A42T.pdf?v=1776111498496" },
+  { id: "pelican-shower-wall-pl-603074", pelicanCode: "PL-603074", name: "PL-603074 Pelican Shower Surround", kind: "shower-wall", widthIn: 60, depthIn: 30, heightIn: 74, finish: "shower-panel", drain: null, planningOnly: true, specificationUrl: "https://buildpelican.com/products/pl-603074" },
 ] as const;
 
 function normalizeCode(code: string | null | undefined) {
@@ -84,7 +96,17 @@ export function verifiedPelicanBathroomFixtureProfile(
   code: string | null | undefined,
 ): VerifiedPelicanBathroomFixtureProfile | null {
   const normalized = normalizeCode(code);
-  return VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.find((profile) => profile.pelicanCode === normalized) ?? null;
+  const direct = VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.find((profile) => profile.pelicanCode === normalized);
+  if (direct) return direct;
+  // Current active catalog records carry finish / panel décor suffixes, while
+  // the official technical sheet describes the shared physical envelope. Keep
+  // the selected purchasable identity without inventing finish-specific sizes.
+  const baseCode = /^PL-03A42S60\s+(?:BN|CHR|MB)$/.test(normalized) ? "PL-03A42S"
+    : /^PL-03A42T60\s+(?:BN|CHR|MB)$/.test(normalized) ? "PL-03A42T"
+      : /^PL-603074\s+(?:BRICK|GREY WOOD|MARBLE|WHITE WOOD)$/.test(normalized) ? "PL-603074"
+        : null;
+  const shared = baseCode ? VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.find((profile) => profile.pelicanCode === baseCode) : null;
+  return shared ? { ...shared, pelicanCode: normalized, name: normalized } : null;
 }
 
 export function isPelicanBathroomFixtureProfileVerified(code: string | null | undefined): boolean {
@@ -93,6 +115,7 @@ export function isPelicanBathroomFixtureProfileVerified(code: string | null | un
 
 export function pelicanBathroomFixturePlacementText(code: string | null | undefined): string {
   const profile = verifiedPelicanBathroomFixtureProfile(code);
+  if (profile?.planningOnly) return `Place ${profile.widthIn.toFixed(2).replace(/\.00$/, "")}″ nominal visual planning envelope`;
   if (profile) return `Place measured ${profile.widthIn.toFixed(2).replace(/\.00$/, "")}″W × ${profile.depthIn.toFixed(2).replace(/\.00$/, "")}″D fixture`;
   return "Exact 3D envelope is pending a Pelican technical sheet";
 }
