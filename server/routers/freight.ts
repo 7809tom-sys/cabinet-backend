@@ -59,6 +59,7 @@ import {
   type DistributorZipRate,
 } from "@shared/distributorShipping";
 import {
+  bundleTrimPackages,
   resolveParcelShipmentMode,
   type AuthoritativeParcelPackage,
 } from "@shared/parcelEligibility";
@@ -475,11 +476,12 @@ async function resolvePackages(
         isEstimatedPackage: usesEstimatedPackage,
         freightClass: genericPackage?.freightClass ?? null,
         label: supplierPackage?.code ?? pkg?.code ?? it.masterCode ?? null,
+        isTrim: genericPackage?.isTrim === true || pkg?.isTrim === true,
       });
     }
   }
 
-  return { packages, weighted, parcelPackages };
+  return { packages, weighted, parcelPackages: bundleTrimPackages(parcelPackages) };
 }
 
 // ─── Freight origin resolution (nearest distributor warehouse) ───────────────

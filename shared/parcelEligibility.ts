@@ -34,6 +34,44 @@ export interface AuthoritativeParcelPackage {
   freightClass?: string | null;
   /** Optional label used only in customer/admin explanations. */
   label?: string | null;
+  /** Trim pieces may be consolidated into one protected bundle when allowed. */
+  isTrim?: boolean;
+}
+
+export const TRIM_BUNDLE_MAX_WEIGHT_LBS = 40;
+
+/** Consolidate measured trim pieces into one parcel when their combined weight is <= 40 lb. */
+export function bundleTrimPackages(
+  packages: AuthoritativeParcelPackage[],
+): AuthoritativeParcelPackage[] {
+  const trim = packages.filter((pkg) => pkg.isTrim === true);
+  if (trim.length === 0) return packages;
+
+  const totalWeight = trim.reduce<number | null>((total, pkg) => {
+    const weight = pkg.weightLbs;
+    if (total == null || typeof weight !== "number" || !Number.isFinite(weight) || weight <= 0) return null;
+    return total + weight;
+  }, 0);
+  if (totalWeight == null || totalWeight > TRIM_BUNDLE_MAX_WEIGHT_LBS) return packages;
+
+  const dimensions = trim.map((pkg) => [pkg.lengthIn, pkg.widthIn, pkg.heightIn] as const);
+  if (dimensions.some((values) => values.some((value) => typeof value !== "number" || !Number.isFinite(value) || value <= 0))) {
+    return packages;
+  }
+
+  const bundle: AuthoritativeParcelPackage = {
+    lengthIn: Math.max(...dimensions.map(([length]) => length as number)),
+    widthIn: Math.max(...dimensions.map(([, width]) => width as number)),
+    heightIn: dimensions.reduce((sum, [, , height]) => sum + (height as number), 0),
+    weightLbs: totalWeight,
+    hasAuthoritativePackage: trim.every((pkg) => pkg.hasAuthoritativePackage),
+    isEstimatedPackage: trim.some((pkg) => pkg.isEstimatedPackage === true),
+    freightClass: trim.find((pkg) => pkg.freightClass)?.freightClass ?? null,
+    label: `Trim bundle (${trim.length} pieces)`,
+    isTrim: true,
+  };
+
+  return [...packages.filter((pkg) => pkg.isTrim !== true), bundle];
 }
 
 export interface NormalizedParcelPackage {

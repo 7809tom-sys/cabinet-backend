@@ -1,11 +1,45 @@
 import { describe, expect, it } from "vitest";
 import {
+  bundleTrimPackages,
   evaluateParcelEligibility,
   normalizeParcelPackage,
   resolveParcelShipmentMode,
 } from "./parcelEligibility";
 
 describe("carrier-backed parcel eligibility", () => {
+  it("bundles all measured trim pieces into one parcel at or below 40 lb", () => {
+    const result = bundleTrimPackages([
+      { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 8, hasAuthoritativePackage: true, isTrim: true, label: "Toe kicks" },
+      { lengthIn: 84, widthIn: 4, heightIn: 2, weightLbs: 6, hasAuthoritativePackage: true, isTrim: true, label: "Crown" },
+      { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true, label: "Batten" },
+      { lengthIn: 24, widthIn: 24, heightIn: 7, weightLbs: 36, hasAuthoritativePackage: true, isTrim: false, label: "B12" },
+    ]);
+
+    expect(result).toHaveLength(2);
+    expect(result.find((pkg) => pkg.isTrim)).toMatchObject({
+      lengthIn: 96,
+      widthIn: 4,
+      heightIn: 6,
+      weightLbs: 16,
+      hasAuthoritativePackage: true,
+      label: "Trim bundle (3 pieces)",
+    });
+  });
+
+  it("does not bundle trim above 40 lb or with incomplete dimensions", () => {
+    const tooHeavy = bundleTrimPackages([
+      { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 25, hasAuthoritativePackage: true, isTrim: true },
+      { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 16, hasAuthoritativePackage: true, isTrim: true },
+    ]);
+    const incomplete = bundleTrimPackages([
+      { lengthIn: 96, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true },
+      { lengthIn: null, widthIn: 3, heightIn: 2, weightLbs: 2, hasAuthoritativePackage: true, isTrim: true },
+    ]);
+
+    expect(tooHeavy).toHaveLength(2);
+    expect(incomplete).toHaveLength(2);
+  });
+
   it("allows a verified compact cabinet carton through UPS, FedEx, and USPS", () => {
     const result = evaluateParcelEligibility({
       lengthIn: 36,
