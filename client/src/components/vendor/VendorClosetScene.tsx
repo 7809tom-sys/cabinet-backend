@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { StudioDesign, StudioKind } from "@/lib/vendorClosetStudio";
-import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBayCut, studioCornerPlanningFootprint, studioCornerShelvesForWall, studioFixedBottom, studioFixedTop, studioPanelHeight, studioWidth } from "@/lib/vendorClosetStudio";
+import type { StudioDesign, StudioKind, StudioWall } from "@/lib/vendorClosetStudio";
+import { STUDIO_CORNER_SHELF_THICKNESS_IN, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBayCut, studioBays, studioCornerPlanningFootprint, studioCornerShelvesForWall, studioFixedBottom, studioFixedTop, studioPanelHeight, studioTowerFootprint, studioWidth } from "@/lib/vendorClosetStudio";
 
 const IN = 1 / 12;
 const MAT: Record<StudioDesign["finish"], { face: string; edge: string; grain: string }> = {
@@ -46,10 +46,17 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const camera = new THREE.PerspectiveCamera(40, 1, 0.05, 130);
     const visibleCornerShelves = studioCornerShelvesForWall(design);
     const hasCornerPlanning = visibleCornerShelves.length > 0;
+    const cornerFocus = visibleCornerShelves.find((shelf) => shelf.id === selectedCornerId) ?? visibleCornerShelves[0] ?? null;
+    const cornerFocusFootprint = cornerFocus ? studioCornerPlanningFootprint(design, cornerFocus) : null;
     const towerWidth = studioWidth(design) * IN;
     const w = hasCornerPlanning ? design.wallWidthIn * IN : towerWidth;
     const roomDepth = hasCornerPlanning ? design.roomDepthIn * IN : 12;
-    camera.position.set(w * 0.63, 5.7, Math.max(12, Math.max(w, roomDepth) * 2.3));
+    if (cornerFocusFootprint) {
+      const focusX = (cornerFocusFootprint.xMin + cornerFocusFootprint.xMax) / 2 * IN;
+      const focusZ = (cornerFocusFootprint.zMin + cornerFocusFootprint.zMax) / 2 * IN;
+      camera.position.set(w * 0.42, Math.max(9, Math.max(w, roomDepth) * 0.92), Math.max(roomDepth * 1.28, focusZ + 8));
+      camera.lookAt(focusX, (cornerFocus.elevationIn + 3) * IN, focusZ);
+    } else camera.position.set(w * 0.63, 5.7, Math.max(12, Math.max(w, roomDepth) * 2.3));
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.shadowMap.enabled = true;
@@ -66,7 +73,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     controls.maxPolarAngle = Math.PI * 0.52;
     controls.minDistance = 4.3;
     controls.maxDistance = 26;
-    controls.target.set(w / 2, 3.6, hasCornerPlanning ? roomDepth / 2 : 0);
+    controls.target.set(cornerFocusFootprint ? (cornerFocusFootprint.xMin + cornerFocusFootprint.xMax) / 2 * IN : w / 2, cornerFocus ? (cornerFocus.elevationIn + 3) * IN : 3.6, cornerFocusFootprint ? (cornerFocusFootprint.zMin + cornerFocusFootprint.zMax) / 2 * IN : hasCornerPlanning ? roomDepth / 2 : 0);
     controls.update();
 
     scene.add(new THREE.HemisphereLight(0xfff6e8, 0xa9a2a0, 2.1));
@@ -100,14 +107,20 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const shoeMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.72 });
     const drawerMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.6 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xb9a37b, metalness: 0.7, roughness: 0.33 });
-    const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xb98550, roughness: 0.48, transparent: true, opacity: 0.62, side: THREE.DoubleSide });
+    const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xca9255, roughness: 0.46, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
     const cornerOutlineMat = new THREE.LineBasicMaterial({ color: 0x6f4527 });
     const basketWireMat = new THREE.LineBasicMaterial({ color: 0x697b7c, transparent: true, opacity: 0.9 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
     const parts = new THREE.Group(); scene.add(parts);
+    const activeTowerParts = new THREE.Group(); parts.add(activeTowerParts);
     const targets: THREE.Mesh[] = [];
     const box = (width: number, height: number, depth: number, x: number, y: number, z: number, mat: THREE.Material, shadow = true) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(width * IN, height * IN, depth * IN), mat);
+      mesh.position.set(x * IN, y * IN, z * IN);
+      mesh.castShadow = shadow; mesh.receiveShadow = true; activeTowerParts.add(mesh); return mesh;
+    };
+    const worldBox = (width: number, height: number, depth: number, x: number, y: number, z: number, mat: THREE.Material, shadow = true) => {
       const mesh = new THREE.Mesh(new THREE.BoxGeometry(width * IN, height * IN, depth * IN), mat);
       mesh.position.set(x * IN, y * IN, z * IN);
       mesh.castShadow = shadow; mesh.receiveShadow = true; parts.add(mesh); return mesh;
@@ -151,14 +164,14 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
           shoeFence.castShadow = false; shoeFence.receiveShadow = true;
           shoeFence.userData = { illustrativePitchDeg: STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, fenceGeometryIllustrative: true };
           shoeGroup.add(shoeFence);
-          parts.add(shoeGroup);
+          activeTowerParts.add(shoeGroup);
         } else if (item.kind === "drawer") {
           const slabFront = box(bay.widthIn - 0.3, 5, 0.65, cx, bottom + 2.5, depth - 0.25, drawerMat);
           slabFront.userData = { sourcedStyle: "Small Slab Drawer Front", exactFaceMeasurementsIllustrative: true };
         } else {
           const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, bay.widthIn * IN, 14), metalMat);
           rod.rotation.z = Math.PI / 2; rod.position.set(cx * IN, bottom * IN, depth * 0.58 * IN);
-          rod.userData = { illustrativeDiameter: true }; parts.add(rod);
+          rod.userData = { illustrativeDiameter: true }; activeTowerParts.add(rod);
         }
       }
       for (const placement of studioBasketPlacementsForWall(design).filter((basket) => basket.bayId === bay.id)) {
@@ -167,7 +180,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
         const basketOutline = new THREE.LineSegments(new THREE.EdgesGeometry(basketGeometry), basketWireMat);
         basketOutline.position.set(cx * IN, (placement.bottomIn + placement.nominalHeightIn / 2) * IN, (placement.nominalDepthIn / 2) * IN);
         basketOutline.userData = { basketVisualPlanningEnvelope: true, decorativeWireLook: true, sku: placement.sku, wallId: placement.wallId, bayId: placement.bayId, nominalWidthIn: placement.nominalWidthIn, nominalHeightIn: placement.nominalHeightIn, nominalDepthIn: placement.nominalDepthIn, supplierRailAndClearanceToVerify: true };
-        parts.add(basketOutline);
+        activeTowerParts.add(basketOutline);
       }
       if (index === selectedBay) {
         const trim = box(bay.widthIn + 1.2, 0.18, 0.18, cursor + bay.widthIn / 2 + 0.75, 0.05, depth + 1, brass, false);
@@ -177,22 +190,75 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       const hit = new THREE.Mesh(new THREE.BoxGeometry(bay.widthIn * IN, (panelHeight - 7) * IN, 0.05), hitMat);
       hit.position.set((cursor + 0.75 + bay.widthIn / 2) * IN, (panelHeight / 2 + (design.mount === "hanging" ? 6 : 0)) * IN, (depth + 0.7) * IN);
       hit.userData.bayIndex = index;
-      targets.push(hit); parts.add(hit);
+      targets.push(hit); activeTowerParts.add(hit);
       cursor += bay.widthIn + 0.75;
     }
     if (design.bays.length) box(0.75, panelHeight, depth, cursor + 0.375, panelHeight / 2 + (design.mount === "hanging" ? 6 : 0), depth / 2, boardMat);
-    // This is deliberately a rectangular 29.5-inch 2026 planning envelope, not a fabricated curved board profile or support assembly.
+    const renderCompanionTower = (wallId: StudioWall) => {
+      const bays = studioBays(design, wallId);
+      if (!bays.length) return;
+      const footprint = studioTowerFootprint(design, wallId);
+      const runsAcrossX = wallId === "back" || wallId === "front";
+      const fixedAxis = runsAcrossX ? (footprint.zMin + footprint.zMax) / 2 : (footprint.xMin + footprint.xMax) / 2;
+      let run = runsAcrossX ? footprint.xMin : footprint.zMin;
+      const panelY = panelHeight / 2 + (design.mount === "hanging" ? 6 : 0);
+      const shelfY = (value: number) => value + 0.375 + (design.mount === "hanging" ? 6 : 0);
+      const upright = (position: number) => runsAcrossX
+        ? worldBox(0.75, panelHeight, depth, position + 0.375, panelY, fixedAxis, boardMat)
+        : worldBox(depth, panelHeight, 0.75, fixedAxis, panelY, position + 0.375, boardMat);
+      upright(run);
+      for (const bay of bays) {
+        const mid = run + 0.75 + bay.widthIn / 2;
+        if (runsAcrossX) {
+          worldBox(bay.widthIn, 0.75, depth, mid, shelfY(fixedBottom), fixedAxis, boardMat);
+          worldBox(bay.widthIn, 0.75, depth, mid, shelfY(fixedTop), fixedAxis, boardMat);
+        } else {
+          worldBox(depth, 0.75, bay.widthIn, fixedAxis, shelfY(fixedBottom), mid, boardMat);
+          worldBox(depth, 0.75, bay.widthIn, fixedAxis, shelfY(fixedTop), mid, boardMat);
+        }
+        run += bay.widthIn + 0.75;
+        upright(run - 0.75);
+      }
+    };
+    const connectedActiveShelf = visibleCornerShelves.find((shelf) => shelf.towerConnection === "visualAligned" && shelf.wallIds.includes(design.wall));
+    if (connectedActiveShelf) {
+      const footprint = studioTowerFootprint(design, design.wall);
+      if (design.wall === "back") activeTowerParts.position.set(footprint.xMin * IN, 0, footprint.zMin * IN);
+      else if (design.wall === "right") { activeTowerParts.rotation.y = -Math.PI / 2; activeTowerParts.position.set(footprint.xMax * IN, 0, footprint.zMin * IN); }
+      else if (design.wall === "left") { activeTowerParts.rotation.y = Math.PI / 2; activeTowerParts.position.set(footprint.xMin * IN, 0, footprint.zMax * IN); }
+      else { activeTowerParts.rotation.y = Math.PI; activeTowerParts.position.set(footprint.xMax * IN, 0, footprint.zMax * IN); }
+    }
+    // The visible board is a deliberately illustrative pie; the dashed square below remains the conservative 29.5-in collision envelope.
     for (const shelf of visibleCornerShelves) {
       const footprint = studioCornerPlanningFootprint(design, shelf);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN), cornerEnvelopeMat);
-      mesh.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);
+      const r = shelf.nominalFootprintIn * IN;
+      const originX = (shelf.cornerId.endsWith("left") ? footprint.xMin : footprint.xMax) * IN;
+      const originZ = (shelf.cornerId.startsWith("back") ? footprint.zMin : footprint.zMax) * IN;
+      const sx = shelf.cornerId.endsWith("left") ? 1 : -1;
+      const sz = shelf.cornerId.startsWith("back") ? 1 : -1;
+      const pie = new THREE.Shape();
+      pie.moveTo(0, 0); pie.lineTo(r, 0);
+      pie.bezierCurveTo(r, r * 0.5523, r * 0.5523, r, 0, r);
+      pie.lineTo(0, 0);
+      const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(pie, { depth: STUDIO_CORNER_SHELF_THICKNESS_IN * IN, bevelEnabled: false, curveSegments: 28 }), cornerEnvelopeMat);
+      mesh.rotation.x = Math.PI / 2;
+      mesh.scale.set(sx, sz, 1);
+      mesh.position.set(originX, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN) * IN, originZ);
       mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.userData = { cornerShelfPlanningEnvelope: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
+      mesh.userData = { cornerShelfPlanningEnvelope: true, illustrativePieShelf: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
       parts.add(mesh);
+      const envelope = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(shelf.nominalFootprintIn * IN, STUDIO_CORNER_SHELF_THICKNESS_IN * IN, shelf.nominalFootprintIn * IN)), cornerOutlineMat);
+      envelope.position.set((footprint.xMin + shelf.nominalFootprintIn / 2) * IN, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN / 2) * IN, (footprint.zMin + shelf.nominalFootprintIn / 2) * IN);
+      envelope.userData = { cornerShelfCollisionEnvelope: true, visualPlanningOnly: true, nominalFootprintIn: shelf.nominalFootprintIn };
+      parts.add(envelope);
       if (shelf.id === selectedCornerId) {
         const outline = new THREE.LineSegments(new THREE.EdgesGeometry(mesh.geometry), cornerOutlineMat);
         outline.position.copy(mesh.position); outline.userData = { cornerShelfSelectionMarker: true, cornerId: shelf.cornerId };
         parts.add(outline);
+      }
+      if (shelf.towerConnection === "visualAligned") {
+        const companionWall = shelf.wallIds.find((wall) => wall !== design.wall);
+        if (companionWall) renderCompanionTower(companionWall);
       }
     }
     const ray = new THREE.Raycaster();

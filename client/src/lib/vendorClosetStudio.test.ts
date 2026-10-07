@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, updateStudioBasketPlacement,
+  addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioConnectedCorner, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, studioCornerShelfSku, studioTowerFootprint, updateStudioBasketPlacement,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
   STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
   type StudioDesign,
@@ -74,6 +74,36 @@ describe("isolated vendor Closet Studio", () => {
     expect(moveStudioCornerShelf(raised.design, "corner-adjustable", 36).ok).toBe(false);
     expect(addStudioCornerShelf(base, "back-left", "fixed", 36, "tower-intersection")).toMatchObject({ ok: false });
     expect(addStudioCornerShelf({ ...base, mount: "hanging" }, "back-right", "fixed", 36, "hanging-corner")).toMatchObject({ ok: false });
+  });
+
+  it("starts a visual 29.5-inch pie corner atomically, aligns both incident tower runs to its conservative envelope, and retains the selected-finish source SKU", () => {
+    const base: StudioDesign = { ...createStudioDesign(), finish: "Spiced Mahogany" };
+    expect(studioCornerShelfSku("Spiced Mahogany", "adjustable")).toBe("432787");
+
+    const connected = addStudioConnectedCorner(base, "back-right", "adjustable", 36, "connected-pie");
+    expect(connected.ok).toBe(true);
+    if (!connected.ok) return;
+
+    expect(connected.shelf).toMatchObject({
+      id: "connected-pie", sku: "432787", finish: "Spiced Mahogany", mount: "adjustable",
+      cornerId: "back-right", nominalFootprintIn: 29.5, towerConnection: "visualAligned",
+    });
+    expect(studioBays(connected.design, "back")).toHaveLength(1);
+    expect(studioBays(connected.design, "right")).toHaveLength(1);
+    expect(studioCornerPlanningFootprint(connected.design, connected.shelf)).toEqual({ xMin: 90.5, xMax: 120, zMin: 0, zMax: 29.5 });
+    expect(studioTowerFootprint(connected.design, "back")).toMatchObject({ xMin: 65, xMax: 90.5, zMin: 0, zMax: 14.5 });
+    expect(studioTowerFootprint(connected.design, "right")).toMatchObject({ xMin: 105.5, xMax: 120, zMin: 29.5, zMax: 55 });
+    expect(studioCornerMeasuredGap(connected.design, connected.shelf).towerGapIn).toBe(0);
+    expect(studioCornerMeasuredGap(switchStudioWall(connected.design, "right"), connected.shelf).towerGapIn).toBe(0);
+    expect(studioTakeoff(connected.design).lines.find((line) => line.sku === "432787")?.qty).toBe(1);
+    expect(studioTakeoff(connected.design).missing.some((line) => /visual tower alignment.*not.*connection/i.test(line))).toBe(true);
+    expect(restoreStudioDesign(JSON.stringify(connected.design))).toEqual(connected.design);
+
+    const tooSmall: StudioDesign = { ...base, wallWidthIn: 48, roomDepthIn: 48 };
+    const rejected = addStudioConnectedCorner(tooSmall, "back-right", "fixed", 36, "too-small-corner");
+    expect(rejected).toMatchObject({ ok: false });
+    expect(tooSmall.cornerShelves ?? []).toEqual([]);
+    expect(studioBays(tooSmall, "right")).toEqual([]);
   });
 
   it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {

@@ -162,7 +162,7 @@ describe("Closet Studio tablet workspace", () => {
     expect(shoeBranch).toContain("illustrativePitchDeg");
   });
 
-  it("keeps the 29.5-inch corner shelf planning envelope, caveat, gap readout, and one-step undo accessible in the Tower dock", () => {
+  it("keeps the 29.5-inch pie shelf planner discoverable and supports both standalone and atomic two-wall corner plans", () => {
     window.history.replaceState(null, "", "/closet");
     render(<VendorClosetStudio />);
     fireEvent.click(screen.getByRole("button", { name: "Start with one tower" }));
@@ -178,18 +178,31 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.change(within(corner).getByRole("combobox", { name: "Corner shelf room corner" }), { target: { value: "front-right" } });
     fireEvent.change(within(corner).getByRole("combobox", { name: "Corner shelf type" }), { target: { value: "adjustable" } });
     fireEvent.change(within(corner).getByRole("spinbutton", { name: "Corner shelf planning elevation in inches" }), { target: { value: "36" } });
-    fireEvent.click(within(corner).getByRole("button", { name: "Add visual plan" }));
+    fireEvent.click(within(corner).getByRole("button", { name: "Shelf only" }));
     expect(within(corner).getByText(/Adjustable corner.*SKU 432557.*Front-right.*36 in/i)).toBeTruthy();
-    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/29\.5.*Elevation: 36.*0\.75.*curve.profile intentionally not drawn/i);
-    expect(within(corner).getByText(/tower-envelope gap.*verify assembly fit/i)).toBeTruthy();
+    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/illustrative pie shelf.*conservative 29\.5.*Elevation: 36.*0\.75.*Tower alignment has not been planned/i);
+    expect(within(corner).getByText(/No incident tower to align yet.*verify assembly fit/i)).toBeTruthy();
     fireEvent.click(within(corner).getByRole("button", { name: "Undo corner" }));
     expect(within(corner).queryByText(/Adjustable corner.*SKU 432557/i)).toBeNull();
 
+    fireEvent.change(within(corner).getByRole("combobox", { name: "Corner shelf room corner" }), { target: { value: "back-right" } });
+    fireEvent.change(within(corner).getByRole("combobox", { name: "Corner shelf type" }), { target: { value: "fixed" } });
+    fireEvent.click(within(corner).getByRole("button", { name: "Build visual corner" }));
+    expect(within(corner).getByText(/Fixed corner.*SKU 432556.*Back-right.*36 in/i)).toBeTruthy();
+    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/Both incident tower previews align.*not a physical connection/i);
+    expect(within(screen.getByTestId("vendor-room-overview")).getByRole("button", { name: /Back wall: filled/i })).toBeTruthy();
+    expect(within(screen.getByTestId("vendor-room-overview")).getByRole("button", { name: /Right wall: filled/i })).toBeTruthy();
+
+    fireEvent.click(within(screen.getByTestId("vendor-phone-action-strip")).getByRole("button", { name: "Add closet parts" }));
+    expect(within(dock).getByRole("button", { name: "Plan 29.5-inch curved corner shelf" })).toBeTruthy();
+
     const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
     expect(scene).toContain("cornerShelfPlanningEnvelope: true");
+    expect(scene).toContain("illustrativePieShelf: true");
+    expect(scene).toContain("renderCompanionTower");
     expect(scene).toContain("profileIllustrative: true");
     expect(scene).toContain("installationFitToVerify: true");
-    expect(scene).toContain("not a fabricated curved board profile or support assembly");
+    expect(scene).toContain("conservative 29.5-in collision envelope");
   });
 
   it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {
