@@ -50,9 +50,19 @@ describe("Vendor Portal Featured Styles and Shipping", () => {
 	    const shippingPage = source.slice(source.indexOf("function VendorShippingPage"), source.indexOf("// ─── Promotions Page"));
 	    expect(shippingPage).toContain('data-testid="vendor-catalog-status-legend"');
 	    expect(shippingPage).toContain("Green</span> means every cabinet SKU is available and published.");
-	    expect(shippingPage).toContain("Yellow</span> means one or more SKUs need availability or publishing review.");
+    expect(shippingPage).toContain("Yellow</span> means one or more SKUs need availability or publishing review.");
 	    expect(shippingPage).toContain("All catalog SKUs are available and customer-published");
 	    expect(shippingPage).toContain("One or more catalog SKUs are unavailable or not customer-published");
+	  });
+
+	  it("shows the supplied USCD warehouse locations without presenting PDFs as live inventory", () => {
+	    expect(source).toContain('import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES }');
+	    expect(source).toContain('line.code === "USCD"');
+	    expect(source).toContain('data-testid="vendor-warehouse-network"');
+	    expect(source).toContain("U.S. Cabinet Depot shipping locations");
+	    expect(source).toContain("not a live on-hand inventory feed");
+	    expect(source).toContain("configured ZIPs above remain the freight-engine origins");
+	    expect(source).toContain("does not change catalog pricing, inventory counts, or checkout");
 	  });
 
 	  it("lets vendors edit a single cabinet line's origin assignment directly from coverage", () => {

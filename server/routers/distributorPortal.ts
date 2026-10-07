@@ -1111,6 +1111,7 @@ export const distributorPortalRouter = router({
 	      .select({
 	        id: distributors.id,
 	        name: distributors.name,
+	        code: distributors.code,
 	        warehouseName: distributors.warehouseName,
 	        warehouseAddress: distributors.warehouseAddress,
 	        warehouseZips: distributors.warehouseZips,

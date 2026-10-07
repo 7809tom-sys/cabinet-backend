@@ -30,6 +30,7 @@ import { Label } from "@/components/ui/label";
 import { csvEscape } from "@shared/inventoryForecast";
 import { VendorOtherProducts } from "@/components/vendor/VendorOtherProducts";
 import { designerFrameCompliance } from "@/lib/doorFrameMetrics";
+import { US_CABINET_DEPOT_AVAILABILITY_SOURCES, US_CABINET_DEPOT_WAREHOUSES } from "@/lib/vendorWarehouseNetwork";
 
 // ─── Admin Distributor Context ───────────────────────────────────────────────
 const AdminDistributorContext = createContext<number | undefined>(undefined);
@@ -2466,7 +2467,7 @@ function centsToDollars(value: number | null | undefined): string | null {
 }
 
 type VendorShippingLine = {
-  id: number; name: string; warehouseName: string | null; warehouseAddress: string | null; warehouseZips: string[] | null;
+  id: number; name: string; code?: string | null; warehouseName: string | null; warehouseAddress: string | null; warehouseZips: string[] | null;
   leadTimeDays: number | null; shippingRuleMode: "live" | "fixed" | "threshold"; shippingFlatFreightFeeCents: number | null;
   shippingFreeFreightThresholdCents: number | null; shippingZipRates: Array<{ zipPrefix: string; feeCents: number }> | null; shippingExceptions: string | null;
   pickupEnabled: boolean; pickupZip: string | null; pickupAddress: string | null; pickupRadiusMiles: number | null;
@@ -2642,6 +2643,27 @@ function VendorShippingPage() {
             {line.shippingExceptions && <p className="text-xs text-amber-700">Shipping note: {line.shippingExceptions}</p>}
           </CardContent>
         </Card>
+        {line.code === "USCD" && <Card className="lg:col-span-2" data-testid="vendor-warehouse-network">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">U.S. Cabinet Depot shipping locations</CardTitle>
+            <CardDescription>Verified warehouse locations from the supplied 2026 location workbook. These are shipping and pickup reference points; the availability PDFs are not a live on-hand inventory feed.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {US_CABINET_DEPOT_WAREHOUSES.map((warehouse) => <div key={warehouse.zip} className="rounded-lg border border-sky-200 bg-sky-50/40 p-3 text-sm">
+                <div className="flex items-start justify-between gap-2"><p className="font-semibold">{warehouse.state} warehouse</p><Badge variant="outline" className="border-sky-300 bg-white text-sky-800">{warehouse.zip}</Badge></div>
+                <p className="mt-1 text-muted-foreground">{warehouse.address}, {warehouse.city}, {warehouse.state} {warehouse.zip}</p>
+                <p className="mt-1 text-muted-foreground">{warehouse.phone}</p>
+                <p className="mt-2 text-xs text-slate-700">{warehouse.stockNote}</p>
+              </div>)}
+            </div>
+            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs text-amber-950">
+              <p className="font-semibold">Availability source and lead times</p>
+              <p className="mt-1">Warehouse availability sheets supplied for 2026 generally state 3–5 business days when stocked and 10–15 business days for transfer items. Availability can change; confirm the current item and finish before promising a ship date.</p>
+              <p className="mt-2 text-amber-800">Sources: {US_CABINET_DEPOT_AVAILABILITY_SOURCES.join(", ")}. The configured ZIPs above remain the freight-engine origins; this reference does not change catalog pricing, inventory counts, or checkout.</p>
+            </div>
+          </CardContent>
+        </Card>}
       </div>
 
       <Card>
