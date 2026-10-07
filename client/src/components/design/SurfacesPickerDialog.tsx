@@ -27,6 +27,7 @@ import {
 } from "@/lib/pelican";
 import { BATHROOM_RECOMMENDED_SECTIONS, type RecommendedRole } from "./RecommendedSurfaces";
 import { hasVerifiedPelicanFixtureProfile } from "@/lib/pelicanFixtureProfiles";
+import { pelicanBathroomFixturePlacementText, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import { Search, Plus, Check, Waves } from "lucide-react";
 import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 import type { CountertopScope } from "@/lib/surfaceSelection";
@@ -85,6 +86,7 @@ export function SurfacesPickerDialog({
   activeThreeDBacksplashId = null,
   onSetActiveThreeDBacksplash,
   roomType = "kitchen",
+  onPlaceBathroomFixture,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -108,6 +110,8 @@ export function SurfacesPickerDialog({
   onSetActiveThreeDBacksplash?: (item: SelectedSurface) => void;
   /** Keeps bathroom catalog choices isolated from kitchen-only fixture families. */
   roomType?: string;
+  /** Places a source-measured toilet, bidet, or tub as a movable plan/3D fixture. */
+  onPlaceBathroomFixture?: (item: SelectedSurface) => void;
 }) {
   const isBathroom = roomType === "bathroom";
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
@@ -219,7 +223,7 @@ export function SurfacesPickerDialog({
           </DialogTitle>
           <DialogDescription className="hidden sm:block text-xs sm:text-sm">
             {isBathroom
-              ? "Browse active, source-priced Pelican bathroom fixtures only. Catalog selections are retained in the design; only verified vanity basins and faucets receive a measured 3D installation through a compatible vanity base."
+              ? "Browse active, source-priced Pelican bathroom fixtures only. Source-measured toilets, bidets, and tubs can be placed and moved in Floor Plan and 3D; verified vanity basins and faucets install through a compatible vanity base."
               : "Add source-ready Pelican finishes and fixtures to this design. A new flooring or backsplash choice replaces the prior material everywhere in the final kitchen."}
           </DialogDescription>
         </DialogHeader>
@@ -367,6 +371,9 @@ export function SurfacesPickerDialog({
                     coverageSqFt: p.coverageSqFt ?? null,
                     unsupportedOverhangLimitIn: p.unsupportedOverhangLimitIn == null ? null : Number(p.unsupportedOverhangLimitIn),
                   };
+                  const bathroomFixtureProfile = isBathroom
+                    ? verifiedPelicanBathroomFixtureProfile(item.pelicanCode)
+                    : null;
                   return (
                     <div
                       key={p.id}
@@ -398,6 +405,11 @@ export function SurfacesPickerDialog({
                         {hasThreeDMaterialRole && (
                           <p data-testid={`surface-material-readiness-${p.id}`} className={`text-[10px] font-medium leading-snug ${hasApprovedMaterialSwatch ? "text-emerald-700" : "text-amber-800"}`}>
                             {hasApprovedMaterialSwatch ? "3D material swatch ready" : "3D material swatch pending — neutral preview"}
+                          </p>
+                        )}
+                        {isBathroom && (bathroomRole === "toilet-bidet" || bathroomRole === "bathtub") && (
+                          <p data-testid={`bathroom-fixture-placement-${p.id}`} className={`text-[10px] font-medium leading-snug ${bathroomFixtureProfile ? "text-emerald-700" : "text-amber-800"}`}>
+                            {pelicanBathroomFixturePlacementText(item.pelicanCode)}
                           </p>
                         )}
                         {isSel && isBacksplash && onSetActiveThreeDBacksplash && (
@@ -434,6 +446,18 @@ export function SurfacesPickerDialog({
                             )}
                           </Button>
                         </div>
+                        {bathroomFixtureProfile && onPlaceBathroomFixture && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 w-full text-[11px]"
+                            data-testid={`place-bathroom-fixture-${p.id}`}
+                            onClick={() => onPlaceBathroomFixture(item)}
+                          >
+                            Place in floor plan & 3D
+                          </Button>
+                        )}
                       </div>
                     </div>
                   );

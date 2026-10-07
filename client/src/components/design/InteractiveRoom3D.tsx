@@ -18,6 +18,7 @@ import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRec
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
+import { verifiedPelicanBathroomFixtureProfile, type VerifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -8204,9 +8205,95 @@ function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData, pony
   root.add(wall);
 }
 
-function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
+function addPelicanBathroomFixture(
+  root: THREE.Group,
+  furniture: PlacedFurniture,
+  profile: VerifiedPelicanBathroomFixtureProfile,
+) {
+  const width = profile.widthIn * INCH;
+  const depth = profile.depthIn * INCH;
+  const height = profile.heightIn * INCH;
+  const transform = furnitureTransform(furniture, profile.widthIn, profile.depthIn);
+  const group = new THREE.Group();
+  group.position.set(transform.x, 0, transform.z);
+  group.rotation.y = transform.rotation;
+  group.userData = {
+    furnitureUid: furniture.uid,
+    furnitureDefId: furniture.defId,
+    pelicanBathroomFixture: true,
+    pelicanCode: profile.pelicanCode,
+    fixtureKind: profile.kind,
+    sourceEnvelopeIn: { width: profile.widthIn, depth: profile.depthIn, height: profile.heightIn },
+    sourceSpecificationUrl: profile.specificationUrl,
+    drain: profile.drain,
+  };
+  const shellColor = profile.finish === "vitreous-china-matte-black" ? "#17191b" : "#f5f6f2";
+  const shell = new THREE.MeshPhysicalMaterial({ color: shellColor, roughness: 0.24, metalness: 0, clearcoat: 0.28, clearcoatRoughness: 0.18 });
+  const water = new THREE.MeshPhysicalMaterial({ color: "#d8ebef", roughness: 0.08, metalness: 0, transmission: 0.08, transparent: true, opacity: 0.92 });
+  const dark = new THREE.MeshStandardMaterial({ color: profile.finish === "vitreous-china-matte-black" ? "#050607" : "#c7d1d4", roughness: 0.3 });
+  const add = (mesh: THREE.Mesh, part: string) => {
+    mesh.userData = { pelicanBathroomFixturePart: part, pelicanCode: profile.pelicanCode };
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  };
+
+  if (profile.kind === "toilet") {
+    const bowlHeight = Math.min(height * 0.55, (profile.seatHeightIn ?? profile.heightIn * 0.48) * INCH);
+    const bowl = new THREE.Mesh(new RoundedBoxGeometry(width * 0.78, bowlHeight, depth * 0.62, Math.min(width, depth) * 0.09, 5), shell);
+    bowl.position.set(0, bowlHeight / 2, depth * 0.13);
+    add(bowl, "toilet-bowl-exterior");
+    const seat = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.075, 10, 32), dark);
+    seat.rotation.x = Math.PI / 2;
+    seat.scale.set(width * 0.58, depth * 0.31, 1);
+    seat.position.set(0, bowlHeight + 0.018, depth * 0.12);
+    add(seat, "toilet-seat");
+    if (profile.toiletStyle === "two-piece" || profile.heightIn > (profile.seatHeightIn ?? 0) + 7) {
+      const tankHeight = Math.max(height - bowlHeight * 0.78, height * 0.38);
+      const tank = new THREE.Mesh(new RoundedBoxGeometry(width * 0.82, tankHeight, depth * 0.34, Math.min(width, depth) * 0.05, 4), shell);
+      tank.position.set(0, tankHeight / 2, -depth * 0.29);
+      add(tank, "toilet-tank");
+    }
+  } else if (profile.kind === "bidet") {
+    const baseHeight = height * 0.78;
+    const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.27, width * 0.36, baseHeight, 28), shell);
+    pedestal.scale.z = Math.max(0.7, depth / width);
+    pedestal.position.y = baseHeight / 2;
+    add(pedestal, "bidet-pedestal");
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.07, 10, 30), dark);
+    rim.rotation.x = Math.PI / 2;
+    rim.scale.set(width * 0.67, depth * 0.43, 1);
+    rim.position.y = height * 0.8;
+    add(rim, "bidet-rim");
+  } else if (profile.kind === "freestanding-tub") {
+    const outer = new THREE.Mesh(new THREE.SphereGeometry(0.5, 36, 20), shell);
+    outer.scale.set(width, height, depth);
+    outer.position.y = height / 2;
+    add(outer, "freestanding-tub-exterior");
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 8, 36), water);
+    rim.rotation.x = Math.PI / 2;
+    rim.scale.set(width, depth, 1);
+    rim.position.y = height * 0.86;
+    add(rim, "freestanding-tub-well");
+  } else {
+    const shellBox = new THREE.Mesh(new RoundedBoxGeometry(width, height, depth, Math.min(width, depth) * 0.04, 4), shell);
+    shellBox.position.y = height / 2;
+    add(shellBox, "alcove-tub-exterior");
+    const well = new THREE.Mesh(new RoundedBoxGeometry(width * 0.82, height * 0.035, depth * 0.72, Math.min(width, depth) * 0.05, 4), water);
+    well.position.y = height + 0.004;
+    add(well, "alcove-tub-well");
+  }
+  root.add(group);
+}
+
+export function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
   const def = FURNITURE_CATALOG.find((entry) => entry.id === furniture.defId);
   if (!def) return;
+  const bathroomFixture = verifiedPelicanBathroomFixtureProfile(furniture.pelicanCode ?? def.pelicanCode);
+  if (bathroomFixture) {
+    addPelicanBathroomFixture(root, furniture, bathroomFixture);
+    return;
+  }
   const width = def.w * INCH;
   const depth = def.d * INCH;
   const transform = furnitureTransform(furniture, def.w, def.d);

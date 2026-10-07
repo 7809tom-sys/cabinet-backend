@@ -10,12 +10,15 @@ describe("Pelican bathroom catalog source map", () => {
   it("keeps only supplier-verified toilet and bidet model codes in the bathroom palette", () => {
     expect(isSourceVerifiedPelicanToiletOrBidet("PL-12005")).toBe(true);
     expect(isSourceVerifiedPelicanToiletOrBidet("PL-12005 MB")).toBe(true);
+    expect(isSourceVerifiedPelicanToiletOrBidet("PL-12011 MB")).toBe(true);
+    expect(isSourceVerifiedPelicanToiletOrBidet("PL-12230")).toBe(true);
     expect(isSourceVerifiedPelicanToiletOrBidet("PL-A249 ADA")).toBe(true);
     expect(isSourceVerifiedPelicanToiletOrBidet("PL-12249")).toBe(true);
 
     // This retained catalog row is not in the current Pelican collection/search
     // and stays out of the customer-facing picker until its official source is known.
     expect(isSourceVerifiedPelicanToiletOrBidet("PL-12243")).toBe(false);
+    expect(isSourceVerifiedPelicanToiletOrBidet("PL-12228")).toBe(false);
     expect(isSourceVerifiedPelicanToiletOrBidet("Aura Accessories Set MB")).toBe(false);
     expect(isSourceVerifiedPelicanToiletOrBidet("Special Order PL-8835 CHR")).toBe(false);
   });
@@ -34,6 +37,12 @@ describe("Pelican bathroom catalog source map", () => {
   it("returns a verified stored official image where Pelican source imagery was collected", () => {
     expect(officialPelicanBathroomCatalogImage("PL-12005", null)).toBe(
       "/manus-storage/toilet-pl-12005_48351c94.png",
+    );
+    expect(officialPelicanBathroomCatalogImage("PL-12230", null)).toBe(
+      "/manus-storage/toilet-pl-12230_adb9c122.png",
+    );
+    expect(officialPelicanBathroomCatalogImage("PL-12044 MB", null)).toBe(
+      "/manus-storage/toilet-pl-12044-mb_bd27dde0.png",
     );
     expect(officialPelicanBathroomCatalogImage('PL-02146 67"', null)).toBe(
       "/manus-storage/tub-pl-02146_56111d69.png",

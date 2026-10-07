@@ -54,6 +54,7 @@ import {
   resolveStoreScope,
 } from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
+import { isPelicanBathroomFixtureProfileVerified } from "@/lib/pelicanBathroomFixtureProfiles";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -117,7 +118,7 @@ import {
   resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
-  FURNITURE_CATALOG, makeFurniture, furnitureFootprint, type PlacedFurniture,
+  FURNITURE_CATALOG, makeFurniture, makePelicanBathroomFixture, furnitureFootprint, type PlacedFurniture,
   WallOpening, WallSide, OPENINGS, OpeningDef, makeOpening,
 	  finishColors, toeKickLinearInches, lightRailLinearInches, inchesToLinearFeet,
   trimPiecesNeeded, countertopArea, countertopSurfaces, countertopSurfaceInsideRoom, battenLinearInches, valancePiecesNeeded,
@@ -1140,6 +1141,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     toast.success(`${item.name} added`);
   };
+  /** Place only source-measured Pelican bathroom fixtures; catalog images alone never create 3D geometry. */
+  const placePelicanBathroomFixture = useCallback((item: SelectedSurface) => {
+    const draft = makePelicanBathroomFixture(item, 0, 0);
+    const definition = draft ? FURNITURE_CATALOG.find((entry) => entry.id === draft.defId) : null;
+    if (!draft || !definition) {
+      toast.error("This Pelican model needs a complete exterior technical sheet before it can be placed in 3D.");
+      return;
+    }
+    const fixture = {
+      ...draft,
+      x: Math.max(0, (room.width - definition.w) / 2),
+      y: Math.max(0, (room.depth - definition.d) / 2),
+    };
+    setSelectedSurfaces((previous) => previous.some((surface) => surface.id === item.id) ? previous : [...previous, item]);
+    setFurniture((previous) => [...previous, fixture]);
+    setSelectedFurnUid(fixture.uid);
+    toast.success(`${item.name} placed in Floor Plan and 3D`);
+  }, [room.depth, room.width]);
   // Clear both saved layers: the source product used by Cart/3D and the plan's
   // representative material. Clearing only one left the flooring pattern visible.
   const removeFlooring = useCallback(() => {
@@ -1659,6 +1678,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
+  const bathroomFixtureQuantityByProduct = useMemo(() => {
+    // A selected bathroom fixture is cartable only when an actual persisted
+    // plan/3D placement owns it. Seed selected source profiles at zero so a
+    // deleted fixture cannot leave a stale one-unit quote line behind.
+    const quantities = new Map<number, number>();
+    selectedSurfaces.forEach((surface) => {
+      if (isPelicanBathroomFixtureProfileVerified(surface.pelicanCode)) quantities.set(surface.id, 0);
+    });
+    furniture.forEach((fixture) => {
+      if (!fixture.pelicanProductId || !isPelicanBathroomFixtureProfileVerified(fixture.pelicanCode)) return;
+      quantities.set(fixture.pelicanProductId, (quantities.get(fixture.pelicanProductId) ?? 0) + 1);
+    });
+    return quantities;
+  }, [furniture, selectedSurfaces]);
+  const placedFixtureQuantityByProduct = useMemo(() => {
+    const quantities = new Map(potFillerQuantityByProduct);
+    bathroomFixtureQuantityByProduct.forEach((quantity, productId) => {
+      quantities.set(productId, (quantities.get(productId) ?? 0) + quantity);
+    });
+    return quantities;
+  }, [bathroomFixtureQuantityByProduct, potFillerQuantityByProduct]);
   // Text annotations placed on the floor plan.
   const [annotations, setAnnotations] = useState<PlanAnnotation[]>([]);
   const [selectedAnnotationUid, setSelectedAnnotationUid] = useState<string | null>(null);
@@ -4090,8 +4130,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       perimeterCountertopSqFt: countertopMeasurement?.perimeterSquareFeet ?? 0,
       islandCountertopSqFt: countertopMeasurement?.islandSquareFeet ?? 0,
     };
-    return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas, potFillerQuantityByProduct) as CartItem[];
-  }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn, potFillerQuantityByProduct]);
+    return buildSurfaceCartLines(selectedSurfaces, DESIGN_TIER_TO_SHARED[tier], areas, placedFixtureQuantityByProduct) as CartItem[];
+  }, [selectedSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn, placedFixtureQuantityByProduct]);
 
   // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
@@ -5106,6 +5146,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // generated stool become a material-list, cart, or price item.
 	    for (const item of furniture) {
 	      if (item.uid.startsWith("peninsula-stool:")) continue;
+	      // Source-priced Pelican bathroom fixtures already appear in the same
+	      // authoritative cart/material line through their persisted placement.
+	      // Do not duplicate them as an unpriced generic Furniture supplement.
+	      if (item.pelicanProductId && pricedCodes.has(`PEL-${item.pelicanProductId}`)) continue;
 	      furnitureGroups.set(item.defId, (furnitureGroups.get(item.defId) ?? 0) + 1);
 	    }
 	    for (const [defId, qty] of Array.from(furnitureGroups.entries())) {
@@ -14264,6 +14308,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 onToggle={addRecommendedSurface}
                 onBrowseAll={() => setSurfacesOpen(true)}
                 roomType={roomType}
+	              onPlaceBathroomFixture={placePelicanBathroomFixture}
 	              />
 	              {/* Flooring Layout Pattern Picker */}
               {flooringMaterialId && (() => {
@@ -16980,6 +17025,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}
 	        onSetActiveThreeDBacksplash={setActiveBacksplashSurface}
 	        roomType={roomType}
+	        onPlaceBathroomFixture={placePelicanBathroomFixture}
 	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
 	        countertopPriceLines={surfaceCartLines
 	          .filter((line) => /countertop|quartz\s+slab/i.test(line.category ?? ""))

@@ -9,6 +9,7 @@ import {
   wallAngle as polygonWallAngle,
   wallSegmentLength as polygonWallSegmentLength,
 } from "./polygonRoom";
+import { VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES, verifiedPelicanBathroomFixtureProfile } from "./pelicanBathroomFixtureProfiles";
 export { isGlassPolicyNomenclature } from "./glassPolicy";
 
 export const STD = {
@@ -13522,7 +13523,7 @@ export type FurnitureShape = "rect" | "round";
 export interface FurnitureDef {
   id: string;
   name: string;
-  category: "table" | "chair" | "stool" | "bench" | "other";
+  category: "table" | "chair" | "stool" | "bench" | "other" | "bathroom-fixture";
   shape: FurnitureShape;
   /** Width in inches (diameter for round items) */
   w: number;
@@ -13531,6 +13532,8 @@ export interface FurnitureDef {
   /** Recommended clearance around the item in inches */
   clearance: number;
   color: string;
+  /** Exact Pelican source code when this is a measured bathroom fixture. */
+  pelicanCode?: string;
 }
 
 export const FURNITURE_CATALOG: FurnitureDef[] = [
@@ -13546,6 +13549,17 @@ export const FURNITURE_CATALOG: FurnitureDef[] = [
   { id: "stool-counter", name: "Counter Stool",           category: "stool", shape: "round", w: 16, d: 16, clearance: 0,  color: "#6b5b45" },
   { id: "bench-48",      name: 'Bench 48"',               category: "bench", shape: "rect",  w: 48, d: 14, clearance: 0,  color: "#7a6a50" },
   { id: "bench-60",      name: 'Bench 60"',               category: "bench", shape: "rect",  w: 60, d: 14, clearance: 0,  color: "#7a6a50" },
+  ...VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.map((profile): FurnitureDef => ({
+    id: profile.id,
+    name: profile.name,
+    category: "bathroom-fixture",
+    shape: "rect",
+    w: profile.widthIn,
+    d: profile.depthIn,
+    clearance: 0,
+    color: profile.finish === "vitreous-china-matte-black" ? "#1b1b1b" : "#f4f5f2",
+    pelicanCode: profile.pelicanCode,
+  })),
 ];
 
 export interface PlacedFurniture {
@@ -13554,6 +13568,12 @@ export interface PlacedFurniture {
   x: number;
   y: number;
   rotation: number;
+  /** Source catalog identity for a placed, price-locked Pelican bathroom fixture. */
+  pelicanCode?: string;
+  pelicanProductId?: number;
+  pelicanProductName?: string;
+  pelicanCategory?: string;
+  pelicanSellPrice?: number | null;
 }
 
 export function makeFurniture(defId: string, x: number, y: number): PlacedFurniture {
@@ -13563,6 +13583,29 @@ export function makeFurniture(defId: string, x: number, y: number): PlacedFurnit
     x,
     y,
     rotation: 0,
+  };
+}
+
+/**
+ * Persist a price-locked, source-measured Pelican toilet, bidet, or tub as a
+ * movable floor-plan fixture. Image-only catalog rows, including the 67-inch
+ * freestanding variants, cannot become 3D geometry until Pelican publishes a
+ * full width × depth × height technical sheet.
+ */
+export function makePelicanBathroomFixture(
+  product: { id: number; pelicanCode?: string | null; name: string; category: string; sellPrice: number | null },
+  x: number,
+  y: number,
+): PlacedFurniture | null {
+  const profile = verifiedPelicanBathroomFixtureProfile(product.pelicanCode);
+  if (!profile) return null;
+  return {
+    ...makeFurniture(profile.id, x, y),
+    pelicanCode: profile.pelicanCode,
+    pelicanProductId: product.id,
+    pelicanProductName: product.name,
+    pelicanCategory: product.category,
+    pelicanSellPrice: product.sellPrice,
   };
 }
 

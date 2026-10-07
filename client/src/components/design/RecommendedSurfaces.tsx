@@ -89,6 +89,7 @@ function RecommendedRow({
   selectedIds,
   onToggle,
   onBrowseAll,
+  onPlaceBathroomFixture,
 }: {
   role: RecommendedRole;
   label: string;
@@ -97,6 +98,7 @@ function RecommendedRow({
   selectedIds: Set<number>;
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
   onBrowseAll: () => void;
+  onPlaceBathroomFixture?: (item: SelectedSurface) => void;
 }) {
   const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role, limit });
   const items = (data ?? []) as RecItem[];
@@ -142,7 +144,10 @@ function RecommendedRow({
               <button
                 key={p.id}
                 type="button"
-                onClick={() => onToggle(item, role)}
+                onClick={() => {
+                  onToggle(item, role);
+                  if (role === "toilet-bidet" || role === "bathtub") onPlaceBathroomFixture?.(item);
+                }}
                 className={`group overflow-hidden rounded-lg border text-left transition-colors ${
                   isSel
                     ? "border-[#a87f33] ring-1 ring-[#a87f33]/40 bg-[#a87f33]/5"
@@ -207,12 +212,15 @@ export function RecommendedSurfaces({
   onBrowseAll,
   roomType = "kitchen",
   limit = 8,
+  onPlaceBathroomFixture,
 }: {
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
   onBrowseAll: () => void;
   roomType?: string;
   limit?: number;
+  /** Clicking a source-measured toilet, bidet, or tub places it into the active bathroom plan. */
+  onPlaceBathroomFixture?: (item: SelectedSurface) => void;
 }) {
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
   const isBathroom = roomType === "bathroom";
@@ -222,7 +230,7 @@ export function RecommendedSurfaces({
     <div className="space-y-4">
       <p className="px-1 text-[11px] leading-snug text-muted-foreground">
         {isBathroom
-          ? "Bathroom-only Pelican fixtures. Tap to add a source-priced selection to this bathroom design; vanity basins and faucets install through a compatible vanity base."
+          ? "Bathroom-only Pelican fixtures. Tap a source-measured toilet, bidet, or tub to place it in Floor Plan and 3D; vanity basins and faucets install through a compatible vanity base."
           : "Recommended Pelican surfaces & fixtures. Tap to add to your design — they appear in your quote and unlock the 3D View. Tap again to remove."}
       </p>
       {sections.map((s) => (
@@ -235,6 +243,7 @@ export function RecommendedSurfaces({
           selectedIds={selectedIds}
           onToggle={onToggle}
           onBrowseAll={onBrowseAll}
+          onPlaceBathroomFixture={onPlaceBathroomFixture}
         />
       ))}
     </div>

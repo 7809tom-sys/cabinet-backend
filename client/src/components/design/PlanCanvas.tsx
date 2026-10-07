@@ -26,6 +26,7 @@ import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects } from "@/lib/islandScene";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
+import { verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -3332,6 +3333,7 @@ export function PlanCanvas({
         {furniture.map((f) => {
           const def = FURNITURE_CATALOG.find((fd) => fd.id === f.defId);
           if (!def) return null;
+          const bathroomFixture = verifiedPelicanBathroomFixtureProfile(f.pelicanCode ?? def.pelicanCode);
           const fp = furnitureFootprint(f, def);
           const isSelected = selectedFurnUid === f.uid;
           const pxW = fp.w * ppi;
@@ -3346,9 +3348,9 @@ export function PlanCanvas({
                 top: f.y * ppi,
                 width: pxW,
                 height: pxD,
-                background: def.color + "33",
-                border: `2px solid ${isSelected ? "#1a2744" : def.color}`,
-                borderRadius: isRound ? "50%" : 4,
+                background: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#232323" : bathroomFixture ? "#fbfcfa" : def.color + "33",
+                border: `2px solid ${isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
+                borderRadius: bathroomFixture?.kind === "freestanding-tub" ? "48% / 26%" : bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet" ? "42% 42% 30% 30%" : isRound ? "50%" : 4,
                 transform: `rotate(${f.rotation}deg)`,
                 transformOrigin: "center",
                 zIndex: 20,
@@ -3358,12 +3360,24 @@ export function PlanCanvas({
               onPointerMove={onFurnPointerMove}
               onPointerUp={onFurnPointerUp}
             >
+              {bathroomFixture?.kind === "freestanding-tub" && (
+                <div className="pointer-events-none absolute inset-[14%] rounded-[48%_/_30%] border border-slate-400/70 bg-slate-100/80" />
+              )}
+              {bathroomFixture?.kind === "alcove-tub" && (
+                <div className="pointer-events-none absolute inset-x-[9%] top-[12%] bottom-[13%] rounded-[22%] border border-slate-400/70 bg-slate-100/80" />
+              )}
+              {(bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet") && (
+                <div className="pointer-events-none absolute left-[20%] right-[20%] top-[27%] bottom-[12%] rounded-[48%] border border-slate-400/70 bg-slate-100/80" />
+              )}
+              {bathroomFixture?.drain && (
+                <div className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 rounded-full bg-slate-500" style={{ left: bathroomFixture.drain === "left" ? "22%" : bathroomFixture.drain === "right" ? "78%" : "50%", transform: "translate(-50%, -50%)" }} />
+              )}
               {/* Label */}
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
                 style={{ fontSize: Math.max(7, Math.min(10, pxW / 6)) }}
               >
-                <span className="font-semibold leading-tight" style={{ color: def.color }}>{def.name}</span>
+                <span className="font-semibold leading-tight" style={{ color: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#f8fafc" : def.color }}>{bathroomFixture?.pelicanCode ?? def.name}</span>
                 <span className="text-[8px] opacity-60" style={{ color: def.color }}>
                   {isRound ? `${def.w}"⌀` : `${fp.w}"×${fp.d}"`}
                 </span>
