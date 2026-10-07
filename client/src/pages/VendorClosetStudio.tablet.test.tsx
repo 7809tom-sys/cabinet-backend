@@ -206,6 +206,9 @@ describe("Closet Studio tablet workspace", () => {
     expect(scene).not.toContain("cornerShelfCollisionEnvelope");
     expect(scene).not.toContain("cornerShelfSelectionMarker");
     expect(scene).not.toContain("cornerOutlineMat");
+    expect(scene).not.toContain("cornerEnvelopeMat");
+    expect(scene).toContain("}), boardMat);");
+    expect(scene).toContain("finish: design.finish");
   });
 
   it("keeps an always-visible Corner shelf action targeted at the actual planner rather than requiring dock scrolling", () => {
@@ -221,6 +224,20 @@ describe("Closet Studio tablet workspace", () => {
     expect(planners.map((planner) => planner.id)).toEqual(["vendor-corner-shelf-planner-wide", "vendor-corner-shelf-planner-dock"]);
     const planner = planners[1];
     expect(within(planner).getByRole("button", { name: "Build visual corner" })).toBeTruthy();
+  });
+
+  it("keeps a persistent available-finish dropdown visible while a Studio design is open", () => {
+    window.history.replaceState(null, "", "/closet");
+    render(<VendorClosetStudio />);
+    fireEvent.click(screen.getByRole("button", { name: "Start with one tower" }));
+
+    const finish = screen.getByRole("combobox", { name: "Available MasterTrac finish" });
+    expect(within(finish).getByRole("option", { name: "Glacier White" })).toBeTruthy();
+    expect(within(finish).getByRole("option", { name: "Slate Rift" })).toBeTruthy();
+    expect(within(finish).getByRole("option", { name: "Spiced Mahogany" })).toBeTruthy();
+    fireEvent.change(finish, { target: { value: "Slate Rift" } });
+    expect((finish as HTMLSelectElement).value).toBe("Slate Rift");
+    expect(screen.getByText(/One tower at a time · Slate Rift/i)).toBeTruthy();
   });
 
   it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioConnectedCorner, addStudioCornerShelf, canStageStudioPart, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, studioCornerShelfSku, studioTowerFootprint, updateStudioBasketPlacement,
+  addStudioBay, addStudioBasketPlacement, addStudioBasketReference, addStudioConnectedCorner, addStudioCornerShelf, canStageStudioPart, changeStudioFinish, configureStudioBayCut, createStudioDesign, createStudioReviewDemo, MODE_RECOMMENDATIONS, moveStudioBasketPlacement, moveStudioCornerShelf, moveStudioItem, removeStudioBasketPlacement, removeStudioBasketReference, studioCornerShelfSku, studioTowerFootprint, updateStudioBasketPlacement,
   restoreStudioDesign, snapStudioPart, STUDIO_FINISHES, studioBayCut, studioBays, studioCollision, studioCornerShelvesForWall, studioPartReferences, studioTakeoff, studioWallOccupancy, studioWidth, switchStudioWall,
   STUDIO_BASKET_REFERENCE_OPTIONS, STUDIO_BASKET_VISUAL_DEPTH_IN, STUDIO_CORNER_SHELF_NOMINAL_FOOTPRINT_IN, STUDIO_CORNER_SHELF_GEOMETRY_REVISION, STUDIO_ILLUSTRATIVE_SHOE_PITCH_DEG, studioBasketPlacementsForWall, studioBasketReferences, studioCornerMeasuredGap, studioCornerPlanningFootprint, studioFitCapability, studioItemHeight,
   type StudioDesign,
@@ -104,6 +104,20 @@ describe("isolated vendor Closet Studio", () => {
     expect(rejected).toMatchObject({ ok: false });
     expect(tooSmall.cornerShelves ?? []).toEqual([]);
     expect(studioBays(tooSmall, "right")).toEqual([]);
+  });
+
+  it("replaces a placed corner pie shelf with the matching sourced finish SKU when the Studio finish changes", () => {
+    const corner = addStudioCornerShelf(createStudioDesign(), "back-right", "fixed", 36, "finish-pie");
+    expect(corner.ok).toBe(true);
+    if (!corner.ok) return;
+
+    const changed = changeStudioFinish(corner.design, "Spiced Mahogany");
+    expect(changed.ok).toBe(true);
+    if (!changed.ok) return;
+    expect(changed.design).toMatchObject({ finish: "Spiced Mahogany", cornerShelves: [{ id: "finish-pie", finish: "Spiced Mahogany", sku: "432786" }] });
+    expect(studioTakeoff(changed.design).lines.some((line) => line.sku === "432556")).toBe(false);
+    expect(studioTakeoff(changed.design).lines.find((line) => line.sku === "432786")?.qty).toBe(1);
+    expect(restoreStudioDesign(JSON.stringify(changed.design))).toEqual(changed.design);
   });
 
   it("retains each historical basket as a source-only reference without inventing a fit, rail, motion, material line, or 2026 SKU substitution", () => {

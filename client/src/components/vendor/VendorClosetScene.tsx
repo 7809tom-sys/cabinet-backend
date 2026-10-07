@@ -107,7 +107,6 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
     const shoeMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.72 });
     const drawerMat = new THREE.MeshPhysicalMaterial({ color: palette.face, map: texture, roughness: 0.6 });
     const brass = new THREE.MeshStandardMaterial({ color: 0xb9a37b, metalness: 0.7, roughness: 0.33 });
-    const cornerEnvelopeMat = new THREE.MeshPhysicalMaterial({ color: 0xca9255, roughness: 0.46, transparent: true, opacity: 0.88, side: THREE.DoubleSide });
     const basketWireMat = new THREE.LineBasicMaterial({ color: 0x697b7c, transparent: true, opacity: 0.9 });
     const hintMat = new THREE.MeshBasicMaterial({ color: 0xb19056, transparent: true, opacity: 0.14, depthWrite: false, side: THREE.DoubleSide });
     const hitMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
@@ -239,12 +238,12 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       pie.moveTo(0, 0); pie.lineTo(r, 0);
       pie.bezierCurveTo(r, r * 0.5523, r * 0.5523, r, 0, r);
       pie.lineTo(0, 0);
-      const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(pie, { depth: STUDIO_CORNER_SHELF_THICKNESS_IN * IN, bevelEnabled: false, curveSegments: 28 }), cornerEnvelopeMat);
+      const mesh = new THREE.Mesh(new THREE.ExtrudeGeometry(pie, { depth: STUDIO_CORNER_SHELF_THICKNESS_IN * IN, bevelEnabled: false, curveSegments: 28 }), boardMat);
       mesh.rotation.x = Math.PI / 2;
       mesh.scale.set(sx, sz, 1);
       mesh.position.set(originX, (shelf.elevationIn + STUDIO_CORNER_SHELF_THICKNESS_IN) * IN, originZ);
       mesh.castShadow = true; mesh.receiveShadow = true;
-      mesh.userData = { cornerShelfPlanningEnvelope: true, illustrativePieShelf: true, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
+      mesh.userData = { cornerShelfPlanningEnvelope: true, illustrativePieShelf: true, finish: design.finish, sku: shelf.sku, cornerId: shelf.cornerId, mount: shelf.mount, geometryRevision: shelf.geometryRevision, nominalFootprintIn: shelf.nominalFootprintIn, profileIllustrative: true, installationFitToVerify: true };
       parts.add(mesh);
       if (shelf.towerConnection === "visualAligned") {
         const companionWall = shelf.wallIds.find((wall) => wall !== design.wall);
@@ -298,7 +297,7 @@ export function VendorClosetScene({ design, selectedBay, selectedCornerId = null
       scene.traverse((object) => {
         if (object instanceof THREE.Mesh || object instanceof THREE.Line) object.geometry.dispose();
       });
-      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, cornerEnvelopeMat, basketWireMat, hintMat, hitMat]) {
+      for (const material of [oak, seamMaterial, wall.material, baseboard.material, boardMat, edgeMat, metalMat, shoeMat, drawerMat, brass, basketWireMat, hintMat, hitMat]) {
         if (Array.isArray(material)) material.forEach((mat) => mat.dispose()); else material.dispose();
       }
       texture.dispose(); renderer.dispose(); host.removeChild(renderer.domElement);

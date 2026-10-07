@@ -325,6 +325,33 @@ export function removeStudioCornerShelf(design: StudioDesign, id: string): Studi
   return { ...design, cornerShelves: studioCornerShelves(design).filter((shelf) => shelf.id !== id) };
 }
 
+/**
+ * A finish is one Studio-wide sourced selection. Corner shelves persist their own source SKU,
+ * so replace their identity atomically rather than leaving an old-finish visual or List line behind.
+ */
+export function changeStudioFinish(design: StudioDesign, finish: StudioDesign["finish"]):
+  { ok: true; design: StudioDesign } | { ok: false; reason: string } {
+  if (!STUDIO_FINISHES.includes(finish)) return { ok: false, reason: "Choose one of the available MasterTrac finishes." };
+  if (design.finish === finish) return { ok: true, design };
+  const cornerShelves = studioCornerShelves(design).map((shelf) => ({ ...shelf, finish, sku: studioCornerShelfSku(finish, shelf.mount) }));
+  const candidate = { ...design, finish, cornerShelves };
+  for (const shelf of cornerShelves) {
+    const error = studioCornerPlacementError(candidate, shelf, shelf.id);
+    if (error) return { ok: false, reason: error };
+  }
+  for (const wallId of STUDIO_WALLS) {
+    const scoped = switchStudioWall(candidate, wallId);
+    for (let index = 0; index < scoped.bays.length; index++) {
+      if (!studioPartReferences(scoped, index, "fixedShelf") || !studioPartReferences(scoped, index, "shelf"))
+        return { ok: false, reason: "The selected finish is missing a sourced shelf reference for one of the existing towers." };
+      for (const item of scoped.bays[index].items) {
+        if (!studioPartReferences(scoped, index, item.kind)) return { ok: false, reason: `The selected finish has no matching source reference for a placed ${item.kind}.` };
+      }
+    }
+  }
+  return { ok: true, design: candidate };
+}
+
 export const studioBasketReferences = (design: StudioDesign) => design.basketReferences ?? [];
 export const studioBasketPlacements = (design: StudioDesign) => design.basketPlacements ?? [];
 export const studioBasketPlacementsForWall = (design: StudioDesign, wall: StudioWall = design.wall) => studioBasketPlacements(design).filter((placement) => placement.wallId === wall);

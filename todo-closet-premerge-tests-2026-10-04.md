@@ -135,3 +135,12 @@ Fresh TypeScript, **57 focused tests across five files**, **33 responsive build 
 - [x] Post-feature full Vitest: **88 failed, 4,539 passed, 3 skipped** across **4,630** tests. The normalized 88 named failures have **zero new names** versus the preserved 89-case Studio baseline; one intermittent unrelated `server/design.consult` name is absent. The full suite remains historically red and is not a clean release.
 
 **Branch boundary:** This is a preview-only branch increment on `fix/closet-corner-visual-connections-20261007`. No merge, push, or production publication has been performed. The current live Studio may still show the previous shelf flow until a separately authorized production release.
+
+## Closet Studio — finish-unified pie shelf and available-finish picker (2026-10-07)
+
+- [x] Replace the pie shelf's former amber-only renderer material with the same selected MasterTrac board material used by the tower uprights and shelves. The visible pie, fixed shelves, adjustable shelves, panels, and drawer fronts now use the active **Glacier White**, **Slate Rift**, or **Spiced Mahogany** Studio finish. Chrome baskets and metal rods remain visibly distinct source-material/illustrative accessory treatments; no product or installation claim was changed.
+- [x] Add an always-visible, keyboard-accessible **Finish** dropdown in the Studio navigation, including all and only the three supported sourced finishes. The prior Room chooser remains available. Changing finish is atomic: each existing visual corner shelf is remapped to the matching public historical SKU, its saved finish/SKU metadata and 2022 List-only reference update together, and invalid changes do not partially alter a draft.
+- [x] Fresh `npx tsc --noEmit`, **31 focused Studio model/responsive tests**, and `pnpm build` pass. An isolated built preview at `http://127.0.0.1:4186` selected Spiced Mahogany, built a fixed Back-right pie shelf, confirmed SKU **432786**, the header/dropdown selection, absence of the old amber material, and zero page errors. Screenshot/proof: `/home/ubuntu/closet-finish-unification-proof/`.
+- [x] Full Vitest after this increment: **89 failed, 4,544 passed, 3 skipped** across **4,636** tests. The normalized 89 names exactly match `/tmp/studio-cuttofit-full-failures.txt` (**zero new, zero resolved**); the historically red full suite is not called green.
+
+**Branch boundary:** Finish unification is a verified branch-only change. No merge, push, cart/checkout/pricing change, or production publication has occurred.
