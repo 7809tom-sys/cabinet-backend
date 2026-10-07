@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { inArray, and, eq, desc, asc, isNotNull, ne } from "drizzle-orm";
+import { inArray, and, eq, desc, asc, isNotNull, ne, or } from "drizzle-orm";
 import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
 import { getDb } from "../db";
 import { pelicanProducts } from "../../drizzle/pelicanSchema";
@@ -9,6 +9,11 @@ import { generateImage } from "../_core/imageGeneration";
 import { storageGetSignedUrl } from "../storage";
 import { isPelicanDesignerSelectable, pelicanDesignerRole } from "../lib/pelicanDesignerReadiness";
 import { isPelicanVanityFaucetCode, isPelicanVanitySinkCode } from "../lib/pelicanFixtureRole";
+import {
+  isSourceVerifiedPelicanBathtub,
+  isSourceVerifiedPelicanToiletOrBidet,
+  officialPelicanBathroomCatalogImage,
+} from "../lib/pelicanBathroomCatalog";
 
 // --- pricing helpers (mirror pelican router) ---
 const DEFAULT_MARKUP_BPS: Record<string, number> = {
@@ -105,9 +110,10 @@ function bathroomSourceText(product: { name?: string | null; description?: strin
 
 /**
  * Imported categories are not reliable bathroom families: tubs are historically
- * stored under Sink & Faucet Accessories and a few vanity basins are misnamed.
- * These predicates preserve the source records while keeping kitchen products
- * out of the bathroom palette.
+ * stored under Sink & Faucet Accessories or Shower Surrounds, and a few vanity
+ * basins are misnamed. These predicates preserve source-backed product rows
+ * while keeping kitchen products, trim, and drain accessories out of the
+ * bathroom palette.
  */
 function matchesBathroomCatalogRole(
   product: { category: string; subCategory?: string | null; pelicanCode?: string | null; name?: string | null; description?: string | null },
@@ -125,17 +131,18 @@ function matchesBathroomCatalogRole(
         && (isPelicanVanityFaucetCode(product.pelicanCode)
           || (/\b(?:bathroom|vanity|vessel|tub)\b/.test(text) && /\bfaucet\b/.test(text)));
     case "toilet-bidet":
-      return product.category === "Toilets & Bidets";
+      return product.category === "Toilets & Bidets"
+        && isSourceVerifiedPelicanToiletOrBidet(product.pelicanCode);
     case "bathtub":
-      return product.category === "Sinks & Faucets"
-        && /\b(?:bathtub|soaking tub)\b/.test(text)
-        // A complete Pelican tub correctly mentions its included drain
-        // assembly; only stand-alone faucet products are excluded here.
-        && !/\bfaucet\b/.test(text);
+      return isSourceVerifiedPelicanBathtub(product.pelicanCode);
     case "shower-door":
       return product.category === "Shower & Bath" && product.subCategory === "Shower & Tub Doors";
     case "shower-surround":
-      return product.category === "Shower & Bath" && product.subCategory === "Shower Surrounds";
+      return product.category === "Shower & Bath"
+        && product.subCategory === "Shower Surrounds"
+        // A handful of supplier tubs were historically imported under the
+        // same legacy family. They belong exclusively under Bathtubs.
+        && !isSourceVerifiedPelicanBathtub(product.pelicanCode);
     case "shower-system":
       return product.category === "Shower & Bath" && product.subCategory === "Shower Valves & Systems";
     default:
@@ -161,11 +168,17 @@ function roleFilter(role: RecommendedRole) {
     case "vanity-faucet":
     case "bathroom-sink":
     case "bathroom-faucet":
-    case "bathtub":
     case "pot-filler":
       // Imported subcategories contain historical misclassifications. The
       // response below derives the final placement family from product text.
       return eq(pelicanProducts.category, "Sinks & Faucets");
+    case "bathtub":
+      // Current supplier tub models were imported across both legacy source
+      // categories. The exact SKU whitelist below is the catalog authority.
+      return or(
+        eq(pelicanProducts.category, "Sinks & Faucets"),
+        eq(pelicanProducts.category, "Shower & Bath"),
+      );
     case "toilet-bidet":
       return eq(pelicanProducts.category, "Toilets & Bidets");
     case "shower-door":
@@ -237,7 +250,9 @@ export const surfacesRouter = router({
           size: r.size,
           coverageSqFt: r.coverageSqFt ? parseFloat(String(r.coverageSqFt)) : null,
           unsupportedOverhangLimitIn: r.unsupportedOverhangLimitIn == null ? null : Number(r.unsupportedOverhangLimitIn),
-          imageUrl: r.imageUrl,
+          imageUrl: input.role === "toilet-bidet" || input.role === "bathtub"
+            ? officialPelicanBathroomCatalogImage(r.pelicanCode, r.imageUrl)
+            : r.imageUrl,
           materialImageUrl: r.materialImageUrl,
           sellPrice: sellPriceOf(r, map),
         }))

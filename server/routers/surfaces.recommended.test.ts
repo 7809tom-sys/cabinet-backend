@@ -3,6 +3,7 @@ import { appRouter } from "../routers";
 import type { TrpcContext } from "../_core/context";
 import { getDb } from "../db";
 import { verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkProfile } from "../../client/src/lib/pelicanFixtureProfiles";
+import { isSourceVerifiedPelicanBathtub, isSourceVerifiedPelicanToiletOrBidet } from "../lib/pelicanBathroomCatalog";
 
 // Public procedure — a minimal unauthenticated context is enough.
 function publicCtx(): TrpcContext {
@@ -153,7 +154,6 @@ describe("surfaces.recommended", () => {
     const caller = appRouter.createCaller(publicCtx());
     const roles = [
       ["toilet-bidet", "Toilets & Bidets"],
-      ["bathtub", "Sinks & Faucets"],
       ["shower-door", "Shower & Bath"],
       ["shower-surround", "Shower & Bath"],
       ["shower-system", "Shower & Bath"],
@@ -167,6 +167,41 @@ describe("surfaces.recommended", () => {
         expect(row.sellPrice ?? 0).toBeGreaterThan(0);
       }
     }
+
+    // Exact Pelican tub SKUs are imported under two historical source
+    // categories, so their identity (not the legacy category label) decides
+    // whether they belong in the bathroom fixture picker.
+    const tubs = (await caller.surfaces.recommended({ role: "bathtub", limit: 80 })) as Rec[];
+    expect(tubs.length).toBeGreaterThan(0);
+    for (const row of tubs) {
+      expect(["Sinks & Faucets", "Shower & Bath"]).toContain(row.category);
+      expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+      expect(isSourceVerifiedPelicanBathtub(row.pelicanCode)).toBe(true);
+    }
+  });
+
+  it("shows only source-verified toilet and tub models with usable product card images", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const caller = appRouter.createCaller(publicCtx());
+    const toilets = (await caller.surfaces.recommended({ role: "toilet-bidet", limit: 80 })) as Rec[];
+    const tubs = (await caller.surfaces.recommended({ role: "bathtub", limit: 80 })) as Rec[];
+    const showerSurrounds = (await caller.surfaces.recommended({ role: "shower-surround", limit: 80 })) as Rec[];
+
+    expect(toilets.length).toBeGreaterThan(0);
+    expect(tubs.length).toBeGreaterThan(0);
+    expect(toilets.every((row) => isSourceVerifiedPelicanToiletOrBidet(row.pelicanCode))).toBe(true);
+    expect(tubs.every((row) => isSourceVerifiedPelicanBathtub(row.pelicanCode))).toBe(true);
+    expect(showerSurrounds.some((row) => isSourceVerifiedPelicanBathtub(row.pelicanCode))).toBe(false);
+    expect([...toilets, ...tubs].every((row) => Boolean(row.imageUrl?.trim()))).toBe(true);
+
+    expect(toilets.some((row) => row.pelicanCode === "PL-12243")).toBe(false);
+    expect(tubs.some((row) => /(?:NSO|BSO|drain|trim)/i.test(`${row.pelicanCode ?? ""} ${row.name}`))).toBe(false);
+
+    const smartToilet = toilets.find((row) => row.pelicanCode === "PL-12005");
+    const centerDrainTub = tubs.find((row) => row.pelicanCode === 'PL-02146 59"');
+    expect(smartToilet?.imageUrl).toBe("/manus-storage/toilet-pl-12005_48351c94.png");
+    expect(centerDrainTub?.imageUrl).toBe("/manus-storage/tub-pl-02146_56111d69.png");
   });
 
   it("honors the requested limit", async () => {
