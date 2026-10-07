@@ -205,6 +205,21 @@ describe("Closet Studio tablet workspace", () => {
     expect(scene).toContain("conservative 29.5-in collision envelope");
   });
 
+  it("keeps an always-visible Corner shelf action targeted at the actual planner rather than requiring dock scrolling", () => {
+    window.history.replaceState(null, "", "/closet");
+    render(<VendorClosetStudio />);
+    fireEvent.click(screen.getByRole("button", { name: "Start with one tower" }));
+
+    const entry = screen.getByRole("button", { name: "Add 29.5-inch corner shelf" });
+    expect(entry.textContent).toMatch(/corner/i);
+    fireEvent.click(entry);
+
+    const planners = screen.getAllByTestId("vendor-corner-planning-controls");
+    expect(planners.map((planner) => planner.id)).toEqual(["vendor-corner-shelf-planner-wide", "vendor-corner-shelf-planner-dock"]);
+    const planner = planners[1];
+    expect(within(planner).getByRole("button", { name: "Build visual corner" })).toBeTruthy();
+  });
+
   it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {
     window.history.replaceState(null, "", "/closet?demo=mixed");
     render(<VendorClosetStudio />);
