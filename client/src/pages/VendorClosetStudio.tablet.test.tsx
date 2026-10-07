@@ -180,45 +180,16 @@ describe("Closet Studio tablet workspace", () => {
     fireEvent.change(within(corner).getByRole("spinbutton", { name: "Corner shelf planning elevation in inches" }), { target: { value: "36" } });
     fireEvent.click(within(corner).getByRole("button", { name: "Add visual plan" }));
     expect(within(corner).getByText(/Adjustable corner.*SKU 432557.*Front-right.*36 in/i)).toBeTruthy();
-    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/illustrative pie shelf.*conservative 29\.5.*Elevation: 36.*0\.75.*supplier profile and support/i);
+    expect(within(corner).getByTestId("vendor-corner-plan-elevation").textContent).toMatch(/29\.5.*Elevation: 36.*0\.75.*curve.profile intentionally not drawn/i);
     expect(within(corner).getByText(/tower-envelope gap.*verify assembly fit/i)).toBeTruthy();
     fireEvent.click(within(corner).getByRole("button", { name: "Undo corner" }));
     expect(within(corner).queryByText(/Adjustable corner.*SKU 432557/i)).toBeNull();
 
     const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
     expect(scene).toContain("cornerShelfPlanningEnvelope: true");
-    expect(scene).toContain("CylinderGeometry(radius, radius, STUDIO_CORNER_SHELF_THICKNESS_IN");
-    expect(scene).toContain("illustrativePieShape: true");
-    expect(scene).toContain("conservativeSquareOccupancy: true");
     expect(scene).toContain("profileIllustrative: true");
     expect(scene).toContain("installationFitToVerify: true");
-    expect(scene).toContain("quarter-round display inside it is illustrative only");
-  });
-
-  it("makes finish-matched 29.5-inch corner planning, the clothes-hanging rod, and the click-to-place drawer front action obvious", () => {
-    window.history.replaceState(null, "", "/closet?demo=mixed");
-    render(<VendorClosetStudio />);
-
-    const dock = screen.getByTestId("vendor-tablet-options-dock");
-    expect(within(dock).getAllByRole("button", { name: /Clothes hanging rod/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
-    expect(within(dock).getByTestId("vendor-hanger-caveat").textContent).toMatch(/clothes-hanger outlines.*illustrative only.*not material products.*spacing.*garment clearance.*capacity.*cup locations/i);
-    expect(within(dock).getAllByRole("button", { name: /Drawer front \+ box/ }).some((button) => button.getAttribute("draggable") === "true")).toBe(true);
-    const corner = within(dock).getByTestId("vendor-corner-planning-controls");
-    expect(corner.textContent).toMatch(/29\.5.*Spiced Mahogany source SKU.*visual planning only/i);
-    expect(within(corner).getByRole("combobox", { name: "Corner shelf type" }).textContent).toMatch(/Fixed.*432786.*CFS.*Adjustable.*432787.*CAS/i);
-    expect(within(corner).getByTestId("vendor-corner-planning-caveat").textContent).toMatch(/2026 CFS.CAS.*Vintage Walnut.*historical List label remains Spiced Mahogany/i);
-
-    fireEvent.click(within(dock).getByRole("button", { name: "Plan 29.5-inch curved corner shelf" }));
-    expect(screen.getByTestId("vendor-tablet-options-dock").className).toMatch(/flex/);
-    const source = readFileSync(`${process.cwd()}/client/src/pages/VendorClosetStudio.tsx`, "utf8");
-    expect(source).toContain("studioCornerShelfSku(design.finish, \"fixed\")");
-    expect(source).toContain('title: "Clothes hanging rod"');
-    expect(source).toContain('title: "Drawer front + box"');
-    const scene = readFileSync(`${process.cwd()}/client/src/components/vendor/VendorClosetScene.tsx`, "utf8");
-    expect(scene).toContain("illustrativeClothesHangers: true");
-    expect(scene).toContain("hangerProductNotInTakeoff: true");
-    expect(scene).toContain("hangerSpacingNotSourceVerified: true");
-    expect(scene).toContain('sourcedRodSku: "433223"');
+    expect(scene).toContain("not a fabricated curved board profile or support assembly");
   });
 
   it("places sourced baskets as editable visual-planning envelopes in Parts without substituting 2026 SKUs or claiming rail fit", () => {
