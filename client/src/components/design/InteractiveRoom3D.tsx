@@ -16,7 +16,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
-import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
+import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
@@ -2989,21 +2989,26 @@ export function threeDMeasuredWallTransform(
 }
 
 /**
- * Converts any room centre-line segments—classic or Continuous Wall Builder—
- * into one finished-thickness mitered footprint. The saved-plan Vector2 uses
- * negative Y for Three.js Z, so convert it once before the shared 2D outline
- * routine. Free ends remain square; every connected joint is an offset-line
- * intersection on both faces.
+ * Converts authored room-facing wall surfaces—classic or Continuous Wall
+ * Builder—into one finished-thickness mitered footprint. The saved-plan
+ * Vector2 uses negative Y for Three.js Z, so convert it once before the shared
+ * 2D outline routine. A cabinet back is seated on the authored face, and the
+ * 4½-inch wall body extends outward from it; free ends remain square and every
+ * connected joint is mitered on both faces.
  */
 export function threeDMiteredRoomWallOutlines(
-  segments: Array<Pick<ThreeDMeasuredWallSegment, "id" | "start" | "end">>,
+  segments: Array<Pick<ThreeDMeasuredWallSegment, "id" | "start" | "end"> & { interiorOnLeft?: boolean }>,
   closed: boolean,
 ) {
-  return miteredWallOutlines(
+  return miteredWallOutlinesFromInteriorFaces(
     segments.map((segment) => ({
       id: segment.id,
       start: { x: segment.start.x, y: -segment.start.y },
       end: { x: segment.end.x, y: -segment.end.y },
+      // Standard rooms and the normally clockwise measured path keep usable
+      // room space left of each directed segment. Counter-clockwise/open paths
+      // explicitly provide the mirrored side from customWallCabinetSide.
+      interiorOnLeft: segment.interiorOnLeft ?? true,
     })),
     ROOM_WALL_THICKNESS_IN * INCH,
     closed,
@@ -9312,16 +9317,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	          id: segment.id,
 	          start: segment.start,
 	          end: segment.end,
-          customWall: roomOverride?.customWalls?.find((wall) => wall.id === segment.id),
-          length: segment.length,
-          rotationY: segment.rotationY,
-          heightIn: segment.heightIn,
+	          customWall: roomOverride?.customWalls?.find((wall) => wall.id === segment.id),
+              interiorOnLeft: customWallCabinetSide(roomOverride!, segment.id) === "left",
+	          length: segment.length,
+	          rotationY: segment.rotationY,
+	          heightIn: segment.heightIn,
         }))
 	      : polygon.map((start, index) => ({
 	          id: `room-wall-${index}`,
 	          start,
-          end: polygon[(index + 1) % polygon.length],
+	          end: polygon[(index + 1) % polygon.length],
           customWall: undefined,
+          interiorOnLeft: true,
           length: start.distanceTo(polygon[(index + 1) % polygon.length]),
           rotationY: Math.atan2(polygon[(index + 1) % polygon.length].y - start.y, polygon[(index + 1) % polygon.length].x - start.x),
           heightIn: undefined,

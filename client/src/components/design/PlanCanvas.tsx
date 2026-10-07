@@ -7,7 +7,7 @@ import {
 	  resolveSwing, resolveCabinetHardwarePosition,
   WallOpening, clampOpening, FinishColors, DEFAULT_FINISH_COLORS,
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked, peninsulaRootRunId,
-	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers,
+	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers, customWallCabinetSide,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
 	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
@@ -24,7 +24,7 @@ import { cabinetDrawingType, isSquareDoubleDoorBaseEnd } from "@/lib/cabinetGrap
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects } from "@/lib/islandScene";
-import { miteredWallOutlines, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
+import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 
 export type PlanCabinetRenderFrame = {
@@ -825,16 +825,21 @@ export function PlanCanvas({
   const roomPxW = room.width * ppi;
   const roomPxH = room.depth * ppi;
   const hasCustomWallShell = Boolean(room.vertices?.length && room.customWalls?.length);
-  // Both classic rectangles and Continuous Wall Builder rooms resolve the
-  // physical wall footprint through the shared miter routine. Individual
-  // rounded SVG lines previously made diagonal/outside corners look like
-  // overlapping independent pieces instead of one connected wall outline.
+  // The measured segment is the finished room-facing wall surface shared by
+  // cabinet placement, openings, dimensions and 3D. Build the wall thickness
+  // outward from that face, so the plan cannot depict a cabinet buried halfway
+  // inside a diagonal Wall Builder wall.
   const customWallShellOutlines = hasCustomWallShell
-    ? miteredWallOutlines(
+    ? miteredWallOutlinesFromInteriorFaces(
         room.customWalls!.flatMap((wall) => {
           const start = room.vertices!.find((vertex) => vertex.id === wall.startVertexId);
           const end = room.vertices!.find((vertex) => vertex.id === wall.endVertexId);
-          return start && end ? [{ id: wall.id, start, end }] : [];
+          return start && end ? [{
+            id: wall.id,
+            start,
+            end,
+            interiorOnLeft: customWallCabinetSide(room, wall.id) === "left",
+          }] : [];
         }),
         ROOM_WALL_THICKNESS_IN,
         !room.openWallPath,

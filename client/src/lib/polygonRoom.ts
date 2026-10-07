@@ -227,6 +227,75 @@ export function miteredWallOutlines(
   });
 }
 
+/**
+ * Builds the same sharp, finite-thickness wall solids when the saved segment
+ * denotes the **finished room-facing wall surface**, not a structural
+ * centerline. Cabinet placement, openings, dimensions, and Wall Builder
+ * measurements are authored to that finished surface: a cabinet back at a
+ * saved wall coordinate must touch it, never disappear halfway through a
+ * symmetric 4½-inch wall body.
+ *
+ * Each segment declares which side is the room interior. The helper keeps that
+ * face at the supplied measured segment, offsets only the exterior face by the
+ * full wall thickness, and intersects matching faces at every shared joint.
+ * That preserves exact 45°/90° miter joints and square open ends without
+ * moving the usable room boundary.
+ */
+export function miteredWallOutlinesFromInteriorFaces(
+  segments: Array<WallOutlineCenterLine & { interiorOnLeft: boolean }>,
+  thickness: number = ROOM_WALL_THICKNESS_IN,
+  closed = false,
+): MiteredWallOutline[] {
+  const resolvedThickness = Math.max(0, Number(thickness) || 0);
+  const normals = segments.map(wallOutlineNormal);
+  const facePoint = (
+    segment: typeof segments[number],
+    normal: WallOutlinePoint | null,
+    side: 1 | -1,
+    endpoint: "start" | "end",
+  ) => {
+    const anchor = endpoint === "start" ? segment.start : segment.end;
+    if (!normal || resolvedThickness <= WALL_OUTLINE_EPSILON || (side === 1) === segment.interiorOnLeft) return { ...anchor };
+    return offsetWallOutlinePoint(anchor, normal, side * resolvedThickness);
+  };
+  const cornerFor = (index: number, side: 1 | -1, endpoint: "start" | "end") => {
+    const segment = segments[index]!;
+    const normal = normals[index];
+    const anchor = endpoint === "start" ? segment.start : segment.end;
+    const neighborIndex = endpoint === "start"
+      ? (index > 0 ? index - 1 : closed ? segments.length - 1 : -1)
+      : (index < segments.length - 1 ? index + 1 : closed ? 0 : -1);
+    const neighbor = neighborIndex >= 0 ? segments[neighborIndex] : null;
+    const neighborNormal = neighborIndex >= 0 ? normals[neighborIndex] : null;
+    const expectedNeighborPoint = endpoint === "start" ? neighbor?.end : neighbor?.start;
+    const faceAnchor = facePoint(segment, normal, side, endpoint);
+    if (!neighbor || !neighborNormal || !expectedNeighborPoint || !sameWallOutlinePoint(anchor, expectedNeighborPoint)) {
+      return { point: faceAnchor, mitered: false };
+    }
+    const neighborFaceAnchor = facePoint(neighbor, neighborNormal, side, endpoint === "start" ? "end" : "start");
+    const direction = { x: segment.end.x - segment.start.x, y: segment.end.y - segment.start.y };
+    const neighborDirection = { x: neighbor.end.x - neighbor.start.x, y: neighbor.end.y - neighbor.start.y };
+    const intersection = intersectWallOutlineLines(faceAnchor, direction, neighborFaceAnchor, neighborDirection);
+    return { point: intersection ?? faceAnchor, mitered: Boolean(intersection) };
+  };
+
+  return segments.flatMap((segment, index) => {
+    if (!normals[index]) return [];
+    const startLeft = cornerFor(index, 1, "start");
+    const endLeft = cornerFor(index, 1, "end");
+    const endRight = cornerFor(index, -1, "end");
+    const startRight = cornerFor(index, -1, "start");
+    return [{
+      id: segment.id,
+      start: { ...segment.start },
+      end: { ...segment.end },
+      corners: [startLeft.point, endLeft.point, endRight.point, startRight.point],
+      miteredStart: startLeft.mitered && startRight.mitered,
+      miteredEnd: endLeft.mitered && endRight.mitered,
+    }];
+  });
+}
+
 /** Length of a wall segment in inches. */
 export function wallSegmentLength(wall: CustomWall, vertices: RoomVertex[]): number {
   const start = vertices.find((v) => v.id === wall.startVertexId);

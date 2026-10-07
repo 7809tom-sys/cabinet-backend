@@ -80,10 +80,23 @@ describe("shared mitered room walls", () => {
     expect(outlines[1]!.miteredStart).toBe(true);
     expect(outlines[1]!.miteredEnd).toBe(true);
     expect(outlines[2]!.miteredStart).toBe(true);
-    expect(outlines[0]!.corners[1]).toEqual(outlines[1]!.corners[0]);
-    expect(outlines[0]!.corners[2]).toEqual(outlines[1]!.corners[3]);
-    expect(outlines[1]!.corners[1]).toEqual(outlines[2]!.corners[0]);
-    expect(outlines[1]!.corners[2]).toEqual(outlines[2]!.corners[3]);
+    for (const [first, second] of [
+      [outlines[0]!.corners[1], outlines[1]!.corners[0]],
+      [outlines[0]!.corners[2], outlines[1]!.corners[3]],
+      [outlines[1]!.corners[1], outlines[2]!.corners[0]],
+      [outlines[1]!.corners[2], outlines[2]!.corners[3]],
+    ]) {
+      expect(first!.x).toBeCloseTo(second!.x, 8);
+      expect(first!.y).toBeCloseTo(second!.y, 8);
+    }
+    // The authored segment is the usable room face. A cabinet whose back is
+    // seated at this line can never be hidden inside a symmetric wall body.
+    expect(outlines[0]!.corners[0]!.x).toBeCloseTo(0, 8);
+    expect(outlines[0]!.corners[0]!.y).toBeCloseTo(0, 8);
+    expect(outlines[0]!.corners[1]!.x).toBeCloseTo(8, 8);
+    expect(outlines[0]!.corners[1]!.y).toBeCloseTo(0, 8);
+    expect(outlines[1]!.corners[1]!.x).toBeCloseTo(12, 8);
+    expect(outlines[1]!.corners[1]!.y).toBeCloseTo(4, 8);
 
     const geometry = threeDMiteredRoomWallGeometry(outlines[1]!.corners, 8);
     geometry.computeBoundingBox();
@@ -101,8 +114,7 @@ describe("shared mitered room walls", () => {
     expect(outlines[0]!.miteredStart).toBe(false);
     expect(outlines[1]!.miteredEnd).toBe(false);
     expect(outlines[0]!.corners[0].x).toBeCloseTo(outlines[0]!.corners[3].x);
-    expect((outlines[1]!.corners[1].x + outlines[1]!.corners[2].x) / 2).toBeCloseTo(9);
-    expect((outlines[1]!.corners[1].y + outlines[1]!.corners[2].y) / 2).toBeCloseTo(3);
+    expect(outlines[1]!.corners[1]).toEqual({ x: 9, y: 3 });
   });
 });
 

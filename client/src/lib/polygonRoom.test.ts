@@ -25,6 +25,7 @@ import {
   wallBuilderMetrics,
   wallBuilderRoomGeometry,
   miteredWallOutlines,
+  miteredWallOutlinesFromInteriorFaces,
   ROOM_WALL_THICKNESS_IN,
 } from "./polygonRoom";
 
@@ -67,7 +68,26 @@ describe("polygonRoom", () => {
       // The free cap is perpendicular to the 45° centre line: no rounded end.
       expect((endLeft.x - endRight.x) * 36 + (endLeft.y - endRight.y) * 36).toBeCloseTo(0);
       expect(outlines[0]!.corners[1]).toEqual(outlines[1]!.corners[0]);
+    });
+
+    it("keeps the authored room-facing wall face flush while extending the structural thickness outward", () => {
+      const outlines = miteredWallOutlinesFromInteriorFaces([
+        { id: "straight", start: { x: 0, y: 0 }, end: { x: 96, y: 0 }, interiorOnLeft: true },
+        { id: "wall-45", start: { x: 96, y: 0 }, end: { x: 144, y: 48 }, interiorOnLeft: true },
+      ], ROOM_WALL_THICKNESS_IN, false);
+
+      // The left face is the user-measured interior surface. Cabinet backs are
+      // placed on these exact coordinates, rather than halfway through a wall.
+      expect(outlines[0]!.corners[0]).toEqual({ x: 0, y: 0 });
+      expect(outlines[0]!.corners[1]).toEqual({ x: 96, y: 0 });
+      expect(outlines[1]!.corners[0]).toEqual({ x: 96, y: 0 });
+      expect(outlines[1]!.corners[1]).toEqual({ x: 144, y: 48 });
+      // The outer faces still form one mitered structural joint, not separate
+      // capped boxes at the 45-degree turn.
       expect(outlines[0]!.corners[2]).toEqual(outlines[1]!.corners[3]);
+      expect(outlines[0]!.miteredEnd).toBe(true);
+      expect(outlines[1]!.miteredStart).toBe(true);
+      expect(outlines[0]!.corners[3].y).toBeCloseTo(-ROOM_WALL_THICKNESS_IN);
     });
   });
 
