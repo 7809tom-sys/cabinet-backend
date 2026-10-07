@@ -168,6 +168,18 @@ describe("surfaces.recommended", () => {
       }
     }
 
+    const accessories = (await caller.surfaces.recommended({ role: "bathroom-accessory", limit: 80 })) as Rec[];
+    expect(accessories.length).toBeGreaterThan(0);
+    for (const row of accessories) {
+      expect(["Shower & Bath", "Sinks & Faucets", "Toilets & Bidets"]).toContain(row.category);
+      expect(row.sellPrice ?? 0).toBeGreaterThan(0);
+      expect(
+        (row.category === "Shower & Bath" && row.subCategory === "Shower Accessories")
+        || (row.category === "Sinks & Faucets" && row.subCategory === "Sink & Faucet Accessories" && /\b(?:bathroom|bath|vanity|toilet|bidet)\b/i.test(row.name))
+        || (row.category === "Toilets & Bidets" && /\baccessor(?:y|ies)\b/i.test(row.name)),
+      ).toBe(true);
+    }
+
     // Exact Pelican tub SKUs are imported under two historical source
     // categories, so their identity (not the legacy category label) decides
     // whether they belong in the bathroom fixture picker.

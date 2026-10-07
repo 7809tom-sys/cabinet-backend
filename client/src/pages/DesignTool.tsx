@@ -1008,6 +1008,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
+  const [bathroomCatalogMode, setBathroomCatalogMode] = useState<"surfaces" | "fixtures">("fixtures");
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
   // Older saved designs and the opt-in Surfaces hand-off persisted the product
@@ -1098,7 +1099,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     item: SelectedSurface,
     role: "flooring" | "backsplash" | "countertop" | "sink" | "faucet" | "range-top"
       | "bathroom-sink" | "bathroom-faucet" | "toilet-bidet" | "bathtub"
-      | "shower-door" | "shower-surround" | "shower-system"
+      | "shower-door" | "shower-surround" | "shower-system" | "bathroom-accessory"
   ) => {
     if (role === "countertop") {
       const already = activeCountertopForScope(selectedSurfaces, "perimeter")?.id === item.id;
@@ -2870,6 +2871,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       })
       .filter((c) => matchesPaletteSearch(c, s));
 	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups, masterTracFinish]);
+  const usesBathroomFixturePalette = roomType === "bathroom" && paletteType === "appliance";
   const paletteHeightOptions = useMemo(
     () => catalogHeightOptions(filteredPalette, paletteType, isCornerBase),
     [filteredPalette, paletteType, isCornerBase],
@@ -14240,6 +14242,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              paletteType !== "opening" &&
 	              paletteType !== "closetparts" &&
 	              paletteType !== "surfaces" &&
+	              !usesBathroomFixturePalette &&
 	              paletteType !== "accessory" && (
 	                <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
 	                  <p className="text-xs font-semibold text-foreground">
@@ -14303,12 +14306,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  </Button>
 	                </div>
 	              )}
-              <RecommendedSurfaces
-                selected={selectedSurfaces}
-                onToggle={addRecommendedSurface}
-                onBrowseAll={() => setSurfacesOpen(true)}
-                roomType={roomType}
-	              onPlaceBathroomFixture={placePelicanBathroomFixture}
+	              <RecommendedSurfaces
+	                selected={selectedSurfaces}
+	                onToggle={addRecommendedSurface}
+	                onBrowseAll={() => { setBathroomCatalogMode("surfaces"); setSurfacesOpen(true); }}
+	                roomType={roomType}
+	                bathroomPaletteMode="surfaces"
+	                onPlaceBathroomFixture={placePelicanBathroomFixture}
 	              />
 	              {/* Flooring Layout Pattern Picker */}
               {flooringMaterialId && (() => {
@@ -14341,7 +14345,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 );
               })()}
               </>
-            ) : paletteType === "furniture" ? (
+	            ) : usesBathroomFixturePalette ? (
+	              <RecommendedSurfaces
+	                selected={selectedSurfaces}
+	                onToggle={addRecommendedSurface}
+	                onBrowseAll={() => { setBathroomCatalogMode("fixtures"); setSurfacesOpen(true); }}
+	                roomType="bathroom"
+	                bathroomPaletteMode="fixtures"
+	                onPlaceBathroomFixture={placePelicanBathroomFixture}
+	              />
+	            ) : paletteType === "furniture" ? (
               (() => {
                 const cats = ["table", "chair", "stool", "bench"] as const;
                 const catLabels: Record<string, string> = { table: "Tables", chair: "Chairs", stool: "Stools", bench: "Benches" };
@@ -14619,7 +14632,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               })}
               </>
             )}
-            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !paletteLoading && filteredPalette.length === 0 && (
+	            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !usesBathroomFixturePalette && !paletteLoading && filteredPalette.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? t("dt_pl_no_match")
@@ -14636,9 +14649,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             )}
           </div>
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
-            {paletteType === "accessory"
-              ? t("dt_pl_foot_accessory")
-              : t("dt_pl_foot_default")}
+	            {usesBathroomFixturePalette
+	              ? "Tap a Pelican bathroom fixture to add it to Materials; source-measured toilets, bidets, and tubs also place in Floor Plan and 3D."
+	              : paletteType === "accessory"
+	              ? t("dt_pl_foot_accessory")
+	              : t("dt_pl_foot_default")}
           </div>
         </PaletteShell>
 
@@ -16660,7 +16675,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </PopoverContent>
               </Popover>
               <Tooltip><TooltipTrigger asChild>
-                <Button aria-label="Surfaces and fixtures" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => setSurfacesOpen(true)}>
+                <Button aria-label="Surfaces and fixtures" variant="outline" className="aspect-square min-h-12 w-full border-[#a87f33] p-0 text-[#7a5c24] hover:bg-[#a87f33]/10" onClick={() => { setBathroomCatalogMode(roomType === "bathroom" && paletteType === "surfaces" ? "surfaces" : "fixtures"); setSurfacesOpen(true); }}>
                   <Waves className="h-4 w-4" />
                 </Button>
               </TooltipTrigger><TooltipContent>Surfaces &amp; Fixtures{selectedSurfaces.length > 0 ? ` (${selectedSurfaces.length})` : ""}</TooltipContent></Tooltip>
@@ -16720,7 +16735,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         setCountertop(false); setSinks([]); setSelectedSinkUid(null); toast.success("Countertop removed");
                       }}><X className="h-3 w-3" /> Remove</button>
                     </div>
-                    <PelicanCountertopPicker selectedSurfaces={selectedSurfaces} onSelect={(item) => addRecommendedSurface(item, "countertop")} onBrowseAll={() => setSurfacesOpen(true)} />
+                    <PelicanCountertopPicker selectedSurfaces={selectedSurfaces} onSelect={(item) => addRecommendedSurface(item, "countertop")} onBrowseAll={() => { setBathroomCatalogMode("surfaces"); setSurfacesOpen(true); }} />
                     <p className="text-xs font-semibold text-foreground">{t("dt_bs_edge_profile")}</p>
                     <div className="grid grid-cols-4 gap-1.5">
                       {EDGE_PROFILES.map((ep) => (
@@ -16765,7 +16780,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       setSinkBaseDialog({ cabinetUid: selectedCab.uid });
                       setRangeTopStep("faucet");
                     }}
-	                    onBrowseAll={() => setSurfacesOpen(true)}
+	                    onBrowseAll={() => { setBathroomCatalogMode(roomType === "bathroom" ? "fixtures" : "surfaces"); setSurfacesOpen(true); }}
 	                  />
 	                ) : (
 	                  <>
@@ -16825,7 +16840,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     setSelectedSinkUid(sink.uid);
                     setCountertop(true);
                   }}
-                  onBrowseAll={() => setSurfacesOpen(true)}
+                  onBrowseAll={() => { setBathroomCatalogMode(roomType === "bathroom" ? "fixtures" : "surfaces"); setSurfacesOpen(true); }}
 	                    />
 	                  </>
 	                )}
@@ -17025,6 +17040,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}
 	        onSetActiveThreeDBacksplash={setActiveBacksplashSurface}
 	        roomType={roomType}
+	        bathroomPaletteMode={bathroomCatalogMode}
 	        onPlaceBathroomFixture={placePelicanBathroomFixture}
 	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
 	        countertopPriceLines={surfaceCartLines

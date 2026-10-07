@@ -4,6 +4,15 @@ import { describe, expect, it } from "vitest";
 const source = fs.readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("DesignTool island scene and glass catalog wiring", () => {
+		it("keeps Bathroom Surfaces separate from source-priced Bathroom Fixtures", () => {
+		  expect(source).toContain('const usesBathroomFixturePalette = roomType === "bathroom" && paletteType === "appliance";');
+		  expect(source).toContain('bathroomPaletteMode="surfaces"');
+		  expect(source).toContain('bathroomPaletteMode="fixtures"');
+		  expect(source).toContain('setBathroomCatalogMode("surfaces")');
+		  expect(source).toContain('setBathroomCatalogMode("fixtures")');
+		  expect(source).toContain('!usesBathroomFixturePalette && !paletteLoading && filteredPalette.length === 0');
+		});
+
 		  it("makes Compass start a new attached 45-degree wall while preserving the longer parent-wall section", () => {
 		    expect(source).toContain('turn: 45');
 		    expect(source).toContain('label: `Peninsula end · 45° ${draft.endDirection}`');

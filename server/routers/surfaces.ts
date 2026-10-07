@@ -85,6 +85,7 @@ const RECOMMENDED_ROLE = z.enum([
   "shower-door",
   "shower-surround",
   "shower-system",
+  "bathroom-accessory",
   "pot-filler",
   "range-top",
 ]);
@@ -98,6 +99,7 @@ const BATHROOM_CATALOG_ROLES = new Set<RecommendedRole>([
   "shower-door",
   "shower-surround",
   "shower-system",
+  "bathroom-accessory",
 ]);
 
 function isBathroomCatalogRole(role: RecommendedRole): boolean {
@@ -145,6 +147,12 @@ function matchesBathroomCatalogRole(
         && !isSourceVerifiedPelicanBathtub(product.pelicanCode);
     case "shower-system":
       return product.category === "Shower & Bath" && product.subCategory === "Shower Valves & Systems";
+    case "bathroom-accessory":
+      return (product.category === "Shower & Bath" && product.subCategory === "Shower Accessories")
+        || (product.category === "Sinks & Faucets"
+          && product.subCategory === "Sink & Faucet Accessories"
+          && /\b(?:bathroom|bath|vanity|toilet|bidet)\b/.test(text))
+        || (product.category === "Toilets & Bidets" && /\baccessor(?:y|ies)\b/.test(text));
     default:
       return false;
   }
@@ -185,6 +193,12 @@ function roleFilter(role: RecommendedRole) {
     case "shower-surround":
     case "shower-system":
       return eq(pelicanProducts.category, "Shower & Bath");
+    case "bathroom-accessory":
+      return or(
+        eq(pelicanProducts.category, "Shower & Bath"),
+        eq(pelicanProducts.category, "Sinks & Faucets"),
+        eq(pelicanProducts.category, "Toilets & Bidets"),
+      );
     case "range-top":
       return eq(pelicanProducts.category, "Range Tops");
   }

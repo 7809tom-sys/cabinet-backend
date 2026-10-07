@@ -23,7 +23,8 @@ export type RecommendedRole =
   | "bathtub"
   | "shower-door"
   | "shower-surround"
-  | "shower-system";
+  | "shower-system"
+  | "bathroom-accessory";
 
 export const RECOMMENDED_SECTIONS: {
   role: RecommendedRole;
@@ -37,8 +38,23 @@ export const RECOMMENDED_SECTIONS: {
   { role: "faucet", label: "Faucet", blurb: "StoneCreek faucets" },
 ];
 
-/** Bathroom sections intentionally never share kitchen sink or faucet roles. */
-export const BATHROOM_RECOMMENDED_SECTIONS: {
+/**
+ * Bathroom finishes are deliberately separate from bathroom fixtures. A bathroom
+ * plan can therefore choose its counter, floor and wall tile without putting a
+ * toilet or faucet in the "Surfaces" tab.
+ */
+export const BATHROOM_SURFACE_RECOMMENDED_SECTIONS: {
+  role: RecommendedRole;
+  label: string;
+  blurb: string;
+}[] = [
+  { role: "countertop", label: "Countertops", blurb: "Pelican quartz vanity & counter surfaces" },
+  { role: "flooring", label: "Flooring", blurb: "Pelican flooring for the bathroom floor" },
+  { role: "backsplash", label: "Wall Tile", blurb: "Pelican wall tile & mosaic" },
+];
+
+/** Bathroom fixtures intentionally never share kitchen sink or faucet roles. */
+export const BATHROOM_FIXTURE_RECOMMENDED_SECTIONS: {
   role: RecommendedRole;
   label: string;
   blurb: string;
@@ -48,9 +64,15 @@ export const BATHROOM_RECOMMENDED_SECTIONS: {
   { role: "toilet-bidet", label: "Toilets & Bidets", blurb: "Pelican toilet and bidet fixtures" },
   { role: "bathtub", label: "Bathtubs", blurb: "Pelican acrylic soaking & skirted tubs" },
   { role: "shower-door", label: "Shower & Tub Doors", blurb: "Pelican enclosure doors" },
-  { role: "shower-surround", label: "Shower Surrounds", blurb: "Pelican shower wall systems" },
+  { role: "shower-surround", label: "Shower Walls", blurb: "Pelican shower wall systems" },
   { role: "shower-system", label: "Shower Systems", blurb: "Pelican valves & systems" },
+  { role: "bathroom-accessory", label: "Other Bathroom Accessories", blurb: "Pelican bath & shower accessory lines" },
 ];
+
+/** Backward-compatible alias for callers that previously requested all bathroom cards. */
+export const BATHROOM_RECOMMENDED_SECTIONS = BATHROOM_FIXTURE_RECOMMENDED_SECTIONS;
+
+export type BathroomPaletteMode = "surfaces" | "fixtures";
 
 type RecItem = {
   id: number;
@@ -213,6 +235,7 @@ export function RecommendedSurfaces({
   roomType = "kitchen",
   limit = 8,
   onPlaceBathroomFixture,
+  bathroomPaletteMode = "surfaces",
 }: {
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
@@ -221,16 +244,24 @@ export function RecommendedSurfaces({
   limit?: number;
   /** Clicking a source-measured toilet, bidet, or tub places it into the active bathroom plan. */
   onPlaceBathroomFixture?: (item: SelectedSurface) => void;
+  /** Keeps bathroom finishes in Surfaces and products in the dedicated Fixtures tab. */
+  bathroomPaletteMode?: BathroomPaletteMode;
 }) {
   const selectedIds = useMemo(() => new Set(selected.map((s) => s.id)), [selected]);
   const isBathroom = roomType === "bathroom";
-  const sections = isBathroom ? BATHROOM_RECOMMENDED_SECTIONS : RECOMMENDED_SECTIONS;
+  const sections = isBathroom
+    ? bathroomPaletteMode === "fixtures"
+      ? BATHROOM_FIXTURE_RECOMMENDED_SECTIONS
+      : BATHROOM_SURFACE_RECOMMENDED_SECTIONS
+    : RECOMMENDED_SECTIONS;
 
   return (
     <div className="space-y-4">
       <p className="px-1 text-[11px] leading-snug text-muted-foreground">
         {isBathroom
-          ? "Bathroom-only Pelican fixtures. Tap a source-measured toilet, bidet, or tub to place it in Floor Plan and 3D; vanity basins and faucets install through a compatible vanity base."
+          ? bathroomPaletteMode === "fixtures"
+            ? "Pelican bathroom fixtures only. Tap a source-measured toilet, bidet, or tub to place it in Floor Plan and 3D; vanity basins and faucets install through a compatible vanity base."
+            : "Pelican bathroom surfaces only. Choose countertop, flooring, or wall tile; bathroom fixtures are in the Fixtures tab."
           : "Recommended Pelican surfaces & fixtures. Tap to add to your design — they appear in your quote and unlock the 3D View. Tap again to remove."}
       </p>
       {sections.map((s) => (
