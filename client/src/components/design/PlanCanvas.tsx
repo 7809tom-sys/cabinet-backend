@@ -3407,6 +3407,12 @@ export function PlanCanvas({
               {bathroomFixture?.drain && (
                 <div className="pointer-events-none absolute top-1/2 h-1.5 w-1.5 rounded-full bg-slate-500" style={{ left: bathroomFixture.drain === "left" ? "22%" : bathroomFixture.drain === "right" ? "78%" : "50%", transform: "translate(-50%, -50%)" }} />
               )}
+              {bathroomFixture?.kind === "floor-tub-filler" && (
+                <div data-testid="floor-tub-filler-icon" className="pointer-events-none absolute inset-[15%]">
+                  <div className="absolute left-[35%] top-[18%] h-[32%] w-[30%] rounded-full border-2 border-slate-600" />
+                  <div className="absolute left-[48%] top-[40%] h-[46%] w-[12%] rounded bg-slate-600" />
+                </div>
+              )}
               {/* Label */}
               <div
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
@@ -3414,7 +3420,7 @@ export function PlanCanvas({
               >
                 <span className="font-semibold leading-tight" style={{ color: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#f8fafc" : def.color }}>{bathroomFixture?.pelicanCode ?? (bathroomPlanningZone ? def.name.split(" · ")[0] : def.name)}</span>
                 <span className="text-[8px] opacity-60" style={{ color: def.color }}>
-                  {isRound ? `${def.w}"⌀` : `${fp.w}"×${fp.d}"`}
+                  {bathroomFixture?.footprintBasis ? "Illustrative footprint" : isRound ? `${def.w}"⌀` : `${fp.w}"×${fp.d}"`}
                 </span>
               </div>
               {/* Selected controls */}

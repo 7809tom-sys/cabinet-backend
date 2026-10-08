@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { verifiedPelicanBathroomFixtureProfile, pelicanBathroomFixturePlacementText } from "@/lib/pelicanBathroomFixtureProfiles";
 import { trpc } from "@/lib/trpc";
 import { formatPrice } from "@/lib/pelican";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -162,12 +163,13 @@ function RecommendedRow({
           {items.map((p) => {
             const isSel = selectedIds.has(p.id);
             const item = toSurface(p);
+            const tubFiller = role === "bathroom-faucet" && verifiedPelicanBathroomFixtureProfile(item.pelicanCode)?.kind === "floor-tub-filler";
             return (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => {
-                  if ((role === "toilet-bidet" || role === "bathtub") && onPlaceBathroomFixture) {
+                  if ((role === "toilet-bidet" || role === "bathtub" || tubFiller) && onPlaceBathroomFixture) {
                     onPlaceBathroomFixture(item);
                   } else {
                     onToggle(item, role);
@@ -201,6 +203,7 @@ function RecommendedRow({
                   </div>
                 </div>
                 <div className="space-y-0.5 p-1.5">
+                  {tubFiller && <p className="text-[10px] font-medium leading-snug text-emerald-700">Floor-mounted · tap to place in 3D</p>}
                   <div className="line-clamp-2 min-h-[1.9rem] text-[11px] font-semibold leading-snug text-foreground">
                     {p.name}
                   </div>

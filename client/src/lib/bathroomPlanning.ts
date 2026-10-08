@@ -31,6 +31,11 @@ export function bathroomPlanningGuidance(
   profile: Pick<VerifiedPelicanBathroomFixtureProfile, "kind" | "specificationUrl"> | null | undefined,
 ): BathroomPlanningGuidance | null {
   if (!profile) return null;
+  if (profile.kind === "floor-tub-filler") return {
+    title: "Floor-mounted tub filler · visual planning only",
+    text: "Source height and spout reach are retained. The footprint, hose position, and tube details are illustrative—not mounting, plumbing, service clearance, or a verified spout-to-basin fit. Move and rotate beside the tub, then confirm the exact rough-in and installation with Pelican and your plumber.",
+    sourceUrl: profile.specificationUrl,
+  };
   if (profile.kind === "toilet" || profile.kind === "bidet") {
     return {
       title: "Toilet / bidet planning check",
@@ -96,7 +101,7 @@ const BATHROOM_ZONE_LABEL: Record<BathroomZoneKind, string> = {
 
 function expectedBathroomZone(kind: PelicanBathroomFixtureKind): BathroomZoneKind | null {
   if (kind === "toilet" || kind === "bidet") return "toilet";
-  if (kind === "freestanding-tub" || kind === "alcove-tub" || kind === "tub-door") return "tub";
+  if (kind === "freestanding-tub" || kind === "alcove-tub" || kind === "tub-door" || kind === "floor-tub-filler") return "tub";
   // A shower door or wall has no dedicated starter-zone footprint. Do not claim
   // that it fits a vanity, toilet, or tub zone merely because its boxes touch.
   return null;
@@ -156,6 +161,8 @@ export function bathroomFixtureStarterZonePlacement(
 ): BathroomZonePlacement | null {
   const fixtureDefinition = FURNITURE_CATALOG.find((item) => item.id === fixture.defId);
   const profile = verifiedPelicanBathroomFixtureProfile(fixture.pelicanCode ?? fixtureDefinition?.pelicanCode);
+  // A filler sits outside the basin, never centered inside the tub zone.
+  if (profile?.kind === "floor-tub-filler") return null;
   const expectedZone = profile ? expectedBathroomZone(profile.kind) : null;
   if (!fixtureDefinition || !expectedZone) return null;
 
@@ -194,6 +201,33 @@ function rectanglesOverlap(
     && a.x + a.w > b.x + epsilon
     && a.y < b.y + b.d - epsilon
     && a.y + a.d > b.y + epsilon;
+}
+
+/** Returns a non-overlapping illustrative filler position beside the latest tub.
+ * The 14-inch occupancy is NOT a manufacturer clearance or verified reach.
+ * If no candidate fits, do not silently commit a filler inside the tub. */
+export function bathroomTubFillerPlacement(filler: PlacedFurniture, furniture: readonly PlacedFurniture[], room: Pick<RoomData, "width" | "depth">): PlacedFurniture | null {
+  const def = FURNITURE_CATALOG.find((entry) => entry.id === filler.defId);
+  const profile = verifiedPelicanBathroomFixtureProfile(filler.pelicanCode ?? def?.pelicanCode);
+  if (!def || profile?.kind !== "floor-tub-filler") return null;
+  const occupied = furniture.flatMap((item) => {
+    const definition = FURNITURE_CATALOG.find((entry) => entry.id === item.defId);
+    if (!definition || definition.category !== "bathroom-fixture") return [];
+    const footprint = furnitureFootprint(item, definition);
+    return [{ item, profile: verifiedPelicanBathroomFixtureProfile(item.pelicanCode ?? definition.pelicanCode), x: item.x, y: item.y, ...footprint }];
+  });
+  const tub = [...occupied].reverse().find((entry) => entry.profile?.kind === "freestanding-tub" || entry.profile?.kind === "alcove-tub");
+  const w = def.w, d = def.d;
+  const candidates = tub ? [
+    { x: tub.x + (tub.w - w) / 2, y: tub.y - d, rotation: 180 },
+    { x: tub.x + (tub.w - w) / 2, y: tub.y + tub.d, rotation: 0 },
+    { x: tub.x - w, y: tub.y + (tub.d - d) / 2, rotation: 90 },
+    { x: tub.x + tub.w, y: tub.y + (tub.d - d) / 2, rotation: 270 },
+  ] : [{ x: (room.width - w) / 2, y: (room.depth - d) / 2, rotation: 0 }];
+  const candidate = candidates.find((position) => position.x >= 0 && position.y >= 0
+    && position.x + w <= room.width && position.y + d <= room.depth
+    && !occupied.some((body) => rectanglesOverlap({ ...position, w, d }, body)));
+  return candidate ? { ...filler, ...candidate } : null;
 }
 
 /**

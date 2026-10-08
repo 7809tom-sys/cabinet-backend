@@ -10,7 +10,7 @@
  * - bathtubs-PL-*.txt
  */
 
-export type PelicanBathroomFixtureKind = "toilet" | "bidet" | "freestanding-tub" | "alcove-tub" | "shower-door" | "tub-door" | "shower-wall";
+export type PelicanBathroomFixtureKind = "toilet" | "bidet" | "freestanding-tub" | "alcove-tub" | "shower-door" | "tub-door" | "shower-wall" | "floor-tub-filler";
 
 export type VerifiedPelicanBathroomFixtureProfile = {
   /** Stable browser-safe furniture definition identity. */
@@ -27,9 +27,15 @@ export type VerifiedPelicanBathroomFixtureProfile = {
   heightIn: number;
   /** Published seating height when the supplier sheet provides one. */
   seatHeightIn?: number;
-  finish: "vitreous-china-white" | "vitreous-china-matte-black" | "acrylic-white" | "clear-tempered-glass" | "shower-panel";
+  finish: "vitreous-china-white" | "vitreous-china-matte-black" | "acrylic-white" | "clear-tempered-glass" | "shower-panel" | "brushed-nickel" | "chrome" | "matte-black" | "brushed-gold";
   drain: "center" | "left" | "right" | null;
   toiletStyle?: "one-piece" | "two-piece" | "smart";
+  /** Tub-filler footprint is an illustrative occupancy, not source outer dimensions or required clearance. */
+  footprintBasis?: "illustrative-occupancy";
+  mounting?: "floor";
+  tubFillerStyle?: "gooseneck-single-column" | "telephone-double-column" | "square-single-column";
+  tubFillerSpoutHeightIn?: number;
+  tubFillerSpoutReachIn?: number;
   /** Exterior silhouette from the official sheet; freestanding does not imply oval. */
   tubShape?: "oval" | "rectangular" | "rounded-rectangular";
   /** Exact operating-control type stated by the official toilet technical sheet. */
@@ -98,6 +104,24 @@ export const VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES: readonly VerifiedPelica
   { id: "pelican-shower-door-pl-03a42s", pelicanCode: "PL-03A42S", name: "PL-03A42S Frameless Double Sliding Shower Door", kind: "shower-door", widthIn: 60, depthIn: 0.5, heightIn: 76, visiblePanelHeightIn: 71 + 5 / 8, finish: "clear-tempered-glass", drain: null, planningOnly: true, specificationUrl: "https://cdn.accentuate.io/8980582301836/1776111489998/PL-03A42S.pdf?v=1776111489998" },
   { id: "pelican-tub-door-pl-03a42t", pelicanCode: "PL-03A42T", name: "PL-03A42T Frameless Double Sliding Tub Door", kind: "tub-door", widthIn: 60, depthIn: 0.5, heightIn: 59 + 1 / 6, visiblePanelHeightIn: 54 + 13 / 16, finish: "clear-tempered-glass", drain: null, planningOnly: true, specificationUrl: "https://cdn.accentuate.io/8980582301836/1776111498496/PL-03A42T.pdf?v=1776111498496" },
   { id: "pelican-shower-wall-pl-603074", pelicanCode: "PL-603074", name: "PL-603074 Pelican Shower Surround", kind: "shower-wall", widthIn: 60, depthIn: 30, heightIn: 74, finish: "shower-panel", drain: null, planningOnly: true, specificationUrl: "https://buildpelican.com/products/pl-603074" },
+  // Official PL-8515LD / PL-8522LD drawings publish heights and spout reach,
+  // not a complete horizontal envelope including handshower/hose travel.
+  // 14 x 14 is explicitly an illustrative scene/selection occupancy only.
+  ...([
+    ["8515", "BN", "brushed-nickel"], ["8515", "CHR", "chrome"], ["8515", "MB", "matte-black"],
+    ["8522", "BG", "brushed-gold"], ["8522", "CHR", "chrome"], ["8522", "MB", "matte-black"],
+    ["8538", "BG", "brushed-gold"], ["8538", "BN", "brushed-nickel"], ["8538", "MB", "matte-black"],
+  ] as const).map(([model, suffix, finish]): VerifiedPelicanBathroomFixtureProfile => ({
+    id: `pelican-tub-filler-pl-${model}-${suffix.toLowerCase()}`,
+    pelicanCode: `PL-${model} ${suffix}`, name: `PL-${model} ${suffix} Floor-mounted Tub Filler`,
+    kind: "floor-tub-filler", widthIn: 14, depthIn: 14,
+    heightIn: model === "8515" ? 43 + 7 / 8 : model === "8522" ? 44.5 : 41 + 7 / 8, finish, drain: null,
+    planningOnly: true, footprintBasis: "illustrative-occupancy", mounting: "floor",
+    tubFillerStyle: model === "8515" ? "gooseneck-single-column" : model === "8522" ? "telephone-double-column" : "square-single-column",
+    tubFillerSpoutHeightIn: model === "8515" ? 40.25 : model === "8522" ? 32 + 7 / 8 : 35,
+    tubFillerSpoutReachIn: model === "8515" ? 7 : model === "8522" ? 6.5 : 8 + 7 / 8,
+    specificationUrl: `https://buildpelican.com/cdn/shop/files/PL-${model}LD.png?v=${model === "8515" ? "1774294272" : model === "8522" ? "1774294304" : "1774294349"}`,
+  })),
 ] as const;
 
 function normalizeCode(code: string | null | undefined) {
@@ -128,6 +152,7 @@ export function isPelicanBathroomFixtureProfileVerified(code: string | null | un
 
 export function pelicanBathroomFixturePlacementText(code: string | null | undefined): string {
   const profile = verifiedPelicanBathroomFixtureProfile(code);
+  if (profile?.kind === "floor-tub-filler") return `Floor-mounted · ${profile.heightIn}″ source height · illustrative 3D; footprint / plumbing fit unverified`;
   if (profile?.planningOnly) return `Place ${profile.widthIn.toFixed(2).replace(/\.00$/, "")}″ nominal visual planning envelope`;
   if (profile) return `Place measured ${profile.widthIn.toFixed(2).replace(/\.00$/, "")}″W × ${profile.depthIn.toFixed(2).replace(/\.00$/, "")}″D fixture`;
   return "Exact 3D envelope is pending a Pelican technical sheet";

@@ -13617,7 +13617,7 @@ export const FURNITURE_CATALOG: FurnitureDef[] = [
     w: profile.widthIn,
     d: profile.depthIn,
     clearance: 0,
-    color: profile.finish === "vitreous-china-matte-black" ? "#1b1b1b" : "#f4f5f2",
+    color: ["vitreous-china-matte-black", "matte-black"].includes(profile.finish) ? "#1b1b1b" : profile.finish === "brushed-gold" ? "#b79348" : ["chrome", "brushed-nickel"].includes(profile.finish) ? "#9ea7ad" : "#f4f5f2",
     pelicanCode: profile.pelicanCode,
   })),
 ];
@@ -13636,6 +13636,7 @@ export interface PlacedFurniture {
   pelicanProductName?: string;
   pelicanCategory?: string;
   pelicanSellPrice?: number | null;
+  pelicanGeometrySource?: { version: 1; mounting: "floor"; footprintBasis: "illustrative-occupancy"; specificationUrl: string };
 }
 
 export function makeFurniture(defId: string, x: number, y: number): PlacedFurniture {
@@ -13668,6 +13669,7 @@ export function makePelicanBathroomFixture(
     pelicanProductName: product.name,
     pelicanCategory: product.category,
     pelicanSellPrice: product.sellPrice,
+    ...(profile.mounting === "floor" ? { pelicanGeometrySource: { version: 1 as const, mounting: profile.mounting, footprintBasis: "illustrative-occupancy" as const, specificationUrl: profile.specificationUrl } } : {}),
   };
 }
 

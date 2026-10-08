@@ -56,7 +56,7 @@ describe("RecommendedSurfaces bathroom palette", () => {
     const full = readFileSync(new URL("./SurfacesPickerDialog.tsx", import.meta.url), "utf8");
     const designer = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
     expect(compact).toContain("onBrowseAll(role)");
-    expect(compact).toMatch(/if \(\(role === "toilet-bidet" \|\| role === "bathtub"\) && onPlaceBathroomFixture\)/);
+    expect(compact).toMatch(/if \(\(role === "toilet-bidet" \|\| role === "bathtub" \|\| tubFiller\) && onPlaceBathroomFixture\)/);
     expect(full).toContain("initialBathroomRole?: RecommendedRole");
     expect(designer).toContain("initialBathroomRole={bathroomBrowseRole}");
     expect(designer).toContain('stepId === "tub" ? "bathtub"');

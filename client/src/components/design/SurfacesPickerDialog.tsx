@@ -536,7 +536,7 @@ export function SurfacesPickerDialog({
                             {hasApprovedMaterialSwatch ? "3D material swatch ready" : "3D material swatch pending — neutral preview"}
                           </p>
                         )}
-                        {isBathroom && (activeBathroomRole === "toilet-bidet" || activeBathroomRole === "bathtub" || activeBathroomRole === "shower-door" || activeBathroomRole === "shower-surround") && (
+                        {isBathroom && (activeBathroomRole === "toilet-bidet" || activeBathroomRole === "bathtub" || activeBathroomRole === "shower-door" || activeBathroomRole === "shower-surround" || bathroomFixtureProfile?.kind === "floor-tub-filler") && (
                           <p data-testid={`bathroom-fixture-placement-${p.id}`} className={`text-[10px] font-medium leading-snug ${bathroomFixtureProfile ? "text-emerald-700" : "text-amber-800"}`}>
                             {pelicanBathroomFixturePlacementText(item.pelicanCode)}
                           </p>
@@ -584,7 +584,7 @@ export function SurfacesPickerDialog({
                             data-testid={`place-bathroom-fixture-${p.id}`}
                             onClick={(event) => { event.stopPropagation(); onPlaceBathroomFixture(item); }}
                           >
-                            {bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
+                            {bathroomFixtureProfile.kind === "floor-tub-filler" ? "Place floor-mounted tub filler" : bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
                           </Button>
                         )}
                       </div>

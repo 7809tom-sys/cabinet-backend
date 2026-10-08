@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import {
   THREE_D_CUTAWAY_WALL_OPACITY,
   THREE_D_WALL_OPACITY,
+  THREE_D_DESIGNER_WALL_OPACITY,
+  THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY,
   threeDWallObscuresOrbitTarget,
 } from "./InteractiveRoom3D";
 
@@ -11,6 +13,15 @@ const back = [{ x: 0, y: 120 }, { x: 120, y: 120 }] as const;
 const right = [{ x: 120, y: 0 }, { x: 120, y: 120 }] as const;
 
 describe("regular Designer clear 3D view", () => {
+  it("keeps regular Designer walls visibly translucent rather than solid or invisible", () => {
+    expect(THREE_D_DESIGNER_WALL_OPACITY).toBe(0.28);
+    expect(THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY).toBe(0.14);
+    expect(THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY).toBeGreaterThan(0.05);
+    expect(THREE_D_DESIGNER_WALL_OPACITY).toBeLessThan(THREE_D_WALL_OPACITY);
+    const renderer = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    expect(renderer).toContain("cutawayRoomWalls && !showSolidFrontWalls ? THREE_D_DESIGNER_WALL_OPACITY : THREE_D_WALL_OPACITY");
+    expect(renderer).toContain("? THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY : THREE_D_DESIGNER_WALL_OPACITY");
+  });
   it("ghosts only the foreground wall between the camera and the design", () => {
     const camera = { x: 60, z: 10 };
     const target = { x: 60, z: -60 };

@@ -20,6 +20,7 @@ import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { verifiedPelicanBathroomFixtureProfile, type VerifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
+import { makePelicanTubFillerGroup } from "@/lib/pelicanTubFillerMesh";
 import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -1877,6 +1878,9 @@ export function threeDRoomWallSideFromObject(object: THREE.Object3D | null | und
 export const THREE_D_DRAWER_REVEAL_DEPTH = 0.002;
 export const THREE_D_WALL_OPACITY = 0.72;
 export const THREE_D_CUTAWAY_WALL_OPACITY = 0.025;
+// Regular Designer: retain visible walls, not opaque screens or invisible walls.
+export const THREE_D_DESIGNER_WALL_OPACITY = 0.28;
+export const THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY = 0.14;
 export const THREE_D_WALL_DEPTH_WRITE = false;
 // A kitchen is placed in a room, not on an empty stage. Show the drawn walls on
 // first load so the customer can immediately see cabinet-to-wall relationships.
@@ -8280,7 +8284,10 @@ function addPelicanBathroomFixture(
     pelicanBathroomFixture: true,
     pelicanCode: profile.pelicanCode,
     fixtureKind: profile.kind,
-    sourceEnvelopeIn: { width: profile.widthIn, depth: profile.depthIn, height: profile.heightIn },
+    sourceEnvelopeIn: profile.footprintBasis ? null : { width: profile.widthIn, depth: profile.depthIn, height: profile.heightIn },
+    visualOccupancyIn: profile.footprintBasis ? { width: profile.widthIn, depth: profile.depthIn } : null,
+    mounting: profile.mounting ?? null,
+    footprintBasis: profile.footprintBasis ?? "source-dimensions",
     sourceSpecificationUrl: profile.specificationUrl,
     drain: profile.drain,
     tubShape: profile.tubShape ?? null,
@@ -8299,7 +8306,10 @@ function addPelicanBathroomFixture(
     group.add(mesh);
   };
 
-  if (profile.kind === "shower-door" || profile.kind === "tub-door") {
+  if (profile.kind === "floor-tub-filler") {
+    const filler = makePelicanTubFillerGroup(profile);
+    for (const child of [...filler.children]) group.add(child);
+  } else if (profile.kind === "shower-door" || profile.kind === "tub-door") {
     // Pelican publishes nominal width and exact overall / door heights. This
     // source-bounded glass plane deliberately does not invent a curb, wall,
     // track setback, or finished installation opening.
@@ -9722,7 +9732,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 
     // Room walls must remain visible as context without ever becoming opaque
     // screens over cabinetry when a mobile orbit moves the camera through them.
-	    const wallMaterial = new THREE.MeshStandardMaterial({ color: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roughness: hasRoomWallAppearance ? resolvedRoomWallAppearance.roughness : 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? THREE_D_WALL_OPACITY : 0, depthWrite: THREE_D_WALL_DEPTH_WRITE });
+	    const wallMaterial = new THREE.MeshStandardMaterial({ color: hasRoomWallAppearance ? resolvedRoomWallAppearance.color : materialDefaults.wall, roughness: hasRoomWallAppearance ? resolvedRoomWallAppearance.roughness : 0.82, side: THREE.DoubleSide, transparent: true, opacity: showRoomContext ? (cutawayRoomWalls && !showSolidFrontWalls ? THREE_D_DESIGNER_WALL_OPACITY : THREE_D_WALL_OPACITY) : 0, depthWrite: THREE_D_WALL_DEPTH_WRITE });
 	    const measuredWallSegments = threeDMeasuredWallSegments(roomOverride);
 	    const explicitWallSegments = measuredWallSegments.length
 	      ? measuredWallSegments.map((segment) => ({
@@ -9936,7 +9946,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      if (cutawayRoomWalls && showRoomContext && !showSolidFrontWalls) {
 	        for (const { mesh, start, end } of roomWallMeshes) {
 	          (mesh.material as THREE.MeshStandardMaterial).opacity = threeDWallObscuresOrbitTarget(start, end, camera.position, controls.target)
-	            ? THREE_D_CUTAWAY_WALL_OPACITY : THREE_D_WALL_OPACITY;
+	            ? THREE_D_DESIGNER_FOREGROUND_WALL_OPACITY : THREE_D_DESIGNER_WALL_OPACITY;
 	        }
 	      }
 	      renderer.render(threeScene, camera);
@@ -11437,7 +11447,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
             <Info className="h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-bold" title={label}>{label}</p>
-              <p className="truncate text-[10px] text-muted-foreground">{profile ? `${formatEighthInches(profile.widthIn)} W × ${formatEighthInches(profile.depthIn)} D × ${formatEighthInches(profile.heightIn)} H` : kind}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{profile?.footprintBasis ? `${formatEighthInches(profile.heightIn)} source height · floor-mounted · illustrative footprint` : profile ? `${formatEighthInches(profile.widthIn)} W × ${formatEighthInches(profile.depthIn)} D × ${formatEighthInches(profile.heightIn)} H` : kind}</p>
+              {profile?.footprintBasis && <p className="text-[10px] leading-snug text-amber-800">Visual planning only — verify spout-to-basin fit, rough-in, mounting and hose clearance.</p>}
             </div>
             <div data-testid="three-d-furniture-actions" className="flex shrink-0 items-center gap-1">
               {onRotateFurniture && <button type="button" data-testid="three-d-rotate-furniture" onClick={() => onRotateFurniture(selectedFurniture.uid)} className="inline-flex h-7 items-center gap-1 rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><Rotate3D className="h-3 w-3" />Rotate</button>}

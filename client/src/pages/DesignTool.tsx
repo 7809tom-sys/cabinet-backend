@@ -55,7 +55,7 @@ import {
 } from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { isPelicanBathroomFixtureProfileVerified, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
-import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomFixtureStarterZonePlacement, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
+import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomFixtureStarterZonePlacement, bathroomTubFillerPlacement, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
 import { bathroomTubWallParallelPlacement, rotateBathroomFurniture } from "@/lib/bathroomPlanning";
 import BathroomZoneAttributesDialog from "@/components/design/BathroomZoneAttributesDialog";
 import { isBathroomVanityCabinet } from "@/lib/bathroomVanityCatalog";
@@ -1156,14 +1156,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("This Pelican model needs a complete exterior technical sheet before it can be placed in 3D.");
       return;
     }
+    const tubFillerProfile = verifiedPelicanBathroomFixtureProfile(draft.pelicanCode);
+    const tubFillerPlacement = tubFillerProfile?.kind === "floor-tub-filler"
+      ? bathroomTubFillerPlacement(draft, bathroomFurnitureRef.current, room) : null;
+    if (tubFillerProfile?.kind === "floor-tub-filler" && !tubFillerPlacement) {
+      toast.error("No non-overlapping visual position is available beside the tub. Move the tub or another fixture first.");
+      return;
+    }
     const starterZonePlacement = bathroomFixtureStarterZonePlacement(draft, bathroomFurnitureRef.current);
-    const fixture = starterZonePlacement
+    const fixture = tubFillerPlacement ?? (starterZonePlacement
       ? { ...draft, ...starterZonePlacement }
       : bathroomTubWallParallelPlacement({
           ...draft,
           x: Math.max(0, (room.width - definition.w) / 2),
           y: Math.max(0, (room.depth - definition.d) / 2),
-        }, room);
+        }, room));
     setSelectedSurfaces((previous) => previous.some((surface) => surface.id === item.id) ? previous : [...previous, item]);
     setFurniture((previous) => {
       const next = [...previous, fixture];
@@ -1171,7 +1178,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       return next;
     });
     setSelectedFurnUid(fixture.uid);
-    toast.success(starterZonePlacement
+    toast.success(tubFillerPlacement ? `${item.name} placed beside the tub — visual planning only; verify plumbing fit` : starterZonePlacement
       ? `${item.name} placed and centered in the ${starterZonePlacement.zoneLabel}`
       : `${item.name} placed in Floor Plan and 3D`);
   }, [room.depth, room.width]);
@@ -15190,7 +15197,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            </aside>
 	          )}
 	          {viewMode === "plan" && roomType === "bathroom" && (
-	            <aside data-testid="bathroom-fixture-checklist" className="absolute right-3 top-3 z-30 w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-[#1a2744]/25 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+	            <aside data-testid="bathroom-fixture-checklist" className="absolute right-3 top-16 z-30 max-h-[calc(100%-5rem)] w-[min(20rem,calc(100%-1.5rem))] overflow-y-auto rounded-xl border border-[#1a2744]/25 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
 	              <div className="flex items-start justify-between gap-3">
 	                <div>
 	                  <p className="font-semibold text-[#1a2744]">Bathroom setup checklist</p>
