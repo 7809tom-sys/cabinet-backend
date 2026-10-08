@@ -5,6 +5,7 @@ import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, order
 import { getDb } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_COST_TYPES } from "../../shared/installationEstimate";
+import { createBlankKitchenCostDefaults, KITCHEN_COST_SHEET_DESCRIPTIONS } from "../../shared/kitchenCostSheet";
 import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
 
 const estimateLineSchema = z.object({
@@ -25,6 +26,12 @@ const estimateInputSchema = z.object({
   taxAmount: z.number().min(0).max(1_000_000).default(0),
   markupPercent: z.number().min(0).max(10_000).default(0),
   lineItems: z.array(estimateLineSchema).min(1).max(100),
+});
+
+const kitchenCostDefaultSchema = z.object({
+  description: z.enum(KITCHEN_COST_SHEET_DESCRIPTIONS),
+  materialUnitCost: z.number().min(0).max(1_000_000),
+  laborUnitCost: z.number().min(0).max(1_000_000),
 });
 
 type AuthUser = { id: number; email: string | null; role: string };
@@ -52,6 +59,41 @@ async function resolveAffiliateId(user: AuthUser, requestedAffiliateId?: number)
 }
 
 export const installationEstimatesRouter = router({
+  kitchenCostDefaults: protectedProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const affiliateId = await resolveAffiliateId(ctx.user, input?.affiliateId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const [affiliate] = await db.select({ kitchenCostDefaultsJson: affiliates.kitchenCostDefaultsJson })
+        .from(affiliates).where(eq(affiliates.id, affiliateId)).limit(1);
+      const blank = createBlankKitchenCostDefaults();
+      if (!affiliate?.kitchenCostDefaultsJson) return { defaults: blank, hasSavedDefaults: false };
+      try {
+        const saved = z.array(kitchenCostDefaultSchema).parse(JSON.parse(affiliate.kitchenCostDefaultsJson));
+        const byDescription = new Map(saved.map((row) => [row.description, row]));
+        return { defaults: blank.map((row) => ({ ...row, ...(byDescription.get(row.description) ?? {}) })), hasSavedDefaults: true };
+      } catch {
+        return { defaults: blank, hasSavedDefaults: false };
+      }
+    }),
+
+  saveKitchenCostDefaults: protectedProcedure
+    .input(z.object({ affiliateId: z.number().int().positive().optional(), defaults: z.array(kitchenCostDefaultSchema).length(KITCHEN_COST_SHEET_DESCRIPTIONS.length) }))
+    .mutation(async ({ ctx, input }) => {
+      const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const byDescription = new Map(input.defaults.map((row) => [row.description, row]));
+      const normalized = createBlankKitchenCostDefaults().map((row) => ({
+        ...row,
+        materialUnitCost: byDescription.get(row.description)?.materialUnitCost ?? 0,
+        laborUnitCost: byDescription.get(row.description)?.laborUnitCost ?? 0,
+      }));
+      await db.update(affiliates).set({ kitchenCostDefaultsJson: JSON.stringify(normalized) }).where(eq(affiliates.id, affiliateId));
+      return { success: true, defaults: normalized };
+    }),
+
   list: protectedProcedure
     .input(z.object({ affiliateId: z.number().int().positive().optional() }).optional())
     .query(async ({ ctx, input }) => {

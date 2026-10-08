@@ -1424,6 +1424,10 @@ export const affiliates = mysqlTable("affiliates", {
   defaultMarkupBps: int("defaultMarkupBps").default(2000).notNull(), // 20% default
   // Optional per-category markup overrides, JSON: { "base": 2500, "wall": 1500 }
   categoryMarkupJson: text("categoryMarkupJson"),
+  // Kitchen Cost Sheet default unit prices, JSON keyed by the exact sheet row:
+  // [{ description, materialUnitCost, laborUnitCost }]. These are affiliate
+  // installation defaults and never alter Cabinet Dealz catalog pricing.
+  kitchenCostDefaultsJson: text("kitchenCostDefaultsJson"),
   // Annual membership: an affiliate pays a yearly fee ($1,195) to participate.
   // membershipStatus drives storefront/CRM access; the dated fields track the
   // current paid term. Detailed invoices live in affiliate_invoices.
