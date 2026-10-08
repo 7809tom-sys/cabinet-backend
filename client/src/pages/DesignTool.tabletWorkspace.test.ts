@@ -41,6 +41,12 @@ describe("tablet workspace layout (1024–1366px or touch)", () => {
     expect(attributes).not.toContain("isTablet");
   });
 
+  it("keeps the primary Peninsula Wizard action directly visible on tablets", () => {
+    expect(designTool).toContain('data-testid="primary-peninsula-wizard"');
+    expect(designTool).toContain('isTabletWorkspace ? "inline-flex h-10 min-w-11 px-3" : "hidden lg:inline-flex"');
+    expect(designTool).toContain('{isTabletWorkspace ? "Peninsula" : "Peninsula Wizard"}');
+  });
+
   it("collapses the 3D floating row, fitted fillers, and pan pad on tablets", () => {
     expect(room3d).toContain("const tabletOverlay = embedded && tabletTier.tablet;");
     expect(room3d).toContain('${tabletOverlay ? "hidden" : "hidden sm:flex"}');

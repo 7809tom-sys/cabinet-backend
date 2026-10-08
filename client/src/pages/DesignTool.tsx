@@ -12033,13 +12033,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <Button
           variant="default"
           size="sm"
-          className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0 gap-1.5 bg-[#1a2744] text-white hover:bg-[#24375f]`}
+          className={`${isTabletWorkspace ? "inline-flex h-10 min-w-11 px-3" : "hidden lg:inline-flex"} shrink-0 gap-1.5 bg-[#1a2744] text-white hover:bg-[#24375f]`}
           onClick={openPeninsulaWizard}
           disabled={layoutLocked}
           data-testid="primary-peninsula-wizard"
           title="Build a peninsula from your exact cabinet list"
         >
-          <Wand2 className="h-3.5 w-3.5" /> Peninsula Wizard
+          <Wand2 className="h-3.5 w-3.5" /> {isTabletWorkspace ? "Peninsula" : "Peninsula Wizard"}
         </Button>
         <Button
           variant="outline"
