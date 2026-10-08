@@ -11397,7 +11397,7 @@ function countertopSurfaceFromWorldPolygon(
   };
 }
 
-/** Extend only the exposed edge of a resolved peninsula surface. */
+/** Extend only the exposed back edge of a resolved peninsula surface. */
 function extendPeninsulaRaisedBarSurface(
   surface: CountertopSurface,
   room: RoomData,
@@ -11415,15 +11415,34 @@ function extendPeninsulaRaisedBarSurface(
     const frame = peninsulaRunEndpoints(run, room);
     const normal = countertopRunFaceNormal(frame.radians, run.cabinetSide ?? "left");
     const projections = points.map((point) => point.x * normal.x + point.y * normal.y);
-    const front = Math.max(...projections);
-    const frontPoints = points.filter((_, index) => front - projections[index]! <= 1 / 16);
+    // Determine which side of this run faces the actual room center. The sign
+    // changes with cabinetSide and with a 45-degree return, so screen-space
+    // +Y/-Y is not a safe direction rule.
+    const roomCenter = { x: room.width / 2, y: room.depth / 2 };
+    const roomCenterProjection = (roomCenter.x - frame.start.x) * normal.x
+      + (roomCenter.y - frame.start.y) * normal.y;
+    const towardRoom = roomCenterProjection >= 0 ? 1 : -1;
+    const backEdge = towardRoom > 0
+      ? Math.min(...projections)
+      : Math.max(...projections);
+    const backPoints = towardRoom > 0
+      ? points.filter((_, index) => projections[index]! - backEdge <= 1 / 16)
+      : points.filter((_, index) => backEdge - projections[index]! <= 1 / 16);
     points = countertopConvexHull([
       ...points,
-      ...frontPoints.map((point) => ({ x: point.x + normal.x * extensionIn, y: point.y + normal.y * extensionIn })),
+      // Grow away from the room center, behind the peninsula cabinet front.
+      ...backPoints.map((point) => ({
+        x: point.x - normal.x * towardRoom * extensionIn,
+        y: point.y - normal.y * towardRoom * extensionIn,
+      })),
     ]);
   }
   const expanded = countertopSurfaceFromWorldPolygon(points, surface.peninsulaRunId);
-  return expanded ? { ...surface, ...expanded, peninsulaRunIds: surface.peninsulaRunIds } : surface;
+  // `expanded` is authored from world-plan points and already has an axis-
+  // aligned local polygon. Do not reapply the old run rotation to it.
+  return expanded
+    ? { ...surface, ...expanded, rotation: 0, peninsulaRunIds: surface.peninsulaRunIds }
+    : surface;
 }
 
 function peninsulaRootHasFortyFiveReturn(run: PeninsulaRun, room: RoomData): boolean {
