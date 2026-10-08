@@ -36,6 +36,7 @@ import { isSurfaceCheckoutLine } from "@/lib/cartCheckoutPrefill";
 import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLinePricing";
 import { getSiteSignInUrl } from "@/const";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
+import { isStagingTestHost } from "@shared/stagingTestMode";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -229,6 +230,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const [liftgateRequired, setLiftgateRequired] = useState(false);
   const [submittedId, setSubmittedId] = useState<number | null>(null);
   const [submittedRequestNumber, setSubmittedRequestNumber] = useState<string | null>(null);
+  const stagingTestMode = typeof window !== "undefined" && isStagingTestHost(window.location.hostname);
 	const storeScope = resolveStoreScope({
 	  pathname: typeof window !== "undefined" ? window.location.pathname : "/order/new",
 	  search: typeof window !== "undefined" ? window.location.search : "",
@@ -623,6 +625,12 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   );
 
   function handleSubmit() {
+    if (stagingTestMode) {
+      toast.info("Staging test mode: submission is disabled.", {
+        description: "Shipping quotes and address validation can be tested, but no order will be created.",
+      });
+      return;
+    }
     if (!isAuthenticated) {
       toast.error("Sign in to continue to secure checkout.");
       window.location.href = getSiteSignInUrl();
@@ -1331,9 +1339,15 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             </span>
           </div>
         )}
+        {stagingTestMode && (
+          <div role="status" className="flex items-start gap-2 rounded-md border border-sky-300 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+            <Lock className="mt-0.5 h-4 w-4 shrink-0" />
+            <span><strong>Staging test mode:</strong> order submission is disabled. You can test address validation and shipping quotes safely.</span>
+          </div>
+        )}
         <Button
           onClick={handleSubmit}
-          disabled={createReq.isPending || (deliveryMethod === "ship" && freightEstimate.isFetching)}
+          disabled={stagingTestMode || createReq.isPending || (deliveryMethod === "ship" && freightEstimate.isFetching)}
           size="lg"
           className="w-full bg-[var(--color-gold)] text-[var(--color-navy)] hover:bg-[var(--color-gold)]/90 font-semibold"
         >

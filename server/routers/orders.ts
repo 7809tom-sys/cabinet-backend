@@ -46,6 +46,7 @@ import { freightItemsHash, verifyFreightQuoteToken } from "../_core/freightQuote
 import { freightQuoteItemsForOrder } from "../lib/freightQuoteOrderIdentity";
 import { calcSalesTax } from "@shared/usSalesTax";
 import { isTemporaryOneDollarCheckoutTestItem, isTemporaryOneDollarFreeShippingOrder } from "@shared/temporaryCheckoutTest";
+import { isStagingTestHost } from "@shared/stagingTestMode";
 
 // Map the order tierEnum to the shared PricingTier.
 const orderTier = (t: "Wholesale" | "Contractor" | "Homeowner") =>
@@ -700,6 +701,12 @@ export const ordersRouter = router({
       const db = await getDb();
       if (!db)
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      if (input.submit && isStagingTestHost(ctx.req.headers.host)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Staging test mode is enabled: order submission is disabled and no order was created.",
+        });
+      }
       // Server-side tier enforcement: non-admin users always get their assigned pricingTier.
       // Admins may pass any tier (for quoting on behalf of a customer).
       const isAdmin = (ctx as { user?: { role?: string } }).user?.role === "admin";

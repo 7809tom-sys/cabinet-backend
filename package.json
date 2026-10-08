@@ -10,6 +10,7 @@
     "check": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:e2e:staging": "playwright test e2e/staging-checkout.spec.ts",
     "test:designer-responsive": "vitest run client/src/pages/DesignTool.responsiveRelease.test.ts client/src/pages/DesignTool.compactWorkspace.test.ts client/src/pages/DesignTool.mobileAttributes.test.ts client/src/pages/DesignTool.toolbarLayout.test.ts client/src/pages/DesignTool.mobileToolbarRemoval.test.ts",
     "seed:room-layout": "node scripts/seed-room-layout-presets.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate"
@@ -99,6 +100,7 @@
   },
   "devDependencies": {
     "@builder.io/vite-plugin-jsx-loc": "^0.1.1",
+    "@playwright/test": "^1.64.0",
     "@tailwindcss/typography": "^0.5.15",
     "@tailwindcss/vite": "^4.1.3",
     "@testing-library/react": "^16.3.2",
