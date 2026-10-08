@@ -2126,7 +2126,8 @@ export function PlanCanvas({
 		          const ponyFootprint = ponyWallMiteredFootprint(pw, ponyWalls, room);
 		          const ponyDegrees = (ponyFrame.radians * 180) / Math.PI;
 		          const attachedToPeninsula = ponyFrame.attachedToPeninsula;
-		          const isDrywallBackedPeninsula = attachedToPeninsula && pw.peninsulaPlacement === "behind-cabinets" && pw.finish === "drywall";
+	          const isDrywallBackedPeninsula = attachedToPeninsula && pw.peninsulaPlacement === "behind-cabinets" && pw.finish === "drywall";
+	          const isDrywallEndPeninsula = attachedToPeninsula && pw.peninsulaPlacement !== "behind-cabinets" && pw.finish === "drywall";
 		          const drywallAppearance = drywallPonyWallAppearance(pw);
 		          const drywallPlanBackground = drywallPonyWallPreviewBackground(pw);
 		          const localXs = ponyFootprint.corners.map((corner) => corner.x);
@@ -2156,13 +2157,13 @@ export function PlanCanvas({
           return (
             <div
               key={pw.uid}
-	            data-testid={isDrywallBackedPeninsula ? "peninsula-drywall-back-pony-wall" : attachedToPeninsula ? "peninsula-pony-wall" : "pony-wall"}
+	            data-testid={isDrywallBackedPeninsula ? "peninsula-drywall-back-pony-wall" : isDrywallEndPeninsula ? "peninsula-drywall-pony-wall" : attachedToPeninsula ? "peninsula-pony-wall" : "pony-wall"}
             data-peninsula-run-id={pw.peninsulaRunId ?? undefined}
             className="absolute group touch-none"
             style={{
               ...ponyStyle,
-	              background: isDrywallBackedPeninsula ? drywallPlanBackground : "#2a3550",
-	              border: isPonySelected ? "2px solid #f59e0b" : isDrywallBackedPeninsula ? "2px solid #8b8274" : "2px solid #1a2744",
+	              background: isDrywallBackedPeninsula || isDrywallEndPeninsula ? drywallPlanBackground : "#2a3550",
+	              border: isPonySelected ? "2px solid #f59e0b" : isDrywallBackedPeninsula || isDrywallEndPeninsula ? "2px solid #8b8274" : "2px solid #1a2744",
 	              borderRadius: 2,
 		              clipPath: miteredPonyClip,
 	              cursor: layoutLocked || attachedToPeninsula ? "default" : "move",
@@ -2170,8 +2171,8 @@ export function PlanCanvas({
               boxShadow: isPonySelected ? "0 0 0 2px rgba(245,158,11,0.4)" : undefined,
             }}
             title={attachedToPeninsula
-	              ? isDrywallBackedPeninsula
-	                ? `Drywall pony wall behind the cabinet run · follows the full measured peninsula · ${formatEighthInches(ponyFrame.width)} long × ${ponyFrame.height} in. tall`
+	              ? isDrywallBackedPeninsula || isDrywallEndPeninsula
+	                ? `${pw.peninsulaPlacement === "behind-cabinets" ? "Drywall behind the cabinet run" : "Drywall end wall"} · follows the measured peninsula endpoint · ${formatEighthInches(ponyFrame.width)} long × ${ponyFrame.height} in. tall`
 	                : `${pw.label ?? "Pony wall"} follows the measured peninsula endpoint · ${formatEighthInches(ponyFrame.width)} long × ${ponyFrame.height} in. tall`
 	              : `Pony Wall ${Math.round(pw.width)} in. wide × ${pw.height} in. tall`}
             onPointerDown={(e) => {
@@ -2199,7 +2200,7 @@ export function PlanCanvas({
               el.addEventListener("pointerup", onUp);
             }}
             >
-	              <span className={`absolute left-1 top-0.5 text-[8px] font-bold tracking-wide pointer-events-none whitespace-nowrap ${isDrywallBackedPeninsula ? "text-[#4e463d]" : "text-white/80"} ${attachedToPeninsula ? "origin-left" : ""}`} style={attachedToPeninsula ? { transform: `rotate(${-ponyDegrees}deg)` } : undefined}>
+	              <span className={`absolute left-1 top-0.5 text-[8px] font-bold tracking-wide pointer-events-none whitespace-nowrap ${isDrywallBackedPeninsula || isDrywallEndPeninsula ? "text-[#4e463d]" : "text-white/80"} ${attachedToPeninsula ? "origin-left" : ""}`} style={attachedToPeninsula ? { transform: `rotate(${-ponyDegrees}deg)` } : undefined}>
 	                {isDrywallBackedPeninsula ? `DRYWALL PONY WALL · ${formatEighthInches(ponyFrame.width)}` : attachedToPeninsula ? `PONY WALL · ${formatEighthInches(ponyFrame.width)}` : pw.label || `PONY ${Math.round(pw.width)}″`}
 	              </span>
 	              <span className={`absolute right-0.5 top-0.5 text-[8px] pointer-events-none ${isDrywallBackedPeninsula ? "text-[#6b6258]" : "text-white/60"}`} style={attachedToPeninsula ? { transform: `rotate(${-ponyDegrees}deg)` } : undefined}>{pw.height}″H</span>

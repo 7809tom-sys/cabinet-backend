@@ -8229,7 +8229,8 @@ function miteredPonyWallGeometry(corners: Array<{ x: number; z: number }>, heigh
 function addPonyWall(root: THREE.Group, ponyWall: PonyWall, room: RoomData, ponyWalls: PonyWall[]) {
   const footprint = ponyWallMiteredFootprint(ponyWall, ponyWalls, room);
   const transform = ponyWallTransform(ponyWall, room);
-  const drywallFinished = ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall";
+  const drywallFinished = ponyWall.peninsulaPlacement === "behind-cabinets" && ponyWall.finish === "drywall"
+    || ponyWall.peninsulaRunId != null && ponyWall.peninsulaPlacement !== "behind-cabinets" && ponyWall.finish === "drywall";
   const drywallAppearance = drywallPonyWallAppearance(ponyWall);
   const material = new THREE.MeshStandardMaterial({ color: drywallFinished ? drywallAppearance.color : "#ede9e1", roughness: drywallFinished ? drywallAppearance.roughness : 0.86 });
   const hasMiteredJoin = footprint.miteredStart || footprint.miteredEnd;

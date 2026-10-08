@@ -33,7 +33,7 @@ describe("Peninsula Wizard", () => {
   it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
     expect(wizardEditSource).toContain('addPonyWall: boolean;');
     expect(source).toContain('data-testid="peninsula-pony-wall-option"');
-    expect(source).toContain('Add pony wall at the far end.');
+    expect(source).toContain('Add drywall end wall.');
     expect(source).toContain('const ponyWallOwner = angledRun ?? run;');
     expect(source).toContain('makePeninsulaPonyWall(ponyWallOwner, nextRoom, {');
     expect(source).toContain('ponyWallFitsRoom(builtPonyWall, nextRoom)');

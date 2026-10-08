@@ -4681,13 +4681,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // 45° continuation when that measured run is edited or moved.
 	    const ponyWallOwner = angledRun ?? run;
 	    const builtPonyWall = draft.addPonyWall
-	      ? makePeninsulaPonyWall(ponyWallOwner, nextRoom, {
+	      ? {
+	          ...makePeninsulaPonyWall(ponyWallOwner, nextRoom, {
 	          width: draft.ponyWallLength,
 	          height: draft.ponyWallHeight,
 	          label: angledRun
 	            ? `Pony wall · follows 45° ${angledRun.direction} peninsula end`
 	            : "Pony wall · follows peninsula end",
-	        })
+	          }),
+	          finish: "drywall" as const,
+	          drywallColor: DEFAULT_DRYWALL_PONY_WALL_COLOR,
+	          drywallTexture: "smooth" as const,
+	        }
 	      : null;
 	    if (builtPonyWall && !ponyWallFitsRoom(builtPonyWall, nextRoom)) {
 	      toast.error("The pony wall would extend outside the room. Shorten it or choose a different 45° end direction.");
@@ -12003,6 +12008,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
         </Button>
         <Button
+          variant="default"
+          size="sm"
+          className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0 gap-1.5 bg-[#1a2744] text-white hover:bg-[#24375f]`}
+          onClick={openPeninsulaWizard}
+          disabled={layoutLocked}
+          data-testid="primary-peninsula-wizard"
+          title="Build a peninsula from your exact cabinet list"
+        >
+          <Wand2 className="h-3.5 w-3.5" /> Peninsula Wizard
+        </Button>
+        <Button
           variant="outline"
           size="sm"
           className={`${isCompactWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`}
@@ -13133,7 +13149,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                <Compass className="h-3.5 w-3.5 mr-2" /> 90° corner snap feedback
 	              </DropdownMenuCheckboxItem>
 	              <DropdownMenuSeparator />
-	              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
+              <DropdownMenuLabel className="text-xs text-muted-foreground">Tools</DropdownMenuLabel>
+              <DropdownMenuItem onSelect={openPeninsulaWizard} disabled={layoutLocked} className="font-semibold text-[#1a2744]">
+                <Wand2 className="h-3.5 w-3.5 mr-2" /> Peninsula Wizard
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={activateSelectedWallCompassDrag} disabled={layoutLocked}>
+                <Compass className="h-3.5 w-3.5 mr-2" /> Manual 45° compass
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem
                 onSelect={addManualFiller}
                 disabled={layoutLocked}
@@ -15794,7 +15817,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, addPonyWall: event.target.checked } : draft)}
 	                        className="mt-0.5"
 	                      />
-	                      <span><strong>Add pony wall at the far end.</strong> It stays snapped to this peninsula; when a 45° end is selected, the pony wall follows that measured 45° return.</span>
+	                      <span><strong>Add drywall end wall.</strong> It stays snapped to the final peninsula endpoint; when a 45° end is selected, it follows and finishes the measured 45° return.</span>
 	                    </label>
 	                    {peninsulaWizardDraft.addPonyWall && <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fffdf6] p-2" data-testid="peninsula-pony-wall-dimensions">
 	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Pony wall length (in)
@@ -17007,6 +17030,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             data-testid="mobile-designer-action-strip"
             className="flex h-16 flex-nowrap items-stretch overflow-x-auto overscroll-x-contain px-1 pb-[env(safe-area-inset-bottom,0px)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
+            <MobileBarButton
+              icon={<Wand2 className="h-5 w-5" />}
+              label="Peninsula Wizard"
+              onClick={openPeninsulaWizard}
+            />
             <MobileBarButton
               icon={<Boxes className="h-5 w-5" />}
               label="Catalog"
