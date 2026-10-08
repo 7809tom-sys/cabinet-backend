@@ -55,7 +55,7 @@ import {
 } from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { isPelicanBathroomFixtureProfileVerified, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
-import { BATHROOM_STARTER_TEMPLATE, bathroomPlanningGuidance, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
+import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -1685,6 +1685,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const definition = selected ? FURNITURE_CATALOG.find((item) => item.id === selected.defId) ?? null : null;
     return bathroomPlanningGuidance(verifiedPelicanBathroomFixtureProfile(selected?.pelicanCode ?? definition?.pelicanCode));
   }, [furniture, selectedFurnUid]);
+  const bathroomZoneWarningsByFixture = useMemo(() => {
+    const warningsByFixture = new Map<string, ReturnType<typeof bathroomZoneOverlapWarnings>>();
+    for (const warning of bathroomZoneOverlapWarnings(furniture)) {
+      const existing = warningsByFixture.get(warning.fixtureUid) ?? [];
+      existing.push(warning);
+      warningsByFixture.set(warning.fixtureUid, existing);
+    }
+    return warningsByFixture;
+  }, [furniture]);
+  const bathroomChecklist = useMemo(() => bathroomFixtureChecklist({
+    cabinets: placed,
+    sinks,
+    selectedSurfaceCodes: selectedSurfaces.map((surface) => surface.pelicanCode),
+    furniture,
+  }), [furniture, placed, selectedSurfaces, sinks]);
+  const bathroomChecklistCompleted = bathroomChecklist.filter((step) => step.complete && !step.optional).length;
+  const bathroomChecklistRequired = bathroomChecklist.filter((step) => !step.optional).length;
   const bathroomFixtureQuantityByProduct = useMemo(() => {
     // A selected bathroom fixture is cartable only when an actual persisted
     // plan/3D placement owns it. Seed selected source profiles at zero so a
@@ -8551,6 +8568,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success("Bathroom starter applied. Move the labeled planning zones, then select actual Pelican products from Bathroom Fixtures.");
   }, [annotations.length, applyRoom, furniture.length, island, layoutLocked, openings.length, placed.length, ponyWalls.length, sinks.length]);
 
+  const openBathroomFixtureChecklistPicker = useCallback(() => {
+    setRoomType("bathroom");
+    setPaletteType("appliance");
+    setBathroomCatalogMode("fixtures");
+    setSurfacesOpen(true);
+    if (panelDrawerMode) setMobilePanel("catalog");
+  }, [panelDrawerMode]);
+
   const continuousWallBlockedReason = useMemo(() => {
     const existingItems = placed.length
       + openings.length
@@ -15003,6 +15028,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               finishFor={finishForCab}
               furniture={furniture}
               selectedFurnUid={selectedFurnUid}
+              bathroomZoneWarningsByFixture={bathroomZoneWarningsByFixture}
               onSelectFurn={setSelectedFurnUid}
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}
@@ -15037,6 +15063,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  <a href={selectedBathroomPlanningGuidance.sourceUrl} target="_blank" rel="noreferrer" className="mt-1.5 inline-flex font-semibold text-sky-700 underline underline-offset-2 hover:text-sky-900">Source guidance / technical sheet</a>
 	                </div>
 	              </div>
+	            </aside>
+	          )}
+	          {viewMode === "plan" && roomType === "bathroom" && (
+	            <aside data-testid="bathroom-fixture-checklist" className="absolute right-3 top-3 z-30 w-[min(20rem,calc(100%-1.5rem))] rounded-xl border border-[#1a2744]/25 bg-white/95 p-3 text-xs shadow-lg backdrop-blur">
+	              <div className="flex items-start justify-between gap-3">
+	                <div>
+	                  <p className="font-semibold text-[#1a2744]">Bathroom setup checklist</p>
+	                  <p className="mt-0.5 text-[11px] text-slate-600">{bathroomChecklistCompleted} of {bathroomChecklistRequired} core choices selected</p>
+	                </div>
+	                <button type="button" onClick={openBathroomFixtureChecklistPicker} className="shrink-0 rounded border border-[#1a2744]/35 px-2 py-1 text-[10px] font-semibold text-[#1a2744] hover:bg-slate-100">Browse fixtures</button>
+	              </div>
+	              <ol className="mt-2 space-y-1.5">
+	                {bathroomChecklist.map((step) => (
+	                  <li key={step.id} className={`rounded-lg border px-2 py-1.5 ${step.complete ? "border-emerald-200 bg-emerald-50/80" : "border-slate-200 bg-white/80"}`}>
+	                    <button type="button" onClick={openBathroomFixtureChecklistPicker} className="flex w-full items-start gap-2 text-left">
+	                      <span aria-hidden className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border text-[9px] ${step.complete ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-400 text-transparent"}`}>✓</span>
+	                      <span className="min-w-0"><span className="font-semibold text-slate-800">{step.label}{step.optional ? " (optional)" : ""}</span><span className="mt-0.5 block text-[10px] leading-snug text-slate-600">{step.detail}</span></span>
+	                    </button>
+	                  </li>
+	                ))}
+	              </ol>
+	              <p className="mt-2 border-t border-slate-200 pt-2 text-[10px] leading-snug text-slate-600">Zones and warnings are visual planning aids. Confirm fixture clearances, opening swings, and installation conditions with the official product sheets and qualified local guidance.</p>
 	            </aside>
 	          )}
 	          {viewMode === "plan" && peninsulaDraft && (
@@ -15263,6 +15311,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               finishFor={finishForCab}
               furniture={furniture}
               selectedFurnUid={selectedFurnUid}
+              bathroomZoneWarningsByFixture={bathroomZoneWarningsByFixture}
               onSelectFurn={setSelectedFurnUid}
               onMoveFurn={(uid, x, y) => setFurniture(prev => prev.map(f => f.uid === uid ? { ...f, x, y } : f))}
               onDeleteFurn={(uid) => { setFurniture(prev => prev.filter(f => f.uid !== uid)); setSelectedFurnUid(null); }}

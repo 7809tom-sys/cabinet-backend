@@ -1,5 +1,18 @@
-import { makeFurniture, type PlacedFurniture, type RoomData } from "./design";
-import type { VerifiedPelicanBathroomFixtureProfile } from "./pelicanBathroomFixtureProfiles";
+import {
+  FURNITURE_CATALOG,
+  furnitureFootprint,
+  isSinkBaseCabinet,
+  makeFurniture,
+  type PlacedCabinet,
+  type PlacedFurniture,
+  type RoomData,
+  type SinkFixture,
+} from "./design";
+import {
+  verifiedPelicanBathroomFixtureProfile,
+  type PelicanBathroomFixtureKind,
+  type VerifiedPelicanBathroomFixtureProfile,
+} from "./pelicanBathroomFixtureProfiles";
 
 export type BathroomPlanningGuidance = {
   title: string;
@@ -39,6 +52,117 @@ export function bathroomPlanningGuidance(
     };
   }
   return null;
+}
+
+type BathroomZoneKind = "vanity" | "toilet" | "tub";
+
+export type BathroomZoneOverlapWarning = {
+  fixtureUid: string;
+  fixtureLabel: string;
+  zoneKind: BathroomZoneKind;
+  zoneLabel: string;
+};
+
+export type BathroomChecklistStep = {
+  id: "vanity-base" | "vanity-basin" | "vanity-faucet" | "toilet" | "tub" | "shower";
+  label: string;
+  detail: string;
+  complete: boolean;
+  optional?: boolean;
+};
+
+const BATHROOM_ZONE_KIND_BY_DEFINITION: Record<string, BathroomZoneKind | undefined> = {
+  "bathroom-zone-vanity-60": "vanity",
+  "bathroom-zone-toilet": "toilet",
+  "bathroom-zone-tub-60": "tub",
+};
+
+const BATHROOM_ZONE_LABEL: Record<BathroomZoneKind, string> = {
+  vanity: "vanity zone",
+  toilet: "toilet zone",
+  tub: "tub zone",
+};
+
+function expectedBathroomZone(kind: PelicanBathroomFixtureKind): BathroomZoneKind | null {
+  if (kind === "toilet" || kind === "bidet") return "toilet";
+  if (kind === "freestanding-tub" || kind === "alcove-tub" || kind === "tub-door") return "tub";
+  // A shower door or wall has no dedicated starter-zone footprint. Do not claim
+  // that it fits a vanity, toilet, or tub zone merely because its boxes touch.
+  return null;
+}
+
+function rectanglesOverlap(
+  a: { x: number; y: number; w: number; d: number },
+  b: { x: number; y: number; w: number; d: number },
+): boolean {
+  const epsilon = 0.01;
+  return a.x < b.x + b.w - epsilon
+    && a.x + a.w > b.x + epsilon
+    && a.y < b.y + b.d - epsilon
+    && a.y + a.d > b.y + epsilon;
+}
+
+/**
+ * Flags a source-measured bathroom fixture only when it enters a *different*
+ * starter-zone. This remains an advisory visual warning: users can move any
+ * item, and the Designer never presents a zone as a code-compliant clearance.
+ */
+export function bathroomZoneOverlapWarnings(furniture: readonly PlacedFurniture[]): BathroomZoneOverlapWarning[] {
+  const entries = furniture.flatMap((item) => {
+    const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+    if (!definition) return [];
+    const footprint = furnitureFootprint(item, definition);
+    return [{ item, definition, footprint }];
+  });
+  const zones = entries.flatMap(({ item, definition, footprint }) => {
+    const kind = BATHROOM_ZONE_KIND_BY_DEFINITION[definition.id];
+    return kind ? [{ item, kind, footprint }] : [];
+  });
+
+  return entries.flatMap(({ item, definition, footprint }) => {
+    const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode ?? definition.pelicanCode);
+    if (!profile) return [];
+    const expectedZone = expectedBathroomZone(profile.kind);
+    return zones.flatMap((zone) => {
+      if (zone.kind === expectedZone || !rectanglesOverlap(
+        { x: item.x, y: item.y, w: footprint.w, d: footprint.d },
+        { x: zone.item.x, y: zone.item.y, w: zone.footprint.w, d: zone.footprint.d },
+      )) return [];
+      return [{
+        fixtureUid: item.uid,
+        fixtureLabel: profile.pelicanCode,
+        zoneKind: zone.kind,
+        zoneLabel: BATHROOM_ZONE_LABEL[zone.kind],
+      }];
+    });
+  });
+}
+
+/** A compact, non-blocking guide for a Bathroom plan. */
+export function bathroomFixtureChecklist(input: {
+  cabinets: readonly Pick<PlacedCabinet, "description" | "masterCode" | "subCategory">[];
+  sinks: readonly Pick<SinkFixture, "pelicanProfileId" | "pelicanFaucetProfileId">[];
+  selectedSurfaceCodes: readonly (string | null | undefined)[];
+  furniture: readonly PlacedFurniture[];
+}): BathroomChecklistStep[] {
+  const placedKinds = input.furniture.flatMap((item) => {
+    const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+    const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode ?? definition?.pelicanCode);
+    return profile ? [profile.kind] : [];
+  });
+  // Sink fixtures persist their verified profile ID, whereas material rows retain
+  // the source code. Match both forms without ever guessing an unverified item.
+  const hasVanityBasin = input.sinks.some((sink) => /pelican-pl-(?:3099|3608)-.*-vanity/.test(sink.pelicanProfileId ?? ""));
+  const hasVanityFaucet = input.sinks.some((sink) => /pelican-pl-8112-cascade-vanity-/.test(sink.pelicanFaucetProfileId ?? ""))
+    || input.selectedSurfaceCodes.some((code) => /^PL-8112\s+(?:BN|CHR|MB)$/i.test(code ?? ""));
+  return [
+    { id: "vanity-base", label: "Place a vanity sink base", detail: "Choose a bathroom vanity cabinet sized for the wall.", complete: input.cabinets.some(isSinkBaseCabinet) },
+    { id: "vanity-basin", label: "Choose a Pelican vanity basin", detail: "Install it through the compatible vanity base.", complete: hasVanityBasin },
+    { id: "vanity-faucet", label: "Choose a Pelican vanity faucet", detail: "Confirm the faucet with the selected basin and vanity top.", complete: hasVanityFaucet },
+    { id: "toilet", label: "Place a toilet or bidet", detail: "Keep its source-measured footprint in the toilet zone and review the advisory clearance note.", complete: placedKinds.some((kind) => kind === "toilet" || kind === "bidet") },
+    { id: "tub", label: "Place a tub", detail: "Use a source-measured Pelican tub envelope for visual planning.", complete: placedKinds.some((kind) => kind === "freestanding-tub" || kind === "alcove-tub") },
+    { id: "shower", label: "Add a shower door or wall, if needed", detail: "Pelican enclosure graphics are visual planning envelopes; verify the technical sheet before ordering.", complete: placedKinds.some((kind) => kind === "shower-door" || kind === "tub-door" || kind === "shower-wall"), optional: true },
+  ];
 }
 
 export const BATHROOM_STARTER_TEMPLATE = {

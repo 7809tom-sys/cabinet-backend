@@ -27,6 +27,7 @@ import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects 
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
 import { crownTopRuns, formatCrownTop } from "@/lib/crownTopRuns";
 import { verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
+import type { BathroomZoneOverlapWarning } from "@/lib/bathroomPlanning";
 
 export type PlanCabinetRenderFrame = {
   lockedAngledRun: boolean;
@@ -392,6 +393,8 @@ interface Props {
   onMoveFurn?: (uid: string, x: number, y: number) => void;
   onDeleteFurn?: (uid: string) => void;
   onRotateFurn?: (uid: string) => void;
+  /** Advisory warning when a bathroom fixture is dragged into a mismatched starter zone. */
+  bathroomZoneWarningsByFixture?: ReadonlyMap<string, readonly BathroomZoneOverlapWarning[]>;
   // Flooring: when set, draw a flooring pattern texture on the room floor.
   flooringMaterialId?: string | null;
   // Flooring layout pattern: how planks are arranged (affects SVG tile rendering).
@@ -462,7 +465,7 @@ export function PlanCanvas({
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
-  furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn,
+  furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn, bathroomZoneWarningsByFixture,
   flooringMaterialId = null,
 	  flooringPattern = "random-stagger",
 	  cabinetsLocked = false,
@@ -3341,9 +3344,12 @@ export function PlanCanvas({
           const isRound = def.shape === "round";
           const bathroomPlanningZone = def.category === "bathroom-zone";
           const showerEnvelope = bathroomFixture?.kind === "shower-door" || bathroomFixture?.kind === "tub-door" || bathroomFixture?.kind === "shower-wall";
+          const zoneWarnings = bathroomZoneWarningsByFixture?.get(f.uid) ?? [];
+          const hasZoneWarning = zoneWarnings.length > 0;
           return (
             <div
               key={f.uid}
+              data-testid={hasZoneWarning ? `bathroom-zone-overlap-${f.uid}` : undefined}
               className="absolute cursor-grab active:cursor-grabbing select-none"
               style={{
                 left: f.x * ppi,
@@ -3351,12 +3357,12 @@ export function PlanCanvas({
                 width: pxW,
                 height: pxD,
                 background: bathroomPlanningZone ? `${def.color}22` : showerEnvelope ? bathroomFixture?.kind === "shower-wall" ? "#e7e2dc" : "#d8eef466" : bathroomFixture?.finish === "vitreous-china-matte-black" ? "#232323" : bathroomFixture ? "#fbfcfa" : def.color + "33",
-                border: `2px ${bathroomPlanningZone || showerEnvelope ? "dashed" : "solid"} ${isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
+                border: `2px ${bathroomPlanningZone || showerEnvelope ? "dashed" : "solid"} ${hasZoneWarning ? "#dc2626" : isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
                 borderRadius: bathroomFixture?.kind === "freestanding-tub" ? "48% / 26%" : bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet" ? "42% 42% 30% 30%" : isRound ? "50%" : 4,
                 transform: `rotate(${f.rotation}deg)`,
                 transformOrigin: "center",
                 zIndex: 20,
-                boxShadow: isSelected ? `0 0 0 2px #1a274488` : undefined,
+                boxShadow: hasZoneWarning ? "0 0 0 2px #fecaca, 0 0 14px #ef444488" : isSelected ? `0 0 0 2px #1a274488` : undefined,
               }}
               onPointerDown={(e) => onFurnPointerDown(e, f)}
               onPointerMove={onFurnPointerMove}
@@ -3375,6 +3381,7 @@ export function PlanCanvas({
                 </>
               )}
               {bathroomPlanningZone && <span className="pointer-events-none absolute bottom-0.5 left-1 right-1 rounded bg-white/80 px-0.5 text-center text-[7px] font-semibold uppercase tracking-wide" style={{ color: def.color }}>Movable planning zone</span>}
+              {hasZoneWarning && <span className="pointer-events-none absolute -bottom-4 left-1/2 z-30 w-max max-w-[12rem] -translate-x-1/2 rounded bg-red-700 px-1.5 py-0.5 text-center text-[8px] font-semibold text-white shadow" title={zoneWarnings.map((warning) => `${warning.fixtureLabel} overlaps the ${warning.zoneLabel}`).join(" ")}>Different planning zone</span>}
               {(bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet") && (
                 <div className="pointer-events-none absolute left-[20%] right-[20%] top-[27%] bottom-[12%] rounded-[48%] border border-slate-400/70 bg-slate-100/80" />
               )}
