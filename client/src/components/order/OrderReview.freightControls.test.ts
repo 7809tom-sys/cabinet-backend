@@ -8,6 +8,16 @@ const source = readFileSync(
 );
 
 describe("OrderReview freight accessorial controls", () => {
+  it("requires complete contact and delivery details before enabling a quote", () => {
+    expect(source).toContain("const customerInfoComplete = Boolean(");
+    expect(source).toContain("name.trim() && emailValid && phone.trim() && addressLine1.trim() && city.trim() && taxState.length === 2");
+    expect(source).toContain("Complete the required name, phone, street address, city, state, and ZIP above to calculate the shipping quote.");
+    expect(source).toContain("enabled: deliveryMethod === \"ship\" && zipDebounced.length >= 5 && city.trim().length > 0 && taxState.length === 2 && addressLine1.trim().length > 0");
+    expect(source).toContain("shippingAddressLine1: addressLine1.trim()");
+    expect(source).toContain("shippingCity: city.trim()");
+    expect(source).toContain("shippingState: taxState");
+  });
+
   it("uses only Business and Residential delivery types and never guesses from ZIP", () => {
     expect(source).toContain('useState<"business" | "residential">("business")');
     expect(source).toContain('(["business", "residential"] as const)');
