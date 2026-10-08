@@ -56,6 +56,7 @@ import {
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { isPelicanBathroomFixtureProfileVerified, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomFixtureStarterZonePlacement, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
+import { isBathroomVanityCabinet } from "@/lib/bathroomVanityCatalog";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -204,7 +205,7 @@ import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegmen
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 import { hasDesignedRoomGeometry, initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
-import { catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
+import { catalogHeightForCabinet, catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
@@ -2235,7 +2236,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // come from that distributor (member can still change color within it).
         distributorId: catalogDistributorScopeId ?? undefined,
       },
-      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" }
+      { enabled: paletteType !== "appliance" && paletteType !== "opening" && paletteType !== "closetparts" && paletteType !== "furniture" && paletteType !== "surfaces" && (paletteType !== "vanity" || styleId != null) }
     );
   const paletteLoading = paletteType === "appliance" || paletteType === "opening" || paletteType === "closetparts" || paletteType === "furniture" || paletteType === "surfaces" ? false : paletteLoadingRaw;
 
@@ -2778,10 +2779,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return looksCorner;
   }, []);
 
-  // Detect a bathroom VANITY cabinet (category=Vanity) so it can be grouped
-  // under the dedicated bathroom "Vanity" tab instead of being mixed into the
-  // generic Base list. Vanity sink/drawer/full-height bases are all floor
-  // (base-placement) cabinets, so without this they'd clutter the Base tab.
+  // Preserve Base-tab exclusion for items referring to vanities in their
+  // subcategory/description. The stricter source-category check is used only
+  // to decide what may actually appear in the Bathroom Vanity tab.
   const isVanity = useCallback((c: DesignCabinet) => {
     const cat = (c.category || "").toLowerCase();
     if (cat === "vanity") return true;
@@ -2872,6 +2872,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const source: DesignCabinet[] =
       paletteType === "appliance"
         ? appliancePalette
+        : paletteType === "vanity" && styleId == null
+        ? []
         : paletteType === "corner"
         ? (() => {
 	            const merged = [
@@ -2896,7 +2898,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         if (paletteType === "corner") return true;
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
         // The dedicated "Vanity" tab shows ONLY vanity-category cabinets.
-        if (paletteType === "vanity") return isVanity(c);
+        if (paletteType === "vanity") return isBathroomVanityCabinet(c);
         // The "Accessories & Trim" tab returns its own server-filtered list
         // (crown/light-rail molding, fillers, end panels, roll-out trays, etc.),
         // so every item passes through here unchanged.
@@ -2907,7 +2909,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         return true;
       })
       .filter((c) => matchesPaletteSearch(c, s));
-	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups, masterTracFinish]);
+	  }, [paletteCabinets, cornerWallCabinets, cornerWallGlassVariants, paletteSearch, paletteType, styleId, appliancePalette, isCornerWall, isCornerBase, isVanity, closetGroups, masterTracFinish]);
   const usesBathroomFixturePalette = roomType === "bathroom" && paletteType === "appliance";
   const paletteHeightOptions = useMemo(
     () => catalogHeightOptions(filteredPalette, paletteType, isCornerBase),
@@ -2948,7 +2950,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const src = ((paletteCabinets as DesignCabinet[]) ?? []);
     return src.filter((c) => {
       if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
-      if (paletteType === "vanity") return isVanity(c);
+      if (paletteType === "vanity") return isBathroomVanityCabinet(c);
       if (paletteType === "accessory") return true;
       if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
       return true;
@@ -3058,19 +3060,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           .map(({ key, labelKey }) => ({ label: t(labelKey), items: buckets[key] }))
       );
     }
-    // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
+	    // Every floor-standing BASE cabinet is a standard 34½" tall (the toe-kick +
     // box + countertop reveal is fixed); the stored "height" on some SKUs (spice
     // pull-outs like BSDC-6/SPB-9/SPB-6, diagonal sink floors) is actually the
     // insert/opening size, NOT the cabinet height. So for the base-family tabs we
     // force a single 34½" bucket instead of fragmenting them into bogus 24"/18"/
-    // 15"/42" groups. Wall / Wall-by-Height / Tall tabs keep their real heights
-    // because grouping by height is meaningful there.
+	    // 15"/42" groups. A vanity knee drawer retains its source 7" height;
+	    // it is not a floor-standing box.
     const isBaseFamilyTab =
       paletteType === "vanity";
     const BASE_STD_HEIGHT = 34.5;
     const groups = new Map<number, DesignCabinet[]>();
     for (const c of heightFilteredPalette) {
-      const h = isBaseFamilyTab ? BASE_STD_HEIGHT : resolvedDesignCabinetDimensions(c).height;
+	      const h = isBaseFamilyTab ? (catalogHeightForCabinet(c, paletteType) ?? BASE_STD_HEIGHT) : resolvedDesignCabinetDimensions(c).height;
       const arr = groups.get(h);
       if (arr) arr.push(c);
       else groups.set(h, [c]);
@@ -14317,7 +14319,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                MasterTrac List SKUs are manufacturer-specific and do not use
 	                a kitchen distributor picker in the tablet Closet parts tab. */}
 	            {(!isTabletWorkspace || paletteType !== "closetparts") && <div className="mt-2 flex items-center gap-1.5">
-	              {(distributorLabels ?? []).length > 1 ? (
+	              {(distributorLabels ?? []).length > 1 && !(roomType === "bathroom" && paletteType === "vanity") ? (
 	                <div className="min-w-0 flex-1" data-testid="catalog-distributor-picker">
 	                  <Select
 	                    value={catalogDistributorScopeId != null ? String(catalogDistributorScopeId) : "all"}
@@ -14343,6 +14345,36 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          </div>
 
 		          <div className="flex-1 overflow-y-auto p-2 space-y-1">
+		            {roomType === "bathroom" && paletteType === "vanity" && (
+		              <div data-testid="bathroom-vanity-lineup" className="mb-2 space-y-2 rounded-lg border border-[#a87f33]/40 bg-[#fffaf0] p-2">
+		                <p className="text-xs font-semibold text-[#1a2744]">Bath vanities · choose your line and door style</p>
+		                <p className="text-[10px] leading-snug text-stone-700">Only the selected distributor’s available, priced vanity cabinets appear here. Other bathroom fixtures are under Fixtures.</p>
+		                <div data-testid="bathroom-vanity-distributor-picker">
+		                  <label className="mb-1 block text-[10px] font-semibold text-stone-700" id="bath-vanity-distributor-label">Distributor</label>
+		                  <Select value={catalogDistributorScopeId != null ? String(catalogDistributorScopeId) : "all"} onValueChange={(value) => chooseCatalogDistributor(value === "all" ? null : Number(value))}>
+	                    <SelectTrigger aria-labelledby="bath-vanity-distributor-label" className="h-9 w-full min-w-0 bg-white text-xs"><SelectValue placeholder="Choose distributor" /></SelectTrigger>
+		                    <SelectContent>
+		                      <SelectItem value="all">All distributors</SelectItem>
+		                      {(distributorLabels ?? []).map((distributor) => <SelectItem key={distributor.id} value={String(distributor.id)}>{distributor.name}</SelectItem>)}
+		                    </SelectContent>
+		                  </Select>
+		                </div>
+		                <div data-testid="bathroom-vanity-door-style-picker">
+		                  <label className="mb-1 block text-[10px] font-semibold text-stone-700" id="bath-vanity-style-label">Door style / color</label>
+	                  <Select value={styleId == null ? "" : String(styleId)} onValueChange={(value) => setSlotStyle(activeSlot, Number(value))} disabled={cabinetsLocked || displayUniqueDoorStyles.length === 0}>
+	                    <SelectTrigger aria-labelledby="bath-vanity-style-label" className="h-9 w-full min-w-0 bg-white text-xs"><SelectValue placeholder={catalogDistributorScopeId == null ? "Choose a distributor or door style" : "Choose a door style"} /></SelectTrigger>
+		                    <SelectContent className="max-h-[min(65vh,26rem)]">
+		                      {displayUniqueDoorStyles.map((style) => (
+		                        <SelectItem key={style.id} value={String(style.id)}>
+		                          {catalogDistributorScopeId == null ? `${distributorNameById.get(style.distributorId ?? -1) ?? "Distributor"} · ` : ""}{affiliateStyleName(style)}
+		                        </SelectItem>
+		                      ))}
+		                    </SelectContent>
+		                  </Select>
+		                  {cabinetsLocked && <p className="mt-1 text-[10px] text-amber-800">Unlock cabinets to change the door style.</p>}
+		                </div>
+		              </div>
+		            )}
 		            {unavailableStyleIds.length > 0 && (
 		              <div role="status" data-testid="unavailable-saved-style-warning" className="mb-2 rounded-lg border border-amber-500/60 bg-amber-50 px-3 py-3 text-xs text-amber-950">
 		                <p className="font-semibold">Saved door style unavailable in the current priced catalog: {unavailableStyleIds.map((id) => `Style #${id}`).join(", ")}</p>
@@ -14357,7 +14389,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 is picked (catalog + pricing key off it). Make that obvious with a
                 clear call-out + a jump to the picker, instead of leaving users
                 staring at an empty list. */}
-	            {!styleId &&
+		            {!styleId &&
+		              !(roomType === "bathroom" && paletteType === "vanity") &&
 	              paletteType !== "opening" &&
 	              paletteType !== "closetparts" &&
 	              paletteType !== "surfaces" &&
@@ -14707,9 +14740,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                           // cabinet inside the unified Corner tab) is always the
                           // standard 34.5" tall; wall/tall/corner-wall boxes use
                           // their real catalog height.
-                          const isBaseBox =
-                            paletteType === "base" ||
-                            paletteType === "vanity" ||
+		                          const isBaseBox =
+		                            paletteType === "base" ||
+		                            (paletteType === "vanity" && !isKneeDrawerItem(c)) ||
                             (paletteType === "corner" && isCornerBase(c));
                           const dimensions = resolvedDesignCabinetDimensions(c);
 	                          const widthVal = formatCatalogInchValue(dimensions.width);
@@ -14751,7 +14784,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               })}
               </>
             )}
-	            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !usesBathroomFixturePalette && !paletteLoading && filteredPalette.length === 0 && (
+		            {paletteType !== "opening" && paletteType !== "surfaces" && paletteType !== "furniture" && !usesBathroomFixturePalette && !paletteLoading && filteredPalette.length === 0 && (paletteType !== "vanity" || styleId != null) && (
               <p className="text-xs text-muted-foreground text-center py-8">
                 {paletteSearch
                   ? t("dt_pl_no_match")

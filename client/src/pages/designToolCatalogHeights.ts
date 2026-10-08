@@ -1,4 +1,4 @@
-import { resolvedDesignCabinetDimensions, type DesignCabinet } from "@/lib/design";
+import { isKneeDrawerItem, resolvedDesignCabinetDimensions, type DesignCabinet } from "@/lib/design";
 
 export type HeightFilterPaletteType =
   | "base"
@@ -41,6 +41,12 @@ export function catalogHeightForCabinet(
   isCornerBase: (cabinet: DesignCabinet) => boolean = () => false,
 ) {
   if (!FILTERABLE_TYPES.has(paletteType)) return null;
+  // A vanity knee drawer is a 7-inch insert mounted above an open knee space;
+  // it is not a 34½-inch floor-standing box.
+  if (paletteType === "vanity" && isKneeDrawerItem(cabinet)) {
+    const height = resolvedDesignCabinetDimensions(cabinet).height;
+    return Number.isFinite(height) && height > 0 ? height : null;
+  }
   if (paletteType === "base" || paletteType === "vanity" || (paletteType === "corner" && isCornerBase(cabinet))) {
     return BASE_BOX_HEIGHT;
   }

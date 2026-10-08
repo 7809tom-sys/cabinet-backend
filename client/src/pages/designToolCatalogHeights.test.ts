@@ -34,6 +34,16 @@ describe("compact designer catalog height selector", () => {
     ], "base")).toEqual([{ height: 34.5, count: 2, label: '34½"' }]);
   });
 
+  it("keeps a source-listed 7-inch vanity knee drawer separate from a full-height vanity", () => {
+    const sink = { ...cabinet("VS24", 34.5, "Vanity"), placement: "base" as const };
+    const knee = { ...cabinet("VKD36", 7, "Vanity"), description: "Vanity Knee Drawer", placement: "base" as const };
+    expect(catalogHeightOptions([sink, knee], "vanity")).toEqual([
+      { height: 34.5, count: 1, label: '34½"' },
+      { height: 7, count: 1, label: '7"' },
+    ]);
+    expect(filterCatalogByHeight([sink, knee], "vanity", 7)).toEqual([knee]);
+  });
+
   it("filters to the selected height without cloning or changing supplier records", () => {
     const thirty = cabinet("W3030", 30);
     const fortyTwo = cabinet("W3042", 42);
