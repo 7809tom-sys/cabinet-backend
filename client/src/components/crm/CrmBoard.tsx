@@ -1032,9 +1032,14 @@ function QuickInvoiceDialog({
         ) : (
           <>
             <p className="text-sm text-muted-foreground">{label("Select the parts of this lead to bill. You will review and edit the prices before opening the final PDF.", "Seleccione las partes de este prospecto para facturar. Podrá revisar y editar los precios antes de abrir el PDF final.")}</p>
+            {linkedDesigns[0] && (
+              <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                <span className="font-semibold">{label("Customer design:", "Diseño del cliente:")}</span> {linkedDesigns[0].designName}
+              </div>
+            )}
             <div className="space-y-2">
               <ServiceRow id="invoice-cabinet-order" title={label("Cabinet Order", "Pedido de gabinetes")} state={cabinetOrder} setState={setCabinetOrder} source={prefill?.cabinetOrderSource} />
-              <ServiceRow id="invoice-kitchen-design" title={label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} source={selectedDesign?.catalogSubtotalSource} emptyAmountLabel={label("Not priced", "Sin precio")} />
+              <ServiceRow id="invoice-kitchen-design" title={selectedDesign ? `${label("Kitchen Design", "Diseño de cocina")} — ${selectedDesign.designName}` : label("Kitchen Design", "Diseño de cocina")} state={kitchenDesign} setState={setKitchenDesign} source={selectedDesign?.catalogSubtotalSource} emptyAmountLabel={label("Not priced", "Sin precio")} />
               {selectedDesign && !kitchenDesign.enabled && (
                 <p className="-mt-1 px-1 text-[11px] text-amber-700">
                   {label("This plan needs a verified cart/order subtotal before it can be invoiced. ", "Este plano necesita un subtotal verificado de carrito/pedido antes de facturarse. ")}

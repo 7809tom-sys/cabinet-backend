@@ -7,7 +7,7 @@ describe("CRM Quick PDF Invoice shipping UI", () => {
   it("renders shipping separately from the cabinet order and kitchen design lines", () => {
     expect(source).toContain('lineFor(shipping.enabled, label("Shipping", "Envío"), shipping.amount)');
     expect(source).toContain('title={label("Shipping", "Envío")}');
-    expect(source).toContain('title={label("Kitchen Design", "Diseño de cocina")}');
+    expect(source).toContain('label("Kitchen Design", "Diseño de cocina")');
   });
 
   it("explains missing authoritative amounts instead of presenting a zero price", () => {

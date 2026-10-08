@@ -332,6 +332,12 @@ export const crmRouter = router({
         .where(eq(crmDealDesigns.dealId, deal.id))
         .orderBy(desc(crmDealDesigns.createdAt));
       const linkedDesignIds = linkedDesignRows.map((link) => link.designId);
+      const linkedOrder = deal.orderRequestId == null
+        ? null
+        : (await db.select({ kitchenDesignId: orderRequests.kitchenDesignId, totalAmount: orderRequests.totalAmount })
+          .from(orderRequests)
+          .where(eq(orderRequests.id, deal.orderRequestId))
+          .limit(1))[0] ?? null;
       const savedDesignRows = linkedDesignIds.length === 0
         ? []
         : await db.select({
@@ -370,6 +376,8 @@ export const crmRouter = router({
 	      if (!savedDesign || savedDesign.affiliateId !== deal.affiliateId) return [];
         const share = shareByDesignId.get(link.designId);
         const shareSubtotal = Number(share?.orderSubtotal ?? 0);
+        const submittedOrderValue = linkedOrder?.kitchenDesignId === link.designId ? Number(linkedOrder.totalAmount ?? 0) : 0;
+        const designValue = shareSubtotal > 0 ? shareSubtotal : submittedOrderValue > 0 ? submittedOrderValue : 0;
 	      const creatorAffiliate = savedDesign.affiliateId == null ? null : linkedAffiliateById.get(savedDesign.affiliateId) ?? null;
         return [{
           ...link,
@@ -384,10 +392,12 @@ export const crmRouter = router({
           designOrderValue: deal.estimatedValue,
           // A zero plan share is not an authorized sell price. Keep it out of
           // the invoice until a verified saved-order subtotal exists.
-          catalogSubtotal: Number.isFinite(shareSubtotal) && shareSubtotal > 0 ? share?.orderSubtotal ?? null : null,
-          catalogSubtotalSource: Number.isFinite(shareSubtotal) && shareSubtotal > 0
+          catalogSubtotal: designValue > 0 ? designValue.toFixed(2) : null,
+          catalogSubtotalSource: shareSubtotal > 0
             ? "Saved design catalog subtotal"
-            : "No verified plan price yet",
+            : submittedOrderValue > 0
+              ? "Submitted order value"
+              : "No verified plan price yet",
           materialLines: groupedDesignInvoiceMaterials(savedDesign?.placedCabinets),
 	      }];
       });
