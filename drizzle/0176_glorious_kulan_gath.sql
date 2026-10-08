@@ -1,0 +1,1 @@
+ALTER TABLE `affiliate_installation_estimates` ADD `crmDealId` int;

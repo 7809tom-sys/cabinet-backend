@@ -21,10 +21,13 @@ export function calculateInstallationEstimate(
   taxAmount = 0,
   markupPercent = 0,
 ) {
+  if (lines.some((line) => !Number.isInteger(line.quantity) || line.quantity <= 0)) {
+    throw new Error("Quantity must be a positive whole number.");
+  }
   const lineItems: InstallationEstimateLine[] = lines.map((line) => ({
     ...line,
     costType: line.costType ?? "labor",
-    quantity: Number(line.quantity.toFixed(2)),
+    quantity: line.quantity,
     unitCost: Number(line.unitCost.toFixed(2)),
     lineTotal: Number((line.quantity * line.unitCost).toFixed(2)),
   }));

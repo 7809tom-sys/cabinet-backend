@@ -26,4 +26,10 @@ describe("calculateInstallationEstimate", () => {
     expect(estimate.totalAmount).toBe(1150);
     expect(estimate.lineItems.map((line) => line.costType)).toEqual(["labor", "material"]);
   });
+
+  it("rejects fractional quantities while accepting decimal unit prices", () => {
+    expect(() => calculateInstallationEstimate([{ description: "Demo", quantity: 0.01, unitCost: 500 }]))
+      .toThrow("Quantity must be a positive whole number");
+    expect(calculateInstallationEstimate([{ description: "Demo", quantity: 2, unitCost: 35.75 }]).totalAmount).toBe(71.5);
+  });
 });

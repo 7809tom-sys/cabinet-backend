@@ -202,10 +202,11 @@ function sameCustomerEmail(left: string | null | undefined, right: string | null
 }
 
 export function laborEstimateMatchesDeal(
-  estimate: Pick<typeof affiliateInstallationEstimates.$inferSelect, "orderRequestId" | "customerEmail">,
-  deal: Pick<typeof crmDeals.$inferSelect, "orderRequestId" | "contactEmail">,
+  estimate: Pick<typeof affiliateInstallationEstimates.$inferSelect, "orderRequestId" | "customerEmail"> & { crmDealId?: number | null },
+  deal: Pick<typeof crmDeals.$inferSelect, "orderRequestId" | "contactEmail"> & { id?: number },
 ) {
-  return (deal.orderRequestId != null && estimate.orderRequestId === deal.orderRequestId)
+  return (deal.id != null && estimate.crmDealId === deal.id)
+    || (deal.orderRequestId != null && estimate.orderRequestId === deal.orderRequestId)
     || sameCustomerEmail(estimate.customerEmail, deal.contactEmail);
 }
 
@@ -435,10 +436,11 @@ export const crmRouter = router({
       // owner must choose an eligible affiliate estimate from this same customer
       // or directly linked order; that selected estimate becomes a separately
       // labeled Labor line in the consolidated CRM invoice draft.
-      const laborEstimateRows = deal.affiliateId == null || (!deal.orderRequestId && !deal.contactEmail)
+      const laborEstimateRows = deal.affiliateId == null || (!deal.orderRequestId && !deal.contactEmail && !deal.laborEstimateId)
         ? []
         : await db.select({
           id: affiliateInstallationEstimates.id,
+          crmDealId: affiliateInstallationEstimates.crmDealId,
           orderRequestId: affiliateInstallationEstimates.orderRequestId,
           customerName: affiliateInstallationEstimates.customerName,
           customerEmail: affiliateInstallationEstimates.customerEmail,
@@ -637,6 +639,7 @@ export const crmRouter = router({
       }
       const rows = await db.select({
         id: affiliateInstallationEstimates.id,
+        crmDealId: affiliateInstallationEstimates.crmDealId,
         affiliateId: affiliateInstallationEstimates.affiliateId,
         orderRequestId: affiliateInstallationEstimates.orderRequestId,
         customerEmail: affiliateInstallationEstimates.customerEmail,

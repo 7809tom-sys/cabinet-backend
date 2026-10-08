@@ -13,7 +13,8 @@ describe("InstallationEstimatesPanel room and cost controls", () => {
     expect(source).toContain("KITCHEN_COST_SHEET_DESCRIPTIONS.map");
     expect(source).toContain("materialQuantity");
     expect(source).toContain("laborQuantity");
-    expect(source).toContain("Price / unit");
+    expect(source).toContain('<KitchenCostSheet rows={kitchenRows} onChange={updateKitchenRow} />');
+    expect(source).not.toContain("min-w-[760px]");
     expect(source).toContain('"Mark Up"');
     expect(source).toContain('id="installation-markup"');
     expect(source).toContain('value={line.costType}');
@@ -23,5 +24,9 @@ describe("InstallationEstimatesPanel room and cost controls", () => {
     expect(source).toContain("Save prices as defaults");
     expect(source).toContain("downloadInstallationEstimateCsv");
     expect(source).toContain("downloadInstallationEstimatePdf");
+    expect(source).toContain("kitchenPlans.useQuery");
+    expect(source).toContain('id="installation-kitchen-plan"');
+    expect(source).toContain("cabinetBreakdown.base");
+    expect(source).toContain("kitchenDesignId: roomType === \"Kitchen\"");
   });
 });

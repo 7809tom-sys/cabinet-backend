@@ -13,11 +13,13 @@ describe("installation estimate exports", () => {
       markupPercent: 10,
       markupAmount: 25,
       totalAmount: 275,
+      cabinetBreakdown: { base: 4, wall: 3, tall: 2, total: 9 },
     });
 
     expect(csv).toContain('"Smith, Jane"');
     expect(csv).toContain('"Sheet Rock, Mud and Tape",labor,2,125.00,250.00');
     expect(csv).toContain("Markup percent,,,,10.00");
     expect(csv).toContain("Installation total,,,,275.00");
+    expect(csv).toContain("Saved plan cabinets,Base 4,Wall 3,Tall 2,Total 9");
   });
 });

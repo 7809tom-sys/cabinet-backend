@@ -43,4 +43,15 @@ describe("installation estimate affiliate access", () => {
       memberships: [{ affiliateId: 10, userId: 300, email: "blocked@example.com", isActive: false, accessCrm: true }],
     })).toBeNull();
   });
+
+  it("requires both CRM and Designer permission only when importing a plan", () => {
+    const input = { user: { id: 400, email: "team@example.com", role: "user" }, affiliates,
+      memberships: [{ affiliateId: 10, userId: 400, email: "team@example.com", isActive: true, accessCrm: true, accessDesigner: false }] };
+    expect(resolveInstallationEstimateAffiliateId(input)).toBe(10);
+    expect(resolveInstallationEstimateAffiliateId({ ...input, requireDesigner: true })).toBeNull();
+    expect(resolveInstallationEstimateAffiliateId({ ...input, requireDesigner: true,
+      memberships: [{ ...input.memberships[0], accessDesigner: true }] })).toBe(10);
+    expect(resolveInstallationEstimateAffiliateId({ ...input, requireDesigner: true,
+      memberships: [{ ...input.memberships[0], accessCrm: false, accessDesigner: true }] })).toBeNull();
+  });
 });

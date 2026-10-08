@@ -31,4 +31,11 @@ describe("CRM labor estimate selection", () => {
       { orderRequestId: null, contactEmail: null },
     )).toBe(false);
   });
+
+  it("accepts only the explicit automatic estimator deal when there is no customer email", () => {
+    expect(laborEstimateMatchesDeal({ orderRequestId: null, customerEmail: null, crmDealId: 12 },
+      { id: 12, orderRequestId: null, contactEmail: null })).toBe(true);
+    expect(laborEstimateMatchesDeal({ orderRequestId: null, customerEmail: null, crmDealId: 13 },
+      { id: 12, orderRequestId: null, contactEmail: null })).toBe(false);
+  });
 });

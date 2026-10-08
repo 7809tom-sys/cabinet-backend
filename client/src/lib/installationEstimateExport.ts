@@ -19,6 +19,7 @@ export type InstallationEstimateExportData = {
   markupPercent?: number | string | null;
   markupAmount?: number | string | null;
   totalAmount: number | string;
+  cabinetBreakdown?: { base: number; wall: number; tall: number; total: number } | null;
 };
 
 const money = (value: number | string | null | undefined) => Number(value ?? 0).toFixed(2);
@@ -36,6 +37,7 @@ export function installationEstimateCsv(data: InstallationEstimateExportData): s
     ["Customer", data.customerName ?? ""],
     ["Email", data.customerEmail ?? ""],
     ["Phone", data.customerPhone ?? ""],
+    ...(data.cabinetBreakdown ? [["Saved plan cabinets", `Base ${data.cabinetBreakdown.base}`, `Wall ${data.cabinetBreakdown.wall}`, `Tall ${data.cabinetBreakdown.tall}`, `Total ${data.cabinetBreakdown.total}`] as Array<string | number>] : []),
     [],
     ["Description", "Cost type", "Quantity", "Unit cost", "Line total"],
     ...data.lineItems.map((line) => [line.description, line.costType ?? "labor", line.quantity, money(line.unitCost), money(line.lineTotal)]),
@@ -81,6 +83,7 @@ export async function downloadInstallationEstimatePdf(data: InstallationEstimate
   addLine(`Customer: ${data.customerName || "Customer"}`);
   if (data.customerEmail) addLine(`Email: ${data.customerEmail}`);
   if (data.customerPhone) addLine(`Phone: ${data.customerPhone}`);
+  if (data.cabinetBreakdown) addLine(`Saved plan cabinets: ${data.cabinetBreakdown.base} Base · ${data.cabinetBreakdown.wall} Wall · ${data.cabinetBreakdown.tall} Tall · ${data.cabinetBreakdown.total} total`, left, 10, true);
   y += 8;
   pdf.setDrawColor(190, 190, 190);
   pdf.line(left, y, right, y);
