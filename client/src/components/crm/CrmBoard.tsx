@@ -352,7 +352,11 @@ function DealCard({ deal, lang, onOpen, affiliateName, affiliateBrand }: { deal:
       style={brandColor ? { borderLeftWidth: 4, borderLeftColor: brandColor } : undefined}
     >
       <div className="flex items-start justify-between gap-2 mb-1.5">
-        <span className="text-sm font-medium text-foreground leading-snug">{deal.title}</span>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-foreground leading-snug">{deal.contactName || deal.company || "Unnamed customer"}</div>
+          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Customer</div>
+          <div className="mt-1 text-xs text-foreground leading-snug">{deal.title}</div>
+        </div>
         <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded ${priorityColor[deal.priority]}`}>
           {CRM_PRIORITY_LABELS[deal.priority][lang]}
         </span>
@@ -369,12 +373,11 @@ function DealCard({ deal, lang, onOpen, affiliateName, affiliateBrand }: { deal:
       {deal.source === "verified_plan_image_request" && (
         <div className="text-[10px] font-medium text-sky-800 bg-sky-50 rounded px-1.5 py-0.5 inline-flex items-center gap-1 mb-1"><Image className="h-3 w-3" />Manual AI image review</div>
       )}
-      {deal.company && (
+      {deal.company && deal.company !== deal.contactName && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground"><Building2 className="h-3 w-3" />{deal.company}</div>
       )}
-      {deal.contactName && (
-        <div className="text-xs text-muted-foreground">{deal.contactName}</div>
-      )}
+      {deal.contactEmail && <div className="text-[11px] text-muted-foreground truncate">{deal.contactEmail}</div>}
+      {deal.contactPhone && <div className="text-[11px] text-muted-foreground">{deal.contactPhone}</div>}
       <div className="flex items-center justify-between mt-2">
         <span className="text-xs font-semibold text-foreground">{money(deal.estimatedValue)}</span>
         <span className="flex items-center gap-1">
@@ -692,7 +695,8 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
         {deal ? (
           <>
             <SheetHeader>
-              <SheetTitle className="pr-6">{deal.title}</SheetTitle>
+              <SheetTitle className="pr-6">{deal.contactName || deal.company || deal.title}</SheetTitle>
+              <p className="text-xs text-muted-foreground">{deal.title}</p>
             </SheetHeader>
             <div className="space-y-4 mt-4">
               <div className="flex items-center gap-2">
@@ -707,14 +711,22 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
               </div>
 
               <div className="rounded-lg border border-border p-3 space-y-1.5 text-sm">
-                {deal.company && <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{deal.company}</div>}
                 {deal.contactName && <div>{deal.contactName}</div>}
                 {deal.contactEmail && <div className="flex items-center gap-2"><Mail className="h-3.5 w-3.5 text-muted-foreground" /><a className="text-primary hover:underline" href={`mailto:${deal.contactEmail}`}>{deal.contactEmail}</a></div>}
                 {deal.contactPhone && <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-muted-foreground" /><a className="text-primary hover:underline" href={`tel:${deal.contactPhone}`}>{deal.contactPhone}</a></div>}
+                {deal.company && <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{deal.company}</div>}
                 {deal.location && <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" />{deal.location}</div>}
                 <div className="flex items-center gap-2 font-semibold pt-1"><CircleDollarSign className="h-3.5 w-3.5 text-muted-foreground" />{money(deal.estimatedValue)}</div>
                 {deal.notes && <p className="text-xs text-muted-foreground pt-1 whitespace-pre-wrap">{deal.notes}</p>}
               </div>
+
+              {linkedDesigns[0] && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <p className="text-xs font-semibold text-muted-foreground mb-1">{lang === "es" ? "Diseñador / diseño guardado" : "Designer / saved design"}</p>
+                  <a href={linkedDesigns[0].designUrl} className="text-sm font-semibold text-primary hover:underline">{linkedDesigns[0].designName}</a>
+                  <p className="text-[11px] text-muted-foreground">{linkedDesigns[0].creatorStoreName} · {deal.contactEmail || deal.contactPhone || "Unique customer contact"}</p>
+                </div>
+              )}
 
               {deal.source === "verified_plan_image_request" && (
                 <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950 space-y-2">
