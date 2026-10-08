@@ -8270,6 +8270,9 @@ function addPelicanBathroomFixture(
     sourceEnvelopeIn: { width: profile.widthIn, depth: profile.depthIn, height: profile.heightIn },
     sourceSpecificationUrl: profile.specificationUrl,
     drain: profile.drain,
+    toiletStyle: profile.toiletStyle ?? null,
+    toiletFlushControl: profile.toiletFlushControl ?? null,
+    toiletFlushTechnology: profile.toiletFlushTechnology ?? null,
   };
   const shellColor = profile.finish === "vitreous-china-matte-black" ? "#17191b" : "#f5f6f2";
   const shell = new THREE.MeshPhysicalMaterial({ color: shellColor, roughness: 0.24, metalness: 0, clearcoat: 0.28, clearcoatRoughness: 0.18 });
@@ -8352,9 +8355,32 @@ function addPelicanBathroomFixture(
       tankLid.position.set(0, height - 0.02, -depth * 0.3);
       add(tankLid, "toilet-tank-lid");
     }
-    const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.045, width * 0.045, 0.018, 20), dark);
-    flushControl.position.set(0, height - Math.min(0.028, rearHousingHeight * 0.08), -depth * 0.28);
-    add(flushControl, "toilet-flush-control");
+    // The sheets distinguish single-flush, dual-flush, and touchless smart
+    // controls but do not document exact button or sensor coordinates. Indicate
+    // that fact only with bounded illustrative top markings—not plumbing,
+    // connections, or installation detail.
+    const flushControlY = height - Math.min(0.028, rearHousingHeight * 0.08);
+    if (profile.toiletFlushControl === "dual-button") {
+      for (const [side, radius] of [["left", width * 0.036], ["right", width * 0.046]] as const) {
+        const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.018, 20), dark);
+        flushControl.position.set(side === "left" ? -width * 0.065 : width * 0.065, flushControlY, -depth * 0.28);
+        flushControl.userData = { toiletFlushControlMode: "dual-button", illustrativeControlPosition: true };
+        add(flushControl, `toilet-dual-flush-${side}-button`);
+      }
+    } else if (profile.toiletFlushControl === "single-button") {
+      const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.045, width * 0.045, 0.018, 20), dark);
+      flushControl.position.set(0, flushControlY, -depth * 0.28);
+      flushControl.userData = { toiletFlushControlMode: "single-button", illustrativeControlPosition: true };
+      add(flushControl, "toilet-single-flush-button");
+    } else {
+      const touchlessCap = new THREE.Mesh(
+        new RoundedBoxGeometry(width * 0.34, 0.012, depth * 0.1, Math.min(width, depth) * 0.012, 3),
+        seatMaterial,
+      );
+      touchlessCap.position.set(0, flushControlY, -depth * 0.28);
+      touchlessCap.userData = { toiletFlushControlMode: profile.toiletFlushControl ?? "touchless", illustrativeControlPosition: true };
+      add(touchlessCap, profile.toiletFlushControl === "touchless-auto" ? "toilet-touchless-auto-top" : "toilet-touchless-top");
+    }
   } else if (profile.kind === "bidet") {
     const baseHeight = height * 0.78;
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.27, width * 0.36, baseHeight, 28), shell);

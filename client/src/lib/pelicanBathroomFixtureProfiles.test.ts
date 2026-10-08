@@ -14,6 +14,9 @@ describe("Pelican bathroom fixture placement profiles", () => {
       depthIn: 26 + 37 / 64,
       heightIn: 29 + 17 / 32,
       finish: "vitreous-china-white",
+      toiletStyle: "one-piece",
+      toiletFlushControl: "dual-button",
+      toiletFlushTechnology: "multi-jet-siphonic",
     });
     expect(verifiedPelicanBathroomFixtureProfile("PL-12230")).toMatchObject({
       kind: "toilet",
@@ -21,11 +24,18 @@ describe("Pelican bathroom fixture placement profiles", () => {
       depthIn: 26.4,
       heightIn: 20,
       toiletStyle: "smart",
+      toiletFlushControl: "touchless",
     });
     expect(verifiedPelicanBathroomFixtureProfile("PL-A249 ADA")).toMatchObject({
       kind: "toilet",
       toiletStyle: "two-piece",
       heightIn: 31.125,
+      toiletFlushControl: "single-button",
+    });
+    expect(verifiedPelicanBathroomFixtureProfile("PL-12382")).toMatchObject({
+      toiletStyle: "one-piece",
+      toiletFlushControl: "single-button",
+      toiletFlushTechnology: "tornado-rimless",
     });
     expect(verifiedPelicanBathroomFixtureProfile("PL-12248")).toMatchObject({
       kind: "bidet",

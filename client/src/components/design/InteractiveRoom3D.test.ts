@@ -84,7 +84,45 @@ describe("source-measured Pelican bathroom fixtures", () => {
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-seat")).toBe(true);
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-lid")).toBe(true);
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-integrated-rear-housing")).toBe(true);
-    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-flush-control")).toBe(true);
+    expect(fixture?.userData).toMatchObject({
+      toiletStyle: "one-piece",
+      toiletFlushControl: "dual-button",
+      toiletFlushTechnology: "multi-jet-siphonic",
+    });
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-dual-flush-left-button")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-dual-flush-right-button")).toBe(true);
+  });
+
+  it("keeps official smart and two-piece toilet distinctions inside their measured envelopes", () => {
+    const root = new THREE.Group();
+    addFurniture(root, {
+      uid: "pelican-smart-toilet",
+      defId: "pelican-toilet-pl-12230",
+      pelicanCode: "PL-12230",
+      pelicanProductId: 12230,
+      x: 12,
+      y: 24,
+      rotation: 0,
+    });
+    addFurniture(root, {
+      uid: "pelican-two-piece-toilet",
+      defId: "pelican-toilet-pl-a249-ada",
+      pelicanCode: "PL-A249 ADA",
+      pelicanProductId: 1249,
+      x: 42,
+      y: 24,
+      rotation: 0,
+    });
+    const smart = root.children.find((child) => child.userData.furnitureUid === "pelican-smart-toilet");
+    const twoPiece = root.children.find((child) => child.userData.furnitureUid === "pelican-two-piece-toilet");
+    expect(smart?.userData).toMatchObject({ toiletStyle: "smart", toiletFlushControl: "touchless" });
+    expect(smart?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-smart-rear-housing")).toBe(true);
+    expect(smart?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-touchless-top")).toBe(true);
+    expect(smart?.children.some((child) => String(child.userData.pelicanBathroomFixturePart).includes("flush-button"))).toBe(false);
+    expect(twoPiece?.userData).toMatchObject({ toiletStyle: "two-piece", toiletFlushControl: "single-button" });
+    expect(twoPiece?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-tank")).toBe(true);
+    expect(twoPiece?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-tank-lid")).toBe(true);
+    expect(twoPiece?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-single-flush-button")).toBe(true);
   });
 
   it("selects a visible bathroom fixture in 3D and exposes the same authoritative rotate/remove actions without changing Floor Plan controls", () => {
