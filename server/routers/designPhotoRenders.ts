@@ -396,8 +396,10 @@ function manualAiPrompt(provenance: PhotoRenderProvenanceInput, references: Manu
     "The remaining numbered cards are the exact selected CabinetDealz and Pelican product references. Apply each reference only to its matching existing surface or fixture. Do not introduce any product not shown on this board.",
     "Create a photorealistic architectural interior image with realistic lighting and physically plausible material texture.",
     areaInstructions,
+    "Light staging is allowed and wanted: add only a plant, coffee cup, bowl, towel, cookbook, or similarly minimal kitchen accessory. Keep counters mostly clear so cabinet doors and drawers remain visible. Props must not cover the island cabinet faces.",
+    "Never add or move cabinets, appliances, windows, walls, fixtures, or architectural elements. The layout, camera, and dimensions remain exactly the locked design.",
     "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
-    "Return one kitchen image only, without labels, UI, people, text, logos, watermarks, measurements, or extra products.",
+    "Return one kitchen image only, without people, labels, UI, text, logos, watermarks, measurements, or extra products.",
     `Saved-plan summary: ${photoRenderProvenanceSummary(provenance)}`,
     selectedReferences ? `Reference cards:\n${selectedReferences}` : "",
   ].filter(Boolean).join("\n\n");
@@ -586,8 +588,10 @@ function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceI
     "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
     "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
     specification ? `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Island cabinets are ${specification.islandCabinets?.color ?? "not present"} ${specification.islandCabinets?.doorStyle ?? ""}. Do not change these colors or styles. Perimeter countertop: ${specification.perimeterCountertop ?? "selected"}. Island countertop: ${specification.islandCountertop ?? "none"}. Hardware: ${specification.hardware ?? "as shown"}. Appliances: ${specification.appliances.join(", ") || "only those shown"}.` : "",
+    "Light staging is allowed and wanted: add only a plant, coffee cup, bowl, towel, cookbook, or similarly minimal kitchen accessory. Keep counters mostly clear so cabinet doors and drawers remain visible. Props must not cover the island cabinet faces.",
+    "Never add or move cabinets, appliances, windows, walls, fixtures, or architectural elements. The layout, camera, and dimensions remain exactly the locked design.",
     "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
-    "Return only the finished photorealistic kitchen image; no labels, UI, people, text, logos, watermarks, measurements, or additional products.",
+    "No people, text, logos, watermarks, measurements, or extra products.",
     summary ? `Selected design summary: ${summary}` : "",
   ].filter(Boolean).join(" ");
 }
