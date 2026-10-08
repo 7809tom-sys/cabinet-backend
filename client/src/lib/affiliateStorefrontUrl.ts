@@ -1,19 +1,6 @@
 const PRODUCTION_ORIGIN = "https://www.cabinetdealz.com";
-const AFFILIATE_DOMAIN_SUFFIX = ".cabinetdealz.com";
-
-function affiliatePublicOrigin(slug: string, origin?: string): string {
+function affiliatePublicOrigin(origin?: string): string {
   const base = (origin || (typeof window !== "undefined" ? window.location.origin : PRODUCTION_ORIGIN)).replace(/\/+$/, "");
-  try {
-    const hostname = new URL(base).hostname.toLowerCase();
-    // Production dashboard links should distribute the affiliate's own domain,
-    // not the central www URL plus an internal /store route. Preview hosts keep
-    // the routed form because they do not own public affiliate subdomains.
-    if (hostname === "www.cabinetdealz.com" || hostname === "cabinetdealz.com") {
-      return `https://${encodeURIComponent(slug.trim().toLowerCase())}${AFFILIATE_DOMAIN_SUFFIX}`;
-    }
-  } catch {
-    // Retain the safe routed fallback below for malformed development origins.
-  }
   return base;
 }
 
@@ -77,16 +64,13 @@ export function affiliateDashboardLinks(
   affiliate: { slug: string; referralCode: string },
   origin?: string,
 ): { storefrontUrl: string; referralUrl: string } {
-  const base = affiliatePublicOrigin(affiliate.slug, origin);
-  const useDedicatedAffiliateDomain = base.endsWith(AFFILIATE_DOMAIN_SUFFIX);
+  const base = affiliatePublicOrigin(origin);
   const storefrontPath = affiliateStorefrontPath(affiliate.slug);
   return {
-    storefrontUrl: useDedicatedAffiliateDomain ? base : `${base}${storefrontPath}`,
-    // A dedicated domain resolves its own /order path into the affiliate scope.
-    // Preview/central origins require the explicit routed path to preserve it.
-    referralUrl: useDedicatedAffiliateDomain
-      ? `${base}/order?ref=${encodeURIComponent(affiliate.referralCode)}`
-      : `${base}${storefrontPath}/order?ref=${encodeURIComponent(affiliate.referralCode)}`,
+    // Do not distribute an unconfigured subdomain such as
+    // firstclass.cabinetdealz.com; use the canonical routed storefront.
+    storefrontUrl: `${base}${storefrontPath}`,
+    referralUrl: `${base}${storefrontPath}/order?ref=${encodeURIComponent(affiliate.referralCode)}`,
   };
 }
 
