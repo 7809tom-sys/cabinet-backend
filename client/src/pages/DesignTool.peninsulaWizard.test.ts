@@ -25,6 +25,8 @@ describe("Peninsula Wizard", () => {
   it("uses the cabinet footprint and 1½-inch finished edge for every new Wizard countertop level", () => {
     expect(source).toContain('seatingOverhang: 0,');
     expect(source).toContain('Standard 1½ in. cabinet edge');
+    expect(source).toContain('data-testid="peninsula-wizard-front-overhang-warning"');
+    expect(source).toContain('cabinet-facing edge stays at 1½ in. maximum');
     expect(source).toContain('countertopRaisedBarOverhang: 15,');
     expect(source).toContain('15-inch outward projection');
     expect(source).toContain('same cabinet footprint and physical 45° miter');

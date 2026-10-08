@@ -15690,7 +15690,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                            <option value={12}>12 in. bar — crosses wall + extends 12 in.</option>
 	                            <option value={15}>15 in. bar — crosses wall + extends 15 in.</option>
 	                          </select>
-	                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Covers the full cabinet run, crosses the finished 4½ in. drywall pony wall, then creates the selected bar projection behind it.</span>
+                          <span className="text-[10px] font-normal leading-4 text-muted-foreground">Covers the full cabinet run, crosses the finished 4½ in. drywall pony wall, then creates the selected bar projection behind it.</span>
+                          {wallSettingsDraft.countertopPonyWallBarOverhang > 0 && <span data-testid="peninsula-front-overhang-warning" role="alert" className="text-[10px] font-semibold leading-4 text-red-800">Front overhang warning: the cabinet-facing edge stays at 1½ in. maximum. This {wallSettingsDraft.countertopPonyWallBarOverhang}-in. value is an outward bar projection behind the cabinets, not extra front overhang.</span>}
 	                        </label>
 	                      )}
 	                      <div data-testid="peninsula-raised-bar" className="flex items-center gap-3 rounded-md border border-[#b99049] bg-[#fff5d9] px-3 py-2.5">
@@ -15720,10 +15721,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                            <option value={0}>Standard 1½ in. edge</option>
 	                            {wallSettingsDraft.countertopSeatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
 	                            <option value={12}>12 in. seating</option>
-	                            <option value={15}>15 in. seating</option>
-	                          </select>
-	                        </label>
-	                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Exposed far end
+                            <option value={15}>15 in. seating</option>
+                          </select>
+                          {wallSettingsDraft.countertopSeatingOverhang > 0 && <span data-testid="peninsula-front-overhang-warning" role="alert" className="col-span-2 text-[10px] font-semibold leading-4 text-red-800">Front overhang warning: the cabinet-facing edge stays at 1½ in. maximum. The selected {wallSettingsDraft.countertopSeatingOverhang}-in. value may extend only outward behind the cabinet run.</span>}
+                        </label>
+                        <label className="grid gap-1 text-xs font-semibold text-[#634b20]">Exposed far end
 	                          <select value={wallSettingsDraft.countertopWaterfallEnd ? "waterfall" : "standard"} onChange={(event) => setWallSettingsDraft((draft) => draft ? { ...draft, countertopWaterfallEnd: event.target.value === "waterfall" } : draft)} className="h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground">
 	                            <option value="standard">Standard edge</option>
 	                            <option value="waterfall">Waterfall to floor</option>
@@ -15984,13 +15986,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                          <span className="font-normal text-muted-foreground">24 in. base depth + 1½ in. finished edge on both levels</span>
 	                        </div>
 	                      ) : (
-	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Front edge / seating overhang
+	                        <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Outward seating projection (front edge stays 1½ in.)
 	                          <select value={peninsulaWizardDraft.seatingOverhang} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, seatingOverhang: Number(event.target.value) as 0 | 10 | 12 | 15 } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
 	                            <option value={0}>Standard 1½ in. cabinet edge</option>
 	                            {peninsulaWizardDraft.seatingOverhang === 10 && <option value={10}>10 in. seating (legacy)</option>}
 	                            <option value={12}>12 in. seating</option>
 	                            <option value={15}>15 in. seating</option>
 	                          </select>
+	                          {peninsulaWizardDraft.seatingOverhang > 0 && <span data-testid="peninsula-wizard-front-overhang-warning" role="alert" className="text-[11px] font-semibold leading-4 text-red-800">Front overhang warning: the cabinet-facing edge stays at 1½ in. maximum. The selected {peninsulaWizardDraft.seatingOverhang}-in. value is an outward seating projection only.</span>}
 	                        </label>
 	                      )}
 	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground">

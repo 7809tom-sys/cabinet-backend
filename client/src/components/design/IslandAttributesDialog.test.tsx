@@ -27,7 +27,7 @@ describe("IslandAttributesDialog", () => {
     expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ x: 42, countertopWidth: null, countertopDepth: 54 }));
   });
 
-	  it("accepts an exact island countertop overhang and can return it to the 1.5-inch default", () => {
+  it("accepts an exact island countertop overhang and can return it to the 1.5-inch default", () => {
 	    const onApply = vi.fn();
 	    render(<IslandAttributesDialog open island={island} onOpenChange={vi.fn()} onApply={onApply} onRotate={vi.fn()} onRemove={vi.fn()} />);
 	    const overhang = screen.getByLabelText("Standard countertop overhang (in.)");
@@ -38,6 +38,15 @@ describe("IslandAttributesDialog", () => {
 	    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
 	    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ countertopOverhang: null }));
 	    expect(screen.getByTestId("island-countertop-overhang-control")).toBeTruthy();
+	  });
+
+	  it("warns immediately when the front overhang exceeds the 1½-inch cabinet-front maximum", () => {
+	    render(<IslandAttributesDialog open island={{ ...island, countertopOverhang: 3.125 }} onOpenChange={vi.fn()} onApply={vi.fn()} onRotate={vi.fn()} onRemove={vi.fn()} />);
+	    const warning = screen.getByTestId("island-front-overhang-warning");
+    expect(warning.getAttribute("role")).toBe("alert");
+	    expect(warning.textContent).toContain("3.125 in.");
+	    expect(warning.textContent).toContain("1.625 in.");
+	    expect(warning.textContent).toContain("1½ in. maximum cabinet-front overhang");
 	  });
 
 	  it("warns with the selected material, verified limit, and exact structural excess", () => {
@@ -58,7 +67,7 @@ describe("IslandAttributesDialog", () => {
 	    expect(warning).toContain("6 in.");
 	    expect(warning).toContain("4 in.");
 	    expect(warning).toContain("2 in.");
-	    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.getByTestId("island-overhang-limit-exceeded").getAttribute("role")).toBe("alert");
 	  });
 
 	  it("shows verified-safe and unverified material guidance without inventing a limit", () => {

@@ -96,10 +96,12 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 		  const selectedCountertopOption = draft.countertopProductId == null
 		    ? null
 		    : countertopOptions.find((option) => option.id === draft.countertopProductId) ?? null;
-		  const effectiveCountertopMaterial = selectedCountertopOption ?? countertopMaterial;
-		  const verifiedLimit = effectiveCountertopMaterial?.unsupportedOverhangLimitIn ?? null;
-		  const structuralExcess = verifiedLimit == null ? null : Math.max(0, effectiveOverhang - verifiedLimit);
-	  return (
+ const effectiveCountertopMaterial = selectedCountertopOption ?? countertopMaterial;
+ const verifiedLimit = effectiveCountertopMaterial?.unsupportedOverhangLimitIn ?? null;
+ const structuralExcess = verifiedLimit == null ? null : Math.max(0, effectiveOverhang - verifiedLimit);
+  const frontOverhangIn = draft.countertopOverhang ?? 1.5;
+  const frontOverhangExcess = Math.max(0, frontOverhangIn - 1.5);
+  return (
 	    <Dialog open={open} onOpenChange={onOpenChange}>
 	      <DialogContent className="max-h-[90vh] w-[min(94vw,680px)] gap-2 overflow-y-auto p-3 sm:max-w-[680px] sm:p-4">
 	        <DialogHeader className="space-y-0.5">
@@ -175,9 +177,10 @@ export function IslandAttributesDialog({ open, island, countertopMaterial, count
 	                placeholder="Automatic — 1.5"
 	                onChange={(event) => setNumber("countertopOverhang", event.target.value)}
 	              />
-	              <Button className="h-8 shrink-0 px-2 text-[11px]" type="button" variant="outline" onClick={() => setDraft((current) => current ? { ...current, countertopOverhang: null } : current)}>Auto</Button>
-	            </div>
-	          </div>
+                      <Button className="h-8 shrink-0 px-2 text-[11px]" type="button" variant="outline" onClick={() => setDraft((current) => current ? { ...current, countertopOverhang: null } : current)}>Auto</Button>
+                    </div>
+                    {frontOverhangExcess > 0.001 && <p data-testid="island-front-overhang-warning" role="alert" className="mt-1 text-[11px] leading-4 text-red-800"><strong>Front overhang warning:</strong> {formatInches(frontOverhangIn)} in. is {formatInches(frontOverhangExcess)} in. beyond the 1½ in. maximum cabinet-front overhang. Use the rear seating projection for additional countertop depth.</p>}
+                  </div>
 	          <div className="space-y-1">
 	            <Label className="text-xs">Rear seating</Label>
 	            <Select value={rearSeatingOverhang} onValueChange={(value) => applyRearSeatingOverhang(value as "automatic" | "12" | "15")}>
