@@ -75,6 +75,13 @@ export const VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES: readonly VerifiedPelica
   { id: "pelican-tub-pl-02146-59", pelicanCode: 'PL-02146 59"', name: "PL-02146 59-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 29 + 21 / 64, depthIn: 59 + 1 / 16, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: spec("pl-02146") },
   { id: "pelican-tub-pl-02562-59", pelicanCode: 'PL-02562 59"', name: "PL-02562 59-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 28 + 15 / 16, depthIn: 59 + 1 / 16, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: spec("pl-02562") },
   { id: "pelican-tub-pl-02563-59", pelicanCode: 'PL-02563 59"', name: "PL-02563 59-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 29 + 17 / 32, depthIn: 59 + 1 / 16, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: spec("pl-02563") },
+  // Independent 67-inch Pelican sheets; no enlargement of a 59-inch profile.
+  // Short dimension stays on local x, long dimension on local z.
+  { id: "pelican-tub-pl-02138-67", pelicanCode: 'PL-02138 67"', name: "PL-02138 67-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 29 + 17 / 32, depthIn: 66 + 59 / 64, heightIn: 23 + 1 / 32, finish: "acrylic-white", drain: "center", specificationUrl: "https://cdn.accentuate.io/8980581613708/1772055445143/PL-02138-67-Spec-%281%29.pdf?v=1772130763043" },
+  { id: "pelican-tub-pl-02141-67", pelicanCode: 'PL-02141 67"', name: "PL-02141 67-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 29 + 9 / 64, depthIn: 66 + 21 / 32, heightIn: 27 + 3 / 4, finish: "acrylic-white", drain: "left", specificationUrl: "https://cdn.accentuate.io/8980581646476/1772055558563/PL-02141-67-Spec-%281%29.pdf?v=1772130816679" },
+  { id: "pelican-tub-pl-02146-67", pelicanCode: 'PL-02146 67"', name: "PL-02146 67-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 29 + 13 / 32, depthIn: 66 + 21 / 32, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: "https://cdn.accentuate.io/8980581679244/1772055736689/PL-02146-67-Spec-%281%29.pdf?v=1775739382659" },
+  { id: "pelican-tub-pl-02562-67", pelicanCode: 'PL-02562 67"', name: "PL-02562 67-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 30 + 29 / 32, depthIn: 66 + 59 / 64, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: "https://cdn.accentuate.io/8980581777548/1772055840468/PL-02562-67-Spec-%281%29.pdf?v=1772130937624" },
+  { id: "pelican-tub-pl-02563-67", pelicanCode: 'PL-02563 67"', name: "PL-02563 67-inch Freestanding Soaking Tub", kind: "freestanding-tub", widthIn: 31 + 7 / 64, depthIn: 66 + 59 / 64, heightIn: 22 + 53 / 64, finish: "acrylic-white", drain: "center", specificationUrl: "https://cdn.accentuate.io/8980581875852/1772056018579/PL-02563-67-Spec-%282%29.pdf?v=1772131031602" },
   { id: "pelican-tub-pl-02849-left", pelicanCode: "PL-02849L", name: "PL-02849L Left-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 30, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "left", specificationUrl: spec("pl-2849") },
   { id: "pelican-tub-pl-02849-right", pelicanCode: "PL-02849R", name: "PL-02849R Right-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 30, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "right", specificationUrl: spec("pl-2849") },
   { id: "pelican-tub-pl-02850-left", pelicanCode: "PL-02850L", name: "PL-02850L Left-Drain Alcove Soaking Tub", kind: "alcove-tub", widthIn: 32 + 1 / 64, depthIn: 60, heightIn: 21 + 21 / 32, finish: "acrylic-white", drain: "left", specificationUrl: spec("pl-2850") },
@@ -95,7 +102,7 @@ function normalizeCode(code: string | null | undefined) {
   return (code ?? "").trim().replace(/\s+/g, " ").toUpperCase();
 }
 
-/** Exact profile only: a product image or a width-only 67-inch catalog variant is not enough. */
+/** Exact profile only: a product image without a dimensioned source sheet is not enough. */
 export function verifiedPelicanBathroomFixtureProfile(
   code: string | null | undefined,
 ): VerifiedPelicanBathroomFixtureProfile | null {

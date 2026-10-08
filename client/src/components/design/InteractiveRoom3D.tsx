@@ -8318,29 +8318,45 @@ function addPelicanBathroomFixture(
       clearcoat: 0.24,
       clearcoatRoughness: 0.16,
     });
-    const baseHeight = seatHeight * 0.54;
-    const base = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), shell);
-    base.scale.set(width * 0.54, baseHeight, depth * 0.47);
-    base.position.set(0, baseHeight * 0.5, depth * 0.11);
+    // Product photos show one continuous pedestal/bowl shell, not two floating
+    // ellipsoids. These smoothly overlapping revolved profiles give a grounded,
+    // joined silhouette while remaining inside the measured exterior envelope.
+    const baseHeight = seatHeight * 0.62;
+    const base = new THREE.Mesh(new THREE.LatheGeometry([
+      new THREE.Vector2(0.25, 0),
+      new THREE.Vector2(0.31, seatHeight * 0.05),
+      new THREE.Vector2(0.30, seatHeight * 0.34),
+      new THREE.Vector2(0.35, baseHeight * 0.85),
+      new THREE.Vector2(0.39, baseHeight),
+    ], 48), shell);
+    base.scale.set(width, 1, depth);
+    base.position.z = depth * 0.12;
     add(base, "toilet-ceramic-base");
-    const bowlHeight = Math.max(0.08, seatHeight - baseHeight + 0.025);
-    const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.5, 36, 18), shell);
-    bowl.scale.set(width * 0.76, bowlHeight * 1.15, depth * 0.63);
-    bowl.position.set(0, baseHeight + bowlHeight * 0.62, depth * 0.15);
+    const bowl = new THREE.Mesh(new THREE.LatheGeometry([
+      new THREE.Vector2(0.38, baseHeight * 0.89),
+      new THREE.Vector2(0.42, seatHeight * 0.72),
+      new THREE.Vector2(0.465, seatHeight * 0.89),
+      new THREE.Vector2(0.465, seatHeight),
+      new THREE.Vector2(0.34, seatHeight),
+      new THREE.Vector2(0.32, seatHeight * 0.93),
+    ], 48), shell);
+    bowl.scale.set(width, 1, depth * 0.71);
+    bowl.position.z = depth * 0.12;
     add(bowl, "toilet-bowl-exterior");
     const waterWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 36), water);
     waterWell.rotation.x = -Math.PI / 2;
-    waterWell.scale.set(width * 0.26, depth * 0.18, 1);
-    waterWell.position.set(0, seatHeight + 0.012, depth * 0.17);
+    waterWell.scale.set(width * 0.56, depth * 0.4, 1);
+    waterWell.position.set(0, seatHeight * 0.94, depth * 0.12);
     add(waterWell, "toilet-bowl-water");
-    const seat = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.062, 12, 36), seatMaterial);
-    seat.rotation.x = Math.PI / 2;
-    seat.scale.set(width * 0.49, depth * 0.3, 1);
-    seat.position.set(0, seatHeight + 0.027, depth * 0.17);
+    const seat = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 48), seatMaterial);
+    seat.rotation.x = -Math.PI / 2;
+    seat.scale.set(width * 0.455, depth * 0.335, 1);
+    seat.position.set(0, seatHeight + 0.014, depth * 0.12);
     add(seat, "toilet-seat");
-    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), seatMaterial);
-    lid.scale.set(width * 0.55, 0.095, depth * 0.39);
-    lid.position.set(0, seatHeight + 0.075, depth * 0.15);
+    // The closed lid lies on the seat rather than hovering above a dark bowl.
+    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.018, 48), seatMaterial);
+    lid.scale.set(width * 0.86, 1, depth * 0.62);
+    lid.position.set(0, seatHeight + 0.027, depth * 0.12);
     add(lid, "toilet-lid");
     const rearHousingHeight = profile.toiletStyle === "smart"
       ? Math.max(height * 0.25, height - seatHeight * 0.8)
@@ -8397,27 +8413,37 @@ function addPelicanBathroomFixture(
     // The supplier documents a freestanding exterior envelope and drain only.
     // The nested acrylic shell, rim, well and drain below make the planning
     // silhouette legible without claiming an unprovided cross section.
-    const outer = new THREE.Mesh(new THREE.SphereGeometry(0.5, 40, 22), shell);
-    outer.scale.set(width * 0.92, height * 0.78, depth * 0.94);
-    outer.position.y = height * 0.4;
+    const outer = new THREE.Mesh(new THREE.LatheGeometry([
+      new THREE.Vector2(0, 0.008),
+      new THREE.Vector2(0.30, 0.008),
+      new THREE.Vector2(0.37, height * 0.16),
+      new THREE.Vector2(0.46, height * 0.7),
+      new THREE.Vector2(0.49, height * 0.97),
+      new THREE.Vector2(0.47, height * 0.995),
+      new THREE.Vector2(0.39, height * 0.995),
+      new THREE.Vector2(0.36, height * 0.89),
+      new THREE.Vector2(0.30, height * 0.33),
+      new THREE.Vector2(0, height * 0.31),
+    ], 64), shell);
+    outer.scale.set(width, 1, depth);
     add(outer, "freestanding-tub-exterior");
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.24, width * 0.29, Math.max(0.028, height * 0.1), 32), shell);
-    foot.scale.z = Math.max(0.55, depth / width * 0.6);
-    foot.position.y = Math.max(0.014, height * 0.05);
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.48, Math.max(0.012, height * 0.055), 48), shell);
+    foot.scale.set(width * 0.63, 1, depth * 0.63);
+    foot.position.y = Math.max(0.006, height * 0.028);
     add(foot, "freestanding-tub-plinth");
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.048, 12, 40), shell);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.013, 12, 64), shell);
     rim.rotation.x = Math.PI / 2;
-    rim.scale.set(width * 0.7, depth * 0.68, 1);
-    rim.position.y = height * 0.78;
+    rim.scale.set(width * 0.88, depth * 0.88, 1);
+    rim.position.y = height * 0.99;
     add(rim, "freestanding-tub-rim");
-    const innerWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 40), water);
+    const innerWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 64), shell);
     innerWell.rotation.x = -Math.PI / 2;
-    innerWell.scale.set(width * 0.55, depth * 0.52, 1);
-    innerWell.position.y = height * 0.775;
+    innerWell.scale.set(width * 0.6, depth * 0.6, 1);
+    innerWell.position.y = height * 0.312;
     add(innerWell, "freestanding-tub-well");
-    const drainOffset = profile.drain === "left" ? -width * 0.23 : profile.drain === "right" ? width * 0.23 : 0;
+    const drainOffset = profile.drain === "left" ? -depth * 0.21 : profile.drain === "right" ? depth * 0.21 : 0;
     const drain = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(0.025, width * 0.032), Math.max(0.025, width * 0.032), 0.016, 20), dark);
-    drain.position.set(drainOffset, height * 0.786, 0);
+    drain.position.set(0, height * 0.32, drainOffset);
     add(drain, "freestanding-tub-drain");
   } else {
     // Alcove models retain the exact published exterior envelope and left/right
@@ -11179,6 +11205,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	        setCatalogDragMeasurement(fit ? { item, fit, wall, freehand: event.shiftKey } : null);
 	      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY), event.shiftKey); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 			        <div ref={mountRef} className="h-full w-full" />
+			        {selectedFurnitureUid && (() => {
+			          const item = furniture.find((candidate) => candidate.uid === selectedFurnitureUid);
+			          const profile = verifiedPelicanBathroomFixtureProfile(item?.pelicanCode);
+			          if (!item || !profile) return null;
+			          return <div data-testid="three-d-bathroom-fixture-canvas-actions" data-ui-overlay="bathroom-fixture-actions" className="absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white/95 p-2 text-xs shadow-lg backdrop-blur" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
+			            <span className="min-w-0 max-w-32 truncate font-semibold text-[#1a2744]" title={profile.pelicanCode}>{profile.pelicanCode}</span>
+			            {onRotateFurniture && <button type="button" data-testid="three-d-bathroom-rotate" onClick={() => onRotateFurniture(item.uid)} className="inline-flex min-h-10 items-center gap-1 rounded border border-[#1a2744]/35 px-2 font-semibold text-[#1a2744] hover:bg-slate-100 active:scale-95"><Rotate3D className="h-4 w-4" />Rotate 90°</button>}
+			            {onRemoveFurniture && <button type="button" data-testid="three-d-bathroom-remove" onClick={() => { preserveCurrentCameraView(); onRemoveFurniture(item.uid); onSelectFurniture?.(null); }} className="inline-flex min-h-10 items-center gap-1 rounded border border-rose-300 px-2 font-semibold text-rose-700 hover:bg-rose-50 active:scale-95"><Trash2 className="h-4 w-4" />Remove</button>}
+			          </div>;
+			        })()}
 			        {selectedCabinetPreviewFinish && <div data-testid="three-d-cabinet-color-preview-status" role="status" className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-3 py-2 text-xs font-semibold text-[#614512] shadow-sm backdrop-blur"><span className="h-4 w-4 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish.color }} /><span className="truncate">Color check: {selectedCabinetPreviewFinish.name} · rear filler matches · not saved</span></div>}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-measurement" role="status" aria-live="polite" className={`pointer-events-none absolute left-3 top-14 z-30 max-w-[calc(100%-1.5rem)] rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur ${cabinetDragMeasurement.preview.candidate ? "border-emerald-600 bg-emerald-50/95 text-emerald-950" : "border-rose-600 bg-rose-50/95 text-rose-950"}`}><span className="block text-[10px] font-bold uppercase tracking-wide">{cabinetDragMeasurement.preview.candidate ? (cabinetDragMeasurement.preview.freehand ? "Shift freehand position" : cabinetDragMeasurement.preview.snapped ? "Valid zero-gap snap" : "Valid drop position") : "Invalid cabinet position"} · {cabinetDragMeasurement.preview.wall} wall · 0&quot; overlap required</span><span>{threeDCabinetWallDragText(cabinetDragMeasurement.cabinet, cabinetDragMeasurement.preview)}</span></div>}

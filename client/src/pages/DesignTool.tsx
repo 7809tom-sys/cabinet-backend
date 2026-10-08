@@ -210,7 +210,7 @@ import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
-import { RecommendedSurfaces } from "@/components/design/RecommendedSurfaces";
+import { RecommendedSurfaces, type RecommendedRole } from "@/components/design/RecommendedSurfaces";
 import {
   takeSurfaceHandoff,
   activeCountertopForScope,
@@ -1010,6 +1010,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [proDesignerOpen, setProDesignerOpen] = useState(false);
   const [surfacesOpen, setSurfacesOpen] = useState(false);
   const [bathroomCatalogMode, setBathroomCatalogMode] = useState<"surfaces" | "fixtures">("fixtures");
+  const [bathroomBrowseRole, setBathroomBrowseRole] = useState<RecommendedRole>("toilet-bidet");
   const [sinkOptionsOpen, setSinkOptionsOpen] = useState(false);
   const [selectedSurfaces, setSelectedSurfaces] = useState<SelectedSurface[]>([]);
   // Older saved designs and the opt-in Surfaces hand-off persisted the product
@@ -8587,10 +8588,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success("Bathroom starter applied. Move the labeled planning zones, then select actual Pelican products from Bathroom Fixtures.");
   }, [annotations.length, applyRoom, furniture.length, island, layoutLocked, openings.length, placed.length, ponyWalls.length, sinks.length]);
 
-  const openBathroomFixtureChecklistPicker = useCallback(() => {
+  const openBathroomFixtureChecklistPicker = useCallback((stepId?: string) => {
     setRoomType("bathroom");
     setPaletteType("appliance");
     setBathroomCatalogMode("fixtures");
+    setBathroomBrowseRole(stepId === "tub" ? "bathtub"
+      : stepId === "shower" ? "shower-door"
+        : stepId === "vanity-faucet" ? "bathroom-faucet"
+          : stepId === "vanity-basin" ? "bathroom-sink" : "toilet-bidet");
     setSurfacesOpen(true);
     if (panelDrawerMode) setMobilePanel("catalog");
   }, [panelDrawerMode]);
@@ -14423,7 +14428,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              <RecommendedSurfaces
 	                selected={selectedSurfaces}
 	                onToggle={addRecommendedSurface}
-	                onBrowseAll={() => { setBathroomCatalogMode("surfaces"); setSurfacesOpen(true); }}
+	                onBrowseAll={(role) => { setBathroomBrowseRole(role); setBathroomCatalogMode("surfaces"); setSurfacesOpen(true); }}
 	                roomType={roomType}
 	                bathroomPaletteMode="surfaces"
 	                onPlaceBathroomFixture={placePelicanBathroomFixture}
@@ -14463,7 +14468,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              <RecommendedSurfaces
 	                selected={selectedSurfaces}
 	                onToggle={addRecommendedSurface}
-	                onBrowseAll={() => { setBathroomCatalogMode("fixtures"); setSurfacesOpen(true); }}
+	                onBrowseAll={(role) => { setBathroomBrowseRole(role); setBathroomCatalogMode("fixtures"); setSurfacesOpen(true); }}
 	                roomType="bathroom"
 	                bathroomPaletteMode="fixtures"
 	                onPlaceBathroomFixture={placePelicanBathroomFixture}
@@ -15124,12 +15129,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  <p className="font-semibold text-[#1a2744]">Bathroom setup checklist</p>
 	                  <p className="mt-0.5 text-[11px] text-slate-600">{bathroomChecklistCompleted} of {bathroomChecklistRequired} core choices selected</p>
 	                </div>
-	                <button type="button" onClick={openBathroomFixtureChecklistPicker} className="shrink-0 rounded border border-[#1a2744]/35 px-2 py-1 text-[10px] font-semibold text-[#1a2744] hover:bg-slate-100">Browse fixtures</button>
+	                <button type="button" onClick={() => openBathroomFixtureChecklistPicker()} className="shrink-0 rounded border border-[#1a2744]/35 px-2 py-1 text-[10px] font-semibold text-[#1a2744] hover:bg-slate-100">Browse fixtures</button>
 	              </div>
 	              <ol className="mt-2 space-y-1.5">
 	                {bathroomChecklist.map((step) => (
 	                  <li key={step.id} className={`rounded-lg border px-2 py-1.5 ${step.complete ? "border-emerald-200 bg-emerald-50/80" : "border-slate-200 bg-white/80"}`}>
-	                    <button type="button" onClick={openBathroomFixtureChecklistPicker} className="flex w-full items-start gap-2 text-left">
+	                    <button type="button" onClick={() => openBathroomFixtureChecklistPicker(step.id)} className="flex w-full items-start gap-2 text-left">
 	                      <span aria-hidden className={`mt-0.5 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border text-[9px] ${step.complete ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-400 text-transparent"}`}>✓</span>
 	                      <span className="min-w-0"><span className="font-semibold text-slate-800">{step.label}{step.optional ? " (optional)" : ""}</span><span className="mt-0.5 block text-[10px] leading-snug text-slate-600">{step.detail}</span></span>
 	                    </button>
@@ -17196,6 +17201,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        onSetActiveThreeDBacksplash={setActiveBacksplashSurface}
 	        roomType={roomType}
 	        bathroomPaletteMode={bathroomCatalogMode}
+	        initialBathroomRole={bathroomBrowseRole}
 	        onPlaceBathroomFixture={placePelicanBathroomFixture}
 	        estimatedSubtotal={calculateCartSubtotal(surfaceCartLines)}
 	        countertopPriceLines={surfaceCartLines

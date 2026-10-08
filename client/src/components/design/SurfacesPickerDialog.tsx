@@ -67,7 +67,7 @@ const PAGE_LIMIT = 200;
 
 export type CountertopSwatchFilter = "all" | "swatch-ready" | "swatch-pending";
 export type BathroomFixtureFinishFilter = "all" | "white" | "matte-black" | "chrome" | "brushed-nickel" | "brushed-gold" | "other";
-export type BathroomFixtureSizeFilter = "all" | "up-to-24" | "25-to-36" | "37-plus";
+export type BathroomFixtureSizeFilter = "all" | "up-to-24" | "25-to-36" | "37-plus" | "tub-59" | "tub-67";
 
 export function bathroomFixtureFinishFilter(item: Pick<SelectedSurface, "name" | "pelicanCode" | "size">): Exclude<BathroomFixtureFinishFilter, "all"> {
   const text = `${item.name} ${item.pelicanCode ?? ""} ${item.size ?? ""}`.toLowerCase();
@@ -103,7 +103,10 @@ export function filterBathroomFixtureItems(
   return items.filter((item) => {
     const finishMatch = finish === "all" || bathroomFixtureFinishFilter(item) === finish;
     const width = bathroomFixtureWidthIn(item);
-    const sizeMatch = size === "all" || width == null || (
+    const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode);
+    const sizeMatch = size === "tub-59" || size === "tub-67"
+      ? Boolean(profile && (profile.kind === "freestanding-tub" || profile.kind === "alcove-tub") && Math.round(profile.depthIn) === (size === "tub-59" ? 59 : 67))
+      : size === "all" || width == null || (
       size === "up-to-24" ? width <= 24 : size === "25-to-36" ? width > 24 && width <= 36 : width >= 37
     );
     return finishMatch && sizeMatch;
@@ -136,6 +139,7 @@ export function SurfacesPickerDialog({
   roomType = "kitchen",
   onPlaceBathroomFixture,
   bathroomPaletteMode = "fixtures",
+  initialBathroomRole,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -163,10 +167,15 @@ export function SurfacesPickerDialog({
   onPlaceBathroomFixture?: (item: SelectedSurface) => void;
   /** Selects either the bathroom finishes browser or the bathroom fixtures browser. */
   bathroomPaletteMode?: BathroomPaletteMode;
+  /** Active family requested from a compact row or a guided checklist step. */
+  initialBathroomRole?: RecommendedRole;
 }) {
   const isBathroom = roomType === "bathroom";
   const [category, setCategory] = useState<PelicanCategory | "Preferred">(PELICAN_STOREFRONT_CATEGORIES[0]);
   const [bathroomRole, setBathroomRole] = useState<RecommendedRole>("bathroom-sink");
+  useEffect(() => {
+    if (open && isBathroom && initialBathroomRole) setBathroomRole(initialBathroomRole);
+  }, [open, isBathroom, initialBathroomRole]);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [countertopSwatchFilter, setCountertopSwatchFilter] = useState<CountertopSwatchFilter>("all");
@@ -185,8 +194,8 @@ export function SurfacesPickerDialog({
   // than issuing a stale query from the other tab.
   useEffect(() => {
     if (!isBathroom || bathroomSections.some((section) => section.role === bathroomRole)) return;
-    setBathroomRole(bathroomSections[0]!.role);
-  }, [bathroomRole, bathroomSections, isBathroom]);
+    setBathroomRole(bathroomSections.find((section) => section.role === initialBathroomRole)?.role ?? bathroomSections[0]!.role);
+  }, [bathroomRole, bathroomSections, initialBathroomRole, isBathroom]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(search.trim()), 300);
@@ -383,6 +392,8 @@ export function SurfacesPickerDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All sizes</SelectItem>
+                    {activeBathroomRole === "bathtub" && <SelectItem value="tub-59">59-inch tubs</SelectItem>}
+                    {activeBathroomRole === "bathtub" && <SelectItem value="tub-67">67-inch tubs</SelectItem>}
                     <SelectItem value="up-to-24">Up to 24 in.</SelectItem>
                     <SelectItem value="25-to-36">25–36 in.</SelectItem>
                     <SelectItem value="37-plus">37 in. and up</SelectItem>

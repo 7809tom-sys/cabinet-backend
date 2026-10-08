@@ -91,6 +91,15 @@ describe("source-measured Pelican bathroom fixtures", () => {
     });
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-dual-flush-left-button")).toBe(true);
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-dual-flush-right-button")).toBe(true);
+    const base = fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "toilet-ceramic-base") as THREE.Mesh;
+    const bowl = fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "toilet-bowl-exterior") as THREE.Mesh;
+    const lid = fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "toilet-lid") as THREE.Mesh;
+    expect(base.geometry).toBeInstanceOf(THREE.LatheGeometry);
+    expect(bowl.geometry).toBeInstanceOf(THREE.LatheGeometry);
+    expect(lid.geometry).toBeInstanceOf(THREE.CylinderGeometry);
+    const baseTop = new THREE.Box3().setFromObject(base).max.y;
+    const bowlBottom = new THREE.Box3().setFromObject(bowl).min.y;
+    expect(bowlBottom).toBeLessThan(baseTop); // one continuous joined silhouette
   });
 
   it("keeps official smart and two-piece toilet distinctions inside their measured envelopes", () => {
@@ -154,6 +163,8 @@ describe("source-measured Pelican bathroom fixtures", () => {
     expect(rendererSource).toContain('data-testid="three-d-furniture-attributes"');
     expect(rendererSource).toContain('data-testid="three-d-rotate-furniture"');
     expect(rendererSource).toContain('data-testid="three-d-remove-furniture"');
+    expect(rendererSource).toContain('data-testid="three-d-bathroom-rotate"');
+    expect(rendererSource).toContain('data-testid="three-d-bathroom-remove"');
     expect(designerSource).toContain('toast.success("Removed fixture from the 3D plan.")');
   });
 
@@ -221,6 +232,18 @@ describe("source-measured Pelican bathroom fixtures", () => {
       "freestanding-tub-well",
       "freestanding-tub-drain",
     ]));
+    const outer = fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "freestanding-tub-exterior") as THREE.Mesh;
+    expect(outer.geometry).toBeInstanceOf(THREE.LatheGeometry);
+    const well = fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "freestanding-tub-well") as THREE.Mesh;
+    expect(well.position.y).toBeLessThan((fixture?.children.find((child) => child.userData.pelicanBathroomFixturePart === "freestanding-tub-rim") as THREE.Mesh).position.y);
+  });
+
+  it("renders a distinct 67-inch Pelican tub with its own measured SKU and 90-degree rotation", () => {
+    const root = new THREE.Group();
+    addFurniture(root, { uid: "pelican-67", defId: "pelican-tub-pl-02141-67", pelicanCode: 'PL-02141 67"', x: 18, y: 20, rotation: 90 });
+    const fixture = root.children.find((child) => child.userData.pelicanBathroomFixture);
+    expect(fixture?.userData).toMatchObject({ pelicanCode: 'PL-02141 67"', sourceEnvelopeIn: { width: 29 + 9 / 64, depth: 66 + 21 / 32, height: 27 + 3 / 4 }, drain: "left" });
+    expect(fixture?.rotation.y).not.toBe(0);
   });
 
   it("renders Pelican's sliding shower door as a labelled visual envelope without inventing an enclosure", () => {

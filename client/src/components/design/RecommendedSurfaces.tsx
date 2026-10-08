@@ -119,7 +119,7 @@ function RecommendedRow({
   limit: number;
   selectedIds: Set<number>;
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
-  onBrowseAll: () => void;
+  onBrowseAll: (role: RecommendedRole) => void;
   onPlaceBathroomFixture?: (item: SelectedSurface) => void;
 }) {
   const { data, isLoading } = trpc.surfaces.recommended.useQuery({ role, limit });
@@ -136,7 +136,7 @@ function RecommendedRow({
         </span>
         <button
           type="button"
-          onClick={onBrowseAll}
+          onClick={() => onBrowseAll(role)}
           className="ml-auto flex items-center gap-0.5 rounded px-1 text-[10px] font-medium text-[#a87f33] hover:text-[#8a6828] transition-colors"
         >
           Browse all <ChevronRight className="h-3 w-3" />
@@ -152,7 +152,7 @@ function RecommendedRow({
       ) : items.length === 0 ? (
         <button
           type="button"
-          onClick={onBrowseAll}
+          onClick={() => onBrowseAll(role)}
           className="w-full rounded-lg border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground hover:border-[#a87f33]/50 hover:text-foreground transition-colors"
         >
           No recommendations available — browse the full catalog
@@ -167,8 +167,11 @@ function RecommendedRow({
                 key={p.id}
                 type="button"
                 onClick={() => {
-                  onToggle(item, role);
-                  if (role === "toilet-bidet" || role === "bathtub") onPlaceBathroomFixture?.(item);
+                  if ((role === "toilet-bidet" || role === "bathtub") && onPlaceBathroomFixture) {
+                    onPlaceBathroomFixture(item);
+                  } else {
+                    onToggle(item, role);
+                  }
                 }}
                 className={`group overflow-hidden rounded-lg border text-left transition-colors ${
                   isSel
@@ -239,7 +242,7 @@ export function RecommendedSurfaces({
 }: {
   selected: SelectedSurface[];
   onToggle: (item: SelectedSurface, role: RecommendedRole) => void;
-  onBrowseAll: () => void;
+  onBrowseAll: (role: RecommendedRole) => void;
   roomType?: string;
   limit?: number;
   /** Clicking a source-measured toilet, bidet, or tub places it into the active bathroom plan. */

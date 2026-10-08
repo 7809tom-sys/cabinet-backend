@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   BATHROOM_FIXTURE_RECOMMENDED_SECTIONS,
   BATHROOM_RECOMMENDED_SECTIONS,
@@ -48,5 +49,16 @@ describe("RecommendedSurfaces bathroom palette", () => {
     expect(bathroomRoles.has("faucet")).toBe(false);
     expect(RECOMMENDED_SECTIONS.map((section) => section.role)).toContain("sink");
     expect(RECOMMENDED_SECTIONS.map((section) => section.role)).toContain("faucet");
+  });
+
+  it("opens the requested family rather than a default sink tab, and places repeats without toggling off their source identity", () => {
+    const compact = readFileSync(new URL("./RecommendedSurfaces.tsx", import.meta.url), "utf8");
+    const full = readFileSync(new URL("./SurfacesPickerDialog.tsx", import.meta.url), "utf8");
+    const designer = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+    expect(compact).toContain("onBrowseAll(role)");
+    expect(compact).toMatch(/if \(\(role === "toilet-bidet" \|\| role === "bathtub"\) && onPlaceBathroomFixture\)/);
+    expect(full).toContain("initialBathroomRole?: RecommendedRole");
+    expect(designer).toContain("initialBathroomRole={bathroomBrowseRole}");
+    expect(designer).toContain('stepId === "tub" ? "bathtub"');
   });
 });

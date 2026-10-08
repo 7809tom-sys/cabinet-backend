@@ -45,7 +45,7 @@ describe("Pelican bathroom fixture placement profiles", () => {
     });
   });
 
-  it("distinguishes drain-side alcove tub profiles without inventing a 67-inch envelope", () => {
+  it("distinguishes drain-side alcove tubs and all five measured 67-inch variants", () => {
     expect(verifiedPelicanBathroomFixtureProfile("PL-02850L")).toMatchObject({
       kind: "alcove-tub",
       widthIn: 32 + 1 / 64,
@@ -61,8 +61,17 @@ describe("Pelican bathroom fixture placement profiles", () => {
       heightIn: 22 + 53 / 64,
       drain: "center",
     });
-    expect(verifiedPelicanBathroomFixtureProfile('PL-02146 67"')).toBeNull();
-    expect(pelicanBathroomFixturePlacementText('PL-02146 67"')).toContain("pending");
+    for (const [code, width, depth, height, drain] of [
+      ['PL-02138 67"', 29 + 17 / 32, 66 + 59 / 64, 23 + 1 / 32, "center"],
+      ['PL-02141 67"', 29 + 9 / 64, 66 + 21 / 32, 27 + 3 / 4, "left"],
+      ['PL-02146 67"', 29 + 13 / 32, 66 + 21 / 32, 22 + 53 / 64, "center"],
+      ['PL-02562 67"', 30 + 29 / 32, 66 + 59 / 64, 22 + 53 / 64, "center"],
+      ['PL-02563 67"', 31 + 7 / 64, 66 + 59 / 64, 22 + 53 / 64, "center"],
+    ] as const) {
+      expect(verifiedPelicanBathroomFixtureProfile(code)).toMatchObject({ widthIn: width, depthIn: depth, heightIn: height, drain });
+      expect(verifiedPelicanBathroomFixtureProfile(code)?.specificationUrl).toContain("cdn.accentuate.io");
+    }
+    expect(pelicanBathroomFixturePlacementText('PL-02146 67"')).toContain("Place measured");
   });
 
   it("uses Pelican's nominal shower-door and tub-door dimensions only as visual planning envelopes", () => {
@@ -131,6 +140,6 @@ describe("Pelican bathroom fixture placement profiles", () => {
       name: "PL-02146 67-inch Tub",
       category: "Shower & Bath",
       sellPrice: 999.95,
-    }, 0, 0)).toBeNull();
+    }, 0, 0)).toMatchObject({ pelicanCode: 'PL-02146 67"', pelicanProductId: 9102 });
   });
 });

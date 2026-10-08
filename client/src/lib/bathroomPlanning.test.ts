@@ -23,7 +23,7 @@ describe("Bathroom starter and clearance guidance", () => {
     expect(FURNITURE_CATALOG.find((item) => item.id === tubZone.defId)).toMatchObject({ w: 60, d: 36 });
   });
 
-  it("centers each source-measured Pelican soaking tub in the tub zone using its actual rotated envelope", () => {
+  it("centers fitted tubs in the 60-inch starter zone and rejects larger 67-inch envelopes", () => {
     const starter = makeBathroomStarterTemplate();
     const tubs = FURNITURE_CATALOG.filter((item) => {
       const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode);
@@ -36,6 +36,10 @@ describe("Bathroom starter and clearance guidance", () => {
         { ...makeFurniture(tub.id, 0, 0), pelicanCode: tub.pelicanCode },
         starter.furniture,
       );
+      if (tub.d > 60) {
+        expect(placement, `${tub.id} must not squeeze into a 60-inch zone`).toBeNull();
+        continue;
+      }
       expect(placement, tub.id).toMatchObject({ zoneKind: "tub", zoneLabel: "tub zone", rotation: 90 });
       expect(placement?.x).toBeGreaterThanOrEqual(0);
       expect(placement?.y).toBeGreaterThanOrEqual(60);
