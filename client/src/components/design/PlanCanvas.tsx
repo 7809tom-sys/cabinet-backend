@@ -18,6 +18,7 @@ import {
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
+import { furniturePlanFrame } from "@/lib/design";
 import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, PanelTop, Plus, RotateCw, X } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType, isSquareDoubleDoorBaseEnd } from "@/lib/cabinetGraphics";
@@ -393,6 +394,7 @@ interface Props {
   onMoveFurn?: (uid: string, x: number, y: number) => void;
   onDeleteFurn?: (uid: string) => void;
   onRotateFurn?: (uid: string) => void;
+  onOpenFurnitureAttributes?: (uid: string) => void;
   /** Advisory warning when a bathroom fixture is dragged into a mismatched starter zone. */
   bathroomZoneWarningsByFixture?: ReadonlyMap<string, readonly BathroomZoneOverlapWarning[]>;
   // Flooring: when set, draw a flooring pattern texture on the room floor.
@@ -465,7 +467,7 @@ export function PlanCanvas({
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
-  furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn, bathroomZoneWarningsByFixture,
+  furniture = [], selectedFurnUid = null, onSelectFurn, onMoveFurn, onDeleteFurn, onRotateFurn, onOpenFurnitureAttributes, bathroomZoneWarningsByFixture,
   flooringMaterialId = null,
 	  flooringPattern = "random-stagger",
 	  cabinetsLocked = false,
@@ -737,6 +739,7 @@ export function PlanCanvas({
   const onFurnPointerDown = (e: React.PointerEvent, f: PlacedFurniture) => {
     e.stopPropagation();
     onSelectFurn?.(f.uid);
+    if (e.button !== 0 || layoutLocked) return;
     furnDrag.current = { uid: f.uid, startX: e.clientX, startY: e.clientY, origX: f.x, origY: f.y };
     (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
   };
@@ -3339,9 +3342,10 @@ export function PlanCanvas({
           if (!def) return null;
           const bathroomFixture = verifiedPelicanBathroomFixtureProfile(f.pelicanCode ?? def.pelicanCode);
           const fp = furnitureFootprint(f, def);
+          const frame = def.category === "bathroom-fixture" || def.category === "bathroom-zone" ? furniturePlanFrame(f) : null;
           const isSelected = selectedFurnUid === f.uid;
-          const pxW = fp.w * ppi;
-          const pxD = fp.d * ppi;
+          const pxW = (frame?.width ?? fp.w) * ppi;
+          const pxD = (frame?.depth ?? fp.d) * ppi;
           const isRound = def.shape === "round";
           const bathroomPlanningZone = def.category === "bathroom-zone";
           const showerEnvelope = bathroomFixture?.kind === "shower-door" || bathroomFixture?.kind === "tub-door" || bathroomFixture?.kind === "shower-wall";
@@ -3354,15 +3358,21 @@ export function PlanCanvas({
             <div
               key={f.uid}
               data-testid={hasZoneWarning ? `bathroom-zone-overlap-${f.uid}` : undefined}
+              data-furniture-uid={f.uid}
+              data-furniture-definition={f.defId}
+              data-rotation={f.rotation}
+              tabIndex={bathroomPlanningZone ? 0 : undefined}
+              role={bathroomPlanningZone ? "group" : undefined}
+              aria-label={bathroomPlanningZone ? `${def.name.split(" · ")[0]} ${fp.w} by ${fp.d} inches. Press Enter for Attributes.` : undefined}
               className="absolute cursor-grab active:cursor-grabbing select-none"
               style={{
-                left: f.x * ppi,
-                top: f.y * ppi,
+                left: (frame?.left ?? f.x) * ppi,
+                top: (frame?.top ?? f.y) * ppi,
                 width: pxW,
                 height: pxD,
                 background: bathroomPlanningZone ? `${def.color}22` : showerEnvelope ? bathroomFixture?.kind === "shower-wall" ? "#e7e2dc" : "#d8eef466" : bathroomFixture?.finish === "vitreous-china-matte-black" ? "#232323" : bathroomFixture ? "#fbfcfa" : def.color + "33",
                 border: `2px ${bathroomPlanningZone || showerEnvelope ? "dashed" : "solid"} ${hasZoneWarning ? "#dc2626" : isSelected ? "#1a2744" : bathroomFixture ? "#87929b" : def.color}`,
-                borderRadius: bathroomFixture?.kind === "freestanding-tub" ? "48% / 26%" : bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet" ? "42% 42% 30% 30%" : isRound ? "50%" : 4,
+                borderRadius: bathroomFixture?.kind === "freestanding-tub" ? bathroomFixture.tubShape === "rectangular" ? "6% / 3%" : bathroomFixture.tubShape === "rounded-rectangular" ? "25% / 12%" : "48% / 26%" : bathroomFixture?.kind === "toilet" || bathroomFixture?.kind === "bidet" ? "42% 42% 30% 30%" : isRound ? "50%" : 4,
                 transform: `rotate(${f.rotation}deg)`,
                 transformOrigin: "center",
                 zIndex: 20,
@@ -3371,9 +3381,12 @@ export function PlanCanvas({
               onPointerDown={(e) => onFurnPointerDown(e, f)}
               onPointerMove={onFurnPointerMove}
               onPointerUp={onFurnPointerUp}
+              onContextMenu={(event) => { if (!bathroomPlanningZone) return; event.preventDefault(); event.stopPropagation(); onSelectFurn?.(f.uid); onOpenFurnitureAttributes?.(f.uid); }}
+              onDoubleClick={(event) => { if (!bathroomPlanningZone) return; event.stopPropagation(); onOpenFurnitureAttributes?.(f.uid); }}
+              onKeyDown={(event) => { if (!bathroomPlanningZone || event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return; event.preventDefault(); event.stopPropagation(); onSelectFurn?.(f.uid); onOpenFurnitureAttributes?.(f.uid); }}
             >
               {bathroomFixture?.kind === "freestanding-tub" && (
-                <div className="pointer-events-none absolute inset-[14%] rounded-[48%_/_30%] border border-slate-400/70 bg-slate-100/80" />
+                <div className={`pointer-events-none absolute inset-[14%] border border-slate-400/70 bg-slate-100/80 ${bathroomFixture.tubShape === "rectangular" ? "rounded-[6%]" : bathroomFixture.tubShape === "rounded-rectangular" ? "rounded-[22%]" : "rounded-[48%_/_30%]"}`} />
               )}
               {bathroomFixture?.kind === "alcove-tub" && (
                 <div className="pointer-events-none absolute inset-x-[9%] top-[12%] bottom-[13%] rounded-[22%] border border-slate-400/70 bg-slate-100/80" />
@@ -3397,7 +3410,7 @@ export function PlanCanvas({
                 className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
                 style={{ fontSize: Math.max(7, Math.min(10, pxW / 6)) }}
               >
-                <span className="font-semibold leading-tight" style={{ color: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#f8fafc" : def.color }}>{bathroomFixture?.pelicanCode ?? def.name}</span>
+                <span className="font-semibold leading-tight" style={{ color: bathroomFixture?.finish === "vitreous-china-matte-black" ? "#f8fafc" : def.color }}>{bathroomFixture?.pelicanCode ?? (bathroomPlanningZone ? def.name.split(" · ")[0] : def.name)}</span>
                 <span className="text-[8px] opacity-60" style={{ color: def.color }}>
                   {isRound ? `${def.w}"⌀` : `${fp.w}"×${fp.d}"`}
                 </span>
@@ -3414,13 +3427,15 @@ export function PlanCanvas({
                     <X className="w-3 h-3" />
                   </button>
                   <button
-                    className="absolute -top-4 -left-4 w-6 h-6 rounded-full bg-[#1a2744] text-white flex items-center justify-center shadow z-30"
-                    onPointerDown={(e) => { e.stopPropagation(); onRotateFurn?.(f.uid); }}
+                    className={`absolute -top-4 -left-4 rounded-full bg-[#1a2744] text-white flex items-center justify-center shadow z-30 ${frame ? "w-10 h-10" : "w-6 h-6"}`}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.stopPropagation(); onRotateFurn?.(f.uid); }}
                     aria-label={`Rotate ${furnitureActionLabel} 90 degrees`}
                     title={`Rotate ${furnitureActionLabel} 90°`}
                   >
                     <RotateCw className="w-3 h-3" />
                   </button>
+                  {bathroomPlanningZone && onOpenFurnitureAttributes && <button type="button" data-testid={`bathroom-zone-attributes-${f.uid}`} className="absolute -bottom-10 left-1/2 min-h-9 -translate-x-1/2 rounded border border-slate-400 bg-white px-3 text-[11px] font-semibold text-[#1a2744] shadow z-30" onPointerDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onOpenFurnitureAttributes(f.uid); }}>Attributes</button>}
                 </>
               )}
             </div>

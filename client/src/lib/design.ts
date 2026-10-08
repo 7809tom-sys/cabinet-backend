@@ -13577,6 +13577,8 @@ export interface PlacedFurniture {
   y: number;
   rotation: number;
   /** Source catalog identity for a placed, price-locked Pelican bathroom fixture. */
+  /** User-sized planning zone only; never a resize of a manufacturer product. */
+  planningZoneSize?: { version: 1; widthIn: number; depthIn: number };
   pelicanCode?: string;
   pelicanProductId?: number;
   pelicanProductName?: string;
@@ -13618,9 +13620,36 @@ export function makePelicanBathroomFixture(
 }
 
 export function furnitureFootprint(f: PlacedFurniture, def: FurnitureDef): { w: number; d: number } {
-  if (def.shape === "round") return { w: def.w, d: def.d };
-  if (f.rotation === 90 || f.rotation === 270) return { w: def.d, d: def.w };
+  const size = resolvedFurnitureDimensions(f, def) ?? { w: def.w, d: def.d };
+  if (def.shape === "round") return size;
+  if (f.rotation === 90 || f.rotation === 270) return { w: size.d, d: size.w };
+  return size;
+}
+
+/** Zone overrides are local to a placement and cannot alter actual product sizes. */
+export function resolvedFurnitureDimensions(f: PlacedFurniture, definition?: FurnitureDef): { w: number; d: number } | null {
+  const def = definition ?? FURNITURE_CATALOG.find((item) => item.id === f.defId);
+  if (!def) return null;
+  const size = f.planningZoneSize;
+  if (def.category === "bathroom-zone" && size?.version === 1 && Number.isFinite(size.widthIn) && Number.isFinite(size.depthIn) && size.widthIn > 0 && size.depthIn > 0) {
+    return { w: size.widthIn, d: size.depthIn };
+  }
   return { w: def.w, d: def.d };
+}
+
+/** x/y locate the rotated bounding box; rotate the original local body once. */
+export function furniturePlanFrame(f: PlacedFurniture) {
+  const def = FURNITURE_CATALOG.find((item) => item.id === f.defId);
+  const size = resolvedFurnitureDimensions(f, def);
+  if (!def || !size) return null;
+  const bounds = furnitureFootprint(f, def);
+  return {
+    width: size.w, depth: size.d, boundWidth: bounds.w, boundDepth: bounds.d,
+    left: f.x + (bounds.w - size.w) / 2,
+    top: f.y + (bounds.d - size.d) / 2,
+    centerX: f.x + bounds.w / 2, centerY: f.y + bounds.d / 2,
+    rotation: f.rotation,
+  };
 }
 
 // ─── Plan Annotations (text notes) ──────────────────────────────────────────

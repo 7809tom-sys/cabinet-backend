@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
+import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle as polygonWallAngle } from "@/lib/polygonRoom";
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
@@ -592,6 +593,7 @@ interface Props {
   onRemoveFurniture?: (uid: string) => void;
   /** Uses the same 90-degree rotation action as Floor Plan furniture controls. */
   onRotateFurniture?: (uid: string) => void;
+  onOpenFurnitureAttributes?: (uid: string) => void;
   ponyWalls?: PonyWall[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
@@ -7786,6 +7788,11 @@ export function furnitureTransform(furniture: Pick<PlacedFurniture, "x" | "y" | 
   };
 }
 
+export function bathroomFurnitureTransform(furniture: PlacedFurniture) {
+  const frame = furniturePlanFrame(furniture)!;
+  return { x: frame.centerX * INCH, z: frame.centerY * INCH, rotation: -frame.rotation * Math.PI / 180 };
+}
+
 export function addIslandZone(
   root: THREE.Group,
   island: NonNullable<Props["island"]>,
@@ -8258,7 +8265,7 @@ function addPelicanBathroomFixture(
   const width = profile.widthIn * INCH;
   const depth = profile.depthIn * INCH;
   const height = profile.heightIn * INCH;
-  const transform = furnitureTransform(furniture, profile.widthIn, profile.depthIn);
+  const transform = bathroomFurnitureTransform(furniture);
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
   group.rotation.y = transform.rotation;
@@ -8271,6 +8278,7 @@ function addPelicanBathroomFixture(
     sourceEnvelopeIn: { width: profile.widthIn, depth: profile.depthIn, height: profile.heightIn },
     sourceSpecificationUrl: profile.specificationUrl,
     drain: profile.drain,
+    tubShape: profile.tubShape ?? null,
     toiletStyle: profile.toiletStyle ?? null,
     toiletFlushControl: profile.toiletFlushControl ?? null,
     toiletFlushTechnology: profile.toiletFlushTechnology ?? null,
@@ -8409,6 +8417,42 @@ function addPelicanBathroomFixture(
     rim.scale.set(width * 0.67, depth * 0.43, 1);
     rim.position.y = height * 0.8;
     add(rim, "bidet-rim");
+  } else if (profile.kind === "freestanding-tub" && (profile.tubShape === "rectangular" || profile.tubShape === "rounded-rectangular")) {
+    // PL-02146's official top view is rectangular. This tapered hollow shell
+    // stays within its measured exterior; wall thickness/radii are illustrative.
+    const ring = (w: number, d: number, y: number) => {
+      const radius = Math.min(w, d) * (profile.tubShape === "rounded-rectangular" ? 0.22 : 0.06);
+      const points: THREE.Vector3[] = [];
+      for (let corner = 0; corner < 4; corner++) {
+        const cx = corner === 0 || corner === 3 ? w / 2 - radius : -w / 2 + radius;
+        const cz = corner < 2 ? d / 2 - radius : -d / 2 + radius;
+        for (let step = 0; step <= 8; step++) {
+          const angle = (corner * 90 + step * 90 / 8) * Math.PI / 180;
+          points.push(new THREE.Vector3(cx + radius * Math.cos(angle), y, cz + radius * Math.sin(angle)));
+        }
+      }
+      return points;
+    };
+    const rings = [ring(width * 0.78, depth * 0.85, 0.008), ring(width, depth, height), ring(width * 0.89, depth * 0.93, height), ring(width * 0.65, depth * 0.78, height * 0.22)];
+    const vertices: number[] = [];
+    for (let level = 0; level < rings.length - 1; level++) {
+      for (let i = 0; i < rings[level].length; i++) {
+        const next = (i + 1) % rings[level].length;
+        for (const point of [rings[level][i], rings[level + 1][i], rings[level + 1][next], rings[level][i], rings[level + 1][next], rings[level][next]]) vertices.push(point.x, point.y, point.z);
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.computeVertexNormals();
+    const rectangularMaterial = shell.clone();
+    rectangularMaterial.side = THREE.DoubleSide;
+    add(new THREE.Mesh(geometry, rectangularMaterial), "rectangular-freestanding-tub-shell");
+    const well = new THREE.Mesh(new RoundedBoxGeometry(width * 0.65, height * 0.02, depth * 0.78, width * 0.03, 4), shell);
+    well.position.y = height * 0.22;
+    add(well, "rectangular-freestanding-tub-well");
+    const drain = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.032, width * 0.032, 0.016, 20), dark);
+    drain.position.y = height * 0.24;
+    add(drain, "freestanding-tub-drain");
   } else if (profile.kind === "freestanding-tub") {
     // The supplier documents a freestanding exterior envelope and drain only.
     // The nested acrylic shell, rim, well and drain below make the planning
@@ -8491,9 +8535,10 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, sele
     }
     return;
   }
-  const width = def.w * INCH;
-  const depth = def.d * INCH;
-  const transform = furnitureTransform(furniture, def.w, def.d);
+  const size = resolvedFurnitureDimensions(furniture, def)!;
+  const width = size.w * INCH;
+  const depth = size.d * INCH;
+  const transform = def.category === "bathroom-zone" ? bathroomFurnitureTransform(furniture) : furnitureTransform(furniture, def.w, def.d);
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
   group.rotation.y = transform.rotation;
@@ -9076,7 +9121,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -11176,7 +11221,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onDoubleClick={(event) => { const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); } }} onContextMenu={(event) => { event.preventDefault(); if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onDoubleClick={(event) => { const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); } }} onContextMenu={(event) => { event.preventDefault(); const furnitureHit = inspectFurnitureAtPoint(event.clientX, event.clientY); if (furnitureHit && FURNITURE_CATALOG.find((item) => item.id === furnitureHit.defId)?.category === "bathroom-zone" && onOpenFurnitureAttributes) { onSelectFurniture?.(furnitureHit.uid); onOpenFurnitureAttributes(furnitureHit.uid); return; } if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
         event.preventDefault();
         const key = event.dataTransfer.getData("text/plain") || draggedCatalogId || "";
         const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem;
@@ -11207,13 +11252,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 			        <div ref={mountRef} className="h-full w-full" />
 			        {selectedFurnitureUid && (() => {
 			          const item = furniture.find((candidate) => candidate.uid === selectedFurnitureUid);
-			          const profile = verifiedPelicanBathroomFixtureProfile(item?.pelicanCode);
-			          if (!item || !profile) return null;
+			          const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item?.defId);
+			          const profile = verifiedPelicanBathroomFixtureProfile(item?.pelicanCode ?? definition?.pelicanCode);
+			          if (!item || !definition || (!profile && definition.category !== "bathroom-zone")) return null;
 			          return <div data-testid="three-d-bathroom-fixture-canvas-actions" data-ui-overlay="bathroom-fixture-actions" className="absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white/95 p-2 text-xs shadow-lg backdrop-blur" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
-			            <span className="min-w-0 max-w-32 truncate font-semibold text-[#1a2744]" title={profile.pelicanCode}>{profile.pelicanCode}</span>
+			            <span className="min-w-0 max-w-32 truncate font-semibold text-[#1a2744]" title={profile?.pelicanCode ?? definition.name}>{profile?.pelicanCode ?? definition.name.split(" · ")[0]}</span>
 			            {onRotateFurniture && <button type="button" data-testid="three-d-bathroom-rotate" onClick={() => onRotateFurniture(item.uid)} className="inline-flex min-h-10 items-center gap-1 rounded border border-[#1a2744]/35 px-2 font-semibold text-[#1a2744] hover:bg-slate-100 active:scale-95"><Rotate3D className="h-4 w-4" />Rotate 90°</button>}
 			            {onRemoveFurniture && <button type="button" data-testid="three-d-bathroom-remove" onClick={() => { preserveCurrentCameraView(); onRemoveFurniture(item.uid); onSelectFurniture?.(null); }} className="inline-flex min-h-10 items-center gap-1 rounded border border-rose-300 px-2 font-semibold text-rose-700 hover:bg-rose-50 active:scale-95"><Trash2 className="h-4 w-4" />Remove</button>}
-			          </div>;
+			          {definition.category === "bathroom-zone" && onOpenFurnitureAttributes && <Button type="button" size="sm" variant="outline" className="min-h-9" data-testid="three-d-zone-attributes" onClick={() => onOpenFurnitureAttributes?.(item.uid)}>Attributes</Button>}</div>;
 			        })()}
 			        {selectedCabinetPreviewFinish && <div data-testid="three-d-cabinet-color-preview-status" role="status" className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-3 py-2 text-xs font-semibold text-[#614512] shadow-sm backdrop-blur"><span className="h-4 w-4 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish.color }} /><span className="truncate">Color check: {selectedCabinetPreviewFinish.name} · rear filler matches · not saved</span></div>}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}

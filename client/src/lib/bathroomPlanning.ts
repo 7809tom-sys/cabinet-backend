@@ -1,6 +1,7 @@
 import {
   FURNITURE_CATALOG,
   furnitureFootprint,
+  furniturePlanFrame,
   isSinkBaseCabinet,
   makeFurniture,
   type PlacedCabinet,
@@ -101,6 +102,47 @@ function expectedBathroomZone(kind: PelicanBathroomFixtureKind): BathroomZoneKin
   return null;
 }
 
+/** Keep the physical center on a quarter turn; clamp only to the room boundary. */
+export function rotateBathroomFurniture(item: PlacedFurniture, room: Pick<RoomData, "width" | "depth">): PlacedFurniture {
+  const def = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+  const rotation = ((item.rotation + 90) % 360 + 360) % 360;
+  if (!def || (def.category !== "bathroom-zone" && def.category !== "bathroom-fixture")) return { ...item, rotation };
+  const before = furniturePlanFrame(item)!;
+  const rotated = { ...item, rotation };
+  const footprint = furnitureFootprint(rotated, def);
+  return { ...rotated,
+    x: Math.max(0, Math.min(before.centerX - footprint.w / 2, Math.max(0, room.width - footprint.w))),
+    y: Math.max(0, Math.min(before.centerY - footprint.d / 2, Math.max(0, room.depth - footprint.d))),
+  };
+}
+
+export type BathroomZoneAttributes = { widthIn: number; depthIn: number; x: number; y: number; rotation: number };
+export function resizeBathroomZone(item: PlacedFurniture, values: BathroomZoneAttributes, room: Pick<RoomData, "width" | "depth">): { ok: true; item: PlacedFurniture } | { ok: false; error: string } {
+  const def = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+  if (def?.category !== "bathroom-zone") return { ok: false, error: "Only a planning zone can be resized. Actual fixtures keep Pelican’s dimensions." };
+  if (![values.widthIn, values.depthIn, values.x, values.y, values.rotation].every(Number.isFinite) || values.widthIn <= 0 || values.depthIn <= 0 || values.x < 0 || values.y < 0 || ![0, 90, 180, 270].includes(values.rotation)) {
+    return { ok: false, error: "Enter positive zone sizes, nonnegative positions, and a quarter-turn rotation." };
+  }
+  const candidate: PlacedFurniture = { ...item, x: values.x, y: values.y, rotation: values.rotation, planningZoneSize: { version: 1, widthIn: values.widthIn, depthIn: values.depthIn } };
+  const bounds = furnitureFootprint(candidate, def);
+  if (candidate.x + bounds.w > room.width + 0.01 || candidate.y + bounds.d > room.depth + 0.01) return { ok: false, error: "The resized zone must stay inside the room. Reduce the size or change its position." };
+  return { ok: true, item: candidate };
+}
+
+/** Default long tub axis parallel to the nearest room wall, even without a fit. */
+export function bathroomTubWallParallelPlacement(item: PlacedFurniture, room: Pick<RoomData, "width" | "depth">): PlacedFurniture {
+  const def = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+  const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode ?? def?.pelicanCode);
+  if (!def || !profile || !["freestanding-tub", "alcove-tub"].includes(profile.kind)) return item;
+  const before = furniturePlanFrame(item)!;
+  const horizontalDistance = Math.min(before.centerY, Math.abs(room.depth - before.centerY));
+  const verticalDistance = Math.min(before.centerX, Math.abs(room.width - before.centerX));
+  const rotation = horizontalDistance <= verticalDistance ? 90 : 0;
+  const candidate = { ...item, rotation };
+  const bounds = furnitureFootprint(candidate, def);
+  return { ...candidate, x: Math.max(0, Math.min(before.centerX - bounds.w / 2, room.width - bounds.w)), y: Math.max(0, Math.min(before.centerY - bounds.d / 2, room.depth - bounds.d)) };
+}
+
 /**
  * Centers a source-measured fixture in its matching movable Bathroom starter
  * zone when its actual envelope fits. Rotation is chosen per fixture so a
@@ -125,7 +167,8 @@ export function bathroomFixtureStarterZonePlacement(
 
   for (const zone of zones) {
     const zoneFootprint = furnitureFootprint(zone.item, zone.definition);
-    for (const rotation of [0, 90, 180, 270] as const) {
+    const preferredRotations = expectedZone === "tub" && zoneFootprint.w >= zoneFootprint.d ? [90, 270, 0, 180] as const : [0, 180, 90, 270] as const;
+    for (const rotation of preferredRotations) {
       const candidate = { ...fixture, rotation };
       const fixtureFootprint = furnitureFootprint(candidate, fixtureDefinition);
       if (fixtureFootprint.w > zoneFootprint.w + 0.01 || fixtureFootprint.d > zoneFootprint.d + 0.01) continue;
