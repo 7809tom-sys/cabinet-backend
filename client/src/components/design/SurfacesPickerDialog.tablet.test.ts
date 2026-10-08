@@ -11,5 +11,9 @@ describe("SurfacesPickerDialog tablet layout", () => {
     expect(source).toContain("sm:max-w-[min(1100px,calc(100%-2rem))]");
     expect(source).toContain('isBathroom\n            ? "flex flex-wrap gap-2 pb-1"');
     expect(source).toContain('className="flex flex-col gap-2 lg:flex-row"');
+    expect(source).toContain('role="button"');
+    expect(source).toContain("touch-manipulation cursor-pointer");
+    expect(source).toContain("onKeyDown={(event) => {");
+    expect(source).toContain("data-testid={`surface-card-${p.id}`}");
   });
 });

@@ -495,7 +495,18 @@ export function SurfacesPickerDialog({
                   return (
                     <div
                       key={p.id}
-                      className={`overflow-hidden rounded-lg border transition-colors ${
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${isSel ? "Remove" : "Select"} ${p.name}`}
+                      data-testid={`surface-card-${p.id}`}
+                      onClick={() => onToggle(item)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          onToggle(item);
+                        }
+                      }}
+                      className={`touch-manipulation cursor-pointer overflow-hidden rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-gold)] ${
                         isSel ? "border-[var(--color-gold)] ring-1 ring-[var(--color-gold)]/40" : "border-border"
                       }`}
                     >
@@ -538,7 +549,7 @@ export function SurfacesPickerDialog({
                             className="h-7 w-full text-[11px]"
                             data-testid={`surface-use-in-3d-${p.id}`}
                             disabled={isActiveThreeDBacksplash}
-                            onClick={() => onSetActiveThreeDBacksplash(item)}
+                            onClick={(event) => { event.stopPropagation(); onSetActiveThreeDBacksplash(item); }}
                           >
                             {isActiveThreeDBacksplash ? "Final 3D wall material" : "Use in 3D wall"}
                           </Button>
@@ -551,7 +562,7 @@ export function SurfacesPickerDialog({
                             size="sm"
                             variant={isSel ? "secondary" : "default"}
                             className="h-7 gap-1 px-2 text-xs"
-                            onClick={() => onToggle(item)}
+                            onClick={(event) => { event.stopPropagation(); onToggle(item); }}
                           >
                             {isSel ? (
                               <>
@@ -571,7 +582,7 @@ export function SurfacesPickerDialog({
                             variant="outline"
                             className="h-7 w-full text-[11px]"
                             data-testid={`place-bathroom-fixture-${p.id}`}
-                            onClick={() => onPlaceBathroomFixture(item)}
+                            onClick={(event) => { event.stopPropagation(); onPlaceBathroomFixture(item); }}
                           >
                             {bathroomFixtureProfile.planningOnly ? "Place visual planning envelope" : "Place in floor plan & 3D"}
                           </Button>
