@@ -584,6 +584,14 @@ interface Props {
 	  /** A host-issued one-shot request to rotate the camera toward an island face. */
 	  islandFocusRequest?: { face: "front" | "back"; key: number } | null;
   furniture?: PlacedFurniture[];
+  /** Host furniture selection synchronized into the 3D fixture action card. */
+  selectedFurnitureUid?: string | null;
+  /** Selects the same movable fixture or planning zone in the host 2D designer. */
+  onSelectFurniture?: (uid: string | null) => void;
+  /** Removes a movable fixture or planning zone through the authoritative plan state. */
+  onRemoveFurniture?: (uid: string) => void;
+  /** Uses the same 90-degree rotation action as Floor Plan furniture controls. */
+  onRotateFurniture?: (uid: string) => void;
   ponyWalls?: PonyWall[];
   orderSummary?: InteractiveRoomOrderSummary;
   orderLines?: InteractiveRoomOrderLine[];
@@ -1664,6 +1672,42 @@ export type ThreeDCabinetHit = {
   description: string | null;
   distributorSkuId: number | null;
 };
+
+/** Exact saved furniture identity resolved from a visible 3D fixture child. */
+export type ThreeDFurnitureHit = {
+  uid: string;
+  defId: string;
+  pelicanCode: string | null;
+  fixtureKind: string | null;
+};
+
+export function threeDFurnitureHitFromObject(object: THREE.Object3D): ThreeDFurnitureHit | null {
+  let node: THREE.Object3D | null = object;
+  while (node) {
+    if (typeof node.userData.furnitureUid === "string" && typeof node.userData.furnitureDefId === "string") {
+      return {
+        uid: node.userData.furnitureUid,
+        defId: node.userData.furnitureDefId,
+        pelicanCode: typeof node.userData.pelicanCode === "string" ? node.userData.pelicanCode : null,
+        fixtureKind: typeof node.userData.fixtureKind === "string" ? node.userData.fixtureKind : null,
+      };
+    }
+    node = node.parent;
+  }
+  return null;
+}
+
+/** Select only a fixture that is actually visible before cabinet, opening, or room geometry. */
+export function threeDFurnitureHitFromIntersections(
+  intersections: Array<Pick<THREE.Intersection, "object">>,
+): ThreeDFurnitureHit | null {
+  for (const intersection of intersections) {
+    if (threeDCabinetHitFromObject(intersection.object)?.uid || threeDOpeningHitFromObject(intersection.object)) return null;
+    const hit = threeDFurnitureHitFromObject(intersection.object);
+    if (hit) return hit;
+  }
+  return null;
+}
 
 /**
  * A raycast can first hit a decorative child mesh. Continue to the placement
@@ -8258,21 +8302,59 @@ function addPelicanBathroomFixture(
     panel.position.y = height / 2;
     add(panel, "shower-wall-panel");
   } else if (profile.kind === "toilet") {
-    const bowlHeight = Math.min(height * 0.55, (profile.seatHeightIn ?? profile.heightIn * 0.48) * INCH);
-    const bowl = new THREE.Mesh(new RoundedBoxGeometry(width * 0.78, bowlHeight, depth * 0.62, Math.min(width, depth) * 0.09, 5), shell);
-    bowl.position.set(0, bowlHeight / 2, depth * 0.13);
+    // Pelican publishes only the exterior width/depth/overall height and, on
+    // most models, a seat height. Keep this recognizably toilet-shaped but
+    // entirely inside that source envelope; the bowl, lid, and rear housing
+    // are illustrative visual features, not an installation or internal-parts
+    // claim.
+    const seatHeight = Math.min(height * 0.88, Math.max(height * 0.54, (profile.seatHeightIn ?? profile.heightIn * 0.52) * INCH));
+    const seatMaterial = new THREE.MeshPhysicalMaterial({
+      color: profile.finish === "vitreous-china-matte-black" ? "#08090a" : "#e4e9e9",
+      roughness: 0.2,
+      clearcoat: 0.24,
+      clearcoatRoughness: 0.16,
+    });
+    const baseHeight = seatHeight * 0.54;
+    const base = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 16), shell);
+    base.scale.set(width * 0.54, baseHeight, depth * 0.47);
+    base.position.set(0, baseHeight * 0.5, depth * 0.11);
+    add(base, "toilet-ceramic-base");
+    const bowlHeight = Math.max(0.08, seatHeight - baseHeight + 0.025);
+    const bowl = new THREE.Mesh(new THREE.SphereGeometry(0.5, 36, 18), shell);
+    bowl.scale.set(width * 0.76, bowlHeight * 1.15, depth * 0.63);
+    bowl.position.set(0, baseHeight + bowlHeight * 0.62, depth * 0.15);
     add(bowl, "toilet-bowl-exterior");
-    const seat = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.075, 10, 32), dark);
+    const waterWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 36), water);
+    waterWell.rotation.x = -Math.PI / 2;
+    waterWell.scale.set(width * 0.26, depth * 0.18, 1);
+    waterWell.position.set(0, seatHeight + 0.012, depth * 0.17);
+    add(waterWell, "toilet-bowl-water");
+    const seat = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.062, 12, 36), seatMaterial);
     seat.rotation.x = Math.PI / 2;
-    seat.scale.set(width * 0.58, depth * 0.31, 1);
-    seat.position.set(0, bowlHeight + 0.018, depth * 0.12);
+    seat.scale.set(width * 0.49, depth * 0.3, 1);
+    seat.position.set(0, seatHeight + 0.027, depth * 0.17);
     add(seat, "toilet-seat");
-    if (profile.toiletStyle === "two-piece" || profile.heightIn > (profile.seatHeightIn ?? 0) + 7) {
-      const tankHeight = Math.max(height - bowlHeight * 0.78, height * 0.38);
-      const tank = new THREE.Mesh(new RoundedBoxGeometry(width * 0.82, tankHeight, depth * 0.34, Math.min(width, depth) * 0.05, 4), shell);
-      tank.position.set(0, tankHeight / 2, -depth * 0.29);
-      add(tank, "toilet-tank");
+    const lid = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2), seatMaterial);
+    lid.scale.set(width * 0.55, 0.095, depth * 0.39);
+    lid.position.set(0, seatHeight + 0.075, depth * 0.15);
+    add(lid, "toilet-lid");
+    const rearHousingHeight = profile.toiletStyle === "smart"
+      ? Math.max(height * 0.25, height - seatHeight * 0.8)
+      : Math.max(height * 0.34, height - seatHeight * 0.45);
+    const rearHousing = new THREE.Mesh(
+      new RoundedBoxGeometry(width * (profile.toiletStyle === "two-piece" ? 0.8 : 0.73), rearHousingHeight, depth * (profile.toiletStyle === "smart" ? 0.27 : 0.31), Math.min(width, depth) * 0.05, 5),
+      shell,
+    );
+    rearHousing.position.set(0, height - rearHousingHeight / 2, -depth * 0.3);
+    add(rearHousing, profile.toiletStyle === "two-piece" ? "toilet-tank" : profile.toiletStyle === "smart" ? "toilet-smart-rear-housing" : "toilet-integrated-rear-housing");
+    if (profile.toiletStyle === "two-piece") {
+      const tankLid = new THREE.Mesh(new RoundedBoxGeometry(width * 0.68, 0.032, depth * 0.23, Math.min(width, depth) * 0.018, 3), seatMaterial);
+      tankLid.position.set(0, height - 0.02, -depth * 0.3);
+      add(tankLid, "toilet-tank-lid");
     }
+    const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.045, width * 0.045, 0.018, 20), dark);
+    flushControl.position.set(0, height - Math.min(0.028, rearHousingHeight * 0.08), -depth * 0.28);
+    add(flushControl, "toilet-flush-control");
   } else if (profile.kind === "bidet") {
     const baseHeight = height * 0.78;
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.27, width * 0.36, baseHeight, 28), shell);
@@ -8285,32 +8367,75 @@ function addPelicanBathroomFixture(
     rim.position.y = height * 0.8;
     add(rim, "bidet-rim");
   } else if (profile.kind === "freestanding-tub") {
-    const outer = new THREE.Mesh(new THREE.SphereGeometry(0.5, 36, 20), shell);
-    outer.scale.set(width, height, depth);
-    outer.position.y = height / 2;
+    // The supplier documents a freestanding exterior envelope and drain only.
+    // The nested acrylic shell, rim, well and drain below make the planning
+    // silhouette legible without claiming an unprovided cross section.
+    const outer = new THREE.Mesh(new THREE.SphereGeometry(0.5, 40, 22), shell);
+    outer.scale.set(width * 0.92, height * 0.78, depth * 0.94);
+    outer.position.y = height * 0.4;
     add(outer, "freestanding-tub-exterior");
-    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 8, 36), water);
+    const foot = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.24, width * 0.29, Math.max(0.028, height * 0.1), 32), shell);
+    foot.scale.z = Math.max(0.55, depth / width * 0.6);
+    foot.position.y = Math.max(0.014, height * 0.05);
+    add(foot, "freestanding-tub-plinth");
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.048, 12, 40), shell);
     rim.rotation.x = Math.PI / 2;
-    rim.scale.set(width, depth, 1);
-    rim.position.y = height * 0.86;
-    add(rim, "freestanding-tub-well");
+    rim.scale.set(width * 0.7, depth * 0.68, 1);
+    rim.position.y = height * 0.78;
+    add(rim, "freestanding-tub-rim");
+    const innerWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 40), water);
+    innerWell.rotation.x = -Math.PI / 2;
+    innerWell.scale.set(width * 0.55, depth * 0.52, 1);
+    innerWell.position.y = height * 0.775;
+    add(innerWell, "freestanding-tub-well");
+    const drainOffset = profile.drain === "left" ? -width * 0.23 : profile.drain === "right" ? width * 0.23 : 0;
+    const drain = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(0.025, width * 0.032), Math.max(0.025, width * 0.032), 0.016, 20), dark);
+    drain.position.set(drainOffset, height * 0.786, 0);
+    add(drain, "freestanding-tub-drain");
   } else {
-    const shellBox = new THREE.Mesh(new RoundedBoxGeometry(width, height, depth, Math.min(width, depth) * 0.04, 4), shell);
-    shellBox.position.y = height / 2;
-    add(shellBox, "alcove-tub-exterior");
-    const well = new THREE.Mesh(new RoundedBoxGeometry(width * 0.82, height * 0.035, depth * 0.72, Math.min(width, depth) * 0.05, 4), water);
-    well.position.y = height + 0.004;
+    // Alcove models retain the exact published exterior envelope and left/right
+    // drain identity. The visible apron, raised rim and shallow inner well are
+    // illustrative acrylic details, entirely inside that envelope.
+    const apron = new THREE.Mesh(new RoundedBoxGeometry(width * 0.98, height * 0.84, depth * 0.12, Math.min(width, depth) * 0.035, 5), shell);
+    apron.position.set(0, height * 0.42, depth * 0.43);
+    add(apron, "alcove-tub-apron");
+    const rearShell = new THREE.Mesh(new RoundedBoxGeometry(width * 0.98, height * 0.82, depth * 0.12, Math.min(width, depth) * 0.035, 5), shell);
+    rearShell.position.set(0, height * 0.41, -depth * 0.43);
+    add(rearShell, "alcove-tub-rear-shell");
+    const leftEnd = new THREE.Mesh(new RoundedBoxGeometry(width * 0.12, height * 0.84, depth * 0.86, Math.min(width, depth) * 0.035, 5), shell);
+    leftEnd.position.set(-width * 0.43, height * 0.42, 0);
+    add(leftEnd, "alcove-tub-left-end");
+    const rightEnd = leftEnd.clone();
+    rightEnd.position.x = width * 0.43;
+    add(rightEnd, "alcove-tub-right-end");
+    const well = new THREE.Mesh(new RoundedBoxGeometry(width * 0.73, Math.max(0.02, height * 0.025), depth * 0.7, Math.min(width, depth) * 0.055, 6), water);
+    well.position.y = height * 0.84;
     add(well, "alcove-tub-well");
+    const drainOffset = profile.drain === "left" ? -width * 0.25 : profile.drain === "right" ? width * 0.25 : 0;
+    const drain = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(0.025, width * 0.032), Math.max(0.025, width * 0.032), 0.016, 20), dark);
+    drain.position.set(drainOffset, height * 0.86, depth * 0.13);
+    add(drain, "alcove-tub-drain");
   }
   root.add(group);
 }
 
-export function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
+export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, selected = false) {
   const def = FURNITURE_CATALOG.find((entry) => entry.id === furniture.defId);
   if (!def) return;
   const bathroomFixture = verifiedPelicanBathroomFixtureProfile(furniture.pelicanCode ?? def.pelicanCode);
   if (bathroomFixture) {
     addPelicanBathroomFixture(root, furniture, bathroomFixture);
+    const fixtureGroup = root.children[root.children.length - 1];
+    if (selected && fixtureGroup instanceof THREE.Group) {
+      const outline = new THREE.LineSegments(
+        new THREE.EdgesGeometry(new THREE.BoxGeometry(bathroomFixture.widthIn * INCH * 1.06, Math.max(bathroomFixture.heightIn * INCH, 0.24) * 1.04, bathroomFixture.depthIn * INCH * 1.06)),
+        new THREE.LineBasicMaterial({ color: "#a87f33", depthTest: false }),
+      );
+      outline.position.y = Math.max(bathroomFixture.heightIn * INCH, 0.24) / 2;
+      outline.renderOrder = 50;
+      outline.userData = { bathroomFixtureSelectionOutline: true, furnitureUid: furniture.uid };
+      fixtureGroup.add(outline);
+    }
     return;
   }
   const width = def.w * INCH;
@@ -8329,6 +8454,12 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture) {
     border.position.y = 0.025;
     border.userData = { bathroomPlanningZoneBorder: true, planningOnly: true };
     group.add(zone, border);
+    if (selected) {
+      const selectedBorder = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(width * 1.04, 0.05, depth * 1.04)), new THREE.LineBasicMaterial({ color: "#a87f33", depthTest: false }));
+      selectedBorder.position.y = 0.055;
+      selectedBorder.userData = { bathroomPlanningZoneSelectionOutline: true, furnitureUid: furniture.uid };
+      group.add(selectedBorder);
+    }
     root.add(group);
     return;
   }
@@ -8892,7 +9023,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -9677,7 +9808,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		      islandCountertopTexture,
 		    );
 	    for (const ponyWall of ponyWalls) addPonyWall(catalogRoot, ponyWall, room, ponyWalls);
-	    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem);
+    for (const furnitureItem of furniture) addFurniture(catalogRoot, furnitureItem, furnitureItem.uid === selectedFurnitureUid);
 	    catalogRoot.traverse((node) => {
 	      if (!(node instanceof THREE.Mesh)) return;
 	      const material = Array.isArray(node.material) ? node.material[0] : node.material;
@@ -9745,7 +9876,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       if (controlsRef.current === controls) controlsRef.current = null;
       if (catalogRootRef.current === catalogRoot) catalogRootRef.current = null;
     };
-	  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, showSolidFrontWalls, cutawayRoomWalls, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, hardwareStyleId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
+  }, [scene, validSuggestions, placed, crown, toeKick, roomOverride, openings, sinks, potFillers, island, furniture, selectedFurnitureUid, ponyWalls, renderExistingDesign, resetKey, cameraPreset, showRoomContext, showSolidFrontWalls, cutawayRoomWalls, hybridPlanUnderlay, wallHeightIn, wallHeights, resolvedCabinetFinish, cabinetPreviewFinishId, cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, countertopFinish, cabinetFinish, catalogDoorSampleUrl, catalogRoomSceneUrl, hardwareStyleId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopColor, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, backsplashHeightMode, countertopBacksplashHeightIn, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl]);
 
 	  // A catalog filler has already passed geometry/collision validation before this
 	  // cue runs. Animate only its visual group, so the final coordinates and the
@@ -10185,6 +10316,23 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     return threeDOpeningHitFromIntersections(raycaster.intersectObjects(root.children, true));
   };
 
+  const inspectFurnitureAtPoint = (clientX: number, clientY: number) => {
+    const renderer = rendererRef.current;
+    const camera = cameraRef.current;
+    const root = catalogRootRef.current;
+    if (!renderer || !camera || !root) return null;
+    const bounds = renderer.domElement.getBoundingClientRect();
+    const pointer = new THREE.Vector2(((clientX - bounds.left) / bounds.width) * 2 - 1, -((clientY - bounds.top) / bounds.height) * 2 + 1);
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(pointer, camera);
+    const hit = threeDFurnitureHitFromIntersections(raycaster.intersectObjects(root.children, true));
+    if (!hit) return null;
+    renderer.domElement.style.cursor = "pointer";
+    setSelectedCabinet(null);
+    onSelectFurniture?.(hit.uid);
+    return hit;
+  };
+
   const catalogDropTargetAtPoint = (clientX: number, clientY: number): ThreeDCatalogDropTarget | undefined => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
@@ -10352,14 +10500,21 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     return true;
   };
 
-	  const handleRoomPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+		  const handleRoomPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
 	    const start = pointerStartRef.current;
 	    pointerStartRef.current = null;
 	    if (finishRightDrag(event)) return;
 	    if (start?.button === 2) return;
-	    const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY;
-	    if (threeDPointerSelectsCabinet("up", travelPx)) {
-	      const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY);
+		    const travelPx = start ? Math.hypot(event.clientX - start.x, event.clientY - start.y) : Number.POSITIVE_INFINITY;
+		    if (threeDPointerSelectsCabinet("up", travelPx)) {
+		      const furnitureSelection = inspectFurnitureAtPoint(event.clientX, event.clientY);
+		      if (furnitureSelection) {
+		        setMovePanelOpen(false);
+		        event.preventDefault();
+		        event.stopPropagation();
+		        return;
+		      }
+		      const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY);
 	      if (threeDTouchTapOpensWindow(event.pointerType, travelPx, openingSelection?.kind) && openingSelection && onOpenWindowEditor) {
 	        onSelectOpening?.(openingSelection.uid);
 	        onOpenWindowEditor(openingSelection.uid);
@@ -11131,6 +11286,28 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		            </div>}
 		          </div>
 		        </div>;
+      })()}
+      {selectedFurnitureUid && (() => {
+        const selectedFurniture = furniture.find((item) => item.uid === selectedFurnitureUid) ?? null;
+        if (!selectedFurniture) return null;
+        const definition = FURNITURE_CATALOG.find((item) => item.id === selectedFurniture.defId) ?? null;
+        const profile = verifiedPelicanBathroomFixtureProfile(selectedFurniture.pelicanCode ?? definition?.pelicanCode);
+        const label = profile?.name ?? definition?.name ?? "Movable planning item";
+        const kind = profile?.kind ? profile.kind.replace(/-/g, " ") : definition?.category ?? "fixture";
+        return <div data-testid="three-d-furniture-attributes" className={threeDSelectedCabinetDockClass()}>
+          <button type="button" aria-label="Close fixture attributes" onClick={() => onSelectFurniture?.(null)} className="absolute right-1.5 top-1 z-10 flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground">×</button>
+          <div className="flex min-w-0 items-center gap-1.5 pr-6">
+            <Info className="h-3.5 w-3.5 shrink-0 text-[#a87f33]" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-bold" title={label}>{label}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{profile ? `${formatEighthInches(profile.widthIn)} W × ${formatEighthInches(profile.depthIn)} D × ${formatEighthInches(profile.heightIn)} H` : kind}</p>
+            </div>
+            <div data-testid="three-d-furniture-actions" className="flex shrink-0 items-center gap-1">
+              {onRotateFurniture && <button type="button" data-testid="three-d-rotate-furniture" onClick={() => onRotateFurniture(selectedFurniture.uid)} className="inline-flex h-7 items-center gap-1 rounded border bg-white px-2 text-[11px] font-semibold text-[#1a2744] shadow-sm transition hover:bg-muted active:scale-95"><Rotate3D className="h-3 w-3" />Rotate</button>}
+              {onRemoveFurniture && <button type="button" data-testid="three-d-remove-furniture" onClick={() => { preserveCurrentCameraView(); onRemoveFurniture(selectedFurniture.uid); onSelectFurniture?.(null); }} className="inline-flex h-7 items-center gap-1 rounded px-1 font-medium text-red-700 underline-offset-4 transition hover:underline active:scale-95"><Trash2 className="h-3 w-3" />Remove</button>}
+            </div>
+          </div>
+        </div>;
       })()}
       {!isPhotoQualityTest && latestCustomerReadyImageQuery.data && (
         <div data-testid="customer-image-ready-notice" role="status" className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-950">

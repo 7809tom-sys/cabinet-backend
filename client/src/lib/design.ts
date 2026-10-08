@@ -13553,7 +13553,10 @@ export const FURNITURE_CATALOG: FurnitureDef[] = [
   // These are intentionally not substitutes for actual source-priced fixtures.
   { id: "bathroom-zone-vanity-60", name: 'Vanity zone · 60"', category: "bathroom-zone", shape: "rect", w: 60, d: 24, clearance: 0, color: "#2f6690" },
   { id: "bathroom-zone-toilet", name: "Toilet zone", category: "bathroom-zone", shape: "rect", w: 30, d: 54, clearance: 0, color: "#79654d" },
-  { id: "bathroom-zone-tub-60", name: 'Tub zone · 60"', category: "bathroom-zone", shape: "rect", w: 60, d: 32, clearance: 0, color: "#5a879d" },
+  // Holds the complete source envelope for every supported 60-inch Pelican tub
+  // after the placement helper orients its 60-inch length along this zone. It
+  // remains a movable visual-planning zone, never an installation opening.
+  { id: "bathroom-zone-tub-60", name: 'Tub zone · 60" × 36"', category: "bathroom-zone", shape: "rect", w: 60, d: 36, clearance: 0, color: "#5a879d" },
   ...VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES.map((profile): FurnitureDef => ({
     id: profile.id,
     name: profile.name,

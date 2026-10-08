@@ -4,6 +4,7 @@ import * as THREE from "three";
 import { canSyncThreeDOrderToCart, constrainedThreeDWallHeight, exactFittedFillerInches, filteredThreeDCatalogItems, hybridPlanUnderlayModel, resolvedPlacedCabinetDoorProfile, resolvedPlacedCabinetDoorSampleUrl, resolvedPlacedCabinetFinish, resolvedThreeDWallHeights, shouldShowThreeDCatalog, THREE_D_EMBEDDED_TOOLBAR_CLASS, THREE_D_WORKSPACE_ACTIONS, threeDCabinetHitFromObject, threeDDecorativeEndSides, threeDDrawerZoneHeight, threeDFittedFillerWidthText, threeDFrontDatumSnapIndicators, threeDHasVerifiedDoorLayout, threeDOrderLineForSelectedCabinet, threeDPointerSelectsCabinet, threeDPreviewFadeAllowed, threeDSelectedCabinetDescription, threeDSelectedCabinetDockClass, threeDSelectionFromPlaced, threeDStructuralFinish, threeDTallPantryDoorsPerRow, threeDTemporaryPreviewCounterText, threeDTouchTapOpensWindow, threeDUpperCabinetWallMinimums, threeDUsesAuthoritativePlanScene, threeDUsesCatalogFrontVisual, threeDWallClearanceText, threeDWallFitGuideText, threeDWallSideForEdge, threeDWallSideForPolygonEdge, updatedThreeDWallHeights } from "./InteractiveRoom3D";
 import { addCabinet, addPotFillerFixture, addSinkFixture, addThreeDPeninsulaCountertops, addWallOpening, cornerDrawerFrontLayout, describedOvenSpecification, diagonalCornerFootprintVertices, diagonalCornerFrontWidth, dimensions, doorProfileKind, existingCabinetTransform, existingCabinetSku, freestandingRangeHeightProfile, hasPersistedTwoDScene, isEqualHeightTwoDrawerBase, lCornerCarcassParts, openingTransform, potFillerWallMountTransform, quoteMaterialDetails, rangeCooktopLayout, rangeHoodFrontGeometry, rangeHoodGeometry, rangeHoodSceneStatus, rangeOvenFrontLayout, resolvedCatalogFinish, resolvedPlacedCabinetFrontVisual, resolvedThreeDCountertopFinish, resolvedThreeDDoorProfile, resolvedThreeDDoorSampleUrl, resolvedThreeDDrawerRows, resolvedThreeDFaceLayout, resolvedThreeDOvenLayout, resolvedThreeDSpecialtyProfile, savedRangeHoodTransform, sceneCabinetColor, shouldRenderCountertopOverSceneItem, shouldRenderPlacedDesign, shouldRenderSavedSceneCabinet, sinkFaucetTransform, sinkFixtureTransform, singleOvenTowerAssembly, threeDApplianceFrontVisualUrl, threeDBlindCornerFrontLayout, threeDCabinetFrontVisualUrl, threeDCameraDistanceLimits, threeDCountertopDepthIn, threeDDoorMaterialFallback, threeDFaceMaterialColor, threeDMaterialStatusText, threeDPhotoRenderDoorReferenceStatus, threeDPeninsulaCountertopGeometry, threeDPlacedWall, threeDPlanSyncText, threeDRoomFacingRotation, threeDSceneInputDiagnostics, threeDSceneRevisionKey, threeDSceneVisibilityContract, threeDShakerFramePose, threeDShakerRailThickness, threeDUsesDoorSampleTexture, threeDUsesExactDoorSampleMaterial, threeDUsesPhysicalShakerRails, threeDVisibleMaterialMode, triangleCornerFootprintVertices, triangleCornerFrontPose, triangleCornerFrontWidth, THREE_D_DRAWER_REVEAL_DEPTH, THREE_D_EXPORT_SIZE, THREE_D_ROOM_CONTEXT_DEFAULT, THREE_D_WALL_DEPTH_WRITE, THREE_D_WALL_OPACITY, type InteractiveRoomScene } from "./InteractiveRoom3D";
 import { addFurniture, addIslandZone, furnitureTransform, islandZoneTransform, ponyWallTransform } from "./InteractiveRoom3D";
+import { threeDFurnitureHitFromIntersections, threeDFurnitureHitFromObject } from "./InteractiveRoom3D";
 import { threeDDesignParitySnapshot, threeDExactPlanGeometryLock } from "./InteractiveRoom3D";
 import { resolvedThreeDCountertopFinish, shouldEmitThreeDPresentation, threeDPresentationEmissionKey, threeDPlacedWall } from "./InteractiveRoom3D";
 import { threeDCornerBodyDimensions } from "./InteractiveRoom3D";
@@ -78,6 +79,66 @@ describe("source-measured Pelican bathroom fixtures", () => {
       sourceEnvelopeIn: { width: 14 + 9 / 16, depth: 26 + 37 / 64, height: 29 + 17 / 32 },
     });
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-bowl-exterior")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-ceramic-base")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-bowl-water")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-seat")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-lid")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-integrated-rear-housing")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "toilet-flush-control")).toBe(true);
+  });
+
+  it("selects a visible bathroom fixture in 3D and exposes the same authoritative rotate/remove actions without changing Floor Plan controls", () => {
+    const root = new THREE.Group();
+    addFurniture(root, {
+      uid: "pelican-toilet-delete-in-3d",
+      defId: "pelican-toilet-pl-12044",
+      pelicanCode: "PL-12044",
+      pelicanProductId: 12044,
+      x: 12,
+      y: 24,
+      rotation: 0,
+    }, true);
+    const fixture = root.children.find((child) => child.userData.pelicanBathroomFixture) as THREE.Group;
+    const visibleBowl = fixture.children.find((child) => child.userData.pelicanBathroomFixturePart === "toilet-bowl-exterior")!;
+
+    expect(threeDFurnitureHitFromObject(visibleBowl)).toEqual({
+      uid: "pelican-toilet-delete-in-3d",
+      defId: "pelican-toilet-pl-12044",
+      pelicanCode: "PL-12044",
+      fixtureKind: "toilet",
+    });
+    expect(threeDFurnitureHitFromIntersections([{ object: visibleBowl }])).toMatchObject({ uid: "pelican-toilet-delete-in-3d" });
+    expect(fixture.children.some((child) => child.userData.bathroomFixtureSelectionOutline)).toBe(true);
+
+    const rendererSource = readFileSync(new URL("./InteractiveRoom3D.tsx", import.meta.url), "utf8");
+    const designerSource = readFileSync(new URL("../../pages/DesignTool.tsx", import.meta.url), "utf8");
+    expect(rendererSource).toContain("inspectFurnitureAtPoint");
+    expect(rendererSource).toContain('data-testid="three-d-furniture-attributes"');
+    expect(rendererSource).toContain('data-testid="three-d-rotate-furniture"');
+    expect(rendererSource).toContain('data-testid="three-d-remove-furniture"');
+    expect(designerSource).toContain('toast.success("Removed fixture from the 3D plan.")');
+  });
+
+  it("keeps a selected Pelican tub independently selectable with the shared rotate/remove controls", () => {
+    const root = new THREE.Group();
+    addFurniture(root, {
+      uid: "pelican-tub-controls-in-3d",
+      defId: "pelican-tub-pl-02849-left",
+      pelicanCode: "PL-02849L",
+      pelicanProductId: 2849,
+      x: 0,
+      y: 60,
+      rotation: 90,
+    }, true);
+    const fixture = root.children.find((child) => child.userData.pelicanBathroomFixture) as THREE.Group;
+    const tubWell = fixture.children.find((child) => child.userData.pelicanBathroomFixturePart === "alcove-tub-well")!;
+
+    expect(threeDFurnitureHitFromObject(tubWell)).toMatchObject({
+      uid: "pelican-tub-controls-in-3d",
+      pelicanCode: "PL-02849L",
+      fixtureKind: "alcove-tub",
+    });
+    expect(fixture.children.some((child) => child.userData.bathroomFixtureSelectionOutline)).toBe(true);
   });
 
   it("preserves the selected drain side on a source-measured alcove tub", () => {
@@ -99,6 +160,29 @@ describe("source-measured Pelican bathroom fixtures", () => {
       sourceEnvelopeIn: { width: 32 + 1 / 64, depth: 60, height: 21 + 21 / 32 },
     });
     expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "alcove-tub-well")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "alcove-tub-apron")).toBe(true);
+    expect(fixture?.children.some((child) => child.userData.pelicanBathroomFixturePart === "alcove-tub-drain")).toBe(true);
+  });
+  it("renders a freestanding tub with an acrylic shell, rim, well, plinth, and source drain identity", () => {
+    const root = new THREE.Group();
+    addFurniture(root, {
+      uid: "pelican-freestanding-tub",
+      defId: "pelican-tub-pl-02141-59",
+      pelicanCode: 'PL-02141 59"',
+      pelicanProductId: 2141,
+      x: 0,
+      y: 0,
+      rotation: 90,
+    });
+    const fixture = root.children.find((child) => child.userData.pelicanBathroomFixture);
+    expect(fixture?.userData).toMatchObject({ fixtureKind: "freestanding-tub", drain: "left" });
+    expect(fixture?.children.map((child) => child.userData.pelicanBathroomFixturePart)).toEqual(expect.arrayContaining([
+      "freestanding-tub-exterior",
+      "freestanding-tub-plinth",
+      "freestanding-tub-rim",
+      "freestanding-tub-well",
+      "freestanding-tub-drain",
+    ]));
   });
 
   it("renders Pelican's sliding shower door as a labelled visual envelope without inventing an enclosure", () => {

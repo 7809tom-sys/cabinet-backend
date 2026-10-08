@@ -3346,6 +3346,9 @@ export function PlanCanvas({
           const showerEnvelope = bathroomFixture?.kind === "shower-door" || bathroomFixture?.kind === "tub-door" || bathroomFixture?.kind === "shower-wall";
           const zoneWarnings = bathroomZoneWarningsByFixture?.get(f.uid) ?? [];
           const hasZoneWarning = zoneWarnings.length > 0;
+          const furnitureActionLabel = bathroomFixture
+            ? `${bathroomFixture.pelicanCode} ${bathroomFixture.kind.replace(/-/g, " ")}`
+            : def.name;
           return (
             <div
               key={f.uid}
@@ -3404,14 +3407,16 @@ export function PlanCanvas({
                   <button
                     className="absolute -top-4 -right-4 w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center shadow z-30"
                     onPointerDown={(e) => { e.stopPropagation(); onDeleteFurn?.(f.uid); }}
-                    title="Delete"
+                    aria-label={`Remove ${furnitureActionLabel}`}
+                    title={`Remove ${furnitureActionLabel}`}
                   >
                     <X className="w-3 h-3" />
                   </button>
                   <button
                     className="absolute -top-4 -left-4 w-6 h-6 rounded-full bg-[#1a2744] text-white flex items-center justify-center shadow z-30"
                     onPointerDown={(e) => { e.stopPropagation(); onRotateFurn?.(f.uid); }}
-                    title="Rotate 90°"
+                    aria-label={`Rotate ${furnitureActionLabel} 90 degrees`}
+                    title={`Rotate ${furnitureActionLabel} 90°`}
                   >
                     <RotateCw className="w-3 h-3" />
                   </button>

@@ -55,7 +55,7 @@ import {
 } from "@/lib/affiliateContext";
 import { isPelicanSinkCompatibleWithBase, isVerifiedPelicanVanityFaucet, isVerifiedPelicanVanitySink, pelicanSinkBaseKind, sinkBaseOpeningWidthIn, verifiedPelicanFaucetProfile, verifiedPelicanPotFillerProfile, verifiedPelicanSinkFitsCabinet, verifiedPelicanSinkProfile } from "@/lib/pelicanFixtureProfiles";
 import { isPelicanBathroomFixtureProfileVerified, verifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
-import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
+import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomFixtureStarterZonePlacement, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "@/lib/bathroomPlanning";
 import { canAdminReviewSavedDesign } from "@/lib/designAccess";
 import { DESIGNER_CANVAS_CONTAINER_CLASS } from "@/lib/designerLayout";
 import { rotateCustomPlanClockwise } from "@/lib/rotatePlan";
@@ -1144,6 +1144,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     toast.success(`${item.name} added`);
   };
   /** Place only source-measured Pelican bathroom fixtures; catalog images alone never create 3D geometry. */
+  const bathroomFurnitureRef = useRef<PlacedFurniture[]>([]);
   const placePelicanBathroomFixture = useCallback((item: SelectedSurface) => {
     const draft = makePelicanBathroomFixture(item, 0, 0);
     const definition = draft ? FURNITURE_CATALOG.find((entry) => entry.id === draft.defId) : null;
@@ -1151,15 +1152,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       toast.error("This Pelican model needs a complete exterior technical sheet before it can be placed in 3D.");
       return;
     }
-    const fixture = {
-      ...draft,
-      x: Math.max(0, (room.width - definition.w) / 2),
-      y: Math.max(0, (room.depth - definition.d) / 2),
-    };
+    const starterZonePlacement = bathroomFixtureStarterZonePlacement(draft, bathroomFurnitureRef.current);
+    const fixture = starterZonePlacement
+      ? { ...draft, ...starterZonePlacement }
+      : {
+          ...draft,
+          x: Math.max(0, (room.width - definition.w) / 2),
+          y: Math.max(0, (room.depth - definition.d) / 2),
+        };
     setSelectedSurfaces((previous) => previous.some((surface) => surface.id === item.id) ? previous : [...previous, item]);
-    setFurniture((previous) => [...previous, fixture]);
+    setFurniture((previous) => {
+      const next = [...previous, fixture];
+      bathroomFurnitureRef.current = next;
+      return next;
+    });
     setSelectedFurnUid(fixture.uid);
-    toast.success(`${item.name} placed in Floor Plan and 3D`);
+    toast.success(starterZonePlacement
+      ? `${item.name} placed and centered in the ${starterZonePlacement.zoneLabel}`
+      : `${item.name} placed in Floor Plan and 3D`);
   }, [room.depth, room.width]);
   // Clear both saved layers: the source product used by Cart/3D and the plan's
   // representative material. Clearing only one left the flooring pattern visible.
@@ -1679,6 +1689,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [paletteType, setPaletteType] = useState<HeightFilterPaletteType>("base");
   const [paletteHeightByType, setPaletteHeightByType] = useState<Partial<Record<HeightFilterPaletteType, number | null>>>({});
   const [furniture, setFurniture] = useState<PlacedFurniture[]>([]);
+  useEffect(() => {
+    bathroomFurnitureRef.current = furniture;
+  }, [furniture]);
   const [selectedFurnUid, setSelectedFurnUid] = useState<string | null>(null);
   const selectedBathroomPlanningGuidance = useMemo(() => {
     const selected = selectedFurnUid ? furniture.find((item) => item.uid === selectedFurnUid) ?? null : null;
@@ -8549,6 +8562,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     const starter = makeBathroomStarterTemplate();
     applyRoom(starter.room);
+    bathroomFurnitureRef.current = starter.furniture;
     setFurniture(starter.furniture);
     setRoomType("bathroom");
     setPaletteType("surfaces");
@@ -11745,6 +11759,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       potFillers={potFillers}
       island={deferredCountertopGeometry.island}
       furniture={furniture}
+      selectedFurnitureUid={selectedFurnUid}
+      onSelectFurniture={(uid) => {
+        setSelectedFurnUid(uid);
+        if (uid) {
+          setSelectedUid(null);
+          setSelectedSinkUid(null);
+          setSelectedOpeningUid(null);
+        }
+      }}
+      onRemoveFurniture={(uid) => {
+        setFurniture((previous) => previous.filter((item) => item.uid !== uid));
+        setSelectedFurnUid((current) => current === uid ? null : current);
+        toast.success("Removed fixture from the 3D plan.");
+      }}
+      onRotateFurniture={(uid) => setFurniture((previous) => previous.map((item) => item.uid === uid ? { ...item, rotation: (item.rotation + 90) % 360 } : item))}
       ponyWalls={deferredCountertopGeometry.ponyWalls}
       orderSummary={interactive3dOrderSummary}
       orderLines={interactive3dOrderLines}
@@ -18655,6 +18684,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 potFillers={potFillers}
                 island={island}
                 furniture={furniture}
+                selectedFurnitureUid={selectedFurnUid}
+                onSelectFurniture={(uid) => {
+                  setSelectedFurnUid(uid);
+                  if (uid) {
+                    setSelectedUid(null);
+                    setSelectedSinkUid(null);
+                    setSelectedOpeningUid(null);
+                  }
+                }}
+                onRemoveFurniture={(uid) => {
+                  setFurniture((previous) => previous.filter((item) => item.uid !== uid));
+                  setSelectedFurnUid((current) => current === uid ? null : current);
+                  toast.success("Removed fixture from the 3D plan.");
+                }}
+                onRotateFurniture={(uid) => setFurniture((previous) => previous.map((item) => item.uid === uid ? { ...item, rotation: (item.rotation + 90) % 360 } : item))}
                 ponyWalls={ponyWalls}
                 orderSummary={interactive3dOrderSummary}
                 orderLines={interactive3dOrderLines}

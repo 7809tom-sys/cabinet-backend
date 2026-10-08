@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "./bathroomPlanning";
+import { BATHROOM_STARTER_TEMPLATE, bathroomFixtureChecklist, bathroomFixtureStarterZonePlacement, bathroomPlanningGuidance, bathroomZoneOverlapWarnings, makeBathroomStarterTemplate } from "./bathroomPlanning";
 import { FURNITURE_CATALOG, makeFurniture } from "./design";
 import { verifiedPelicanBathroomFixtureProfile } from "./pelicanBathroomFixtureProfiles";
 
@@ -19,6 +19,32 @@ describe("Bathroom starter and clearance guidance", () => {
       "bathroom-zone-tub-60",
     ]));
     expect(BATHROOM_STARTER_TEMPLATE.id).toBe("bathroom-standard-zones-v1");
+    const tubZone = starter.furniture.find((item) => item.defId === "bathroom-zone-tub-60")!;
+    expect(FURNITURE_CATALOG.find((item) => item.id === tubZone.defId)).toMatchObject({ w: 60, d: 36 });
+  });
+
+  it("centers each source-measured Pelican soaking tub in the tub zone using its actual rotated envelope", () => {
+    const starter = makeBathroomStarterTemplate();
+    const tubs = FURNITURE_CATALOG.filter((item) => {
+      const profile = verifiedPelicanBathroomFixtureProfile(item.pelicanCode);
+      return profile?.kind === "freestanding-tub" || profile?.kind === "alcove-tub";
+    });
+    expect(tubs.length).toBeGreaterThan(0);
+
+    for (const tub of tubs) {
+      const placement = bathroomFixtureStarterZonePlacement(
+        { ...makeFurniture(tub.id, 0, 0), pelicanCode: tub.pelicanCode },
+        starter.furniture,
+      );
+      expect(placement, tub.id).toMatchObject({ zoneKind: "tub", zoneLabel: "tub zone", rotation: 90 });
+      expect(placement?.x).toBeGreaterThanOrEqual(0);
+      expect(placement?.y).toBeGreaterThanOrEqual(60);
+    }
+  });
+
+  it("does not invent a starter-zone fit for an unrelated bathroom envelope", () => {
+    const starter = makeBathroomStarterTemplate();
+    expect(bathroomFixtureStarterZonePlacement(makeFurniture("pelican-shower-door-pl-03a42s", 0, 0), starter.furniture)).toBeNull();
   });
 
   it("makes clearance notes advisory and source-linked rather than collision rules", () => {

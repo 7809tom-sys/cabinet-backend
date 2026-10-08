@@ -63,6 +63,16 @@ export type BathroomZoneOverlapWarning = {
   zoneLabel: string;
 };
 
+/** A valid, centered placement for a measured fixture inside a matching starter zone. */
+export type BathroomZonePlacement = {
+  x: number;
+  y: number;
+  rotation: 0 | 90 | 180 | 270;
+  zoneUid: string;
+  zoneKind: BathroomZoneKind;
+  zoneLabel: string;
+};
+
 export type BathroomChecklistStep = {
   id: "vanity-base" | "vanity-basin" | "vanity-faucet" | "toilet" | "tub" | "shower";
   label: string;
@@ -88,6 +98,47 @@ function expectedBathroomZone(kind: PelicanBathroomFixtureKind): BathroomZoneKin
   if (kind === "freestanding-tub" || kind === "alcove-tub" || kind === "tub-door") return "tub";
   // A shower door or wall has no dedicated starter-zone footprint. Do not claim
   // that it fits a vanity, toilet, or tub zone merely because its boxes touch.
+  return null;
+}
+
+/**
+ * Centers a source-measured fixture in its matching movable Bathroom starter
+ * zone when its actual envelope fits. Rotation is chosen per fixture so a
+ * 60-inch tub uses the 60-inch long side of the tub zone rather than being
+ * forced into a 32/36-inch-deep footprint. This is visual planning placement,
+ * not a clearance or installation validation rule.
+ */
+export function bathroomFixtureStarterZonePlacement(
+  fixture: PlacedFurniture,
+  furniture: readonly PlacedFurniture[],
+): BathroomZonePlacement | null {
+  const fixtureDefinition = FURNITURE_CATALOG.find((item) => item.id === fixture.defId);
+  const profile = verifiedPelicanBathroomFixtureProfile(fixture.pelicanCode ?? fixtureDefinition?.pelicanCode);
+  const expectedZone = profile ? expectedBathroomZone(profile.kind) : null;
+  if (!fixtureDefinition || !expectedZone) return null;
+
+  const zones = furniture.flatMap((item) => {
+    const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item.defId);
+    const kind = definition ? BATHROOM_ZONE_KIND_BY_DEFINITION[definition.id] : undefined;
+    return definition && kind === expectedZone ? [{ item, definition, kind }] : [];
+  });
+
+  for (const zone of zones) {
+    const zoneFootprint = furnitureFootprint(zone.item, zone.definition);
+    for (const rotation of [0, 90, 180, 270] as const) {
+      const candidate = { ...fixture, rotation };
+      const fixtureFootprint = furnitureFootprint(candidate, fixtureDefinition);
+      if (fixtureFootprint.w > zoneFootprint.w + 0.01 || fixtureFootprint.d > zoneFootprint.d + 0.01) continue;
+      return {
+        x: zone.item.x + (zoneFootprint.w - fixtureFootprint.w) / 2,
+        y: zone.item.y + (zoneFootprint.d - fixtureFootprint.d) / 2,
+        rotation,
+        zoneUid: zone.item.uid,
+        zoneKind: zone.kind,
+        zoneLabel: BATHROOM_ZONE_LABEL[zone.kind],
+      };
+    }
+  }
   return null;
 }
 
@@ -168,7 +219,7 @@ export function bathroomFixtureChecklist(input: {
 export const BATHROOM_STARTER_TEMPLATE = {
   id: "bathroom-standard-zones-v1",
   label: "Bathroom starter · movable zones",
-  description: "10 ft × 8 ft planning room with movable vanity, toilet, and tub zones. Choose actual Pelican products afterward.",
+  description: "10 ft × 8 ft planning room with movable vanity, toilet, and 60 × 36 in. tub zones. Choose actual Pelican products afterward.",
   room: { width: 120, depth: 96, ceilingHeight: 96 } satisfies RoomData,
 } as const;
 
@@ -183,7 +234,7 @@ export function makeBathroomStarterTemplate(): { room: RoomData; furniture: Plac
     furniture: [
       makeFurniture("bathroom-zone-vanity-60", 0, 0),
       makeFurniture("bathroom-zone-toilet", 84, 12),
-      makeFurniture("bathroom-zone-tub-60", 0, 64),
+      makeFurniture("bathroom-zone-tub-60", 0, 60),
     ],
   };
 }
