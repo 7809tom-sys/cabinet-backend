@@ -11743,6 +11743,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    };
 	  }, [activeBacksplashSurface, activeFlooringSurface, perimeterCountertopSurface]);
 
+	const threeDIslandCabinet = useMemo(() => {
+	  if (!island) return { name: null, color: null, productId: null, doorSampleUrl: null };
+	  const islandStyleId = resolvedIslandCabinetStyleId(placed, island, styleId) ?? styleId;
+	  const islandStyle = islandStyleId != null ? doorStyles?.find((style) => style.id === islandStyleId) : null;
+	  return {
+	    name: islandStyleId != null ? styleNameById.get(islandStyleId) ?? islandStyle?.ourName ?? islandStyle?.aliasName ?? `Style #${islandStyleId}` : null,
+	    color: islandStyleId != null ? (finishById.get(islandStyleId) ?? activeFinish).face : null,
+	    productId: islandStyleId ?? null,
+	    doorSampleUrl: islandStyleId != null ? (doorSampleById.get(islandStyleId) ?? null) : null,
+	  };
+	}, [activeFinish, doorSampleById, doorStyles, finishById, island, placed, styleId, styleNameById]);
 	const threeDIslandCountertop = {
 	  name: islandCountertopSurface?.name ?? (island ? countertopMaterial(island.countertopMaterialId ?? countertopMaterialId).name : null),
 	  productId: islandCountertopSurface?.id ?? null,
@@ -11860,6 +11871,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       })() : null}
 	      catalogFinishName={activeStyleName}
 	      catalogFinishProductId={styleId ?? null}
+	      catalogIslandCabinetName={threeDIslandCabinet.name}
+	      catalogIslandCabinetColor={threeDIslandCabinet.color}
+	      catalogIslandCabinetProductId={threeDIslandCabinet.productId}
+	      catalogIslandDoorSampleUrl={threeDIslandCabinet.doorSampleUrl}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	      catalogCountertopProductId={threeDSurfaceProductIds.countertop}
 	      catalogIslandCountertopName={threeDIslandCountertop.name}
@@ -18856,6 +18871,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                })() : null}
 	                catalogFinishName={activeStyleName}
 	                catalogFinishProductId={styleId ?? null}
+	      catalogIslandCabinetName={threeDIslandCabinet.name}
+	      catalogIslandCabinetColor={threeDIslandCabinet.color}
+	      catalogIslandCabinetProductId={threeDIslandCabinet.productId}
+	      catalogIslandDoorSampleUrl={threeDIslandCabinet.doorSampleUrl}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	                catalogCountertopProductId={threeDSurfaceProductIds.countertop}
 	                catalogIslandCountertopName={threeDIslandCountertop.name}

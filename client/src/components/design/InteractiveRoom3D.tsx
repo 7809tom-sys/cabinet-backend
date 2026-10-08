@@ -622,6 +622,11 @@ interface Props {
   catalogFinishName?: string | null;
   /** Exact selected catalog identities retained with a final render for audit. */
   catalogFinishProductId?: number | null;
+  /** Independent island cabinet finish/style used by the finished-photo prompt. */
+  catalogIslandCabinetName?: string | null;
+  catalogIslandCabinetColor?: string | null;
+  catalogIslandCabinetProductId?: number | null;
+  catalogIslandDoorSampleUrl?: string | null;
   catalogCountertopName?: string | null;
   catalogCountertopProductId?: number | null;
   catalogIslandCountertopName?: string | null;
@@ -9121,7 +9126,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -10923,6 +10928,28 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     // Match the protected server-side validation: provenance covers the JPEG
     // bytes that will be stored, not the data-URL text wrapper.
     const sourceImageHash = await hashCaptureBytes(reference);
+    const renderSpecification = {
+      perimeterCabinets: {
+        name: catalogFinishName ?? null,
+        color: catalogFinishName ?? catalogFinishOverride ?? null,
+        doorStyle: catalogDoorProfile?.doorStyle ?? null,
+        productId: catalogFinishProductId ?? null,
+        materialImageUrl: approvedMaterialUrl(catalogDoorSampleUrl),
+      },
+      islandCabinets: island ? {
+        name: catalogIslandCabinetName ?? null,
+        color: catalogIslandCabinetName ?? catalogIslandCabinetColor ?? null,
+        doorStyle: catalogDoorProfile?.doorStyle ?? null,
+        productId: catalogIslandCabinetProductId ?? null,
+        materialImageUrl: approvedMaterialUrl(catalogIslandDoorSampleUrl),
+      } : null,
+      perimeterCountertop: catalogCountertopName ?? null,
+      islandCountertop: island ? catalogIslandCountertopName ?? catalogCountertopName ?? null : null,
+      hardware: hardwareStyleId === "none" ? "none" : hardwareStyleId,
+      appliances: placed
+        .filter((cabinet) => (cabinet as { placement?: string | null }).placement === "appliance" || isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode))
+        .map((cabinet) => `${cabinet.masterCode}${cabinet.description ? ` — ${cabinet.description}` : ""}`),
+    };
     const provenance = {
       contractVersion: "exact-plan-v1" as const,
       // An administrator may explicitly test a locked current-design snapshot
@@ -10934,6 +10961,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       geometryLock,
       camera: cameraSnapshot,
       materials,
+      renderSpecification,
       sourceImageHash,
       generationMethod: "manual-final-review-deterministic-webgl-v1" as const,
     };

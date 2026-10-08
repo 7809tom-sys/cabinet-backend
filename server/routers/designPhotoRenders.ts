@@ -105,6 +105,21 @@ const materialProvenanceSchema = z.object({
   name: z.string().trim().max(255).nullable(),
   materialImageUrl: safeMaterialUrl.nullable(),
 });
+const renderAreaSchema = z.object({
+  name: z.string().trim().max(255).nullable(),
+  color: z.string().trim().max(120).nullable(),
+  doorStyle: z.string().trim().max(120).nullable(),
+  productId: z.number().int().positive().nullable(),
+  materialImageUrl: safeMaterialUrl.nullable(),
+});
+const renderSpecificationSchema = z.object({
+  perimeterCabinets: renderAreaSchema,
+  islandCabinets: renderAreaSchema.nullable(),
+  perimeterCountertop: z.string().trim().max(255).nullable(),
+  islandCountertop: z.string().trim().max(255).nullable(),
+  hardware: z.string().trim().max(120).nullable(),
+  appliances: z.array(z.string().trim().max(255)).max(40),
+});
 export const photoQualityLeadSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(320),
@@ -128,6 +143,7 @@ export const photoRenderProvenanceSchema = z.object({
       }
     }
   }),
+  renderSpecification: renderSpecificationSchema.optional(),
   sourceImageHash: z.string().regex(/^[a-f0-9]{64}$/i, "A SHA-256 source-image hash is required."),
   generationMethod: z.enum([
     "manual-final-review-image-service",
@@ -365,11 +381,23 @@ async function manualAiReferences(
 
 function manualAiPrompt(provenance: PhotoRenderProvenanceInput, references: ManualAiReference[]) {
   const selectedReferences = references.map((reference, index) => `${index + 2}. ${reference.title}${reference.detail ? ` — ${reference.detail}` : ""}`).join("\n");
+  const specification = provenance.renderSpecification;
+  const areaInstructions = specification ? [
+    `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Do not change this color or style.`,
+    specification.islandCabinets
+      ? `Island cabinets are ${specification.islandCabinets.color ?? "the selected island color"} ${specification.islandCabinets.doorStyle ?? "the selected island door style"}. Do not change these island colors or style.`
+      : "There is no island cabinet area in this plan.",
+    `Perimeter countertop: ${specification.perimeterCountertop ?? "the selected perimeter countertop"}. Island countertop: ${specification.islandCountertop ?? "none"}.`,
+    `Hardware: ${specification.hardware ?? "the hardware shown in the locked plan"}. Appliances: ${specification.appliances.length > 0 ? specification.appliances.join(", ") : "use only appliances shown in the locked plan"}.`,
+  ].join("\n") : "";
   return [
     "Please design the kitchen. Do not alter or change the plan.",
     "Use image 1 as the locked CabinetDealz kitchen plan and camera composition. Do not alter its layout, cabinets, fillers, countertop runs, appliances, fixtures, walls, doors, windows, island, dimensions, or viewpoint.",
     "The remaining numbered cards are the exact selected CabinetDealz and Pelican product references. Apply each reference only to its matching existing surface or fixture. Do not introduce any product not shown on this board.",
-    "Create a photorealistic architectural interior image with realistic lighting and physically plausible material texture. Return one kitchen image only, without labels, UI, people, text, logos, watermarks, measurements, or extra products.",
+    "Create a photorealistic architectural interior image with realistic lighting and physically plausible material texture.",
+    areaInstructions,
+    "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
+    "Return one kitchen image only, without labels, UI, people, text, logos, watermarks, measurements, or extra products.",
     `Saved-plan summary: ${photoRenderProvenanceSummary(provenance)}`,
     selectedReferences ? `Reference cards:\n${selectedReferences}` : "",
   ].filter(Boolean).join("\n\n");
@@ -552,11 +580,13 @@ function emitPhotoQualityLead(args: {
   });
 }
 
-function exactPlanPrompt(summary: string) {
+function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceInput["renderSpecification"]) {
   return [
     "Create a genuinely photorealistic, high-end architectural interior photograph from the FIRST reference image—not a screenshot, wireframe, illustration, or a copy of the reference pixels.",
     "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
     "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
+    specification ? `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Island cabinets are ${specification.islandCabinets?.color ?? "not present"} ${specification.islandCabinets?.doorStyle ?? ""}. Do not change these colors or styles. Perimeter countertop: ${specification.perimeterCountertop ?? "selected"}. Island countertop: ${specification.islandCountertop ?? "none"}. Hardware: ${specification.hardware ?? "as shown"}. Appliances: ${specification.appliances.join(", ") || "only those shown"}.` : "",
+    "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
     "Return only the finished photorealistic kitchen image; no labels, UI, people, text, logos, watermarks, measurements, or additional products.",
     summary ? `Selected design summary: ${summary}` : "",
   ].filter(Boolean).join(" ");
@@ -1250,7 +1280,7 @@ export const designPhotoRendersRouter = router({
       }
 
       const sourceProvenance = canonicalizeDeterministicRenderProvenance(input.provenance, sourceBytes);
-      const prompt = exactPlanPrompt(photoRenderProvenanceSummary(sourceProvenance));
+      const prompt = exactPlanPrompt(photoRenderProvenanceSummary(sourceProvenance), sourceProvenance.renderSpecification);
       const [existingPending] = await db.select().from(designGeminiImageTestJobs).where(and(
         eq(designGeminiImageTestJobs.userId, ctx.user.id),
         eq(designGeminiImageTestJobs.kitchenDesignId, design?.id ?? 0),
