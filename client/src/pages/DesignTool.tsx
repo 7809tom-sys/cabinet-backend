@@ -14269,7 +14269,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
             <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "wall", "tall", "appliance", "opening", "accessory"] as const)
+                ? (["closetparts", "base", "corner", "wall", "tall", "appliance", "opening", "accessory"] as const)
                 : roomType === "bathroom"
                 ? (["vanity", "appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
                 : roomType === "laundry"
