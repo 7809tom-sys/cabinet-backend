@@ -18,7 +18,7 @@ describe("CRM Quick PDF Invoice shipping UI", () => {
 
   it("routes an unpriced linked plan back to the saved Designer plan rather than inventing an invoice value", () => {
     expect(source).toContain("This plan needs a verified cart/order subtotal before it can be invoiced.");
-    expect(source).toContain('href={`/design?load=${selectedDesign.designId}`}');
+    expect(source).toContain("href={selectedDesign.designUrl}");
     expect(source).toContain("Open plan to prepare the order");
   });
 });
