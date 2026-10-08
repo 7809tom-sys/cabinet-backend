@@ -17,9 +17,11 @@ import {
   distributors,
   orderRequests,
   kitchenDesigns,
+  crmDealDesigns,
   affiliates,
   codeAliases,
   emailSettings,
+  crmDeals,
   type OrderLineItem,
 } from "../../drizzle/schema";
 import { normalizeReferralCode } from "@shared/affiliate";
@@ -999,6 +1001,55 @@ export const ordersRouter = router({
         taxAmount: calculatedTax ? String(calculatedTax.taxAmount.toFixed(2)) : null,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
+
+      // Submitted orders must appear in the owning CRM even when the optional
+      // outbound webhook is disabled or unavailable. The order id check makes
+      // this safe if a retry reaches this block more than once.
+      if (input.submit) {
+        const existingDeal = await db
+          .select({ id: crmDeals.id })
+          .from(crmDeals)
+          .where(eq(crmDeals.orderRequestId, insertId))
+          .limit(1);
+        if (existingDeal.length === 0) {
+          const dealResult = await db.insert(crmDeals).values({
+            affiliateId,
+            ownerUserId: ctx.user?.id ?? null,
+            title: `Order ${requestNumber}${input.originatorName ? ` — ${input.originatorName}` : ""}`,
+            stage: "qualified",
+            priority: "medium",
+            contactName: input.originatorName ?? ctx.user?.name ?? null,
+            contactEmail: input.originatorEmail ?? ctx.user?.email ?? null,
+            contactPhone: input.originatorPhone ?? null,
+            location: ([
+              input.shippingAddressLine1,
+              input.shippingAddressLine2,
+              input.shippingCity,
+              input.shippingState,
+              input.zip,
+            ].filter(Boolean).join(", ") || input.zip) || null,
+            estimatedValue: total > 0 ? total.toFixed(2) : null,
+            source: "order_request",
+            orderRequestId: insertId,
+            referralCode,
+          });
+          if (kitchenDesignId != null) {
+            const [savedDesign] = await db
+              .select({ id: kitchenDesigns.id, name: kitchenDesigns.name })
+              .from(kitchenDesigns)
+              .where(eq(kitchenDesigns.id, kitchenDesignId))
+              .limit(1);
+            if (savedDesign) {
+              await db.insert(crmDealDesigns).values({
+                dealId: (dealResult as unknown as [{ insertId: number }])[0].insertId,
+                designId: savedDesign.id,
+                designName: savedDesign.name,
+                linkedByUserId: ctx.user?.id ?? null,
+              });
+            }
+          }
+        }
+      }
 
       // Push a CRM event only for SUBMITTED orders (drafts are still in-progress).
       // Best-effort + tagged with the referring affiliate/dealer (NULL = house).

@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { appRouter } from "./routers";
 import { getDb } from "./db";
 import type { TrpcContext } from "./_core/context";
-import { affiliateStyleBranding, affiliates, crmEvents, orderRequests } from "../drizzle/schema";
+import { affiliateStyleBranding, affiliates, crmDeals, crmEvents, orderRequests } from "../drizzle/schema";
 
 const REEVES_SLUG = "reaves-way-cabinet-shop";
 const REEVES_CODE = "REAVESWAYCABINETSHOP";
@@ -54,6 +54,7 @@ describe("orders.createRequest affiliate alias submission", () => {
     const originalBrandName = branding[0].brandName;
     const email = `alias-submission-${Date.now()}@example.test`;
     let createdId: number | null = null;
+    let createdDealId: number | null = null;
     try {
       await db
         .update(affiliateStyleBranding)
@@ -94,9 +95,18 @@ describe("orders.createRequest affiliate alias submission", () => {
       expect(saved[0]?.styleName).toBe(TEST_ALIAS);
       expect(saved[0]?.lineItems[0]?.doorStyle).toBe(TEST_ALIAS);
 
+      const deals = await db
+        .select({ id: crmDeals.id, affiliateId: crmDeals.affiliateId, orderRequestId: crmDeals.orderRequestId, contactEmail: crmDeals.contactEmail })
+        .from(crmDeals)
+        .where(eq(crmDeals.orderRequestId, created.id))
+        .limit(1);
+      expect(deals[0]).toMatchObject({ affiliateId, orderRequestId: created.id, contactEmail: email });
+      createdDealId = deals[0]?.id ?? null;
+
       const event = await waitForCrmEvent(db, email);
       expect((event.payload as { data?: { styleName?: string } }).data?.styleName).toBe(TEST_ALIAS);
     } finally {
+      if (createdDealId != null) await db.delete(crmDeals).where(eq(crmDeals.id, createdDealId));
       await db.delete(crmEvents).where(eq(crmEvents.contactEmail, email));
       if (createdId != null) await db.delete(orderRequests).where(eq(orderRequests.id, createdId));
       await db

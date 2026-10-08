@@ -47,7 +47,7 @@ const L = (lang: Lang) => ({
   won: lang === "es" ? "Ganados" : "Won",
 });
 
-function money(v: string | null | undefined): string {
+function money(v: string | number | null | undefined): string {
   if (v == null) return "—";
   const n = Number(v);
   if (!isFinite(n)) return "—";
@@ -102,9 +102,11 @@ type LinkedInvoiceDesign = {
   designName: string;
 	creatorScope: string;
 	creatorStoreName: string;
-	designUrl: string;
-	designUpdatedAt: string | Date;
-	selectedStyleId: number | null;
+	 designUrl: string;
+	 designUpdatedAt: string | Date;
+	 designCreatedAt: string | Date;
+	 designOrderValue: string | number | null;
+	 selectedStyleId: number | null;
 	selectedSurfaces: unknown;
   catalogSubtotal: string | number | null;
   catalogSubtotalSource: string | null;
@@ -765,7 +767,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
 	                    <div className="min-w-0">
 	                      <a href={l.designUrl} className="text-primary hover:underline truncate block">{l.designName}</a>
 	                      <p className="text-[11px] text-muted-foreground truncate">
-	                        {l.creatorStoreName} · {new Date(l.designUpdatedAt).toLocaleDateString()}
+                        {l.creatorStoreName} · Saved {new Date(l.designCreatedAt).toLocaleDateString()} · Value {money(l.designOrderValue)}
 	                        {l.selectedStyleId ? ` · Style #${l.selectedStyleId}` : ""}
 	                        {Array.isArray(l.selectedSurfaces) && l.selectedSurfaces.length > 0 ? ` · ${l.selectedSurfaces.length} surface selection${l.selectedSurfaces.length === 1 ? "" : "s"}` : ""}
 	                      </p>
