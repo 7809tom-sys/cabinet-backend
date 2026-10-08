@@ -4,13 +4,14 @@ import { z } from "zod";
 import { affiliateInstallationEstimates, affiliateTeamMembers, affiliates, orderRequests } from "../../drizzle/schema";
 import { getDb } from "../db";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
-import { calculateInstallationEstimate } from "../../shared/installationEstimate";
+import { calculateInstallationEstimate, INSTALLATION_ROOM_TYPES, INSTALLATION_COST_TYPES } from "../../shared/installationEstimate";
 import { resolveInstallationEstimateAffiliateId } from "../../shared/installationEstimateAccess";
 
 const estimateLineSchema = z.object({
   description: z.string().trim().min(1).max(256),
   quantity: z.number().positive().max(10_000),
   unitCost: z.number().min(0).max(1_000_000),
+  costType: z.enum(INSTALLATION_COST_TYPES).default("labor"),
 });
 
 const estimateInputSchema = z.object({
@@ -19,8 +20,10 @@ const estimateInputSchema = z.object({
   customerName: z.string().trim().max(256).nullable().optional(),
   customerEmail: z.string().trim().email().max(320).nullable().optional(),
   customerPhone: z.string().trim().max(32).nullable().optional(),
+  roomType: z.enum(INSTALLATION_ROOM_TYPES).default("Kitchen"),
   notes: z.string().trim().max(10_000).nullable().optional(),
   taxAmount: z.number().min(0).max(1_000_000).default(0),
+  markupPercent: z.number().min(0).max(10_000).default(0),
   lineItems: z.array(estimateLineSchema).min(1).max(100),
 });
 
@@ -66,7 +69,7 @@ export const installationEstimatesRouter = router({
       const affiliateId = await resolveAffiliateId(ctx.user, input.affiliateId);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
-      const totals = calculateInstallationEstimate(input.lineItems, input.taxAmount);
+      const totals = calculateInstallationEstimate(input.lineItems, input.taxAmount, input.markupPercent);
       const shareToken = crypto.randomUUID().replace(/-/g, "");
       const result = await db.insert(affiliateInstallationEstimates).values({
         affiliateId,
@@ -75,9 +78,12 @@ export const installationEstimatesRouter = router({
         customerName: input.customerName || null,
         customerEmail: input.customerEmail || null,
         customerPhone: input.customerPhone || null,
+        roomType: input.roomType,
         notes: input.notes || null,
         lineItems: totals.lineItems,
         subtotal: String(totals.subtotal),
+        markupPercent: String(totals.markupPercent),
+        markupAmount: String(totals.markupAmount),
         taxAmount: String(totals.taxAmount),
         totalAmount: String(totals.totalAmount),
       });

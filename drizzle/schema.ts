@@ -1333,6 +1333,7 @@ export type InstallationEstimateLineItem = {
   quantity: number;
   unitCost: number;
   lineTotal: number;
+  costType: "labor" | "material";
 };
 
 export const affiliateInstallationEstimates = mysqlTable("affiliate_installation_estimates", {
@@ -1344,8 +1345,11 @@ export const affiliateInstallationEstimates = mysqlTable("affiliate_installation
   customerPhone: varchar("customerPhone", { length: 32 }),
   shareToken: varchar("shareToken", { length: 64 }).unique(),
   status: mysqlEnum("status", ["draft", "shared", "accepted", "cancelled"]).default("draft").notNull(),
+  roomType: mysqlEnum("roomType", ["Kitchen", "Bathroom", "Laundry", "Closets"]).default("Kitchen").notNull(),
   lineItems: json("lineItems").$type<InstallationEstimateLineItem[]>().notNull(),
   subtotal: decimal("subtotal", { precision: 12, scale: 2 }).notNull(),
+  markupPercent: decimal("markupPercent", { precision: 7, scale: 2 }).default("0.00").notNull(),
+  markupAmount: decimal("markupAmount", { precision: 12, scale: 2 }).default("0.00").notNull(),
   taxAmount: decimal("taxAmount", { precision: 12, scale: 2 }).default("0.00").notNull(),
   totalAmount: decimal("totalAmount", { precision: 12, scale: 2 }).notNull(),
   notes: text("notes"),

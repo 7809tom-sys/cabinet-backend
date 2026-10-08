@@ -1205,6 +1205,13 @@
       "when": 1791042164264,
       "tag": "0172_cabinet_brand_attributes",
       "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "5",
+      "when": 1791486044782,
+      "tag": "0173_tense_mongu",
+      "breakpoints": true
     }
   ]
 }
