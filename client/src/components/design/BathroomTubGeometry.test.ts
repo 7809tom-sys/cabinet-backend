@@ -41,13 +41,12 @@ describe("Bathroom tub plan and 3D parity", () => {
     }
   });
 
-  it("keeps custom zone sizes in 3D and defaults an oversized soaking tub parallel to the nearest wall", () => {
+  it("keeps custom zone sizes in Floor Plan only and defaults an oversized soaking tub parallel to the nearest wall", () => {
     const zone = { ...makeFurniture("bathroom-zone-tub-60", 0, 60), planningZoneSize: { version: 1 as const, widthIn: 72, depthIn: 36 } };
     const root = new THREE.Group();
     addFurniture(root, zone);
-    const box = new THREE.Box3().setFromObject(root.children[0]).getSize(new THREE.Vector3());
-    expect(box.x * 12).toBeCloseTo(72, 1);
-    expect(box.z * 12).toBeCloseTo(36, 1);
+    expect(root.children).toHaveLength(0);
+    expect(furniturePlanFrame(zone)).toMatchObject({ width: 72, depth: 36 });
     expect(bathroomTubWallParallelPlacement(makeFurniture("pelican-tub-pl-02141-67", 45, 14), { width: 120, depth: 96 }).rotation).toBe(90);
   });
 
@@ -61,6 +60,6 @@ describe("Bathroom tub plan and 3D parity", () => {
     expect(plan).toContain("furniturePlanFrame(f)");
     expect(plan).toContain("onContextMenu={(event) => { if (!bathroomPlanningZone)");
     expect(plan).toContain("onOpenFurnitureAttributes?.(f.uid)");
-    expect(threeD).toContain('data-testid="three-d-zone-attributes"');
+    expect(threeD).not.toContain('data-testid="three-d-zone-attributes"');
   });
 });

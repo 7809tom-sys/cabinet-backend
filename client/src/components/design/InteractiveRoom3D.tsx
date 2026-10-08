@@ -8534,6 +8534,9 @@ function addPelicanBathroomFixture(
 export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, selected = false) {
   const def = FURNITURE_CATALOG.find((entry) => entry.id === furniture.defId);
   if (!def) return;
+  // Planning zones belong to Floor Plan only. Preserve them in saved state,
+  // but create no 3D floor fill, border, selection outline or raycast target.
+  if (def.category === "bathroom-zone") return;
   const bathroomFixture = verifiedPelicanBathroomFixtureProfile(furniture.pelicanCode ?? def.pelicanCode);
   if (bathroomFixture) {
     addPelicanBathroomFixture(root, furniture, bathroomFixture);
@@ -8553,29 +8556,11 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, sele
   const size = resolvedFurnitureDimensions(furniture, def)!;
   const width = size.w * INCH;
   const depth = size.d * INCH;
-  const transform = def.category === "bathroom-zone" ? bathroomFurnitureTransform(furniture) : furnitureTransform(furniture, def.w, def.d);
+  const transform = furnitureTransform(furniture, def.w, def.d);
   const group = new THREE.Group();
   group.position.set(transform.x, 0, transform.z);
   group.rotation.y = transform.rotation;
   group.userData = { furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
-  if (def.category === "bathroom-zone") {
-    const zoneMaterial = new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.16, side: THREE.DoubleSide });
-    const zone = new THREE.Mesh(new THREE.BoxGeometry(width, 0.025, depth), zoneMaterial);
-    zone.position.y = 0.0125;
-    zone.userData = { bathroomPlanningZone: true, planningOnly: true, furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
-    const border = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(width, 0.025, depth)), new THREE.LineBasicMaterial({ color: def.color }));
-    border.position.y = 0.025;
-    border.userData = { bathroomPlanningZoneBorder: true, planningOnly: true };
-    group.add(zone, border);
-    if (selected) {
-      const selectedBorder = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(width * 1.04, 0.05, depth * 1.04)), new THREE.LineBasicMaterial({ color: "#a87f33", depthTest: false }));
-      selectedBorder.position.y = 0.055;
-      selectedBorder.userData = { bathroomPlanningZoneSelectionOutline: true, furnitureUid: furniture.uid };
-      group.add(selectedBorder);
-    }
-    root.add(group);
-    return;
-  }
   const material = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7 });
   const height = def.category === "table" ? 2.5 : def.category === "stool" ? 2.1 : 1.5;
   const body = def.shape === "round"
@@ -11289,15 +11274,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      }} onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setCatalogDragMeasurement(null); }} onDrop={(event) => { event.preventDefault(); const key = event.dataTransfer.getData("text/plain"); const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem; if (item) onAddCatalogItem?.(item, catalogDropTargetAtPoint(event.clientX, event.clientY), event.shiftKey); setDraggedCatalogId(null); setCatalogDragMeasurement(null); }}>
 			        <div ref={mountRef} className="h-full w-full" />
 			        {selectedFurnitureUid && (() => {
-			          const item = furniture.find((candidate) => candidate.uid === selectedFurnitureUid);
-			          const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item?.defId);
-			          const profile = verifiedPelicanBathroomFixtureProfile(item?.pelicanCode ?? definition?.pelicanCode);
-			          if (!item || !definition || (!profile && definition.category !== "bathroom-zone")) return null;
+		          const item = furniture.find((candidate) => candidate.uid === selectedFurnitureUid);
+		          const definition = FURNITURE_CATALOG.find((candidate) => candidate.id === item?.defId);
+		          const profile = verifiedPelicanBathroomFixtureProfile(item?.pelicanCode ?? definition?.pelicanCode);
+		          if (!item || !definition || definition.category === "bathroom-zone" || !profile) return null;
 			          return <div data-testid="three-d-bathroom-fixture-canvas-actions" data-ui-overlay="bathroom-fixture-actions" className="absolute bottom-3 left-3 z-30 flex max-w-[calc(100%-5rem)] flex-wrap items-center gap-2 rounded-lg border border-slate-300 bg-white/95 p-2 text-xs shadow-lg backdrop-blur" onPointerDown={(event) => event.stopPropagation()} onPointerUp={(event) => event.stopPropagation()}>
 			            <span className="min-w-0 max-w-32 truncate font-semibold text-[#1a2744]" title={profile?.pelicanCode ?? definition.name}>{profile?.pelicanCode ?? definition.name.split(" · ")[0]}</span>
 			            {onRotateFurniture && <button type="button" data-testid="three-d-bathroom-rotate" onClick={() => onRotateFurniture(item.uid)} className="inline-flex min-h-10 items-center gap-1 rounded border border-[#1a2744]/35 px-2 font-semibold text-[#1a2744] hover:bg-slate-100 active:scale-95"><Rotate3D className="h-4 w-4" />Rotate 90°</button>}
 			            {onRemoveFurniture && <button type="button" data-testid="three-d-bathroom-remove" onClick={() => { preserveCurrentCameraView(); onRemoveFurniture(item.uid); onSelectFurniture?.(null); }} className="inline-flex min-h-10 items-center gap-1 rounded border border-rose-300 px-2 font-semibold text-rose-700 hover:bg-rose-50 active:scale-95"><Trash2 className="h-4 w-4" />Remove</button>}
-			          {definition.category === "bathroom-zone" && onOpenFurnitureAttributes && <Button type="button" size="sm" variant="outline" className="min-h-9" data-testid="three-d-zone-attributes" onClick={() => onOpenFurnitureAttributes?.(item.uid)}>Attributes</Button>}</div>;
+		          </div>;
 			        })()}
 			        {selectedCabinetPreviewFinish && <div data-testid="three-d-cabinet-color-preview-status" role="status" className="pointer-events-none absolute bottom-3 left-3 z-20 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-lg border border-[#d9c196] bg-[#fffaf1]/95 px-3 py-2 text-xs font-semibold text-[#614512] shadow-sm backdrop-blur"><span className="h-4 w-4 shrink-0 rounded-full border border-black/15" style={{ backgroundColor: selectedCabinetPreviewFinish.color }} /><span className="truncate">Color check: {selectedCabinetPreviewFinish.name} · rear filler matches · not saved</span></div>}
 		        {cabinetDragMeasurement && <div data-testid="three-d-cabinet-drag-highlight" aria-hidden="true" className={`pointer-events-none absolute inset-1 z-20 rounded-xl border-4 transition-colors ${cabinetDragMeasurement.preview.candidate ? "border-emerald-500 shadow-[inset_0_0_32px_rgba(16,185,129,0.2)]" : "border-rose-500 shadow-[inset_0_0_32px_rgba(244,63,94,0.2)]"}`} />}
@@ -11438,6 +11423,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         const selectedFurniture = furniture.find((item) => item.uid === selectedFurnitureUid) ?? null;
         if (!selectedFurniture) return null;
         const definition = FURNITURE_CATALOG.find((item) => item.id === selectedFurniture.defId) ?? null;
+        if (definition?.category === "bathroom-zone") return null;
         const profile = verifiedPelicanBathroomFixtureProfile(selectedFurniture.pelicanCode ?? definition?.pelicanCode);
         const label = profile?.name ?? definition?.name ?? "Movable planning item";
         const kind = profile?.kind ? profile.kind.replace(/-/g, " ") : definition?.category ?? "fixture";
