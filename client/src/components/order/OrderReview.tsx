@@ -216,6 +216,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   const [name, setName] = useState(user?.name ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
   const [phone, setPhone] = useState("");
+  const [addressLine1, setAddressLine1] = useState("");
+  const [addressLine2, setAddressLine2] = useState("");
+  const [city, setCity] = useState("");
   const [zip, setZip] = useState("");
   const [notes, setNotes] = useState("");
   // Fulfillment: default ship; switched to pickup only when the customer picks a
@@ -530,7 +533,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     [zipDebounced, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
   );
   const freightEstimate = trpc.freight.estimate.useQuery(freightInput, {
-    enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && freightInput.items.length > 0,
+    enabled: deliveryMethod === "ship" && zipDebounced.length >= 5 && city.trim().length > 0 && taxState.length === 2 && addressLine1.trim().length > 0 && freightInput.items.length > 0,
     retry: false,
   });
   const freightCents = freightEstimate.data?.available ? freightEstimate.data.totalCents : 0;
@@ -615,6 +618,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
   });
 
   const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const customerInfoComplete = Boolean(
+    name.trim() && emailValid && phone.trim() && addressLine1.trim() && city.trim() && taxState.length === 2 && /^\d{5}(?:-\d{4})?$/.test(zip.trim()),
+  );
 
   function handleSubmit() {
     if (!isAuthenticated) {
@@ -628,6 +634,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
     }
     if (!emailValid) {
       toast.error(t("or_valid_email_confirm"));
+      return;
+    }
+    if (!customerInfoComplete) {
+      toast.error("Enter your name, phone, complete delivery address, city, state, and ZIP before requesting or submitting shipping.");
       return;
     }
     if (deliveryMethod === "ship" && !hasOnlyTemporaryFreeShippingItems && !freightEstimate.data?.quoteToken) {
@@ -652,6 +662,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       originatorEmail: email,
       originatorPhone: phone || undefined,
       zip: zip || undefined,
+      shippingAddressLine1: addressLine1.trim(),
+      shippingAddressLine2: addressLine2.trim() || undefined,
+      shippingCity: city.trim(),
+      shippingState: taxState,
       source,
 	  storeScope,
       styleId: selectedStyle?.styleId ?? null,
@@ -1116,11 +1130,32 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             <Input id="ord-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={t("or_email_ph")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ord-phone">{t("or_phone")}</Label>
+            <Label htmlFor="ord-phone">{t("or_phone")} <span className="text-destructive">*</span></Label>
             <Input id="ord-phone" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t("or_phone_ph")} />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="ord-zip">{t("or_delivery_zip")}</Label>
+            <Label htmlFor="ord-address-1">Delivery address <span className="text-destructive">*</span></Label>
+            <Input id="ord-address-1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} placeholder="Street address" autoComplete="street-address" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-address-2">Apartment, suite, or unit</Label>
+            <Input id="ord-address-2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} placeholder="Optional" autoComplete="address-line2" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-city">City <span className="text-destructive">*</span></Label>
+            <Input id="ord-city" value={city} onChange={(e) => setCity(e.target.value)} placeholder="City" autoComplete="address-level2" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-state">State <span className="text-destructive">*</span></Label>
+            <Select value={taxState} onValueChange={setTaxState}>
+              <SelectTrigger id="ord-state" className="h-9"><SelectValue placeholder="Select state" /></SelectTrigger>
+              <SelectContent className="max-h-60">
+                {US_STATE_TAX_RATES.map((s) => <SelectItem key={s.code} value={s.code}>{s.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="ord-zip">{t("or_delivery_zip")} <span className="text-destructive">*</span></Label>
             <Input id="ord-zip" value={zip} onChange={(e) => setZip(e.target.value)} placeholder={t("or_zip_ph")} />
           </div>
         </div>
@@ -1246,8 +1281,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                 </span>
               </span>
             </label>
-            {zipDebounced.length < 5 ? (
-              <p className="text-xs text-muted-foreground">Enter the delivery ZIP above to calculate the pallet quote.</p>
+            {!customerInfoComplete ? (
+              <p role="status" className="text-xs text-amber-800">Complete the required name, phone, street address, city, state, and ZIP above to calculate the shipping quote.</p>
             ) : freightEstimate.isFetching ? (
               <FreightCalculatingStatus upsRequested={carrierPreference === "ups"} />
             ) : freightEstimate.data?.available ? (

@@ -1094,7 +1094,9 @@ export const crmRouter = router({
           contactName: r.originatorName ?? null,
           contactEmail: r.originatorEmail ?? null,
           contactPhone: r.originatorPhone ?? null,
-          location: r.zip ?? null,
+          location: ([r.shippingAddressLine1, r.shippingAddressLine2, r.shippingCity, r.shippingState, r.zip]
+            .filter(Boolean)
+            .join(", ") || r.zip) ?? null,
           estimatedValue: r.totalAmount ?? null,
           source: "order_request",
           orderRequestId: r.id,
