@@ -21,6 +21,8 @@ import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN, wallAngle
 import { cabinetDrawingType, isEqualHeightTwoDrawerBase as isEqualHeightTwoDrawerBaseFamily, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, resolveDoorDrawerCounts, resolvedVanityComboFaceLayout, standardDoorCountForFaceWidth, threeDrawerBaseRowHeights } from "@/lib/cabinetGraphics";
 import { verifiedPelicanBathroomFixtureProfile, type VerifiedPelicanBathroomFixtureProfile } from "@/lib/pelicanBathroomFixtureProfiles";
 import { makePelicanTubFillerGroup } from "@/lib/pelicanTubFillerMesh";
+import { makePelicanToiletGroup } from "@/lib/pelicanToiletMesh";
+import { doorOpeningAppearance, roomDoorSwing } from "@/lib/doorOpeningAppearance";
 import { doorHardwareOffsetFromFaceCenterIn, hardwareStyle, normalizeDoorHardwareFramePosition, type HardwareStyleId } from "@/lib/hardware";
 import { ovenOpeningGeometry } from "@/lib/ovenOpening";
 import { trpc } from "@/lib/trpc";
@@ -523,7 +525,7 @@ export function threeDPointerSelectsCabinet(gesture: "move" | "up" | "context", 
   return gesture === "context" || (gesture === "up" && travelPx < 6);
 }
 
-/** Touch and pen devices open Window Attributes on a stationary tap; mouse keeps right-click. */
+  /** Touch and pen devices open Window Attributes on a stationary tap; mouse keeps right-click. */
 export function threeDTouchTapOpensWindow(
   pointerType: string,
   travelPx: number,
@@ -696,6 +698,8 @@ interface Props {
   onSelectOpening?: (uid: string) => void;
   /** Opens the selected window's exact attributes controls. */
   onOpenWindowEditor?: (uid: string) => void;
+  /** Room door attributes use the same saved opening identity in plan and 3D. */
+  onOpenDoorEditor?: (uid: string) => void;
   /** Opens the host Designer's measured, catalog-backed add or edit filler choices. */
   onRequestFiller?: (uid: string) => void;
   /** Moves an eligible glass stacker flush with the front of its deeper parent cabinet. */
@@ -8329,98 +8333,8 @@ function addPelicanBathroomFixture(
     panel.position.y = height / 2;
     add(panel, "shower-wall-panel");
   } else if (profile.kind === "toilet") {
-    // Pelican publishes only the exterior width/depth/overall height and, on
-    // most models, a seat height. Keep this recognizably toilet-shaped but
-    // entirely inside that source envelope; the bowl, lid, and rear housing
-    // are illustrative visual features, not an installation or internal-parts
-    // claim.
-    const seatHeight = Math.min(height * 0.88, Math.max(height * 0.54, (profile.seatHeightIn ?? profile.heightIn * 0.52) * INCH));
-    const seatMaterial = new THREE.MeshPhysicalMaterial({
-      color: profile.finish === "vitreous-china-matte-black" ? "#08090a" : "#e4e9e9",
-      roughness: 0.2,
-      clearcoat: 0.24,
-      clearcoatRoughness: 0.16,
-    });
-    // Product photos show one continuous pedestal/bowl shell, not two floating
-    // ellipsoids. These smoothly overlapping revolved profiles give a grounded,
-    // joined silhouette while remaining inside the measured exterior envelope.
-    const baseHeight = seatHeight * 0.62;
-    const base = new THREE.Mesh(new THREE.LatheGeometry([
-      new THREE.Vector2(0.25, 0),
-      new THREE.Vector2(0.31, seatHeight * 0.05),
-      new THREE.Vector2(0.30, seatHeight * 0.34),
-      new THREE.Vector2(0.35, baseHeight * 0.85),
-      new THREE.Vector2(0.39, baseHeight),
-    ], 48), shell);
-    base.scale.set(width, 1, depth);
-    base.position.z = depth * 0.12;
-    add(base, "toilet-ceramic-base");
-    const bowl = new THREE.Mesh(new THREE.LatheGeometry([
-      new THREE.Vector2(0.38, baseHeight * 0.89),
-      new THREE.Vector2(0.42, seatHeight * 0.72),
-      new THREE.Vector2(0.465, seatHeight * 0.89),
-      new THREE.Vector2(0.465, seatHeight),
-      new THREE.Vector2(0.34, seatHeight),
-      new THREE.Vector2(0.32, seatHeight * 0.93),
-    ], 48), shell);
-    bowl.scale.set(width, 1, depth * 0.71);
-    bowl.position.z = depth * 0.12;
-    add(bowl, "toilet-bowl-exterior");
-    const waterWell = new THREE.Mesh(new THREE.CircleGeometry(0.5, 36), water);
-    waterWell.rotation.x = -Math.PI / 2;
-    waterWell.scale.set(width * 0.56, depth * 0.4, 1);
-    waterWell.position.set(0, seatHeight * 0.94, depth * 0.12);
-    add(waterWell, "toilet-bowl-water");
-    const seat = new THREE.Mesh(new THREE.RingGeometry(0.7, 1, 48), seatMaterial);
-    seat.rotation.x = -Math.PI / 2;
-    seat.scale.set(width * 0.455, depth * 0.335, 1);
-    seat.position.set(0, seatHeight + 0.014, depth * 0.12);
-    add(seat, "toilet-seat");
-    // The closed lid lies on the seat rather than hovering above a dark bowl.
-    const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.018, 48), seatMaterial);
-    lid.scale.set(width * 0.86, 1, depth * 0.62);
-    lid.position.set(0, seatHeight + 0.027, depth * 0.12);
-    add(lid, "toilet-lid");
-    const rearHousingHeight = profile.toiletStyle === "smart"
-      ? Math.max(height * 0.25, height - seatHeight * 0.8)
-      : Math.max(height * 0.34, height - seatHeight * 0.45);
-    const rearHousing = new THREE.Mesh(
-      new RoundedBoxGeometry(width * (profile.toiletStyle === "two-piece" ? 0.8 : 0.73), rearHousingHeight, depth * (profile.toiletStyle === "smart" ? 0.27 : 0.31), Math.min(width, depth) * 0.05, 5),
-      shell,
-    );
-    rearHousing.position.set(0, height - rearHousingHeight / 2, -depth * 0.3);
-    add(rearHousing, profile.toiletStyle === "two-piece" ? "toilet-tank" : profile.toiletStyle === "smart" ? "toilet-smart-rear-housing" : "toilet-integrated-rear-housing");
-    if (profile.toiletStyle === "two-piece") {
-      const tankLid = new THREE.Mesh(new RoundedBoxGeometry(width * 0.68, 0.032, depth * 0.23, Math.min(width, depth) * 0.018, 3), seatMaterial);
-      tankLid.position.set(0, height - 0.02, -depth * 0.3);
-      add(tankLid, "toilet-tank-lid");
-    }
-    // The sheets distinguish single-flush, dual-flush, and touchless smart
-    // controls but do not document exact button or sensor coordinates. Indicate
-    // that fact only with bounded illustrative top markings—not plumbing,
-    // connections, or installation detail.
-    const flushControlY = height - Math.min(0.028, rearHousingHeight * 0.08);
-    if (profile.toiletFlushControl === "dual-button") {
-      for (const [side, radius] of [["left", width * 0.036], ["right", width * 0.046]] as const) {
-        const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, 0.018, 20), dark);
-        flushControl.position.set(side === "left" ? -width * 0.065 : width * 0.065, flushControlY, -depth * 0.28);
-        flushControl.userData = { toiletFlushControlMode: "dual-button", illustrativeControlPosition: true };
-        add(flushControl, `toilet-dual-flush-${side}-button`);
-      }
-    } else if (profile.toiletFlushControl === "single-button") {
-      const flushControl = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.045, width * 0.045, 0.018, 20), dark);
-      flushControl.position.set(0, flushControlY, -depth * 0.28);
-      flushControl.userData = { toiletFlushControlMode: "single-button", illustrativeControlPosition: true };
-      add(flushControl, "toilet-single-flush-button");
-    } else {
-      const touchlessCap = new THREE.Mesh(
-        new RoundedBoxGeometry(width * 0.34, 0.012, depth * 0.1, Math.min(width, depth) * 0.012, 3),
-        seatMaterial,
-      );
-      touchlessCap.position.set(0, flushControlY, -depth * 0.28);
-      touchlessCap.userData = { toiletFlushControlMode: profile.toiletFlushControl ?? "touchless", illustrativeControlPosition: true };
-      add(touchlessCap, profile.toiletFlushControl === "touchless-auto" ? "toilet-touchless-auto-top" : "toilet-touchless-top");
-    }
+    const toilet = makePelicanToiletGroup(profile);
+    for (const child of [...toilet.children]) group.add(child);
   } else if (profile.kind === "bidet") {
     const baseHeight = height * 0.78;
     const pedestal = new THREE.Mesh(new THREE.CylinderGeometry(width * 0.27, width * 0.36, baseHeight, 28), shell);
@@ -8610,11 +8524,14 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
   group.userData = { openingUid: opening.uid, kind: opening.kind, label: opening.label };
   const width = opening.width * INCH;
   const height = opening.height * INCH;
+  const isDoor = opening.kind === "door";
+  const appearance = doorOpeningAppearance(opening);
   const isBifold = opening.kind === "door" && opening.doorStyle === "bifold";
   const trimMaterial = new THREE.MeshStandardMaterial({ color: "#f4f0e8", roughness: 0.5 });
   const openingDepth = 0.12;
   const trimWidth = Math.min(0.12, Math.max(0.055, width * 0.075));
-  const backing = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2, height + trimWidth * 2, 0.07), trimMaterial);
+  const backingMaterial = isDoor ? new THREE.MeshStandardMaterial({ color: appearance.color, roughness: 0.5, transparent: true, opacity: 0, depthWrite: false }) : trimMaterial;
+  const backing = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2, height + trimWidth * 2, 0.07), backingMaterial);
   backing.userData = { architecturalOpeningBacking: true };
   // A reach-in bi-fold is a room aperture, not a blank white wall behind its leaves.
   if (!isBifold) group.add(backing);
@@ -8635,7 +8552,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     // Generic room-door reference only: four leaves across the nominal opening.
     // This is not a MasterTrac SKU, hinge/swing specification, or rough-opening cut list.
     const leafWidth = (width - 0.08) / 4;
-    const leafMaterial = new THREE.MeshStandardMaterial({ color: "#ad8059", roughness: 0.6, transparent: true, opacity: 0.38, depthWrite: false });
+    const leafMaterial = new THREE.MeshStandardMaterial({ color: appearance.color, roughness: 0.6, transparent: true, opacity: appearance.opacity, depthWrite: false });
     for (let index = 0; index < 4; index += 1) {
       const leaf = new THREE.Mesh(new THREE.BoxGeometry(leafWidth - 0.012, height - 0.08, 0.055), leafMaterial);
       leaf.position.set(-width / 2 + 0.04 + leafWidth * (index + 0.5), 0, 0.02);
@@ -8643,8 +8560,9 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       group.add(leaf);
     }
   } else {
-  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0 }));
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) }));
   pane.position.z = 0.01;
+  if (isDoor) pane.userData = { architecturalDoorSlab: true, planningOpacity: appearance.opacity };
   group.add(pane);
   if (isWindow) {
     const muntin = new THREE.MeshStandardMaterial({ color: "#f7f5ef", roughness: 0.45 });
@@ -8657,7 +8575,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     sill.userData = { architecturalWindowSill: true };
     group.add(vertical, horizontal, sill);
   } else {
-    const doorPanelMaterial = new THREE.MeshStandardMaterial({ color: "#6f503b", roughness: 0.54 });
+    const doorPanelMaterial = new THREE.MeshStandardMaterial({ color: isDoor ? appearance.color : "#6f503b", roughness: 0.54, ...(isDoor ? { transparent: true, opacity: appearance.opacity * 0.6, depthWrite: false } : {}) });
     const upperPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.26, 0.035), doorPanelMaterial);
     const lowerPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.43, 0.035), doorPanelMaterial);
     upperPanel.position.set(0, height * 0.19, 0.065);
@@ -8669,6 +8587,21 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     handle.userData = { architecturalDoorHandle: true };
     group.add(upperPanel, lowerPanel, handle);
   }
+  }
+  if (isDoor && !isBifold) {
+    const swing = roomDoorSwing(opening);
+    const hingeX = swing.hinge === "left" ? -width / 2 : width / 2;
+    const pivot = new THREE.Group();
+    pivot.position.x = hingeX;
+    pivot.rotation.y = -swing.sign * swing.angle * Math.PI / 180;
+    pivot.userData = { architecturalDoorLeafPivot: true, openAngle: swing.angle, hinge: swing.hinge };
+    for (const mesh of [...group.children]) {
+      if (!mesh.userData.architecturalDoorSlab && !mesh.userData.architecturalDoorPanel && !mesh.userData.architecturalDoorHandle) continue;
+      if (mesh.userData.architecturalDoorHandle) mesh.position.x = swing.sign * width * 0.36;
+      mesh.position.x -= hingeX;
+      pivot.add(mesh);
+    }
+    group.add(pivot);
   }
   root.add(group);
 }
@@ -9121,7 +9054,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onOpenDoorEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -10414,6 +10347,16 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     return threeDOpeningHitFromIntersections(raycaster.intersectObjects(root.children, true));
   };
 
+  const openDoorAtPoint = (clientX: number, clientY: number): boolean => {
+    const hit = inspectOpeningAtPoint(clientX, clientY);
+    if (hit?.kind !== "door" || !onOpenDoorEditor) return false;
+    setSelectedCabinet(null);
+    setMovePanelOpen(false);
+    onSelectOpening?.(hit.uid);
+    onOpenDoorEditor(hit.uid);
+    return true;
+  };
+
   const inspectFurnitureAtPoint = (clientX: number, clientY: number) => {
     const renderer = rendererRef.current;
     const camera = cameraRef.current;
@@ -10529,7 +10472,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	  if ((event.target as Element | null)?.closest?.("[data-ui-overlay]")) return;
 	  pointerStartRef.current = { x: event.clientX, y: event.clientY, button: event.button };
     if (event.button !== 2 || !onMoveCabinetTo) return;
-    if (onOpenWindowEditor && inspectOpeningAtPoint(event.clientX, event.clientY)?.kind === "window") {
+    if ((onOpenDoorEditor && inspectOpeningAtPoint(event.clientX, event.clientY)?.kind === "door") || (onOpenWindowEditor && inspectOpeningAtPoint(event.clientX, event.clientY)?.kind === "window")) {
       rightDragRef.current = null;
       return;
     }
@@ -10612,7 +10555,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		        event.stopPropagation();
 		        return;
 		      }
-		      const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY);
+		      if (openDoorAtPoint(event.clientX, event.clientY)) {
+                event.preventDefault();
+                event.stopPropagation();
+                return;
+              }
+              const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY);
 	      if (threeDTouchTapOpensWindow(event.pointerType, travelPx, openingSelection?.kind) && openingSelection && onOpenWindowEditor) {
 	        onSelectOpening?.(openingSelection.uid);
 	        onOpenWindowEditor(openingSelection.uid);
@@ -11244,7 +11192,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         <div className="min-w-0"><p className="text-sm font-semibold">3D Designer</p><p className="truncate text-[11px] text-muted-foreground">{renderExistingDesign ? `${placed.length} cabinets · synchronized with your plan` : "Start placing catalog cabinets"}</p></div>
         <div className="flex shrink-0 gap-1"><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={toggleFullscreen}>{isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}</Button><Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-xs" onClick={() => setResetKey((current) => current + 1)}><Camera className="h-4 w-4" /></Button></div>
       </div>}
-      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onDoubleClick={(event) => { const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); } }} onContextMenu={(event) => { event.preventDefault(); const furnitureHit = inspectFurnitureAtPoint(event.clientX, event.clientY); if (furnitureHit && FURNITURE_CATALOG.find((item) => item.id === furnitureHit.defId)?.category === "bathroom-zone" && onOpenFurnitureAttributes) { onSelectFurniture?.(furnitureHit.uid); onOpenFurnitureAttributes(furnitureHit.uid); return; } if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
+      <div className={`relative overflow-hidden rounded-xl border bg-[#f6f3ed] shadow-inner transition-opacity duration-300 touch-none ${embedded ? "min-h-[300px] flex-1" : isFullscreen ? "h-[calc(100vh-9rem)] min-h-[480px]" : "h-[58dvh] min-h-[400px] sm:h-[62vh]"} ${materialTransitioning ? "opacity-75" : "opacity-100"}`} onPointerDown={handleRoomPointerDown} onPointerMove={handleRoomPointerMove} onPointerUp={handleRoomPointerUp} onPointerCancel={(event) => { pointerStartRef.current = null; finishRightDrag(event, true); }} onDoubleClick={(event) => { if (openDoorAtPoint(event.clientX, event.clientY)) return; const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); } }} onContextMenu={(event) => { event.preventDefault(); const furnitureHit = inspectFurnitureAtPoint(event.clientX, event.clientY); if (furnitureHit && FURNITURE_CATALOG.find((item) => item.id === furnitureHit.defId)?.category === "bathroom-zone" && onOpenFurnitureAttributes) { onSelectFurniture?.(furnitureHit.uid); onOpenFurnitureAttributes(furnitureHit.uid); return; } if (suppressContextMenuRef.current || rightDragRef.current?.active) { suppressContextMenuRef.current = false; return; } if (openDoorAtPoint(event.clientX, event.clientY)) return; const openingSelection = inspectOpeningAtPoint(event.clientX, event.clientY); if (openingSelection?.kind === "window" && onOpenWindowEditor) { setMovePanelOpen(false); onSelectOpening?.(openingSelection.uid); onOpenWindowEditor(openingSelection.uid); return; } const selection = inspectCabinetAtPoint(event.clientX, event.clientY); if (selection?.uid && onOpenCabinetEditor) { setMovePanelOpen(false); onOpenCabinetEditor(selection.uid); return; } setMovePanelOpen(Boolean(selection?.uid && onMoveCabinet)); }} onDragOver={(event) => {
         event.preventDefault();
         const key = event.dataTransfer.getData("text/plain") || draggedCatalogId || "";
         const item = catalogItems.find((candidate) => `${candidate.category}:${candidate.id}` === key) ?? catalogDragItem;

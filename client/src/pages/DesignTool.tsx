@@ -210,6 +210,7 @@ import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSi
 import { catalogHeightForCabinet, catalogHeightOptions, filterCatalogByHeight, formatCatalogInchValue, type HeightFilterPaletteType } from "./designToolCatalogHeights";
 import { WallPicker } from "@/components/design/WallPicker";
 import { OpeningSizeEditor } from "@/components/design/OpeningSizeEditor";
+import { DoorAttributesDialog } from "@/components/design/DoorAttributesDialog";
 import { DesignHelp } from "@/components/design/DesignHelp";
 import { CountertopQuoteDialog } from "@/components/design/CountertopQuoteDialog";
 import { SurfacesPickerDialog, type SelectedSurface } from "@/components/design/SurfacesPickerDialog";
@@ -9613,9 +9614,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const [fillerAttrOpen, setFillerAttrOpen] = useState(false);
 	  const [floatingShelfAttrUid, setFloatingShelfAttrUid] = useState<string | null>(null);
 	  const [floatingShelfAttrOpen, setFloatingShelfAttrOpen] = useState(false);
-	  const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
+	  const [doorAttrUid, setDoorAttrUid] = useState<string | null>(null);
+      const [doorAttrOpen, setDoorAttrOpen] = useState(false);
+      const [windowAttrUid, setWindowAttrUid] = useState<string | null>(null);
 	  const [windowAttrOpen, setWindowAttrOpen] = useState(false);
 	  const [windowPositionReferenceFocus, setWindowPositionReferenceFocus] = useState<{ openingUid: string; reference: "start" | "end" } | null>(null);
+      const openDoorAttributes = useCallback((uid: string) => {
+        const opening = openings.find((candidate) => candidate.uid === uid);
+        if (!opening || opening.kind !== "door") return;
+        selectOpening(uid);
+        setDoorAttrUid(uid);
+        setDoorAttrOpen(true);
+        setWindowAttrOpen(false);
+        setAttrOpen(false);
+        setFillerAttrOpen(false);
+        setCabEditSheetOpen(false);
+      }, [openings, selectOpening]);
 	  const openWindowAttributes = useCallback((uid: string) => {
 	    const opening = openings.find((candidate) => candidate.uid === uid);
 	    if (!opening || opening.kind !== "window") return;
@@ -9710,8 +9724,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      openWindowAttributes(opening.uid);
 	      return;
 	    }
-	    if (opening) {
-	      // Doors and cased openings are managed by the same selected-wall editor
+	    if (opening?.kind === "door") {
+              openDoorAttributes(opening.uid);
+              return;
+            }
+            if (opening) {
+	      // Cased openings retain the same selected-wall editor
 	      // that exposes their exact wall placement, dimensions, and removal.
 	      openWallSettings(opening.side);
 	      return;
@@ -9721,7 +9739,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      return;
 	    }
 	    openWallSettings(activeWall);
-	  }, [activeWall, island, openAttributes, openWallSettings, openWindowAttributes, openings, selectedOpeningUid, selectedUid]);
+	  }, [activeWall, island, openAttributes, openWallSettings, openWindowAttributes, openDoorAttributes, openings, selectedOpeningUid, selectedUid]);
 	  const requestFillerAction = useCallback((uid: string) => {
     if (!openFillerAttributes(uid)) requestSmallGapFiller(uid);
   }, [openFillerAttributes, requestSmallGapFiller]);
@@ -11833,6 +11851,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       onOpenCabinetEditor={openAttributes}
       onSelectOpening={selectOpening}
       onOpenWindowEditor={openWindowAttributes}
+      onOpenDoorEditor={openDoorAttributes}
 	      onRequestFiller={requestFillerAction}
 	      onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
       onRotateCabinet={rotateCabinet}
@@ -13693,6 +13712,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           {selectedOpening && !drawMode && (
             <OpeningSizeEditor
               opening={selectedOpening}
+              onOpenAttributes={selectedOpening.kind === "door" ? () => openDoorAttributes(selectedOpening.uid) : undefined}
               room={room}
               onChange={changeOpening}
               onDelete={() => deleteOpening(selectedOpening.uid)}
@@ -15127,6 +15147,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              sinkWindowSnap={sinkWindowSnap}
               onSelectOpening={selectOpening}
               onOpenWindowAttributes={openWindowAttributes}
+              onOpenDoorAttributes={openDoorAttributes}
               onOpeningChange={changeOpening}
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
@@ -15412,6 +15433,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  sinkWindowSnap={sinkWindowSnap}
 	                  onSelectOpening={selectOpening}
                   onOpenWindowAttributes={openWindowAttributes}
+              onOpenDoorAttributes={openDoorAttributes}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}
@@ -17449,7 +17471,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        getNearestDuplicateClearHeight={nearestDuplicateFloatingShelfClearHeight}
 	        onRemove={removeFloatingShelf}
 	      />
-	      <WindowAttributesDialog
+	      <DoorAttributesDialog
+          opening={doorAttrUid ? openings.find((opening) => opening.uid === doorAttrUid) ?? null : null}
+          room={room}
+          open={doorAttrOpen}
+          onOpenChange={(open) => { setDoorAttrOpen(open); if (!open) setDoorAttrUid(null); }}
+          onChange={changeOpening}
+          onDelete={(uid) => { deleteOpening(uid); setDoorAttrOpen(false); setDoorAttrUid(null); }}
+        />
+        <WindowAttributesDialog
 		        opening={windowAttrUid ? openings.find((opening) => opening.uid === windowAttrUid) ?? null : null}
 		        room={room}
 		        open={windowAttrOpen}
@@ -18837,6 +18867,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onOpenCabinetEditor={openAttributes}
 	                onSelectOpening={selectOpening}
 	                onOpenWindowEditor={openWindowAttributes}
+      onOpenDoorEditor={openDoorAttributes}
 		                onRequestFiller={requestFillerAction}
 		                onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
 	                onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}

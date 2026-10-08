@@ -1,3 +1,4 @@
+import { doorOpeningAppearance, roomDoorSwing, supportsRoomDoorSwing } from "@/lib/doorOpeningAppearance";
 import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { Fragment } from "react";
 import {
@@ -337,6 +338,7 @@ interface Props {
   onSelectOpening?: (uid: string | null) => void;
   /** Opens the exact Width / Height / Sill / Position window editor. */
   onOpenWindowAttributes?: (uid: string) => void;
+  onOpenDoorAttributes?: (uid: string) => void;
   onOpeningChange?: (opening: WallOpening) => void;
   onDeleteOpening?: (uid: string) => void;
   finish?: FinishColors;
@@ -462,7 +464,7 @@ export function PlanCanvas({
   showWallLayer, showCrownTopBadges = false, onToggleWallLayer, measureMode = false, autoDimensions = false, onDimensionAdjustmentChange, showPeninsulaCornerSnapFeedback = true, island = null, onIslandChange, onIslandMove,
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
-  openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
+  openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpenDoorAttributes, onOpeningChange, onDeleteOpening,
 	  finish = DEFAULT_FINISH_COLORS,
 	  drawMode = false, onDrawRoom,
 	  activeWall, onSelectWall, wallCompassStartIn = null, wallCompassVisible = false, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids, missingPriceUids,
@@ -571,10 +573,9 @@ export function PlanCanvas({
     event.preventDefault();
     event.stopPropagation();
     onSelectOpening?.(opening.uid);
-    // Windows have a dedicated attributes dialog. Doors and cased openings keep
-    // their existing selected-opening controls rather than opening a mismatched
-    // window-only form.
+    // Windows and doors have dedicated, type-specific Attributes dialogs.
     if (opening.kind === "window") onOpenWindowAttributes?.(opening.uid);
+    if (opening.kind === "door") onOpenDoorAttributes?.(opening.uid);
   };
   // Island drag/resize: tracks an active gesture without re-rendering per move.
   const islandDrag = useRef<
@@ -2310,7 +2311,7 @@ export function PlanCanvas({
 	              className={`group absolute z-[15] flex items-center justify-center ${onOpeningChange ? "cursor-move" : ""} ${isSinkWindowSnapTarget ? "motion-safe:animate-pulse" : ""}`}
               style={{
                 ...style,
-                background: isDoor ? "#9b6a3c" : isOpening ? "#e8eaed" : "#7fb4d6",
+                background: isDoor ? doorOpeningAppearance(o).color : isOpening ? "#e8eaed" : "#7fb4d6",
                 border: isSel
                   ? "2px solid #1a2744"
 	                  : isSinkWindowSnapTarget
@@ -2331,8 +2332,21 @@ export function PlanCanvas({
               {isBifold && <span className="pointer-events-none absolute inset-0 flex" data-testid="plan-bifold-panels" aria-hidden="true">
                 {[0, 1, 2, 3].map((index) => <span key={index} className="h-full w-1/4 border-r border-[#f4e7d3]/80 last:border-r-0" />)}
               </span>}
+              {supportsRoomDoorSwing(o) && roomDoorSwing(o).angle === 90 && (() => {
+                const swing = roomDoorSwing(o);
+                const hingeX = swing.hinge === "left" ? 0 : lenPx;
+                const closedX = swing.hinge === "left" ? lenPx : 0;
+                const reversed = customFrame ? customWallCabinetSide(room, o.side) === "right" : o.side === "bottom" || o.side === "left";
+                const horizontalDoor = Boolean(customFrame) || horizontal;
+                const swingTransform = horizontalDoor ? reversed ? "rotate(180deg)" : "none" : reversed ? "rotate(-90deg)" : "rotate(90deg)";
+                return <svg data-testid="plan-door-swing" data-door-uid={o.uid} data-open-angle="90" aria-hidden="true" width={lenPx} height={lenPx} viewBox={`0 0 ${lenPx} ${lenPx}`} className="pointer-events-none absolute overflow-visible" style={{ left: horizontalDoor ? reversed ? lenPx : 0 : band / 2, top: horizontalDoor ? band / 2 : reversed ? lenPx : 0, transformOrigin: "0 0", transform: swingTransform }}>
+                  <path d={`M ${closedX} 0 A ${lenPx} ${lenPx} 0 0 ${swing.hinge === "left" ? 1 : 0} ${hingeX} ${lenPx}`} fill="none" stroke="#64748b" strokeWidth="1.5" strokeDasharray="5 4" />
+                  <line x1={hingeX} y1="0" x2={hingeX} y2={lenPx} stroke="#475569" strokeWidth="4" />
+                  <line x1={hingeX} y1="0" x2={hingeX} y2={lenPx} stroke={doorOpeningAppearance(o).color} strokeWidth="2" />
+                </svg>;
+              })()}
               <span
-                className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening ? "text-[#3a4047]" : "text-white"}`}
+                className={`pointer-events-none whitespace-nowrap text-[8px] font-bold drop-shadow ${isOpening || isDoor ? "text-[#3a4047]" : "text-white"}`}
                 style={{ transform: customFrame ? `rotate(${-customFrame.angleDeg}deg)` : horizontal ? "none" : "rotate(-90deg)" }}
               >
                 {isBifold ? "Bi-fold" : isDoor ? t("dt_pc_door") : isOpening ? t("dt_pc_open") : t("dt_pc_win")} {Math.round(o.width)}"

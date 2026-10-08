@@ -1,3 +1,4 @@
+import { doorOpeningAppearance } from "@/lib/doorOpeningAppearance";
 import {
   PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
@@ -1962,7 +1963,7 @@ export function ElevationView({
                 bottom: o.sill * ppi,
                 height: o.height * ppi,
                 background: isDoor
-                  ? "linear-gradient(to bottom, #b07f4d 0%, #8a5f33 100%)"
+                  ? doorOpeningAppearance(o).color
                   : isOpening
                   ? "linear-gradient(to bottom, #f3f4f6 0%, #e2e5e9 100%)"
                   : "linear-gradient(to bottom, rgba(160,205,235,0.85) 0%, rgba(126,180,214,0.85) 100%)",

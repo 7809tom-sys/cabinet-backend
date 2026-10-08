@@ -8,25 +8,24 @@ interface Props {
   room: RoomData;
   onChange: (o: WallOpening) => void;
   onDelete: () => void;
+  onOpenAttributes?: () => void;
   movementIncrementIn?: number;
   /** Mirrors the active measurement reference onto the Floor Plan while typing. */
   onPositionReferenceFocusChange?: (reference: { openingUid: string; reference: "start" | "end" } | null) => void;
 }
 
 // Inline editor shown in the contextual row when a door/window is selected.
-// Lets the user type an exact width (and a height for windows) in inches,
-// in addition to dragging the resize handle on the canvas. Doors keep a fixed
-// 80" tall standard, so only windows expose a height field.
+// Exact opening width and height in inches; doors no longer have a fixed height.
+// The dedicated Door Attributes dialog also provides paint and planning opacity.
 //
 // It ALSO exposes a "Position on wall" control — start/end (left/right)
 // reference selection, a numeric exact-distance field, nudge buttons, and a
 // Center button — so the opening can be moved precisely without dragging.
 // Dragging is hard on a phone, so these tap targets are the reliable way to
 // reposition a door/window there.
-export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementIncrementIn = 1, onPositionReferenceFocusChange }: Props) {
+export function OpeningSizeEditor({ opening, room, onChange, onDelete, onOpenAttributes, movementIncrementIn = 1, onPositionReferenceFocusChange }: Props) {
   const { t } = useLanguage();
-  // Windows and cased openings expose Height + Sill (sizeable like a doorway);
-  // doors stay a standard 80" tall so only their width is editable.
+  // All openings expose height; only windows/pass-throughs expose sill controls.
   const showHeightSill = opening.kind === "window" || opening.kind === "opening";
   const wallLen = Math.round(wallLength(opening.side, room) * 8) / 8;
   const maxW = wallLen;
@@ -38,9 +37,9 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
 
   // Local text state so the user can clear/retype without the value snapping
   // back mid-edit. We commit (clamped) on blur or Enter.
-  const [widthText, setWidthText] = useState(String(Math.round(opening.width)));
-  const [heightText, setHeightText] = useState(String(Math.round(opening.height)));
-  const [sillText, setSillText] = useState(String(Math.round(opening.sill)));
+  const [widthText, setWidthText] = useState(String(opening.width));
+  const [heightText, setHeightText] = useState(String(opening.height));
+  const [sillText, setSillText] = useState(String(opening.sill));
   const [positionReference, setPositionReference] = useState<"start" | "end">("start");
   const [positionInputFocused, setPositionInputFocused] = useState(false);
   const measuredDistance = positionReference === "start"
@@ -57,9 +56,9 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
 
   // Re-sync when a different opening is selected or the canvas drag changes it.
   useEffect(() => {
-    setWidthText(String(Math.round(opening.width)));
-    setHeightText(String(Math.round(opening.height)));
-    setSillText(String(Math.round(opening.sill)));
+    setWidthText(String(opening.width));
+    setHeightText(String(opening.height));
+    setSillText(String(opening.sill));
     setOffsetText(formatMeasuredDistance(positionReference === "start"
       ? opening.offset
       : Math.max(0, maxOffset - opening.offset)));
@@ -70,15 +69,15 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
     if (Number.isFinite(n) && n > 0) {
       onChange(clampOpening({ ...opening, width: Math.min(Math.max(6, n), maxW) }, room));
     } else {
-      setWidthText(String(Math.round(opening.width)));
+      setWidthText(String(opening.width));
     }
   };
   const commitHeight = () => {
     const n = parseFloat(heightText);
     if (Number.isFinite(n) && n > 0) {
-      onChange(clampOpening({ ...opening, height: Math.min(Math.max(6, n), 120) }, room));
+      onChange(clampOpening({ ...opening, height: Math.min(Math.max(6, n), wallCeilingIn - opening.sill) }, room));
     } else {
-      setHeightText(String(Math.round(opening.height)));
+      setHeightText(String(opening.height));
     }
   };
   const commitSill = () => {
@@ -86,7 +85,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
     if (Number.isFinite(n) && n >= 0) {
       onChange(clampOpening({ ...opening, sill: n }, room));
     } else {
-      setSillText(String(Math.round(opening.sill)));
+      setSillText(String(opening.sill));
     }
   };
   const nudgeSill = (delta: number) => {
@@ -148,7 +147,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
         />
         <span className="text-foreground/60">{t("dt_op_in")}</span>
       </label>
-      {showHeightSill && (
+      {(
         <>
           <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
             {t("dt_op_height")}
@@ -156,7 +155,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
               type="number"
               inputMode="decimal"
               min={6}
-              max={120}
+              max={Math.max(6, wallCeilingIn - opening.sill)}
               value={heightText}
               onChange={(e) => setHeightText(e.target.value)}
               onBlur={commitHeight}
@@ -167,6 +166,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
             />
             <span className="text-foreground/60">{t("dt_op_in")}</span>
           </label>
+          {showHeightSill && <>
           <label className="flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
             {t("dt_op_sill")}
             <input
@@ -206,6 +206,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
               <ChevronUp className="h-4 w-4" />
             </button>
           </div>
+          </>}
         </>
       )}
 
@@ -299,6 +300,7 @@ export function OpeningSizeEditor({ opening, room, onChange, onDelete, movementI
         )}
       </div>
 
+      {opening.kind === "door" && onOpenAttributes && <button type="button" onClick={onOpenAttributes} data-testid="opening-door-attributes" className="min-h-10 rounded-md border border-[#1a2744]/35 bg-white px-3 text-xs font-semibold text-[#1a2744]">Attributes</button>}
       <button
         type="button"
         onClick={onDelete}

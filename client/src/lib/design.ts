@@ -5551,6 +5551,13 @@ export interface WallOpening {
   kind: OpeningKind;
   /** Generic room-door illustration, not a catalog MasterTrac door or a hardware specification. */
   doorStyle?: "bifold";
+  /** User-selected room-door paint color; absent standard doors render white. */
+  doorColor?: string;
+  /** 3D planning opacity only, not a glass/product specification. */
+  doorOpacity?: number;
+  /** Generic single-leaf planning swing; not a sliding/bifold hardware model. */
+  doorOpenAngle?: 0 | 90;
+  doorHinge?: "left" | "right";
   label: string;
   side: WallSide;
   offset: number; // inches from the wall start (left for top/bottom, top for left/right)
