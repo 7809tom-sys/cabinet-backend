@@ -33,7 +33,16 @@ const Countertops = lazy(() => import("@/pages/Countertops"));
 const CabinetDetail = lazy(() => import("@/pages/CabinetDetail"));
 const DoorStyles = lazy(() => import("@/pages/DoorStyles"));
 const Family = lazy(() => import("@/pages/Family"));
-const DesignTool = lazy(() => import("@/pages/DesignTool"));
+// The Designer is intentionally route-split because it is the largest page in
+// the app. On a direct /design visit, waiting until React reaches the route
+// before starting that import leaves a phone showing only PageLoader while Vite
+// compiles/downloads the large module. Warm the same promise as soon as the app
+// entry loads, but only for Designer URLs so normal storefront pages do not pay
+// the Designer's startup cost.
+const isDirectDesignerRoute = typeof window !== "undefined"
+  && (window.location.pathname === "/design" || /^\/store\/[^/]+\/design\/?$/.test(window.location.pathname));
+const designToolModule = isDirectDesignerRoute ? import("@/pages/DesignTool") : null;
+const DesignTool = lazy(() => designToolModule ?? import("@/pages/DesignTool"));
 const DesignSession = lazy(() => import("@/pages/DesignSession"));
 const ProNetwork = lazy(() => import("@/pages/ProNetwork"));
 const BecomeVendor = lazy(() => import("@/pages/BecomeVendor"));
