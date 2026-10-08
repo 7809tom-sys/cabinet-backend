@@ -15,7 +15,7 @@ import {
   MITER_ALLOWANCE_IN, COUNTERTOP_DEPTH_IN,
   doorPanelKind, wallSpanMeasure, wallCabinetFitMeasure,
   countertopSurfaces, countertopMaterial, makeSink, COUNTERTOP_DEPTH_IN as CT_DEPTH, bearsCountertop, peninsulaCornerCabinetSupportsCountertop, countertopSurfacePlanPolygon, countertopPolygonSelfIntersects, lCornerCountertopWorldPolygon,
-  wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT,
+  wallCabinetTopLine, roomCeiling, ceilingFitViolations, DEFAULT_CEILING_HEIGHT, ordinaryWallMountBottom,
 	  wallCeiling, wallCeilingIsSloped, wallCeilingMin, wallCeilingAt, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, clampCeilingHeight,
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, firstCollisionFreeWallPlacement, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
@@ -2980,6 +2980,19 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 });
 
 	describe("wall cabinet elevation rules", () => {
+	  it.each([
+	    ["W3012", 12], ["W3015", 15], ["W3018", 18], ["W3021", 21], ["W3024", 24],
+	    ["W-30-12", 12], ["W-30-15", 15], ["W-30-18", 18], ["W-30-21", 21], ["W-30-24", 24],
+	  ] as const)("starts the 30-inch short upper %s at 72 inches", (masterCode, height) => {
+	    const cabinet = cab({ placement: "wall", masterCode, width: 30, height });
+    expect(ordinaryWallMountBottom(cabinet)).toBe(72);
+    expect(elevationBox(cabinet)).toEqual({ bottom: 72, height });
+  });
+
+	  it("keeps the top-aligned default for other short wall cabinets", () => {
+	    expect(ordinaryWallMountBottom(cab({ placement: "wall", masterCode: "W2418", width: 24, height: 18 }))).toBe(66);
+  });
+
 	  it("restores a legacy 12-inch upper to the fixed 72-inch datum without touching manual, stacker, or refrigerator exceptions", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 108 };
 	    const legacyShortUpper = cab({ uid: "legacy-short", placement: "wall", masterCode: "W-30-12", height: 12, mountBottom: 90 });

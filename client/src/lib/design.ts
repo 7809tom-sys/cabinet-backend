@@ -1451,6 +1451,18 @@ export const WALL_MOUNT_BOTTOM = STD.WALL_MOUNT_BOTTOM; // 54"
 /** Short ordinary wall boxes finish at the standard 84-inch upper-run top line. */
 export const TWELVE_INCH_WALL_MOUNT_BOTTOM = 72;
 
+/** The 30-inch-wide short-upper family shares one 72-inch bottom datum. */
+function isThirtyInchShortUpperAt72(p: {
+  placement?: Placement | null;
+  height?: number | null;
+  masterCode?: string | null;
+}): boolean {
+  if (p.placement !== "wall") return false;
+  const normalizedCode = (p.masterCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return /^W30(?:12|15|18|21|24)$/.test(normalizedCode)
+    && [12, 15, 18, 21, 24].includes(Number(p.height));
+}
+
 /** The default mount for a room-wall cabinet before a user applies an override. */
 export function ordinaryWallMountBottom(p: {
   placement?: Placement | null;
@@ -1460,6 +1472,7 @@ export function ordinaryWallMountBottom(p: {
   subCategory?: string | null;
 }): number {
   const height = Number(p.height);
+  if (isThirtyInchShortUpperAt72(p)) return TWELVE_INCH_WALL_MOUNT_BOTTOM;
   return p.placement === "wall" && !isStacker(p) && height > 0 && height < 30
     ? WALL_CABINET_TOP - height
     : WALL_MOUNT_BOTTOM;
