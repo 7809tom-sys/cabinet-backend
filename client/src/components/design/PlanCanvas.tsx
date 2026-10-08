@@ -348,11 +348,13 @@ interface Props {
   onDrawRoom?: (room: RoomData) => void;
   // Active-wall: the highlighted wall. A normal touch only selects the wall;
   // room dimensions are changed through the explicit Room Size controls.
-  activeWall?: WallSide;
-  onSelectWall?: (side: WallSide) => void;
-  /** The selected wall's saved 45-degree corner-start distance, in inches. */
-  wallCompassStartIn?: number | null;
-  /** Called after the user moves and releases the selected-wall Compass handle. */
+	  activeWall?: WallSide;
+	  onSelectWall?: (side: WallSide) => void;
+	  /** The selected wall's saved 45-degree corner-start distance, in inches. */
+	  wallCompassStartIn?: number | null;
+	  /** The 45-degree peninsula Compass is shown only after explicit dashboard activation. */
+	  wallCompassVisible?: boolean;
+	  /** Called after the user moves and releases the selected-wall Compass handle. */
   onWallCompassDrop?: (side: WallSide, startIn: number) => void;
   /** Rotates a measured custom-wall drawing as one unchanged geometric plan. */
   onRotateDrawing?: () => void;
@@ -461,9 +463,9 @@ export function PlanCanvas({
   islandDepthTransition = null,
   activeIslandFace = "front", onSelectIslandFace, onOpenIslandAttributes,
   openings = [], selectedOpeningUid = null, openingMeasurementReference = null, sinkWindowSnap = null, onSelectOpening, onOpenWindowAttributes, onOpeningChange, onDeleteOpening,
-  finish = DEFAULT_FINISH_COLORS,
-  drawMode = false, onDrawRoom,
-  activeWall, onSelectWall, wallCompassStartIn = null, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids, missingPriceUids,
+	  finish = DEFAULT_FINISH_COLORS,
+	  drawMode = false, onDrawRoom,
+	  activeWall, onSelectWall, wallCompassStartIn = null, wallCompassVisible = false, onWallCompassDrop, onRotateDrawing, drawingRotationDisabled = false, peninsulaDraft = null, onPeninsulaDraftLengthChange, onPeninsulaAttachmentChange, onOpenWallSettings, conflictUids, missingPriceUids,
   layoutLocked = false, lockedWalls,
   countertopMaterialId = null, islandCountertopMaterialId = null, sinks = [], potFillers = [], selectedSinkUid = null, onSelectSink, onMoveSink,
   finishFor,
@@ -1818,7 +1820,7 @@ export function PlanCanvas({
           const band = 14;
           const retainedWall = cabinetWallRunSegment(side, room);
           const prospectiveRetainedWall = retainedWallSegmentForSplit(side, room, compassStart);
-          const showCompassRetainedPreview = isActive && compassPreviewVisible && !layoutLocked && Boolean(onWallCompassDrop);
+          const showCompassRetainedPreview = wallCompassVisible && isActive && compassPreviewVisible && !layoutLocked && Boolean(onWallCompassDrop);
           const visibleStart = retainedWall.start * ppi;
           const visibleLength = retainedWall.length * ppi;
           const wstyle: React.CSSProperties = horizontal
@@ -1883,7 +1885,7 @@ export function PlanCanvas({
                   >
                     {wallLabel[side].toUpperCase()}{wallLocked ? t("dt_pc_wall_locked_suffix") : " SELECTED"}
                   </span>
-                  {!layoutLocked && onWallCompassDrop && (
+                  {wallCompassVisible && !layoutLocked && onWallCompassDrop && (
                     <button
                       type="button"
                       aria-label={`Drag Compass along ${wallLabel[side]} wall to set the peninsula split point`}

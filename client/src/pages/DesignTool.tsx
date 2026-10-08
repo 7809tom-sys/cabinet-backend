@@ -1219,7 +1219,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  const isPeninsulaWall = room.peninsulaRuns?.some((run) => run.id === activeWall) ?? false;
 	  if (!isDrawnWall && !isPeninsulaWall) setActiveWall(room.customWalls[0].id as WallSide);
 	}, [activeWall, isPolygonRoom, room.customWalls, room.peninsulaRuns]);
-  const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
+	  const [compassWallStartIn, setCompassWallStartIn] = useState<number | null>(null);
+	  // The Compass is an explicit peninsula tool, not a normal cabinet-drag affordance.
+	  // Keep it hidden until the dashboard control is pressed so tapping a cabinet can
+	  // never start a peninsula accidentally.
+	  const [compassVisible, setCompassVisible] = useState(false);
   const [peninsulaDraft, setPeninsulaDraft] = useState<PeninsulaRun | null>(null);
   const [compassSplitUndo, setCompassSplitUndo] = useState<null | {
     createdRunId: string;
@@ -1278,9 +1282,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // walls. Cabinets can always still be added/moved.
   const [layoutLocked, setLayoutLocked] = useState(false);
   const [lockedWalls, setLockedWalls] = useState<Set<WallSide>>(() => new Set());
-  const activateSelectedWallCompassDrag = useCallback(() => {
-    if (layoutLocked) return;
-    setSelectedUid(null);
+	  const activateSelectedWallCompassDrag = useCallback(() => {
+	    if (layoutLocked) return;
+	    setCompassVisible(true);
+	    setSelectedUid(null);
     setSelectedOpeningUid(null);
     setPlacementTarget("wall");
     setCompassWallStartIn(null);
@@ -4538,10 +4543,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       height: 34.5,
       label: "Attached straight peninsula",
     });
-    setActiveWall(wall);
-    setPlacementTarget("wall");
-    setCompassWallStartIn(exactStart);
-    toast.success(`New straight peninsula starts at ${exactStart}\". Set its height and length; add a 45° continuation from its free end after creation.`);
+	    setActiveWall(wall);
+	    setPlacementTarget("wall");
+	    setCompassWallStartIn(exactStart);
+	    setCompassVisible(false);
+	    toast.success(`New straight peninsula starts at ${exactStart}\". Set its height and length; add a 45° continuation from its free end after creation.`);
   }, [layoutLocked, room.depth, room.width]);
 
   const commitPeninsulaDraft = useCallback(() => {
@@ -8395,8 +8401,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Delete / Rotate controls act on. Without this, tapping a sink left the
   // cabinet selection (selectedUid) untouched and the Delete button — which was
   // gated on selectedUid — stayed disabled, so a sink could never be deleted.
-		  const selectCabinet = useCallback((uid: string | null) => {
-		    setSelectedUid(uid);
+	  const selectCabinet = useCallback((uid: string | null) => {
+	    setSelectedUid(uid);
+	    if (uid) setCompassVisible(false);
 			    if (uid) {
 			      const cabinet = placed.find((candidate) => candidate.uid === uid);
 			      if (cabinet && island && isOnIsland(cabinet, island)) {
@@ -15109,10 +15116,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               finish={activeFinish}
               drawMode={drawMode}
               onDrawRoom={(r) => { applyRoom(r); setDrawMode(false); toast.success(t("dt_toast_room_set", { w: Math.round(r.width/12), d: Math.round(r.depth/12) })); }}
-              activeWall={activeWall}
-              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
-              wallCompassStartIn={compassWallStartIn}
-              onWallCompassDrop={beginPeninsulaFromCompass}
+	              activeWall={activeWall}
+	              onSelectWall={(wall) => { setActiveWall(wall); setPlacementTarget("wall"); }}
+	              wallCompassStartIn={compassWallStartIn}
+	              wallCompassVisible={compassVisible}
+	              onWallCompassDrop={beginPeninsulaFromCompass}
               onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}
               drawingRotationDisabled={layoutLocked}
               peninsulaDraft={peninsulaDraft}
@@ -15396,6 +15404,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  activeWall={activeWall}
 	                  onSelectWall={setActiveWall}
 	                  wallCompassStartIn={compassWallStartIn}
+	                  wallCompassVisible={compassVisible}
 	                  onWallCompassDrop={beginPeninsulaFromCompass}
 	                  onRotateDrawing={isPolygonRoom ? rotateDrawingClockwise : undefined}
 	                  drawingRotationDisabled={layoutLocked}

@@ -55,17 +55,21 @@ describe("selected-wall Compass editor", () => {
     expect(designToolSource).not.toContain("onResizeWall={resizeWall}");
   });
 
-  it("keeps the direct Compass activation popup-free", () => {
-    expect(designToolSource).toContain("const activateSelectedWallCompassDrag = useCallback");
-    expect(designToolSource).toContain("Drag the gold 45° Compass");
+	  it("keeps the direct Compass activation popup-free", () => {
+	    expect(designToolSource).toContain("const activateSelectedWallCompassDrag = useCallback");
+	    expect(designToolSource).toContain("const [compassVisible, setCompassVisible] = useState(false)");
+	    expect(designToolSource).toContain("setCompassVisible(true);");
+	    expect(designToolSource).toContain("if (uid) setCompassVisible(false);");
+	    expect(designToolSource).toContain("Drag the gold 45° Compass");
     expect(designToolSource).toContain('onClick={activateSelectedWallCompassDrag}');
     expect(designToolSource).not.toContain("openSelectedWallCompass");
     expect(designToolSource).not.toContain("setCompassWallRequestId((current) => current + 1);");
   });
 
-  it("keeps the plan uncluttered by removing base and wall opening chips while retaining the Compass", () => {
-    expect(planCanvasSource).toContain("selected-wall Compass is the sole persistent wall-editing affordance");
-    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set the peninsula split point");
+	  it("keeps the plan uncluttered and makes the Compass opt-in instead of a cabinet-drag affordance", () => {
+	    expect(planCanvasSource).toContain("wallCompassVisible?: boolean");
+	    expect(planCanvasSource).toContain("wallCompassVisible && !layoutLocked && onWallCompassDrop");
+	    expect(planCanvasSource).toContain("Drag Compass along ${wallLabel[side]} wall to set the peninsula split point");
     expect(planCanvasSource).not.toContain('aria-label={`Select ${formatInches(g.length)} ${g.layer}-cabinet opening for best-fit options`}');
     expect(planCanvasSource).not.toContain('{g.layer === "wall" ? "W " : "B "}{formatInches(g.length)}');
   });
