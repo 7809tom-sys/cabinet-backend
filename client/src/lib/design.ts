@@ -1864,18 +1864,17 @@ export function peninsulaCountertopRaisedBarEnabled(
 }
 
 /**
- * A raised bar is a separate 42-inch-height slab, but it follows the exact
- * cabinet-supported countertop footprint: 24-inch cabinet depth plus the
- * standard 1½-inch finished edge. Legacy 12/15-inch projection values are
- * deliberately ignored instead of widening a restored plan.
+ * A raised bar is a separate 42-inch-height slab with a 15-inch exposed
+ * seating projection beyond the cabinet-supported front edge. The lower
+ * worktop keeps its normal 1½-inch finished edge.
  */
 export function peninsulaCountertopRaisedBarOverhang(
   run: PeninsulaRun,
   room: Pick<RoomData, "peninsulaRuns">,
-): 1.5 {
+): 15 {
   void run;
   void room;
-  return 1.5;
+  return 15;
 }
 
 /**
@@ -11337,8 +11336,13 @@ export function peninsulaRaisedBarSurface(
   if (lengthIn <= COLLISION_EPSILON_IN) return null;
   const worktop = peninsulaCountertopSurface(run, room, startIn, lengthIn);
   const overhang = peninsulaCountertopRaisedBarOverhang(run, room);
+  const projected = extendPeninsulaRaisedBarSurface(
+    worktop,
+    room,
+    Math.max(0, overhang - 1.5),
+  );
   return {
-    ...worktop,
+    ...projected,
     raisedBar: true,
     raisedBarOverhangIn: overhang,
     countertopHeightIn: RAISED_BAR_HEIGHT_IN,
@@ -11391,6 +11395,35 @@ function countertopSurfaceFromWorldPolygon(
     } : {}),
     areaInches: area,
   };
+}
+
+/** Extend only the exposed edge of a resolved peninsula surface. */
+function extendPeninsulaRaisedBarSurface(
+  surface: CountertopSurface,
+  room: RoomData,
+  extensionIn: number,
+): CountertopSurface {
+  if (extensionIn <= COLLISION_EPSILON_IN) return surface;
+  const ownerIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
+  const owners = ownerIds
+    .map((id) => peninsulaRunById(room, id))
+    .filter((run): run is PeninsulaRun => Boolean(run));
+  if (owners.length === 0) return surface;
+
+  let points = countertopSurfacePlanPolygon(surface);
+  for (const run of owners) {
+    const frame = peninsulaRunEndpoints(run, room);
+    const normal = countertopRunFaceNormal(frame.radians, run.cabinetSide ?? "left");
+    const projections = points.map((point) => point.x * normal.x + point.y * normal.y);
+    const front = Math.max(...projections);
+    const frontPoints = points.filter((_, index) => front - projections[index]! <= 1 / 16);
+    points = countertopConvexHull([
+      ...points,
+      ...frontPoints.map((point) => ({ x: point.x + normal.x * extensionIn, y: point.y + normal.y * extensionIn })),
+    ]);
+  }
+  const expanded = countertopSurfaceFromWorldPolygon(points, surface.peninsulaRunId);
+  return expanded ? { ...surface, ...expanded, peninsulaRunIds: surface.peninsulaRunIds } : surface;
 }
 
 function peninsulaRootHasFortyFiveReturn(run: PeninsulaRun, room: RoomData): boolean {
@@ -12575,13 +12608,19 @@ export function countertopSurfaces(
   });
   out.push(...raisedBars.map((surface) => {
     const owningRun = peninsulaRunById(room, surface.peninsulaRunId);
+    const raisedBarOverhang = owningRun
+      ? peninsulaCountertopRaisedBarOverhang(owningRun, room)
+      : 15;
+    const raisedSurface = extendPeninsulaRaisedBarSurface(
+      surface,
+      room,
+      Math.max(0, raisedBarOverhang - 1.5),
+    );
     return {
-      ...surface,
+      ...raisedSurface,
       raisedBar: true,
       raisedBarUsesSharedCountertopOutline: true,
-      raisedBarOverhangIn: owningRun
-        ? peninsulaCountertopRaisedBarOverhang(owningRun, room)
-        : 1.5,
+      raisedBarOverhangIn: raisedBarOverhang,
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     };
   }));

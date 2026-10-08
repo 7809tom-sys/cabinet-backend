@@ -68,7 +68,7 @@ function baseOnRun(uid: string, run: PeninsulaRun, offset: number, width: number
 }
 
 describe("split-level countertop geometry", () => {
-  it("keeps the lower worktop at the cabinet-supported depth when a saved split-level run carries legacy seating fields", () => {
+  it("keeps the lower worktop supported while the raised bar projects 15 inches", () => {
     const legacyRoom: RoomData = {
       ...room,
       peninsulaRuns: room.peninsulaRuns!.map((run) => run.id === "main" ? {
@@ -89,11 +89,11 @@ describe("split-level countertop geometry", () => {
     });
     const raised = peninsulaRaisedBarSurface(legacyMain, legacyRoom, 0, 72);
     expect(raised).toMatchObject({
-      depth: COUNTERTOP_DEPTH_IN,
-      raisedBarOverhangIn: 1.5,
+      raisedBarOverhangIn: 15,
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     });
-    expect(countertopSurfacePlanPolygon(raised!)).toEqual(countertopSurfacePlanPolygon(lower));
+    expect(countertopSurfacePlanPolygon(raised!)).not.toEqual(countertopSurfacePlanPolygon(lower));
+    expect(raised!.areaInches).toBeGreaterThan(lower.areaInches);
   });
 
   it("uses the exact cabinet-supported 1½-inch 45-degree countertop outline for the raised bar", () => {
@@ -105,20 +105,20 @@ describe("split-level countertop geometry", () => {
     const raised = surfaces.filter((surface) => surface.raisedBar);
     const worktops = surfaces.filter((surface) => surface.peninsulaRunId && !surface.raisedBar);
 
-    // The raised level differs only in height. Its mitered 45° slabs must map
-    // one-for-one to the lower countertop's cabinet-backed 25½-inch slabs, not
-    // become a second 12/15-inch seating projection or a fake giant polygon.
+    // The raised level keeps the same run ownership and miter treatment, but
+    // adds the requested 15-inch seating projection beyond the lower edge.
     expect(worktops.length).toBeGreaterThanOrEqual(1);
     expect(raised).toHaveLength(worktops.length);
     raised.forEach((raisedBar, index) => {
       expect(raisedBar).toMatchObject({
         countertopHeightIn: RAISED_BAR_HEIGHT_IN,
-        raisedBarOverhangIn: 1.5,
+        raisedBarOverhangIn: 15,
         raisedBar: true,
         raisedBarUsesSharedCountertopOutline: true,
       });
       expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(raisedBar))).toBe(false);
-      expect(countertopSurfacePlanPolygon(raisedBar)).toEqual(countertopSurfacePlanPolygon(worktops[index]!));
+      expect(countertopSurfacePlanPolygon(raisedBar)).not.toEqual(countertopSurfacePlanPolygon(worktops[index]!));
+      expect(raisedBar.areaInches).toBeGreaterThan(worktops[index]!.areaInches);
     });
 
     const scene = new THREE.Group();
@@ -180,13 +180,14 @@ describe("split-level countertop geometry", () => {
         raised.forEach((bar, index) => {
           expect(bar).toMatchObject({
             countertopHeightIn: RAISED_BAR_HEIGHT_IN,
-            raisedBarOverhangIn: 1.5,
+            raisedBarOverhangIn: 15,
             raisedBarUsesSharedCountertopOutline: true,
           });
           const outline = countertopSurfacePlanPolygon(bar);
           expect(outline.length).toBeGreaterThanOrEqual(4);
           expect(countertopPolygonSelfIntersects(outline)).toBe(false);
-          expect(outline).toEqual(countertopSurfacePlanPolygon(worktops[index]!));
+          expect(outline).not.toEqual(countertopSurfacePlanPolygon(worktops[index]!));
+          expect(bar.areaInches).toBeGreaterThan(worktops[index]!.areaInches);
         });
       }
     }
@@ -226,7 +227,7 @@ describe("split-level countertop geometry", () => {
     });
     expect(raised).toHaveLength(worktops.length);
     expect(worktops.length).toBeGreaterThan(0);
-    expect(raised.every((node) => node.userData.countertopHeightIn === 42 && node.userData.raisedBarOverhangIn === 1.5)).toBe(true);
+    expect(raised.every((node) => node.userData.countertopHeightIn === 42 && node.userData.raisedBarOverhangIn === 15)).toBe(true);
     expect(raised.every((node) => node.userData.raisedBarUsesSharedCountertopOutline)).toBe(true);
     expect(worktops.every((node) => node.userData.countertopHeightIn === 36)).toBe(true);
   });

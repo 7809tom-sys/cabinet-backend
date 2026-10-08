@@ -2405,7 +2405,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
       countertopRaisedBar: draft.countertopTreatment === 'split-level',
-      countertopRaisedBarOverhang: 1.5,
+      // Split-level Wizard bar: 42 inches high with a 15-inch outward projection.
+      countertopRaisedBarOverhang: 15,
       countertopWaterfallEnd: draft.waterfall,
       label: 'Peninsula · straight',
     };
@@ -4659,7 +4660,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       cabinetSide: draft.cabinetSide,
       countertopSeatingOverhang: draft.seatingOverhang,
       countertopRaisedBar: draft.countertopTreatment === 'split-level',
-      countertopRaisedBarOverhang: 1.5,
+      // Split-level Wizard bar: 42 inches high with a 15-inch outward projection.
+      countertopRaisedBarOverhang: 15,
       countertopWaterfallEnd: draft.waterfall,
       wizardRecipe,
       label: 'Peninsula · straight',
@@ -4702,25 +4704,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // A pony wall created from the peninsula wizard is never a loose rectangle:
 	    // it owns the run endpoint, so it follows the straight run or the selected
 	    // 45° continuation when that measured run is edited or moved.
-	    const ponyWallOwner = angledRun ?? run;
-	    const builtPonyWall = draft.addPonyWall
-	      ? {
-	          ...makePeninsulaPonyWall(ponyWallOwner, nextRoom, {
-	          width: draft.ponyWallLength,
-	          height: draft.ponyWallHeight,
-	          label: angledRun
-	            ? `Pony wall · follows 45° ${angledRun.direction} peninsula end`
-	            : "Pony wall · follows peninsula end",
-	          }),
-	          finish: "drywall" as const,
-	          drywallColor: DEFAULT_DRYWALL_PONY_WALL_COLOR,
-	          drywallTexture: "smooth" as const,
-	        }
-	      : null;
-	    if (builtPonyWall && !ponyWallFitsRoom(builtPonyWall, nextRoom)) {
-	      toast.error("The pony wall would extend outside the room. Shorten it or choose a different 45° end direction.");
-	      return;
-	    }
+    const builtPonyWalls = draft.addPonyWall
+      ? layoutRuns.map((layoutRun) => makePeninsulaDrywallBackPonyWall(
+          layoutRun,
+          nextRoom,
+          { height: draft.ponyWallHeight },
+        ))
+      : [];
+    if (builtPonyWalls.some((ponyWall) => !ponyWallFitsRoom(ponyWall, nextRoom))) {
+      toast.error("The drywall back wall would extend outside the room. Shorten the peninsula or choose a different 45° end direction.");
+      return;
+    }
 	    const appliance = draft.applianceCode === "none"
 	      ? null
 	      : APPLIANCES.find((item) => item.masterCode === draft.applianceCode) ?? null;
@@ -4899,9 +4893,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ...previous.filter((item) => !item.uid.startsWith(`peninsula-stool:${wizardRootId}:`)),
       ...wizardStools,
     ]);
-	    if (builtPonyWall || raisedBarSupport.length || editingPeninsulaWizardRootId) setPonyWalls((previous) => [
+    if (builtPonyWalls.length || raisedBarSupport.length || editingPeninsulaWizardRootId) setPonyWalls((previous) => [
       ...previous.filter((ponyWall) => ponyWall.peninsulaWizardId !== wizardRootId),
-      ...(builtPonyWall ? [{ ...builtPonyWall, peninsulaWizardId: wizardRootId }] : []),
+      ...builtPonyWalls.map((ponyWall) => ({ ...ponyWall, peninsulaWizardId: wizardRootId })),
       ...raisedBarSupport.map((ponyWall) => ({ ...ponyWall, peninsulaWizardId: wizardRootId })),
     ]);
 	    setActiveWall(run.id as WallSide);
@@ -4909,7 +4903,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPeninsulaWizardOpen(false);
     const wasEditingWizard = Boolean(editingPeninsulaWizardRootId);
     setEditingPeninsulaWizardRootId(null);
-	    toast.success(`${wasEditingWizard ? "Peninsula Wizard updated" : "Straight peninsula built"}${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWall ? " and a snapped pony wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.`);
+    toast.success(`${wasEditingWizard ? "Peninsula Wizard updated" : "Straight peninsula built"}${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWalls.length ? " and a drywall back wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.`);
   }, [autoFillCabinets, catalogFillers, editingPeninsulaWizardRootId, layoutLocked, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
 	const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
@@ -12026,8 +12020,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           className={`${isCompactWorkspace && !isTabletWorkspace ? "inline-flex" : "hidden"} shrink-0 gap-1.5`}
           onClick={activateSelectedWallCompassDrag}
           disabled={layoutLocked}
-          title="Show the selected wall’s direct 45° drag handle"
-          aria-label="Show the selected wall’s direct 45 degree drag handle"
+          title="Activate 45° Compass"
+          aria-label="Activate 45° Compass"
           data-testid="compact-workspace-wall-compass"
         >
           <Compass className="h-3.5 w-3.5" /> Drag 45°
@@ -15895,13 +15889,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, addPonyWall: event.target.checked } : draft)}
 	                        className="mt-0.5"
 	                      />
-	                      <span><strong>Add drywall end wall.</strong> It stays snapped to the final peninsula endpoint; when a 45° end is selected, it follows and finishes the measured 45° return.</span>
+	                      <span><strong>Add drywall behind the peninsula.</strong> It covers the back of every selected leg, including a 45° return, and does not continue outward from the peninsula end.</span>
 	                    </label>
 	                    {peninsulaWizardDraft.addPonyWall && <div className="grid grid-cols-2 gap-2 rounded-md border border-[#d9c196] bg-[#fffdf6] p-2" data-testid="peninsula-pony-wall-dimensions">
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Pony wall length (in)
-	                        <Input type="number" min="6" step="0.125" value={peninsulaWizardDraft.ponyWallLength} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, ponyWallLength: Number(event.target.value) || 6 } : draft)} />
-	                      </label>
-	                      <label className="grid gap-1 text-xs font-semibold text-muted-foreground">Pony wall height (in)
+	                      <label className="col-span-2 grid gap-1 text-xs font-semibold text-muted-foreground">Drywall back height (in)
 	                        <Input type="number" min="1" max="144" step="0.125" value={peninsulaWizardDraft.ponyWallHeight} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, ponyWallHeight: Number(event.target.value) || 34.5 } : draft)} />
 	                      </label>
 	                    </div>}

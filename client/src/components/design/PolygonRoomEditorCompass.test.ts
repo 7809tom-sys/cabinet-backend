@@ -26,6 +26,8 @@ describe("selected-wall Compass editor", () => {
     expect(roomSizeSource).toContain('data-testid="mobile-wall-compass-entry"');
     expect(roomSizeSource).toContain("Drag 45° on selected wall");
     expect(designToolSource).toContain('data-testid="compact-workspace-wall-compass"');
+    expect(designToolSource).toContain('title="Activate 45° Compass"');
+    expect(designToolSource).toContain('aria-label="Activate 45° Compass"');
     expect(designToolSource).toContain("const activateSelectedWallCompassDrag = useCallback");
     expect(designToolSource).toContain("onOpenWallCompass={() => {");
     expect(designToolSource).toContain("activateSelectedWallCompassDrag();");

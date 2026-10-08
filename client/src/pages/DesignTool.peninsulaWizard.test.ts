@@ -25,19 +25,19 @@ describe("Peninsula Wizard", () => {
   it("uses the cabinet footprint and 1½-inch finished edge for every new Wizard countertop level", () => {
     expect(source).toContain('seatingOverhang: 0,');
     expect(source).toContain('Standard 1½ in. cabinet edge');
-    expect(source).toContain('countertopRaisedBarOverhang: 1.5,');
-    expect(source).toContain('cabinet footprint + 1½ in. edge');
+    expect(source).toContain('countertopRaisedBarOverhang: 15,');
+    expect(source).toContain('15-inch outward projection');
     expect(source).toContain('same cabinet footprint and physical 45° miter');
   });
 
-  it("offers a snapped pony wall at the final peninsula endpoint instead of requiring a loose plan rectangle", () => {
+  it("offers drywall behind each peninsula leg instead of requiring a loose outward plan rectangle", () => {
     expect(wizardEditSource).toContain('addPonyWall: boolean;');
     expect(source).toContain('data-testid="peninsula-pony-wall-option"');
-    expect(source).toContain('Add drywall end wall.');
-    expect(source).toContain('const ponyWallOwner = angledRun ?? run;');
-    expect(source).toContain('makePeninsulaPonyWall(ponyWallOwner, nextRoom, {');
-    expect(source).toContain('ponyWallFitsRoom(builtPonyWall, nextRoom)');
-    expect(source).toContain('and a snapped pony wall');
+    expect(source).toContain('Add drywall behind the peninsula.');
+    expect(source).toContain('const builtPonyWalls = draft.addPonyWall');
+    expect(source).toContain('makePeninsulaDrywallBackPonyWall(');
+    expect(source).toContain('ponyWallFitsRoom(ponyWall, nextRoom)');
+    expect(source).toContain('and a drywall back wall');
   });
 
   it("requires the user’s ordered cabinet sequence on each leg and never auto-fills a cabinet", () => {
