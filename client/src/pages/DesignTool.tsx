@@ -2392,7 +2392,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const candidate: PeninsulaRun = {
       id: 'peninsula_wizard_preview',
       parentWall: draft.parentWall,
-      startOffset: roundEighth(Math.max(6, draft.startOffset)),
+      startOffset: roundEighth(Math.max(0, draft.startOffset)),
       turn: 90,
       direction: 'right',
       length: roundEighth(primaryCabinetTotal + jointReserve),
@@ -4645,7 +4645,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const candidate: PeninsulaRun = {
       id: wizardRootId,
       parentWall: draft.parentWall,
-      startOffset: Math.round(Math.max(6, draft.startOffset) * 8) / 8,
+      startOffset: Math.round(Math.max(0, draft.startOffset) * 8) / 8,
       turn: 90,
       direction: 'right',
       length: Math.round((primaryCabinetTotal + primaryJointReserve) * 8) / 8,
@@ -14269,7 +14269,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
             <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "wall", "tall", "opening", "accessory"] as const)
+                ? (["closetparts", "base", "wall", "tall", "appliance", "opening", "accessory"] as const)
                 : roomType === "bathroom"
                 ? (["vanity", "appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
                 : roomType === "laundry"
@@ -14278,6 +14278,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               ).map((tab) => (
                 <button
                   key={tab}
+                  data-testid={`catalog-tab-${tab}`}
                   onClick={() => { setPaletteType(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
@@ -15843,9 +15844,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        const parentWall = event.target.value;
 	                        const attachment = peninsulaWizardAttachmentWalls.find((wall) => wall.id === parentWall);
 	                        const parentLength = attachment?.length ?? wallLength(parentWall, room);
-	                        // A wizard-built peninsula always starts from the selected
-	                        // wall's centre. The cabinet list defines its length; no
-	                        // starting or ending measurement is required.
+                        // Changing the attachment wall starts at that wall's centre
+                        // as a sensible default; the exact measured start is set below.
 	                        setPeninsulaWizardDraft((draft) => draft ? {
 	                          ...draft,
 	                          parentWall,
@@ -15854,8 +15854,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
 	                        {peninsulaWizardAttachmentWalls.map((wall) => <option key={wall.id} value={wall.id}>{wall.label} · {formatEighthInches(wall.length)}</option>)}
 	                      </select>
-	                      <span className="text-[11px] font-normal leading-4 text-muted-foreground">The Wizard attaches at the selected wall centre, including a measured Continuous Wall Builder run. Build from your cabinet list, then drag the finished peninsula if its room position needs adjustment.</span>
-	                    </label>
+                      <span className="text-[11px] font-normal leading-4 text-muted-foreground">Choose the wall, then set the exact peninsula start from that wall’s start corner. The position uses ⅛-inch increments and is applied when you build.</span>
+                    </label>
+                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground" data-testid="peninsula-wizard-start-position">
+                      Start from selected wall corner (in)
+                      <Input
+                        type="number"
+                        min="0"
+                        max={Math.max(0, (peninsulaWizardAttachmentWalls.find((wall) => wall.id === peninsulaWizardDraft.parentWall)?.length ?? wallLength(peninsulaWizardDraft.parentWall, room)) - 6)}
+                        step="0.125"
+                        value={peninsulaWizardDraft.startOffset}
+                        onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, startOffset: Math.max(0, Number(event.target.value) || 0) } : draft)}
+                        className="h-9 text-sm"
+                        aria-label="Peninsula start from selected wall corner in inches"
+                      />
+                      <span className="text-[11px] font-normal leading-4 text-muted-foreground">0″ starts at the wall’s start corner. The Wizard seats the peninsula to that wall position; your cabinet list determines the run length.</span>
+                    </label>
 	                    <label className="grid gap-1 text-xs font-semibold text-muted-foreground">45° end from the straight run
                       <select value={`${peninsulaWizardDraft.endTurn}-${peninsulaWizardDraft.endDirection}`} onChange={(event) => {
                         const [endTurn, endDirection] = event.target.value.split("-");

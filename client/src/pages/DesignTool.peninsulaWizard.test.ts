@@ -68,8 +68,9 @@ describe("Peninsula Wizard", () => {
     expect(source).not.toContain('endLength: number;');
     expect(source).not.toContain('Straight run length (in)');
     expect(source).not.toContain('45° end length (in)');
-    expect(source).not.toContain('Start from corner (in)');
-    expect(source).toContain('The Wizard attaches at the selected wall centre, including a measured Continuous Wall Builder run.');
+    expect(source).toContain('data-testid="peninsula-wizard-start-position"');
+    expect(source).toContain('Start from selected wall corner (in)');
+    expect(source).toContain('The Wizard seats the peninsula to that wall position');
     expect(source).toContain('Show counter stools on the seating side');
     expect(source).toContain('item.uid.startsWith("peninsula-stool:")');
   });
@@ -128,6 +129,7 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const selectedFrame = wallRunFrame(activeWall, room);');
     expect(source).toContain('selectedFrame && selectedFrame.kind !== "peninsula" ? selectedFrame.id : "top"');
     expect(source).toContain('const peninsulaWizardAttachmentWalls = useMemo(() => {');
-    expect(source).toContain('including a measured Continuous Wall Builder run');
+    expect(source).toContain('The position uses ⅛-inch increments and is applied when you build.');
+    expect(source).toContain('const selectedFrame = wallRunFrame(activeWall, room);');
   });
 });
