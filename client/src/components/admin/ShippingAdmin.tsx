@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "sonner";
-import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity, X } from "lucide-react";
+import { Plus, Trash2, Truck, Plug, ShieldCheck, Activity, X, ChevronDown, ChevronUp } from "lucide-react";
 import FreightTestLab from "./FreightTestLab";
 import { isValidZipPrefix, normalizeZipPrefix, parseZipPrefixes, serializeZipPrefixes } from "@/lib/shippingZipPrefixes";
 
@@ -811,6 +811,7 @@ export default function ShippingAdmin() {
 // Exported separately so it can be used standalone or embedded in ShippingAdmin.
 export function FreightApiLogsPanel() {
   const { data: logs, isLoading, refetch } = trpc.freight.adminGetApiLogs.useQuery({ limit: 50 });
+  const [expandedLogIds, setExpandedLogIds] = useState<Set<number>>(() => new Set());
 
   return (
     <Card>
@@ -822,7 +823,7 @@ export function FreightApiLogsPanel() {
           <Button variant="outline" size="sm" className="bg-background" onClick={() => refetch()}>Refresh</Button>
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Last 50 live carrier API calls. Resets on server restart. Use this to debug rate requests and verify credentials.
+          Last 50 live carrier API calls. Resets on server restart. Expand any quote to verify every pallet/carton size, weight, and why an eight-foot pallet was used.
         </p>
       </CardHeader>
       <CardContent>
@@ -840,13 +841,16 @@ export function FreightApiLogsPanel() {
                   <TableHead className="text-xs">Route</TableHead>
                   <TableHead className="text-xs">Weight</TableHead>
                   <TableHead className="text-xs">Class</TableHead>
-                  <TableHead className="text-xs">Accessorials</TableHead>
+                <TableHead className="text-xs">Accessorials</TableHead>
+                  <TableHead className="text-xs">Packages</TableHead>
                   <TableHead className="text-xs">Result</TableHead>
                   <TableHead className="text-xs">ms</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {logs.map((log) => (
+                {logs.map((log) => {
+                  const expanded = expandedLogIds.has(log.id);
+                  return <>
                   <TableRow key={log.id}>
                     <TableCell className="text-xs whitespace-nowrap">{new Date(log.ts).toLocaleTimeString()}</TableCell>
                     <TableCell className="text-xs font-mono">{log.broker}</TableCell>
@@ -854,6 +858,24 @@ export function FreightApiLogsPanel() {
                     <TableCell className="text-xs">{log.totalWeightLbs.toFixed(0)} lbs</TableCell>
                     <TableCell className="text-xs">{log.freightClass}</TableCell>
                     <TableCell className="text-xs">{log.accessorials.join(", ") || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs"
+                        aria-expanded={expanded}
+                        aria-label={`${expanded ? "Hide" : "Show"} package details for quote ${log.id}`}
+                        onClick={() => setExpandedLogIds((current) => {
+                          const next = new Set(current);
+                          if (next.has(log.id)) next.delete(log.id); else next.add(log.id);
+                          return next;
+                        })}
+                      >
+                        {log.packages?.length ?? 0} {log.packages?.length === 1 ? "unit" : "units"}
+                        {expanded ? <ChevronUp className="ml-1 h-3.5 w-3.5" /> : <ChevronDown className="ml-1 h-3.5 w-3.5" />}
+                      </Button>
+                    </TableCell>
                     <TableCell className="text-xs">
                       {log.ok ? (
                         <span className="text-emerald-600 font-medium">${(log.amountCents / 100).toFixed(2)} {log.carrier}</span>
@@ -863,7 +885,25 @@ export function FreightApiLogsPanel() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{log.durationMs}</TableCell>
                   </TableRow>
-                ))}
+                  {expanded && <TableRow key={`${log.id}-packages`}>
+                    <TableCell colSpan={10} className="bg-muted/30 p-3">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold">Exact handling units sent or prepared for this quote</p>
+                        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                          {(log.packages ?? []).map((pkg) => (
+                            <div key={`${log.id}-${pkg.kind}-${pkg.index}`} className="rounded-md border bg-background p-2 text-xs">
+                              <div className="font-medium">{pkg.kind === "pallet" ? "Pallet" : "Carton"} {pkg.index}{pkg.label ? ` · ${pkg.label}` : ""}</div>
+                              <div className="mt-1 font-mono">{pkg.lengthIn}″ L × {pkg.widthIn}″ W × {pkg.heightIn}″ H · {pkg.weightLbs} lb</div>
+                              {pkg.contentsWeightLbs != null && <div className="text-muted-foreground">Contents: {pkg.contentsWeightLbs} lb{pkg.contentsCubicFt != null ? ` · ${pkg.contentsCubicFt} ft³` : ""}</div>}
+                              {pkg.reason && <div className="mt-1 text-muted-foreground">{pkg.reason}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>}
+                </>;
+                })}
               </TableBody>
             </Table>
           </div>

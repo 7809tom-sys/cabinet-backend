@@ -19,6 +19,21 @@ export interface FreightApiLogEntry {
   service?: string;
   error?: string;
   durationMs: number;
+  /** Exact handling units sent to the carrier or prepared for the quote. */
+  packages: FreightApiPackageAudit[];
+}
+
+export interface FreightApiPackageAudit {
+  kind: "pallet" | "carton";
+  index: number;
+  label?: string | null;
+  lengthIn: number;
+  widthIn: number;
+  heightIn: number;
+  weightLbs: number;
+  contentsWeightLbs?: number;
+  contentsCubicFt?: number;
+  reason?: string;
 }
 
 const MAX_ENTRIES = 200;

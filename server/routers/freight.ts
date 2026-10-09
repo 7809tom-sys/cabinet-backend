@@ -49,7 +49,7 @@ import { freightquoteQuote } from "../_core/freightquote";
 import { globaltranzQuote } from "../_core/globaltranz";
 import { normalizeSpeedshipFreightClass, worldwideexpressQuote } from "../_core/worldwideexpress";
 import { upsParcelQuote } from "../_core/ups";
-import { logFreightApiCall, getFreightApiLogs } from "../_core/freightApiLog";
+import { logFreightApiCall, getFreightApiLogs, type FreightApiPackageAudit } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { getPricingSettings } from "../db";
 import { sellPriceForTier } from "@shared/margins";
@@ -1014,6 +1014,17 @@ async function requestLiveRate(input: {
     service: live.service,
     error: live.error,
     durationMs: Date.now() - startedAt,
+    packages: input.request.pallets.map((pallet, index): FreightApiPackageAudit => ({
+      kind: "pallet",
+      index: index + 1,
+      lengthIn: pallet.lengthIn,
+      widthIn: pallet.widthIn,
+      heightIn: pallet.heightIn,
+      weightLbs: pallet.weightLbs,
+      reason: pallet.lengthIn >= 96
+        ? "8-foot pallet: at least one verified package required a long pallet."
+        : "Standard/short pallet: no verified package required 8 feet.",
+    })),
   });
   return live;
 }
@@ -1548,6 +1559,7 @@ export const freightRouter = router({
               };
             });
             const parcelWeight = parcelCartons.reduce((sum, carton) => sum + carton.weightLbs, 0);
+            const parcelQuoteStartedAt = Date.now();
             const live = await (directUpsParcel
               ? (async () => {
                   const [fromAddress, toAddress] = await Promise.all([
@@ -1582,6 +1594,31 @@ export const freightRouter = router({
                   eligibleCarriers: parcelDecision.eligibleCarriers,
                   residential: input.accessorials?.residential,
                 }));
+            logFreightApiCall({
+              broker: directUpsParcel ? "ups" : "easypost",
+              fromZip: group.originZip,
+              toZip: input.destinationZip,
+              palletCount: 0,
+              totalWeightLbs: parcelWeight,
+              freightClass: "Parcel",
+              accessorials: input.accessorials?.residential ? ["RESIDENTIAL"] : [],
+              ok: live.ok,
+              amountCents: live.amountCents,
+              carrier: live.carrier,
+              service: live.service,
+              error: live.error,
+              durationMs: Date.now() - parcelQuoteStartedAt,
+              packages: parcelCartons.map((carton, index): FreightApiPackageAudit => ({
+                kind: "carton",
+                index: index + 1,
+                label: carton.label,
+                lengthIn: carton.lengthIn,
+                widthIn: carton.widthIn,
+                heightIn: carton.heightIn,
+                weightLbs: carton.weightLbs,
+                reason: "Verified carton sent to the parcel carrier.",
+              })),
+            });
             const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
             const shipmentGroup: FreightShipmentGroup = {
               label: group.label,
