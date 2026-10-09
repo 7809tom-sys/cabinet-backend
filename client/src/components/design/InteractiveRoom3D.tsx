@@ -6180,7 +6180,9 @@ export function addThreeDPeninsulaCountertops(
     const run = room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaRunId);
     if (!run) continue;
     const isUnifiedAssembly = Boolean(surface.peninsulaRunIds && surface.peninsulaRunIds.length > 1);
-    const length = Math.max(0.1, isUnifiedAssembly ? surface.width : surface.linearInches ?? run.length);
+    // Raised/extended slabs are rebuilt as world outlines (rotation 0), so their local length is their own width, not the run length.
+    const usesOwnWidth = isUnifiedAssembly || (Boolean(surface.raisedBar) && Boolean(surface.polygon) && !(surface.rotation ?? 0));
+    const length = Math.max(0.1, usesOwnWidth ? surface.width : surface.linearInches ?? run.length);
     const depth = threeDPeninsulaCountertopPhysicalDepth(surface, length);
     const planRotation = (surface.rotation ?? 0) * Math.PI / 180;
     const rotation = threeDPlanRotation(planRotation);
