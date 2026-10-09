@@ -18,6 +18,7 @@ import {
 import { affiliateStorefrontPath } from "@/lib/affiliateStorefrontUrl";
 import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
 import { toast } from "sonner";
+import "./TopNav.css";
 
 type NavLink = { key: SiteStringKey; href: string };
 
@@ -179,7 +180,7 @@ export function TopNav() {
   }
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center justify-between gap-2">
+      <div data-testid="site-toolbar-row" className="container flex min-h-16 items-center justify-between gap-2 py-1">
         {/* Logo — show affiliate branding when on affiliate storefront or ?ref= present */}
         {currentAffiliate ? (
           <a
@@ -220,7 +221,7 @@ export function TopNav() {
         </div>
 
         {/* Desktop nav */}
-        <nav className="hidden xl:flex items-center gap-0">
+        <nav data-testid="site-toolbar-navigation" className="hidden xl:flex items-center gap-0" aria-label="Shopping navigation">
           {PRIMARY_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -291,7 +292,7 @@ export function TopNav() {
         </nav>
 
         {/* Right side actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div data-testid="site-toolbar-actions" className="flex items-center gap-1 shrink-0">
           {isDesignerTablet && (
             <Button variant="ghost" size="sm" data-testid="designer-immersive-hide" className="h-11 px-3 text-xs font-semibold" onClick={() => setImmersive(true)} aria-label="Hide site menu for full-screen design">
               Full screen
@@ -331,8 +332,8 @@ export function TopNav() {
           )}
 
           {user ? (
-            <div className="hidden xl:flex items-center gap-2">
-              <span className="hidden xl:inline text-sm text-muted-foreground max-w-[140px] truncate">{user.name || user.email}</span>
+            <div data-testid="site-toolbar-account-actions" className="hidden xl:flex items-center gap-2">
+              <span className="hidden xl:inline text-xs text-muted-foreground max-w-[96px] truncate" title={user.name || user.email || undefined}>{user.name || user.email}</span>
               {(user.role === "admin" || user.role === "designer") && (
                 <Link href="/admin">
                   <Button
