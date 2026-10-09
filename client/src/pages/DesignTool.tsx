@@ -4732,7 +4732,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // A pony wall created from the peninsula wizard is never a loose rectangle:
 	    // it owns the run endpoint, so it follows the straight run or the selected
 	    // 45° continuation when that measured run is edited or moved.
-    const builtPonyWalls = draft.addPonyWall
+    // With a split-level bar the bar support below IS the drywall back wall, so
+    // building both would stack two overlapping walls on every leg.
+    const builtPonyWalls = draft.addPonyWall && draft.countertopTreatment !== "split-level"
       ? layoutRuns.map((layoutRun) => makePeninsulaDrywallBackPonyWall(
           layoutRun,
           nextRoom,
@@ -4901,7 +4903,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       ? layoutRuns.map((layoutRun) => makePeninsulaDrywallBackPonyWall(
           layoutRun,
           nextRoom,
-          { height: RAISED_BAR_HEIGHT_IN - STD.COUNTERTOP_THICKNESS },
+          { height: Math.max(RAISED_BAR_HEIGHT_IN - STD.COUNTERTOP_THICKNESS, draft.addPonyWall ? draft.ponyWallHeight : 0) },
         ))
       : [];
     if (raisedBarSupport.some((ponyWall) => !ponyWallFitsRoom(ponyWall, nextRoom))) {
@@ -4965,7 +4967,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPeninsulaWizardOpen(false);
     const wasEditingWizard = Boolean(editingPeninsulaWizardRootId);
     setEditingPeninsulaWizardRootId(null);
-    toast.success(`${wasEditingWizard ? "Peninsula Wizard updated" : "Straight peninsula built"}${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWalls.length ? " and a drywall back wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.`);
+    toast.success(`${wasEditingWizard ? "Peninsula Wizard updated" : "Straight peninsula built"}${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${draft.addPonyWall ? " and a drywall back wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.`);
   }, [autoFillCabinets, catalogFillers, editingPeninsulaWizardRootId, layoutLocked, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room, sinks]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
 	const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
