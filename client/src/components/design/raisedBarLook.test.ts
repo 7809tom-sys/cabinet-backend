@@ -15,8 +15,8 @@ describe("raised bar looks like a real seating bar", () => {
     const gaps = along.slice(1).map((v, i) => v - along[i]!);
     gaps.forEach((g) => expect(g).toBeLessThanOrEqual(24 + 1e-6));
     plan.forEach((c) => {
-      expect(c.faceIn).toBeCloseTo(25.5 - 15, 6);
-      expect(c.armIn).toBeLessThanOrEqual(12);
+      expect(c.faceIn).toBeCloseTo(0, 6);
+      expect(c.armIn).toBeLessThanOrEqual(10);
     });
   });
   it("adds no corbels when there is no seating overhang", () => {

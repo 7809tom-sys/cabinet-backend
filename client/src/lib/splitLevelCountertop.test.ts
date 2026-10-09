@@ -93,15 +93,14 @@ describe("split-level countertop geometry", () => {
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     });
     expect(countertopSurfacePlanPolygon(raised!)).not.toEqual(countertopSurfacePlanPolygon(lower));
-    expect(raised!.areaInches).toBeGreaterThan(lower.areaInches);
-    // Cabinet fronts face -X here (the lower top's 1.5in edge is on -X). The bar projects 13.5in
-    // out the BACK (+X) and the front edge never moves past the 1.5in finished edge.
+    expect(raised!.areaInches).toBeGreaterThan(0);
+    expect(raised!.areaInches).toBeLessThan(lower.areaInches);
+    // Cabinet fronts face -X. The raised bar is only the 15in strip behind the cabinets (+X).
     const lowerOutline = countertopSurfacePlanPolygon(lower);
     const raisedOutline = countertopSurfacePlanPolygon(raised!);
-    expect(Math.min(...raisedOutline.map((point) => point.x))).toBeCloseTo(Math.min(...lowerOutline.map((point) => point.x)), 1);
-    expect(Math.max(...raisedOutline.map((point) => point.x))).toBeGreaterThan(
-      Math.max(...lowerOutline.map((point) => point.x)) + 13,
-    );
+    const lowMax = Math.max(...lowerOutline.map((point) => point.x));
+    expect(Math.min(...raisedOutline.map((point) => point.x))).toBeCloseTo(lowMax, 1);
+    expect(Math.max(...raisedOutline.map((point) => point.x))).toBeCloseTo(lowMax + 15, 1);
   });
   it("uses the exact cabinet-supported 1½-inch 45-degree countertop outline for the raised bar", () => {
     const placed = [
@@ -125,7 +124,7 @@ describe("split-level countertop geometry", () => {
       });
       expect(countertopPolygonSelfIntersects(countertopSurfacePlanPolygon(raisedBar))).toBe(false);
       expect(countertopSurfacePlanPolygon(raisedBar)).not.toEqual(countertopSurfacePlanPolygon(worktops[index]!));
-      expect(raisedBar.areaInches).toBeGreaterThan(worktops[index]!.areaInches);
+      expect(raisedBar.areaInches).toBeGreaterThan(0);
     });
 
     const scene = new THREE.Group();
@@ -194,7 +193,7 @@ describe("split-level countertop geometry", () => {
           expect(outline.length).toBeGreaterThanOrEqual(4);
           expect(countertopPolygonSelfIntersects(outline)).toBe(false);
           expect(outline).not.toEqual(countertopSurfacePlanPolygon(worktops[index]!));
-          expect(bar.areaInches).toBeGreaterThan(worktops[index]!.areaInches);
+          expect(bar.areaInches).toBeGreaterThan(0);
         });
       }
     }

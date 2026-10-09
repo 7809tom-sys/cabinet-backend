@@ -22,12 +22,13 @@ describe("raised bar real 3D mesh", () => {
     expect(high.minZ).toBeCloseTo(low.minZ, 1);
     expect(high.maxZ).toBeCloseTo(low.maxZ, 1);
     // Cabinet fronts face the 1.5in edge; the bar projects out the back only.
+    // The raised bar is ONLY the 15in strip behind the cabinets; it never lies over the lower top.
     if (side === "left") {
-      expect(high.minX).toBeCloseTo(low.minX, 1);
-      expect(high.maxX).toBeCloseTo(low.maxX + 13.5, 1);
+      expect(high.minX).toBeCloseTo(low.maxX, 1);
+      expect(high.maxX).toBeCloseTo(low.maxX + 15, 1);
     } else {
-      expect(high.maxX).toBeCloseTo(low.maxX, 1);
-      expect(high.minX).toBeCloseTo(low.minX - 13.5, 1);
+      expect(high.maxX).toBeCloseTo(low.minX, 1);
+      expect(high.minX).toBeCloseTo(low.minX - 15, 1);
     }
   });
 
@@ -47,15 +48,16 @@ describe("raised bar real 3D mesh", () => {
     const high = surfaces.find((x) => x.raisedBar)!;
     const area = (s: typeof low) => s.areaInches ?? 0;
     // Projection is a thin 13.5in strip per run, never a hull that fills the 45-degree notch.
-    expect(area(high)).toBeGreaterThan(area(low));
-    // Every raised vertex sits within one mitred 13.5in offset of a lower vertex (13.5 / cos 22.5 = 14.6).
+    expect(area(high)).toBeGreaterThan(0);
+    expect(area(high)).toBeLessThan(area(low));
+    // Every raised vertex sits within one mitred 13.5in offset of a lower vertex (15 / cos 22.5 = 16.2).
     const lp = countertopSurfacePlanPolygon(low);
     const hp = countertopSurfacePlanPolygon(high);
-    for (const q of hp) expect(Math.min(...lp.map((p) => Math.hypot(p.x - q.x, p.y - q.y)))).toBeLessThan(15.5);
+    for (const q of hp) expect(Math.min(...lp.map((p) => Math.hypot(p.x - q.x, p.y - q.y)))).toBeLessThan(17.5);
     // The back/cabinet-side vertices are unchanged.
     const lowPts = countertopSurfacePlanPolygon(low);
     const highPts = countertopSurfacePlanPolygon(high);
     const shared = lowPts.filter((p) => highPts.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3));
-    expect(shared.length).toBeGreaterThanOrEqual(3);
+    expect(shared.length).toBeGreaterThanOrEqual(2);
   });
 });

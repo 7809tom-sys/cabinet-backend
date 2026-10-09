@@ -6139,6 +6139,7 @@ export function raisedBarCorbelPlan(
   overhangIn: number,
 ): { tangentIn: number; faceIn: number; armIn: number }[] {
   if (polygon.length < 3 || overhangIn <= 1.5) return [];
+  // The strip polygon IS the overhang: its far edge is the outer edge, its near edge is the cabinet back.
   const proj = polygon.map((pt) => pt.x * normal.x + pt.y * normal.y);
   const far = Math.max(...proj);
   const tan = { x: -normal.y, y: normal.x };
@@ -6148,10 +6149,10 @@ export function raisedBarCorbelPlan(
   const hi = Math.max(...edge) - 3;
   if (hi - lo < 6) return [];
   const count = Math.max(2, Math.round((hi - lo) / 24) + 1);
-  const arm = Math.min(12, overhangIn - 1.5);
+  const arm = Math.min(10, Math.max(4, overhangIn - 3));
   return Array.from({ length: count }, (_, i) => ({
     tangentIn: lo + ((hi - lo) * i) / (count - 1),
-    faceIn: far - overhangIn,
+    faceIn: Math.min(...proj),
     armIn: arm,
   }));
 }
@@ -6227,17 +6228,17 @@ export function addThreeDPeninsulaCountertops(
       const barFaceNormal = countertopRunFaceNormal(barFrame.radians, run.cabinetSide ?? "left");
       const barNormal = { x: -barFaceNormal.x, y: -barFaceNormal.y }; // brackets sit under the BACK overhang
       const barTan = { x: -barNormal.y, y: barNormal.x };
-      const ironMaterial = new THREE.MeshStandardMaterial({ color: "#2b2b2e", roughness: 0.55, metalness: 0.6 });
+      const ironMaterial = new THREE.MeshStandardMaterial({ color: "#8a8780", roughness: 0.8, metalness: 0.15 });
       const barBottom = (surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS;
       const barRadians = Math.atan2(barNormal.y, barNormal.x);
       raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15).forEach((c, index) => {
         const corbel = new THREE.Group();
         const faceX = barNormal.x * c.faceIn + barTan.x * c.tangentIn;
         const faceZ = barNormal.y * c.faceIn + barTan.y * c.tangentIn;
-        const thick = 1.5;
-        const drop = 10;
+        const thick = 1;
+        const drop = 5;
         // Local +X points outward from the support face; the group is rotated to the overhang normal.
-        const back = new THREE.Mesh(new THREE.BoxGeometry(0.5 * INCH, drop * INCH, thick * INCH), ironMaterial);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.35 * INCH, drop * INCH, thick * INCH), ironMaterial);
         back.position.set(0.25 * INCH, (barBottom - drop / 2) * INCH, 0);
         const arm = new THREE.Mesh(new THREE.BoxGeometry(c.armIn * INCH, 0.5 * INCH, thick * INCH), ironMaterial);
         arm.position.set((c.armIn / 2) * INCH, (barBottom - 0.25) * INCH, 0);

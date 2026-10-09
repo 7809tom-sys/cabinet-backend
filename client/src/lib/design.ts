@@ -11359,7 +11359,8 @@ export function peninsulaRaisedBarSurface(
   const projected = extendPeninsulaRaisedBarSurface(
     worktop,
     room,
-    Math.max(0, overhang - 1.5),
+    // Raised bar strip: 12-15in out from the back of the cabinets (never over the lower worktop).
+    Math.min(15, Math.max(12, overhang)),
   );
   return {
     ...projected,
@@ -11480,6 +11481,29 @@ function extendPeninsulaRaisedBarSurface(
       const t = ((next.x - prev.x) * next.dy - (next.y - prev.y) * next.dx) / det;
       return { x: prev.x + prev.dx * t, y: prev.y + prev.dy * t };
     });
+  }
+  // Keep ONLY the new strip behind the cabinets: the raised bar must never lie over the lower worktop.
+  const origPoints = countertopSurfacePlanPolygon(surface);
+  const moved = edgeOffset.map(Boolean);
+  if (moved.some(Boolean) && !moved.every(Boolean)) {
+    // Longest cyclic chain of consecutive offset edges.
+    let bestStart = -1, bestLen = 0;
+    for (let st = 0; st < n; st++) {
+      if (!moved[st] || moved[(st - 1 + n) % n]) continue;
+      let len = 0;
+      while (len < n && moved[(st + len) % n]) len++;
+      if (len > bestLen) { bestLen = len; bestStart = st; }
+    }
+    if (bestStart >= 0) {
+      const outer: CountertopPlanPoint[] = [];
+      const inner: CountertopPlanPoint[] = [];
+      for (let k = 0; k <= bestLen; k++) {
+        const idx = (bestStart + k) % n;
+        outer.push(points[idx]!);
+        inner.push(origPoints[idx]!);
+      }
+      points = [...outer, ...inner.reverse()];
+    }
   }
   const expanded = countertopSurfaceFromWorldPolygon(points, surface.peninsulaRunId);
   // The rebuilt outline is already in world coordinates; keep rotation 0 so Plan/3D do not rotate it twice.
@@ -12674,7 +12698,7 @@ export function countertopSurfaces(
     const raisedSurface = extendPeninsulaRaisedBarSurface(
       surface,
       room,
-      Math.max(0, raisedBarOverhang - 1.5),
+      Math.min(15, Math.max(12, raisedBarOverhang)),
     );
     return {
       ...raisedSurface,
