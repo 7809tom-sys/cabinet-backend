@@ -2442,7 +2442,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           id: `${run.id}_45_end`, parentRunId: run.id, startOffset: 0, turn: 45, direction: draft.endDirection,
           length: roundEighth(returnCabinetTotal + PENINSULA_INSIDE_CORNER_CLEARANCE_IN), height: run.height,
           cabinetSide: run.cabinetSide, countertopSeatingOverhang: run.countertopSeatingOverhang,
-          countertopRaisedBar: run.countertopRaisedBar, countertopRaisedBarOverhang: run.countertopRaisedBarOverhang,
+          countertopRaisedBar: run.countertopRaisedBar, countertopRaisedBarOverhang: run.countertopRaisedBarOverhang, countertopRaisedBarCorbels: draft.corbels === true,
           countertopWaterfallEnd: run.countertopWaterfallEnd, label: `Peninsula end · 45° ${draft.endDirection}`,
         }
       : null;
@@ -4691,6 +4691,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // Split-level Wizard bar: 42 inches high with a 15-inch outward projection.
       countertopRaisedBarOverhang: 15,
       countertopWaterfallEnd: draft.waterfall,
+      countertopRaisedBarCorbels: draft.corbels === true,
       wizardRecipe,
       label: 'Peninsula · straight',
     };
@@ -4713,7 +4714,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           cabinetSide: run.cabinetSide,
           countertopSeatingOverhang: run.countertopSeatingOverhang,
           countertopRaisedBar: run.countertopRaisedBar,
-          countertopRaisedBarOverhang: run.countertopRaisedBarOverhang,
+          countertopRaisedBarOverhang: run.countertopRaisedBarOverhang, countertopRaisedBarCorbels: run.countertopRaisedBarCorbels,
           countertopWaterfallEnd: run.countertopWaterfallEnd,
           label: `Peninsula end · 45° ${draft.endDirection}`,
         }
@@ -16151,6 +16152,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      )}
 	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground">
 	                        <input type="checkbox" checked={peninsulaWizardDraft.waterfall} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, waterfall: event.target.checked } : draft)} /> Waterfall end
+	                      </label>
+	                      <label className="flex items-end gap-2 rounded-md border border-input px-3 py-2 text-xs font-semibold text-foreground" title="Off by default: the countertop installer uses a 1/4 inch support bar">
+	                        <input type="checkbox" data-testid="peninsula-wizard-corbels" checked={peninsulaWizardDraft.corbels === true} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, corbels: event.target.checked } : draft)} /> Show corbels (optional)
 	                      </label>
 	                    </div>
 	                    <p className="text-[11px] leading-4 text-muted-foreground">Every Wizard countertop level follows the base-cabinet structure with its standard 1½ in. finished front edge. The 42 in. split-level bar changes height only; it shares the same cabinet footprint and physical 45° miter. The Wizard uses no manual run lengths, stops each countertop at the final supported cabinet, and blocks any top that would cross a room wall.</p>

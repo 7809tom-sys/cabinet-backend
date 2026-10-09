@@ -6252,7 +6252,7 @@ export function addThreeDPeninsulaCountertops(
           root.add(riser);
         }
       }
-      raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15).forEach((c, index) => {
+      (run.countertopRaisedBarCorbels ? raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15) : []).forEach((c, index) => {
         const corbel = new THREE.Group();
         const faceX = barNormal.x * c.faceIn + barTan.x * c.tangentIn;
         const faceZ = barNormal.y * c.faceIn + barTan.y * c.tangentIn;

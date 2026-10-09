@@ -1573,6 +1573,8 @@ export interface PeninsulaWizardRecipe {
   applianceCode: "none" | "DW-24" | "WINE-24";
   seatingOverhang: 0 | 10 | 12 | 15;
   waterfall: boolean;
+  /** Optional visual corbels under the raised bar (off by default). */
+  corbels?: boolean;
   addPonyWall: boolean;
   ponyWallLength: number;
   ponyWallHeight: number;
@@ -1618,6 +1620,8 @@ export interface PeninsulaRun {
    * deserialize older drafts without widening their countertop footprint.
    */
   countertopRaisedBarOverhang?: 1.5 | 12 | 15;
+  /** Optional visual iron corbels under the bar. Off by default: installers use a 1/4" support bar. */
+  countertopRaisedBarCorbels?: boolean;
   /** A full-height counter panel at this run's exposed far end. */
   countertopWaterfallEnd?: boolean;
   /**
@@ -11400,7 +11404,8 @@ function raisedBarOuterMiterWedges(
       ...surface,
       raisedBar: true,
       raisedBarUsesSharedCountertopOutline: true,
-      raisedBarOverhangIn: a.raisedBarOverhangIn,
+      // Corner filler only: the straight and return strips already carry the corbels.
+      raisedBarOverhangIn: 0,
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     });
   }

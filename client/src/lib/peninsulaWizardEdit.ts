@@ -20,6 +20,7 @@ export type PeninsulaWizardEditDraft = {
   applianceCode: "none" | "DW-24" | "WINE-24";
   seatingOverhang: 0 | 10 | 12 | 15;
   waterfall: boolean;
+  corbels?: boolean;
   addPonyWall: boolean;
   ponyWallLength: number;
   ponyWallHeight: number;
