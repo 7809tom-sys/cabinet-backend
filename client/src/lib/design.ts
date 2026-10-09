@@ -12337,6 +12337,12 @@ function peninsulaVoidFillSurfaces(
           if (Math.max(aLen, bLen) > score * 2.5 + 6) continue;
           for (const quad of [[a0, a1, b0, b1], [a0, a1, b1, b0]]) {
             if (countertopPolygonSelfIntersects(quad)) continue;
+            // The two sides joining the paired edges must be short. A real miter
+            // wedge is closed by sides about one gap long; long joins sweep a slab
+            // across open floor between two far-apart faces of the bend.
+            const joinA = Math.hypot(quad[2]!.x - quad[1]!.x, quad[2]!.y - quad[1]!.y);
+            const joinB = Math.hypot(quad[3]!.x - quad[0]!.x, quad[3]!.y - quad[0]!.y);
+            if (Math.max(joinA, joinB) > Math.max(aLen, bLen) + 1) continue;
             const area = countertopPolygonArea(quad);
             if (area < 4) continue;
             const xs = quad.map((q) => q.x), ys = quad.map((q) => q.y);
