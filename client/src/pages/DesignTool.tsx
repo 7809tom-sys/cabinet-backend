@@ -12,7 +12,7 @@ import {
   ChevronUp, ChevronDown, Check, ScanLine, Printer, Palette, Minus, UserRound, Info,
   ChevronRight, Wrench, Crown as CrownIcon, Pencil,
   Save, FolderOpen, Refrigerator, Waves, Percent, StickyNote, Undo2, Redo2, FileText, SquareDashedMousePointer,
-  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Compass, LoaderCircle } from "lucide-react";
+  Flame, Zap, Droplets, Building2, Download, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, ArrowRightLeft, Move, Magnet, PackageOpen, TriangleAlert, Compass, LoaderCircle, MapPin } from "lucide-react";
 import { useUndoRedo } from "@/hooks/useUndoRedo";
 import { SelectedCabinetDropActions } from "@/components/design/SelectedCabinetDropActions";
 import { Button } from "@/components/ui/button";
@@ -197,6 +197,7 @@ import { PlanImageImportDialog, type ReviewedPlan } from "@/components/design/Pl
 import { findClosestPlanCabinet } from "@/lib/planImportMapper";
 import { EmailGate, type LeadContact } from "@/components/design/EmailGate";
 import { OptionalContactNudge } from "@/components/design/OptionalContactNudge";
+import { DesignDeliveryDialog } from "@/components/design/DesignDeliveryDialog";
 import { DesignActions, type BuildSheetRow } from "@/components/design/DesignActions";
 import { DesignMaterialsListDialog } from "@/components/design/DesignMaterialsListDialog";
 import { summarizeMissingPrices, checkoutBlockedByMissingPrices, missingPriceBannerText } from "@/lib/designMissingPrice";
@@ -11396,6 +11397,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     });
   };
   const [csvImportOpen, setCsvImportOpen] = useState(false);
+  const [deliveryOpen, setDeliveryOpen] = useState(false);
   const [planImportOpen, setPlanImportOpen] = useState(false);
   const createRemoteShareLinkMut = trpc.design.createRemoteShareLink.useMutation();
   const shareCurrentDesign = async () => {
@@ -13394,6 +13396,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <FileText className="h-4 w-4" />
           </Button>
           <CsvImportDialog open={csvImportOpen} onOpenChange={setCsvImportOpen} />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setDeliveryOpen(true)}
+            title="Delivery address, shipping quote and CRM"
+            className="h-9 border-[#d4a75a]/60 text-[#1a2744] hover:bg-[#d4a75a]/10"
+            data-testid="open-delivery-dialog"
+          >
+            <MapPin className="mr-1 h-4 w-4" /> Delivery
+          </Button>
+          <DesignDeliveryDialog
+            open={deliveryOpen}
+            onOpenChange={setDeliveryOpen}
+            designId={currentSavedDesignId ?? null}
+            designName={savedDesign?.name ?? null}
+            designTotal={total}
+            lines={cartableLines}
+            defaultName={verifiedName}
+            defaultEmail={verifiedEmail}
+            defaultPhone={verifiedPhone}
+          />
           <PlanImageImportDialog
             open={planImportOpen}
             onOpenChange={setPlanImportOpen}

@@ -66,6 +66,11 @@ interface DealRow {
   location: string | null;
   language: Lang;
   estimatedValue: string | null;
+  designValue?: string | null;
+  shippingQuote?: string | null;
+  shippingAddress?: string | null;
+  shippingAddressVerified?: boolean;
+  designSyncedAt?: string | Date | null;
   source: string;
   referralCode: string | null;
   nextFollowUpAt: string | Date | null;
@@ -717,6 +722,24 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
                 {deal.company && <div className="flex items-center gap-2"><Building2 className="h-3.5 w-3.5 text-muted-foreground" />{deal.company}</div>}
                 {deal.location && <div className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5 text-muted-foreground" />{deal.location}</div>}
                 <div className="flex items-center gap-2 font-semibold pt-1"><CircleDollarSign className="h-3.5 w-3.5 text-muted-foreground" />{money(deal.estimatedValue)}</div>
+                {(deal.designValue != null || deal.shippingQuote != null) && (
+                  <div className="rounded-md bg-muted/40 p-2 text-xs space-y-0.5" data-testid="crm-design-pricing">
+                    <div className="flex justify-between"><span>{lang === "es" ? "Precio del diseño" : "Kitchen design price"}</span><span className="font-semibold">{money(deal.designValue ?? null)}</span></div>
+                    <div className="flex justify-between"><span>{lang === "es" ? "Envío" : "Shipping"}</span><span className="font-semibold">{deal.shippingQuote != null ? money(deal.shippingQuote) : (lang === "es" ? "Pendiente" : "Pending")}</span></div>
+                    <div className="flex justify-between border-t border-border pt-0.5"><span>{lang === "es" ? "Total" : "Total"}</span><span className="font-semibold">{money(deal.estimatedValue)}</span></div>
+                    {deal.designSyncedAt && <div className="text-[11px] text-muted-foreground">{lang === "es" ? "Guardado" : "Saved"} {new Date(deal.designSyncedAt).toLocaleDateString()}</div>}
+                  </div>
+                )}
+                {deal.shippingAddress && (
+                  <div className="flex items-start gap-2 text-xs" data-testid="crm-shipping-address">
+                    <MapPin className="h-3.5 w-3.5 mt-0.5 text-muted-foreground" />
+                    <span>{deal.shippingAddress}{" "}
+                      <Badge variant="outline" className={deal.shippingAddressVerified ? "border-emerald-500 text-emerald-700" : "border-amber-500 text-amber-700"}>
+                        {deal.shippingAddressVerified ? (lang === "es" ? "Dirección verificada" : "Address verified") : (lang === "es" ? "Sin verificar" : "Not verified")}
+                      </Badge>
+                    </span>
+                  </div>
+                )}
                 {deal.notes && <p className="text-xs text-muted-foreground pt-1 whitespace-pre-wrap">{deal.notes}</p>}
               </div>
 

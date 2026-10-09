@@ -1566,6 +1566,12 @@ export const crmDeals = mysqlTable("crm_deals", {
   closedAt: timestamp("closedAt"), // set when stage becomes won/lost
   // Flag set by affiliate when they need help from the master admin to close this deal
   needsHelpClosing: boolean("needsHelpClosing").default(false).notNull(),
+  // Kitchen design price + live shipping quote synced from the Designer page.
+  designValue: decimal("designValue", { precision: 12, scale: 2 }),
+  shippingQuote: decimal("shippingQuote", { precision: 12, scale: 2 }),
+  shippingAddress: varchar("shippingAddress", { length: 512 }),
+  shippingAddressVerified: boolean("shippingAddressVerified").default(false).notNull(),
+  designSyncedAt: timestamp("designSyncedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (t) => ({

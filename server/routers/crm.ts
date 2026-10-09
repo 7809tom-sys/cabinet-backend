@@ -34,6 +34,7 @@ import {
   shouldCreateCommission,
 } from "@shared/salesPrograms";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
+import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { buildCrmInvoiceEmailHtml, createCrmInvoicePdf } from "../crmInvoicePdf";
 import { usableInvoicePrefill, verifiedFreightInvoicePrefill } from "../crmInvoicePrefill";
 import { groupedDesignInvoiceMaterials } from "../crmDesignInvoice";
@@ -1222,6 +1223,87 @@ export const crmRouter = router({
       });
 
             return { id: dealId, reused: false };
+    }),
+  // ── Sync design price + shipping + verified address to the design's deal ───
+  // Called from the Designer. The address is re-verified on the server so a
+  // browser can never mark an unverified address as verified.
+  syncDesignQuoteToCrm: protectedProcedure
+    .input(
+      z.object({
+        designId: z.number().int(),
+        contactName: z.string().max(256).nullable().optional(),
+        contactEmail: z.string().max(320).nullable().optional(),
+        contactPhone: z.string().max(32).nullable().optional(),
+        designValue: z.number().min(0).max(100_000_000),
+        shippingQuote: z.number().min(0).max(10_000_000).nullable().optional(),
+        address: z.object({
+          line1: z.string().min(1).max(256),
+          line2: z.string().max(256).nullable().optional(),
+          city: z.string().min(1).max(128),
+          state: z.string().length(2),
+          zip: z.string().min(5).max(16),
+        }),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const dRows = await db
+        .select()
+        .from(kitchenDesigns)
+        .where(and(eq(kitchenDesigns.id, input.designId), eq(kitchenDesigns.userId, ctx.user.id)))
+        .limit(1);
+      const design = dRows[0];
+      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Save the design first, then sync it to the CRM." });
+      const check = await verifyUsAddress(input.address);
+      const addressText = check.formatted ?? formatEnteredAddress(input.address);
+      const patch = {
+        designValue: input.designValue.toFixed(2),
+        estimatedValue: (input.designValue + (input.shippingQuote ?? 0)).toFixed(2),
+        shippingQuote: input.shippingQuote != null ? input.shippingQuote.toFixed(2) : null,
+        shippingAddress: addressText.slice(0, 512),
+        shippingAddressVerified: check.verified,
+        location: `${check.normalized?.city ?? input.address.city}, ${(check.normalized?.state ?? input.address.state).toUpperCase()} ${check.normalized?.zip ?? input.address.zip}`.slice(0, 256),
+        designSyncedAt: new Date(),
+        ...(input.contactName ? { contactName: input.contactName } : {}),
+        ...(input.contactPhone ? { contactPhone: input.contactPhone } : {}),
+      };
+      const links = await db.select().from(crmDealDesigns).where(eq(crmDealDesigns.designId, design.id));
+      for (const link of links) {
+        const rows = await db
+          .select({ id: crmDeals.id })
+          .from(crmDeals)
+          .where(and(eq(crmDeals.id, link.dealId), design.affiliateId == null ? isNull(crmDeals.affiliateId) : eq(crmDeals.affiliateId, design.affiliateId)))
+          .limit(1);
+        if (rows[0]) {
+          await db.update(crmDeals).set(patch).where(eq(crmDeals.id, rows[0].id));
+          return { dealId: rows[0].id, created: false, verification: check };
+        }
+      }
+      const who = (input.contactName ?? "").trim();
+      const baseLabel = design.projectName?.trim() || design.name;
+      const title = who ? `${who} — ${baseLabel}` : baseLabel;
+      const res = await db.insert(crmDeals).values({
+        affiliateId: design.affiliateId,
+        ownerUserId: ctx.user.id,
+        title: title.slice(0, 256),
+        stage: "new",
+        priority: "medium",
+        contactName: input.contactName ?? null,
+        contactEmail: input.contactEmail ?? ctx.user.email ?? null,
+        company: design.projectName ?? null,
+        source: "storefront",
+        notes: `Design saved from the Designer. Room type: ${design.roomType ?? "kitchen"}.`,
+        ...patch,
+      });
+      const dealId = (res as unknown as [{ insertId: number }])[0].insertId;
+      await db.insert(crmDealDesigns).values({
+        dealId,
+        designId: design.id,
+        designName: design.name,
+        linkedByUserId: ctx.user.id,
+      });
+      return { dealId, created: true, verification: check };
     }),
 
   // ── Sales-rep commissions: list (admin) ────────────────────────────────────

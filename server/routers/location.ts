@@ -14,6 +14,7 @@ import {
 } from "../../shared/availability";
 import { resolvePickupOriginZip, type PickupCandidate } from "../../shared/netsuiteOrder";
 import { resolvePresentation } from "../lib/presentation";
+import { verifyUsAddress } from "../lib/addressVerification";
 
 // In-memory geocode cache (zip → coord). Process-lifetime only; fine for our use.
 const zipCoordCache = new Map<string, LatLng | null>();
@@ -42,6 +43,19 @@ async function geocodeZip(zip: string): Promise<LatLng | null> {
 }
 
 export const locationRouter = router({
+  // Verify a full US delivery address before a shipping quote or CRM save.
+  verifyAddress: publicProcedure
+    .input(
+      z.object({
+        line1: z.string().min(1).max(256),
+        line2: z.string().max(256).nullable().optional(),
+        city: z.string().min(1).max(128),
+        state: z.string().length(2),
+        zip: z.string().min(5).max(16),
+      })
+    )
+    .mutation(({ input }) => verifyUsAddress(input)),
+
   // Given a customer ZIP, report which supply lines (distributors) can serve it
   // within the service radius, with the nearest warehouse distance + lead time.
   availability: publicProcedure
