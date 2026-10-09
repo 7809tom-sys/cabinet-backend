@@ -6149,7 +6149,7 @@ export function raisedBarCorbelPlan(
   const hi = Math.max(...edge) - 3;
   if (hi - lo < 6) return [];
   const count = Math.max(2, Math.round((hi - lo) / 24) + 1);
-  const arm = Math.min(10, Math.max(4, overhangIn - 3));
+  const arm = Math.min(6, Math.max(3, overhangIn - 8));
   return Array.from({ length: count }, (_, i) => ({
     tangentIn: lo + ((hi - lo) * i) / (count - 1),
     faceIn: Math.min(...proj),
@@ -6228,15 +6228,15 @@ export function addThreeDPeninsulaCountertops(
       const barFaceNormal = countertopRunFaceNormal(barFrame.radians, run.cabinetSide ?? "left");
       const barNormal = { x: -barFaceNormal.x, y: -barFaceNormal.y }; // brackets sit under the BACK overhang
       const barTan = { x: -barNormal.y, y: barNormal.x };
-      const ironMaterial = new THREE.MeshStandardMaterial({ color: "#8a8780", roughness: 0.8, metalness: 0.15 });
+      const ironMaterial = new THREE.MeshStandardMaterial({ color: "#c9c5bd", roughness: 0.9, metalness: 0.0 });
       const barBottom = (surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS;
       const barRadians = Math.atan2(barNormal.y, barNormal.x);
       raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15).forEach((c, index) => {
         const corbel = new THREE.Group();
         const faceX = barNormal.x * c.faceIn + barTan.x * c.tangentIn;
         const faceZ = barNormal.y * c.faceIn + barTan.y * c.tangentIn;
-        const thick = 1;
-        const drop = 5;
+        const thick = 0.75;
+        const drop = 3;
         // Local +X points outward from the support face; the group is rotated to the overhang normal.
         const back = new THREE.Mesh(new THREE.BoxGeometry(0.35 * INCH, drop * INCH, thick * INCH), ironMaterial);
         back.position.set(0.25 * INCH, (barBottom - drop / 2) * INCH, 0);
@@ -6245,7 +6245,7 @@ export function addThreeDPeninsulaCountertops(
         const brace = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(c.armIn * 0.8, drop * 0.8) * INCH, 0.4 * INCH, 0.8 * INCH), ironMaterial);
         brace.position.set((c.armIn * 0.4) * INCH, (barBottom - drop * 0.4) * INCH, 0);
         brace.rotation.z = -Math.atan2(drop, c.armIn);
-        corbel.add(back, arm, brace);
+        corbel.add(back, arm); // diagonal brace removed: supports read as a quiet shadow-line, not hardware
         corbel.position.set(faceX * INCH, 0, faceZ * INCH);
         corbel.rotation.y = -barRadians;
         corbel.userData = { raisedBarCorbel: true, peninsulaRunId: run.id, index, visualOnly: true };
@@ -8551,7 +8551,12 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, sele
   group.rotation.y = transform.rotation;
   group.userData = { furnitureUid: furniture.uid, furnitureDefId: furniture.defId };
   const material = new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.7 });
-  const height = def.category === "table" ? 2.5 : def.category === "stool" ? 2.1 : 1.5;
+  if (def.category === "stool") {
+    buildModernStool(group, def.id === "stool-bar" ? 30 : 25, width / INCH);
+    root.add(group);
+    return;
+  }
+  const height = def.category === "table" ? 2.5 : 1.5;
   const body = def.shape === "round"
     ? new THREE.Mesh(new THREE.CylinderGeometry(width / 2, width / 2, height, 20), material)
     : new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
@@ -8560,6 +8565,33 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, sele
   root.add(group);
 }
 
+/** Modern backless stool: slim round padded seat, four tapered black-metal legs, and a foot ring. Visual only. */
+export function buildModernStool(group: THREE.Group, seatHeightIn: number, diameterIn: number) {
+  const d = Math.max(12, Math.min(diameterIn, 18));
+  const seatMat = new THREE.MeshStandardMaterial({ color: "#d9d4cb", roughness: 0.85 });
+  const metal = new THREE.MeshStandardMaterial({ color: "#26262a", roughness: 0.45, metalness: 0.5 });
+  const seat = new THREE.Mesh(new THREE.CylinderGeometry((d / 2) * INCH, (d / 2) * INCH * 0.96, 2 * INCH, 28), seatMat);
+  seat.position.y = (seatHeightIn - 1) * INCH;
+  const plate = new THREE.Mesh(new THREE.CylinderGeometry((d / 2 - 1) * INCH, (d / 2 - 1) * INCH, 0.4 * INCH, 28), metal);
+  plate.position.y = (seatHeightIn - 2.2) * INCH;
+  group.add(seat, plate);
+  const legLen = seatHeightIn - 2.4;
+  const top = (d / 2 - 2.5), bottom = (d / 2 + 1);
+  for (let i = 0; i < 4; i++) {
+    const a = Math.PI / 4 + (i * Math.PI) / 2;
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.4 * INCH, 0.3 * INCH, legLen * INCH, 10), metal);
+    const mx = ((top + bottom) / 2) * Math.cos(a), mz = ((top + bottom) / 2) * Math.sin(a);
+    leg.position.set(mx * INCH, (legLen / 2) * INCH, mz * INCH);
+    // splay outward toward the floor
+    leg.rotation.set(Math.sin(a) * Math.atan((bottom - top) / legLen), 0, -Math.cos(a) * Math.atan((bottom - top) / legLen));
+    group.add(leg);
+  }
+  const ring = new THREE.Mesh(new THREE.TorusGeometry((d / 2 + 0.2) * INCH, 0.3 * INCH, 8, 28), metal);
+  ring.rotation.x = Math.PI / 2;
+  ring.position.y = Math.min(11, seatHeightIn * 0.42) * INCH;
+  group.add(ring);
+  group.userData = { ...group.userData, modernStool: true, visualOnly: true };
+}
 export function openingTransform(opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number) {
   const room = typeof roomOrWidth === "number" ? null : roomOrWidth;
   const roomWidth = typeof roomOrWidth === "number" ? roomOrWidth : roomOrWidth.width;
