@@ -40,3 +40,11 @@ describe("design delivery address", () => {
     expect(crmBoard).toMatch(/Address verified/);
   });
 });
+
+describe("affiliate scoping of the CRM sync", () => {
+  const crm = readFileSync(new URL("../../../../server/routers/crm.ts", import.meta.url), "utf8");
+  it("writes the deal under the design's own affiliate and allows only that affiliate's team", () => {
+    expect(crm).toMatch(/access\?\.affiliateId === design\.affiliateId/);
+    expect(crm).toMatch(/affiliateId: design\.affiliateId,\n\s+ownerUserId/);
+  });
+});

@@ -1251,10 +1251,17 @@ export const crmRouter = router({
       const dRows = await db
         .select()
         .from(kitchenDesigns)
-        .where(and(eq(kitchenDesigns.id, input.designId), eq(kitchenDesigns.userId, ctx.user.id)))
+        .where(eq(kitchenDesigns.id, input.designId))
         .limit(1);
       const design = dRows[0];
-      if (!design) throw new TRPCError({ code: "NOT_FOUND", message: "Save the design first, then sync it to the CRM." });
+      // Allowed: the design's owner, or a member of the SAME affiliate's team.
+      // Never another affiliate or the house.
+      let allowed = design != null && design.userId === ctx.user.id;
+      if (design && !allowed && design.affiliateId != null) {
+        const access = await resolveAffiliateAccess(db, ctx.user);
+        allowed = access?.affiliateId === design.affiliateId && access.accessDesigner !== false;
+      }
+      if (!design || !allowed) throw new TRPCError({ code: "NOT_FOUND", message: "Save the design first, then sync it to the CRM." });
       const check = await verifyUsAddress(input.address);
       const addressText = check.formatted ?? formatEnteredAddress(input.address);
       const patch = {
