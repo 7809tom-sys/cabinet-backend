@@ -15,9 +15,9 @@ describe("tablet workspace layout (1024–1366px or touch)", () => {
     expect(designTool).toContain('|| (compactWorkspaceOverride === "auto" && isSmallLaptop)\n  );');
   });
 
-  it("keeps a single non-scrolling toolbar row with the essentials and folds the rest into More tools", () => {
+  it("keeps a compact non-scrolling toolbar with the essentials and folds the rest into More tools", () => {
     expect(designTool).toContain('data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined}');
-    expect(designTool).toContain("flex-nowrap overflow-visible gap-1.5 px-2 py-1");
+    expect(designTool).toContain("designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap");
     expect(designTool).toContain('data-testid="tablet-add-cabinet"');
     expect(designTool).toContain('data-testid="tablet-undo-redo"');
     expect(designTool).toContain('data-testid="tablet-running-total"');

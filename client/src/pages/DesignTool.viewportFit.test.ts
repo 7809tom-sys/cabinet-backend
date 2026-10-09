@@ -4,8 +4,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(new URL("./DesignTool.tsx", import.meta.url), "utf8");
 
 describe("Designer desktop viewport fit", () => {
-  it("keeps the compact desktop toolbar to one scrollable row instead of consuming canvas height", () => {
-    expect(source).toContain('lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none');
+  it("keeps the compact desktop toolbar within the viewport without sideways scrolling", () => {
+    const start = source.indexOf('{/* Toolbar */}');
+    const toolbarRoot = source.slice(start, source.indexOf('{/* Title + badge', start));
+    expect(toolbarRoot).toContain('designer-top-toolbar');
+    expect(toolbarRoot).toContain('flex-wrap');
+    expect(toolbarRoot).not.toContain('overflow-x-auto');
   });
 
   it("keeps contextual desktop cabinet controls in one horizontal scroll strip", () => {

@@ -1,4 +1,5 @@
 import { snapFreestandingFortyFive } from "@/lib/freestandingRun";
+import "./DesignTool.toolbar.css";
 import { useState, useMemo, useCallback, useEffect, useRef, useDeferredValue, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -11976,7 +11977,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         onCommit={commitMasterTracTower}
       />}
       {/* Toolbar */}
-      <div data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined} className={`border-b border-border bg-card px-3 py-1.5 flex items-center gap-1.5 shrink-0 ${isTabletWorkspace ? `flex-nowrap overflow-visible gap-1.5 px-2 py-1 ${isTabletPortrait ? "order-last border-b-0 border-t" : tabletImmersiveHeader ? "pl-16" : ""}` : isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto lg:overflow-y-visible lg:scrollbar-none lg:[&>*]:shrink-0" : "flex-nowrap overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0"}`} style={{ WebkitOverflowScrolling: 'touch', ...(affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : {}) }}>
+      <div data-testid="designer-toolbar" data-tablet-workspace={isTabletWorkspace ? "true" : undefined} className={`designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap items-center gap-1 shrink-0 overflow-visible ${isTabletWorkspace ? `${isTabletPortrait ? "order-last border-b-0 border-t" : tabletImmersiveHeader ? "pl-16" : ""}` : ""}`} style={affiliateBrand ? { borderTop: `3px solid ${affiliateAccent}` } : undefined}>
         {/* Title + badge — desktop only */}
         <div className={`${isCompactWorkspace ? "hidden" : "hidden lg:flex"} items-center gap-2`}>
           {affiliateBrand ? (
@@ -12007,8 +12008,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             className={`h-8 gap-1.5 px-3 text-xs font-semibold ${viewMode === "plan" ? "bg-[#1a2744] text-white hover:bg-[#24375f]" : "text-[#1a2744] hover:bg-white"}`}
             aria-pressed={viewMode === "plan"}
             data-testid="switch-to-floor-plan"
+            aria-label="Floor Plan"
           >
-            <LayoutGrid className="h-3.5 w-3.5" /> Floor Plan
+            <LayoutGrid className="h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Floor Plan</span><span aria-hidden="true" className="designer-toolbar-short-label">Plan</span>
           </Button>
           {isTabletWorkspace && (
             <Button
@@ -12034,8 +12036,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             aria-pressed={viewMode === "threeD"}
             data-testid="switch-to-3d-view"
             title={canLoadInteractive3d ? "Open the synchronized 3D view" : "Choose a room layout and door style first"}
+            aria-label="3D View"
           >
-            <Boxes className="h-3.5 w-3.5" /> 3D View
+            <Boxes className="h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">3D View</span><span aria-hidden="true" className="designer-toolbar-short-label">3D</span>
           </Button>
         </div>
 
@@ -12068,8 +12071,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           <Compass className="h-3.5 w-3.5" /> Drag 45°
         </Button>
 
-        <Button variant="outline" size="sm" className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked}>
-          <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> Room layout
+        <Button variant="outline" size="sm" className={`${isTabletWorkspace ? "hidden" : "hidden lg:inline-flex"} shrink-0`} onClick={() => setLayoutStarterOpen(true)} disabled={layoutLocked} aria-label="Room layout" title="Choose a room layout">
+          <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Room layout</span><span aria-hidden="true" className="designer-toolbar-short-label">Layout</span>
         </Button>
         <Button
           variant="default"
@@ -12079,8 +12082,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           disabled={layoutLocked}
           data-testid="primary-peninsula-wizard"
           title="Build a peninsula from your exact cabinet list"
+          aria-label="Peninsula Wizard"
         >
-          <Wand2 className="h-3.5 w-3.5" /> {isTabletWorkspace ? "Peninsula" : "Peninsula Wizard"}
+          <Wand2 className="h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Peninsula" : "Peninsula Wizard"}</span><span aria-hidden="true" className="designer-toolbar-short-label">Peninsula</span>
         </Button>
         <Button
           variant="outline"
@@ -12089,8 +12093,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           disabled={materialsListRows.length === 0}
           onClick={() => setMaterialsListOpen(true)}
           title="View, print, or export complete materials & parts list"
+          aria-label="Materials & Parts"
         >
-          <FileText className="mr-1.5 h-3.5 w-3.5" /> Materials &amp; Parts
+          <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">Materials &amp; Parts</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
         </Button>
         <Button
           variant={isCompactWorkspace ? "default" : "outline"}
@@ -12101,7 +12106,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           aria-label={isCompactWorkspace ? "Show Catalog and Price & cart panels beside the canvas" : "Hide Catalog and Price & cart panels to focus the canvas"}
           data-testid="compact-workspace-show-panels-trigger"
         >
-          <Columns3 className="mr-1.5 h-3.5 w-3.5" /> {isCompactWorkspace ? "Show panels" : "Focus canvas"}
+          <Columns3 className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isCompactWorkspace ? "Show panels" : "Focus canvas"}</span><span aria-hidden="true" className="designer-toolbar-short-label">{isCompactWorkspace ? "Show panels" : "Focus"}</span>
         </Button>
         {isCompactWorkspace && (
           <>
@@ -12132,8 +12137,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               disabled={materialsListRows.length === 0}
               onClick={() => setMaterialsListOpen(true)}
               title="View every cabinet, material, fixture, and part in this design"
+              aria-label="Materials & Parts"
             >
-              <FileText className="mr-1.5 h-3.5 w-3.5" /> {isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}
+              <FileText className="mr-1.5 h-3.5 w-3.5" /> <span className="designer-toolbar-full-label">{isTabletWorkspace ? "Materials" : <>Materials &amp; Parts</>}</span><span aria-hidden="true" className="designer-toolbar-short-label">Materials</span>
             </Button>
             <Button
               variant="outline"

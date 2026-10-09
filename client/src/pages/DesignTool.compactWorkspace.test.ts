@@ -58,8 +58,8 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain('data-testid={`mastertrac-sku-${product.sku}`}');
   });
 
-  it("keeps the compact desktop toolbar to one scrollable row and preserves direct materials and surfaces access", () => {
-    expect(source).toContain('isCompactWorkspace ? "flex-wrap overflow-visible lg:flex-nowrap lg:overflow-x-auto');
+  it("keeps the compact desktop toolbar non-scrolling and preserves direct materials and surfaces access", () => {
+    expect(source).toContain('designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap');
     expect(source).toContain('data-testid="compact-workspace-materials-trigger"');
     expect(source).toContain('title="View every cabinet, material, fixture, and part in this design"');
     expect(source).toContain('data-testid="compact-workspace-surfaces-trigger"');

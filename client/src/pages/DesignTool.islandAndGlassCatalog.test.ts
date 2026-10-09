@@ -128,13 +128,13 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 	  expect(source).toContain("islandResizeWarningRef");
 	  expect(source).toContain("now - previous.at >= 1200");
 	  expect(source).toContain("if (!resized.ok) { reportResizeBlock(resized.reason); return; }");
-	});
+		});
 
-	it("keeps full Designer toolbar controls at their usable width and scrolls them instead of allowing overlap", () => {
-	  expect(source).toContain("overflow-x-auto overflow-y-visible scrollbar-none [&>*]:shrink-0");
-	});
+		it("keeps Designer toolbar controls compact and wraps them instead of allowing overlap or sideways scrolling", () => {
+		  expect(source).toContain("designer-top-toolbar border-b border-border bg-card px-2 py-1 flex flex-wrap");
+		});
 
-	it("provides a user-controlled automatic snapping toggle and a concise door or window clearance notice", () => {
+		it("provides a user-controlled automatic snapping toggle and a concise door or window clearance notice", () => {
 	  expect(source).toContain('data-testid="automatic-snapping-toggle"');
 	  expect(source).toContain("const [automaticSnapping, setAutomaticSnapping] = useState(true);");
 	  expect(source).toContain('data-testid="opening-clearance-block-tooltip"');
