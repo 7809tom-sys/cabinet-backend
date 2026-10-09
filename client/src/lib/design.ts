@@ -11431,16 +11431,52 @@ function extendPeninsulaRaisedBarSurface(
   if (owners.length === 0) return surface;
 
   let points = countertopSurfacePlanPolygon(surface);
+  // Offset only each run's own exposed front EDGE (mitered with its neighbours). A convex hull
+  // would balloon past the run ends and fill the 45-degree notch.
+  const n = points.length;
+  const edgeOffset: Array<{ x: number; y: number } | null> = Array.from({ length: n }, () => null);
   for (const run of owners) {
     const frame = peninsulaRunEndpoints(run, room);
     const normal = countertopRunFaceNormal(frame.radians, run.cabinetSide ?? "left");
-    const projections = points.map((point) => point.x * normal.x + point.y * normal.y);
-    const front = Math.max(...projections);
-    const frontPoints = points.filter((_, index) => front - projections[index]! <= 1 / 16);
-    points = countertopConvexHull([
-      ...points,
-      ...frontPoints.map((point) => ({ x: point.x + normal.x * extensionIn, y: point.y + normal.y * extensionIn })),
-    ]);
+    const proj = points.map((point) => point.x * normal.x + point.y * normal.y);
+    const candidates: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = points[i]!;
+      const b = points[(i + 1) % n]!;
+      const ex = b.x - a.x, ey = b.y - a.y;
+      const len = Math.hypot(ex, ey);
+      if (len < 1e-6) continue;
+      // Edge must run along this run (perpendicular to its outward normal).
+      if (Math.abs(ex * normal.x + ey * normal.y) / len < 0.02) candidates.push(i);
+    }
+    if (candidates.length === 0) continue;
+    const front = Math.max(...candidates.map((i) => proj[i]!));
+    for (const i of candidates) {
+      if (edgeOffset[i]) continue;
+      if (front - proj[i]! <= 1 / 16 && front - proj[(i + 1) % n]! <= 1 / 16) {
+        edgeOffset[i] = { x: normal.x * extensionIn, y: normal.y * extensionIn };
+      }
+    }
+  }
+  if (edgeOffset.some(Boolean)) {
+    const line = (i: number) => {
+      const a = points[i]!;
+      const b = points[(i + 1) % n]!;
+      const o = edgeOffset[i] ?? { x: 0, y: 0 };
+      return { x: a.x + o.x, y: a.y + o.y, dx: b.x - a.x, dy: b.y - a.y };
+    };
+    points = points.map((point, i) => {
+      const prev = line((i - 1 + n) % n);
+      const next = line(i);
+      if (!edgeOffset[(i - 1 + n) % n] && !edgeOffset[i]) return point;
+      const det = prev.dx * next.dy - prev.dy * next.dx;
+      if (Math.abs(det) < 1e-9) {
+        const o = edgeOffset[i] ?? edgeOffset[(i - 1 + n) % n]!;
+        return { x: point.x + o.x, y: point.y + o.y };
+      }
+      const t = ((next.x - prev.x) * next.dy - (next.y - prev.y) * next.dx) / det;
+      return { x: prev.x + prev.dx * t, y: prev.y + prev.dy * t };
+    });
   }
   const expanded = countertopSurfaceFromWorldPolygon(points, surface.peninsulaRunId);
   // The rebuilt outline is already in world coordinates; keep rotation 0 so Plan/3D do not rotate it twice.

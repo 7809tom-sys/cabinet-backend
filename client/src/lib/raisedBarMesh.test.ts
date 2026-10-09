@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 import { addThreeDPeninsulaCountertops } from "@/components/design/InteractiveRoom3D";
-import { wallPlacementAt, type PlacedCabinet, type RoomData } from "./design";
+import { countertopSurfacePlanPolygon, countertopSurfaces, wallPlacementAt, type PeninsulaRun, type PlacedCabinet, type RoomData } from "./design";
 
 describe("raised bar real 3D mesh", () => {
   it.each(["left", "right"] as const)("projects outward only on the %s side", (side) => {
@@ -28,5 +28,30 @@ describe("raised bar real 3D mesh", () => {
       expect(high.minX).toBeCloseTo(low.minX, 1);
       expect(high.maxX).toBeCloseTo(low.maxX + 13.5, 1);
     }
+  });
+
+  it.each(["left", "right"] as const)("45-degree return on the %s side only moves each run's own front edge outward", (side) => {
+    const runs = [
+      { id: "main", parentWall: "top", startOffset: 24, direction: "right", length: 72, height: 96, cabinetSide: side, countertopRaisedBar: true, countertopRaisedBarOverhang: 15 },
+      { id: "return-45", parentRunId: "main", parentWall: "top", startOffset: 0, direction: "right", turn: 45, length: 42, height: 96, cabinetSide: side },
+    ] as PeninsulaRun[];
+    const room: RoomData = { width: 144, depth: 144, peninsulaRuns: runs };
+    const mk = (uid: string, run: PeninsulaRun, off: number, w: number) => {
+      const p = wallPlacementAt(off, w, 24, run.id as any, room, run.cabinetSide);
+      return { uid, cabinetId: 1, masterCode: "B24", description: "b", placement: "base", x: p.x, y: p.y, width: w, depth: 24, height: 34.5, rotation: p.rotation, wallId: run.id, wallOffset: off } as PlacedCabinet;
+    };
+    const placed = [mk("a", runs[0]!, 0, 36), mk("b", runs[0]!, 36, 36), mk("c", runs[1]!, 0, 30), mk("d", runs[1]!, 30, 12)];
+    const surfaces = countertopSurfaces(placed, room).filter((x) => x.peninsulaRunId);
+    const low = surfaces.find((x) => !x.raisedBar)!;
+    const high = surfaces.find((x) => x.raisedBar)!;
+    const area = (s: typeof low) => s.areaInches ?? 0;
+    // Projection is a thin 13.5in strip per run, never a hull that fills the 45-degree notch.
+    expect(area(high)).toBeGreaterThan(area(low));
+    expect(area(high) - area(low)).toBeLessThan(13.5 * (72 + 42) * 1.15);
+    // The back/cabinet-side vertices are unchanged.
+    const lowPts = countertopSurfacePlanPolygon(low);
+    const highPts = countertopSurfacePlanPolygon(high);
+    const shared = lowPts.filter((p) => highPts.some((q) => Math.hypot(p.x - q.x, p.y - q.y) < 1e-3));
+    expect(shared.length).toBeGreaterThanOrEqual(3);
   });
 });
