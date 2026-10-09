@@ -69,6 +69,20 @@ export type CountertopSwatchFilter = "all" | "swatch-ready" | "swatch-pending";
 export type BathroomFixtureFinishFilter = "all" | "white" | "matte-black" | "chrome" | "brushed-nickel" | "brushed-gold" | "other";
 export type BathroomFixtureSizeFilter = "all" | "up-to-24" | "25-to-36" | "37-plus" | "tub-59" | "tub-67";
 
+export const BATHROOM_FIXTURE_FINISH_CHIPS: Array<{
+  value: BathroomFixtureFinishFilter;
+  label: string;
+  swatch: string;
+}> = [
+  { value: "all", label: "All", swatch: "linear-gradient(135deg,#f8fafc 0 48%,#1f2937 49% 100%)" },
+  { value: "white", label: "White", swatch: "#f8fafc" },
+  { value: "matte-black", label: "Matte black", swatch: "#24272a" },
+  { value: "chrome", label: "Chrome", swatch: "linear-gradient(135deg,#b9c2c9,#f8fafc,#87929b)" },
+  { value: "brushed-nickel", label: "Brushed nickel", swatch: "linear-gradient(135deg,#9ca3af,#e5e7eb,#6b7280)" },
+  { value: "brushed-gold", label: "Brushed gold", swatch: "linear-gradient(135deg,#8d6b27,#e0b85c,#9b742b)" },
+  { value: "other", label: "Other", swatch: "#cbd5e1" },
+];
+
 export function bathroomFixtureFinishFilter(item: Pick<SelectedSurface, "name" | "pelicanCode" | "size">): Exclude<BathroomFixtureFinishFilter, "all"> {
   const text = `${item.name} ${item.pelicanCode ?? ""} ${item.size ?? ""}`.toLowerCase();
   // Pelican's active catalog often expresses a finish in the SKU suffix rather
@@ -264,6 +278,13 @@ export function SurfacesPickerDialog({
       ? preferredItems
       : data?.items ?? []) as SelectedSurface[];
   const paletteLoading = isBathroom ? bathroomLoading : category === "Preferred" ? preferredProductsLoading : isLoading;
+  const selectedBathroomFixture = useMemo(() => {
+    if (!isBathroom || bathroomPaletteMode !== "fixtures") return null;
+    return selected.find((item) => Boolean(
+      verifiedPelicanBathroomFixtureProfile(item.pelicanCode)
+      || /faucet|tap|valve/i.test(`${item.name} ${item.category} ${item.subCategory ?? ""}`),
+    )) ?? null;
+  }, [bathroomPaletteMode, isBathroom, selected]);
   const visibleItems = useMemo(() => {
     const searched = isBathroom
       ? !debounced
@@ -374,20 +395,21 @@ export function SurfacesPickerDialog({
             )}
             {isBathroom && bathroomPaletteMode === "fixtures" && (
               <>
-                <Select value={bathroomFinish} onValueChange={(value) => setBathroomFinish(value as BathroomFixtureFinishFilter)}>
-                  <SelectTrigger data-testid="bathroom-fixture-finish-filter" aria-label="Filter bathroom fixtures by finish" className="w-full sm:w-[182px]">
-                    <SelectValue placeholder="Finish" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All finishes</SelectItem>
-                    <SelectItem value="white">White / porcelain</SelectItem>
-                    <SelectItem value="matte-black">Matte black</SelectItem>
-                    <SelectItem value="chrome">Chrome</SelectItem>
-                    <SelectItem value="brushed-nickel">Brushed nickel</SelectItem>
-                    <SelectItem value="brushed-gold">Brushed gold</SelectItem>
-                    <SelectItem value="other">Other / supplier detail</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div data-testid="bathroom-fixture-finish-filter" aria-label="Filter bathroom fixtures by finish" className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 rounded-lg border border-border bg-white p-1.5">
+                  <span className="px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Finish</span>
+                  {BATHROOM_FIXTURE_FINISH_CHIPS.map((chip) => (
+                    <button
+                      key={chip.value}
+                      type="button"
+                      aria-pressed={bathroomFinish === chip.value}
+                      onClick={() => setBathroomFinish(chip.value)}
+                      className={`inline-flex min-h-7 items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-medium transition-colors ${bathroomFinish === chip.value ? "border-[var(--color-gold)] bg-[var(--color-gold)]/15 text-foreground ring-1 ring-[var(--color-gold)]/40" : "border-border text-muted-foreground hover:border-[var(--color-gold)]/60 hover:text-foreground"}`}
+                    >
+                      <span className="h-3 w-3 shrink-0 rounded-full border border-black/15" style={{ background: chip.swatch }} />
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
                 <Select value={bathroomSize} onValueChange={(value) => setBathroomSize(value as BathroomFixtureSizeFilter)}>
                   <SelectTrigger data-testid="bathroom-fixture-size-filter" aria-label="Filter bathroom fixtures by first listed size" className="w-full sm:w-[160px]">
                     <SelectValue placeholder="Size" />
@@ -449,6 +471,26 @@ export function SurfacesPickerDialog({
           )}
           {((!isBathroom && category === "Quartz Slabs (Countertops)") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "countertop")) && (
             <p data-testid="countertop-selection-availability" className="text-[10px] leading-relaxed text-muted-foreground">All active, source-priced countertop products are available to select and quote. A product without an approved repeatable slab swatch remains accurately priced and is shown in 3D with the labeled neutral preview until its material swatch is supplied.</p>
+          )}
+          {isBathroom && bathroomPaletteMode === "fixtures" && selectedBathroomFixture && (
+            <section data-testid="selected-bathroom-fixture-preview" aria-label="Selected bathroom fixture preview" className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3 rounded-xl border border-[var(--color-gold)]/45 bg-[#fffaf0] p-2.5">
+              <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-[var(--color-gold)]/25 bg-white">
+                {selectedBathroomFixture.imageUrl ? (
+                  <img src={selectedBathroomFixture.imageUrl} alt={`${selectedBathroomFixture.name} selected preview`} className="h-full w-full object-contain" />
+                ) : (
+                  <Waves className="h-6 w-6 text-[var(--color-gold)]" aria-hidden="true" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <p className="truncate text-xs font-semibold text-foreground">Selected fixture</p>
+                  <Badge variant="secondary" className="text-[10px]">{BATHROOM_FIXTURE_FINISH_CHIPS.find((chip) => chip.value === bathroomFixtureFinishFilter(selectedBathroomFixture))?.label ?? "Other"}</Badge>
+                </div>
+                <p className="mt-0.5 line-clamp-2 text-sm font-semibold leading-snug text-[var(--color-navy)]">{selectedBathroomFixture.name}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">{selectedBathroomFixture.size ?? "Source size on file"}{selectedBathroomFixture.pelicanCode ? ` · ${selectedBathroomFixture.pelicanCode}` : ""}</p>
+                <p className="mt-1 text-xs font-bold text-[var(--color-navy)]">{formatPrice(selectedBathroomFixture.sellPrice)}</p>
+              </div>
+            </section>
           )}
         </div>
 
