@@ -3,6 +3,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { CabinetConfigHistoryPanel } from "./CabinetConfigHistoryPanel";
+import { CabinetAvailabilityPanel } from "./CabinetAvailabilityPanel";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -2333,7 +2334,9 @@ export function CabinetConfigAdmin() {
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [category, setCategory] = useState("");
+  const [distributorFilter, setDistributorFilter] = useState<number | undefined>(undefined);
   const [unconfiguredOnly, setUnconfiguredOnly] = useState(false);
+  const [hideRetired, setHideRetired] = useState(false);
   const [verifiedFilter, setVerifiedFilter] = useState<"all" | "verified" | "unverified">("all");
   const [page, setPage] = useState(0);
   const [editRow, setEditRow] = useState<CabinetRow | null>(null);
@@ -2349,10 +2352,13 @@ export function CabinetConfigAdmin() {
     limit: PAGE_SIZE,
     search: search || undefined,
     category: category || undefined,
+    distributorId: distributorFilter,
+    hideRetired,
     unconfiguredOnly,
     verifiedFilter,
     cabinetId: targetCabinetId,
   });
+  const { data: distributorOptions } = trpc.distributors.list.useQuery();
 
   const { data: dbCatsList } = trpc.cabinetCategories.list.useQuery();
   const categories = dbCatsList && dbCatsList.length > 0
@@ -2459,6 +2465,13 @@ export function CabinetConfigAdmin() {
             {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
+        <Select value={distributorFilter ? String(distributorFilter) : "__all__"} onValueChange={(v) => { setDistributorFilter(v === "__all__" ? undefined : Number(v)); setPage(0); }}>
+          <SelectTrigger className="h-8 text-sm w-48" data-testid="cabinet-config-distributor-filter"><SelectValue placeholder="All distributors" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">All distributors</SelectItem>
+            {(distributorOptions ?? []).map((d: { id: number; name: string }) => <SelectItem key={d.id} value={String(d.id)}>{d.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
         <div className="flex items-center gap-1.5">
           <Switch
             id="unconfigured-only"
@@ -2466,6 +2479,10 @@ export function CabinetConfigAdmin() {
             onCheckedChange={(v) => { setUnconfiguredOnly(v); setPage(0); }}
           />
           <Label htmlFor="unconfigured-only" className="text-sm cursor-pointer">Unconfigured only</Label>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <Switch id="hide-retired" checked={hideRetired} onCheckedChange={(v) => { setHideRetired(v); setPage(0); }} />
+          <Label htmlFor="hide-retired" className="text-sm cursor-pointer">Hide retired duplicates</Label>
         </div>
         <Select value={verifiedFilter} onValueChange={(v) => { setVerifiedFilter(v as "all" | "verified" | "unverified"); setPage(0); }}>
           <SelectTrigger className="h-8 text-sm w-36"><SelectValue /></SelectTrigger>
@@ -2479,7 +2496,7 @@ export function CabinetConfigAdmin() {
           Search
         </Button>
       </div>
-      <p className="-mt-1 text-[11px] text-muted-foreground">Search supports master codes, saved aliases, alternative and vendor SKUs, and any partial words from the cabinet description.</p>
+      <p className="-mt-1 text-[11px] text-muted-foreground" data-testid="cabinet-config-count">{isLoading ? "Loading cabinets…" : `${total.toLocaleString()} cabinets match${distributorFilter ? " this distributor" : ""}${category ? ` in ${category}` : ""}${search ? ` for “${search}”` : ""}.`} Search supports master codes, saved aliases, alternative and vendor SKUs, and any partial words from the cabinet description.</p>
 
       {/* Merge button */}
       {canMerge && (
@@ -2498,6 +2515,7 @@ export function CabinetConfigAdmin() {
       )}
 
       {/* Configuration history (last 5 days, per-field, revertable) */}
+      <CabinetAvailabilityPanel />
       <CabinetConfigHistoryPanel />
 
       {/* Progress summary */}

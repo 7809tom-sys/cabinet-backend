@@ -2882,6 +2882,78 @@ export const cabinetsRouter = router({
   // ── Admin: Cabinet Configuration editor ─────────────────────────────────
   // Returns all cabinets with their depth, door, drawer, and shelf counts for
   // bulk editing in the /admin/cabinet-config page.
+  // Per distributor line + door style: exactly which cabinets are ON and OFF.
+  adminAvailabilityStyles: adminProcedure
+    .input(z.object({ distributorId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select({ id: doorStyles.id, name: doorStyles.ourName, code: doorStyles.styleCode })
+        .from(doorStyles)
+        .where(eq(doorStyles.distributorId, input.distributorId))
+        .orderBy(asc(doorStyles.ourName));
+    }),
+  adminAvailabilityList: adminProcedure
+    .input(z.object({
+      distributorId: z.number().int().positive().optional(),
+      styleId: z.number().int().positive().optional(),
+      search: z.string().max(100).optional(),
+      state: z.enum(["all", "on", "off"]).default("all"),
+      page: z.number().int().min(0).default(0),
+      limit: z.number().int().min(1).max(200).default(100),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { rows: [], total: 0, onCount: 0, offCount: 0 };
+      const base: SQL[] = [];
+      if (input.distributorId) base.push(eq(distributorSkus.distributorId, input.distributorId));
+      if (input.styleId) base.push(eq(distributorSkus.styleId, input.styleId));
+      const q = input.search?.trim();
+      if (q) {
+        const like = `%${q}%`;
+        base.push(sql`(${cabinets.masterCode} LIKE ${like} OR ${cabinets.description} LIKE ${like} OR ${distributorSkus.distributorSku} LIKE ${like})`);
+      }
+      const onExpr = sql`(${distributorSkus.isAvailable} = true AND ${distributorSkus.isPublished} = true AND ${distributorSkus.status} = 'approved')`;
+      const withState = [...base];
+      if (input.state === "on") withState.push(onExpr);
+      if (input.state === "off") withState.push(sql`NOT ${onExpr}`);
+      const baseWhere = base.length ? and(...base) : undefined;
+      const where = withState.length ? and(...withState) : undefined;
+      const [rows, counts] = await Promise.all([
+        db.select({
+          id: distributorSkus.id,
+          masterCode: cabinets.masterCode,
+          description: cabinets.description,
+          distributorId: distributorSkus.distributorId,
+          distributor: distributors.name,
+          style: doorStyles.ourName,
+          distributorSku: distributorSkus.distributorSku,
+          isAvailable: distributorSkus.isAvailable,
+          isPublished: distributorSkus.isPublished,
+          status: distributorSkus.status,
+          price: distributorSkus.listPrice,
+        })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+          .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
+          .innerJoin(doorStyles, eq(doorStyles.id, distributorSkus.styleId))
+          .where(where)
+          .orderBy(asc(distributors.name), asc(doorStyles.ourName), asc(cabinets.masterCode))
+          .limit(input.limit)
+          .offset(input.page * input.limit),
+        db.select({
+          total: sql<number>`count(*)`,
+          on: sql<number>`coalesce(sum(case when ${onExpr} then 1 else 0 end),0)`,
+        })
+          .from(distributorSkus)
+          .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+          .where(baseWhere),
+      ]);
+      const total = Number(counts[0]?.total ?? 0);
+      const onCount = Number(counts[0]?.on ?? 0);
+      return { rows, total: input.state === "all" ? total : input.state === "on" ? onCount : total - onCount, onCount, offCount: total - onCount };
+    }),
   adminListCabinetConfig: adminProcedure
     .input(
       z.object({
@@ -2892,6 +2964,7 @@ export const cabinetsRouter = router({
         unconfiguredOnly: z.boolean().default(false),
         verifiedFilter: z.enum(["all", "verified", "unverified"]).default("all"),
         attentionOnly: z.boolean().default(false),
+        hideRetired: z.boolean().default(false),
         distributorId: z.number().int().positive().optional(),
         cabinetId: z.number().int().positive().optional(),
       })
@@ -2899,11 +2972,9 @@ export const cabinetsRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { rows: [], total: 0 };
-	      const conditions: SQL[] = [
-	        // Retired duplicates remain in the database for price/order history, but
-	        // appear only as aliases under the canonical master in every admin list.
-	        isCanonicalCabinetMaster(),
-	      ];
+	      // Admin config lists EVERY cabinet by default; retired duplicates hide only on opt-in.
+      const conditions: SQL[] = [];
+      if (input.hideRetired) conditions.push(isCanonicalCabinetMaster());
       if (input.unconfiguredOnly) {
         conditions.push(
           sql`(${cabinets.numberOfDoors} IS NULL AND ${cabinets.numberOfDrawers} IS NULL AND ${cabinets.numberOfFixedShelves} IS NULL AND ${cabinets.numberOfAdjShelves} IS NULL)`
