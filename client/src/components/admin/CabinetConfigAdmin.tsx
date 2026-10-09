@@ -2338,6 +2338,7 @@ export function CabinetConfigAdmin() {
   const [unconfiguredOnly, setUnconfiguredOnly] = useState(false);
   const [hideRetired, setHideRetired] = useState(false);
   const [verifiedFilter, setVerifiedFilter] = useState<"all" | "verified" | "unverified">("all");
+  const [statusSort, setStatusSort] = useState<"default" | "active-first" | "inactive-first">("default");
   const [page, setPage] = useState(0);
   const [editRow, setEditRow] = useState<CabinetRow | null>(null);
   const [targetCabinetId, setTargetCabinetId] = useState<number | undefined>(initialCabinetId);
@@ -2356,6 +2357,7 @@ export function CabinetConfigAdmin() {
     hideRetired,
     unconfiguredOnly,
     verifiedFilter,
+    statusSort,
     cabinetId: targetCabinetId,
   });
   const { data: distributorOptions } = trpc.distributors.list.useQuery();
@@ -2492,6 +2494,14 @@ export function CabinetConfigAdmin() {
             <SelectItem value="unverified">❌ Unverified only</SelectItem>
           </SelectContent>
         </Select>
+        <Select value={statusSort} onValueChange={(v) => { setStatusSort(v as "default" | "active-first" | "inactive-first"); setPage(0); }}>
+          <SelectTrigger className="h-8 text-sm w-40" data-testid="cabinet-config-status-sort" aria-label="Sort cabinets by status"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Status: Default</SelectItem>
+            <SelectItem value="active-first">Status: Active first</SelectItem>
+            <SelectItem value="inactive-first">Status: Inactive first</SelectItem>
+          </SelectContent>
+        </Select>
         <Button size="sm" variant="outline" className="h-8" onClick={() => { setSearch(searchInput); setPage(0); }}>
           Search
         </Button>
@@ -2550,6 +2560,7 @@ export function CabinetConfigAdmin() {
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs">Description</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-20 hidden sm:table-cell">W×H</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-32 hidden md:table-cell">Config</th>
+                <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Status</th>
                 <th className="text-left px-3 py-2 font-medium text-muted-foreground text-xs w-24">Last Saved</th>
                 <th className="text-center px-3 py-2 font-medium text-muted-foreground text-xs w-12">
                   <Pencil className="h-3.5 w-3.5 mx-auto" />
@@ -2643,6 +2654,15 @@ export function CabinetConfigAdmin() {
                         </div>
                       ) : (
                         <span className="text-[10px] text-muted-foreground italic">not configured</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      {row.isActive === false ? (
+                        <Badge variant="outline" className="border-red-300 bg-red-50 text-[10px] text-red-700">Inactive</Badge>
+                      ) : row.isActive === true ? (
+                        <Badge variant="outline" className="border-green-300 bg-green-50 text-[10px] text-green-700">Active</Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px] text-muted-foreground">Unknown</Badge>
                       )}
                     </td>
                     <td className="px-3 py-2.5">

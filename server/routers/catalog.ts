@@ -2967,6 +2967,7 @@ export const cabinetsRouter = router({
         hideRetired: z.boolean().default(false),
         distributorId: z.number().int().positive().optional(),
         cabinetId: z.number().int().positive().optional(),
+        statusSort: z.enum(["default", "active-first", "inactive-first"]).default("default"),
       })
     )
     .query(async ({ input }) => {
@@ -3045,6 +3046,11 @@ export const cabinetsRouter = router({
         conditions.push(eq(cabinets.category, input.category));
       }
       const where = and(...conditions);
+      const cabinetOrder = input.statusSort === "active-first"
+        ? [desc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+        : input.statusSort === "inactive-first"
+          ? [asc(cabinets.isActive), asc(cabinets.category), asc(cabinets.masterCode)]
+          : [asc(cabinets.category), asc(cabinets.masterCode)];
       const [rows, countRows] = await Promise.all([
         db
           .select({
@@ -3130,7 +3136,7 @@ export const cabinetsRouter = router({
           })
           .from(cabinets)
           .where(where)
-          .orderBy(asc(cabinets.category), asc(cabinets.masterCode))
+          .orderBy(...cabinetOrder)
           .limit(input.limit)
           .offset(input.page * input.limit),
         db.select({ count: sql<number>`count(*)` }).from(cabinets).where(where),
