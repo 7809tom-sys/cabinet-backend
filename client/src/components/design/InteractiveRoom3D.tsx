@@ -6093,6 +6093,8 @@ export function existingCabinetTransform(
 }
 
 /** One physical top per occupied peninsula: voids remain covered, and only the exposed far end may waterfall. */
+/** Seating-bar edge: a small eased roundover. bevelOffset = -bevelSize keeps the outline at its true plan size. */
+export const RAISED_BAR_EDGE_EASE_IN = 0.25;
 export function threeDPeninsulaCountertopGeometry(surface: CountertopSurface, length: number, depth: number) {
   if (!surface.polygon || surface.polygon.length < 3) {
     return new THREE.BoxGeometry(length * INCH, STD.COUNTERTOP_THICKNESS * INCH, depth * INCH);
@@ -6105,15 +6107,53 @@ export function threeDPeninsulaCountertopGeometry(surface: CountertopSurface, le
     else shape.lineTo(x, y);
   });
   shape.closePath();
-  const geometry = new THREE.ExtrudeGeometry(shape, {
+  const eased = Boolean(surface.raisedBar);
+  const ease = RAISED_BAR_EDGE_EASE_IN * INCH;
+  const geometry = new THREE.ExtrudeGeometry(shape, eased ? {
+    depth: (STD.COUNTERTOP_THICKNESS - 2 * RAISED_BAR_EDGE_EASE_IN) * INCH,
+    bevelEnabled: true,
+    bevelThickness: ease,
+    bevelSize: ease,
+    bevelOffset: -ease,
+    bevelSegments: 3,
+    steps: 1,
+  } : {
     depth: STD.COUNTERTOP_THICKNESS * INCH,
     bevelEnabled: false,
     steps: 1,
   });
-  geometry.translate(0, 0, -STD.COUNTERTOP_THICKNESS * INCH / 2);
+  geometry.translate(0, 0, -(eased ? (STD.COUNTERTOP_THICKNESS - 2 * RAISED_BAR_EDGE_EASE_IN) : STD.COUNTERTOP_THICKNESS) * INCH / 2);
   geometry.rotateX(Math.PI / 2);
   geometry.computeVertexNormals();
   return geometry;
+}
+
+/**
+ * Seating-bar corbels: iron L-brackets under the outward overhang, as in the
+ * reference photos. Purely visual 3D; they never change the countertop outline,
+ * overhang, price, or collision.
+ */
+export function raisedBarCorbelPlan(
+  polygon: { x: number; y: number }[],
+  normal: { x: number; y: number },
+  overhangIn: number,
+): { tangentIn: number; faceIn: number; armIn: number }[] {
+  if (polygon.length < 3 || overhangIn <= 1.5) return [];
+  const proj = polygon.map((pt) => pt.x * normal.x + pt.y * normal.y);
+  const far = Math.max(...proj);
+  const tan = { x: -normal.y, y: normal.x };
+  const edge = polygon.filter((_, i) => far - proj[i]! <= 1 / 16).map((pt) => pt.x * tan.x + pt.y * tan.y);
+  if (edge.length < 2) return [];
+  const lo = Math.min(...edge) + 3;
+  const hi = Math.max(...edge) - 3;
+  if (hi - lo < 6) return [];
+  const count = Math.max(2, Math.round((hi - lo) / 24) + 1);
+  const arm = Math.min(12, overhangIn - 1.5);
+  return Array.from({ length: count }, (_, i) => ({
+    tangentIn: lo + ((hi - lo) * i) / (count - 1),
+    faceIn: far - overhangIn,
+    armIn: arm,
+  }));
 }
 
 /**
@@ -6180,7 +6220,35 @@ export function addThreeDPeninsulaCountertops(
       miteredEnd: surface.miteredEnd ?? false,
     };
     root.add(slab);
-    if (surface.raisedBar) continue;
+    if (surface.raisedBar) {
+      const barFrame = peninsulaRunEndpoints(run, room);
+      const barNormal = countertopRunFaceNormal(barFrame.radians, run.cabinetSide ?? "left");
+      const barTan = { x: -barNormal.y, y: barNormal.x };
+      const ironMaterial = new THREE.MeshStandardMaterial({ color: "#2b2b2e", roughness: 0.55, metalness: 0.6 });
+      const barBottom = (surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS;
+      const barRadians = Math.atan2(barNormal.y, barNormal.x);
+      raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15).forEach((c, index) => {
+        const corbel = new THREE.Group();
+        const faceX = barNormal.x * c.faceIn + barTan.x * c.tangentIn;
+        const faceZ = barNormal.y * c.faceIn + barTan.y * c.tangentIn;
+        const thick = 1.5;
+        const drop = 10;
+        // Local +X points outward from the support face; the group is rotated to the overhang normal.
+        const back = new THREE.Mesh(new THREE.BoxGeometry(0.5 * INCH, drop * INCH, thick * INCH), ironMaterial);
+        back.position.set(0.25 * INCH, (barBottom - drop / 2) * INCH, 0);
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(c.armIn * INCH, 0.5 * INCH, thick * INCH), ironMaterial);
+        arm.position.set((c.armIn / 2) * INCH, (barBottom - 0.25) * INCH, 0);
+        const brace = new THREE.Mesh(new THREE.BoxGeometry(Math.hypot(c.armIn * 0.8, drop * 0.8) * INCH, 0.4 * INCH, 0.8 * INCH), ironMaterial);
+        brace.position.set((c.armIn * 0.4) * INCH, (barBottom - drop * 0.4) * INCH, 0);
+        brace.rotation.z = -Math.atan2(drop, c.armIn);
+        corbel.add(back, arm, brace);
+        corbel.position.set(faceX * INCH, 0, faceZ * INCH);
+        corbel.rotation.y = -barRadians;
+        corbel.userData = { raisedBarCorbel: true, peninsulaRunId: run.id, index, visualOnly: true };
+        root.add(corbel);
+      });
+      continue;
+    }
     const terminalRun = surface.peninsulaTerminalRunId
       ? room.peninsulaRuns?.find((candidate) => candidate.id === surface.peninsulaTerminalRunId) ?? run
       : run;
