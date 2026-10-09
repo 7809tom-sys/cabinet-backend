@@ -11443,7 +11443,8 @@ function extendPeninsulaRaisedBarSurface(
     ]);
   }
   const expanded = countertopSurfaceFromWorldPolygon(points, surface.peninsulaRunId);
-  return expanded ? { ...surface, ...expanded, peninsulaRunIds: surface.peninsulaRunIds } : surface;
+  // The rebuilt outline is already in world coordinates; keep rotation 0 so Plan/3D do not rotate it twice.
+  return expanded ? { ...surface, ...expanded, rotation: 0, peninsulaRunIds: surface.peninsulaRunIds } : surface;
 }
 
 function peninsulaRootHasFortyFiveReturn(run: PeninsulaRun, room: RoomData): boolean {
