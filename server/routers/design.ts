@@ -1604,17 +1604,26 @@ export const designRouter = router({
 
       // An affiliate storefront design is linked only to that affiliate's CRM.
       // A normal design retains the existing house CRM behavior.
+      // Every saved design is linked to exactly one CRM deal (affiliate CRM for
+      // affiliate designs, house CRM otherwise) carrying the full customer
+      // contact captured at the designer gate. Existing contact data is never
+      // erased; only blank fields are filled.
       let dealId: number | null = null;
-      if (affiliateId != null) {
+      {
         const email = (input.email ?? ctx.user?.email ?? "").trim().toLowerCase();
+        const leadScope = affiliateId != null
+          ? eq(designLeads.affiliateId, affiliateId)
+          : isNull(designLeads.affiliateId);
         const matchingLead = email
           ? (await db
               .select()
               .from(designLeads)
-              .where(and(eq(designLeads.affiliateId, affiliateId), eq(designLeads.email, email)))
+              .where(and(leadScope, eq(designLeads.email, email)))
               .orderBy(desc(designLeads.lastLaunchAt))
               .limit(1))[0]
           : undefined;
+        const contactName = (matchingLead?.name || ctx.user?.name || "").trim() || null;
+        const contactPhone = (matchingLead?.phone || "").trim() || null;
         dealId = matchingLead?.dealId ?? null;
         if (dealId == null) {
           const dealRes = await db.insert(crmDeals).values({
@@ -1623,13 +1632,27 @@ export const designRouter = router({
             title: `${input.projectName?.trim() || input.name}${input.roomLabel ? ` — ${input.roomLabel}` : ""}`.slice(0, 256),
             stage: "new",
             priority: "medium",
-            contactName: ctx.user?.name ?? null,
+            contactName,
             contactEmail: email || null,
+            contactPhone,
             source: "storefront",
-            notes: `Design saved from ${affiliate?.storeName ?? "affiliate"} designer.`,
+            notes: affiliateId != null
+              ? `Design saved from ${affiliate?.storeName ?? "affiliate"} designer.`
+              : "Design saved from the Cabinet Dealz designer.",
           });
           dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
           if (matchingLead) await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, matchingLead.id));
+        } else {
+          const [existingDeal] = await db.select({
+            contactName: crmDeals.contactName,
+            contactEmail: crmDeals.contactEmail,
+            contactPhone: crmDeals.contactPhone,
+          }).from(crmDeals).where(eq(crmDeals.id, dealId)).limit(1);
+          const fill: Record<string, string> = {};
+          if (existingDeal && !existingDeal.contactName && contactName) fill.contactName = contactName;
+          if (existingDeal && !existingDeal.contactEmail && email) fill.contactEmail = email;
+          if (existingDeal && !existingDeal.contactPhone && contactPhone) fill.contactPhone = contactPhone;
+          if (Object.keys(fill).length) await db.update(crmDeals).set(fill).where(eq(crmDeals.id, dealId));
         }
         await db.insert(crmDealDesigns).values({
           dealId,
@@ -1638,7 +1661,6 @@ export const designRouter = router({
           linkedByUserId: userId,
         });
       }
-
       // Push a CRM "design saved" event only for a NEW design (not every autosave).
       void emitCrmEvent({
         event: "design_saved",
@@ -1646,7 +1668,7 @@ export const designRouter = router({
           userId,
           name: ctx.user?.name ?? null,
           email: input.email ?? ctx.user?.email ?? null,
-          phone: null,
+          phone: null, // phone is stored on the CRM deal from the designer-gate lead
         },
         data: {
           designId: insertId,
