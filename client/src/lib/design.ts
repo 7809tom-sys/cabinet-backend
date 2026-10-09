@@ -11343,6 +11343,69 @@ export function peninsulaCountertopSurface(
  * overhang, with the same 45° miter. It differs only in elevation, never in
  * plan projection, so it cannot float past the cabinet structure.
  */
+/**
+ * A raised bar built on a straight leg and its 45° return leaves a notch at the
+ * outer (back) corner where the two back strips stop short of each other. Fill
+ * it with the mitered wedge where the two outer edges meet. Only the back strips
+ * are touched; the lower countertop and the Wall Builder are unaffected.
+ */
+function raisedBarOuterMiterWedges(
+  surfaces: CountertopSurface[],
+  room: Pick<RoomData, "peninsulaRuns">,
+): CountertopSurface[] {
+  const raised = surfaces.filter((surface) => surface.raisedBar && surface.peninsulaRunId);
+  const wedges: CountertopSurface[] = [];
+  for (const child of room.peninsulaRuns ?? []) {
+    if (!child.parentRunId) continue;
+    const a = raised.find((surface) => surface.peninsulaRunId === child.parentRunId);
+    const b = raised.find((surface) => surface.peninsulaRunId === child.id);
+    if (!a || !b) continue;
+    const pa = countertopSurfacePlanPolygon(a);
+    const pb = countertopSurfacePlanPolygon(b);
+    if (pa.length < 3 || pb.length < 3) continue;
+    const dist = (u: CountertopPlanPoint, v: CountertopPlanPoint) => Math.hypot(u.x - v.x, u.y - v.y);
+    // The joining edge is the closest pair of points between the two strips
+    // that are not already shared; pick the closest pair that is also outermost.
+    const hull = countertopConvexHull([...pa, ...pb]);
+    const inA = (pt: CountertopPlanPoint) => pa.some((q) => dist(q, pt) < 1e-6);
+    const inB = (pt: CountertopPlanPoint) => pb.some((q) => dist(q, pt) < 1e-6);
+    let wedge: CountertopPlanPoint[] | null = null;
+    for (let i = 0; i < hull.length && !wedge; i += 1) {
+      const h0 = hull[i]!;
+      const h1 = hull[(i + 1) % hull.length]!;
+      if (!(inA(h0) && !inB(h0) && inB(h1) && !inA(h1))) continue;
+      const prev = hull[(i - 1 + hull.length) % hull.length]!;
+      const next = hull[(i + 2) % hull.length]!;
+      const d1 = { x: h0.x - prev.x, y: h0.y - prev.y };
+      const d2 = { x: next.x - h1.x, y: next.y - h1.y };
+      const cross = d1.x * d2.y - d1.y * d2.x;
+      if (Math.abs(cross) < 1e-6) continue;
+      const t = ((h1.x - h0.x) * d2.y - (h1.y - h0.y) * d2.x) / cross;
+      const apex = { x: h0.x + d1.x * t, y: h0.y + d1.y * t };
+      if (t < -1e-6 || dist(apex, h0) > 40) continue;
+      // Inner joint points: the other neighbour of each hull point in its strip.
+      const neighbour = (poly: CountertopPlanPoint[], pt: CountertopPlanPoint, avoid: CountertopPlanPoint) => {
+        const idx = poly.findIndex((q) => dist(q, pt) < 1e-6);
+        const cand = [poly[(idx + 1) % poly.length]!, poly[(idx - 1 + poly.length) % poly.length]!];
+        return cand.find((q) => dist(q, avoid) > 1e-6) ?? cand[0]!;
+      };
+      const innerA = neighbour(pa, h0, prev);
+      const innerB = neighbour(pb, h1, next);
+      wedge = [innerA, h0, apex, h1, innerB];
+    }
+    if (!wedge) continue;
+    const surface = countertopSurfaceFromWorldPolygon(wedge, child.id);
+    if (!surface) continue;
+    wedges.push({
+      ...surface,
+      raisedBar: true,
+      raisedBarUsesSharedCountertopOutline: true,
+      raisedBarOverhangIn: a.raisedBarOverhangIn,
+      countertopHeightIn: RAISED_BAR_HEIGHT_IN,
+    });
+  }
+  return wedges;
+}
 export function peninsulaRaisedBarSurface(
   run: PeninsulaRun,
   room: RoomData,
@@ -12714,6 +12777,7 @@ export function countertopSurfaces(
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     };
   }));
+  out.push(...raisedBarOuterMiterWedges(out, room));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {
