@@ -18,7 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
 import { designerDoorFrameMetrics } from "@/lib/doorFrameMetrics";
-import { orderDoorStylesByColor } from "@/lib/doorColorSpectrum";
+import { doorStyleColorHex, orderDoorStylesByColor } from "@/lib/doorColorSpectrum";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -130,6 +130,21 @@ function matchesColor(name: string, filter: ColorFilter): boolean {
   return true;
 }
 
+export function matchesStyleSearch(style: StyleOption, query: string, seriesName?: string | null): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const name = (styleDisplayName(style) || "").toLowerCase();
+  const series = (seriesName ?? "").toLowerCase();
+  const finishText = [
+    style.color,
+    style.swColor,
+    style.finish,
+    style.woodSpecies,
+    style.styleCode,
+  ].filter(Boolean).join(" ").toLowerCase();
+  return name.includes(q) || series.includes(q) || finishText.includes(q);
+}
+
 // ─── Filter pill button ───────────────────────────────────────────────────────
 function FilterPill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
@@ -170,6 +185,9 @@ export function ColorSlotButton({
   const name = style ? (styleDisplayName(style as { ourName?: string | null; aliasName?: string | null }) || null) : null;
   const hasStyle = style != null;
   const selectedFrameMetrics = designerDoorFrameMetrics(style as StyleOption | null);
+  const selectedColorLabel = style
+    ? style.color ?? style.finish ?? style.ourName ?? "Selected finish"
+    : null;
 
   // Group the styles by distributor (supply line) via the shared, unit-tested
   // helper. Groups are ordered by their neutral label so the list is stable;
@@ -235,35 +253,40 @@ export function ColorSlotButton({
       const n = styleDisplayName(s) || "";
       if (!matchesStyleType(n, styleTypeFilter)) return false;
       if (!matchesColor(n, colorFilter)) return false;
-      if (q) {
-        const sn = (seriesName ?? "").toLowerCase();
-        if (!n.toLowerCase().includes(q) && !sn.includes(q)) return false;
-      }
+      if (q && !matchesStyleSearch(s, q, seriesName)) return false;
       return true;
     });
   };
 
   // Search bar component — shown at the very top of the picker
   const SearchBar = () => (
-    <div className="relative mb-2">
-      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-      <input
-        ref={searchInputRef}
-        type="text"
-        value={searchQuery}
-        onChange={(e) => setSearchQuery(e.target.value)}
-        placeholder="Search by name, color or series…"
-        className="w-full rounded-lg border border-border bg-white py-1.5 pl-7 pr-7 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:border-[#d4a75a] focus:outline-none focus:ring-1 focus:ring-[#d4a75a]"
-      />
-      {searchQuery && (
-        <button
-          type="button"
-          onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      )}
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2 px-1" aria-label="Cabinet color order">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Cabinet colors</span>
+        <span className="text-[10px] font-semibold text-[#1a2744]">Light → Dark</span>
+      </div>
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <input
+          ref={searchInputRef}
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search finish name, color, series or SKU…"
+          aria-label="Search cabinet finish name, color, series or SKU"
+          className="w-full rounded-lg border border-border bg-white py-1.5 pl-7 pr-7 text-[12px] text-foreground placeholder:text-muted-foreground/70 focus:border-[#d4a75a] focus:outline-none focus:ring-1 focus:ring-[#d4a75a]"
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={() => { setSearchQuery(""); searchInputRef.current?.focus(); }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            aria-label="Clear finish search"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   );
 
@@ -565,6 +588,15 @@ export function ColorSlotButton({
                 ? t("dt_cs_click_use")
                 : t("dt_cs_optional_second")}
           </span>
+          {hasStyle && (
+            <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[10px] text-muted-foreground" aria-label={`${label} selected color`}>
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full border border-black/10"
+                style={{ backgroundColor: doorStyleColorHex(style) }}
+              />
+              <span className="truncate">Color: {selectedColorLabel}</span>
+            </span>
+          )}
           {/* Slim Shaker has an explicit one-inch family rule; other profiles stay source-bound. */}
           {hasStyle && selectedFrameMetrics && (
             <span className="block text-[9px] text-muted-foreground/80 mt-0.5">

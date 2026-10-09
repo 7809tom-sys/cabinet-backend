@@ -9,7 +9,7 @@ describe("ColorSlotButton color ordering", () => {
       "utf8",
     );
 
-    expect(source).toContain('import { orderDoorStylesByColor } from "@/lib/doorColorSpectrum";');
+    expect(source).toContain('import { doorStyleColorHex, orderDoorStylesByColor } from "@/lib/doorColorSpectrum";');
     expect(source).toContain("applyFilters(orderDoorStylesByColor(list), seriesName)");
   });
 });
