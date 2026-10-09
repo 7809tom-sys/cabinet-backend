@@ -21,12 +21,13 @@ describe("raised bar real 3D mesh", () => {
     const low = box(false), high = box(true);
     expect(high.minZ).toBeCloseTo(low.minZ, 1);
     expect(high.maxZ).toBeCloseTo(low.maxZ, 1);
+    // Cabinet fronts face the 1.5in edge; the bar projects out the back only.
     if (side === "left") {
-      expect(high.maxX).toBeCloseTo(low.maxX, 1);
-      expect(high.minX).toBeCloseTo(low.minX - 13.5, 1);
-    } else {
       expect(high.minX).toBeCloseTo(low.minX, 1);
       expect(high.maxX).toBeCloseTo(low.maxX + 13.5, 1);
+    } else {
+      expect(high.maxX).toBeCloseTo(low.maxX, 1);
+      expect(high.minX).toBeCloseTo(low.minX - 13.5, 1);
     }
   });
 

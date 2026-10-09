@@ -6224,7 +6224,8 @@ export function addThreeDPeninsulaCountertops(
     root.add(slab);
     if (surface.raisedBar) {
       const barFrame = peninsulaRunEndpoints(run, room);
-      const barNormal = countertopRunFaceNormal(barFrame.radians, run.cabinetSide ?? "left");
+      const barFaceNormal = countertopRunFaceNormal(barFrame.radians, run.cabinetSide ?? "left");
+      const barNormal = { x: -barFaceNormal.x, y: -barFaceNormal.y }; // brackets sit under the BACK overhang
       const barTan = { x: -barNormal.y, y: barNormal.x };
       const ironMaterial = new THREE.MeshStandardMaterial({ color: "#2b2b2e", roughness: 0.55, metalness: 0.6 });
       const barBottom = (surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS;

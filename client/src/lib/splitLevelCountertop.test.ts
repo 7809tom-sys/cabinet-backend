@@ -94,16 +94,15 @@ describe("split-level countertop geometry", () => {
     });
     expect(countertopSurfacePlanPolygon(raised!)).not.toEqual(countertopSurfacePlanPolygon(lower));
     expect(raised!.areaInches).toBeGreaterThan(lower.areaInches);
-    // In this peninsula fixture the room-facing side is +X. The 15-inch
-    // raised-bar projection must extend toward -X, behind the cabinet front,
-    // rather than toward the room center.
+    // Cabinet fronts face -X here (the lower top's 1.5in edge is on -X). The bar projects 13.5in
+    // out the BACK (+X) and the front edge never moves past the 1.5in finished edge.
     const lowerOutline = countertopSurfacePlanPolygon(lower);
     const raisedOutline = countertopSurfacePlanPolygon(raised!);
-    expect(Math.min(...raisedOutline.map((point) => point.x))).toBeLessThan(
-      Math.min(...lowerOutline.map((point) => point.x)) - 13,
+    expect(Math.min(...raisedOutline.map((point) => point.x))).toBeCloseTo(Math.min(...lowerOutline.map((point) => point.x)), 1);
+    expect(Math.max(...raisedOutline.map((point) => point.x))).toBeGreaterThan(
+      Math.max(...lowerOutline.map((point) => point.x)) + 13,
     );
   });
-
   it("uses the exact cabinet-supported 1½-inch 45-degree countertop outline for the raised bar", () => {
     const placed = [
       baseOnRun("main-base", root, 0, 72),

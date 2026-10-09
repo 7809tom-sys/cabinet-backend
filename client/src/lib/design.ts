@@ -11437,7 +11437,10 @@ function extendPeninsulaRaisedBarSurface(
   const edgeOffset: Array<{ x: number; y: number } | null> = Array.from({ length: n }, () => null);
   for (const run of owners) {
     const frame = peninsulaRunEndpoints(run, room);
-    const normal = countertopRunFaceNormal(frame.radians, run.cabinetSide ?? "left");
+    // The bar projects out the BACK of the peninsula (away from the cabinet faces); the cabinet-facing
+    // edge never moves past its 1.5in finished edge.
+    const faceNormal = countertopRunFaceNormal(frame.radians, run.cabinetSide ?? "left");
+    const normal = { x: -faceNormal.x, y: -faceNormal.y };
     const proj = points.map((point) => point.x * normal.x + point.y * normal.y);
     const candidates: number[] = [];
     for (let i = 0; i < n; i++) {
