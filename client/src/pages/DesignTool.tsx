@@ -11873,6 +11873,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
 	      hardwareStyleId={hardwareStyleId}
+                  onHardwareStyleChange={setHardwareStyleId}
 	      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
@@ -12762,11 +12763,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
                   {/* Hardware */}
                   <button
+                    type="button"
+                    data-testid="designer-more-handles"
+                    title="Choose cabinet handles and knobs"
                     onClick={() => { setMoreSheetOpen(false); setTimeout(() => setHardwareSheetOpen(true), 120); }}
                     className="flex w-full items-center gap-3 rounded-lg px-3 py-3 hover:bg-muted transition-colors"
                   >
                     <Wrench className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 text-left text-sm font-medium">{t("dt_sh_hardware")}</span>
+                    <span className="flex-1 text-left text-sm font-medium">Handles &amp; knobs</span>
                     {hardwareStyleId !== "none" && (
                       <span className="text-[10px] text-muted-foreground mr-1">
                         {HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label}
@@ -18925,6 +18929,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                cabinetFinishOverrides={threeDCabinetFinishOverrides}
 	                cabinetDoorProfiles={threeDCabinetDoorProfiles}
 	                hardwareStyleId={hardwareStyleId}
+                  onHardwareStyleChange={setHardwareStyleId}
 	                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
