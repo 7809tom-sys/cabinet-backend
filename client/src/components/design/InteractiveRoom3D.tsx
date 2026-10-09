@@ -6231,6 +6231,27 @@ export function addThreeDPeninsulaCountertops(
       const ironMaterial = new THREE.MeshStandardMaterial({ color: "#c9c5bd", roughness: 0.9, metalness: 0.0 });
       const barBottom = (surface.countertopHeightIn ?? STD.COUNTERTOP_HEIGHT) - STD.COUNTERTOP_THICKNESS;
       const barRadians = Math.atan2(barNormal.y, barNormal.x);
+      // Step riser ("backsplash" of the lower top): a same-material vertical panel on the bar's near edge,
+      // filling the gap from the lower worktop up to the raised bar. It sits inside the bar strip, never over the lower top.
+      {
+        const poly = countertopSurfacePlanPolygon(surface);
+        const proj = poly.map((pt) => pt.x * barNormal.x + pt.y * barNormal.y);
+        const near = Math.min(...proj);
+        const edgeT = poly.filter((_, i) => proj[i]! - near <= 1 / 16).map((pt) => pt.x * barTan.x + pt.y * barTan.y);
+        const lowerTop = STD.COUNTERTOP_HEIGHT;
+        const riseIn = barBottom - lowerTop;
+        if (edgeT.length >= 2 && riseIn > 0.25) {
+          const lo = Math.min(...edgeT), hi = Math.max(...edgeT);
+          const riserThick = 1.25;
+          const riser = new THREE.Mesh(new THREE.BoxGeometry(riserThick * INCH, riseIn * INCH, (hi - lo) * INCH), slab.material);
+          const rx = barNormal.x * (near + riserThick / 2) + barTan.x * ((lo + hi) / 2);
+          const rz = barNormal.y * (near + riserThick / 2) + barTan.y * ((lo + hi) / 2);
+          riser.position.set(rx * INCH, (lowerTop + riseIn / 2) * INCH, rz * INCH);
+          riser.rotation.y = -Math.atan2(barNormal.y, barNormal.x);
+          riser.userData = { raisedBarRiser: true, peninsulaRunId: run.id, visualOnly: true, materialOnlyNoGeometryChange: true };
+          root.add(riser);
+        }
+      }
       raisedBarCorbelPlan(countertopSurfacePlanPolygon(surface), barNormal, surface.raisedBarOverhangIn ?? 15).forEach((c, index) => {
         const corbel = new THREE.Group();
         const faceX = barNormal.x * c.faceIn + barTan.x * c.tangentIn;
