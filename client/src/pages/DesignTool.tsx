@@ -162,11 +162,12 @@ import { isWscSpiceCabinet, wsc30UpperChoices, wsc30UpperPlacement } from "@/lib
 import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDSeatedWallMoveTarget, threeDPlanMoveDelta } from "./designTool3DMovement";
 import {
   type HardwareStyleId,
-  DEFAULT_HARDWARE_STYLE_ID,
   HARDWARE_STYLES,
   hardwareSchedule,
   hardwarePlacementNote,
 } from "@/lib/hardware";
+import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/components/design/CabinetHandlesControl";
+import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
 import {
@@ -2031,7 +2032,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Decorative hardware spec (knobs / pulls / cup pulls). A finishing choice,
   // not a priced catalog SKU: it draws on the fronts and lists a piece count on
   // the build sheet as a note. Defaults to "none".
-  const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_HARDWARE_STYLE_ID);
+  const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
 
   // Wall cabinet height room setting: 42", 36", or 30" (default). This is a
   // room-level preference that determines the height of wall cabinets placed
@@ -2255,7 +2256,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             ? "base"
             : paletteType === "wallht"
             ? "wall"
-            : paletteType === "accessory"
+            : paletteType === "accessory" || paletteType === "panel"
             ? "accessory"
             : paletteType,
         // Narrow to the chosen line + style so only purchasable cabinets show.
@@ -2928,6 +2929,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
         // The dedicated "Vanity" tab shows ONLY vanity-category cabinets.
         if (paletteType === "vanity") return isBathroomVanityCabinet(c);
+        // Panels are the source-backed physical panel/skin subset of Accessories.
+        if (paletteType === "panel") return isPanelPaletteItem(c);
         // The "Accessories & Trim" tab returns its own server-filtered list
         // (crown/light-rail molding, fillers, end panels, roll-out trays, etc.),
         // so every item passes through here unchanged.
@@ -2980,6 +2983,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return src.filter((c) => {
       if (paletteType === "wall" || paletteType === "wallht") return !isCornerWall(c);
       if (paletteType === "vanity") return isBathroomVanityCabinet(c);
+      if (paletteType === "panel") return isPanelPaletteItem(c);
       if (paletteType === "accessory") return true;
       if (paletteType === "base") return !isCornerBase(c) && !isVanity(c);
       return true;
@@ -3018,7 +3022,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // The Accessories & Trim tab groups by product subCategory (Trim & Molding,
     // Decorative End Panels, Roll-Out Trays, Skin Panels, …) rather than by
     // height, which is meaningless for loose trim/hardware.
-    if (paletteType === "accessory") {
+    if (paletteType === "accessory" || paletteType === "panel") {
       const bySub = new Map<string, DesignCabinet[]>();
       // Build accordion sections only from items that can be put on the 2D plan.
       // Previously headings used all catalog add-ons while their bodies silently
@@ -4341,7 +4345,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  }, [autoFillCabinets, wallCabPool, tallCabPool, cornerWallGlassVariants, glassDoorCatalogProduct, threeDAccessoryCatalog, appliancePalette, isCornerBase, isCornerWall]);
   const interactive3dCatalogDragItem = useMemo(() => {
     if (!catalogDragPreview) return null;
-    const category = paletteType === "accessory" ? "Accessory" : "Cabinet";
+    const category = paletteType === "accessory" || paletteType === "panel" ? "Accessory" : "Cabinet";
 	    return interactive3dCatalogItems.find((item) => Number(item.sourceCabinetId ?? item.id) === Number(catalogDragPreview.id) && (item.glassDoorAddonCode ?? null) === (catalogDragPreview.glassDoorAddonCode ?? null) && item.category === category) ?? null;
   }, [catalogDragPreview, interactive3dCatalogItems, paletteType]);
 
@@ -5293,7 +5297,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // Floating shelves remain wall-mounted accessories even when a catalog
       // filter surfaces them from the Base tab. They must never inherit a base
       // run, an island face, or a room-center fallback from that filter state.
-	      const isAccessory = ((forceAccessory || paletteType === "accessory") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
+	      const isAccessory = ((forceAccessory || paletteType === "accessory" || paletteType === "panel") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
 	      const accPlacement = isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
       const isFlatPanel = isAccessory && isPanelItem(c);
       const isFillerAccessory = isAccessory && isFillerItem(c);
@@ -8728,7 +8732,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        ?? (targetWall && wallRunFrame(targetWall, room) ? targetWall : null)
 	        ?? nearestWallRunAtPoint(room, center)?.frame.id
 	        ?? nearestRectRoomWallAtPoint(room, center)) as WallSide;
-      const forceAccessory = paletteType === "accessory" && isPlaceableAccessory(data);
+      const forceAccessory = (paletteType === "accessory" || paletteType === "panel") && isPlaceableAccessory(data);
       const dimensions = resolvedDesignCabinetDimensions(data);
 	      const width = forceAccessory ? dim(data.width, 24) : dimensions.width;
 	      const depth = forceAccessory && isPanelItem(data) ? 0.75 : forceAccessory ? footprintDepth(data) : dimensions.depth;
@@ -11532,7 +11536,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     trimOverride.current = { crown: false, toeKick: false, batten: false, lightRail: false, valance: false };
     setCountertopMaterialId(DEFAULT_COUNTERTOP_MATERIAL_ID);
     setEdgeProfileId(DEFAULT_EDGE_PROFILE_ID);
-    setHardwareStyleId(DEFAULT_HARDWARE_STYLE_ID);
+    setHardwareStyleId(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
     setBacksplashMaterialId(null);
     setFlooringMaterialId(null);
     setFlooringPattern("random-stagger");
@@ -12042,6 +12046,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           </Button>
         </div>
 
+        <CabinetHandlesControl value={hardwareStyleId} onChange={setHardwareStyleId} tablet={isTabletWorkspace} />
         {/* Floor Plan / Room Size stays visible in every desktop workspace mode.
             Mobile uses the compact room-size sheet trigger immediately below. */}
         <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
@@ -14316,18 +14321,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             {/* Catalog tabs. Closet mode leads with the Closet parts tab but
                 still exposes cabinets + the Door/Win tool so a closet can hold
                 cabinets and an entry door. Kitchen mode keeps its tab set. */}
-            <div className="flex lg:flex-wrap overflow-x-auto no-scrollbar rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
+            <div data-testid="designer-catalog-tabs" className="flex flex-wrap rounded-lg border border-border p-0.5 bg-muted/30 mb-2">
               {(roomType === "closet"
-                ? (["closetparts", "base", "corner", "wall", "tall", "appliance", "opening", "accessory"] as const)
+                ? (["closetparts", "base", "corner", "wall", "tall", "appliance", "opening", "panel", "accessory"] as const)
                 : roomType === "bathroom"
-                ? (["vanity", "appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
+                ? (["vanity", "appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "panel", "accessory"] as const)
                 : roomType === "laundry"
-                ? (["appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "accessory"] as const)
-                : (["base", "corner", "wall", "tall", "appliance", "surfaces", "opening", "accessory", "furniture"] as const)
+                ? (["appliance", "base", "corner", "wall", "tall", "surfaces", "opening", "panel", "accessory"] as const)
+                : (["base", "corner", "wall", "tall", "appliance", "surfaces", "opening", "panel", "accessory", "furniture"] as const)
               ).map((tab) => (
                 <button
+                  type="button"
                   key={tab}
                   data-testid={`catalog-tab-${tab}`}
+                  aria-pressed={paletteType === tab}
                   onClick={() => { setPaletteType(tab); if (tab === "closetparts" && !placedRef.current.length) setViewMode("plan"); }}
                   className={`shrink-0 whitespace-nowrap px-2.5 lg:px-1 lg:flex-1 py-1.5 rounded-md text-[11px] font-medium capitalize transition-colors ${
                     paletteType === tab ? "bg-[#1a2744] text-white" : "text-muted-foreground hover:text-foreground"
@@ -14345,6 +14352,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     ? t("dt_tab_vanity")
                     : tab === "closetparts"
                     ? t("dt_tab_closet")
+                    : tab === "panel"
+                    ? "Panels"
                     : tab === "accessory"
                     ? t("dt_tab_accessories")
                     : tab === "furniture"
@@ -14460,7 +14469,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              paletteType !== "closetparts" &&
 	              paletteType !== "surfaces" &&
 	              !usesBathroomFixturePalette &&
-	              paletteType !== "accessory" && (
+	              paletteType !== "accessory" && paletteType !== "panel" && (
 	                <div className="mb-2 rounded-lg border border-[#a87f33]/40 bg-[#a87f33]/10 px-3 py-3 text-center space-y-2">
 	                  <p className="text-xs font-semibold text-foreground">
 	                    {catalogDistributorScopeId == null ? "Pick a distributor, then a door style" : t("dt_pl_need_style_title")}
@@ -14502,7 +14511,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               availableInStyleCount > 0 && (
                 <div className="mb-1.5 px-1 text-[11px] leading-snug text-muted-foreground">
                   <span className="font-medium text-foreground">
-                    {availableInStyleCount === 1
+                    {paletteType === "panel"
+                      ? `${availableInStyleCount} panel${availableInStyleCount === 1 ? "" : "s"} available in ${activeStyleName ?? "this finish"}`
+                      : availableInStyleCount === 1
                       ? t("dt_pl_avail_count_one", { style: activeStyleName ?? "" })
                       : t("dt_pl_avail_count", { count: availableInStyleCount, style: activeStyleName ?? "" })}
                   </span>
@@ -14675,6 +14686,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </div>
                 </div>
               )}
+              {paletteType === "panel" && (
+                <p data-testid="panel-palette-summary" className="mb-2 rounded-md border border-border bg-muted/25 px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+                  End panels, decorative panels &amp; skins. Tap or drag to place; use Attributes to edit. Existing ¾″ panel-stock rendering applies.
+                </p>
+              )}
               {groupedPalette.map((group) => {
                 // Accordion: each height/category group collapses. Keyed per-tab.
                 // Force-open while searching so no matching item is ever hidden.
@@ -14748,11 +14764,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     // add-on trim/hardware sold by the foot/each (crown, light
                     // rail, roll-out trays, hinges, pulls) is no longer offered
                     // as an add-on sale in the design tool and is hidden here.
-                    if (paletteType === "accessory") {
+                    if (paletteType === "accessory" || paletteType === "panel") {
                       if (!isPlaceableAccessory(c)) return null;
                       return (
                         <button
+                          type="button"
                           key={c.masterCode}
+                          data-testid={paletteType === "panel" ? `panel-catalog-item-${c.masterCode}` : undefined}
                           draggable
                           onDragStart={(event) => { dragDataRef.current = c; setCatalogDragPreview(c); const item = interactive3dCatalogItems.find((candidate) => Number(candidate.id) === Number(c.id) && candidate.category === "Accessory"); if (item) { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData("text/plain", threeDLeftCatalogDragPayload(item.category, item.id)); } }}
                           onDragEnd={() => { dragDataRef.current = null; setCatalogDragPreview(null); }}
@@ -14861,14 +14879,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             {paletteType === "opening" && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_click_add_drag")}</p>
             )}
-            {paletteType === "accessory" && filteredPalette.length > 0 && (
+            {(paletteType === "accessory" || paletteType === "panel") && filteredPalette.length > 0 && (
               <p className="text-[10px] text-muted-foreground text-center pt-3 px-2">{t("dt_pl_panels_note")}</p>
             )}
           </div>
           <div className="p-2 border-t border-border text-[10px] text-muted-foreground text-center">
 	            {usesBathroomFixturePalette
 	              ? "Tap a Pelican bathroom fixture to add it to Materials; source-measured toilets, bidets, and tubs also place in Floor Plan and 3D."
-	              : paletteType === "accessory"
+	              : paletteType === "accessory" || paletteType === "panel"
 	              ? t("dt_pl_foot_accessory")
 	              : t("dt_pl_foot_default")}
           </div>

@@ -11,6 +11,7 @@ export type HeightFilterPaletteType =
   | "opening"
   | "closetparts"
   | "accessory"
+  | "panel"
   | "furniture"
   | "surfaces";
 
