@@ -18,6 +18,7 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { styleDisplayName } from "@/lib/styleDisplayName";
 import { groupStylesByDistributor } from "@/lib/groupStylesByDistributor";
 import { designerDoorFrameMetrics } from "@/lib/doorFrameMetrics";
+import { orderDoorStylesByColor } from "@/lib/doorColorSpectrum";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ColorSlotButton
@@ -37,6 +38,10 @@ type StyleOption = {
   distributorId?: number | null;
   styleCode?: string | null;
   doorStyle?: string | null;
+  color?: string | null;
+  swColor?: string | null;
+  finish?: string | null;
+  woodSpecies?: string | null;
   railWidth?: string | number | null;
   stileWidth?: string | number | null;
   sourceSpecification?: string | null;
@@ -292,7 +297,10 @@ export function ColorSlotButton({
 
   // Card-grid of door styles within one open distributor group.
   const StyleGrid = ({ list, cols, seriesName }: { list: StyleOption[]; cols: 2 | 3; seriesName?: string | null }) => {
-    const filtered = applyFilters(list, seriesName);
+    // Keep every color choice in the same customer-facing light-to-deep order
+    // as the public color rail. Filtering must not reintroduce catalog arrival
+    // order, which previously made the picker appear randomly mixed by line.
+    const filtered = applyFilters(orderDoorStylesByColor(list), seriesName);
     return filtered.length === 0 ? (
       <div className="px-2 py-4 text-center text-[11px] text-muted-foreground">
         No styles match the selected filters.
