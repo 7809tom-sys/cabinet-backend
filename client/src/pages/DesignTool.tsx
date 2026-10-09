@@ -2350,9 +2350,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   );
   // The Wizard presents actual active base cabinets from the selected line.
   // Catalog fillers remain a separate, priced stock source for true remainders.
-	  const peninsulaWizardBaseCabinets = useMemo(() => wizardEligibleBaseCabinets(
-	    ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
-	  ), [autoFillCabinets]);
+	  const peninsulaWizardBaseCabinets = useMemo(() => {
+	    const eligible = wizardEligibleBaseCabinets(
+	      ((autoFillCabinets as DesignCabinet[] | undefined) ?? []) as PeninsulaWizardCabinet[],
+	    );
+	    // Under-counter appliances join the same ordered list as cabinets. They use
+	    // negative ids so they can never collide with a catalog cabinet id.
+	    const applianceEntries = APPLIANCES.filter((item) => item.masterCode === "DW-24" || item.masterCode === "WINE-24")
+	      .map((item, index) => ({
+	        id: -(index + 1), masterCode: item.masterCode, description: item.description, category: "Appliance", subCategory: null,
+	        width: item.width, height: item.elevHeight, depth: item.depth, catalogImageUrl: item.catalogImageUrl ?? null, placement: "appliance",
+	      }) as unknown as PeninsulaWizardCabinet);
+	    return eligible.length ? [...eligible, ...applianceEntries] : eligible;
+	  }, [autoFillCabinets]);
 	  const peninsulaWizardAttachmentWalls = useMemo(() => {
 	    const ids = room.customWalls?.length
 	      ? room.customWalls.map((wall) => wall.id)
@@ -4613,6 +4623,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const buildPeninsulaWizardLayout = useCallback(() => {
     const draft = peninsulaWizardDraft;
     if (!draft || layoutLocked) return;
+    if (styleIdRef.current == null) {
+      toast.error("Select a cabinet line and door style in the Designer before building a peninsula.");
+      return;
+    }
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
     if (pool.length === 0) {
       toast.error("Choose a cabinet line and door style before building a peninsula.");
@@ -4809,6 +4823,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (!item.cabinet) continue;
           const cabinet = item.cabinet as DesignCabinet;
           const width = item.width;
+          const applianceDef = cabinet.id < 0 ? APPLIANCES.find((def) => def.masterCode === cabinet.masterCode) ?? null : null;
+          if (applianceDef) {
+            const applianceSlot = firstCollisionFreePeninsulaPlacement(
+              layoutRun.id as WallSide, nextRoom, working, applianceDef.width, applianceDef.depth, "appliance",
+              { start: segment.start, end: segment.start + segment.length - applianceDef.width },
+            );
+            if (!applianceSlot) {
+              toast.error(`Could not seat the ${applianceDef.description} on the measured ${layoutRun.label ?? "peninsula"} span.`);
+              return;
+            }
+            working.push({
+              uid: makeUid(), cabinetId: 0, masterCode: applianceDef.masterCode, description: applianceDef.description,
+              category: "Appliance", subCategory: null, placement: "appliance", x: applianceSlot.x, y: applianceSlot.y,
+              width: applianceDef.width, depth: applianceDef.depth, height: applianceDef.elevHeight, rotation: applianceSlot.rotation,
+              mountBottom: applianceDef.elevBottom, numberOfDoors: 0, numberOfDrawers: 0, catalogImageUrl: applianceDef.catalogImageUrl ?? null,
+              wallId: applianceSlot.wallId, wallOffset: applianceSlot.wallOffset, peninsulaSide: applianceSlot.peninsulaSide,
+              peninsulaWizardId: wizardRootId,
+            });
+            wizardCabinetUids.add(working.at(-1)!.uid);
+            continue;
+          }
           const depth = footprintDepth(cabinet);
           const spot = firstCollisionFreePeninsulaPlacement(
             layoutRun.id as WallSide,
@@ -4902,7 +4937,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
     }
     setPlaced(working);
-	    setRoom(nextRoom);
+    setRoom(nextRoom);
+    // Every sink base in the Wizard sequence gets the same sink + faucet chooser
+    // the Designer opens for a hand-placed sink base. An editable default is
+    // seeded first so a skipped popup never leaves an empty base.
+    const wizardSinkBases = working.filter((cabinet) => wizardCabinetUids.has(cabinet.uid) && cabinet.placement === "base" && isSinkBaseCabinet(cabinet));
+    if (wizardSinkBases.length) {
+      const seeded = wizardSinkBases
+        .filter((cabinet) => !sinks.some((sink) => fixtureBelongsToCabinet(sink, cabinet)))
+        .map((cabinet) => makeSinkForCabinet(
+          isFarmSinkBasePaletteItem(cabinet) ? "farmhouse" : cabinet.width >= 33 ? "double" : "single", cabinet, nextRoom,
+        ));
+      if (seeded.length) setSinks((current) => [...current, ...seeded]);
+      setWizardSinkQueue(wizardSinkBases.filter((cabinet) => !isFarmSinkBasePaletteItem(cabinet)).map((cabinet) => cabinet.uid));
+    }
     if (wizardStools.length || editingPeninsulaWizardRootId) setFurniture((previous) => [
       ...previous.filter((item) => !item.uid.startsWith(`peninsula-stool:${wizardRootId}:`)),
       ...wizardStools,
@@ -4918,7 +4966,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const wasEditingWizard = Boolean(editingPeninsulaWizardRootId);
     setEditingPeninsulaWizardRootId(null);
     toast.success(`${wasEditingWizard ? "Peninsula Wizard updated" : "Straight peninsula built"}${angledRun ? ` with a 45° ${angledRun.direction} end` : ""}${builtPonyWalls.length ? " and a drywall back wall" : ""} built${appliance ? ` with ${appliance.description}` : ""}. Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.`);
-  }, [autoFillCabinets, catalogFillers, editingPeninsulaWizardRootId, layoutLocked, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room]);
+  }, [autoFillCabinets, catalogFillers, editingPeninsulaWizardRootId, layoutLocked, peninsulaWizardBaseCabinets, peninsulaWizardDraft, placed, room, sinks]);
   /** Creates a new empty run attached to the selected peninsula's far endpoint. */
 	const addPeninsulaReturn = useCallback((parentRunId: string, turn: PeninsulaTurn, direction: PeninsulaDirection) => {
 	  if (layoutLocked) return;
@@ -7431,6 +7479,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Sink base top dialog: opens when a sink base cabinet is placed.
   // Lets the user choose between a sink fixture or a range top (gas/electric/smooth).
   const [sinkBaseDialog, setSinkBaseDialog] = useState<{ cabinetUid: string } | null>(null);
+  // Sink bases created by the Peninsula Wizard wait here for the sink/faucet popup, one at a time.
+  const [wizardSinkQueue, setWizardSinkQueue] = useState<string[]>([]);
+  useEffect(() => {
+    if (sinkBaseDialog || wizardSinkQueue.length === 0) return;
+    const [next, ...rest] = wizardSinkQueue;
+    setWizardSinkQueue(rest);
+    setSinkBaseDialog({ cabinetUid: next });
+    setRangeTopStep("choose");
+  }, [sinkBaseDialog, wizardSinkQueue]);
   // Range top sub-type selection (shown after user picks "Range Top" in the sink base dialog).
   // Also used for sink/faucet steps: "sink" = sink picker, "faucet" = faucet picker.
   const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "range-type" | "range-product" | "gas" | "electric" | "smooth-top">("choose");
@@ -16000,17 +16057,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    </label>
                     <div className="grid gap-3 rounded-md border border-[#bfcee0] bg-[#f5f9fd] p-3" data-testid="peninsula-wizard-cabinet-choices">
                       <p className="text-xs font-bold text-[#1a2744]">Your cabinet plan</p>
+                      {styleId == null && <p role="alert" data-testid="peninsula-wizard-style-required" className="text-[11px] font-semibold text-destructive">Select a cabinet line and door style in the Designer first. No cabinet or appliance can be added until one is selected.</p>}
                       <p className="text-[11px] leading-4 text-muted-foreground"><strong>You choose every cabinet, in order, for each leg.</strong> Add cabinets until that leg is complete. The Wizard ends the leg at your last cabinet; it never repeats, auto-fills, swaps, invents a cabinet, or extends a countertop past your boxes. A 45° turn reserves only the real two-piece catalog miter filler pair at the joint.</p>
                       <div className="grid gap-1 rounded-md border border-[#d8e6f3] bg-background/70 p-2" data-testid="peninsula-wizard-primary-sequence">
                         <span className="text-xs font-semibold text-foreground">Straight leg — wall to end</span>
-                        <select data-testid="peninsula-wizard-primary-cabinet-add" defaultValue="" onChange={(event) => {
+                        <select data-testid="peninsula-wizard-primary-cabinet-add" disabled={styleId == null} defaultValue="" onChange={(event) => {
                           const cabinetId = Number(event.currentTarget.value);
                           if (!cabinetId) return;
                           setPeninsulaWizardDraft((draft) => draft ? { ...draft, primaryCabinetIds: [...draft.primaryCabinetIds, cabinetId] } : draft);
                           event.currentTarget.value = "";
                         }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
                           <option value="" disabled>Add a cabinet to this leg…</option>
-                          {peninsulaWizardBaseCabinets.map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}
+                          <optgroup label="Cabinets">{peninsulaWizardBaseCabinets.filter((cabinet) => cabinet.id > 0).map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}</optgroup>
+                          <optgroup label="Appliances">{peninsulaWizardBaseCabinets.filter((cabinet) => cabinet.id < 0).map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.description} · {Number(cabinet.width)} in W</option>)}</optgroup>
                         </select>
                         {peninsulaWizardDraft.primaryCabinetIds.length === 0 ? <span className="text-[11px] text-destructive">Add every cabinet for the straight leg.</span> : <ol className="grid gap-1" data-testid="peninsula-wizard-primary-sequence-list">{peninsulaWizardDraft.primaryCabinetIds.map((id, index) => {
                           const cabinet = peninsulaWizardBaseCabinets.find((candidate) => candidate.id === id);
@@ -16019,14 +16078,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                       </div>
                       {peninsulaWizardDraft.endTurn === 45 && <div className="grid gap-1 rounded-md border border-[#d8e6f3] bg-background/70 p-2" data-testid="peninsula-wizard-return-sequence">
                         <span className="text-xs font-semibold text-foreground">45° return — joint to end</span>
-                        <select data-testid="peninsula-wizard-return-cabinet-add" defaultValue="" onChange={(event) => {
+                        <select data-testid="peninsula-wizard-return-cabinet-add" disabled={styleId == null} defaultValue="" onChange={(event) => {
                           const cabinetId = Number(event.currentTarget.value);
                           if (!cabinetId) return;
                           setPeninsulaWizardDraft((draft) => draft ? { ...draft, returnCabinetIds: [...draft.returnCabinetIds, cabinetId] } : draft);
                           event.currentTarget.value = "";
                         }} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
                           <option value="" disabled>Add a cabinet to this return…</option>
-                          {peninsulaWizardBaseCabinets.map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}
+                          <optgroup label="Cabinets">{peninsulaWizardBaseCabinets.filter((cabinet) => cabinet.id > 0).map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.masterCode} · {Number(cabinet.width)} in W × {Number(cabinet.depth)} in D</option>)}</optgroup>
+                          <optgroup label="Appliances">{peninsulaWizardBaseCabinets.filter((cabinet) => cabinet.id < 0).map((cabinet) => <option key={cabinet.id} value={cabinet.id}>{cabinet.description} · {Number(cabinet.width)} in W</option>)}</optgroup>
                         </select>
                         {peninsulaWizardDraft.returnCabinetIds.length === 0 ? <span className="text-[11px] text-destructive">Add every cabinet for the 45° return.</span> : <ol className="grid gap-1" data-testid="peninsula-wizard-return-sequence-list">{peninsulaWizardDraft.returnCabinetIds.map((id, index) => {
                           const cabinet = peninsulaWizardBaseCabinets.find((candidate) => candidate.id === id);
@@ -16069,11 +16129,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        </label>
 	                      )}
                     </label>
-	                    <label className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] p-2 text-xs font-semibold text-[#634b20]">Appliance in this run
-	                      <select value={peninsulaWizardDraft.applianceCode} onChange={(event) => setPeninsulaWizardDraft((draft) => draft ? { ...draft, applianceCode: event.target.value as "none" | "DW-24" | "WINE-24" } : draft)} className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground">
-	                        <option value="none">No appliance</option><option value="DW-24">Dishwasher · 24 in.</option><option value="WINE-24">Wine cooler · 24 in.</option>
-	                      </select>
-	                    </label>
+
 	                    <div className="grid grid-cols-2 gap-2">
 	                      {peninsulaWizardDraft.countertopTreatment === "split-level" ? (
 	                        <div className="grid gap-1 rounded-md border border-[#d9c196] bg-[#fff9ed] px-2 py-1.5 text-xs font-semibold text-[#634b20]">
