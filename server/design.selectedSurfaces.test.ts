@@ -72,7 +72,8 @@ describe("design router — selectedSurfaces persistence", () => {
 
       try {
         const saved = await caller.design.save({
-          name: `Surfaces round-trip ${Date.now()}`,
+          customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: `Surfaces round-trip ${Date.now()}`,
           roomData: { width: 144, depth: 120 },
           placedCabinets: [],
           selectedSurfaces: surfaces,
@@ -89,7 +90,8 @@ describe("design router — selectedSurfaces persistence", () => {
         // Updating with a new (smaller) set fully replaces the stored surfaces.
         const trimmed = [surfaces[0]];
         await caller.design.save({
-          id: saved.id,
+          customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: saved.id,
           name: "Surfaces round-trip (updated)",
           roomData: { width: 144, depth: 120 },
           placedCabinets: [],
@@ -118,7 +120,8 @@ describe("design router — selectedSurfaces persistence", () => {
 
       try {
         const saved = await caller.design.save({
-          name: `No surfaces ${Date.now()}`,
+          customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: `No surfaces ${Date.now()}`,
           roomData: { width: 120, depth: 120 },
           placedCabinets: [],
           roomType: "kitchen",

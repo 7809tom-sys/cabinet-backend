@@ -28,7 +28,8 @@ describe("saved design owner scope", () => {
 	    const owner = appRouter.createCaller(userContext(998811));
 	    const otherUser = appRouter.createCaller(userContext(998812));
 	    const saved = await owner.design.save({
-	      name: "Delete owner-scoped kitchen",
+	      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Delete owner-scoped kitchen",
 	      affiliateSlug: "owner",
 	      originScope: "owner",
 	      roomData: { width: 120, depth: 120 },
@@ -84,7 +85,8 @@ describe("saved design owner scope", () => {
     const contractor = appRouter.createCaller(userContext(998802, "contractor"));
     const admin = appRouter.createCaller(adminContext());
     const saved = await owner.design.save({
-      name: "Owner-scoped kitchen",
+      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Owner-scoped kitchen",
       roomData: { width: 120, depth: 120 },
       placedCabinets: [],
     });
@@ -139,7 +141,8 @@ describe("saved design owner scope", () => {
 	      await expect(owner.design.byId({ id: sameUserAffiliateDesignId, affiliateSlug: "owner" })).resolves.toBeNull();
 	      expect((await owner.design.byId({ id: sameUserAffiliateDesignId, affiliateSlug }))?.name).toBe("Same user affiliate kitchen");
 	      await expect(owner.design.save({
-	        id: sameUserAffiliateDesignId,
+	        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: sameUserAffiliateDesignId,
 	        name: "Cross-store overwrite",
 	        affiliateSlug: "owner",
 	        originScope: "owner",
@@ -147,14 +150,16 @@ describe("saved design owner scope", () => {
 	        placedCabinets: [],
 	      })).rejects.toThrow("different store");
 	      await expect(owner.design.save({
-	        name: "Mismatched creator scope",
+	        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Mismatched creator scope",
 	        affiliateSlug,
 	        originScope: "owner",
 	        roomData: { width: 120, depth: 120 },
 	        placedCabinets: [],
 	      })).rejects.toThrow("created for Cabinet Dealz owner");
       const recreated = await owner.design.save({
-        id: 999999999,
+        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: 999999999,
         name: "Recovered stale plan",
         roomData: { width: 120, depth: 120 },
         placedCabinets: [],
@@ -163,13 +168,15 @@ describe("saved design owner scope", () => {
       expect(recreated.recoveredFromStaleId).toBe(true);
       expect((await owner.design.byId({ id: recreated.id }))?.name).toBe("Recovered stale plan");
       await expect(contractor.design.save({
-        id: saved.id,
+        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: saved.id,
         name: "Attempted overwrite",
         roomData: { width: 120, depth: 120 },
         placedCabinets: [],
       })).rejects.toThrow("Saved design not found");
       await expect(admin.design.save({
-        id: saved.id,
+        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: saved.id,
         name: "Administrator overwrite",
         roomData: { width: 120, depth: 120 },
         placedCabinets: [],

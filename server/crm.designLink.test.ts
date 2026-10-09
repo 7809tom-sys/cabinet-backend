@@ -32,7 +32,8 @@ describe("crm router — design linking", () => {
 
     // Create a saved design owned by the admin caller.
     const design = await caller.design.save({
-      name: "Spec Design — CRM Link",
+      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Spec Design — CRM Link",
       roomData: { width: 120, depth: 120 },
       placedCabinets: [],
     });
@@ -91,7 +92,8 @@ describe("crm router — design linking", () => {
 
     // Save a NAMED design.
     const saved = await caller.design.save({
-      name: "Lakeview Kitchen v1",
+      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Lakeview Kitchen v1",
       roomData: { width: 144, depth: 120 },
       placedCabinets: [{ cabinetId: 1, x: 0, y: 0, rotation: 0 }],
       projectName: "Lakeview Remodel",
@@ -113,7 +115,8 @@ describe("crm router — design linking", () => {
 
       // Re-saving with the same id renames it (rename / Save over existing).
       await caller.design.save({
-        id: saved.id,
+        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: saved.id,
         name: "Lakeview Kitchen FINAL",
         roomData: { width: 144, depth: 120 },
         placedCabinets: [{ cabinetId: 1, x: 0, y: 0, rotation: 0 }],
@@ -165,7 +168,8 @@ describe("crm router — design linking", () => {
     if (!db) return;
     const caller = appRouter.createCaller(adminCtx());
     const saved = await caller.design.save({
-      name: "Remote Customer Kitchen",
+      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Remote Customer Kitchen",
       roomData: { width: 144, depth: 120 },
       placedCabinets: [{ uid: "remote-sb33", cabinetId: 33, masterCode: "SB-33", x: 0, y: 0, rotation: 0 }],
       selectedStyleId: 101,
@@ -188,7 +192,8 @@ describe("crm router — design linking", () => {
       expect(shared.design.placedCabinets).toEqual(expect.arrayContaining([expect.objectContaining({ uid: "remote-sb33" })]));
 
       await caller.design.save({
-        id: saved.id,
+        customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+id: saved.id,
         name: "Remote Customer Kitchen FINAL",
         roomData: { width: 156, depth: 120 },
         placedCabinets: [{ uid: "remote-sb33", cabinetId: 33, masterCode: "SB-33", x: 0, y: 0, rotation: 0 }],

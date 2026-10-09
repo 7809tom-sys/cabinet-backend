@@ -13364,6 +13364,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             buildRows={buildRows}
             roomType={roomType}
             contactEmail={verifiedEmail}
+            contactName={verifiedName}
+            contactPhone={verifiedPhone}
 	            affiliateSlug={affiliateSlug}
 	            currentDesignId={activeSavedDesignId ?? loadDesignId}
 	            brandName={affiliateBrand?.storeName}

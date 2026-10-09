@@ -35,7 +35,8 @@ describe("crm router — requestQuoteFromDesign", () => {
     const caller = appRouter.createCaller(memberCtx());
 
     const design = await caller.design.save({
-      name: "Oak St Kitchen",
+      customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Oak St Kitchen",
       roomData: { width: 144, depth: 120 },
       placedCabinets: [],
       projectName: "123 Oak St",
@@ -52,7 +53,7 @@ describe("crm router — requestQuoteFromDesign", () => {
         estimatedValue: 8200,
       });
       dealId = r.id;
-      expect(r.reused).toBe(false);
+      expect(r.reused).toBe(true); // saving already linked this design to its CRM deal
       expect(dealId).toBeGreaterThan(0);
 
       // It must be a HOUSE deal (affiliateId NULL) so the sales team sees it.

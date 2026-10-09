@@ -41,7 +41,8 @@ describe("design router — projectSummary roll-up", () => {
         // here we assert the GROUPING + roll-up structure, not SKU math.
         for (const label of ["Kitchen", "Master Bath", "Laundry"]) {
           const d = await caller.design.save({
-            name: `${label} layout`,
+            customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: `${label} layout`,
             roomData: { width: 144, depth: 120 },
             placedCabinets: [],
             projectName: project,
@@ -53,7 +54,8 @@ describe("design router — projectSummary roll-up", () => {
 
         // A different owner's design in a same-named project must NOT bleed in.
         const intruder = await other.design.save({
-          name: "Not mine",
+          customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Not mine",
           roomData: { width: 100, depth: 100 },
           placedCabinets: [],
           projectName: project,
@@ -97,7 +99,8 @@ describe("design router — projectSummary roll-up", () => {
         // One stock cabinet + two resized cabinets (cabinetId 0 keeps SKU price
         // at 0 so we isolate the fee math). Expect 2 x $100 = $200 subtotal.
         const d = await caller.design.save({
-          name: "Fee room",
+          customer: { name: "Test Customer", email: "customer@example.test", phone: "555-010-0199", address: { line1: "100 Test Street", city: "Testville", state: "FL", zip: "34201" } },
+name: "Fee room",
           roomData: { width: 144, depth: 120 },
           placedCabinets: [
             { uid: "a", cabinetId: 0, masterCode: "B-24", description: "Stock", placement: "base", x: 0, y: 0, width: 24, depth: 24, rotation: 0, nominalWidth: 24, nominalDepth: 24 },

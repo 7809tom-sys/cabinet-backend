@@ -96,6 +96,9 @@ interface Props {
   // Contact email for the designer (from the email gate / signed-in user). Used
   // to associate the saved plan with the correct CRM contact.
   contactEmail?: string | null;
+  /** Name/phone captured at the designer gate, used to prefill the required customer fields. */
+  contactName?: string | null;
+  contactPhone?: string | null;
   /** Affiliate context makes saved designs, plans, exports, and CRM links private to that affiliate. */
   affiliateSlug?: string | null;
   /** Existing saved-design identity. When present, Save updates that shared plan instead of creating an unrelated copy. */
@@ -364,7 +367,7 @@ export function groupByProject(rows: SavedDesignRow[]): ProjectGroup[] {
 }
 
 export function DesignActions({
-  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
+  room, placed, openings, sinks, island, furniture, ponyWalls, selectedSurfaces, threeDPresentation, styleId, lockedDistributorId, styleName, contactName, contactPhone, tier, total, extraLines, buildRows, roomType, contactEmail, affiliateSlug, currentDesignId, brandName, openSaveSignal, openLoadSignal, preSavePlanReview, onReviewPlanFinding, onSaveSuccess, onDeleteSuccess, onLoad,
 }: Props) {
   const { user, isAuthenticated, loading: isAuthLoading, error: authError, refresh } = useAuth();
   const { t } = useLanguage();
@@ -384,6 +387,27 @@ export function DesignActions({
   // Customer/House this plan is for (the CRM contact + grouping key). A homeowner
   // can leave it blank (their own project); a contractor names the customer/house.
   const [customerName, setCustomerName] = useState("");
+  const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [customerAddress, setCustomerAddress] = useState(() => {
+    const empty = { line1: "", line2: "", city: "", state: "", zip: "" };
+    try { return { ...empty, ...JSON.parse(localStorage.getItem("cd-design-delivery-address") ?? "{}") }; } catch { return empty; }
+  });
+  const [showCustomerErrors, setShowCustomerErrors] = useState(false);
+  useEffect(() => { setCustomerName((v) => v || contactName || user?.name || ""); }, [contactName, user?.name]);
+  useEffect(() => { setCustomerPhone((v) => v || contactPhone || ""); }, [contactPhone]);
+  useEffect(() => { setCustomerEmail((v) => v || contactEmail || user?.email || ""); }, [contactEmail, user?.email]);
+  const customerErrors = (() => {
+    const e: string[] = [];
+    if (customerName.trim().length < 2) e.push("Customer name");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail.trim())) e.push("Customer email");
+    if (customerPhone.replace(/\D/g, "").length < 10) e.push("Customer phone (10 digits)");
+    if (customerAddress.line1.trim().length < 3) e.push("Street address");
+    if (customerAddress.city.trim().length < 2) e.push("City");
+    if (!/^[A-Za-z]{2}$/.test(customerAddress.state.trim())) e.push("2-letter state");
+    if (customerAddress.zip.trim().length < 5) e.push("ZIP");
+    return e;
+  })();
   // Master Project grouping (optional): a job name + a room label.
   const [projectName, setProjectName] = useState("");
   const [roomLabel, setRoomLabel] = useState("");
@@ -431,12 +455,11 @@ export function DesignActions({
         quoteMutation.mutate({
           designId: res.id,
           contactName: customerName.trim() || null,
-          contactEmail: contactEmail ?? null,
+          contactEmail: customerEmail.trim() || contactEmail || null,
           estimatedValue: total > 0 ? total : null,
         });
       }
       setRequestQuote(false);
-      setCustomerName("");
     },
     onError: (e) => toast.error(t("dt_act_save_err"), { description: e.message }),
   });
@@ -471,12 +494,30 @@ export function DesignActions({
       toast.error(t("dt_act_err_save_empty"));
       return;
     }
+    if (customerErrors.length > 0) {
+      setShowCustomerErrors(true);
+      toast.error("Customer details are required to save", { description: `Please complete: ${customerErrors.join(", ")}.` });
+      return;
+    }
+    try { localStorage.setItem("cd-design-delivery-address", JSON.stringify(customerAddress)); } catch { /* storage unavailable */ }
     const proj = projectName.trim();
     const rlabel = roomLabel.trim();
     saveMutation.mutate({
+      customer: {
+        name: customerName.trim(),
+        email: customerEmail.trim(),
+        phone: customerPhone.trim(),
+        address: {
+          line1: customerAddress.line1.trim(),
+          line2: customerAddress.line2.trim() || null,
+          city: customerAddress.city.trim(),
+          state: customerAddress.state.trim().toUpperCase(),
+          zip: customerAddress.zip.trim(),
+        },
+      },
       id: currentDesignId ?? undefined,
       name: name.trim() || rlabel || proj || t("dt_act_untitled_design"),
-      email: contactEmail ?? undefined,
+      email: customerEmail.trim() || contactEmail || undefined,
       affiliateSlug: storeScope,
       originScope: storeScope,
       roomData: roomWithPersistedEntities(room, { openings, sinks, island, furniture, ponyWalls }),
@@ -591,16 +632,47 @@ export function DesignActions({
                 autoFocus
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="customer-name" className="text-sm">{t("dt_act_customer_name")}</Label>
-              <Input
-                id="customer-name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder={t("dt_act_customer_name_ph")}
-                onKeyDown={(e) => { if (e.key === "Enter") handleSave(); }}
-              />
-              <p className="text-[11px] text-muted-foreground">{t("dt_act_customer_name_hint")}</p>
+            <div className="rounded-lg border border-border p-3 space-y-2.5" data-testid="save-customer-details">
+              <p className="text-xs font-semibold text-foreground">Customer details <span className="font-normal text-destructive">(all required — saved to the CRM)</span></p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="customer-name" className="text-[11px]">Customer name</Label>
+                  <Input id="customer-name" value={customerName} onChange={(e) => setCustomerName(e.target.value)} autoComplete="name" className="h-8 text-xs" aria-invalid={showCustomerErrors && customerName.trim().length < 2} />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="customer-email" className="text-[11px]">Email</Label>
+                  <Input id="customer-email" type="email" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} autoComplete="email" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="customer-phone" className="text-[11px]">Phone</Label>
+                  <Input id="customer-phone" type="tel" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} autoComplete="tel" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="customer-line1" className="text-[11px]">Street address</Label>
+                  <Input id="customer-line1" value={customerAddress.line1} onChange={(e) => setCustomerAddress({ ...customerAddress, line1: e.target.value })} autoComplete="address-line1" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1 col-span-2">
+                  <Label htmlFor="customer-line2" className="text-[11px]">Apt / suite (optional)</Label>
+                  <Input id="customer-line2" value={customerAddress.line2} onChange={(e) => setCustomerAddress({ ...customerAddress, line2: e.target.value })} autoComplete="address-line2" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="customer-city" className="text-[11px]">City</Label>
+                  <Input id="customer-city" value={customerAddress.city} onChange={(e) => setCustomerAddress({ ...customerAddress, city: e.target.value })} autoComplete="address-level2" className="h-8 text-xs" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="customer-state" className="text-[11px]">State</Label>
+                    <Input id="customer-state" maxLength={2} value={customerAddress.state} onChange={(e) => setCustomerAddress({ ...customerAddress, state: e.target.value.toUpperCase() })} autoComplete="address-level1" className="h-8 text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="customer-zip" className="text-[11px]">ZIP</Label>
+                    <Input id="customer-zip" value={customerAddress.zip} onChange={(e) => setCustomerAddress({ ...customerAddress, zip: e.target.value })} autoComplete="postal-code" className="h-8 text-xs" />
+                  </div>
+                </div>
+              </div>
+              {showCustomerErrors && customerErrors.length > 0 && (
+                <p role="alert" className="text-[11px] text-destructive">Still needed: {customerErrors.join(", ")}.</p>
+              )}
             </div>
             <div className="rounded-lg border border-dashed border-border p-3 space-y-2.5 bg-muted/20">
               <p className="text-[11px] font-semibold text-foreground">

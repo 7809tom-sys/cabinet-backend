@@ -1180,9 +1180,13 @@ export const crmRouter = router({
           .where(and(eq(crmDeals.id, link.dealId), design.affiliateId == null ? isNull(crmDeals.affiliateId) : eq(crmDeals.affiliateId, design.affiliateId)))
           .limit(1);
         if (existingDeal[0]) {
+          const reuseSet: Record<string, unknown> = { updatedAt: new Date() };
+          if (input.estimatedValue != null) reuseSet.estimatedValue = String(input.estimatedValue);
+          if (!existingDeal[0].contactName && input.contactName) reuseSet.contactName = input.contactName;
+          if (!existingDeal[0].contactPhone && input.contactPhone) reuseSet.contactPhone = input.contactPhone;
           await db
             .update(crmDeals)
-            .set({ updatedAt: new Date() })
+            .set(reuseSet)
             .where(eq(crmDeals.id, existingDeal[0].id));
           return { id: existingDeal[0].id, reused: true };
         }

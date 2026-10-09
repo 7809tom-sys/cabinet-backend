@@ -4,6 +4,7 @@ import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
+import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
 import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
@@ -166,6 +167,66 @@ function verifyRemoteDesignShareToken(token: string): RemoteDesignSharePayload |
   } catch {
     return null;
   }
+}
+
+
+type DesignCustomer = { name: string; email: string; phone: string; address: { line1: string; line2?: string | null; city: string; state: string; zip: string } };
+/**
+ * Every save links the design to exactly one CRM deal and writes the complete,
+ * required customer contact (name, email, phone, delivery address) onto it.
+ * The address is checked with the shared verifier; the deal records whether it
+ * verified, but an unverified-yet-complete address never blocks saving.
+ */
+async function linkDesignToCrmDeal(a: {
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
+  designId: number;
+  input: { name: string; projectName?: string; roomLabel?: string; customer: DesignCustomer };
+  affiliateId: number | null;
+  affiliateName: string | null;
+  userId: number;
+  userName: string | null;
+  userEmail: string | null;
+}) {
+  const { db, designId, input, affiliateId, userId } = a;
+  const c = input.customer;
+  const email = c.email.trim().toLowerCase();
+  const addr = { ...c.address, state: c.address.state.toUpperCase() };
+  const addressText = formatEnteredAddress(addr).slice(0, 512);
+  let verified = false;
+  try { verified = (await verifyUsAddress(addr)).verified === true; } catch { verified = false; }
+  const customerFields = {
+    contactName: c.name.trim(),
+    contactEmail: email,
+    contactPhone: c.phone.trim(),
+    shippingAddress: addressText,
+    shippingAddressVerified: verified,
+  };
+  const [link] = await db.select({ dealId: crmDealDesigns.dealId }).from(crmDealDesigns).where(eq(crmDealDesigns.designId, designId)).limit(1);
+  let dealId: number | null = link?.dealId ?? null;
+  if (dealId == null) {
+    const leadScope = affiliateId != null ? eq(designLeads.affiliateId, affiliateId) : isNull(designLeads.affiliateId);
+    const [lead] = await db.select().from(designLeads).where(and(leadScope, eq(designLeads.email, email))).orderBy(desc(designLeads.lastLaunchAt)).limit(1);
+    dealId = lead?.dealId ?? null;
+    if (dealId == null) {
+      const dealRes = await db.insert(crmDeals).values({
+        affiliateId,
+        ownerUserId: userId,
+        title: `${input.projectName?.trim() || input.name}${input.roomLabel ? ` — ${input.roomLabel}` : ""}`.slice(0, 256),
+        stage: "new",
+        priority: "medium",
+        source: "storefront",
+        notes: affiliateId != null ? `Design saved from ${a.affiliateName ?? "affiliate"} designer.` : "Design saved from the Cabinet Dealz designer.",
+        ...customerFields,
+      });
+      dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
+      if (lead) await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, lead.id));
+    }
+    await db.insert(crmDealDesigns).values({ dealId, designId, designName: input.name, linkedByUserId: userId });
+  }
+  // The save form is authoritative: write the full contact onto the deal.
+  await db.update(crmDeals).set(customerFields).where(eq(crmDeals.id, dealId));
+  await db.update(designLeads).set({ name: c.name.trim(), phone: c.phone.trim() }).where(and(eq(designLeads.email, email), affiliateId != null ? eq(designLeads.affiliateId, affiliateId) : isNull(designLeads.affiliateId)));
+  return dealId;
 }
 
 export const designRouter = router({
@@ -1515,6 +1576,19 @@ export const designRouter = router({
         id: z.number().optional(),
         name: z.string().min(1).max(255),
         email: z.string().email().optional(),
+        // Required on every save so each design is tied to a complete CRM contact.
+        customer: z.object({
+          name: z.string().trim().min(2, "Customer name is required").max(255),
+          email: z.string().trim().email("A valid customer email is required").max(320),
+          phone: z.string().trim().max(32).refine((v) => v.replace(/\D/g, "").length >= 10, "A valid customer phone number is required"),
+          address: z.object({
+            line1: z.string().trim().min(3, "Street address is required").max(256),
+            line2: z.string().trim().max(256).nullable().optional(),
+            city: z.string().trim().min(2, "City is required").max(128),
+            state: z.string().trim().length(2, "2-letter state is required"),
+            zip: z.string().trim().min(5, "ZIP is required").max(16),
+          }),
+        }),
         affiliateSlug: designStoreScopeInput,
         originScope: z.string().trim().min(1).max(255).optional(),
         roomData: z.any(),
@@ -1581,7 +1655,8 @@ export const designRouter = router({
 	              eq(kitchenDesigns.userId, userId),
 	              designAffiliateScopeCondition(affiliateId),
 	            ));
-	          return { id: input.id, recoveredFromStaleId: false };
+	          await linkDesignToCrmDeal({ db, designId: input.id, input, affiliateId, affiliateName: affiliate?.storeName ?? null, userId, userName: ctx.user?.name ?? null, userEmail: ctx.user?.email ?? null });
+          return { id: input.id, recoveredFromStaleId: false };
 	        }
 	      }
 
@@ -1608,59 +1683,7 @@ export const designRouter = router({
       // affiliate designs, house CRM otherwise) carrying the full customer
       // contact captured at the designer gate. Existing contact data is never
       // erased; only blank fields are filled.
-      let dealId: number | null = null;
-      {
-        const email = (input.email ?? ctx.user?.email ?? "").trim().toLowerCase();
-        const leadScope = affiliateId != null
-          ? eq(designLeads.affiliateId, affiliateId)
-          : isNull(designLeads.affiliateId);
-        const matchingLead = email
-          ? (await db
-              .select()
-              .from(designLeads)
-              .where(and(leadScope, eq(designLeads.email, email)))
-              .orderBy(desc(designLeads.lastLaunchAt))
-              .limit(1))[0]
-          : undefined;
-        const contactName = (matchingLead?.name || ctx.user?.name || "").trim() || null;
-        const contactPhone = (matchingLead?.phone || "").trim() || null;
-        dealId = matchingLead?.dealId ?? null;
-        if (dealId == null) {
-          const dealRes = await db.insert(crmDeals).values({
-            affiliateId,
-            ownerUserId: userId,
-            title: `${input.projectName?.trim() || input.name}${input.roomLabel ? ` — ${input.roomLabel}` : ""}`.slice(0, 256),
-            stage: "new",
-            priority: "medium",
-            contactName,
-            contactEmail: email || null,
-            contactPhone,
-            source: "storefront",
-            notes: affiliateId != null
-              ? `Design saved from ${affiliate?.storeName ?? "affiliate"} designer.`
-              : "Design saved from the Cabinet Dealz designer.",
-          });
-          dealId = (dealRes as unknown as [{ insertId: number }])[0].insertId;
-          if (matchingLead) await db.update(designLeads).set({ dealId }).where(eq(designLeads.id, matchingLead.id));
-        } else {
-          const [existingDeal] = await db.select({
-            contactName: crmDeals.contactName,
-            contactEmail: crmDeals.contactEmail,
-            contactPhone: crmDeals.contactPhone,
-          }).from(crmDeals).where(eq(crmDeals.id, dealId)).limit(1);
-          const fill: Record<string, string> = {};
-          if (existingDeal && !existingDeal.contactName && contactName) fill.contactName = contactName;
-          if (existingDeal && !existingDeal.contactEmail && email) fill.contactEmail = email;
-          if (existingDeal && !existingDeal.contactPhone && contactPhone) fill.contactPhone = contactPhone;
-          if (Object.keys(fill).length) await db.update(crmDeals).set(fill).where(eq(crmDeals.id, dealId));
-        }
-        await db.insert(crmDealDesigns).values({
-          dealId,
-          designId: insertId,
-          designName: input.name,
-          linkedByUserId: userId,
-        });
-      }
+      const dealId = await linkDesignToCrmDeal({ db, designId: insertId, input, affiliateId, affiliateName: affiliate?.storeName ?? null, userId, userName: ctx.user?.name ?? null, userEmail: ctx.user?.email ?? null });
       // Push a CRM "design saved" event only for a NEW design (not every autosave).
       void emitCrmEvent({
         event: "design_saved",
