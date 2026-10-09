@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { readReferralCode, readAffiliateSlug, setReferralCode as persistReferralCode } from "@/hooks/useReferral";
@@ -59,6 +60,7 @@ export type ReviewLine = {
   cartStyleId?: number | null;
   /** Exact supplier line selected in the cart; preserves the live freight origin. */
   cartDistributorId?: number | null;
+  glassIncluded?: boolean | null;
   cartTier?: string | null;
   cartProductKind?: "surface" | null;
   cartCategory?: string | null;
@@ -855,6 +857,9 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                 </TableCell>
                 <TableCell className="text-sm">
                   {l.description ?? <span className="text-muted-foreground italic">{t("or_unrecognized")}</span>}
+                  {l.matched && !isSurfaceCheckoutLine(l) && (
+                    <GlassPolicyBadge masterCode={l.masterCode ?? l.rawCode} glassIncluded={l.glassIncluded} className="ml-2 align-middle" />
+                  )}
                   {l.pantryTopFor != null && (
                     <Badge variant="secondary" className="ml-2 text-[10px] align-middle">
                       {t("or_split_top_auto")}

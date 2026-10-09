@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { Link, useLocation, useSearch } from "wouter";
 import {
   ChevronLeft, Package, Palette, DollarSign,
@@ -1383,6 +1384,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               {resolvedMasterCode}
             </span>
             <Badge variant="secondary" className="ml-2 text-xs">{cabinetTypeLabel(cabinet)}</Badge>
+            <GlassPolicyBadge masterCode={resolvedMasterCode} glassIncluded={selectedRow?.glassIncluded ?? null} className="ml-2 align-middle" />
             {isOwner && cabinet.isActive === false && (
               <Badge variant="destructive" className="ml-2 text-xs">Inactive</Badge>
             )}

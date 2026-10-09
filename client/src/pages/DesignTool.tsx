@@ -234,6 +234,7 @@ import {
 import { ProDesignerDialog } from "@/components/design/ProDesignerDialog";
 import { CabinetDrawing } from "@/components/CabinetDrawing";
 import { BEC24_DISPLAY_NAME, baseSubGroup, cabinetDrawingType, isSquareDoubleDoorBaseEnd, isWallBlindCornerCabinet, type BaseSubGroup } from "@/lib/cabinetGraphics";
+import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { CabinetImage } from "@/components/CabinetImage";
 import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { ColorSlotButton } from "@/components/design/ColorSlotButton";
@@ -14905,6 +14906,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                      <div className="min-w-0 flex-1">
 	                        <div className="font-mono text-xs font-semibold text-foreground truncate">{c.displayMasterCode ?? c.masterCode}</div>
 	                        <div className="text-[10px] text-muted-foreground truncate">{isSquareDoubleDoorBaseEnd(c) ? BEC24_DISPLAY_NAME : c.description}</div>
+                        <GlassPolicyBadge masterCode={c.masterCode} glassIncluded={c.glassIncluded} className="mt-0.5" />
                         {(() => {
                           // A base-family box (Base/Vanity tab, or a corner BASE
                           // cabinet inside the unified Corner tab) is always the

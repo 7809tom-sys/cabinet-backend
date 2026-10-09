@@ -12,6 +12,7 @@ export type CartCheckoutPrefillItem = {
   styleLabel?: string | null;
   category?: string | null;
   productKind?: "surface" | null;
+  glassIncluded?: boolean | null;
 };
 
 type MatchedCheckoutLine = {
@@ -30,6 +31,8 @@ export type CartCheckoutMetadata = {
   cartPriceLocked: boolean;
   cartStyleId: number | null;
   cartDistributorId: number | null;
+  /** Distributor glass policy carried from the cart so checkout repeats the glass warning. */
+  glassIncluded?: boolean | null;
   cartTier: string | null;
   cartProductKind: "surface" | null;
   cartCategory: string | null;
@@ -51,6 +54,7 @@ export function cartItemToCheckoutPrefill(
     styleLabel: item.styleLabel,
     category: item.category ?? null,
     productKind: item.productKind ?? null,
+    glassIncluded: item.glassIncluded ?? null,
   };
 }
 
@@ -89,6 +93,7 @@ export function applyCartCheckoutPrefill<T extends MatchedCheckoutLine>(
     cartPriceLocked: item.priceLocked === true || isSurface,
     cartStyleId: item.styleId ?? null,
     cartDistributorId: item.distributorId ?? null,
+    glassIncluded: item.glassIncluded ?? null,
     cartTier: item.tier ?? null,
     cartProductKind: isSurface ? "surface" : null,
     cartCategory: item.category ?? null,
