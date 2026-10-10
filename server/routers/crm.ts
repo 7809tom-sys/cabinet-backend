@@ -20,6 +20,7 @@ import {
   designViewLog,
 } from "../../drizzle/schema";
 import nodemailer from "nodemailer";
+import { decryptEmailSettingsPassword } from "../lib/emailSettingsCrypto";
 import {
   CRM_STAGES,
   CRM_PRIORITIES,
@@ -873,7 +874,7 @@ export const crmRouter = router({
           host: s!.smtpHost,
           port: s!.smtpPort,
           secure: s!.smtpPort === 465,
-          auth: { user: s!.smtpUser, pass: s!.smtpPass },
+          auth: { user: s!.smtpUser, pass: decryptEmailSettingsPassword(s!.smtpPass) },
         });
         await transport.sendMail({
           from,
@@ -883,8 +884,15 @@ export const crmRouter = router({
           html: crmEmailBodyToHtml(input.body),
         });
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${msg}` });
+        const raw = err instanceof Error ? err.message : String(err);
+        const code = (err as { code?: string })?.code;
+        const hint = code === "EAUTH" || /auth|credentials|535/i.test(raw)
+          ? "The mail server rejected the username or password. Check Email Settings (for Gmail or Microsoft use an app password)."
+          : code === "ECONNECTION" || code === "ETIMEDOUT" || code === "ESOCKET" || code === "ENOTFOUND"
+            ? "Could not reach the mail server. Check the host and port in Email Settings (465 uses SSL, 587 uses STARTTLS)."
+            : raw;
+        console.error("[CRM email] send failed", { code, raw });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Send failed: ${hint}` });
       }
 
       // Persist a durable log row + timeline activity.
