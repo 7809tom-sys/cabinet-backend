@@ -4046,9 +4046,9 @@ describe("interactive 3D room scene helpers", () => {
       ["LSB36", "Lazy Susan Base", "left", "right"],
       ["ERB36", "Easy Reach Base", "right", "left"],
     ] as const) {
-      const cabinet = { uid: `${masterCode}-${swing}`, cabinetId: 1, masterCode, description, placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "l-shape", swing } as never;
-      const root = new THREE.Group();
-      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+	      const cabinet = { uid: `${masterCode}-${swing}`, cabinetId: 1, masterCode, description, placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, numberOfDoors: 2, numberOfDrawers: 0, cornerType: "l-shape", swing } as never;
+	      const root = new THREE.Group();
+	      addCabinet(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet), undefined, undefined, { hardwareStyleId: "bar-pull" });
       const pulls: THREE.Object3D[] = [];
       root.traverse((node) => { if (node.userData.lCornerHingeOppositePull) pulls.push(node); });
       expect(pulls).toHaveLength(1);
@@ -6940,9 +6940,36 @@ describe("interactive 3D room scene helpers", () => {
     addCabinet(withKnob, b18, null, {}, 144, 120, "#241a18", "#f8f8f6", raisedProfile, undefined, undefined, undefined, { hardwareStyleId: "knob" });
     const knobs: THREE.Object3D[] = [];
     withKnob.traverse((node) => { if (node.userData.cabinetPull === "knob") knobs.push(node); });
-    expect(knobs.length).toBeGreaterThanOrEqual(2);
+	    expect(knobs.length).toBeGreaterThanOrEqual(2);
+	  });
+
+	  it("does not let an LSB36 specialty door bypass the selected None hardware style", () => {
+	    const lsb36 = {
+	      masterCode: "LSB36",
+	      description: "36 inch Lazy Susan Base Cabinet",
+	      placementType: "base",
+	      width: 36,
+	      height: 34.5,
+	      depth: 24,
+	      numberOfDoors: 2,
+	    } as never;
+    const withoutHardware = new THREE.Group();
+    addCabinet(withoutHardware, lsb36, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null }, undefined, undefined, undefined, { hardwareStyleId: "none" });
+    const strayHandles: THREE.Object3D[] = [];
+    withoutHardware.traverse((node) => {
+      if (node.userData.cabinetHardware) strayHandles.push(node);
+    });
+    expect(strayHandles).toHaveLength(0);
+
+    const withHardware = new THREE.Group();
+    addCabinet(withHardware, lsb36, null, {}, 144, 120, "#8a9ba8", "#f8f8f6", { doorStyle: "Shaker", doorPanelType: null }, undefined, undefined, undefined, { hardwareStyleId: "bar-pull" });
+    const handles: THREE.Object3D[] = [];
+    withHardware.traverse((node) => {
+      if (node.userData.cabinetHardware) handles.push(node);
+    });
+    expect(handles).toHaveLength(1);
   });
-  it("uses satin cabinet material without glass reflection behavior", () => {
+	  it("uses satin cabinet material without glass reflection behavior", () => {
     const satin = threeDDoorFinishSurfaceProfile("satin", true);
     expect(satin.roughness).toBeCloseTo(0.4, 8);
     expect(satin.metalness).toBe(0);

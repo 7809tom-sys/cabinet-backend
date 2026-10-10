@@ -5198,9 +5198,14 @@ export function addCabinet(
     // LSB/ERB/BER base corners retain their two physical face planes while the
     // selected swing designates the operative opening edge. Place one pull on
     // that room-facing door, laterally opposite its hinge.
-    const code = sku.masterCode.toUpperCase();
-    const hingeSelectableCornerBase = placement === "base" && (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/i.test(sku.description ?? ""));
-    if (hingeSelectableCornerBase) {
+	    const code = sku.masterCode.toUpperCase();
+	    const hingeSelectableCornerBase = placement === "base" && (/^(?:LSB?|ERB|BER)[-_]?\d/.test(code) || /lazy\s*susan|easy\s*reach/i.test(sku.description ?? ""));
+	    // Keep specialty corner doors on the same explicit hardware contract as
+	    // ordinary doors. Older LSB/ERB geometry created its own pull here and
+	    // bypassed the selected "None" setting, leaving one stray handle while
+	    // every other cabinet correctly stayed push-to-open.
+	    const cornerDoorPiece = hardwareStyle(surfaceTextures?.hardwareStyleId).doorPiece;
+	    if (hingeSelectableCornerBase && cornerDoorPiece !== "none") {
       const hingeSide = sku.swing === "right" ? "right" as const : "left" as const;
       const hardwarePosition = normalizeDoorHardwareFramePosition(sku.hardwarePosition ?? sku.handleSide ?? "auto");
       const pullLength = Math.min(Math.max(0.12, faceHeight * 0.28), 0.86);
