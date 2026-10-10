@@ -1637,6 +1637,19 @@ export const crmDealDesigns = mysqlTable("crm_deal_designs", {
 export type CrmDealDesign = typeof crmDealDesigns.$inferSelect;
 export type InsertCrmDealDesign = typeof crmDealDesigns.$inferInsert;
 
+// ─── Saved-design view log ──────────────────────────────────────────────────────
+// One row each time a saved design is opened (customer, staff, or from the CRM).
+// Rows opened again by the same viewer within 10 minutes are not logged twice.
+export const designViewLog = mysqlTable("design_view_log", {
+  id: int("id").autoincrement().primaryKey(),
+  designId: int("designId").notNull(),
+  dealId: int("dealId"),
+  viewerUserId: int("viewerUserId"),
+  viewerName: varchar("viewerName", { length: 256 }),
+  viewerKind: varchar("viewerKind", { length: 32 }).notNull().default("owner"), // owner | crm | staff
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+});
+export type DesignViewLog = typeof designViewLog.$inferSelect;
 // ─── CRM: sent-email log ────────────────────────────────────────────────────────
 // One row per email sent from a deal card via the site's saved SMTP. Provides a
 // durable "sent history" independent of the activity timeline, capturing exactly

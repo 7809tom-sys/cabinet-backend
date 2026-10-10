@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, or, desc, inArray, like, sql } from "drizzle-orm";
+import { eq, and, or, desc, inArray, like, sql, isNull } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { sendEmailViaSettings, emailSettingsReady } from "../email";
@@ -1033,11 +1033,27 @@ export const ordersRouter = router({
             orderRequestId: insertId,
             referralCode,
           });
-          if (kitchenDesignId != null) {
+          // An order placed without an explicit design id must still carry the
+          // customer's design: fall back to the submitter's newest saved design in
+          // the same store scope.
+          let designIdForDeal = kitchenDesignId;
+          if (designIdForDeal == null && ctx.user?.id != null) {
+            const [latest] = await db
+              .select({ id: kitchenDesigns.id })
+              .from(kitchenDesigns)
+              .where(and(
+                eq(kitchenDesigns.userId, ctx.user.id),
+                affiliateId == null ? isNull(kitchenDesigns.affiliateId) : eq(kitchenDesigns.affiliateId, affiliateId),
+              ))
+              .orderBy(desc(kitchenDesigns.updatedAt))
+              .limit(1);
+            designIdForDeal = latest?.id ?? null;
+          }
+          if (designIdForDeal != null) {
             const [savedDesign] = await db
               .select({ id: kitchenDesigns.id, name: kitchenDesigns.name })
               .from(kitchenDesigns)
-              .where(eq(kitchenDesigns.id, kitchenDesignId))
+              .where(eq(kitchenDesigns.id, designIdForDeal))
               .limit(1);
             if (savedDesign) {
               await db.insert(crmDealDesigns).values({

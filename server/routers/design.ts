@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq, and, inArray, desc, like, sql, or, isNull, ne } from "drizzle-orm";
+import { eq, and, inArray, desc, like, sql, or, isNull, ne, gt } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
-import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders } from "../../drizzle/schema";
+import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -227,6 +227,32 @@ async function linkDesignToCrmDeal(a: {
   await db.update(crmDeals).set(customerFields).where(eq(crmDeals.id, dealId));
   await db.update(designLeads).set({ name: c.name.trim(), phone: c.phone.trim() }).where(and(eq(designLeads.email, email), affiliateId != null ? eq(designLeads.affiliateId, affiliateId) : isNull(designLeads.affiliateId)));
   return dealId;
+}
+
+/** Record that a saved design was opened. Same viewer within 10 minutes counts once. Never throws. */
+export async function logDesignView(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  input: { designId: number; dealId?: number | null; userId?: number | null; userName?: string | null; kind: "owner" | "crm" | "staff" },
+) {
+  try {
+    const since = new Date(Date.now() - 10 * 60 * 1000);
+    const recent = await db.select({ id: designViewLog.id }).from(designViewLog).where(and(
+      eq(designViewLog.designId, input.designId),
+      input.userId != null ? eq(designViewLog.viewerUserId, input.userId) : isNull(designViewLog.viewerUserId),
+      eq(designViewLog.viewerKind, input.kind),
+      gt(designViewLog.viewedAt, since),
+    )).limit(1);
+    if (recent.length > 0) return;
+    await db.insert(designViewLog).values({
+      designId: input.designId,
+      dealId: input.dealId ?? null,
+      viewerUserId: input.userId ?? null,
+      viewerName: input.userName ?? null,
+      viewerKind: input.kind,
+    });
+  } catch (error) {
+    console.warn("[design] view log failed", error);
+  }
 }
 
 export const designRouter = router({
@@ -1666,8 +1692,8 @@ export const designRouter = router({
 	              eq(kitchenDesigns.userId, userId),
 	              designAffiliateScopeCondition(affiliateId),
 	            ));
-	          await linkDesignToCrmDeal({ db, designId: input.id, input, affiliateId, affiliateName: affiliate?.storeName ?? null, userId, userName: ctx.user?.name ?? null, userEmail: ctx.user?.email ?? null });
-          return { id: input.id, recoveredFromStaleId: false };
+	          const updatedDealId = await linkDesignToCrmDeal({ db, designId: input.id, input, affiliateId, affiliateName: affiliate?.storeName ?? null, userId, userName: ctx.user?.name ?? null, userEmail: ctx.user?.email ?? null });
+          return { id: input.id, recoveredFromStaleId: false, dealId: updatedDealId ?? null };
 	        }
 	      }
 
@@ -1716,7 +1742,7 @@ export const designRouter = router({
 	        link: affiliateId ? `/affiliate?section=crm&deal=${dealId ?? ""}` : `/design?id=${insertId}`,
 	      });
 
-	      return { id: insertId, recoveredFromStaleId: Boolean(input.id) };
+	      return { id: insertId, recoveredFromStaleId: Boolean(input.id), dealId: dealId ?? null };
     }),
 
   rename: protectedProcedure
@@ -1832,6 +1858,7 @@ export const designRouter = router({
 	      eq(kitchenDesigns.id, input.id),
 	      designAffiliateScopeCondition(expectedAffiliateId),
 	    )).limit(1);
+	    if (rows[0]) await logDesignView(db, { designId: rows[0].id, dealId: input.crmDealId, userId: ctx.user.id, userName: ctx.user.name ?? ctx.user.email ?? null, kind: "crm" });
 	    return rows[0] ?? null;
 	  }
 	  await requireAffiliateDesignerAccess(db, ctx, affiliate?.id ?? null);
@@ -1844,6 +1871,7 @@ export const designRouter = router({
 	          designAffiliateScopeCondition(affiliate?.id ?? null),
         ))
         .limit(1);
+      if (rows[0]) await logDesignView(db, { designId: rows[0].id, userId: ctx.user.id, userName: ctx.user.name ?? ctx.user.email ?? null, kind: "owner" });
       return rows[0] ?? null;
     }),
 

@@ -102,6 +102,9 @@ type CrmLaborEstimate = {
 };
 
 type LinkedInvoiceDesign = {
+  viewCount?: number;
+  lastViewedAt?: string | Date | null;
+  recentViews?: { viewedAt: string | Date; viewerName: string | null; viewerKind: string }[];
   id: number;
   designId: number;
   designName: string;
@@ -780,7 +783,7 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
               </div>
 
               {/* Email the contact */}
-              <EmailSection deal={deal} lang={lang} emails={emails} dealId={deal.id} />
+              <EmailSection deal={deal} lang={lang} emails={emails} dealId={deal.id} linkedDesigns={linkedDesigns} />
 
               {/* Linked designs */}
               <div>
@@ -806,7 +809,22 @@ function DealDrawer({ dealId, lang, onClose }: { dealId: number | null; lang: La
 	                        {l.selectedStyleId ? ` · Style #${l.selectedStyleId}` : ""}
 	                        {Array.isArray(l.selectedSurfaces) && l.selectedSurfaces.length > 0 ? ` · ${l.selectedSurfaces.length} surface selection${l.selectedSurfaces.length === 1 ? "" : "s"}` : ""}
 	                      </p>
-	                    </div>
+	                      <p className="text-[11px] text-muted-foreground" data-testid="crm-design-created">
+                        {lang === "es" ? "Creado" : "Created"} {new Date(l.designCreatedAt).toLocaleString()}
+                      </p>
+                      <details className="text-[11px] text-muted-foreground" data-testid="crm-design-views">
+                        <summary className="cursor-pointer">
+                          {(l.viewCount ?? 0) === 0
+                            ? (lang === "es" ? "Aún sin vistas" : "Not viewed yet")
+                            : `${lang === "es" ? "Vistas" : "Viewed"} ${l.viewCount}× · ${lang === "es" ? "última" : "last"} ${new Date(l.lastViewedAt as string).toLocaleString()}`}
+                        </summary>
+                        <ul className="mt-1 space-y-0.5">
+                          {(l.recentViews ?? []).map((v, i) => (
+                            <li key={i}>{new Date(v.viewedAt).toLocaleString()} — {v.viewerName || (lang === "es" ? "Visitante" : "Visitor")} ({v.viewerKind})</li>
+                          ))}
+                        </ul>
+                      </details>
+                    </div>
                       <button className="text-muted-foreground hover:text-red-600 shrink-0 ml-2" onClick={() => unlinkDesign.mutate({ dealId: deal.id, linkId: l.id })} aria-label="Unlink design"><Trash2 className="h-3.5 w-3.5" /></button>
                     </div>
                   ))}
@@ -1111,7 +1129,9 @@ function EmailSection({
   lang,
   emails,
   dealId,
+  linkedDesigns = [],
 }: {
+  linkedDesigns?: LinkedInvoiceDesign[];
   deal: DealRow;
   lang: Lang;
   emails: {
@@ -1218,6 +1238,17 @@ function EmailSection({
                 <Field label={lang === "es" ? "Asunto" : "Subject"}>
                   <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
                 </Field>
+                {linkedDesigns[0] && (
+                  <Button type="button" variant="outline" size="sm" className="justify-self-start" data-testid="crm-email-insert-design"
+                    onClick={() => {
+                      const d = linkedDesigns[0];
+                      const link = d.designUrl.startsWith("http") ? d.designUrl : `${window.location.origin}${d.designUrl}`;
+                      if (!subject.trim()) setSubject(`Your kitchen design: ${d.designName}`);
+                      setBody((current) => `${current ? current + "\n\n" : `Hi ${deal.contactName ?? ""},\n\n`}Here is your kitchen design "${d.designName}" (saved ${new Date(d.designCreatedAt).toLocaleDateString()}):\n${link}\n`);
+                    }}>
+                    {lang === "es" ? "Insertar enlace del diseño" : "Insert design link"}
+                  </Button>
+                )}
                 <Field label={lang === "es" ? "Mensaje" : "Message"}>
                   <Textarea rows={8} value={body} onChange={(e) => setBody(e.target.value)} />
                 </Field>

@@ -17,6 +17,7 @@ import {
   proApplications,
   salesCommissions,
   users,
+  designViewLog,
 } from "../../drizzle/schema";
 import nodemailer from "nodemailer";
 import {
@@ -353,6 +354,14 @@ export const crmRouter = router({
         })
           .from(kitchenDesigns)
           .where(inArray(kitchenDesigns.id, linkedDesignIds));
+      const viewRows = linkedDesignIds.length === 0
+        ? []
+        : await db.select().from(designViewLog)
+          .where(inArray(designViewLog.designId, linkedDesignIds))
+          .orderBy(desc(designViewLog.viewedAt))
+          .limit(200);
+      const viewsByDesignId = new Map<number, typeof viewRows>();
+      for (const v of viewRows) viewsByDesignId.set(v.designId, [...(viewsByDesignId.get(v.designId) ?? []), v]);
       const savedDesignById = new Map(savedDesignRows.map((design) => [design.id, design]));
 	  const scopedLinkedDesignIds = savedDesignRows.filter((design) => design.affiliateId === deal.affiliateId).map((design) => design.id);
       const shareRows = scopedLinkedDesignIds.length === 0
@@ -388,6 +397,9 @@ export const crmRouter = router({
           creatorStoreName: creatorAffiliate?.storeName ?? "Cabinet Dealz",
           designUrl: designScopePath(creatorAffiliate?.slug ?? null, savedDesign.id, deal.id),
           designCreatedAt: savedDesign.createdAt,
+          viewCount: (viewsByDesignId.get(link.designId) ?? []).length,
+          lastViewedAt: (viewsByDesignId.get(link.designId) ?? [])[0]?.viewedAt ?? null,
+          recentViews: (viewsByDesignId.get(link.designId) ?? []).slice(0, 10).map((v) => ({ viewedAt: v.viewedAt, viewerName: v.viewerName, viewerKind: v.viewerKind })),
           selectedStyleId: savedDesign.selectedStyleId,
           selectedSurfaces: savedDesign.selectedSurfaces,
           designOrderValue: deal.estimatedValue,
