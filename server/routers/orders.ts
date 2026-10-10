@@ -203,6 +203,7 @@ const lineItemInput = z.object({
   styleId: z.number().nullable().optional(),
   distributorId: z.number().int().positive().nullable().optional(),
   productKind: z.enum(["surface"]).nullable().optional(),
+  pelicanProductId: z.number().int().positive().nullable().optional(),
   tier: tierEnum.nullable().optional(),
   matched: z.boolean(),
 });

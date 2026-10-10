@@ -5,6 +5,7 @@ export type FreightQuoteTokenItem = {
   masterCode?: string | null;
   styleId?: number | null;
   distributorId?: number | null;
+  pelicanProductId?: number | null;
   qty: number;
 };
 
@@ -31,6 +32,7 @@ export function freightItemsHash(items: FreightQuoteTokenItem[]): string {
       masterCode: item.masterCode?.trim().toUpperCase() || null,
       styleId: item.styleId ?? null,
       distributorId: item.distributorId ?? null,
+      pelicanProductId: item.pelicanProductId ?? null,
       qty: Math.max(1, Math.round(item.qty)),
     }))
     .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));

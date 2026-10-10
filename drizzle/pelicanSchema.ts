@@ -6,6 +6,8 @@ import {
   decimal,
   boolean,
   timestamp,
+  mysqlEnum,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core";
 
 export const pelicanProducts = mysqlTable("pelican_products", {
@@ -45,3 +47,38 @@ export const pelicanProducts = mysqlTable("pelican_products", {
 
 export type PelicanProduct = typeof pelicanProducts.$inferSelect;
 export type InsertPelicanProduct = typeof pelicanProducts.$inferInsert;
+
+/**
+ * Carrier-ready shipment evidence for one exact Pelican catalog row/SKU.
+ *
+ * Product dimensions are never repurposed as carton dimensions. A row becomes
+ * quoteable only after Operations records its verified origin, transport mode,
+ * packaged dimensions/weight, and evidence source here.
+ */
+export const pelicanShippingProfiles = mysqlTable(
+  "pelican_shipping_profiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    pelicanProductId: int("pelicanProductId").notNull(),
+    originName: varchar("originName", { length: 191 }).notNull(),
+    originZip: varchar("originZip", { length: 16 }).notNull(),
+    transportMode: mysqlEnum("transportMode", ["parcel", "ltl"]).notNull(),
+    packageLengthIn: decimal("packageLengthIn", { precision: 8, scale: 2 }).notNull(),
+    packageWidthIn: decimal("packageWidthIn", { precision: 8, scale: 2 }).notNull(),
+    packageHeightIn: decimal("packageHeightIn", { precision: 8, scale: 2 }).notNull(),
+    packageWeightLbs: decimal("packageWeightLbs", { precision: 8, scale: 2 }).notNull(),
+    /** Required for LTL profiles; blank for direct parcel profiles. */
+    freightClass: varchar("freightClass", { length: 8 }),
+    sourceUrl: varchar("sourceUrl", { length: 512 }).notNull(),
+    sourceReference: varchar("sourceReference", { length: 512 }).notNull(),
+    verifiedAt: timestamp("verifiedAt").notNull(),
+    isEnabled: boolean("isEnabled").default(false).notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    oneProfilePerPelicanSku: uniqueIndex("pelican_shipping_profiles_product_uidx").on(table.pelicanProductId),
+  }),
+);
+
+export type PelicanShippingProfile = typeof pelicanShippingProfiles.$inferSelect;
+export type InsertPelicanShippingProfile = typeof pelicanShippingProfiles.$inferInsert;

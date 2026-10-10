@@ -58,6 +58,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
       unitPrice: product.sellPrice,
       priceLocked: true,
       productKind: "surface",
+      pelicanProductId: product.id,
       qty: 1,
       imageUrl: product.imageUrl ?? null,
       category: product.category,

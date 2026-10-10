@@ -65,6 +65,8 @@ export type ReviewLine = {
   cartTier?: string | null;
   cartProductKind?: "surface" | null;
   cartCategory?: string | null;
+  /** Exact Pelican SKU used to match the verified shipping profile. */
+  cartPelicanProductId?: number | null;
 };
 
 type StyleOption = {
@@ -537,6 +539,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           weightLbs: null,
           productKind: line.cartProductKind ?? null,
           category: line.cartCategory ?? null,
+          pelicanProductId: isSurfaceCheckoutLine(line) ? line.cartPelicanProductId ?? null : null,
         })),
     }),
     [zipDebounced, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
@@ -713,6 +716,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           : optionalPositiveFreightId(l.cartStyleId) ?? optionalPositiveFreightId(selectedStyle?.styleId),
         distributorId: isSurfaceCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId),
         productKind: isSurfaceCheckoutLine(l) ? "surface" : null,
+        pelicanProductId: isSurfaceCheckoutLine(l) ? l.cartPelicanProductId ?? null : null,
         doorStyle: isSurfaceCheckoutLine(l) ? null : brandedStyleName ?? null,
         tier: resolveCheckoutTier(l.cartTier, accountTier),
         matched: l.matched,

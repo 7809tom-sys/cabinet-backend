@@ -29,6 +29,7 @@ describe("cart checkout surface prefill", () => {
       unitPrice: 1200,
       priceLocked: true,
       productKind: "surface",
+      pelicanProductId: 404,
       category: "Quartz Slabs (Countertops)",
       qty: 2,
     };
@@ -39,6 +40,7 @@ describe("cart checkout surface prefill", () => {
       priceLocked: true,
       name: "Calacatta Quartz Slab",
       productKind: "surface",
+      pelicanProductId: 404,
     });
   });
 
@@ -54,6 +56,7 @@ describe("cart checkout surface prefill", () => {
       name: "Calacatta Quartz Slab",
       category: "Quartz Slabs (Countertops)",
       productKind: "surface",
+      pelicanProductId: 404,
     });
     expect(result).toMatchObject({
       cabinetId: null,
@@ -64,6 +67,7 @@ describe("cart checkout surface prefill", () => {
       cartUnitPrice: 1200,
       cartPriceLocked: true,
       cartProductKind: "surface",
+      cartPelicanProductId: 404,
     });
   });
 

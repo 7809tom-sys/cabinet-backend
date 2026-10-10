@@ -22,4 +22,11 @@ describe("freight package audit", () => {
     expect(packingSource).toContain("const requiresLongPallet = longestRequiredIn >= 84");
     expect(packingSource).toContain("Math.min(standardPalletLengthIn, caps.palletLengthIn)");
   });
+
+  it("keeps unverified Pelican shipping profiles visible instead of estimating a carton", () => {
+    const routerSource = readFileSync(resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
+    expect(routerSource).toContain("needsPelicanPackageData");
+    expect(routerSource).toContain("No shipping charge is invented");
+    expect(routerSource).toContain("supplier-verified shipping profile");
+  });
 });

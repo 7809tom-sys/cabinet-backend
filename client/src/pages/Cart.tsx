@@ -212,6 +212,7 @@ export default function Cart() {
         weightLbs: null,
         productKind: item.productKind ?? null,
         category: item.category ?? null,
+        pelicanProductId: item.productKind === "surface" ? item.pelicanProductId ?? null : null,
       })),
     [items],
   );

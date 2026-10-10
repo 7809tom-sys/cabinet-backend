@@ -49,6 +49,8 @@ export type CartItem = {
   glassIncluded?: boolean | null;
   /** Non-cabinet catalog product identity used by checkout and freight filtering. */
   productKind?: "surface";
+  /** Exact Pelican catalog row required to resolve a verified shipping profile. */
+  pelicanProductId?: number | null;
 };
 
 // Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply

@@ -14,6 +14,7 @@ import {
   kitchenDesigns,
   type ShippingSettings,
 } from "../../drizzle/schema";
+import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import {
   normalizeZip,
   approxZipCentroid,
@@ -137,6 +138,8 @@ const itemsSchema = z
       weightLbs: z.number().min(0).max(5000).nullable().optional(),
       productKind: z.enum(["surface"]).nullable().optional(),
       category: z.string().max(128).nullable().optional(),
+      /** Exact Pelican SKU needed to resolve a source-backed shipping profile. */
+      pelicanProductId: z.number().int().positive().nullable().optional(),
     })
   )
   .max(500)
@@ -151,6 +154,7 @@ type FreightItemInput = {
   weightLbs?: number | null;
   productKind?: "surface" | null;
   category?: string | null;
+  pelicanProductId?: number | null;
 };
 
 function attachFreightQuoteToken(
@@ -187,6 +191,8 @@ async function resolvePackages(
   packages: FreightItemPackage[];
   weighted: { weightLbs: number | null; qty: number }[];
   parcelPackages: AuthoritativeParcelPackage[];
+  /** Surface lines intentionally excluded until an enabled, verified SKU profile exists. */
+  unratedSurfaceItems: FreightItemInput[];
 }> {
   const fallbackCubicFt = row ? Number(row.defaultCabinetCubicFt) : 8;
 
@@ -239,8 +245,18 @@ async function resolvePackages(
   const byCode = new Map<string, Pkg>();
   const overridesByDistributorCabinet = new Map<string, PackageOverride>();
   const supplierPackagesByLineStyleCabinet = new Map<string, SupplierSkuPackage>();
+  const pelicanProfilesByProductId = new Map<number, {
+    code: string;
+    originZip: string;
+    transportMode: "parcel" | "ltl";
+    lengthIn: number;
+    widthIn: number;
+    heightIn: number;
+    weightLbs: number;
+    freightClass: string | null;
+  }>();
 
-  if (ids.length > 0 || codes.length > 0) {
+  if (ids.length > 0 || codes.length > 0 || items.some((item) => item.productKind === "surface" && (item.pelicanProductId ?? 0) > 0)) {
     const db = await getDb();
     if (db) {
       if (ids.length > 0) {
@@ -393,14 +409,89 @@ async function resolvePackages(
           overridesByDistributorCabinet.set(`${override.distributorId}:${override.cabinetId}`, override);
         }
       }
+
+      const pelicanProductIds = Array.from(new Set(
+        items
+          .filter((item) => item.productKind === "surface")
+          .map((item) => item.pelicanProductId)
+          .filter((id): id is number => typeof id === "number" && id > 0),
+      ));
+      if (pelicanProductIds.length > 0) {
+        const rows = await db
+          .select({
+            productId: pelicanProducts.id,
+            code: pelicanProducts.pelicanCode,
+            originZip: pelicanShippingProfiles.originZip,
+            transportMode: pelicanShippingProfiles.transportMode,
+            lengthIn: pelicanShippingProfiles.packageLengthIn,
+            widthIn: pelicanShippingProfiles.packageWidthIn,
+            heightIn: pelicanShippingProfiles.packageHeightIn,
+            weightLbs: pelicanShippingProfiles.packageWeightLbs,
+            freightClass: pelicanShippingProfiles.freightClass,
+          })
+          .from(pelicanProducts)
+          .innerJoin(pelicanShippingProfiles, eq(pelicanShippingProfiles.pelicanProductId, pelicanProducts.id))
+          .where(and(
+            inArray(pelicanProducts.id, pelicanProductIds),
+            eq(pelicanShippingProfiles.isEnabled, true),
+          ));
+        for (const row of rows) {
+          const lengthIn = numeric(row.lengthIn);
+          const widthIn = numeric(row.widthIn);
+          const heightIn = numeric(row.heightIn);
+          const weightLbs = numeric(row.weightLbs);
+          if (!lengthIn || !widthIn || !heightIn || !weightLbs || !normalizeZip(row.originZip)) continue;
+          pelicanProfilesByProductId.set(row.productId, {
+            code: row.code,
+            originZip: normalizeZip(row.originZip)!,
+            transportMode: row.transportMode,
+            lengthIn,
+            widthIn,
+            heightIn,
+            weightLbs,
+            freightClass: row.freightClass,
+          });
+        }
+      }
     }
   }
 
   const packages: FreightItemPackage[] = [];
   const weighted: { weightLbs: number | null; qty: number }[] = [];
   const parcelPackages: AuthoritativeParcelPackage[] = [];
+  const unratedSurfaceItems: FreightItemInput[] = [];
 
   for (const it of items) {
+    if (it.productKind === "surface") {
+      const profile = it.pelicanProductId != null ? pelicanProfilesByProductId.get(it.pelicanProductId) : undefined;
+      if (!profile) {
+        unratedSurfaceItems.push(it);
+        continue;
+      }
+      const cubicFt = packagedCubicFt(profile.lengthIn, profile.widthIn, profile.heightIn, fallbackCubicFt);
+      weighted.push({ weightLbs: profile.weightLbs, qty: it.qty });
+      packages.push({
+        weightLbs: profile.weightLbs,
+        cubicFt,
+        qty: it.qty,
+        maxPackageLengthIn: Math.max(profile.lengthIn, profile.widthIn, profile.heightIn),
+        isTrim: false,
+      });
+      for (let unit = 0; unit < it.qty; unit += 1) {
+        parcelPackages.push({
+          lengthIn: profile.lengthIn,
+          widthIn: profile.widthIn,
+          heightIn: profile.heightIn,
+          weightLbs: profile.weightLbs,
+          hasAuthoritativePackage: true,
+          isEstimatedPackage: false,
+          freightClass: profile.freightClass,
+          label: profile.code,
+          isTrim: false,
+        });
+      }
+      continue;
+    }
     const pkg =
       it.cabinetId != null
         ? byId.get(it.cabinetId)
@@ -485,7 +576,7 @@ async function resolvePackages(
     }
   }
 
-  return { packages, weighted, parcelPackages: bundleTrimPackages(parcelPackages) };
+  return { packages, weighted, parcelPackages: bundleTrimPackages(parcelPackages), unratedSurfaceItems };
 }
 
 // ─── Freight origin resolution (nearest distributor warehouse) ───────────────
@@ -654,6 +745,10 @@ type StyleFreightGroup = {
     distributorId: number;
     distributorName: string;
   } | null;
+  /** Exact Pelican profile transport facts; absent means an unrated surface line. */
+  profileTransportMode?: "parcel" | "ltl";
+  profileFreightClass?: string | null;
+  needsPelicanPackageData?: boolean;
   items: FreightItemInput[];
 };
 
@@ -700,6 +795,40 @@ async function resolveStyleFreightGroups(input: {
   allowMissingStyleOriginFallback?: boolean;
 }): Promise<StyleFreightGroup[]> {
   const db = await getDb();
+  const pelicanProfileByProductId = new Map<number, {
+    originZip: string;
+    transportMode: "parcel" | "ltl";
+    freightClass: string | null;
+  }>();
+  const pelicanProductIds = Array.from(new Set(
+    input.items
+      .filter((item) => item.productKind === "surface")
+      .map((item) => item.pelicanProductId)
+      .filter((id): id is number => typeof id === "number" && id > 0),
+  ));
+  if (db && pelicanProductIds.length > 0) {
+    const profiles = await db
+      .select({
+        productId: pelicanShippingProfiles.pelicanProductId,
+        originZip: pelicanShippingProfiles.originZip,
+        transportMode: pelicanShippingProfiles.transportMode,
+        freightClass: pelicanShippingProfiles.freightClass,
+      })
+      .from(pelicanShippingProfiles)
+      .where(and(
+        inArray(pelicanShippingProfiles.pelicanProductId, pelicanProductIds),
+        eq(pelicanShippingProfiles.isEnabled, true),
+      ));
+    for (const profile of profiles) {
+      const originZip = normalizeZip(profile.originZip);
+      if (!originZip) continue;
+      pelicanProfileByProductId.set(profile.productId, {
+        originZip,
+        transportMode: profile.transportMode,
+        freightClass: profile.freightClass,
+      });
+    }
+  }
   const requestedStyleIds = Array.from(
     new Set(
       input.items
@@ -798,9 +927,11 @@ async function resolveStyleFreightGroups(input: {
   for (const item of input.items) {
     if (item.productKind === "surface") {
       const category = item.category?.trim() || "Pelican surface product";
-      const isCorian = /quartz|corian|countertop|slab/i.test(category);
-      const vendorName = isCorian ? "Pelican / Corian" : "Pelican";
-      const key = `pelican:${isCorian ? "corian" : "parcel"}`;
+      const profile = item.pelicanProductId != null ? pelicanProfileByProductId.get(item.pelicanProductId) : undefined;
+      const vendorName = "Pelican";
+      const key = profile
+        ? `pelican:${profile.originZip}:${profile.transportMode}:${profile.freightClass ?? ""}`
+        : `pelican:unrated:${item.pelicanProductId ?? item.masterCode ?? category}`;
       const existing = groups.get(key);
       if (existing) {
         existing.items.push(item);
@@ -808,14 +939,19 @@ async function resolveStyleFreightGroups(input: {
       }
       groups.set(key, {
         key,
-        label: `${vendorName} · ${isCorian ? "Corian countertop freight" : `${category} UPS parcel`}`,
+        label: profile
+          ? `${vendorName} · ${category} · ${profile.transportMode === "parcel" ? "parcel" : "LTL"} origin ${profile.originZip}`
+          : `${vendorName} · ${category} · shipping evidence required`,
         vendorName,
-        originZip: "",
+        originZip: profile?.originZip ?? "",
         flatFreightFeeCents: null,
         distributorRuleFeeCents: null,
         distributorRuleLabel: null,
         usedOperationsOriginFallback: false,
         missingOriginStyle: null,
+        profileTransportMode: profile?.transportMode,
+        profileFreightClass: profile?.freightClass ?? null,
+        needsPelicanPackageData: !profile,
         items: [item],
       });
       continue;
@@ -1473,11 +1609,12 @@ export const freightRouter = router({
         };
       }
 
-      const { packages } = await resolvePackages(
+      const resolvedAllPackages = await resolvePackages(
         input.items,
         settingsRow,
         settings.defaultCabinetWeightLbs
       );
+      const { packages } = resolvedAllPackages;
 
       const liveProvider = settingsRow?.liveProvider ?? "estimator";
       const liveKey = settingsRow?.liveApiKey ?? "";
@@ -1486,7 +1623,7 @@ export const freightRouter = router({
         : settingsRow?.freightClass ?? "175";
       const surfaceItems = input.items.filter((item) => item.productKind === "surface");
       const cabinetItems = input.items.filter((item) => item.productKind !== "surface");
-      const unavailableSurfaceReason = "Pelican shipping is split by product: Corian countertops require an LTL shipment, while most sinks, faucets, and fixtures require UPS cartons. Supplier-verified package dimensions and weights are not available for these Pelican lines yet, so no shipping charge is invented.";
+      const unavailableSurfaceReason = "One or more Pelican products are missing an enabled, supplier-verified shipping profile (origin, transport mode, packaged dimensions, weight, and source reference). No shipping charge is invented.";
       if (surfaceItems.length > 0 && cabinetItems.length === 0 && !settingsRow) {
         return {
           available: false,
@@ -1539,18 +1676,20 @@ export const freightRouter = router({
         let totalBillableWeightLbs = 0;
 
         for (const group of styleGroups) {
-          if (group.items.some((item) => item.productKind === "surface")) {
-            const isCorian = group.vendorName.toLowerCase().includes("corian");
+          const resolvedGroup = await resolvePackages(
+            group.items,
+            settingsRow,
+            settings.defaultCabinetWeightLbs,
+          );
+          if (group.needsPelicanPackageData || resolvedGroup.unratedSurfaceItems.length > 0) {
             shipmentGroups.push({
               label: group.label,
               vendorName: group.vendorName,
               originZip: group.originZip,
-              freightClass: isCorian ? liveFreightClass : "Parcel",
-              transportMode: isCorian ? "ltl" : "parcel",
+              freightClass: group.profileFreightClass ?? "Parcel",
+              transportMode: group.profileTransportMode ?? "parcel",
               status: "needs_package_data",
-              statusReason: isCorian
-                ? "Corian countertop carton/pallet dimensions and origin are required for an LTL quote."
-                : "UPS requires verified carton dimensions and weight for each Pelican item.",
+              statusReason: "This Pelican SKU needs an enabled shipping profile with verified origin, transport mode, package dimensions, package weight, and source reference.",
               palletCount: 0,
               totalWeightLbs: 0,
               totalContentsWeightLbs: 0,
@@ -1559,20 +1698,15 @@ export const freightRouter = router({
               parcelCount: 0,
               parcels: [],
             });
-            failedGroups.push(`${group.label}: ${isCorian ? "Corian LTL package data is missing" : "UPS carton package data is missing"}`);
+            failedGroups.push(`${group.label}: Pelican shipping profile is incomplete or not enabled`);
             continue;
           }
-          const resolvedGroup = await resolvePackages(
-            group.items,
-            settingsRow,
-            settings.defaultCabinetWeightLbs,
-          );
           const plan = buildPallets(resolvedGroup.packages, caps);
           const resolvedLoad = totalPackagedLoad(resolvedGroup.packages);
           const densityClass = resolvedGroup.parcelPackages.every((pkg) => pkg.hasAuthoritativePackage)
             ? freightClassFromDensity(resolvedLoad.weightLbs / resolvedLoad.cubicFt)
             : null;
-          const groupFreightClass = densityClass ?? liveFreightClass;
+          const groupFreightClass = group.profileFreightClass ?? densityClass ?? liveFreightClass;
           const estimatedPackageCount = resolvedGroup.parcelPackages
             .filter((pkg) => pkg.isEstimatedPackage)
             .length;
@@ -1616,11 +1750,38 @@ export const freightRouter = router({
           // shared carrier screen first; otherwise the group remains on the
           // established LTL pallet path with no invented carton dimensions.
           const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
-          const directUpsParcel = (liveProvider === "ups" || input.carrierPreference === "ups")
+          const verifiedPelicanParcel = group.profileTransportMode === "parcel";
+          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || input.carrierPreference === "ups")
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
-          const upsParcelMustNotBecomeLtl = directUpsParcel && upsOnlyRequested;
-          const easyPostParcel = liveProvider === "easypost" && parcelDecision.mode === "parcel";
+          const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel);
+          const easyPostParcel = !verifiedPelicanParcel && liveProvider === "easypost" && parcelDecision.mode === "parcel";
+          if (verifiedPelicanParcel && !directUpsParcel) {
+            shipmentGroups.push({
+              label: group.label,
+              vendorName: group.vendorName,
+              originZip: group.originZip,
+              freightClass: "Parcel",
+              transportMode: "parcel",
+              status: "carrier_error",
+              statusReason: "This verified Pelican parcel profile requires an active direct UPS connection and all cartons must pass UPS parcel limits.",
+              palletCount: 0,
+              totalWeightLbs: resolvedLoad.weightLbs,
+              totalContentsWeightLbs: resolvedLoad.weightLbs,
+              totalCubicFt: resolvedLoad.cubicFt,
+              pallets: [],
+              parcelCount: resolvedGroup.parcelPackages.length,
+              parcels: resolvedGroup.parcelPackages.map((carton) => ({
+                lengthIn: carton.lengthIn ?? 0,
+                widthIn: carton.widthIn ?? 0,
+                heightIn: carton.heightIn ?? 0,
+                weightLbs: carton.weightLbs ?? 0,
+                label: carton.label ?? null,
+              })),
+            });
+            failedGroups.push(`${group.label}: direct UPS parcel rating is not available for this verified Pelican parcel profile`);
+            continue;
+          }
           if (directUpsParcel || easyPostParcel) {
             const parcelCartons: LiveParcel[] = parcelDecision.packageResults.map((result, index) => {
               const carton = result.package;

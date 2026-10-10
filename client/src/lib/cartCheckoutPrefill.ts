@@ -12,6 +12,7 @@ export type CartCheckoutPrefillItem = {
   styleLabel?: string | null;
   category?: string | null;
   productKind?: "surface" | null;
+  pelicanProductId?: number | null;
   glassIncluded?: boolean | null;
 };
 
@@ -36,6 +37,7 @@ export type CartCheckoutMetadata = {
   cartTier: string | null;
   cartProductKind: "surface" | null;
   cartCategory: string | null;
+  cartPelicanProductId: number | null;
 };
 
 export function cartItemToCheckoutPrefill(
@@ -54,6 +56,7 @@ export function cartItemToCheckoutPrefill(
     styleLabel: item.styleLabel,
     category: item.category ?? null,
     productKind: item.productKind ?? null,
+    pelicanProductId: item.pelicanProductId ?? null,
     glassIncluded: item.glassIncluded ?? null,
   };
 }
@@ -97,6 +100,9 @@ export function applyCartCheckoutPrefill<T extends MatchedCheckoutLine>(
     cartTier: item.tier ?? null,
     cartProductKind: isSurface ? "surface" : null,
     cartCategory: item.category ?? null,
+    cartPelicanProductId: isSurface && Number.isInteger(item.pelicanProductId) && (item.pelicanProductId ?? 0) > 0
+      ? item.pelicanProductId!
+      : null,
   };
 }
 

@@ -3,7 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gt, like, not, or, sql } from "drizzle-orm";
 import { router, publicProcedure, adminProcedure } from "../_core/trpc";
 import { getDb } from "../db";
-import { pelicanProducts } from "../../drizzle/pelicanSchema";
+import { pelicanProducts, pelicanShippingProfiles } from "../../drizzle/pelicanSchema";
 import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
@@ -308,6 +308,99 @@ export const pelicanRouter = router({
         .from(pelicanProducts)
         .where(where);
       return { items: items.map((r) => withPricing(r, markupMap)), total: Number(total) };
+    }),
+
+  /**
+   * Shipping evidence is deliberately administered separately from selling
+   * price/catalog visibility. A Pelican SKU cannot enter a carrier quote until
+   * Operations has recorded a verified ship-from origin, package facts and a
+   * source reference for that exact catalog row.
+   */
+  adminShippingProfiles: adminProcedure
+    .input(z.object({ search: z.string().trim().optional(), limit: z.number().min(1).max(500).default(200) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const query = input.search?.trim();
+      const q = query ? `%${query}%` : null;
+      const where = q
+        ? or(like(pelicanProducts.name, q), like(pelicanProducts.pelicanCode, q), like(pelicanProducts.category, q))
+        : undefined;
+      return db
+        .select({
+          productId: pelicanProducts.id,
+          pelicanCode: pelicanProducts.pelicanCode,
+          name: pelicanProducts.name,
+          category: pelicanProducts.category,
+          profileId: pelicanShippingProfiles.id,
+          originName: pelicanShippingProfiles.originName,
+          originZip: pelicanShippingProfiles.originZip,
+          transportMode: pelicanShippingProfiles.transportMode,
+          packageLengthIn: pelicanShippingProfiles.packageLengthIn,
+          packageWidthIn: pelicanShippingProfiles.packageWidthIn,
+          packageHeightIn: pelicanShippingProfiles.packageHeightIn,
+          packageWeightLbs: pelicanShippingProfiles.packageWeightLbs,
+          freightClass: pelicanShippingProfiles.freightClass,
+          sourceUrl: pelicanShippingProfiles.sourceUrl,
+          sourceReference: pelicanShippingProfiles.sourceReference,
+          verifiedAt: pelicanShippingProfiles.verifiedAt,
+          isEnabled: pelicanShippingProfiles.isEnabled,
+          updatedAt: pelicanShippingProfiles.updatedAt,
+        })
+        .from(pelicanProducts)
+        .leftJoin(pelicanShippingProfiles, eq(pelicanShippingProfiles.pelicanProductId, pelicanProducts.id))
+        .where(where)
+        .orderBy(asc(pelicanProducts.category), asc(pelicanProducts.pelicanCode))
+        .limit(input.limit);
+    }),
+
+  saveShippingProfile: adminProcedure
+    .input(z.object({
+      productId: z.number().int().positive(),
+      originName: z.string().trim().min(2).max(191),
+      originZip: z.string().trim().regex(/^\d{5}(?:-\d{4})?$/, "Enter a valid ship-from ZIP."),
+      transportMode: z.enum(["parcel", "ltl"]),
+      packageLengthIn: z.number().positive().max(999),
+      packageWidthIn: z.number().positive().max(999),
+      packageHeightIn: z.number().positive().max(999),
+      packageWeightLbs: z.number().positive().max(5000),
+      freightClass: z.string().trim().max(8).nullable(),
+      sourceUrl: z.string().trim().url().max(512),
+      sourceReference: z.string().trim().min(2).max(512),
+      verifiedAt: z.coerce.date(),
+      isEnabled: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Shipping profiles are unavailable." });
+      const [product] = await db
+        .select({ id: pelicanProducts.id })
+        .from(pelicanProducts)
+        .where(eq(pelicanProducts.id, input.productId))
+        .limit(1);
+      if (!product) throw new TRPCError({ code: "NOT_FOUND", message: "Pelican product not found." });
+      if (input.transportMode === "ltl" && !input.freightClass?.trim()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "An LTL shipping profile requires a freight class." });
+      }
+      const record = {
+        pelicanProductId: input.productId,
+        originName: input.originName,
+        originZip: input.originZip.slice(0, 5),
+        transportMode: input.transportMode,
+        packageLengthIn: String(input.packageLengthIn),
+        packageWidthIn: String(input.packageWidthIn),
+        packageHeightIn: String(input.packageHeightIn),
+        packageWeightLbs: String(input.packageWeightLbs),
+        freightClass: input.transportMode === "ltl" ? input.freightClass?.trim() || null : null,
+        sourceUrl: input.sourceUrl,
+        sourceReference: input.sourceReference,
+        verifiedAt: input.verifiedAt,
+        isEnabled: input.isEnabled,
+      };
+      await db.insert(pelicanShippingProfiles).values(record).onDuplicateKeyUpdate({
+        set: { ...record, updatedAt: new Date() },
+      });
+      return { success: true } as const;
     }),
 
   /** Evidence-only audit of every row configured for the Designer palette. */

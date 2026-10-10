@@ -30,6 +30,8 @@ export type SurfaceCartLine = {
   priceLocked: true;
   /** Distinguishes Pelican surface/fixture products from cabinet catalog lines. */
   productKind: "surface";
+  /** Exact Pelican catalog row needed to resolve source-backed shipping facts. */
+  pelicanProductId: number;
   category: string;
   qty: number;
   /** When qty was auto-calculated from area, this note explains the math. */
@@ -162,6 +164,7 @@ export function buildSurfaceCartLines(
       unitPrice: s.sellPrice,
       priceLocked: true,
       productKind: "surface",
+      pelicanProductId: s.id,
       category: s.category,
       qty,
       ...(qtyNote ? { qtyNote } : {}),

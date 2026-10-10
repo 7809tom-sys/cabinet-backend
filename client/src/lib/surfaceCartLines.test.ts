@@ -32,6 +32,7 @@ describe("buildSurfaceCartLines", () => {
   it("namespaces the code as PEL-<id> so it never collides with a cabinet masterCode", () => {
     const [line] = buildSurfaceCartLines([faucet], "contractor");
     expect(line.masterCode).toBe("PEL-101");
+    expect(line.pelicanProductId).toBe(101);
     expect(line.name).toBe("Brushed Nickel Pull-Down Faucet");
   });
 

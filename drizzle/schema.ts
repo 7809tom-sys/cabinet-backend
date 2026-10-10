@@ -1231,6 +1231,8 @@ export type OrderLineItem = {
   distributorId?: number | null;
   /** Surface products have no cabinet freight profile and are excluded from the pallet quote. */
   productKind?: "surface" | null;
+  /** Exact Pelican catalog row required to verify the shipment profile used for freight. */
+  pelicanProductId?: number | null;
   tier?: "Wholesale" | "Contractor" | "Homeowner" | null;
   matched: boolean;
 };

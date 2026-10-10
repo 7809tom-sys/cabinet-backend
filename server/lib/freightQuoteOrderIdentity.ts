@@ -14,6 +14,7 @@ export type FreightQuoteOrderLine = {
   styleId?: number | null;
   distributorId?: number | null;
   productKind?: "surface" | null;
+  pelicanProductId?: number | null;
   qty: number;
 };
 
@@ -26,6 +27,7 @@ export function freightQuoteItemsForOrder(lines: FreightQuoteOrderLine[]): Freig
       masterCode: line.masterCode ?? null,
       styleId: line.styleId ?? null,
       distributorId: line.distributorId ?? null,
+      ...(line.pelicanProductId != null ? { pelicanProductId: line.pelicanProductId } : {}),
       qty: line.qty,
     }));
 }
