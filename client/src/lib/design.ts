@@ -14488,3 +14488,40 @@ export function clampPonyWall(pw: PonyWall, room: RoomData): PonyWall {
   const y = Math.max(0, Math.min(pw.y, room.depth - pw.depth));
   return { ...pw, x, y };
 }
+
+/**
+ * Explain why a Wizard cabinet could not be seated on a peninsula run: name the cabinet in the way at
+ * the requested start and find the nearest start offset (inches along the run) where it does fit.
+ */
+export function explainPeninsulaSeatFailure(
+  runId: WallSide,
+  room: RoomData,
+  placed: PlacedCabinet[],
+  width: number,
+  depth: number,
+  placement: "base" | "appliance",
+  range: { start: number; end: number },
+  maxScanIn = 240,
+): { blocker: PlacedCabinet | null; suggestedStart: number | null } {
+  const probe = (offset: number): PlacedCabinet => {
+    const spot = wallPlacementAt(offset, width, depth, runId, room);
+    return {
+      uid: "__seat_probe__", cabinetId: -1, masterCode: "PROBE", description: "probe", placement,
+      x: spot.x, y: spot.y, width, depth, rotation: spot.rotation, wallId: spot.wallId,
+      wallOffset: spot.wallOffset, peninsulaSide: spot.peninsulaSide,
+    } as PlacedCabinet;
+  };
+  const blocker = cabinetPlacementCollisionDetail(probe(range.start), placed, room)?.cabinet ?? null;
+  let best: number | null = null;
+  for (let step = 0; step <= maxScanIn; step += 1) {
+    for (const offset of step === 0 ? [range.start] : [range.start + step, range.start - step]) {
+      if (offset < 0) continue;
+      if (firstCollisionFreePeninsulaPlacement(runId, room, placed, width, depth, placement, { start: offset, end: offset })) {
+        best = offset;
+        break;
+      }
+    }
+    if (best !== null) break;
+  }
+  return { blocker, suggestedStart: best };
+}
