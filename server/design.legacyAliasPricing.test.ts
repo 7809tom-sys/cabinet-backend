@@ -90,6 +90,31 @@ describe("Designer legacy alias price resolution", () => {
     ]));
   });
 
+  it("offers Madison S2496 as a refrigerator panel while preserving its shelf-board identity", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const surround = await caller.design.surroundForFridge({ styleId: 330014, fridgeWidth: 36 });
+
+    expect(surround.endPanels).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: 9360215,
+        masterCode: "S2496",
+        description: expect.stringMatching(/24 in\. W.*96 in\. H.*3\/4 in\. D/i),
+        width: "24.00",
+        height: "96.00",
+        depth: "0.75",
+      }),
+    ]));
+  });
+
+  it("does not expose the Madison S2496 panel on a non-Madison style line", async () => {
+    const caller = appRouter.createCaller({} as any);
+    const surround = await caller.design.surroundForFridge({ styleId: 360001, fridgeWidth: 36 });
+
+    expect(surround.endPanels).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ masterCode: "S2496" }),
+    ]));
+  });
+
   it("prices the explicit WR3624 catalog alias through its verified current refrigerator-wall source", async () => {
     const caller = appRouter.createCaller({} as any);
     const rows = await caller.design.priceForCabinetsByStyles({

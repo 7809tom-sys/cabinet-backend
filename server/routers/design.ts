@@ -721,6 +721,10 @@ export const designRouter = router({
       //  - USCD: REPV30* end panels, WSV* smooth skin panels
       // Note: WS1542 (Clark and Sons wall skin) is NOT a refrigerator smooth panel — excluded.
       // REP2496 is the Clark & Sons fridge end panel (renamed from REP9624: REP=fridge panel, 24=depth, 96=height).
+      // S2496 is also a real Madison finished shelf board (24 x 96 x 3/4). It
+      // may serve as a refrigerator side panel when the Madison line is active,
+      // while remaining available as its normal shelf-board catalog item.
+      const MADISON_DISTRIBUTOR_ID = 210002;
       const panelRows = await db
         .select(cols)
         .from(cabinets)
@@ -737,6 +741,11 @@ export const designRouter = router({
             // unavailable for the chosen style.
             eq(cabinets.masterCode, "REP2496"),
             and(
+              eq(cabinets.masterCode, "S2496"),
+              eq(distributorSkus.distributorId, MADISON_DISTRIBUTOR_ID),
+              notInConflict(),
+            ),
+            and(
               notInConflict(),
               sql`(
                 ${cabinets.masterCode} LIKE 'REPV%'
@@ -752,13 +761,15 @@ export const designRouter = router({
         (/^REPV/.test(r.masterCode) && r.masterCode !== 'REPVKIT')
         || /^REP9/.test(r.masterCode)
         || r.masterCode === 'REP2496'
+        || r.masterCode === 'S2496'
       ));
       const endPanels = endPanelsRaw.sort((a, b) => {
         const rank = (code: string) => {
           if (code === 'REP2496') return 0;          // Clark & Sons — always first
           if (/^REPV/.test(code)) return 1;          // Skyline/USCD standard panels
           if (/^REP9/.test(code)) return 2;          // legacy REP9* panels
-          return 3;                                  // any remaining verified panel
+          if (code === 'S2496') return 3;            // Madison finished shelf board used as panel
+          return 4;                                  // any remaining verified panel
         };
         const diff = rank(a.masterCode) - rank(b.masterCode);
         if (diff !== 0) return diff;
