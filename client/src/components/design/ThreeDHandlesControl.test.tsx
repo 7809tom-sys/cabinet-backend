@@ -37,6 +37,15 @@ describe("3D Handles access", () => {
     expect(change).toHaveBeenCalledWith("bar-pull");
     expect(host.querySelector("select")).toBeNull();
   });
+  it("shows a compact door-and-drawer hardware preview for each selected style", () => {
+    const { button } = render("bar-pull");
+    act(() => button.click());
+    const preview = host.querySelector('[data-testid="hardware-preview"]')!;
+    expect(preview.textContent).toContain("Hardware preview");
+    expect(preview.textContent).toContain("Door");
+    expect(preview.textContent).toContain("Drawer");
+    expect(preview.querySelector('[aria-label="bar pull preview"]')).not.toBeNull();
+  });
   it("closes on Escape, returns focus and does not invoke the canvas handlers", () => {
     const { button } = render("bar-pull"); const bubble = vi.fn();
     document.body.addEventListener("keydown", bubble);

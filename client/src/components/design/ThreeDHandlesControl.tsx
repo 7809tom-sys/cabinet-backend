@@ -3,6 +3,25 @@ import { ChevronDown, Wrench } from "lucide-react";
 import { CabinetHandlesControl } from "./CabinetHandlesControl";
 import { hardwareStyle, type HardwareStyleId } from "@/lib/hardware";
 
+function HardwarePreview({ style }: { style: HardwareStyleId }) {
+  const resolved = hardwareStyle(style);
+  const sample = (piece: "knob" | "pull" | "cup" | "none") => {
+    if (piece === "none") return <span className="text-[10px] text-muted-foreground">none</span>;
+    if (piece === "knob") return <span className="h-2.5 w-2.5 rounded-full bg-[#26364c] shadow-sm" aria-label="knob preview" />;
+    if (piece === "cup") return <span className="inline-flex h-2.5 w-5 items-end justify-center rounded-b-md border-2 border-[#26364c]" aria-label="cup pull preview" />;
+    return <span className="inline-flex h-1.5 w-6 rounded-full bg-[#26364c] shadow-sm" aria-label="bar pull preview" />;
+  };
+  return (
+    <div data-testid="hardware-preview" className="mt-2 rounded-md border border-border/70 bg-muted/30 p-2">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Hardware preview</p>
+      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-2 gap-y-1 text-[10px]">
+        <span className="font-medium">Door</span><span>{sample(resolved.doorPiece)}</span><span className="text-muted-foreground">{resolved.label}</span>
+        <span className="font-medium">Drawer</span><span>{sample(resolved.drawerPiece)}</span><span className="text-muted-foreground">{resolved.label}</span>
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   value: HardwareStyleId;
   onChange: (value: HardwareStyleId) => void;
@@ -56,6 +75,7 @@ export function ThreeDHandlesControl({ value, onChange }: Props) {
             {value === "none" ? "No handles selected. Choose a style to show handles on your cabinets." : `Current: ${hardwareStyle(value).label}.`}
             {" "}Finishing specification only; no added price.
           </p>
+          <HardwarePreview style={value} />
         </div>
       )}
     </div>

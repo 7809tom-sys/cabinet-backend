@@ -10,7 +10,7 @@ const vanity = {
   placementType: "base", width: 48, height: 34.5, depth: 21,
   numberOfDoors: 2, numberOfDrawers: 6,
 };
-function render(sku: typeof vanity, style: "none" | "bar-pull" | "knob" = DEFAULT_DESIGNER_HARDWARE_STYLE_ID) {
+function render(sku: typeof vanity, style: "none" | "bar-pull" | "knob" | "cup-pull" = DEFAULT_DESIGNER_HARDWARE_STYLE_ID) {
   const group = new THREE.Group();
   addCabinet(group, sku as never, null, {}, 120, 96, "#f2e8d0", "#ffffff", { doorStyle: "Shaker" }, undefined, undefined, undefined, { hardwareStyleId: style });
   const hardware: THREE.Object3D[] = [];
@@ -28,6 +28,11 @@ describe("regular Designer actual 3D handles", () => {
   it("preserves explicit None while still supporting visible knobs", () => {
     expect(render(vanity, "none")).toHaveLength(0);
     expect(render(vanity, "knob").length).toBeGreaterThan(0);
+  });
+  it("renders visible cup pulls on drawer fronts and door knobs on door fronts", () => {
+    const hardware = render(vanity, "cup-pull");
+    expect(hardware.some(node => node.userData.cabinetPull === "cup-pull")).toBe(true);
+    expect(hardware.some(node => node.userData.cabinetPull === "knob")).toBe(true);
   });
   it("does not add handles to finished panel stock", () => {
     expect(render({ ...vanity, masterCode: "WEP1542", description: "Wall End Panel", placementType: "wall", width: 15, height: 42, depth: 0.75, numberOfDoors: 0, numberOfDrawers: 0 })).toHaveLength(0);
