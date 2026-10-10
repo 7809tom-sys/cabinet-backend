@@ -4512,14 +4512,23 @@ describe("snapPosition overlap prevention (drag butts against neighbors)", () =>
     expect(hasCollision(locked, [left])).toBe(false);
   });
 
-  it("snaps a one-sixteenth-inch wall-cabinet gap to exact zero gap and zero overlap", () => {
+	  it("snaps a one-sixteenth-inch wall-cabinet gap to exact zero gap and zero overlap", () => {
     const left = cab({ uid: "left-wall", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, mountBottom: 54 });
     const right = cab({ uid: "right-wall", placement: "wall", x: 24.0625, y: 0, width: 18, depth: 12, height: 42, mountBottom: 54 });
     const snapped = snapCabinetSeamOverlap(right, [left]);
     expect(snapped.x).toBe(24);
     expect(snapped.x - (left.x + left.width)).toBe(0);
-    expect(hasCollision(snapped, [left])).toBe(false);
-  });
+	    expect(hasCollision(snapped, [left])).toBe(false);
+	  });
+
+	  it("closes the common half-inch wall-cabinet hand-placement gap", () => {
+	    const left = cab({ uid: "left-wall-half-inch", placement: "wall", x: 0, y: 0, width: 24, depth: 12, height: 42, mountBottom: 54 });
+	    const right = cab({ uid: "right-wall-half-inch", placement: "wall", x: 24.5, y: 0, width: 18, depth: 12, height: 42, mountBottom: 54 });
+	    const snapped = snapCabinetSeamOverlap(right, [left]);
+	    expect(snapped.x).toBe(24);
+	    expect(snapped.x - (left.x + left.width)).toBe(0);
+	    expect(hasCollision(snapped, [left])).toBe(false);
+	  });
 
   it("seats a straight wall cabinet against the rotated envelope of a WDC2430 corner at exact zero overlap", () => {
     const wdc = cab({

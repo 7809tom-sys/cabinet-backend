@@ -2822,6 +2822,8 @@ export function orientToWall(
 
 /** User-approved near-seam snap range; accepted placements are normalized to exact zero gap and zero overlap. */
 export const CABINET_SEAM_SNAP_IN = 1 / 16;
+/** Ordinary wall/base adjacency magnet range; closes the common half-inch hand-placement gap. */
+export const CABINET_ADJACENCY_MAGNET_IN = 0.5;
 /** A deliberate magnetic cabinet drop may be corrected to an exact seam within one inch. */
 export const CABINET_CONFLICT_LOCK_IN = 1;
 /** Floating-point dust only. Any real positive overlap remains invalid. */
@@ -3449,7 +3451,7 @@ export function nearestCollisionFreeMountBottom(moving: PlacedCabinet, others: P
 export function snapCabinetSeamOverlap(
   moving: PlacedCabinet,
   others: PlacedCabinet[],
-  toleranceIn = CABINET_SEAM_SNAP_IN,
+  toleranceIn = CABINET_ADJACENCY_MAGNET_IN,
   room?: RoomData,
 ): PlacedCabinet {
   let next = moving;
@@ -3506,6 +3508,10 @@ export function snapCabinetSeamOverlap(
           ? nextIsCornerEnvelope ? otherAxis : axis
           : null;
       if (!seamAxis) continue;
+      // The cabinets must overlap on the perpendicular axis, but the seam axis
+      // may be either a tiny penetration or a positive gap. The latter is the
+      // normal half-inch hand-placement case: the magnetic seam should close it
+      // to exact zero contact rather than leaving a visible split.
       const crossOverlap = seamAxis === "horizontal" ? overlapY : overlapX;
       if (crossOverlap <= COLLISION_EPSILON_IN) continue;
       if (seamAxis === "horizontal") {
@@ -6010,10 +6016,13 @@ export function isCrownEligibleCabinet(p: PlacedCabinet, room?: RoomData): boole
   // refrigerator) rather than the standard upper-run line. Excluding the bridge
   // left the neighbouring upper's crown return running into the bridge body
   // instead of stopping at it and continuing along the bridge top.
-  // A tall pantry or a ceiling-filling glass stacker is a complete enclosure,
-  // leaving no physical space for another crown profile above it.
+  // A ceiling-filling glass stacker is a complete enclosure, leaving no
+  // physical space for another crown profile above it. Tall pantry cabinets
+  // remain crown-bearing: the crown follows their actual top line, including
+  // when that line is the ceiling line, so tall runs do not lose their wrap.
   const isCeilingFillingGlassStacker = isStacker(p) && isGlassDoorCabinet(p);
-  if (p.placement !== "tall" && !isCeilingFillingGlassStacker) return true;
+  if (p.placement === "tall") return true;
+  if (!isCeilingFillingGlassStacker) return true;
   const ceiling = wallCabinetVerticalMoveLimit(p, room).ceiling;
   const top = box.bottom + box.height;
   return ceiling - top >= CROWN_HEIGHT_IN - COLLISION_EPSILON_IN;

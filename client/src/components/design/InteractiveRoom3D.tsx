@@ -8196,14 +8196,20 @@ export function threeDBacksplashSegments(
 	        return [{ ...span, bottom: box.bottom, top: box.bottom + box.height }];
 	      }),
 	    ];
-	    const wallLength = side === "top" || side === "bottom" ? room.width : room.depth;
-	    // Once a wall has a countertop run, its backsplash field is continuous
-	    // from corner to corner. Openings, wall/tall cabinets, and refrigerators
-	    // are subtracted below. This prevents small un-tiled islands when adjacent
-	    // base runs, fillers, appliances, or corner transitions do not merge exactly.
-	    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = supportIntervals.length > 0
-	      ? [{ start: 0, end: wallLength, bottom: tileBottom, top: heightMode === "full-height" ? ceilingTop : standardTop }]
-	      : [];
+    // Backsplash is an optional installed surface, and when selected it follows
+    // the actual cabinet-supported run—not the entire architectural wall. Use
+    // both countertop supports and wall-cabinet spans so a run can continue up
+    // to the upper-cabinet edge, then let openings (especially windows) cut the
+    // field without changing the saved wall or opening geometry.
+    const wallCabinetIntervals = mergeThreeDIntervals(wallItems
+      .filter((cabinet) => cabinet.placement === "wall")
+      .map((cabinet) => threeDWallRunSpan(cabinet, side)));
+    const coverageIntervals = mergeThreeDIntervals([...supportIntervals, ...wallCabinetIntervals]);
+    const sourceSegments: Array<Omit<ThreeDBacksplashSegment, "side">> = coverageIntervals.map((interval) => ({
+      ...interval,
+      bottom: tileBottom,
+      top: heightMode === "full-height" ? ceilingTop : standardTop,
+    }));
     if (heightMode === "standard") {
       for (const range of rangeIntervals) {
         const matchingHoodBottom = hoodIntervals
