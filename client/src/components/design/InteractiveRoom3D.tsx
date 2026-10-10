@@ -4581,10 +4581,17 @@ export function addCabinet(
     // Finished refrigerator enclosure panels have no doors, drawers, pulls, or
     // toe kicks. They are plain floor-to-ceiling architectural skins matching
     // the selected cabinet finish on both sides of the refrigerator.
-    const panelFace = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth, bodyHeight, 0.032), faceMaterial);
-    panelFace.position.z = 0.034;
-    panelFace.userData = { refrigeratorEndPanel: true, architecturalPanel: true, noCabinetHardware: true, selectedFinishFace: true };
-    frontGroup.add(panelFace);
+    // The physical panel box above already carries the finish on every face.
+    // Do not add a second positive-Z “front” face: an end panel's broad finished
+    // surface is its side face, and this extra strip sat in front of the
+    // neighboring base (notably 3DB15) in the 3D view.
+    frontGroup.userData = {
+      ...frontGroup.userData,
+      refrigeratorEndPanel: true,
+      architecturalPanel: true,
+      noCabinetHardware: true,
+      selectedFinishFace: true,
+    };
   } else if (isPlacedAppliance) {
     const usesCabinetFinishForAppliance = isPanelReadyAppliance && !isRefrigeratorAppliance;
     const applianceMaterial = new THREE.MeshStandardMaterial({
