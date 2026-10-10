@@ -141,7 +141,7 @@ describe("carrier-backed parcel eligibility", () => {
 
     expect(result.eligibleCarriers).toEqual([]);
     expect(result.requiresFreight).toBe(true);
-    expect(result.reasons.join(" ")).toMatch(/authoritative carton/i);
+    expect(result.reasons.join(" ")).toMatch(/approved carton/i);
   });
 
   it("rounds all carton dimensions up and treats USPS 108–130 length-plus-girth cartons as oversized", () => {

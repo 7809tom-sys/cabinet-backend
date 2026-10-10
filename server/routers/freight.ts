@@ -158,6 +158,10 @@ type FreightItemInput = {
   pelicanProductId?: number | null;
 };
 
+function freightGroupItemLabels(items: FreightItemInput[]): string[] {
+  return Array.from(new Set(items.map((item) => item.masterCode?.trim() || item.category?.trim() || "Catalog item")));
+}
+
 function attachFreightQuoteToken(
   quote: FreightQuote,
   input: {
@@ -255,6 +259,7 @@ async function resolvePackages(
     heightIn: number;
     weightLbs: number;
     freightClass: string | null;
+    evidenceType: "supplier_verified" | "comparable_estimate";
   }>();
 
   if (ids.length > 0 || codes.length > 0 || items.some((item) => item.productKind === "surface" && (item.pelicanProductId ?? 0) > 0)) {
@@ -429,6 +434,7 @@ async function resolvePackages(
             heightIn: pelicanShippingProfiles.packageHeightIn,
             weightLbs: pelicanShippingProfiles.packageWeightLbs,
             freightClass: pelicanShippingProfiles.freightClass,
+            evidenceType: pelicanShippingProfiles.evidenceType,
           })
           .from(pelicanProducts)
           .innerJoin(pelicanShippingProfiles, eq(pelicanShippingProfiles.pelicanProductId, pelicanProducts.id))
@@ -451,6 +457,7 @@ async function resolvePackages(
             heightIn,
             weightLbs,
             freightClass: row.freightClass,
+            evidenceType: row.evidenceType,
           });
         }
       }
@@ -485,7 +492,7 @@ async function resolvePackages(
           heightIn: profile.heightIn,
           weightLbs: profile.weightLbs,
           hasAuthoritativePackage: true,
-          isEstimatedPackage: false,
+          isEstimatedPackage: profile.evidenceType === "comparable_estimate",
           freightClass: profile.freightClass,
           label: profile.code,
           isTrim: false,
@@ -749,6 +756,7 @@ type StyleFreightGroup = {
   /** Exact Pelican profile transport facts; absent means an unrated surface line. */
   profileTransportMode?: "parcel" | "ltl";
   profileFreightClass?: string | null;
+  profileEvidenceType?: "supplier_verified" | "comparable_estimate";
   needsPelicanPackageData?: boolean;
   items: FreightItemInput[];
 };
@@ -800,6 +808,7 @@ async function resolveStyleFreightGroups(input: {
     originZip: string;
     transportMode: "parcel" | "ltl";
     freightClass: string | null;
+    evidenceType: "supplier_verified" | "comparable_estimate";
   }>();
   const pelicanProductIds = Array.from(new Set(
     input.items
@@ -814,6 +823,7 @@ async function resolveStyleFreightGroups(input: {
         originZip: pelicanShippingProfiles.originZip,
         transportMode: pelicanShippingProfiles.transportMode,
         freightClass: pelicanShippingProfiles.freightClass,
+        evidenceType: pelicanShippingProfiles.evidenceType,
       })
       .from(pelicanShippingProfiles)
       .where(and(
@@ -827,6 +837,7 @@ async function resolveStyleFreightGroups(input: {
         originZip,
         transportMode: profile.transportMode,
         freightClass: profile.freightClass,
+        evidenceType: profile.evidenceType,
       });
     }
   }
@@ -930,19 +941,32 @@ async function resolveStyleFreightGroups(input: {
       const category = item.category?.trim() || "Pelican surface product";
       const profile = item.pelicanProductId != null ? pelicanProfileByProductId.get(item.pelicanProductId) : undefined;
       const vendorName = "Pelican";
+      const quartzCountertop = /quartz/i.test(category);
+      const pelicanBucket = quartzCountertop ? "quartz-countertops" : "products-except-quartz-countertops";
+      // One visible Pelican shipment per category bucket and origin. If a group
+      // contains any LTL-only product, keep the entire group on the LTL path;
+      // the package audit still lists every individual carton/pallet input.
       const key = profile
-        ? `pelican:${profile.originZip}:${profile.transportMode}:${profile.freightClass ?? ""}`
-        : `pelican:unrated:${item.pelicanProductId ?? item.masterCode ?? category}`;
+        ? `pelican:${pelicanBucket}:${profile.originZip}`
+        : `pelican:unrated:${pelicanBucket}`;
       const existing = groups.get(key);
       if (existing) {
         existing.items.push(item);
+        existing.needsPelicanPackageData = existing.needsPelicanPackageData || !profile;
+        if (profile?.transportMode === "ltl") {
+          existing.profileTransportMode = "ltl";
+          existing.profileFreightClass = profile.freightClass ?? existing.profileFreightClass ?? null;
+        }
+        if (profile?.evidenceType === "comparable_estimate") {
+          existing.profileEvidenceType = "comparable_estimate";
+        }
         continue;
       }
       groups.set(key, {
         key,
         label: profile
-          ? `${vendorName} · ${category} · ${profile.transportMode === "parcel" ? "parcel" : "LTL"} origin ${profile.originZip}`
-          : `${vendorName} · ${category} · shipping evidence required`,
+          ? `${vendorName} · ${quartzCountertop ? "quartz countertops" : "products except quartz countertops"} · ${profile.transportMode === "parcel" ? "parcel" : "LTL"} origin ${profile.originZip}${profile.evidenceType === "comparable_estimate" ? " · comparable-package estimate" : ""}`
+          : `${vendorName} · ${quartzCountertop ? "quartz countertops" : "products except quartz countertops"} · shipping evidence required`,
         vendorName,
         originZip: profile?.originZip ?? "",
         flatFreightFeeCents: null,
@@ -952,6 +976,7 @@ async function resolveStyleFreightGroups(input: {
         missingOriginStyle: null,
         profileTransportMode: profile?.transportMode,
         profileFreightClass: profile?.freightClass ?? null,
+        profileEvidenceType: profile?.evidenceType,
         needsPelicanPackageData: !profile,
         items: [item],
       });
@@ -1624,7 +1649,7 @@ export const freightRouter = router({
         : settingsRow?.freightClass ?? "175";
       const surfaceItems = input.items.filter((item) => item.productKind === "surface");
       const cabinetItems = input.items.filter((item) => item.productKind !== "surface");
-      const unavailableSurfaceReason = "One or more Pelican products are missing an enabled, supplier-verified shipping profile (origin, transport mode, packaged dimensions, weight, and source reference). No shipping charge is invented.";
+      const unavailableSurfaceReason = "One or more Pelican shipments cannot be quoted right now. Those items remain in your cart and are listed under their shipment group; no shipping charge is included for them.";
       if (surfaceItems.length > 0 && cabinetItems.length === 0 && !settingsRow) {
         return {
           available: false,
@@ -1686,6 +1711,8 @@ export const freightRouter = router({
             shipmentGroups.push({
               label: group.label,
               vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
               originZip: group.originZip,
               freightClass: group.profileFreightClass ?? "Parcel",
               transportMode: group.profileTransportMode ?? "parcel",
@@ -1718,6 +1745,7 @@ export const freightRouter = router({
             shipmentGroups.push({
               label: group.label,
               vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
               originZip: group.originZip,
               freightClass: groupFreightClass,
               transportMode: "ltl",
@@ -1761,6 +1789,8 @@ export const freightRouter = router({
             shipmentGroups.push({
               label: group.label,
               vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
               originZip: group.originZip,
               freightClass: "Parcel",
               transportMode: "parcel",
@@ -1853,13 +1883,17 @@ export const freightRouter = router({
                 widthIn: carton.widthIn,
                 heightIn: carton.heightIn,
                 weightLbs: carton.weightLbs,
-                reason: "Verified carton sent to the parcel carrier.",
+                reason: group.profileEvidenceType === "comparable_estimate"
+                  ? "Comparable-package estimate sent to the parcel carrier; not Pelican carton data."
+                  : "Supplier-verified carton sent to the parcel carrier.",
               })),
             });
             const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
             const shipmentGroup: FreightShipmentGroup = {
               label: group.label,
               vendorName: group.vendorName,
+              packageEvidenceType: group.profileEvidenceType,
+              itemLabels: freightGroupItemLabels(group.items),
               originZip: group.originZip,
               freightClass: "Parcel",
               transportMode: "parcel",
@@ -1902,6 +1936,7 @@ export const freightRouter = router({
               shipmentGroups.push({
                 label: group.label,
                 vendorName: group.vendorName,
+                packageEvidenceType: group.profileEvidenceType,
                 status: "carrier_error",
                 statusReason: live.error ?? "parcel carrier unavailable",
                 originZip: group.originZip,
@@ -1923,6 +1958,9 @@ export const freightRouter = router({
               });
               failedGroups.push(`${group.label}: ${live.error ?? "parcel carrier unavailable"}`);
             } else {
+              shipmentGroup.status = "carrier_error";
+              shipmentGroup.statusReason = live.error ?? "UPS did not return a rate";
+              shipmentGroups.push(shipmentGroup);
               failedGroups.push(`${group.label}: UPS parcel rate unavailable — ${live.error ?? "UPS did not return a rate"}`);
             }
             continue;
@@ -1941,6 +1979,8 @@ export const freightRouter = router({
           const shipmentGroup: FreightShipmentGroup = {
             label: group.label,
             vendorName: group.vendorName,
+            packageEvidenceType: group.profileEvidenceType,
+            itemLabels: freightGroupItemLabels(group.items),
             originZip: group.originZip,
             freightClass: groupFreightClass,
             transportMode: "ltl",
@@ -2008,18 +2048,20 @@ export const freightRouter = router({
 
         if (failedGroups.length > 0) {
           if (upsOnlyRequested || surfaceItems.length > 0) {
-            return {
-              available: false,
-              zoneName: null,
+            const partial = combineStyleFreightGroups({
+              groups: rateGroups,
+              settings,
+              accessorials: input.accessorials,
+              merchandiseSubtotalCents: input.merchandiseSubtotalCents,
               billableWeightLbs: totalBillableWeightLbs,
-              lines: [],
-              freightBeforeMarkupCents: 0,
-              markupCents: 0,
-              damageFeeCents: 0,
-              totalCents: 0,
-              freeFreightApplied: false,
+            });
+            return {
+              ...partial,
+              available: false,
+              partial: rateGroups.length > 0,
+              zoneName: rateGroups.length > 0 ? "Partial shipping quote" : null,
               shipmentGroups,
-              reason: failedGroups.join(" "),
+              reason: "One or more retained shipment groups cannot be quoted right now. Quoted shipping below covers only the shipment groups shown as quoted.",
             };
           }
           const fallback = await configuredFreightEstimate({

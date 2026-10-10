@@ -51,9 +51,10 @@ export type InsertPelicanProduct = typeof pelicanProducts.$inferInsert;
 /**
  * Carrier-ready shipment evidence for one exact Pelican catalog row/SKU.
  *
- * Product dimensions are never repurposed as carton dimensions. A row becomes
- * quoteable only after Operations records its verified origin, transport mode,
- * packaged dimensions/weight, and evidence source here.
+ * Product dimensions are never repurposed as carton dimensions. The evidence
+ * type distinguishes supplier-provided carton facts from a clearly labeled
+ * comparison estimate. Both retain a source URL/reference, but only the former
+ * can be described as verified Pelican packaging.
  */
 export const pelicanShippingProfiles = mysqlTable(
   "pelican_shipping_profiles",
@@ -69,6 +70,11 @@ export const pelicanShippingProfiles = mysqlTable(
     packageWeightLbs: decimal("packageWeightLbs", { precision: 8, scale: 2 }).notNull(),
     /** Required for LTL profiles; blank for direct parcel profiles. */
     freightClass: varchar("freightClass", { length: 8 }),
+    evidenceType: mysqlEnum("evidenceType", ["supplier_verified", "comparable_estimate"])
+      .notNull()
+      .default("supplier_verified"),
+    /** Stable rule identifier when the profile comes from a published comparison rule. */
+    comparisonRuleId: varchar("comparisonRuleId", { length: 96 }),
     sourceUrl: varchar("sourceUrl", { length: 512 }).notNull(),
     sourceReference: varchar("sourceReference", { length: 512 }).notNull(),
     verifiedAt: timestamp("verifiedAt").notNull(),

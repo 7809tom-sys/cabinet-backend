@@ -42,14 +42,16 @@ describe("Pelican shipping profiles", () => {
     }]);
   });
 
-  it("requires source-backed Pelican origin and package facts before a carrier rate", () => {
+  it("keeps supplier facts distinct from clearly labeled comparable package estimates", () => {
     const freightSource = readFileSync(resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
     const schemaSource = readFileSync(resolve(process.cwd(), "drizzle/pelicanSchema.ts"), "utf8");
     expect(schemaSource).toContain("pelicanShippingProfiles");
+    expect(schemaSource).toContain("comparable_estimate");
     expect(schemaSource).toContain("sourceUrl");
     expect(schemaSource).toContain("sourceReference");
     expect(freightSource).toContain("unratedSurfaceItems");
     expect(freightSource).toContain("needsPelicanPackageData");
-    expect(freightSource).toContain("No shipping charge is invented");
+    expect(freightSource).toContain("comparable-package estimate");
+    expect(freightSource).toContain("partial: rateGroups.length > 0");
   });
 });

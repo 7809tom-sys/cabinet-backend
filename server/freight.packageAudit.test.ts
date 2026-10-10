@@ -11,7 +11,8 @@ describe("freight package audit", () => {
     expect(logSource).toContain("weightLbs: number");
     expect(routerSource).toContain("packages: input.request.pallets.map");
     expect(routerSource).toContain('kind: "carton"');
-    expect(routerSource).toContain("Verified carton sent to the parcel carrier.");
+    expect(routerSource).toContain("Supplier-verified carton sent to the parcel carrier.");
+    expect(routerSource).toContain("Comparable-package estimate sent to the parcel carrier; not Pelican carton data.");
   });
 
   it("records why a long pallet was selected without inventing carton dimensions", () => {
@@ -23,10 +24,10 @@ describe("freight package audit", () => {
     expect(packingSource).toContain("Math.min(standardPalletLengthIn, caps.palletLengthIn)");
   });
 
-  it("keeps unverified Pelican shipping profiles visible instead of estimating a carton", () => {
+  it("keeps unavailable Pelican groups visible while clearly labeling authorized comparison estimates", () => {
     const routerSource = readFileSync(resolve(process.cwd(), "server/routers/freight.ts"), "utf8");
     expect(routerSource).toContain("needsPelicanPackageData");
-    expect(routerSource).toContain("No shipping charge is invented");
-    expect(routerSource).toContain("supplier-verified shipping profile");
+    expect(routerSource).toContain("Comparable-package estimate sent to the parcel carrier");
+    expect(routerSource).toContain("partial: rateGroups.length > 0");
   });
 });

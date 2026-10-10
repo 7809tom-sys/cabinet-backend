@@ -658,9 +658,14 @@ export default function Cart() {
                     const deliveryDate = group.estimatedDeliveryDate
                       ? formatCarrierDeliveryDate(group.estimatedDeliveryDate)
                       : null;
-                    return (
+	                    return (
 	                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
                         <div className="font-medium text-foreground">{group.vendorName ?? "Fulfillment vendor"} · {group.label}</div>
+	                        {group.packageEvidenceType === "comparable_estimate" && (
+	                          <div className="my-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">
+	                            Comparison-based package estimate used for carrier rating. The carrier response is live, but final packing may change the charge.
+	                          </div>
+	                        )}
 	                        {(group.estimatedPackageCount ?? 0) > 0 && (
 	                          <div className="my-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">
 	                            Generic flat-pack measurements used for {group.estimatedPackageCount} carton{group.estimatedPackageCount === 1 ? "" : "s"}. Exact supplier package data replaces these estimates automatically when entered.
@@ -701,12 +706,21 @@ export default function Cart() {
               ) : (
                 <div className="mt-2 space-y-2 text-xs text-amber-800">
                   <p>{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
+                  {cartFreightEstimate.data.partial && (cartFreightEstimate.data.rateGroups ?? []).length > 0 && (
+                    <div className="rounded border border-emerald-200 bg-emerald-50 p-2 text-emerald-950">
+                      <div className="font-semibold">Shipping included so far: ${(cartFreightEstimate.data.totalCents / 100).toFixed(2)}</div>
+                      {(cartFreightEstimate.data.rateGroups ?? []).map((rate) => <div key={rate.key}>{rate.vendorName ?? "Fulfillment vendor"}: {rate.label} · ${(rate.baseAmountCents / 100).toFixed(2)}</div>)}
+                      <div className="mt-1">This total excludes the shipment groups flagged below.</div>
+                    </div>
+                  )}
                   {(cartFreightEstimate.data.shipmentGroups ?? []).map((group) => (
-                    <div key={`${group.label}:${group.originZip}`} className="rounded border border-amber-200 bg-amber-50 p-2">
-                      <div className="font-medium text-amber-950">{group.vendorName ?? group.label}</div>
-                      <div>{group.label}</div>
-                      <div className="font-medium">Status: {group.status === "needs_package_data" ? "Needs verified package data" : group.status === "carrier_error" ? "Carrier error" : "Not rated"}</div>
-                      {group.statusReason && <div>{group.statusReason}</div>}
+	                    <div key={`${group.label}:${group.originZip}`} className="rounded border border-amber-200 bg-amber-50 p-2">
+	                      <div className="font-medium text-amber-950">{group.vendorName ?? group.label}</div>
+	                      <div>{group.label}</div>
+	                      <div className="font-medium">These items aren’t able to ship right now.</div>
+	                      {group.itemLabels?.length ? <div>Items retained in cart: {group.itemLabels.join(", ")}</div> : null}
+	                      <div>Shipping is not included for this group. Other shipment quotes remain separate.</div>
+	                      {group.packageEvidenceType === "comparable_estimate" && <div>Package estimate: comparison-based; final packing may change the charge.</div>}
                       {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
                       {(group.parcels ?? []).map((parcel, index) => <div key={index}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
                     </div>

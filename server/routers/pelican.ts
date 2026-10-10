@@ -8,6 +8,7 @@ import { pelicanCategoryMarkups } from "../../drizzle/schema";
 import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
+import { comparisonProfileForPelicanProduct } from "../../shared/pelicanComparablePackaging";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -341,6 +342,8 @@ export const pelicanRouter = router({
           packageHeightIn: pelicanShippingProfiles.packageHeightIn,
           packageWeightLbs: pelicanShippingProfiles.packageWeightLbs,
           freightClass: pelicanShippingProfiles.freightClass,
+          evidenceType: pelicanShippingProfiles.evidenceType,
+          comparisonRuleId: pelicanShippingProfiles.comparisonRuleId,
           sourceUrl: pelicanShippingProfiles.sourceUrl,
           sourceReference: pelicanShippingProfiles.sourceReference,
           verifiedAt: pelicanShippingProfiles.verifiedAt,
@@ -365,6 +368,8 @@ export const pelicanRouter = router({
       packageHeightIn: z.number().positive().max(999),
       packageWeightLbs: z.number().positive().max(5000),
       freightClass: z.string().trim().max(8).nullable(),
+      evidenceType: z.enum(["supplier_verified", "comparable_estimate"]).default("supplier_verified"),
+      comparisonRuleId: z.string().trim().max(96).nullable(),
       sourceUrl: z.string().trim().url().max(512),
       sourceReference: z.string().trim().min(2).max(512),
       verifiedAt: z.coerce.date(),
@@ -392,6 +397,8 @@ export const pelicanRouter = router({
         packageHeightIn: String(input.packageHeightIn),
         packageWeightLbs: String(input.packageWeightLbs),
         freightClass: input.transportMode === "ltl" ? input.freightClass?.trim() || null : null,
+        evidenceType: input.evidenceType,
+        comparisonRuleId: input.evidenceType === "comparable_estimate" ? input.comparisonRuleId?.trim() || null : null,
         sourceUrl: input.sourceUrl,
         sourceReference: input.sourceReference,
         verifiedAt: input.verifiedAt,
@@ -401,6 +408,49 @@ export const pelicanRouter = router({
         set: { ...record, updatedAt: new Date() },
       });
       return { success: true } as const;
+    }),
+
+  /**
+   * Applies the owner-authorized comparison profiles to active catalog SKUs.
+   * A supplier-verified profile always wins and is never changed here.
+   */
+  applyComparableShippingEstimates: adminProcedure
+    .mutation(async () => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Shipping profiles are unavailable." });
+      const products = await db
+        .select({
+          id: pelicanProducts.id,
+          category: pelicanProducts.category,
+          subCategory: pelicanProducts.subCategory,
+          name: pelicanProducts.name,
+          pelicanCode: pelicanProducts.pelicanCode,
+        })
+        .from(pelicanProducts)
+        .where(eq(pelicanProducts.isActive, true));
+      const existing = await db
+        .select({ productId: pelicanShippingProfiles.pelicanProductId, evidenceType: pelicanShippingProfiles.evidenceType })
+        .from(pelicanShippingProfiles);
+      const existingByProduct = new Map(existing.map((row) => [row.productId, row.evidenceType]));
+      let applied = 0;
+      let skippedVerified = 0;
+      let needsManualReview = 0;
+      for (const product of products) {
+        if (existingByProduct.get(product.id) === "supplier_verified") {
+          skippedVerified += 1;
+          continue;
+        }
+        const profile = comparisonProfileForPelicanProduct(product);
+        if (!profile) {
+          needsManualReview += 1;
+          continue;
+        }
+        await db.insert(pelicanShippingProfiles).values(profile).onDuplicateKeyUpdate({
+          set: { ...profile, updatedAt: new Date() },
+        });
+        applied += 1;
+      }
+      return { applied, skippedVerified, needsManualReview } as const;
     }),
 
   /** Evidence-only audit of every row configured for the Designer palette. */

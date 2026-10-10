@@ -824,6 +824,8 @@ type PelicanShippingProfileRow = {
   packageHeightIn: string | number | null;
   packageWeightLbs: string | number | null;
   freightClass: string | null;
+  evidenceType: "supplier_verified" | "comparable_estimate" | null;
+  comparisonRuleId: string | null;
   sourceUrl: string | null;
   sourceReference: string | null;
   verifiedAt: Date | null;
@@ -839,6 +841,8 @@ type PelicanShippingProfileDraft = {
   packageHeightIn: string;
   packageWeightLbs: string;
   freightClass: string;
+  evidenceType: "supplier_verified" | "comparable_estimate";
+  comparisonRuleId: string;
   sourceUrl: string;
   sourceReference: string;
   verifiedAt: string;
@@ -856,6 +860,8 @@ function shippingProfileDraft(row: PelicanShippingProfileRow): PelicanShippingPr
     packageHeightIn: row.packageHeightIn == null ? "" : String(row.packageHeightIn),
     packageWeightLbs: row.packageWeightLbs == null ? "" : String(row.packageWeightLbs),
     freightClass: row.freightClass ?? "",
+    evidenceType: row.evidenceType ?? "supplier_verified",
+    comparisonRuleId: row.comparisonRuleId ?? "",
     sourceUrl: row.sourceUrl ?? "",
     sourceReference: row.sourceReference ?? "",
     verifiedAt: formatDate,
@@ -864,9 +870,9 @@ function shippingProfileDraft(row: PelicanShippingProfileRow): PelicanShippingPr
 }
 
 /**
- * Pelican cartons are rated only from exact, source-backed profiles. This is
- * intentionally located next to carrier credentials and the Freight API log so
- * Operations can reconcile an unavailable rate with the SKU data that blocks it.
+ * Profiles sit beside carrier credentials and the Freight API log so Operations
+ * can distinguish supplier carton evidence from an owner-authorized comparable
+ * package estimate and reconcile every live shipment rate.
  */
 function PelicanShippingProfilesPanel() {
   const utils = trpc.useUtils();
@@ -883,6 +889,13 @@ function PelicanShippingProfilesPanel() {
     },
     onError: (error) => toast.error(error.message),
   });
+  const applyComparable = trpc.pelican.applyComparableShippingEstimates.useMutation({
+    onSuccess: (result) => {
+      void utils.pelican.adminShippingProfiles.invalidate();
+      toast.success(`Applied ${result.applied} comparison estimates; preserved ${result.skippedVerified} supplier-verified profiles; ${result.needsManualReview} SKUs still need review.`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   function choose(row: PelicanShippingProfileRow) {
     setSelectedId(row.productId);
@@ -896,7 +909,7 @@ function PelicanShippingProfilesPanel() {
     const packageHeightIn = Number(draft.packageHeightIn);
     const packageWeightLbs = Number(draft.packageWeightLbs);
     if (![packageLengthIn, packageWidthIn, packageHeightIn, packageWeightLbs].every((value) => Number.isFinite(value) && value > 0)) {
-      toast.error("Enter verified packaged length, width, height, and weight before saving.");
+      toast.error("Enter packaged length, width, height, and weight before saving.");
       return;
     }
     saveProfile.mutate({
@@ -909,6 +922,8 @@ function PelicanShippingProfilesPanel() {
       packageHeightIn,
       packageWeightLbs,
       freightClass: draft.freightClass.trim() || null,
+      evidenceType: draft.evidenceType,
+      comparisonRuleId: draft.evidenceType === "comparable_estimate" ? draft.comparisonRuleId.trim() || null : null,
       sourceUrl: draft.sourceUrl,
       sourceReference: draft.sourceReference,
       verifiedAt: new Date(`${draft.verifiedAt}T12:00:00.000Z`),
@@ -923,13 +938,19 @@ function PelicanShippingProfilesPanel() {
           <PackageSearch className="h-5 w-5 text-primary" /> Pelican shipping profiles
         </CardTitle>
         <p className="text-sm text-muted-foreground">
-          Add <strong>only supplier-verified</strong> carton or pallet facts for each Pelican SKU. A product is never included in a live rate until its exact origin, transport mode, packaged size, weight, and source reference are saved and enabled. Product dimensions are not shipping dimensions.
+          Use <strong>supplier-verified</strong> carton facts whenever available. Owner-authorized <strong>comparison estimates</strong> are clearly tagged in the cart, order review, and Freight API Log; they support a live carrier request but never become Pelican carton facts.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
           <AlertTriangle className="mr-1.5 inline h-4 w-4 align-text-bottom" />
-          Do not estimate cartons, pallet sizes, weights, freight class, or origin. Keep a profile disabled until its source URL and reference identify the supplier shipping document or written confirmation.
+          Product dimensions are not shipping dimensions. Comparison estimates use the published comparable rule and the official Pelican pickup origin; replace them with supplier-verified carton facts as they arrive.
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-950 dark:border-blue-900 dark:bg-blue-950/30 dark:text-blue-100">
+          <span>Seed all eligible active Pelican SKUs with cited, conservative comparison-package estimates. Existing supplier-verified profiles are never replaced.</span>
+          <Button size="sm" variant="outline" className="bg-background" onClick={() => applyComparable.mutate()} disabled={applyComparable.isPending}>
+            {applyComparable.isPending ? "Applying…" : "Apply comparison estimates"}
+          </Button>
         </div>
         <div className="relative max-w-xl">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -949,7 +970,7 @@ function PelicanShippingProfilesPanel() {
                     const complete = row.profileId != null && row.isEnabled === true;
                     return <TableRow key={row.productId} className={selectedId === row.productId ? "bg-muted/60" : ""}>
                       <TableCell className="align-top"><div className="font-mono text-xs font-semibold">{row.pelicanCode}</div><div className="mt-0.5 max-w-sm text-xs text-muted-foreground">{row.name}</div><Badge variant="outline" className="mt-1 text-[10px]">{row.category}</Badge></TableCell>
-                      <TableCell className="align-top text-xs">{complete ? <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300"><CheckCircle2 className="h-3.5 w-3.5" /> Enabled · {row.transportMode} · {row.originZip}</span> : row.profileId ? <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><AlertTriangle className="h-3.5 w-3.5" /> Draft only</span> : <span className="text-muted-foreground">No profile</span>}</TableCell>
+                      <TableCell className="align-top text-xs">{complete ? <span className={`inline-flex items-center gap-1 ${row.evidenceType === "comparable_estimate" ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}><CheckCircle2 className="h-3.5 w-3.5" /> {row.evidenceType === "comparable_estimate" ? "Comparable estimate" : "Supplier verified"} · {row.transportMode} · {row.originZip}</span> : row.profileId ? <span className="inline-flex items-center gap-1 text-amber-700 dark:text-amber-300"><AlertTriangle className="h-3.5 w-3.5" /> Draft only</span> : <span className="text-muted-foreground">No profile</span>}</TableCell>
                       <TableCell className="align-top"><Button size="sm" variant={selectedId === row.productId ? "secondary" : "outline"} onClick={() => choose(row)}>{row.profileId ? "Edit" : "Add"}</Button></TableCell>
                     </TableRow>;
                   })}
@@ -963,6 +984,7 @@ function PelicanShippingProfilesPanel() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1"><Label className="text-xs">Ship-from name</Label><Input value={draft.originName} onChange={(event) => setDraft({ ...draft, originName: event.target.value })} placeholder="Verified supplier location" /></div>
                 <div className="space-y-1"><Label className="text-xs">Ship-from ZIP</Label><Input inputMode="numeric" value={draft.originZip} onChange={(event) => setDraft({ ...draft, originZip: event.target.value })} placeholder="12345" /></div>
+                <div className="space-y-1"><Label className="text-xs">Evidence type</Label><Select value={draft.evidenceType} onValueChange={(value) => setDraft({ ...draft, evidenceType: value as PelicanShippingProfileDraft["evidenceType"] })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="supplier_verified">Supplier verified</SelectItem><SelectItem value="comparable_estimate">Comparable estimate</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Transport mode</Label><Select value={draft.transportMode} onValueChange={(value) => setDraft({ ...draft, transportMode: value as "parcel" | "ltl" })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="parcel">Parcel</SelectItem><SelectItem value="ltl">LTL</SelectItem></SelectContent></Select></div>
                 <div className="space-y-1"><Label className="text-xs">Freight class {draft.transportMode === "ltl" ? "(required)" : "(LTL only)"}</Label><Input value={draft.freightClass} disabled={draft.transportMode !== "ltl"} onChange={(event) => setDraft({ ...draft, freightClass: event.target.value })} placeholder="e.g. 175" /></div>
               </div>
@@ -970,8 +992,9 @@ function PelicanShippingProfilesPanel() {
                 {[{ key: "packageLengthIn", label: "Package L" }, { key: "packageWidthIn", label: "Package W" }, { key: "packageHeightIn", label: "Package H" }, { key: "packageWeightLbs", label: "Weight lbs" }].map(({ key, label }) => <div className="space-y-1" key={key}><Label className="text-xs">{label}</Label><Input inputMode="decimal" value={draft[key as keyof Pick<PelicanShippingProfileDraft, "packageLengthIn" | "packageWidthIn" | "packageHeightIn" | "packageWeightLbs">]} onChange={(event) => setDraft({ ...draft, [key]: event.target.value })} /></div>)}
               </div>
               <div className="space-y-1"><Label className="text-xs">Source URL</Label><Input inputMode="url" value={draft.sourceUrl} onChange={(event) => setDraft({ ...draft, sourceUrl: event.target.value })} placeholder="Official supplier PDF or portal link" /></div>
-              <div className="grid gap-3 sm:grid-cols-[1fr_10rem]"><div className="space-y-1"><Label className="text-xs">Source reference</Label><Input value={draft.sourceReference} onChange={(event) => setDraft({ ...draft, sourceReference: event.target.value })} placeholder="Document title, revision, page, or confirmation" /></div><div className="space-y-1"><Label className="text-xs">Verified date</Label><Input type="date" value={draft.verifiedAt} onChange={(event) => setDraft({ ...draft, verifiedAt: event.target.value })} /></div></div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background p-3 text-sm"><Switch checked={draft.isEnabled} onCheckedChange={(isEnabled) => setDraft({ ...draft, isEnabled })} />Enable this verified SKU for carrier rating</label>
+              <div className="grid gap-3 sm:grid-cols-[1fr_10rem]"><div className="space-y-1"><Label className="text-xs">Source reference</Label><Input value={draft.sourceReference} onChange={(event) => setDraft({ ...draft, sourceReference: event.target.value })} placeholder="Document title, revision, page, or confirmation" /></div><div className="space-y-1"><Label className="text-xs">Evidence date</Label><Input type="date" value={draft.verifiedAt} onChange={(event) => setDraft({ ...draft, verifiedAt: event.target.value })} /></div></div>
+              {draft.evidenceType === "comparable_estimate" && <div className="space-y-1"><Label className="text-xs">Comparison rule ID</Label><Input value={draft.comparisonRuleId} onChange={(event) => setDraft({ ...draft, comparisonRuleId: event.target.value })} placeholder="e.g. bathroom-undermount-sink-v1" /></div>}
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border bg-background p-3 text-sm"><Switch checked={draft.isEnabled} onCheckedChange={(isEnabled) => setDraft({ ...draft, isEnabled })} />Enable this {draft.evidenceType === "comparable_estimate" ? "comparison estimate" : "supplier-verified SKU"} for carrier rating</label>
               <Button className="w-full" onClick={save} disabled={saveProfile.isPending}>{saveProfile.isPending ? "Saving shipping profile…" : "Save shipping profile"}</Button>
             </div>}
           </div>

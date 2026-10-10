@@ -1337,6 +1337,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                       <div key={`${group.label}:${group.originZip}`} className="rounded border border-emerald-200 bg-background/70 p-2">
                         <div className="font-semibold">{group.vendorName ?? group.label}</div>
                         <div>{group.label}</div>
+                        {group.packageEvidenceType === "comparable_estimate" && <div className="mt-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">Comparison-based package estimate used for carrier rating. Final packing may change the charge.</div>}
                         {group.pallets.map((pallet, index) => <div key={`pallet-${index}`}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
                         {(group.parcels ?? []).map((parcel, index) => <div key={`carton-${index}`}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
                       </div>
@@ -1350,14 +1351,23 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             ) : (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 {freightEstimate.error?.message ?? freightEstimate.data?.reason ?? "Shipping is not available for this order yet."}
+                {freightEstimate.data?.partial && (freightEstimate.data.rateGroups ?? []).length > 0 && (
+                  <div className="mt-3 rounded border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-950">
+                    <div className="font-semibold">Shipping included so far: ${(freightEstimate.data.totalCents / 100).toFixed(2)}</div>
+                    {(freightEstimate.data.rateGroups ?? []).map((rate) => <div key={rate.key}>{rate.vendorName ?? "Fulfillment vendor"}: {rate.label} · ${(rate.baseAmountCents / 100).toFixed(2)}</div>)}
+                    <div className="mt-1">This total excludes the unavailable shipment groups listed below, so the order cannot be submitted yet.</div>
+                  </div>
+                )}
                 {(freightEstimate.data?.shipmentGroups ?? []).length > 0 && (
                   <div className="mt-3 space-y-2 text-xs">
                     {freightEstimate.data?.shipmentGroups?.map((group) => (
                       <div key={`${group.label}:${group.originZip}`} className="rounded border border-amber-200 bg-background/70 p-2">
                         <div className="font-semibold text-foreground">{group.vendorName ?? group.label}</div>
                         <div>{group.label}</div>
-                        <div className="font-medium">Status: {group.status === "needs_package_data" ? "Needs verified package data" : group.status === "carrier_error" ? "Carrier error" : "Not rated"}</div>
-                        {group.statusReason && <div>{group.statusReason}</div>}
+                        <div className="font-medium">These items aren’t able to ship right now.</div>
+                        {group.itemLabels?.length ? <div>Items retained in order: {group.itemLabels.join(", ")}</div> : null}
+                        <div>Shipping is not included for this group. Other shipment quotes remain separate.</div>
+                        {group.packageEvidenceType === "comparable_estimate" && <div>Package estimate: comparison-based; final packing may change the charge.</div>}
                         {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
                         {(group.parcels ?? []).map((parcel, index) => <div key={index}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
                       </div>

@@ -1,9 +1,11 @@
 /**
  * Carrier-backed U.S. parcel eligibility rules.
  *
- * This module only answers whether an item has authoritative package data that
- * fits a carrier's published parcel envelope. It does not invent a shipping
- * price, guarantee carrier acceptance, or replace a live carrier quote.
+ * This module only answers whether an item has complete, approved package data
+ * that fits a carrier's published parcel envelope. `isEstimatedPackage` keeps
+ * comparison or governed-estimate data visible; it never becomes supplier carton
+ * evidence. The screen does not invent a shipping price, guarantee carrier
+ * acceptance, or replace a live carrier quote.
  *
  * Sources checked 2026-09-23:
  * - UPS: 150 lb, 108 in maximum length, 165 in length + girth.
@@ -20,13 +22,13 @@
 export type ParcelCarrier = "ups" | "fedex" | "usps";
 
 export interface AuthoritativeParcelPackage {
-  /** Source package dimensions, in inches. These must be carton dimensions. */
+  /** Approved package dimensions, in inches. These are actual carton facts or a visibly labeled governed estimate. */
   lengthIn: number | null | undefined;
   widthIn: number | null | undefined;
   heightIn: number | null | undefined;
-  /** Source packaged weight, in pounds. */
+  /** Approved packaged weight, in pounds. */
   weightLbs: number | null | undefined;
-  /** A missing catalog package record must never become a made-up parcel. */
+  /** A complete, policy-approved package profile is required before parcel screening. */
   hasAuthoritativePackage: boolean;
   /** True when missing supplier fields were filled by the approved generic cabinet rule. */
   isEstimatedPackage?: boolean;
@@ -153,7 +155,7 @@ export function normalizeParcelPackage(input: AuthoritativeParcelPackage): {
 } {
   const reasons: string[] = [];
   if (!input.hasAuthoritativePackage) {
-    reasons.push("Authoritative carton dimensions and packaged weight are required for parcel shipping.");
+    reasons.push("Approved carton dimensions and packaged weight are required for parcel shipping.");
     return { package: null, reasons };
   }
 

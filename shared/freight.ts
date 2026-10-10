@@ -100,6 +100,10 @@ export interface FreightShipmentGroup {
   label: string;
   /** Fulfillment vendor; distinct from the carrier that returns a rate. */
   vendorName?: string;
+  /** Supplier carton facts versus a clearly labeled comparable-package estimate. */
+  packageEvidenceType?: "supplier_verified" | "comparable_estimate";
+  /** Catalog items retained in this origin/shipment group, including unavailable groups. */
+  itemLabels?: string[];
   originZip: string;
   freightClass: string;
   /** A group can be displayed before its carrier rate is available. */
@@ -137,6 +141,8 @@ export interface FreightQuote {
   freeFreightApplied: boolean;
   reason?: string; // populated when available=false
   rateGroups?: FreightRateGroup[];
+  /** Some origin groups are quoted, but at least one retained shipment is unavailable. Never checkout-ready. */
+  partial?: boolean;
   /** Actual physical plan submitted to the live carrier for this quote. */
   shipmentGroups?: FreightShipmentGroup[];
   /** Server-signed short-lived proof used to attach this exact quote to an order. */

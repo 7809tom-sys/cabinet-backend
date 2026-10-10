@@ -121,7 +121,7 @@ describe("freight.estimate", () => {
         distributorId: 180001,
       });
       expect(q.available).toBe(false);
-      expect(q.reason).toMatch(/UPS parcel rate unavailable|UPS parcel rating requires/i);
+      expect(q.reason).toMatch(/retained shipment groups cannot be quoted|UPS parcel rate unavailable|UPS parcel rating requires/i);
       expect(q.zoneName).toBeNull();
       expect(q.totalCents).toBe(0);
       expect(q.shipmentGroups?.[0]?.transportMode).not.toBe("ltl");

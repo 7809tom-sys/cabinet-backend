@@ -1254,6 +1254,13 @@
       "when": 1791668467850,
       "tag": "0179_silly_squadron_supreme",
       "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "5",
+      "when": 1791671250268,
+      "tag": "0180_futuristic_scalphunter",
+      "breakpoints": true
     }
   ]
 }
