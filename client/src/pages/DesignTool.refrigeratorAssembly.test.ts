@@ -87,7 +87,7 @@ describe("Design Tool independent refrigerator options", () => {
   });
 
   it("preloads source caps and panels into the shared materials price request", () => {
-    const pricePairs = sourceBetween("const pricePairs = useMemo", "const { data: priceRows }");
+    const pricePairs = sourceBetween("const pricePairs = useMemo", "const { data: priceRows, isFetching");
     expect(source).toContain("const { data: refrigeratorSurroundCatalog } = trpc.design.surroundForFridge.useQuery");
     expect(pricePairs).toContain("...(refrigeratorParts?.deepAbove ?? [])");
     expect(pricePairs).toContain("...(refrigeratorParts?.endPanels ?? [])");

@@ -228,6 +228,8 @@ export function RefrigeratorOptionsDialog({
   // inventing a second source item or changing the invoiceable code.
   const panelSourceLabel = (code: string) => code === "REP2496"
     ? "REP2496 · prior REP9624"
+    : code === "S2496"
+      ? "S2496 — finished shelf board / refrigerator side panel"
     : code;
 
   // ── Fridge size ────────────────────────────────────────────────────────────

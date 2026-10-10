@@ -19,6 +19,15 @@ const endPanel = {
   depth: "24",
 };
 
+const madisonShelfBoard = {
+  id: 9360215,
+  masterCode: "S2496",
+  description: "Tall Panel — 24 in. W × 96 in. H × 3/4 in. D",
+  width: "24",
+  height: "96",
+  depth: "0.75",
+};
+
 const refrigeratorCap = {
   id: 9390060,
   masterCode: "W3612",
@@ -161,7 +170,7 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     }));
   });
 
-  it("keeps selected attributes visible with the exact panel-fit blocker", () => {
+	it("keeps selected attributes visible with the exact panel-fit blocker", () => {
     render(
       <RefrigeratorOptionsDialog
         open
@@ -178,9 +187,27 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
 
     expect(screen.getByRole("alert").textContent).toContain("B27");
     expect(screen.getByRole("button", { name: "Both" }).getAttribute("aria-pressed")).toBe("true");
+	});
+
+  it("labels the Madison S2496 shelf board clearly when used as a refrigerator panel", () => {
+    render(
+      <RefrigeratorOptionsDialog
+        open
+        onOpenChange={vi.fn()}
+        fridgeWidthInches={36}
+        endPanels={[madisonShelfBoard]}
+        deepAbove={[refrigeratorCap]}
+        onApply={vi.fn()}
+        onSkip={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("More enclosure options"));
+    fireEvent.click(screen.getByRole("button", { name: "Both" }));
+    expect(screen.getAllByText(/S2496 — finished shelf board \/ refrigerator side panel/i)).toHaveLength(2);
   });
 
-  it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {
+	it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {
 	  const onApply = renderUnpricedDialog();
 	  const apply = screen.getByRole("button", { name: "dt_fridge_apply" });
 	  expect(apply.getAttribute("disabled")).toBeNull();
