@@ -4,9 +4,9 @@ import { isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutT
 /**
  * The exact cabinet identity committed into a shipping-quote token.
  *
- * Only source-backed catalog cabinets can affect cabinet freight. Surface and
- * free-text checkout lines have no cabinet/package record and must not become a
- * phantom freight carton during order submission.
+ * Cabinet and Pelican surface lines are both part of the signed quote identity.
+ * The freight router keeps their vendor shipment groups separate; free-text
+ * checkout lines still have no freight identity and are excluded.
  */
 export type FreightQuoteOrderLine = {
   cabinetId: number | null;
@@ -19,7 +19,6 @@ export type FreightQuoteOrderLine = {
 
 export function freightQuoteItemsForOrder(lines: FreightQuoteOrderLine[]): FreightQuoteTokenItem[] {
   return lines
-    .filter((line) => line.productKind !== "surface")
     .filter((line) => line.cabinetId != null || Boolean(line.masterCode?.trim()))
     .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
     .map((line) => ({

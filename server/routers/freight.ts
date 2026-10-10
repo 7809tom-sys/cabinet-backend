@@ -135,6 +135,8 @@ const itemsSchema = z
       distributorId: z.number().int().positive().nullable().optional(),
       qty: z.number().int().min(1).max(999),
       weightLbs: z.number().min(0).max(5000).nullable().optional(),
+      productKind: z.enum(["surface"]).nullable().optional(),
+      category: z.string().max(128).nullable().optional(),
     })
   )
   .max(500)
@@ -147,6 +149,8 @@ type FreightItemInput = {
   distributorId?: number | null;
   qty: number;
   weightLbs?: number | null;
+  productKind?: "surface" | null;
+  category?: string | null;
 };
 
 function attachFreightQuoteToken(
@@ -637,6 +641,7 @@ async function chooseNearestDoorStyleOriginZip(
 type StyleFreightGroup = {
   key: string;
   label: string;
+  vendorName: string;
   originZip: string;
   flatFreightFeeCents: number | null;
   /** Explicit distributor fixed/threshold rule; style Plan B remains a fallback. */
@@ -791,6 +796,30 @@ async function resolveStyleFreightGroups(input: {
   // uses the fewest pallets allowed by weight/cube limits.
   const groups = new Map<string, StyleFreightGroup>();
   for (const item of input.items) {
+    if (item.productKind === "surface") {
+      const category = item.category?.trim() || "Pelican surface product";
+      const isCorian = /quartz|corian|countertop|slab/i.test(category);
+      const vendorName = isCorian ? "Pelican / Corian" : "Pelican";
+      const key = `pelican:${isCorian ? "corian" : "parcel"}`;
+      const existing = groups.get(key);
+      if (existing) {
+        existing.items.push(item);
+        continue;
+      }
+      groups.set(key, {
+        key,
+        label: `${vendorName} · ${isCorian ? "Corian countertop freight" : `${category} UPS parcel`}`,
+        vendorName,
+        originZip: "",
+        flatFreightFeeCents: null,
+        distributorRuleFeeCents: null,
+        distributorRuleLabel: null,
+        usedOperationsOriginFallback: false,
+        missingOriginStyle: null,
+        items: [item],
+      });
+      continue;
+    }
     const requestedStyleId = item.styleId ?? null;
     const directStyle = requestedStyleId ? styleById.get(requestedStyleId) : undefined;
     const candidates = item.cabinetId ? candidatesByCabinet.get(item.cabinetId) ?? [] : [];
@@ -854,6 +883,7 @@ async function resolveStyleFreightGroups(input: {
     groups.set(key, {
       key,
       label: `${distributorLabel} · ${usedOperationsOriginFallback ? "Operations test origin" : "origin"} ${originZip}`,
+      vendorName: distributorLabel,
       originZip,
       flatFreightFeeCents: matchedStyle?.flatFreightFeeCents ?? null,
       distributorRuleFeeCents: distributorRule.fixedFeeCents,
@@ -1148,6 +1178,7 @@ async function simulateFreight(input: {
         rateGroups.push({
           key: group.key,
           label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
           originZip: group.originZip,
           source: "plan_b",
           baseAmountCents: group.flatFreightFeeCents,
@@ -1188,6 +1219,7 @@ async function simulateFreight(input: {
         rateGroups.push({
           key: group.key,
           label: `${group.label}${carrier ? ` · ${carrier}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
           originZip: group.originZip,
           source: "live",
           baseAmountCents: live.amountCents,
@@ -1200,6 +1232,7 @@ async function simulateFreight(input: {
         rateGroups.push({
           key: group.key,
           label: `${group.label} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+          vendorName: group.vendorName,
           originZip: group.originZip,
           source: "plan_b",
           baseAmountCents: group.flatFreightFeeCents,
@@ -1451,6 +1484,23 @@ export const freightRouter = router({
       const liveFreightClass = liveProvider === "worldwideexpress"
         ? normalizeSpeedshipFreightClass(settingsRow?.freightClass) ?? "175"
         : settingsRow?.freightClass ?? "175";
+      const surfaceItems = input.items.filter((item) => item.productKind === "surface");
+      const cabinetItems = input.items.filter((item) => item.productKind !== "surface");
+      const unavailableSurfaceReason = "Pelican shipping is split by product: Corian countertops require an LTL shipment, while most sinks, faucets, and fixtures require UPS cartons. Supplier-verified package dimensions and weights are not available for these Pelican lines yet, so no shipping charge is invented.";
+      if (surfaceItems.length > 0 && cabinetItems.length === 0 && !settingsRow) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          reason: unavailableSurfaceReason,
+        };
+      }
 
       // ── QUOTE: one shipment per authoritative style/distributor origin ─────
       // A configured distributor fixed/threshold rule is authoritative and takes
@@ -1464,10 +1514,10 @@ export const freightRouter = router({
             fallbackOriginZip: settings.originZip,
           })
         : [];
-      if (settingsRow && (liveProvider !== "estimator" || input.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
+      if (settingsRow && (surfaceItems.length > 0 || liveProvider !== "estimator" || input.carrierPreference === "ups" || styleGroups.some((group) => group.distributorRuleFeeCents != null))) {
         const caps = rowToPalletCaps(settingsRow);
         const load = totalPackagedLoad(packages);
-        if (load.units === 0) {
+        if (load.units === 0 && surfaceItems.length === 0) {
           return {
             available: false,
             zoneName: null,
@@ -1489,6 +1539,29 @@ export const freightRouter = router({
         let totalBillableWeightLbs = 0;
 
         for (const group of styleGroups) {
+          if (group.items.some((item) => item.productKind === "surface")) {
+            const isCorian = group.vendorName.toLowerCase().includes("corian");
+            shipmentGroups.push({
+              label: group.label,
+              vendorName: group.vendorName,
+              originZip: group.originZip,
+              freightClass: isCorian ? liveFreightClass : "Parcel",
+              transportMode: isCorian ? "ltl" : "parcel",
+              status: "needs_package_data",
+              statusReason: isCorian
+                ? "Corian countertop carton/pallet dimensions and origin are required for an LTL quote."
+                : "UPS requires verified carton dimensions and weight for each Pelican item.",
+              palletCount: 0,
+              totalWeightLbs: 0,
+              totalContentsWeightLbs: 0,
+              totalCubicFt: 0,
+              pallets: [],
+              parcelCount: 0,
+              parcels: [],
+            });
+            failedGroups.push(`${group.label}: ${isCorian ? "Corian LTL package data is missing" : "UPS carton package data is missing"}`);
+            continue;
+          }
           const resolvedGroup = await resolvePackages(
             group.items,
             settingsRow,
@@ -1509,6 +1582,7 @@ export const freightRouter = router({
             totalBillableWeightLbs += plan.totalWeightLbs;
             shipmentGroups.push({
               label: group.label,
+              vendorName: group.vendorName,
               originZip: group.originZip,
               freightClass: groupFreightClass,
               transportMode: "ltl",
@@ -1529,6 +1603,7 @@ export const freightRouter = router({
             rateGroups.push({
               key: group.key,
               label: `${group.label} · ${group.distributorRuleLabel ?? "Distributor fixed freight"}`,
+              vendorName: group.vendorName,
               originZip: group.originZip,
               source: "plan_b",
               baseAmountCents: group.distributorRuleFeeCents,
@@ -1622,6 +1697,7 @@ export const freightRouter = router({
             const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
             const shipmentGroup: FreightShipmentGroup = {
               label: group.label,
+              vendorName: group.vendorName,
               originZip: group.originZip,
               freightClass: "Parcel",
               transportMode: "parcel",
@@ -1644,11 +1720,13 @@ export const freightRouter = router({
               estimatedDeliveryDate: live.estimatedDeliveryDate,
             };
             if (live.ok) {
+              shipmentGroup.status = "quoted";
               shipmentGroups.push(shipmentGroup);
               totalBillableWeightLbs += parcelWeight;
               rateGroups.push({
                 key: group.key,
                 label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${parcelCartons.length} carton${parcelCartons.length === 1 ? "" : "s"}`,
+                vendorName: group.vendorName,
                 originZip: group.originZip,
                 source: "parcel",
                 baseAmountCents: live.amountCents,
@@ -1661,6 +1739,9 @@ export const freightRouter = router({
               totalBillableWeightLbs += plan.totalWeightLbs;
               shipmentGroups.push({
                 label: group.label,
+                vendorName: group.vendorName,
+                status: "carrier_error",
+                statusReason: live.error ?? "parcel carrier unavailable",
                 originZip: group.originZip,
                 freightClass: groupFreightClass,
                 transportMode: "ltl",
@@ -1697,6 +1778,7 @@ export const freightRouter = router({
           totalBillableWeightLbs += plan.totalWeightLbs;
           const shipmentGroup: FreightShipmentGroup = {
             label: group.label,
+            vendorName: group.vendorName,
             originZip: group.originZip,
             freightClass: groupFreightClass,
             transportMode: "ltl",
@@ -1740,11 +1822,13 @@ export const freightRouter = router({
           const carrierLabel = [live.carrier, live.service].filter(Boolean).join(" ") || null;
 
           if (live.ok) {
+            shipmentGroup.status = "quoted";
             shipmentGroup.transitDays = live.transitDays;
             shipmentGroup.estimatedDeliveryDate = live.estimatedDeliveryDate;
             rateGroups.push({
               key: group.key,
               label: `${group.label}${carrierLabel ? ` · ${carrierLabel}` : ""} · ${plan.palletCount} pallet${plan.palletCount === 1 ? "" : "s"}`,
+              vendorName: group.vendorName,
               originZip: group.originZip,
               source: "live",
               baseAmountCents: live.amountCents,
@@ -1754,12 +1838,14 @@ export const freightRouter = router({
               estimatedDeliveryDate: live.estimatedDeliveryDate,
             });
           } else {
+            shipmentGroup.status = "carrier_error";
+            shipmentGroup.statusReason = live.error ?? "carrier unavailable";
             failedGroups.push(`${group.label}: ${live.error ?? "carrier unavailable"}`);
           }
         }
 
         if (failedGroups.length > 0) {
-          if (upsOnlyRequested) {
+          if (upsOnlyRequested || surfaceItems.length > 0) {
             return {
               available: false,
               zoneName: null,
@@ -1830,6 +1916,34 @@ export const freightRouter = router({
       // carrier response. Until a carrier account is connected, use the
       // administrator-configured zone estimator and label it clearly as an
       // estimate so checkout can continue without presenting it as a live rate.
+      if (surfaceItems.length > 0 && !settingsRow) {
+        return {
+          available: false,
+          zoneName: null,
+          billableWeightLbs: 0,
+          lines: [],
+          freightBeforeMarkupCents: 0,
+          markupCents: 0,
+          damageFeeCents: 0,
+          totalCents: 0,
+          freeFreightApplied: false,
+          shipmentGroups: surfaceItems.map((item) => ({
+            label: `Pelican · ${item.category?.trim() || "surface product"}`,
+            vendorName: "Pelican",
+            originZip: "",
+            freightClass: "Parcel",
+            transportMode: "parcel" as const,
+            status: "needs_package_data" as const,
+            statusReason: "UPS requires verified carton dimensions and weight for each Pelican item.",
+            palletCount: 0,
+            totalWeightLbs: 0,
+            totalContentsWeightLbs: 0,
+            totalCubicFt: 0,
+            pallets: [],
+          })),
+          reason: unavailableSurfaceReason,
+        };
+      }
       const load = totalPackagedLoad(packages);
       const fallback = await configuredFreightEstimate({
         destinationZip: input.destinationZip,

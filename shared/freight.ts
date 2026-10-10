@@ -51,6 +51,8 @@ export interface FreightQuoteLine {
 export interface FreightRateGroup {
   key: string;
   label: string;
+  /** Fulfillment vendor; distinct from the carrier that returns a rate. */
+  vendorName?: string;
   originZip: string;
   source: "live" | "parcel" | "plan_b";
   baseAmountCents: number;
@@ -87,8 +89,13 @@ export interface FreightParcelDetail {
 /** One style-origin shipment within a cart's live freight result. */
 export interface FreightShipmentGroup {
   label: string;
+  /** Fulfillment vendor; distinct from the carrier that returns a rate. */
+  vendorName?: string;
   originZip: string;
   freightClass: string;
+  /** A group can be displayed before its carrier rate is available. */
+  status?: "quoted" | "needs_package_data" | "carrier_error";
+  statusReason?: string;
   /** LTL uses pallets; parcel is available only after carrier-rule screening. */
   transportMode?: "ltl" | "parcel";
   palletCount: number;

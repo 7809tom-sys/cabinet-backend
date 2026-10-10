@@ -179,7 +179,7 @@ export default function Cart() {
   const supplierGroups = useMemo(() => {
     const m = new Map<number, string>();
     for (const i of items) {
-      if (i.distributorId != null) m.set(i.distributorId, i.styleLabel);
+      if (i.productKind !== "surface" && i.distributorId != null) m.set(i.distributorId, i.styleLabel);
     }
     return m;
   }, [items]);
@@ -193,15 +193,13 @@ export default function Cart() {
     [items],
   );
 
-  // A live carrier request uses all cabinet lines already in the cart. Products
-  // without a supply line (fixtures, surfaces, and similar add-ons) do not have
-  // a cabinet pallet profile and are therefore excluded from the cabinet freight
-  // request without blocking the customer's cart.
+  // Send cabinets and Pelican lines together; the server keeps vendor shipment
+  // groups separate and only rates Pelican when supplier package data is present.
   const cartFreightItems = useMemo(
     () => items
       .filter(
-        (item) => item.distributorId != null
-          && Boolean(item.masterCode)
+        (item) => (item.productKind === "surface"
+          || (item.distributorId != null && Boolean(item.masterCode)))
           && !isTemporaryOneDollarCheckoutTestItem(item),
       )
       .map((item) => ({
@@ -211,6 +209,8 @@ export default function Cart() {
         distributorId: item.distributorId,
         qty: item.qty,
         weightLbs: null,
+        productKind: item.productKind ?? null,
+        category: item.category ?? null,
       })),
     [items],
   );
@@ -230,10 +230,6 @@ export default function Cart() {
       toast.error("Enter and check a valid 5-digit delivery ZIP before requesting a live shipping quote.");
       return;
     }
-    if (isMixedSupplier) {
-      toast.error("Use products from one supplier line to request one live shipping quote.");
-      return;
-    }
     if (cartFreightItems.length === 0) {
       toast.error("Add at least one supplier cabinet to request a live shipping quote.");
       return;
@@ -243,10 +239,6 @@ export default function Cart() {
 
   const requestOrder = () => {
     if (items.length === 0) return;
-    if (isMixedSupplier) {
-      toast.error(t("crt_one_supplier_err"));
-      return;
-    }
     // Include styleId and tier from the first item so OrderReview can pre-select
     // the correct door style and pricing tier instead of defaulting to Aston Green.
     const firstItem = items[0];
@@ -666,7 +658,7 @@ export default function Cart() {
                       : null;
                     return (
 	                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-border bg-background p-2 text-muted-foreground">
-	                        <div className="font-medium text-foreground">{group.label}</div>
+                        <div className="font-medium text-foreground">{group.vendorName ?? "Fulfillment vendor"} · {group.label}</div>
 	                        {(group.estimatedPackageCount ?? 0) > 0 && (
 	                          <div className="my-1 rounded border border-amber-200 bg-amber-50 p-1.5 text-amber-900">
 	                            Generic flat-pack measurements used for {group.estimatedPackageCount} carton{group.estimatedPackageCount === 1 ? "" : "s"}. Exact supplier package data replaces these estimates automatically when entered.
@@ -704,7 +696,21 @@ export default function Cart() {
                     );
                   })}
                 </div>
-              ) : <p className="mt-2 text-xs text-amber-700">{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
+              ) : (
+                <div className="mt-2 space-y-2 text-xs text-amber-800">
+                  <p>{cartFreightEstimate.data.reason ?? "The carrier could not return a live shipping quote."}</p>
+                  {(cartFreightEstimate.data.shipmentGroups ?? []).map((group) => (
+                    <div key={`${group.label}:${group.originZip}`} className="rounded border border-amber-200 bg-amber-50 p-2">
+                      <div className="font-medium text-amber-950">{group.vendorName ?? group.label}</div>
+                      <div>{group.label}</div>
+                      <div className="font-medium">Status: {group.status === "needs_package_data" ? "Needs verified package data" : group.status === "carrier_error" ? "Carrier error" : "Not rated"}</div>
+                      {group.statusReason && <div>{group.statusReason}</div>}
+                      {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                      {(group.parcels ?? []).map((parcel, index) => <div key={index}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
             </>

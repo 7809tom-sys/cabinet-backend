@@ -523,7 +523,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
       },
       carrierPreference,
       items: pricedLines
-        .filter(isCabinetFreightLine)
+        .filter((line) => isCabinetFreightLine(line) || isSurfaceCheckoutLine(line))
         .filter((line) => !isTemporaryOneDollarCheckoutTestItem(line))
         .map((line) => ({
           cabinetId: line.cabinetId,
@@ -532,6 +532,8 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
           distributorId: line.cartDistributorId ?? null,
           qty: line.qty,
           weightLbs: null,
+          productKind: line.cartProductKind ?? null,
+          category: line.cartCategory ?? null,
         })),
     }),
     [zipDebounced, total, deliveryLocationType, liftgateRequired, carrierPreference, pricedLines, selectedStyle?.styleId],
@@ -1308,7 +1310,7 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                   <div key={group.key} className="text-xs">
                     <div className="flex items-start justify-between gap-3">
                       <span>
-                        {group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
+                        <strong>{group.vendorName ?? "Fulfillment vendor"}</strong> · {group.source === "parcel" ? "Live parcel" : group.source === "live" ? "Plan A live" : "Plan B fallback"} · {group.label}
                       </span>
                       <span className="shrink-0">${(group.baseAmountCents / 100).toFixed(2)}</span>
                     </div>
@@ -1319,6 +1321,19 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
                     ) : null}
                   </div>
                 ))}
+                {(freightEstimate.data.shipmentGroups ?? []).length > 0 && (
+                  <div className="space-y-2 border-t border-emerald-200 pt-2 text-xs">
+                    <p className="font-semibold">Shipment breakdown</p>
+                    {freightEstimate.data.shipmentGroups?.map((group) => (
+                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-emerald-200 bg-background/70 p-2">
+                        <div className="font-semibold">{group.vendorName ?? group.label}</div>
+                        <div>{group.label}</div>
+                        {group.pallets.map((pallet, index) => <div key={`pallet-${index}`}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                        {(group.parcels ?? []).map((parcel, index) => <div key={`carton-${index}`}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <p className="text-xs text-emerald-800">
                   Each origin is packed and quoted separately using final pallet dimensions and loaded weight.
                 </p>
@@ -1326,6 +1341,20 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
             ) : (
               <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
                 {freightEstimate.error?.message ?? freightEstimate.data?.reason ?? "Shipping is not available for this order yet."}
+                {(freightEstimate.data?.shipmentGroups ?? []).length > 0 && (
+                  <div className="mt-3 space-y-2 text-xs">
+                    {freightEstimate.data?.shipmentGroups?.map((group) => (
+                      <div key={`${group.label}:${group.originZip}`} className="rounded border border-amber-200 bg-background/70 p-2">
+                        <div className="font-semibold text-foreground">{group.vendorName ?? group.label}</div>
+                        <div>{group.label}</div>
+                        <div className="font-medium">Status: {group.status === "needs_package_data" ? "Needs verified package data" : group.status === "carrier_error" ? "Carrier error" : "Not rated"}</div>
+                        {group.statusReason && <div>{group.statusReason}</div>}
+                        {group.pallets.map((pallet, index) => <div key={index}>Pallet {index + 1}: {pallet.lengthIn} × {pallet.widthIn} × {pallet.heightIn} in · {pallet.weightLbs} lb</div>)}
+                        {(group.parcels ?? []).map((parcel, index) => <div key={index}>Carton {index + 1}: {parcel.lengthIn} × {parcel.widthIn} × {parcel.heightIn} in · {parcel.weightLbs} lb</div>)}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
               </>
