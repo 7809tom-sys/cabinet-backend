@@ -49,7 +49,8 @@ import {
 import { freightquoteQuote } from "../_core/freightquote";
 import { globaltranzQuote } from "../_core/globaltranz";
 import { normalizeSpeedshipFreightClass, worldwideexpressQuote } from "../_core/worldwideexpress";
-import { upsParcelQuote } from "../_core/ups";
+import { upsParcelQuote, upsTestConnection } from "../_core/ups";
+import { fedexTestConnection } from "../_core/fedex";
 import { logFreightApiCall, getFreightApiLogs, type FreightApiPackageAudit } from "../_core/freightApiLog";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 import { getPricingSettings } from "../db";
@@ -2137,6 +2138,7 @@ export const freightRouter = router({
           ...settingsRow,
           liveApiKey: null, hasLiveApiKey: !!settingsRow.liveApiKey,
           upsClientSecret: null, hasUpsClientSecret: !!settingsRow.upsClientSecret,
+          fedexClientSecret: null, hasFedexClientSecret: !!settingsRow.fedexClientSecret,
           fqClientSecret: null, hasFqClientSecret: !!settingsRow.fqClientSecret,
           gtzPassword: null, hasGtzPassword: !!settingsRow.gtzPassword,
           gtzApiKey: null, hasGtzApiKey: !!settingsRow.gtzApiKey,
@@ -2421,7 +2423,7 @@ export const freightRouter = router({
   saveUpsCredentials: adminProcedure
     .input(z.object({
       upsClientId: z.string().trim().min(1).max(255),
-      upsClientSecret: z.string().trim().min(1).max(255),
+      upsClientSecret: z.string().trim().max(255).optional(), // omit to keep the saved secret
       upsAccountNumber: z.string().trim().min(1).max(64).transform((value) => value.toUpperCase()),
       upsEnvironment: z.enum(["sandbox", "production"]),
     }))
@@ -2429,9 +2431,12 @@ export const freightRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const existing = await loadSettingsRow();
+      if (!input.upsClientSecret && !existing?.upsClientSecret) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the UPS Client Secret." });
+      }
       const values = {
         upsClientId: input.upsClientId,
-        upsClientSecret: input.upsClientSecret,
+        ...(input.upsClientSecret ? { upsClientSecret: input.upsClientSecret } : {}),
         upsAccountNumber: input.upsAccountNumber,
         upsEnvironment: input.upsEnvironment,
         updatedAt: new Date(),
@@ -2451,6 +2456,43 @@ export const freightRouter = router({
       };
     }),
 
+  // ─── Admin: save direct FedEx Rate API credentials as one protected set ──────
+  saveFedexCredentials: adminProcedure
+    .input(z.object({
+      fedexClientId: z.string().trim().min(1).max(255),
+      fedexClientSecret: z.string().trim().max(255).optional(), // omit to keep the saved secret
+      fedexAccountNumber: z.string().trim().min(1).max(64),
+      fedexEnvironment: z.enum(["sandbox", "production"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const existing = await loadSettingsRow();
+      if (!input.fedexClientSecret && !existing?.fedexClientSecret) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter the FedEx Secret Key." });
+      }
+      const values = {
+        fedexClientId: input.fedexClientId,
+        ...(input.fedexClientSecret ? { fedexClientSecret: input.fedexClientSecret } : {}),
+        fedexAccountNumber: input.fedexAccountNumber,
+        fedexEnvironment: input.fedexEnvironment,
+        updatedAt: new Date(),
+      };
+      if (existing) await db.update(shippingSettings).set(values).where(eq(shippingSettings.id, existing.id));
+      else await db.insert(shippingSettings).values(values);
+      return { ok: true, fedexClientId: input.fedexClientId, fedexAccountNumber: input.fedexAccountNumber, fedexEnvironment: input.fedexEnvironment, hasFedexClientSecret: true };
+    }),
+  // ─── Admin: read-only check that the saved UPS or FedEx keys can sign in ─────
+  testCarrierConnection: adminProcedure
+    .input(z.object({ carrier: z.enum(["ups", "fedex"]) }))
+    .mutation(async ({ input }) => {
+      const s = await loadSettingsRow();
+      if (!s) return { ok: false, error: "Nothing saved yet." };
+      if (input.carrier === "ups") {
+        return upsTestConnection({ clientId: s.upsClientId ?? "", clientSecret: s.upsClientSecret ?? "", accountNumber: s.upsAccountNumber ?? "", environment: s.upsEnvironment ?? "sandbox" });
+      }
+      return fedexTestConnection({ clientId: s.fedexClientId ?? "", clientSecret: s.fedexClientSecret ?? "", accountNumber: s.fedexAccountNumber ?? "", environment: s.fedexEnvironment ?? "sandbox" });
+    }),
   // ─── Admin: test a live quote with the stored key + an example shipment ──────
   testLiveQuote: adminProcedure
     .input(

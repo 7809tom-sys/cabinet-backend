@@ -8,7 +8,8 @@ describe("freight.saveUpsCredentials", () => {
   it("persists the UPS OAuth credential set without returning the secret", () => {
     expect(source).toContain("saveUpsCredentials: adminProcedure");
     expect(source).toContain("upsClientId: z.string().trim().min(1).max(255)");
-    expect(source).toContain("upsClientSecret: z.string().trim().min(1).max(255)");
+    expect(source).toContain("upsClientSecret: z.string().trim().max(255).optional()");
+    expect(source).toContain("Enter the UPS Client Secret.");
     expect(source).toContain("upsAccountNumber: z.string().trim().min(1).max(64)");
     expect(source).toContain("upsClientSecret: input.upsClientSecret");
     expect(source).toContain("hasUpsClientSecret: true");

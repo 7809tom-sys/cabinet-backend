@@ -1743,6 +1743,11 @@ export const shippingSettings = mysqlTable("shipping_settings", {
   upsClientSecret: varchar("upsClientSecret", { length: 255 }),
   upsAccountNumber: varchar("upsAccountNumber", { length: 64 }),
   upsEnvironment: mysqlEnum("upsEnvironment", ["sandbox", "production"]).default("sandbox"),
+  // FedEx Rate API — project created in the FedEx Developer Portal (client_credentials).
+  fedexClientId: varchar("fedexClientId", { length: 255 }),
+  fedexClientSecret: varchar("fedexClientSecret", { length: 255 }),
+  fedexAccountNumber: varchar("fedexAccountNumber", { length: 64 }),
+  fedexEnvironment: mysqlEnum("fedexEnvironment", ["sandbox", "production"]).default("sandbox"),
   // Broker API credentials — stored per-broker so the admin can configure all
   // three without losing settings when switching between them.
   // Freightquote (C.H. Robinson Navisphere) — OAuth2 client_credentials

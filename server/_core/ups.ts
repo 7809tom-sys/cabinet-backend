@@ -259,3 +259,10 @@ export async function upsParcelQuote(
 export function clearUpsTokenCache(): void {
   tokenCache.clear();
 }
+
+/** Read-only connection check: only requests an OAuth token. */
+export async function upsTestConnection(credentials: UpsCredentials, fetchImpl: typeof fetch = fetch): Promise<{ ok: boolean; error?: string }> {
+  if (!credentials.clientId.trim() || !credentials.clientSecret.trim()) return { ok: false, error: "Save the UPS Client ID and Client Secret first." };
+  try { clearUpsTokenCache(); await accessToken(credentials, fetchImpl); return { ok: true }; }
+  catch (e) { return { ok: false, error: e instanceof Error ? e.message : "UPS connection failed." }; }
+}
