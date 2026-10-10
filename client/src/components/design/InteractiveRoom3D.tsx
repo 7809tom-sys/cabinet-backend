@@ -10315,6 +10315,20 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     let denoiseMaterial: DenoiseMaterial | null = null;
     let denoiseQuad: FullScreenQuad | null = null;
     const convertedMaterials: THREE.Material[] = [];
+    let contextLost = false;
+    let copyMaterial: THREE.MeshBasicMaterial | null = null;
+    const canvasIsBlack = (source: HTMLCanvasElement) => {
+      const probe = document.createElement("canvas");
+      probe.width = 64;
+      probe.height = 36;
+      const ctx = probe.getContext("2d");
+      if (!ctx) return false;
+      ctx.drawImage(source, 0, 0, probe.width, probe.height);
+      const data = ctx.getImageData(0, 0, probe.width, probe.height).data;
+      let total = 0;
+      for (let i = 0; i < data.length; i += 4) total += data[i] + data[i + 1] + data[i + 2];
+      return total / (data.length / 4 * 3) < 4;
+    };
     setPathTracePreviewBusy(true);
     setPathTracePreviewProgress(0);
     setPathTracePreviewError(null);
@@ -10322,6 +10336,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       const canvas = document.createElement("canvas");
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
       if (!renderer.capabilities.isWebGL2) throw new Error("This browser does not support the WebGL2 renderer required for the production-render test.");
+      if (!renderer.extensions.has("EXT_color_buffer_float") && !renderer.extensions.has("EXT_color_buffer_half_float")) {
+        throw new Error("This graphics driver cannot render the high-precision image the production-render test needs, so it would come out black. Try another browser or update the graphics driver.");
+      }
+      renderer.getContext().canvas.addEventListener("webglcontextlost", () => { contextLost = true; });
       renderer.setPixelRatio(1);
       renderer.setSize(THREE_D_PATH_TRACE_PREVIEW.width, THREE_D_PATH_TRACE_PREVIEW.height, false);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -10380,6 +10398,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       renderer.autoClear = true;
       renderer.clear();
       denoiseQuad.render(renderer);
+      if (contextLost) throw new Error("The graphics card reset during the production-render test. Close other 3D tabs and try again.");
+      if (canvasIsBlack(canvas)) {
+        // Denoise pass produced nothing: show the raw path-traced samples instead.
+        denoiseQuad.dispose();
+        copyMaterial = new THREE.MeshBasicMaterial({ map: pathTracer.target.texture, toneMapped: false });
+        denoiseQuad = new FullScreenQuad(copyMaterial);
+        renderer.clear();
+        denoiseQuad.render(renderer);
+        if (canvasIsBlack(canvas)) {
+          throw new Error("The production-render test produced an all-black image on this device, so it was discarded. Nothing was saved. Please report the browser and graphics card.");
+        }
+      }
       const renderUrl = canvas.toDataURL("image/jpeg", 0.98);
       setPathTracePreview({ referenceUrl, renderUrl });
     } catch (error) {
@@ -10391,6 +10421,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       productionEnvironment?.dispose();
       denoiseQuad?.dispose();
       denoiseMaterial?.dispose();
+      copyMaterial?.dispose();
       convertedMaterials.forEach((material) => material.dispose());
       renderer?.dispose();
       setPathTracePreviewBusy(false);
