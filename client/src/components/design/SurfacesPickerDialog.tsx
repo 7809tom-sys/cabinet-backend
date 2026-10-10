@@ -150,6 +150,8 @@ export function SurfacesPickerDialog({
   onCountertopBacksplashHeightChange,
   activeThreeDBacksplashId = null,
   onSetActiveThreeDBacksplash,
+  backsplashEnabled = true,
+  onBacksplashEnabledChange,
   roomType = "kitchen",
   onPlaceBathroomFixture,
   bathroomPaletteMode = "fixtures",
@@ -175,6 +177,9 @@ export function SurfacesPickerDialog({
   /** The one selected tile/mosaic product currently dressing 3D wall segments. */
   activeThreeDBacksplashId?: number | null;
   onSetActiveThreeDBacksplash?: (item: SelectedSurface) => void;
+  /** Keeps the selected wall tile available while including or excluding backsplash from this plan. */
+  backsplashEnabled?: boolean;
+  onBacksplashEnabledChange?: (enabled: boolean) => void;
   /** Keeps bathroom catalog choices isolated from kitchen-only fixture families. */
   roomType?: string;
   /** Places a source-measured toilet, bidet, or tub as a movable plan/3D fixture. */
@@ -434,6 +439,18 @@ export function SurfacesPickerDialog({
           )}
           {((!isBathroom && category === "Tile & Mosaic") || (isBathroom && bathroomPaletteMode === "surfaces" && activeBathroomRole === "backsplash")) && (onBacksplashHeightModeChange || onCountertopBacksplashHeightChange) && (
             <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
+              {!isBathroom && onBacksplashEnabledChange && (
+                <div data-testid="backsplash-enabled-control" className="sm:col-span-2 flex flex-col gap-1.5 rounded-md border border-[#a87f33]/20 bg-white/70 p-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Backsplash</div>
+                    <p className="text-[10px] leading-relaxed text-muted-foreground">Off removes the selected wall tile from this plan’s display and calculated surface/material amounts; its choice remains ready to turn back on.</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5" role="group" aria-label="Backsplash option">
+                    <Button type="button" size="sm" variant={backsplashEnabled ? "default" : "outline"} aria-pressed={backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(true)}>On</Button>
+                    <Button type="button" size="sm" variant={!backsplashEnabled ? "default" : "outline"} aria-pressed={!backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(false)}>Off</Button>
+                  </div>
+                </div>
+              )}
               <div>
                 <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Wall tile coverage</div>
                 <div className="flex flex-wrap gap-1.5">

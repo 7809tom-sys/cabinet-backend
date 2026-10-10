@@ -128,6 +128,7 @@ interface Props {
     threeDPresentation?: {
       cabinetFinish?: string;
       countertopFinish?: string;
+      backsplashEnabled?: boolean;
       backsplashHeightMode?: "standard" | "full-height";
       countertopBacksplashHeightIn?: 0 | 2.5 | 3;
     } | null;
@@ -826,6 +827,7 @@ export function DesignActions({
                               threeDPresentation: (d as { threeDPresentation?: {
                                 cabinetFinish?: string;
                                 countertopFinish?: string;
+                                backsplashEnabled?: boolean;
                                 backsplashHeightMode?: "standard" | "full-height";
                                 countertopBacksplashHeightIn?: 0 | 2.5 | 3;
                               } | null }).threeDPresentation ?? null,
