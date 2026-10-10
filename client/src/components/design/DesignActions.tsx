@@ -613,14 +613,14 @@ export function DesignActions({
 
       {/* Save dialog */}
       <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="!flex h-[min(92dvh,900px)] max-h-[calc(100dvh-1rem)] w-[min(28rem,calc(100vw-1rem))] flex-col overflow-hidden p-5 sm:max-w-md">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{t("dt_act_save_title")}</DialogTitle>
             <DialogDescription>
               {t("dt_act_save_desc")}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain py-1 pr-1 [touch-action:pan-y]">
             <div className="space-y-1.5">
               <Label htmlFor="design-name" className="text-sm">{t("dt_act_design_name")}</Label>
               <Input
@@ -733,7 +733,7 @@ export function DesignActions({
               </p>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="shrink-0 flex-wrap gap-2 border-t border-border pt-3 sm:gap-0">
             <Button variant="outline" onClick={() => setSaveOpen(false)}>{t("dt_act_cancel")}</Button>
             {isAuthenticated ? (
               <Button onClick={handleSave} disabled={saveMutation.isPending} className="gap-1.5">
