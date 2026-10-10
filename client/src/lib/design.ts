@@ -12411,11 +12411,6 @@ function peninsulaVoidFillSurfaces(
             const joinA = Math.hypot(quad[2]!.x - quad[1]!.x, quad[2]!.y - quad[1]!.y);
             const joinB = Math.hypot(quad[3]!.x - quad[0]!.x, quad[3]!.y - quad[0]!.y);
             if (Math.max(joinA, joinB) > Math.max(aLen, bLen) + 1) continue;
-            // A fill whose four corners collapse to three (two corners within
-            // an inch and a half) is a triangle that pokes in at the inside
-            // corner of the turn. It is never wanted, so it is not added.
-            const distinctCorners = quad.filter((pt, index) => quad.every((other, otherIndex) => otherIndex >= index || Math.hypot(pt.x - other.x, pt.y - other.y) > 1.5)).length;
-            if (distinctCorners < 4) continue;
             const area = countertopPolygonArea(quad);
             if (area < 4) continue;
             const xs = quad.map((q) => q.x), ys = quad.map((q) => q.y);
