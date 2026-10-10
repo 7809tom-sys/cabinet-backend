@@ -12789,7 +12789,10 @@ export function countertopSurfaces(
       countertopHeightIn: RAISED_BAR_HEIGHT_IN,
     };
   }));
-  out.push(...raisedBarOuterMiterWedges(out, room));
+  // The raised bar's outer mitre wedge is intentionally NOT added: it showed as a
+  // triangle protruding off the top bar at the 45-degree turn. The two strips end
+  // at the turn; the lower countertop is unaffected.
+  void raisedBarOuterMiterWedges;
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {
