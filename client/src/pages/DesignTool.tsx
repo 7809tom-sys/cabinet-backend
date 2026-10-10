@@ -1245,6 +1245,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     compassWallStartIn: number | null;
   }>(null);
   const [peninsulaWizardOpen, setPeninsulaWizardOpen] = useState(false);
+  const [peninsulaWizardError, setPeninsulaWizardError] = useState<string | null>(null);
+  const failWizard = (message: string) => { setPeninsulaWizardError(message); toast.error(message); };
   const [peninsulaWizardDraft, setPeninsulaWizardDraft] = useState<PeninsulaWizardEditDraft | null>(null);
   /** Root run being rebuilt by the Wizard, never an arbitrary peninsula run. */
   const [editingPeninsulaWizardRootId, setEditingPeninsulaWizardRootId] = useState<string | null>(null);
@@ -4624,13 +4626,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const buildPeninsulaWizardLayout = useCallback(() => {
     const draft = peninsulaWizardDraft;
     if (!draft || layoutLocked) return;
+    setPeninsulaWizardError(null);
     if (styleIdRef.current == null) {
-      toast.error("Select a cabinet line and door style in the Designer before building a peninsula.");
+      failWizard("Select a cabinet line and door style in the Designer before building a peninsula.");
       return;
     }
     const pool = (autoFillCabinets as DesignCabinet[] | undefined) ?? [];
     if (pool.length === 0) {
-      toast.error("Choose a cabinet line and door style before building a peninsula.");
+      failWizard("Choose a cabinet line and door style before building a peninsula.");
       return;
     }
     // Ordered cabinet lists are authoritative.  Length inputs are deliberately
@@ -4642,7 +4645,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const primaryCabinets = cabinetsFor(draft.primaryCabinetIds);
     const returnCabinets = draft.endTurn === 45 ? cabinetsFor(draft.returnCabinetIds) : [];
     if (primaryCabinets.length === 0 || (draft.endTurn === 45 && returnCabinets.length === 0)) {
-      toast.error('Choose every cabinet for each peninsula leg. The Wizard will not create a run until its cabinet list is complete.');
+      failWizard('Choose every cabinet for each peninsula leg. The Wizard will not create a run until its cabinet list is complete.');
       return;
     }
     const primaryCabinetTotal = selectedPeninsulaCabinetTotalIn(primaryCabinets);
@@ -4668,7 +4671,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // already mounted on that return must remain exactly where the user put it,
 	    // so leave the assembly untouched rather than silently moving or orphaning it.
 	    if (returnTopologyChanged && ordinaryCabinetOnExistingReturn) {
-	      toast.error("This 45° return has an ordinary cabinet. Keep its turn and direction, or move that cabinet first; no Wizard items were changed.");
+	      failWizard("This 45° return has an ordinary cabinet. Keep its turn and direction, or move that cabinet first; no Wizard items were changed.");
 	      return;
 	    }
 	    const sourceRoom: RoomData = replacedRunIds.size
@@ -4698,7 +4701,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     };
     const maximumLength = peninsulaRunMaxLength(candidate, sourceRoom);
     if (candidate.length > maximumLength + COLLISION_EPSILON_IN) {
-      toast.error(`Your straight-leg cabinet list needs ${formatEighthInches(candidate.length)} including the 45° joint reserve, but only ${formatEighthInches(maximumLength)} fits inside this room. No cabinets were added.`);
+      failWizard(`Your straight-leg cabinet list needs ${formatEighthInches(candidate.length)} including the 45° joint reserve, but only ${formatEighthInches(maximumLength)} fits inside this room. No cabinets were added.`);
       return;
     }
     const run: PeninsulaRun = candidate;
@@ -4722,7 +4725,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       : null;
     const angledMaximum = angledCandidate ? peninsulaRunMaxLength(angledCandidate, primaryRoom) : 0;
     if (angledCandidate && angledCandidate.length > angledMaximum + COLLISION_EPSILON_IN) {
-      toast.error(`Your 45° return cabinet list needs ${formatEighthInches(angledCandidate.length)} including the joint reserve, but only ${formatEighthInches(angledMaximum)} fits inside this room. No cabinets were added.`);
+      failWizard(`Your 45° return cabinet list needs ${formatEighthInches(angledCandidate.length)} including the joint reserve, but only ${formatEighthInches(angledMaximum)} fits inside this room. No cabinets were added.`);
       return;
     }
     const angledRun = angledCandidate;
@@ -4744,7 +4747,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         ))
       : [];
     if (builtPonyWalls.some((ponyWall) => !ponyWallFitsRoom(ponyWall, nextRoom))) {
-      toast.error("The drywall back wall would extend outside the room. Shorten the peninsula or choose a different 45° end direction.");
+      failWizard("The drywall back wall would extend outside the room. Shorten the peninsula or choose a different 45° end direction.");
       return;
     }
 	    const appliance = draft.applianceCode === "none"
@@ -4757,7 +4760,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? firstCollisionFreePeninsulaPlacement(run.id as WallSide, nextRoom, preservedPlaced, appliance.width, appliance.depth, "appliance")
 	      : null;
     if (appliance && !applianceSpot) {
-      toast.error("That appliance cannot fit on this peninsula length. Increase the length or choose no appliance.");
+      failWizard("That appliance cannot fit on this peninsula length. Increase the length or choose no appliance.");
       return;
     }
     // The owner supplies the full cabinet sequence for each leg. No best-fit,
@@ -4784,11 +4787,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const selectedIds = wizardSequences[layoutRun.id] ?? [];
       const selectedCabinets = selectedIds.map((id) => peninsulaWizardBaseCabinets.find((cabinet) => cabinet.id === id) ?? null);
       if (selectedCabinets.some((cabinet) => cabinet == null)) {
-        toast.error("One of the selected peninsula cabinets is no longer available in this active line. Choose that cabinet again before building.");
+        failWizard("One of the selected peninsula cabinets is no longer available in this active line. Choose that cabinet again before building.");
         return;
       }
       if (selectedCabinets.length === 0) {
-        toast.error(`${layoutRun.label ?? "Peninsula run"}: choose every cabinet for this leg. The Wizard will not auto-fill it.`);
+        failWizard(`${layoutRun.label ?? "Peninsula run"}: choose every cabinet for this leg. The Wizard will not auto-fill it.`);
         return;
       }
 	      // A later ordinary cabinet on this same wall is retained as an obstacle,
@@ -4803,13 +4806,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        9,
 	      );
       if (segments.length !== 1) {
-        toast.error(`${layoutRun.label ?? "Peninsula run"}: an appliance or obstruction splits this leg. Place it manually so you can specify each cabinet around it; the Wizard will not guess.`);
+        failWizard(`${layoutRun.label ?? "Peninsula run"}: an appliance or obstruction splits this leg. Place it manually so you can specify each cabinet around it; the Wizard will not guess.`);
         return;
       }
       for (const segment of segments) {
         const plan = selectedPeninsulaCabinetSequencePlan(segment.length, selectedCabinets as PeninsulaWizardCabinet[], selectedLineFillers);
         if (plan.message) {
-          toast.error(`${layoutRun.label ?? "Peninsula run"}: ${plan.message}`);
+          failWizard(`${layoutRun.label ?? "Peninsula run"}: ${plan.message}`);
           return;
         }
         // The terminating gap on the straight leg is not an ordinary small-gap
@@ -4834,7 +4837,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               { start: segment.start, end: segment.start + segment.length - applianceDef.width },
             );
             if (!applianceSlot) {
-              toast.error(`Could not seat the ${applianceDef.description} on the measured ${layoutRun.label ?? "peninsula"} span.`);
+              failWizard(`Could not seat the ${applianceDef.description} on the measured ${layoutRun.label ?? "peninsula"} span.`);
               return;
             }
             working.push({
@@ -4859,7 +4862,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             { start: segment.start, end: segment.start + segment.length - width },
           );
           if (!spot) {
-	            toast.error(`Could not seat ${cabinet.masterCode} on the measured ${layoutRun.label ?? "peninsula"} span. Any ordinary cabinet on this run was kept; move it or choose a non-overlapping Wizard sequence.`);
+	            failWizard(`Could not seat ${cabinet.masterCode} on the measured ${layoutRun.label ?? "peninsula"} span. Any ordinary cabinet on this run was kept; move it or choose a non-overlapping Wizard sequence.`);
             return;
           }
           working.push({
@@ -4882,7 +4885,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (angledRun) {
       const miterRepair = repairMissingAngledWallFillers(working, nextRoom, catalogFillers, makeUid, styleIdRef.current ?? null);
       if (miterRepair.added.length === 0) {
-        toast.error("The 135° joint needs a matching catalog filler pair on this line. No peninsula was added; choose a line with a suitable filler or adjust the selected cabinet plan.");
+        failWizard(`The 135° joint needs a matching catalog filler pair on this line. No peninsula was added.${draft.endDirection === "left" && draft.cabinetSide === "left" ? " A left return with cabinets on the left side is not supported yet; set Cabinet placement side to Right side." : " Choose a line with a suitable filler or adjust the selected cabinet plan."}`);
         return;
       }
       for (const filler of miterRepair.added) wizardCabinetUids.add(filler.uid);
@@ -4896,7 +4899,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       return ownerIds.some((id) => builtRunIds.has(id)) && !countertopSurfaceInsideRoom(surface, nextRoom);
     });
     if (escapedCountertop) {
-      toast.error('This cabinet plan would send a countertop through a room wall. No cabinets were added; change the wall, direction, or seating side.');
+      failWizard('This cabinet plan would send a countertop through a room wall. No cabinets were added; change the wall, direction, or seating side.');
       return;
     }
     // A raised bar is its own 42-inch slab with a continuous 40½-inch drywall
@@ -4909,7 +4912,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         ))
       : [];
     if (raisedBarSupport.some((ponyWall) => !ponyWallFitsRoom(ponyWall, nextRoom))) {
-      toast.error("The split-level bar support would extend outside the measured room. Adjust the length, 45° end, or cabinet side.");
+      failWizard("The split-level bar support would extend outside the measured room. Adjust the length, 45° end, or cabinet side.");
       return;
     }
     // Bar stools are furniture-only space-planning markers for an explicit
@@ -16165,7 +16168,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  </div>
 	                </div>
 	              )}
-	              <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
+	              {peninsulaWizardError && <div role="alert" data-testid="peninsula-wizard-error" className="shrink-0 border-t border-red-200 bg-red-50 px-4 py-2 text-xs font-medium text-red-800">{peninsulaWizardError}</div>}
+              <DialogFooter className="shrink-0 border-t bg-background px-4 py-3">
 	                      <Button type="button" variant="outline" onClick={() => {
 	                        setPeninsulaWizardOpen(false);
 	                        setEditingPeninsulaWizardRootId(null);
