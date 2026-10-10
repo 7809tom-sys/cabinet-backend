@@ -1903,9 +1903,24 @@ export function peninsulaLowerWorktopOppositeSideExtensionIn(
   run: PeninsulaRun,
   room: Pick<RoomData, "peninsulaRuns">,
 ): number {
-  void run;
-  void room;
-  return 0;
+  // Regular (non-step) tops only: the chosen 12/15-inch seating projection grows
+  // AWAY from the cabinet faces (the back of the peninsula). The front edge stays
+  // at the 1½-inch finished edge, and a split-level bar keeps its own strip.
+  const runs = room.peninsulaRuns ?? [];
+  const root = (() => {
+    let current: PeninsulaRun | undefined = run;
+    const seen = new Set<string>();
+    while (current?.parentRunId && !seen.has(current.id)) {
+      seen.add(current.id);
+      current = runs.find((candidate) => candidate.id === current!.parentRunId);
+    }
+    return current ?? run;
+  })();
+  if (run.countertopRaisedBar === true || root.countertopRaisedBar === true) return 0;
+  // Only Peninsula Wizard assemblies carry this option; hand-placed peninsulas
+  // keep following the cabinet footprint exactly.
+  if (!(root as { wizardRecipe?: unknown }).wizardRecipe) return 0;
+  return peninsulaCountertopSeatingOverhang(run, room);
 }
 
 /** A connected countertop has one exposed far end; move a legacy root flag to the terminal run. */
