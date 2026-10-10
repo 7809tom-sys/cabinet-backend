@@ -30,6 +30,7 @@ import { cartItemToCheckoutPrefill } from "@/lib/cartCheckoutPrefill";
 import { separateGlassPurchaseItems } from "@/lib/cartGlassPolicy";
 import { formatEighthInches } from "@/lib/design";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
+import { optionalPositiveFreightId } from "@shared/freight";
 import { FreightCalculatingStatus } from "@/components/order/FreightCalculatingStatus";
 
 // Key the OrderBuilder reads on mount to prefill the review step from the cart.
@@ -205,8 +206,8 @@ export default function Cart() {
       .map((item) => ({
         cabinetId: null,
         masterCode: item.masterCode,
-        styleId: item.styleId,
-        distributorId: item.distributorId,
+        styleId: optionalPositiveFreightId(item.styleId),
+        distributorId: optionalPositiveFreightId(item.distributorId),
         qty: item.qty,
         weightLbs: null,
         productKind: item.productKind ?? null,

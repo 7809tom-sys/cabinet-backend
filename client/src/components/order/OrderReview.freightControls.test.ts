@@ -34,11 +34,12 @@ describe("OrderReview freight accessorial controls", () => {
 
   it("requests a grouped freight quote with style provenance and the selected accessorials", () => {
     expect(source).toContain("trpc.freight.estimate.useQuery(freightInput");
-    expect(source).toContain("styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null");
+    expect(source).toContain("optionalPositiveFreightId(line.cartStyleId)");
+    expect(source).toContain("optionalPositiveFreightId(selectedStyle?.styleId)");
     expect(source).toContain('residential: deliveryLocationType === "residential"');
     expect(source).toContain("liftgate: liftgateRequired");
-    expect(source).toContain("distributorId: line.cartDistributorId ?? null");
-    expect(source).toContain("distributorId: isSurfaceCheckoutLine(l) ? null : l.cartDistributorId ?? null");
+    expect(source).toContain("distributorId: optionalPositiveFreightId(line.cartDistributorId)");
+    expect(source).toContain("distributorId: isSurfaceCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId)");
     expect(source).toContain("final pallet dimensions and loaded weight");
   });
 

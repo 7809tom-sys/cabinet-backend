@@ -21,17 +21,25 @@ describe("freightQuoteItemsForOrder", () => {
     );
   });
 
-  it("keeps ordinary cabinet freight lines while excluding surface and temporary test lines", () => {
+  it("keeps cabinet and Pelican freight lines while excluding only the temporary test line", () => {
+    const pelicanLine = {
+      cabinetId: null,
+      masterCode: "PEL-38",
+      styleId: null,
+      distributorId: null,
+      productKind: "surface" as const,
+      qty: 1,
+    };
+    const pelicanTokenItem = {
+      cabinetId: null,
+      masterCode: "PEL-38",
+      styleId: null,
+      distributorId: null,
+      qty: 1,
+    };
     const quoteItems = freightQuoteItemsForOrder([
       cabinetLine,
-      {
-        cabinetId: null,
-        masterCode: "PEL-38",
-        styleId: null,
-        distributorId: null,
-        productKind: "surface" as const,
-        qty: 1,
-      },
+      pelicanLine,
       {
         cabinetId: 1,
         masterCode: TEMPORARY_ONE_DOLLAR_TEST_SKU,
@@ -41,6 +49,6 @@ describe("freightQuoteItemsForOrder", () => {
       },
     ]);
 
-    expect(quoteItems).toEqual([cabinetLine]);
+    expect(quoteItems).toEqual([cabinetLine, pelicanTokenItem]);
   });
 });

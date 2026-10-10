@@ -14,8 +14,15 @@ describe("cart live freight quoting", () => {
     expect(cartSource).toContain("const cartFreightItems");
     expect(cartSource).toContain("item.distributorId != null");
     expect(cartSource).toContain("trpc.freight.estimate.useQuery(cartFreightInput");
-    expect(cartSource).toContain("distributorId: item.distributorId");
+    expect(cartSource).toContain("distributorId: optionalPositiveFreightId(item.distributorId)");
     expect(cartSource).toContain("Get shipping quote");
+  });
+
+  it("converts legacy zero cart IDs to null before the positive-ID freight schema validates them", () => {
+    expect(cartSource).toContain('import { optionalPositiveFreightId } from "@shared/freight"');
+    expect(cartSource).toContain("styleId: optionalPositiveFreightId(item.styleId)");
+    expect(cartSource).toContain("distributorId: optionalPositiveFreightId(item.distributorId)");
+    expect(reviewSource).toContain("optionalPositiveFreightId(line.cartStyleId)");
   });
 
   it("shows the live carrier pallet plan instead of a generic shipping estimate", () => {
@@ -53,7 +60,7 @@ describe("cart live freight quoting", () => {
   it("preserves the cart supplier selection when the customer continues into Order Review", () => {
     expect(builderSource).toContain("applyCartCheckoutPrefill(line, cartLine)");
     expect(prefillSource).toContain("cartDistributorId: item.distributorId ?? null");
-    expect(reviewSource).toContain("distributorId: line.cartDistributorId ?? null");
+    expect(reviewSource).toContain("distributorId: optionalPositiveFreightId(line.cartDistributorId)");
   });
 
   it("carries an intentional UPS parcel preference into secure checkout", () => {

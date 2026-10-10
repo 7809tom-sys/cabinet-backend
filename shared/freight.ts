@@ -9,6 +9,15 @@
 
 export type RateModel = "per_cwt" | "flat";
 
+/**
+ * Older cart records sometimes use 0 as an absent style or distributor ID.
+ * Freight procedures require positive catalog IDs, so normalize the legacy
+ * sentinel before a quote request is created or signed.
+ */
+export function optionalPositiveFreightId(value: number | null | undefined): number | null {
+  return Number.isInteger(value) && (value ?? 0) > 0 ? value! : null;
+}
+
 export interface FreightSettings {
   enabled: boolean;
   originZip: string;

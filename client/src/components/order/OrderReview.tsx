@@ -38,6 +38,7 @@ import { checkoutUnitPriceForLine, isCabinetFreightLine } from "@/lib/orderLineP
 import { getSiteSignInUrl } from "@/const";
 import { isTemporaryOneDollarFreeShippingOrder, isTemporaryOneDollarCheckoutTestItem } from "@shared/temporaryCheckoutTest";
 import { isStagingTestHost } from "@shared/stagingTestMode";
+import { optionalPositiveFreightId } from "@shared/freight";
 
 // A single working line in the review table. Derived from the matcher output
 // but locally editable (qty, swap an unmatched code, remove).
@@ -528,8 +529,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         .map((line) => ({
           cabinetId: line.cabinetId,
           masterCode: line.masterCode,
-          styleId: line.cartStyleId ?? selectedStyle?.styleId ?? null,
-          distributorId: line.cartDistributorId ?? null,
+          styleId: isSurfaceCheckoutLine(line)
+            ? null
+            : optionalPositiveFreightId(line.cartStyleId) ?? optionalPositiveFreightId(selectedStyle?.styleId),
+          distributorId: optionalPositiveFreightId(line.cartDistributorId),
           qty: line.qty,
           weightLbs: null,
           productKind: line.cartProductKind ?? null,
@@ -705,8 +708,10 @@ export function OrderReview({ lines, source, onLinesChange, onReset, initialStyl
         qty: l.qty,
         unitPrice: l.unitPrice,
         linePrice: l.linePrice,
-        styleId: isSurfaceCheckoutLine(l) ? null : l.cartStyleId ?? selectedStyle?.styleId ?? null,
-        distributorId: isSurfaceCheckoutLine(l) ? null : l.cartDistributorId ?? null,
+        styleId: isSurfaceCheckoutLine(l)
+          ? null
+          : optionalPositiveFreightId(l.cartStyleId) ?? optionalPositiveFreightId(selectedStyle?.styleId),
+        distributorId: isSurfaceCheckoutLine(l) ? null : optionalPositiveFreightId(l.cartDistributorId),
         productKind: isSurfaceCheckoutLine(l) ? "surface" : null,
         doorStyle: isSurfaceCheckoutLine(l) ? null : brandedStyleName ?? null,
         tier: resolveCheckoutTier(l.cartTier, accountTier),
