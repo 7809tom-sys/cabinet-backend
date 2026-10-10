@@ -14,3 +14,11 @@ describe("Wizard 45-degree peninsula lower countertop", () => {
     expect(total).toBeGreaterThan(2400);
   });
 });
+describe("Wizard 45-degree miter wedge winding", () => {
+  it("is counter-clockwise like every other slab so its top face is visible", () => {
+    const signed = (p: { x: number; y: number }[]) => p.reduce((sum, q, i) => { const n = p[(i + 1) % p.length]!; return sum + q.x * n.y - n.x * q.y; }, 0) / 2;
+    const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
+    expect(lows.length).toBe(3);
+    for (const s of lows) expect(signed(countertopSurfacePlanPolygon(s))).toBeGreaterThan(0);
+  });
+});

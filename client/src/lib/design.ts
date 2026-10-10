@@ -12433,6 +12433,13 @@ function peninsulaVoidFillSurfaces(
         }
       }
       if (!best) continue;
+      // Keep the fill counter-clockwise like every cabinet slab; a clockwise
+      // fill is drawn as its underside and shows the cabinet through the top.
+      const fillSignedArea = best.quad.reduce((sum, pt, index) => {
+        const next = best.quad[(index + 1) % best.quad.length]!;
+        return sum + pt.x * next.y - next.x * pt.y;
+      }, 0);
+      if (fillSignedArea < 0) best.quad.reverse();
       const surface = countertopSurfaceFromWorldPolygon(best.quad, A.surface.peninsulaRunId ?? B.surface.peninsulaRunId ?? "");
       // The 3D peninsula renderer centers polygon vertices using linearInches.
       // Without it the renderer falls back to the entire parent run length,
