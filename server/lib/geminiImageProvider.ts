@@ -9,6 +9,8 @@ type GeminiImageTestInput = {
   prompt: string;
   sourceImageBase64: string;
   sourceMimeType: "image/jpeg";
+  /** Database material pictures (countertop, backsplash, door, floor) sent after the plan image. */
+  references?: Array<{ label: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; base64: string }>;
 };
 
 type GeminiImageTestOutput = {
@@ -176,7 +178,12 @@ export async function generateGeminiExactPlanTest(input: GeminiImageTestInput): 
       body: JSON.stringify({
         contents: [{ parts: [
           { text: input.prompt },
+          { text: "IMAGE 1 — THE LOCKED KITCHEN PLAN. This is the only layout. Copy its cabinets exactly." },
           { inlineData: { mimeType: input.sourceMimeType, data: input.sourceImageBase64 } },
+          ...(input.references ?? []).flatMap((reference, index) => [
+            { text: `IMAGE ${index + 2} — MATERIAL SAMPLE ONLY: ${reference.label}. Use this only as the surface finish of the matching part of image 1. Do not copy its layout and do not add anything from it.` },
+            { inlineData: { mimeType: reference.mimeType, data: reference.base64 } },
+          ]),
         ] }],
         generationConfig: {
           responseModalities: ["IMAGE"],

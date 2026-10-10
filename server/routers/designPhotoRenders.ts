@@ -588,6 +588,8 @@ function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceI
     "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
     "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
     specification ? `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Island cabinets are ${specification.islandCabinets?.color ?? "not present"} ${specification.islandCabinets?.doorStyle ?? ""}. Do not change these colors or styles. Perimeter countertop: ${specification.perimeterCountertop ?? "selected"}. Island countertop: ${specification.islandCountertop ?? "none"}. Hardware: ${specification.hardware ?? "as shown"}. Appliances: ${specification.appliances.join(", ") || "only those shown"}.` : "",
+    "FOLLOW THE KITCHEN PLAN ONLY. Image 1 is the complete list of cabinets: count the base, wall, tall, and island cabinets in it and render exactly that many, in exactly those positions, with the same widths, door and drawer counts, and gaps. Do not add a cabinet, a cabinet run, an island, a shelf unit, open shelving, a hutch, a pantry, or any furniture that is not in image 1. Empty wall space in image 1 must stay empty wall (a window, plain wall, or backsplash), never new cabinets. Props are the only additions.",
+    "The countertop sample picture and the backsplash sample picture that follow are the exact products from the CabinetDealz database. Match their color, veining, pattern, and tile layout exactly: countertop sample on every countertop surface, backsplash sample on the backsplash area between the countertop and wall cabinets, and do not substitute a different stone, tile, or color.",
     "Light staging is allowed and wanted: add only a plant, coffee cup, bowl, towel, cookbook, or similarly minimal kitchen accessory. Keep counters mostly clear so cabinet doors and drawers remain visible. Props must not cover the island cabinet faces.",
     "Never add or move cabinets, appliances, windows, walls, fixtures, or architectural elements. The layout, camera, and dimensions remain exactly the locked design.",
     "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
@@ -602,6 +604,48 @@ export function photoRenderProvenanceSummary(provenance: PhotoRenderProvenanceIn
   return `Saved design #${provenance.designId}${provenance.designRevision ? ` revision ${provenance.designRevision}` : ""}. Cabinet finish: ${material("cabinet")}. Countertop: ${material("countertop")}. Flooring: ${material("flooring")}. Backsplash: ${material("backsplash")}. Faucet: ${material("faucet")}. Sink: ${material("sink")}.`;
 }
 
+
+/**
+ * Pictures of the selected countertop, backsplash, door finish and flooring,
+ * taken from the product database (never from the browser), so Google renders
+ * the real material instead of guessing.
+ */
+async function geminiMaterialReferences(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  provenance: PhotoRenderProvenanceInput,
+) {
+  const wanted: Array<{ role: string; label: string; productId: number | null; url: string | null }> = [];
+  for (const material of provenance.materials ?? []) {
+    if (!["countertop", "backsplash", "cabinet", "flooring"].includes(material.role)) continue;
+    wanted.push({ role: material.role, label: `${material.role === "cabinet" ? "cabinet door finish" : material.role}${material.name ? ` — ${material.name}` : ""}`, productId: material.productId, url: material.materialImageUrl });
+  }
+  const specification = provenance.renderSpecification;
+  if (specification?.islandCabinets?.materialImageUrl && !wanted.some((entry) => entry.url === specification.islandCabinets?.materialImageUrl)) {
+    wanted.push({ role: "island", label: `island cabinet finish — ${specification.islandCabinets.color ?? specification.islandCabinets.name ?? "island"}`, productId: specification.islandCabinets.productId, url: specification.islandCabinets.materialImageUrl });
+  }
+  const order = ["countertop", "backsplash", "cabinet", "island", "flooring"];
+  wanted.sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
+  const out: Array<{ label: string; mimeType: "image/jpeg"; base64: string }> = [];
+  for (const entry of wanted.slice(0, 6)) {
+    try {
+      let url = entry.url;
+      if (!url && entry.productId) {
+        const [product] = await db.select({ materialImageUrl: pelicanProducts.materialImageUrl, imageUrl: pelicanProducts.imageUrl }).from(pelicanProducts).where(eq(pelicanProducts.id, entry.productId)).limit(1);
+        url = product?.materialImageUrl ?? product?.imageUrl ?? null;
+      }
+      const signed = await signedReferenceUrl(url);
+      if (!signed) continue;
+      const response = await fetch(signed, { signal: AbortSignal.timeout(15_000) });
+      if (!response.ok) continue;
+      const bytes = Buffer.from(await response.arrayBuffer());
+      const jpeg = await sharp(bytes).rotate().resize({ width: 768, height: 768, fit: "inside", withoutEnlargement: true }).jpeg({ quality: 88 }).toBuffer();
+      out.push({ label: entry.label, mimeType: "image/jpeg", base64: jpeg.toString("base64") });
+    } catch {
+      // A missing sample picture must not stop the render; the prompt still names the material.
+    }
+  }
+  return out;
+}
 const activeGeminiImageTestJobs = new Set<number>();
 
 /**
@@ -626,11 +670,14 @@ async function runQueuedGeminiImageTestJob(jobId: number) {
     const sourceBytes = Buffer.from(await sourceResponse.arrayBuffer());
     const dimensions = readJpegDimensions(sourceBytes);
     if (dimensions.width < 1920 || dimensions.height < 1080) throw new Error("The stored Google test reference is below the required 1920×1080 size. Start a fresh test.");
-    const prompt = exactPlanPrompt(photoRenderProvenanceSummary(job.provenance as PhotoRenderProvenanceInput));
+    const jobProvenance = job.provenance as PhotoRenderProvenanceInput;
+    const prompt = exactPlanPrompt(photoRenderProvenanceSummary(jobProvenance), jobProvenance.renderSpecification);
+    const references = await geminiMaterialReferences(db, jobProvenance);
     const image = await generateGeminiExactPlanTest({
       prompt,
       sourceImageBase64: sourceBytes.toString("base64"),
       sourceMimeType: "image/jpeg",
+      references,
     });
     await persistGeminiImageTestResult(db, job, image);
   } catch (error) {
