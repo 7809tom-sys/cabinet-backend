@@ -10336,9 +10336,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       const canvas = document.createElement("canvas");
       renderer = new THREE.WebGLRenderer({ canvas, antialias: true, stencil: true, preserveDrawingBuffer: true, powerPreference: "high-performance" });
       if (!renderer.capabilities.isWebGL2) throw new Error("This browser does not support the WebGL2 renderer required for the production-render test.");
-      if (!renderer.extensions.has("EXT_color_buffer_float") && !renderer.extensions.has("EXT_color_buffer_half_float")) {
-        throw new Error("This graphics driver cannot render the high-precision image the production-render test needs, so it would come out black. Try another browser or update the graphics driver.");
-      }
+      // Path tracing needs float render targets. Not every computer has them, so
+      // when they are missing (or the result is black) the same scene is rendered
+      // with the standard renderer the Designer itself uses.
+      const canPathTrace = renderer.extensions.has("EXT_color_buffer_float") || renderer.extensions.has("EXT_color_buffer_half_float");
       renderer.getContext().canvas.addEventListener("webglcontextlost", () => { contextLost = true; });
       renderer.setPixelRatio(1);
       renderer.setSize(THREE_D_PATH_TRACE_PREVIEW.width, THREE_D_PATH_TRACE_PREVIEW.height, false);
@@ -10368,49 +10369,70 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         Math.max(...Object.values(wallHeights)) * INCH,
       );
 
-      pathTracer = new WebGLPathTracer(renderer);
-      pathTracer.bounces = THREE_D_PATH_TRACE_PREVIEW.bounces;
-      pathTracer.multipleImportanceSampling = true;
-      pathTracer.filterGlossyFactor = 0.24;
-      pathTracer.minSamples = 1;
-      pathTracer.renderDelay = 0;
-      pathTracer.fadeDuration = 0;
-      pathTracer.dynamicLowRes = false;
-      pathTracer.rasterizeScene = false;
-      pathTracer.renderToCanvas = false;
-      pathTracer.tiles.set(2, 2);
-      pathTracer.setScene(pathTraceScene, pathTraceCamera);
-      for (let sample = 0; sample < THREE_D_PATH_TRACE_PREVIEW.samples; sample += 1) {
-        pathTracer.renderSample();
-        if ((sample + 1) % 8 === 0 || sample + 1 === THREE_D_PATH_TRACE_PREVIEW.samples) {
-          setPathTracePreviewProgress(Math.round(((sample + 1) / THREE_D_PATH_TRACE_PREVIEW.samples) * 100));
+      let usedStandardRender = false;
+      try {
+        if (!canPathTrace) throw new Error("float render targets unavailable");
+        pathTracer = new WebGLPathTracer(renderer);
+        pathTracer.bounces = THREE_D_PATH_TRACE_PREVIEW.bounces;
+        pathTracer.multipleImportanceSampling = true;
+        pathTracer.filterGlossyFactor = 0.24;
+        pathTracer.minSamples = 1;
+        pathTracer.renderDelay = 0;
+        pathTracer.fadeDuration = 0;
+        pathTracer.dynamicLowRes = false;
+        pathTracer.rasterizeScene = false;
+        pathTracer.renderToCanvas = false;
+        pathTracer.tiles.set(2, 2);
+        pathTracer.setScene(pathTraceScene, pathTraceCamera);
+        for (let sample = 0; sample < THREE_D_PATH_TRACE_PREVIEW.samples; sample += 1) {
+          pathTracer.renderSample();
+          if ((sample + 1) % 8 === 0 || sample + 1 === THREE_D_PATH_TRACE_PREVIEW.samples) {
+            setPathTracePreviewProgress(Math.round(((sample + 1) / THREE_D_PATH_TRACE_PREVIEW.samples) * 100));
+          }
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
         }
-        await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      }
-      denoiseMaterial = new DenoiseMaterial({
-        map: pathTracer.target.texture,
-        sigma: THREE_D_PATH_TRACE_PREVIEW.denoise.sigma,
-        kSigma: THREE_D_PATH_TRACE_PREVIEW.denoise.kSigma,
-        threshold: THREE_D_PATH_TRACE_PREVIEW.denoise.threshold,
-      });
-      denoiseQuad = new FullScreenQuad(denoiseMaterial);
-      renderer.setRenderTarget(null);
-      renderer.autoClear = true;
-      renderer.clear();
-      denoiseQuad.render(renderer);
-      if (contextLost) throw new Error("The graphics card reset during the production-render test. Close other 3D tabs and try again.");
-      if (canvasIsBlack(canvas)) {
-        // Denoise pass produced nothing: show the raw path-traced samples instead.
-        denoiseQuad.dispose();
-        copyMaterial = new THREE.MeshBasicMaterial({ map: pathTracer.target.texture, toneMapped: false });
-        denoiseQuad = new FullScreenQuad(copyMaterial);
+        denoiseMaterial = new DenoiseMaterial({
+          map: pathTracer.target.texture,
+          sigma: THREE_D_PATH_TRACE_PREVIEW.denoise.sigma,
+          kSigma: THREE_D_PATH_TRACE_PREVIEW.denoise.kSigma,
+          threshold: THREE_D_PATH_TRACE_PREVIEW.denoise.threshold,
+        });
+        denoiseQuad = new FullScreenQuad(denoiseMaterial);
+        renderer.setRenderTarget(null);
+        renderer.autoClear = true;
         renderer.clear();
         denoiseQuad.render(renderer);
+        if (contextLost) throw new Error("graphics context was lost");
         if (canvasIsBlack(canvas)) {
-          throw new Error("The production-render test produced an all-black image on this device, so it was discarded. Nothing was saved. Please report the browser and graphics card.");
+          // Denoise pass produced nothing: show the raw path-traced samples instead.
+          denoiseQuad.dispose();
+          copyMaterial = new THREE.MeshBasicMaterial({ map: pathTracer.target.texture, toneMapped: false });
+          denoiseQuad = new FullScreenQuad(copyMaterial);
+          renderer.clear();
+          denoiseQuad.render(renderer);
+          if (canvasIsBlack(canvas)) {
+            throw new Error("path-traced image was black");
+          }
         }
+
+      } catch (pathTraceFailure) {
+        console.warn("[production-render-test] path tracing unavailable, using standard render", pathTraceFailure);
+        if (contextLost) throw new Error("The browser reset its graphics session during the test. Close other 3D tabs and try again.");
+        pathTracer?.dispose();
+        pathTracer = null;
+        denoiseQuad?.dispose();
+        denoiseQuad = null;
+        renderer.setRenderTarget(null);
+        renderer.autoClear = true;
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.clear();
+        renderer.render(pathTraceScene, pathTraceCamera);
+        usedStandardRender = true;
+        if (canvasIsBlack(canvas)) throw new Error("The production-render test could not draw the scene on this browser. Nothing was saved.");
       }
       const renderUrl = canvas.toDataURL("image/jpeg", 0.98);
+      if (usedStandardRender) toast.message("Rendered with the standard 3D renderer at 1920×1080 (path tracing is not available on this browser).");
       setPathTracePreview({ referenceUrl, renderUrl });
     } catch (error) {
       const message = error instanceof Error ? error.message : "The production-render test could not create a path-traced image.";
