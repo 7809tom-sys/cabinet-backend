@@ -9572,9 +9572,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     try {
       renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, stencil: true, powerPreference: "high-performance", preserveDrawingBuffer: true });
 	    } catch {
-	      setWebglUnavailable(true);
-	      onGeometryRenderedRef.current?.();
-	      return;
+	      // Some browsers refuse the first request (another tab or an earlier test may still
+	      // hold graphics contexts). Retry with plainer settings before giving up.
+	      try {
+	        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
+	      } catch {
+	        setWebglUnavailable(true);
+	        onGeometryRenderedRef.current?.();
+	        return;
+	      }
 	    }
 	    renderer.setPixelRatio(Math.min(window.devicePixelRatio, renderQuality.pixelRatioCap));
 	    renderer.setSize(canvasWidth, canvasHeight);
@@ -10446,6 +10452,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       copyMaterial?.dispose();
       convertedMaterials.forEach((material) => material.dispose());
       renderer?.dispose();
+      // dispose() alone leaves the browser graphics context open; release it so the
+      // interactive 3D view can always create its own.
+      renderer?.forceContextLoss();
       setPathTracePreviewBusy(false);
       setPathTracePreviewProgress(0);
     }
