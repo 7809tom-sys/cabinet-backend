@@ -11435,6 +11435,73 @@ function raisedBarOuterMiterWedges(
   }
   return wedges;
 }
+/**
+ * Raised-bar strips on a straight leg and its 45-degree return stop short of each other at the
+ * outer corner, leaving a notch. Extend BOTH strips along their own outer and cabinet-side edges
+ * until those edges meet, so the two strips share one clean mitre line. No extra piece is added.
+ */
+function joinRaisedBarStripsAtMiter(
+  surfaces: CountertopSurface[],
+  room: Pick<RoomData, "peninsulaRuns">,
+): CountertopSurface[] {
+  const result = [...surfaces];
+  const raisedIndex = (runId: string) => result.findIndex((surface) => (
+    surface.raisedBar && surface.peninsulaRunId === runId && countertopSurfacePlanPolygon(surface).length === 4
+  ));
+  const hit = (a: CountertopPlanPoint, b: CountertopPlanPoint, c: CountertopPlanPoint, d: CountertopPlanPoint) => {
+    const r = { x: b.x - a.x, y: b.y - a.y };
+    const q = { x: d.x - c.x, y: d.y - c.y };
+    const det = r.x * q.y - r.y * q.x;
+    if (Math.abs(det) < 1e-6) return null;
+    const t = ((c.x - a.x) * q.y - (c.y - a.y) * q.x) / det;
+    return { x: a.x + r.x * t, y: a.y + r.y * t };
+  };
+  const mid = (u: CountertopPlanPoint, v: CountertopPlanPoint) => ({ x: (u.x + v.x) / 2, y: (u.y + v.y) / 2 });
+  for (const child of room.peninsulaRuns ?? []) {
+    if (!child.parentRunId) continue;
+    const ia = raisedIndex(child.parentRunId);
+    const ib = raisedIndex(child.id);
+    if (ia < 0 || ib < 0) continue;
+    const pa = countertopSurfacePlanPolygon(result[ia]!);
+    const pb = countertopSurfacePlanPolygon(result[ib]!);
+    // Strip outline: [outer0, outer1, inner1, inner0]. End edges are (1,2) and (3,0).
+    const ends = [
+      { outer: 1, inner: 2 },
+      { outer: 0, inner: 3 },
+    ];
+    let best: { ea: number; eb: number; d: number } | null = null;
+    for (let ea = 0; ea < 2; ea += 1) {
+      for (let eb = 0; eb < 2; eb += 1) {
+        const ma = mid(pa[ends[ea]!.outer]!, pa[ends[ea]!.inner]!);
+        const mb = mid(pb[ends[eb]!.outer]!, pb[ends[eb]!.inner]!);
+        const d = Math.hypot(ma.x - mb.x, ma.y - mb.y);
+        if (!best || d < best.d) best = { ea, eb, d };
+      }
+    }
+    if (!best || best.d < 1e-3 || best.d > 60) continue;
+    const outerApex = hit(pa[0]!, pa[1]!, pb[0]!, pb[1]!);
+    const innerApex = hit(pa[3]!, pa[2]!, pb[3]!, pb[2]!);
+    if (!outerApex || !innerApex) continue;
+    const reach = (poly: CountertopPlanPoint[], end: { outer: number; inner: number }) => ({
+      outer: Math.hypot(outerApex.x - poly[end.outer]!.x, outerApex.y - poly[end.outer]!.y),
+      inner: Math.hypot(innerApex.x - poly[end.inner]!.x, innerApex.y - poly[end.inner]!.y),
+    });
+    const ra = reach(pa, ends[best.ea]!);
+    const rb = reach(pb, ends[best.eb]!);
+    if (Math.max(ra.outer, ra.inner, rb.outer, rb.inner) > 40) continue;
+    const rebuild = (index: number, poly: CountertopPlanPoint[], end: { outer: number; inner: number }) => {
+      const next = poly.map((point) => ({ ...point }));
+      next[end.outer] = { ...outerApex };
+      next[end.inner] = { ...innerApex };
+      const rebuilt = countertopSurfaceFromWorldPolygon(next, result[index]!.peninsulaRunId);
+      if (!rebuilt) return;
+      result[index] = { ...result[index]!, ...rebuilt, rotation: 0, peninsulaRunIds: result[index]!.peninsulaRunIds };
+    };
+    rebuild(ia, pa, ends[best.ea]!);
+    rebuild(ib, pb, ends[best.eb]!);
+  }
+  return result;
+}
 export function peninsulaRaisedBarSurface(
   run: PeninsulaRun,
   room: RoomData,
@@ -12817,6 +12884,7 @@ export function countertopSurfaces(
   // triangle protruding off the top bar at the 45-degree turn. The two strips end
   // at the turn; the lower countertop is unaffected.
   void raisedBarOuterMiterWedges;
+  out.splice(0, out.length, ...joinRaisedBarStripsAtMiter(out, room));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {
