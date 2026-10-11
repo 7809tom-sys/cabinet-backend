@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   LayoutDashboard, LogOut, PanelLeft, ShoppingBag, DollarSign,
   Palette, FileText, BarChart2, Megaphone, Tag, BookOpen, ExternalLink,
-  Calendar, Gift, Users, Puzzle, Wrench, PackageOpen,
+  Calendar, Gift, Users, Puzzle, Wrench, PackageOpen, ImageIcon,
 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
@@ -42,6 +42,7 @@ export type AffiliateSection =
   | "earnings"
   | "analytics"
   | "catalog"
+  | "images"
   | "pricing"
   | "promotions"
   | "appointments"
@@ -62,6 +63,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: DollarSign, label: "Earnings", section: "earnings" },
   { icon: BarChart2, label: "Analytics", section: "analytics" },
   { icon: BookOpen, label: "My Catalog", section: "catalog" },
+  { icon: ImageIcon, label: "Image Cabinet", section: "images" },
   { icon: Tag, label: "Pricing & Margins", section: "pricing" },
   { icon: Gift, label: "Promotions & Banners", section: "promotions" },
   { icon: Calendar, label: "Appointments", section: "appointments" },

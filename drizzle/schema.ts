@@ -1396,6 +1396,11 @@ export const affiliates = mysqlTable("affiliates", {
   userId: int("userId"), // linked partner-role user account (nullable until they sign in)
   // Storefront branding
   logoUrl: varchar("logoUrl", { length: 512 }),
+  // Generated-image brand protection. When enabled, affiliate-owned generated
+  // images receive a deterministic logo watermark in the fixed safe corner.
+  watermarkEnabled: boolean("watermarkEnabled").default(false).notNull(),
+  watermarkPosition: mysqlEnum("watermarkPosition", ["bottom-right"]).default("bottom-right").notNull(),
+  watermarkOpacityBps: int("watermarkOpacityBps").default(7200).notNull(),
   primaryColor: varchar("primaryColor", { length: 16 }), // hex, e.g. "#0f2a4a"
   accentColor: varchar("accentColor", { length: 16 }), // hex, e.g. "#c79a4b"
   // Public storefront contact details are distinct from the affiliate owner's
@@ -1509,6 +1514,30 @@ export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
 
 export type AffiliateStyleBranding = typeof affiliateStyleBranding.$inferSelect;
 export type InsertAffiliateStyleBranding = typeof affiliateStyleBranding.$inferInsert;
+
+// ─── Affiliate-owned generated image cabinet ─────────────────────────────────
+// The original generated file remains immutable. A watermarkedUrl is a
+// separate affiliate-owned derivative and can be featured without changing the
+// central supplier scene or catalog pricing.
+export const affiliateGeneratedImages = mysqlTable("affiliate_generated_images", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  sourceType: mysqlEnum("sourceType", ["deterministic", "gemini"]).notNull(),
+  sourceId: int("sourceId").notNull(),
+  originalUrl: varchar("originalUrl", { length: 512 }).notNull(),
+  watermarkedUrl: varchar("watermarkedUrl", { length: 512 }),
+  featuredStyleId: int("featuredStyleId"),
+  isFeatured: boolean("isFeatured").default(false).notNull(),
+  createdByUserId: int("createdByUserId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  affiliateSourceUnique: uniqueIndex("affiliate_generated_image_source_uidx").on(t.affiliateId, t.sourceType, t.sourceId),
+  affiliateCreatedIndex: index("affiliate_generated_image_created_idx").on(t.affiliateId, t.createdAt),
+}));
+
+export type AffiliateGeneratedImage = typeof affiliateGeneratedImages.$inferSelect;
+export type InsertAffiliateGeneratedImage = typeof affiliateGeneratedImages.$inferInsert;
 
 // ─── Affiliate storefront distributor curation ───────────────────────────────
 // An affiliate may either leave this table empty (the backward-compatible

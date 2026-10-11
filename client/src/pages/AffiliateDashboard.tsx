@@ -8,6 +8,7 @@ import { AffiliateDashboardLayout, type AffiliateSection } from "@/components/af
 import AffiliatePricingPanel from "@/components/affiliate/AffiliatePricingPanel";
 import AffiliateCatalogPanel from "@/components/affiliate/AffiliateCatalogPanel";
 import AffiliateAnalyticsPanel from "@/components/affiliate/AffiliateAnalyticsPanel";
+import { AffiliateImageCabinet } from "@/components/affiliate/AffiliateImageCabinet";
 import AffiliateMarketingHub from "@/components/affiliate/AffiliateMarketingHub";
 import AffiliatePromotionsPanel from "@/components/affiliate/AffiliatePromotionsPanel";
 import { AffiliatePluginsPanel } from "@/components/affiliate/AffiliatePluginsPanel";
@@ -327,6 +328,7 @@ export default function AffiliateDashboard() {
     "earnings",
     "analytics",
     "catalog",
+    "images",
     "pricing",
     "promotions",
     "appointments",
@@ -492,6 +494,8 @@ export default function AffiliateDashboard() {
             </a>
           </div>
         );
+      case "images":
+        return <AffiliateImageCabinet />;
       case "overview":
         return (
           <div className="space-y-6 max-w-4xl">
@@ -910,6 +914,9 @@ type AffiliateRow = {
   publicPhone: string | null;
   publicAddress: string | null;
   logoUrl: string | null;
+  watermarkEnabled?: boolean | null;
+  watermarkPosition?: "bottom-right" | null;
+  watermarkOpacityBps?: number | null;
   heroImageUrl: string | null;
   serviceArea: string | null;
   facebookUrl: string | null;
@@ -1011,6 +1018,9 @@ function CustomizeTab({
     publicPhone: a.publicPhone ?? a.phone ?? "",
     publicAddress: a.publicAddress ?? a.location ?? "",
     logoUrl: a.logoUrl ?? "",
+    watermarkEnabled: a.watermarkEnabled ?? false,
+    watermarkPosition: "bottom-right" as const,
+    watermarkOpacityBps: a.watermarkOpacityBps ?? 7200,
     heroImageUrl: a.heroImageUrl ?? "",
     serviceArea: a.serviceArea ?? "",
     facebookUrl: a.facebookUrl ?? "",
@@ -1033,6 +1043,9 @@ function CustomizeTab({
     publicPhone: affiliate.publicPhone ?? affiliate.phone ?? "",
     publicAddress: affiliate.publicAddress ?? affiliate.location ?? "",
     logoUrl: affiliate.logoUrl ?? "",
+    watermarkEnabled: affiliate.watermarkEnabled ?? false,
+    watermarkPosition: "bottom-right" as const,
+    watermarkOpacityBps: affiliate.watermarkOpacityBps ?? 7200,
     heroImageUrl: affiliate.heroImageUrl ?? "",
     serviceArea: affiliate.serviceArea ?? "",
     facebookUrl: affiliate.facebookUrl ?? "",
@@ -1220,6 +1233,9 @@ function CustomizeTab({
       publicPhone: form.publicPhone.trim() || null,
       publicAddress: form.publicAddress.trim() || null,
       logoUrl: form.logoUrl || null,
+      watermarkEnabled: form.watermarkEnabled,
+      watermarkPosition: "bottom-right" as const,
+      watermarkOpacityBps: form.watermarkOpacityBps,
       heroImageUrl: form.heroImageUrl || null,
       serviceArea: form.serviceArea || null,
       facebookUrl: form.facebookUrl || null,
@@ -1774,6 +1790,24 @@ function CustomizeTab({
               className="font-mono text-sm mt-2"
             />
           </details>
+        </div>
+
+        <div className="flex items-start justify-between gap-4 rounded-lg border border-indigo-200 bg-indigo-50/60 p-4">
+          <div className="space-y-1">
+            <Label htmlFor="affiliate-watermark" className="flex items-center gap-2 text-sm font-semibold text-indigo-950">
+              <ImageIcon className="h-4 w-4" /> Watermark generated images
+            </Label>
+            <p className="max-w-xl text-xs leading-relaxed text-indigo-900/80">
+              When enabled, your logo is applied to a separate copy of affiliate-generated images in a consistent bottom-right safe area. The original image is always preserved.
+            </p>
+            {!form.logoUrl && <p className="text-xs font-medium text-amber-800">Upload a logo first. Your store name will be used as the fallback mark.</p>}
+          </div>
+          <Switch
+            id="affiliate-watermark"
+            checked={form.watermarkEnabled}
+            onCheckedChange={(checked) => set("watermarkEnabled", checked)}
+            aria-label="Enable affiliate image watermark"
+          />
         </div>
 
         {/* ── Typography ──────────────────────────────────────────────────── */}

@@ -285,6 +285,9 @@ async function resolveTargetAffiliateId(
 const brandingInput = z.object({
   // (see resolveTargetAffiliateId above for how admin targeting works)
   logoUrl: z.string().max(512).nullable().optional(),
+  watermarkEnabled: z.boolean().optional(),
+  watermarkPosition: z.literal("bottom-right").optional(),
+  watermarkOpacityBps: z.number().int().min(3500).max(9000).optional(),
   primaryColor: z.string().max(16).nullable().optional(),
   accentColor: z.string().max(16).nullable().optional(),
   publicEmail: z.string().email().max(320).nullable().optional(),
