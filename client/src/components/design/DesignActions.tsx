@@ -504,6 +504,7 @@ export function DesignActions({
     const proj = projectName.trim();
     const rlabel = roomLabel.trim();
     saveMutation.mutate({
+      designValue: Number.isFinite(total) && total > 0 ? Math.round(total * 100) / 100 : undefined,
       customer: {
         name: customerName.trim(),
         email: customerEmail.trim(),

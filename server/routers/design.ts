@@ -180,7 +180,7 @@ type DesignCustomer = { name: string; email: string; phone: string; address: { l
 async function linkDesignToCrmDeal(a: {
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>;
   designId: number;
-  input: { name: string; projectName?: string; roomLabel?: string; customer: DesignCustomer };
+  input: { name: string; projectName?: string; roomLabel?: string; designValue?: number; customer: DesignCustomer };
   affiliateId: number | null;
   affiliateName: string | null;
   userId: number;
@@ -224,7 +224,10 @@ async function linkDesignToCrmDeal(a: {
     await db.insert(crmDealDesigns).values({ dealId, designId, designName: input.name, linkedByUserId: userId });
   }
   // The save form is authoritative: write the full contact onto the deal.
-  await db.update(crmDeals).set(customerFields).where(eq(crmDeals.id, dealId));
+  const valueFields = a.input.designValue && a.input.designValue > 0
+    ? { designValue: a.input.designValue.toFixed(2), estimatedValue: a.input.designValue.toFixed(2) }
+    : {};
+  await db.update(crmDeals).set({ ...customerFields, ...valueFields }).where(eq(crmDeals.id, dealId));
   await db.update(designLeads).set({ name: c.name.trim(), phone: c.phone.trim() }).where(and(eq(designLeads.email, email), affiliateId != null ? eq(designLeads.affiliateId, affiliateId) : isNull(designLeads.affiliateId)));
   return dealId;
 }
@@ -1613,6 +1616,8 @@ export const designRouter = router({
         id: z.number().optional(),
         name: z.string().min(1).max(255),
         email: z.string().email().optional(),
+        // Kitchen design price at save time; written to the CRM deal (never overwritten with 0).
+        designValue: z.number().min(0).max(100_000_000).optional(),
         // Required on every save so each design is tied to a complete CRM contact.
         customer: z.object({
           name: z.string().trim().min(2, "Customer name is required").max(255),
