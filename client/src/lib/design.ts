@@ -11501,8 +11501,13 @@ function joinRaisedBarStripsAtMiter(
   room: Pick<RoomData, "peninsulaRuns">,
 ): CountertopSurface[] {
   const result = [...surfaces];
-  const raisedIndex = (runId: string) => result.findIndex((surface) => (
+  // A run's raised bar can be several separate strips (the straight leg is split by a gap
+  // or an appliance opening). Collect every candidate so the join can pick the strip that
+  // actually sits at the turn instead of always taking the first one in the list.
+  const raisedIndexes = (runId: string) => result.flatMap((surface, index) => (
     surface.raisedBar && surface.peninsulaRunId === runId && countertopSurfacePlanPolygon(surface).length === 4
+      ? [index]
+      : []
   ));
   const hit = (a: CountertopPlanPoint, b: CountertopPlanPoint, c: CountertopPlanPoint, d: CountertopPlanPoint) => {
     const r = { x: b.x - a.x, y: b.y - a.y };
@@ -11515,26 +11520,35 @@ function joinRaisedBarStripsAtMiter(
   const mid = (u: CountertopPlanPoint, v: CountertopPlanPoint) => ({ x: (u.x + v.x) / 2, y: (u.y + v.y) / 2 });
   for (const child of room.peninsulaRuns ?? []) {
     if (!child.parentRunId) continue;
-    const ia = raisedIndex(child.parentRunId);
-    const ib = raisedIndex(child.id);
-    if (ia < 0 || ib < 0) continue;
-    const pa = countertopSurfacePlanPolygon(result[ia]!);
-    const pb = countertopSurfacePlanPolygon(result[ib]!);
+    const parentCandidates = raisedIndexes(child.parentRunId);
+    const childCandidates = raisedIndexes(child.id);
+    if (parentCandidates.length === 0 || childCandidates.length === 0) continue;
     // Strip outline: [outer0, outer1, inner1, inner0]. End edges are (1,2) and (3,0).
     const ends = [
       { outer: 1, inner: 2 },
       { outer: 0, inner: 3 },
     ];
-    let best: { ea: number; eb: number; d: number } | null = null;
-    for (let ea = 0; ea < 2; ea += 1) {
-      for (let eb = 0; eb < 2; eb += 1) {
-        const ma = mid(pa[ends[ea]!.outer]!, pa[ends[ea]!.inner]!);
-        const mb = mid(pb[ends[eb]!.outer]!, pb[ends[eb]!.inner]!);
-        const d = Math.hypot(ma.x - mb.x, ma.y - mb.y);
-        if (!best || d < best.d) best = { ea, eb, d };
+    // Pick the parent strip and child strip whose end edges are closest to each other: those
+    // are the two pieces that meet at the 45-degree turn.
+    let best: { ia: number; ib: number; ea: number; eb: number; d: number } | null = null;
+    for (const candidateA of parentCandidates) {
+      const candidatePolyA = countertopSurfacePlanPolygon(result[candidateA]!);
+      for (const candidateB of childCandidates) {
+        const candidatePolyB = countertopSurfacePlanPolygon(result[candidateB]!);
+        for (let ea = 0; ea < 2; ea += 1) {
+          for (let eb = 0; eb < 2; eb += 1) {
+            const ma = mid(candidatePolyA[ends[ea]!.outer]!, candidatePolyA[ends[ea]!.inner]!);
+            const mb = mid(candidatePolyB[ends[eb]!.outer]!, candidatePolyB[ends[eb]!.inner]!);
+            const d = Math.hypot(ma.x - mb.x, ma.y - mb.y);
+            if (!best || d < best.d) best = { ia: candidateA, ib: candidateB, ea, eb, d };
+          }
+        }
       }
     }
     if (!best || best.d < 1e-3 || best.d > 60) continue;
+    const { ia, ib } = best;
+    const pa = countertopSurfacePlanPolygon(result[ia]!);
+    const pb = countertopSurfacePlanPolygon(result[ib]!);
     const outerApex = hit(pa[0]!, pa[1]!, pb[0]!, pb[1]!);
     const innerApex = hit(pa[3]!, pa[2]!, pb[3]!, pb[2]!);
     if (!outerApex || !innerApex) continue;

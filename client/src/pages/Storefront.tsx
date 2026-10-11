@@ -1002,18 +1002,19 @@ function AffiliateLoginFooterLink({ affiliateId }: { affiliateId: number }) {
 }
 
 // ─── Admin footer link ────────────────────────────────────────────────────────
-// Only visible to logged-in admins. Provides a quick jump to the Affiliates
-// admin page without cluttering the storefront for regular customers.
+// Only visible to logged-in admins. It opens THIS store's affiliate portal (the
+// same page the affiliate sees). A storefront link never goes to the main
+// Cabinet Dealz admin page, and nothing renders without a store id.
 function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; storeName?: string }) {
   const { user } = useAuth();
-  if (!user || user.role !== "admin") return null;
-  const href = affiliateId ? `/admin?tab=affiliates&affiliateId=${affiliateId}` : "/admin#affiliates";
+  if (!user || user.role !== "admin" || !affiliateId) return null;
   return (
     <a
-      href={href}
+      href={affiliateDashboardPath(affiliateId)}
+      data-testid="affiliate-admin-portal-link"
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-white/15 hover:bg-white/25 text-white text-xs font-medium transition-colors border border-white/20"
     >
-      <LogIn className="h-3.5 w-3.5" /> Admin: {storeName ?? "Manage Affiliates"}
+      <LogIn className="h-3.5 w-3.5" /> Affiliate portal: {storeName ?? "this store"}
     </a>
   );
 }
