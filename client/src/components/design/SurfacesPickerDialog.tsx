@@ -290,6 +290,12 @@ export function SurfacesPickerDialog({
       || /faucet|tap|valve/i.test(`${item.name} ${item.category} ${item.subCategory ?? ""}`),
     )) ?? null;
   }, [bathroomPaletteMode, isBathroom, selected]);
+  const selectedBacksplash = useMemo(() => {
+    const backsplashSelections = selected.filter((item) => item.category === "Tile & Mosaic");
+    return backsplashSelections.find((item) => item.id === activeThreeDBacksplashId)
+      ?? backsplashSelections[0]
+      ?? null;
+  }, [activeThreeDBacksplashId, selected]);
   const visibleItems = useMemo(() => {
     const searched = isBathroom
       ? !debounced
@@ -441,9 +447,31 @@ export function SurfacesPickerDialog({
             <div className="grid gap-2 rounded-lg border border-[#a87f33]/30 bg-[#fffaf0] p-2.5 text-xs sm:grid-cols-2">
               {!isBathroom && onBacksplashEnabledChange && (
                 <div data-testid="backsplash-enabled-control" className="sm:col-span-2 flex flex-col gap-1.5 rounded-md border border-[#a87f33]/20 bg-white/70 p-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Backsplash</div>
-                    <p className="text-[10px] leading-relaxed text-muted-foreground">Off removes the selected wall tile from this plan’s display and calculated surface/material amounts; its choice remains ready to turn back on.</p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {selectedBacksplash ? (
+                      <div
+                        data-testid="backsplash-selected-swatch"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded border border-[#a87f33]/35 bg-stone-100 shadow-inner"
+                        title={`Selected backsplash: ${selectedBacksplash.name}`}
+                        aria-label={`Selected backsplash preview: ${selectedBacksplash.name}`}
+                      >
+                        {selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl ? (
+                          <img
+                            src={selectedBacksplash.materialImageUrl || selectedBacksplash.imageUrl || undefined}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span aria-hidden className="h-5 w-5 rounded-sm border border-stone-400/60 bg-[repeating-linear-gradient(135deg,#d6d3d1_0_3px,#f5f5f4_3px_6px)]" />
+                        )}
+                      </div>
+                    ) : (
+                      <div data-testid="backsplash-selected-swatch-empty" aria-label="No backsplash selected" className="grid h-9 w-9 shrink-0 place-items-center rounded border border-dashed border-stone-400 bg-stone-50 text-[9px] font-semibold text-stone-500">Tile</div>
+                    )}
+                    <div className="min-w-0">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-[#60491b]">Backsplash</div>
+                      <p className="text-[10px] leading-relaxed text-muted-foreground">{selectedBacksplash ? <><span className="font-medium text-foreground">{selectedBacksplash.name}</span> stays selected while Off removes it from this plan’s display and calculated surface/material amounts.</> : "Choose a wall tile to preview it here. Off removes a selected tile from this plan while keeping the choice ready to turn back on."}</p>
+                    </div>
                   </div>
                   <div className="flex shrink-0 gap-1.5" role="group" aria-label="Backsplash option">
                     <Button type="button" size="sm" variant={backsplashEnabled ? "default" : "outline"} aria-pressed={backsplashEnabled} className="h-8 min-w-11 px-2 text-[11px]" onClick={() => onBacksplashEnabledChange(true)}>On</Button>
