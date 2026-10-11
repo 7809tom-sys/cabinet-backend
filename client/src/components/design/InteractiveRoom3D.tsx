@@ -414,7 +414,10 @@ export function threeDFrontDatumSnapIndicators(placed: readonly PlacedCabinet[])
 export type InteractiveRoomPresentation = {
   cabinetFinish: string;
   countertopFinish: string;
+  windowScene?: WindowSceneKind;
 };
+
+export type WindowSceneKind = "daylight" | "suburban" | "privacy";
 
 export type ThreeDCabinetFinishPreviewOption = {
   id: string;
@@ -624,6 +627,8 @@ interface Props {
   catalogDoorSampleUrl?: string | null;
   /** Administration room scene is a visual target reference only; it never replaces saved plan geometry. */
   catalogRoomSceneUrl?: string | null;
+  /** Visual-only scene shown through architectural windows in 3D. */
+  windowSceneKind?: WindowSceneKind;
   /** Active 2D style geometry; required when a persisted saved-room scene has sparse material metadata. */
   catalogDoorProfile?: ThreeDDoorProfile | null;
   /** The exact design-level hardware choice; `none` deliberately renders no pulls. */
@@ -8669,7 +8674,7 @@ export function openingTransform(opening: WallOpening, roomOrWidth: RoomData | n
 }
 
 /** A deterministic daylight view keeps windows visually useful in the planning scene. */
-function windowSceneTexture(): THREE.CanvasTexture | null {
+function windowSceneTexture(kind: WindowSceneKind = "daylight"): THREE.CanvasTexture | null {
   if (typeof document === "undefined") return null;
   const canvas = document.createElement("canvas");
   canvas.width = 640;
@@ -8684,6 +8689,34 @@ function windowSceneTexture(): THREE.CanvasTexture | null {
   sky.addColorStop(1, "#8ea08e");
   context.fillStyle = sky;
   context.fillRect(0, 0, canvas.width, canvas.height);
+  if (kind === "privacy") {
+    context.fillStyle = "rgba(245, 244, 238, 0.9)";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = "rgba(175, 180, 177, 0.36)";
+    context.lineWidth = 10;
+    for (let y = 18; y < canvas.height; y += 34) {
+      context.beginPath();
+      context.moveTo(0, y);
+      context.lineTo(canvas.width, y + 12);
+      context.stroke();
+    }
+  } else if (kind === "suburban") {
+    context.fillStyle = "#d9d0bd";
+    context.fillRect(0, 300, canvas.width, 120);
+    for (const building of [30, 190, 390, 535]) {
+      const height = building % 3 === 0 ? 88 : 62;
+      context.fillStyle = building % 2 ? "#b9ae9f" : "#c7bda9";
+      context.fillRect(building, 300 - height, 105, height);
+      context.fillStyle = "#6e7775";
+      for (let row = 0; row < 2; row += 1) for (let col = 0; col < 3; col += 1) {
+        context.fillRect(building + 15 + col * 28, 320 - height + row * 28, 12, 15);
+      }
+    }
+    context.fillStyle = "#7f8a7e";
+    context.fillRect(0, 360, canvas.width, 60);
+    context.fillStyle = "#d2c4a7";
+    context.fillRect(0, 382, canvas.width, 8);
+  }
 
   context.fillStyle = "rgba(255, 247, 216, 0.9)";
   context.beginPath();
@@ -8726,11 +8759,11 @@ function windowSceneTexture(): THREE.CanvasTexture | null {
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.userData = { windowScene: true, planningOnly: true };
+  texture.userData = { windowScene: true, windowSceneKind: kind, planningOnly: true };
   return texture;
 }
 
-export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number) {
+export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number, windowSceneKind: WindowSceneKind = "daylight") {
   const { x, z, rotation } = openingTransform(opening, roomOrWidth, legacyRoomDepth);
   const group = new THREE.Group();
   group.position.set(x * INCH, (opening.sill + opening.height / 2) * INCH, z * INCH);
@@ -8774,7 +8807,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       group.add(leaf);
   }
   } else {
-  const windowTexture = isWindow ? windowSceneTexture() : null;
+  const windowTexture = isWindow ? windowSceneTexture(windowSceneKind) : null;
   const paneMaterial = isWindow && windowTexture
     ? new THREE.MeshBasicMaterial({ map: windowTexture, side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({ color: isWindow ? "#dbe8e4" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) });
@@ -9272,7 +9305,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, hardwareStyleId = "none", onHardwareStyleChange, catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onOpenDoorEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, windowSceneKind = "daylight", hardwareStyleId = "none", onHardwareStyleChange, catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onOpenDoorEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -10065,7 +10098,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      // The clear-view control must reveal the narrow reach-in behind its four
 	      // architectural leaves. Keep every ordinary kitchen/window opening intact.
 	      if (!showRoomContext && opening.kind === "door" && opening.doorStyle === "bifold") continue;
-	      addWallOpening(catalogRoot, opening, room);
+      addWallOpening(catalogRoot, opening, room, undefined, windowSceneKind);
 	    }
     for (const sink of sinks) addSinkFixture(catalogRoot, sink);
     for (const potFiller of potFillers) {

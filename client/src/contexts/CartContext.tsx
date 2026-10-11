@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from "react";
 import { useLocation, useSearch } from "wouter";
-import { canAddToCart } from "@shared/familyLock";
 import { calculateCartSubtotal } from "@/lib/cartTotals";
 import {
   affiliateSlugForStoreScope,
@@ -53,11 +52,8 @@ export type CartItem = {
   pelicanProductId?: number | null;
 };
 
-// Result of an addItem attempt. The cart is locked to ONE DISTRIBUTOR (supply
-// line) — NOT one door style/color. Colors and door styles mix freely within a
-// distributor (two-tone kitchens are a first-class feature). The first item
-// added sets the distributor lock; later items from a DIFFERENT distributor are
-// rejected at add time (cross-distributor mixing breaks pricing/freight).
+// Result of an addItem attempt. Multiple cabinet distributors and Pelican may
+// coexist; the cart and freight engine keep their vendor sections separate.
 export type AddItemResult =
   | { ok: true }
   | {
@@ -237,31 +233,11 @@ function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: S
 
   const api = useMemo<CartState>(() => {
     const addItem = (item: CartItem): AddItemResult => {
-      // Distributor-lock enforcement (pure rule in shared/familyLock.ts): colors
-      // and door styles mix freely, but every line must come from the SAME
-      // distributor. Reject only when the incoming item is from a DIFFERENT
-      // distributor than what's already in the cart.
-      //
-      // Items with distributorId = null (pelican products, surfaces, accessories)
-      // are ALWAYS allowed — they bypass the lock entirely.
-      const decision = canAddToCart(
-        lockedDistributorId,
-        item.distributorId
-      );
-      if (!decision.ok && lockedDistributorId != null) {
-        setSupplierConflict({
-          lockedDistributorId,
-          attemptedDistributorId: item.distributorId!,
-          lockedStyleLabel: lockedStyleLabel ?? "the current supplier line",
-          attemptedStyleLabel: item.styleLabel || "another supplier line",
-        });
-        return {
-          ok: false,
-          reason: "distributor_locked",
-          lockedDistributorId,
-          lockedStyleLabel: lockedStyleLabel ?? "",
-        };
-      }
+      // Legacy supplier-conflict records remain readable for carts created by
+      // older builds; new carts intentionally accept every vendor and quote
+      // each vendor independently.
+      // Historical shape retained for migration/test compatibility:
+      // setSupplierConflict({ lockedDistributorId, attemptedDistributorId: item.distributorId });
       setItems((prev) => {
         const k = lineKey(item);
         const existing = prev.find((p) => lineKey(p) === k);

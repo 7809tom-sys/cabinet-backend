@@ -71,15 +71,12 @@ describe("cart live freight quoting", () => {
     expect(reviewSource).toContain("UPS package quote requested from cart.");
   });
 
-  it("records a rejected cross-supplier add attempt and displays a prominent cart alert", () => {
-    expect(cartContextSource).toContain("setSupplierConflict({");
-    expect(cartContextSource).toContain("attemptedDistributorId: item.distributorId!");
+  it("allows mixed vendors and keeps freight groups separate", () => {
+    expect(cartContextSource).toContain("Multiple cabinet distributors and Pelican may");
     expect(cartContextSource).toContain('SUPPLIER_CONFLICT_KEY = "cd_cart_supplier_conflict_v1"');
-	  expect(cartContextSource).toContain("sessionStorage.setItem(keys.supplierConflict");
-    expect(cartSource).toContain('role="alert"');
-    expect(cartSource).toContain("Different supplier item was not added");
-    expect(cartSource).toContain("Live freight and order submission require one supplier");
-    expect(cartSource).toContain("clearSupplierConflict");
+    expect(cartSource).toContain('data-testid="cart-vendor-section"');
+    expect(cartSource).toContain("shipmentGroups");
+    expect(cartSource).toContain("Other shipment quotes remain separate");
   });
 
   it("shows an accessible spinner and status while the live carrier rate is calculated", () => {
@@ -92,7 +89,7 @@ describe("cart live freight quoting", () => {
     expect(loadingSource).toContain("Checking UPS with the cart’s package dimensions and weight");
     expect(loadingSource).toContain("animate-spin");
     expect(loadingSource).toContain("motion-safe:animate-ping");
-    expect(cartSource).toContain("disabled={isMixedSupplier || cartFreightEstimate.isFetching}");
+    expect(cartSource).toContain("cartFreightEstimate.isFetching || !normalizedZip || cartFreightItems.length === 0");
     expect(cartSource).toContain("!cartFreightEstimate.isFetching && cartFreightEstimate.data");
   });
 

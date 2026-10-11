@@ -206,7 +206,7 @@ import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/desi
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import type { WallBuilderDraft } from "@/components/design/WallBuilder";
-import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult, type WindowSceneKind } from "@/components/design/InteractiveRoom3D";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 import { hasDesignedRoomGeometry, initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
@@ -670,6 +670,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [interactive3dOpen, setInteractive3dOpen] = useState(false);
   const [requestedThreeDPreview, setRequestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
   const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
+  const [windowSceneKind, setWindowSceneKind] = useState<WindowSceneKind>("daylight");
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -1919,10 +1920,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   );
   const threeDPresentationForSave = useMemo(() => ({
     ...(interactive3dPresentation ?? {}),
+    windowScene: windowSceneKind,
     backsplashEnabled,
     backsplashHeightMode,
     countertopBacksplashHeightIn,
-  }), [interactive3dPresentation, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn]);
+  }), [interactive3dPresentation, windowSceneKind, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn]);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
   // Flooring layout pattern: how planks are arranged (random stagger, 1/3 offset, diagonal, herringbone).
@@ -4254,9 +4256,50 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           tier: DESIGN_TIER_TO_SHARED[tier],
           unitPrice: t.unitPrice,
           qty: t.qty,
-    }));
-    return mergeDesignCartLines([...cabinetCartLines, ...pricedTrimLines, ...surfaceCartLines]);
-  }, [cabinetCartLines, trimCartLines, surfaceCartLines, lockedDistributorId, tier]);
+          category: "Trim & molding",
+        }));
+    const pricedTrimCodes = new Set(pricedTrimLines.map((line) => line.masterCode));
+    const trimQuoteLines: CartItem[] = activeTrims
+      .filter((trim) => !pricedTrimCodes.has(TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase()))
+      .map((trim) => ({
+        masterCode: TRIM_MASTER_CODES[trim.kind] ?? trim.kind.toUpperCase(),
+        name: `${trim.kind === "toeKick" ? "Toe kick" : trim.kind === "lightRail" ? "Light rail" : trim.kind === "valance" ? "Arched valance" : trim.kind === "batten" ? "Batten molding" : "Crown molding"} (quote)`,
+        styleId: styleId ?? 0,
+        styleLabel: activeStyleName ?? "",
+        distributorId: lockedDistributorId ?? null,
+        tier: DESIGN_TIER_TO_SHARED[tier],
+        unitPrice: null,
+        qty: trim.pieces,
+        category: "Trim & molding",
+      }));
+    const countertopQuoteLines: CartItem[] = countertop && !surfaceCartLines.some((line) => /counter/i.test(line.category ?? "") || /counter/i.test(line.name))
+      ? [{
+          masterCode: "COUNTERTOP-QUOTE",
+          name: `${countertopMaterial(countertopMaterialId).name} countertop (quote)`,
+          styleId: styleId ?? 0,
+          styleLabel: activeStyleName ?? "",
+          distributorId: null,
+          tier: DESIGN_TIER_TO_SHARED[tier],
+          unitPrice: null,
+          qty: 1,
+          category: "Countertops",
+        }]
+      : [];
+    const hardwareQuoteLines: CartItem[] = hardwareStyleId !== "none" && hwSchedule.total > 0
+      ? [{
+          masterCode: `HARDWARE-${hardwareStyleId.toUpperCase()}`,
+          name: `${hwSchedule.styleLabel} cabinet hardware (quote)`,
+          styleId: styleId ?? 0,
+          styleLabel: activeStyleName ?? "",
+          distributorId: null,
+          tier: DESIGN_TIER_TO_SHARED[tier],
+          unitPrice: null,
+          qty: hwSchedule.total,
+          category: "Handles & hardware",
+        }]
+      : [];
+    return mergeDesignCartLines([...cabinetCartLines, ...pricedTrimLines, ...trimQuoteLines, ...surfaceCartLines, ...countertopQuoteLines, ...hardwareQuoteLines]);
+  }, [activeStyleName, activeTrims, cabinetCartLines, countertop, countertopMaterialId, hardwareStyleId, hwSchedule, lockedDistributorId, surfaceCartLines, styleId, tier]);
 
   // The designer total, cart, checkout, and 3D order drawer now share the same
   // complete price-locked line basis. Keep unpriced placed cabinets as pending
@@ -10720,7 +10763,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const room = (savedDesign.roomData ?? null) as RoomData | null;
     const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
     const savedSurfaces = (savedDesign as { selectedSurfaces?: SelectedSurface[] | null }).selectedSurfaces;
-    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string; backsplashEnabled?: boolean; backsplashHeightMode?: "standard" | "full-height"; countertopBacksplashHeightIn?: 0 | 2.5 | 3 } | null }).threeDPresentation;
+    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string; windowScene?: WindowSceneKind; backsplashEnabled?: boolean; backsplashHeightMode?: "standard" | "full-height"; countertopBacksplashHeightIn?: 0 | 2.5 | 3 } | null }).threeDPresentation;
     loadSavedDesign({
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
@@ -10742,6 +10785,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     }
     if (savedPresentation?.countertopBacksplashHeightIn === 2.5 || savedPresentation?.countertopBacksplashHeightIn === 3) {
       setCountertopBacksplashHeightIn(savedPresentation.countertopBacksplashHeightIn);
+    }
+    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
+      setWindowSceneKind(savedPresentation.windowScene);
     }
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
@@ -11976,6 +12022,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
+	      windowSceneKind={windowSceneKind}
       catalogDoorProfile={activeStyle ? (() => {
 	        const styleProfile = activeStyle as typeof activeStyle & {
 	          railWidth?: string | number | null; stileWidth?: string | number | null;
@@ -12148,6 +12195,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         </div>
 
         <CabinetHandlesControl value={hardwareStyleId} onChange={setHardwareStyleId} tablet={isTabletWorkspace} />
+        <label className="hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
+          <span className="text-muted-foreground">Window</span>
+          <select
+            value={windowSceneKind}
+            onChange={(event) => setWindowSceneKind(event.target.value as WindowSceneKind)}
+            className="h-7 bg-transparent text-xs font-semibold outline-none"
+            aria-label="Window scene"
+            data-testid="window-scene-selector"
+          >
+            <option value="daylight">Daylight</option>
+            <option value="suburban">Suburban view</option>
+            <option value="privacy">Privacy glass</option>
+          </select>
+        </label>
         {/* Floor Plan / Room Size stays visible in every desktop workspace mode.
             Mobile uses the compact room-size sheet trigger immediately below. */}
         <div className={`${isTabletWorkspace ? "hidden" : "hidden lg:block"} ${layoutLocked ? "pointer-events-none opacity-50" : ""}`} title={layoutLocked ? t("dt_sh_unlock_to_edit_room") : undefined}>
@@ -19045,6 +19106,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
 	                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
+	                windowSceneKind={windowSceneKind}
 	                catalogDoorProfile={activeStyle ? (() => {
 	                  const styleProfile = activeStyle as typeof activeStyle & {
 	                    railWidth?: string | number | null; stileWidth?: string | number | null;

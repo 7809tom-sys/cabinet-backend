@@ -300,7 +300,7 @@ export default function Cart() {
         </div>
       )}
 
-      {(supplierConflict || isMixedSupplier) && (
+      {supplierConflict && (
         <div
           role="alert"
           aria-live="assertive"
@@ -489,7 +489,32 @@ export default function Cart() {
             );
             };
 
-            return groups.map((g) => {
+            const sectionForItem = (item: (typeof items)[number]) => {
+              if (item.distributorId != null) {
+                return { key: `cabinet:${item.distributorId}`, label: `${item.styleLabel || "Cabinet supplier"} · Cabinets & cabinet parts` };
+              }
+              if (item.productKind === "surface") {
+                const category = item.category || "Products";
+                return { key: `pelican:${category}`, label: `Pelican · ${/counter/i.test(category) ? "Countertops" : category}` };
+              }
+              return { key: `quote:${item.category || "other"}`, label: `${item.category || "Other drawing items"} · Quote required` };
+            };
+            const sections = new Map<string, { label: string; groups: Grp[] }>();
+            for (const group of groups) {
+              const first = group.kind === "single" ? group.item : group.parts[0];
+              if (!first) continue;
+              const section = sectionForItem(first);
+              const existing = sections.get(section.key);
+              if (existing) existing.groups.push(group);
+              else sections.set(section.key, { label: section.label, groups: [group] });
+            }
+            return Array.from(sections.entries()).map(([sectionKey, section]) => (
+              <section key={sectionKey} data-testid="cart-vendor-section" className="space-y-3">
+                <div className="flex items-center justify-between gap-3 border-b border-border pb-2">
+                  <h2 className="text-base font-semibold text-foreground">{section.label}</h2>
+                  <span className="text-xs text-muted-foreground">{section.groups.length} line{section.groups.length === 1 ? "" : "s"}</span>
+                </div>
+                {section.groups.map((g) => {
               if (g.kind === "single") return renderRow(g.item, false);
               const groupTotal = g.parts.reduce(
                 (sum, p) => {
@@ -533,7 +558,9 @@ export default function Cart() {
                   </div>
                 </div>
               );
-            });
+                })}
+              </section>
+            ));
           })()}
         </div>
 
@@ -638,7 +665,7 @@ export default function Cart() {
                 size="sm"
                 variant="outline"
                 onClick={requestLiveCartQuote}
-                disabled={cartFreightEstimate.isFetching || !normalizedZip || isMixedSupplier || cartFreightItems.length === 0}
+                disabled={cartFreightEstimate.isFetching || !normalizedZip || cartFreightItems.length === 0}
               >
                 {cartFreightEstimate.isFetching ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />Calculating freight...</> : requestUpsParcelQuote ? <><span aria-hidden="true" className="mr-1 rounded-sm bg-[#351c15] px-1 py-0.5 text-[9px] font-black text-[#ffb500]">UPS</span>Check UPS / freight</> : <><Truck className="mr-1.5 h-3.5 w-3.5" />Get shipping quote</>}
               </Button>
@@ -735,18 +762,6 @@ export default function Cart() {
             <div className="mb-3 flex items-start gap-2 rounded-lg bg-amber-50 p-2.5 text-xs text-amber-700">
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               {t("crt_out_range_warn_a")} {normalizedZip}. {t("crt_out_range_warn_b")}
-            </div>
-          )}
-          {isMixedSupplier && (
-            <div role="alert" className="mb-3 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs text-destructive">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                <div>
-                  {t("crt_mixed_a")}{" "}
-                  <span className="font-semibold">{supplierGroups.size}</span> {t("crt_mixed_b")}{" "}
-                  <span className="font-semibold">{t("crt_mixed_same")}</span> {t("crt_mixed_c")}
-                </div>
-              </div>
             </div>
           )}
           <p className="mb-2 text-center text-xs text-muted-foreground">
