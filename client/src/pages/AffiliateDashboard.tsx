@@ -324,6 +324,7 @@ export default function AffiliateDashboard() {
     "overview",
     "crm",
     "design",
+    "products",
     "orders",
     "earnings",
     "analytics",
@@ -494,6 +495,40 @@ export default function AffiliateDashboard() {
             </a>
           </div>
         );
+      case "products":
+        return (
+          <div className="max-w-4xl space-y-6">
+            <div>
+              <div className="flex items-center gap-2">
+                <Package className="h-5 w-5 text-primary" />
+                <h1 className="font-serif text-2xl font-bold">Products</h1>
+              </div>
+              <p className="mt-2 max-w-2xl text-muted-foreground">
+                Find the non-cabinet products customers can browse through your branded storefront. Both destinations keep your affiliate branding, referral attribution, and pricing context.
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <a href={`${storeUrl.replace(/\/$/, "")}/surfaces`} className="group rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary hover:bg-primary/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-xl bg-primary/10 p-3"><Package className="h-6 w-6 text-primary" /></div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </div>
+                <h2 className="mt-5 text-lg font-semibold">Pelican Products</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Browse countertops, flooring, tile, sinks, faucets, tubs, toilets, showers, and other bathroom products.</p>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">Browse Pelican catalog <ArrowRight className="h-4 w-4" /></span>
+              </a>
+              <a href={`${storeUrl.replace(/\/$/, "")}/closet`} className="group rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary hover:bg-primary/5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="rounded-xl bg-primary/10 p-3"><PencilRuler className="h-6 w-6 text-primary" /></div>
+                  <ExternalLink className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                </div>
+                <h2 className="mt-5 text-lg font-semibold">Closet Studio</h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">Plan towers, hanging areas, shelves, corner pieces, drawers, and visual basket layouts in your branded closet workspace.</p>
+                <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-primary">Open Closet Studio <ArrowRight className="h-4 w-4" /></span>
+              </a>
+            </div>
+          </div>
+        );
       case "images":
         return <AffiliateImageCabinet />;
       case "overview":
@@ -556,6 +591,7 @@ export default function AffiliateDashboard() {
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {([
                 { label: "My CRM", section: "crm" as AffiliateSection, icon: ShoppingBag },
+                { label: "Pelican & Closets", section: "products" as AffiliateSection, icon: Package },
                 { label: "Earnings", section: "earnings" as AffiliateSection, icon: DollarSign },
                 { label: "Analytics", section: "analytics" as AffiliateSection, icon: BarChart2 },
                 { label: "My Catalog", section: "catalog" as AffiliateSection, icon: BookOpen },

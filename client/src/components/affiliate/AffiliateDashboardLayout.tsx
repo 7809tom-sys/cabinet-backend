@@ -38,6 +38,7 @@ export type AffiliateSection =
   | "overview"
   | "crm"
   | "design"
+  | "products"
   | "orders"
   | "earnings"
   | "analytics"
@@ -59,6 +60,7 @@ const NAV_ITEMS: { icon: React.ElementType; label: string; section: AffiliateSec
   { icon: LayoutDashboard, label: "Overview", section: "overview" },
   { icon: ShoppingBag, label: "My CRM", section: "crm" },
   { icon: Palette, label: "Design Workspace", section: "design" },
+  { icon: PackageOpen, label: "Products: Pelican & Closets", section: "products" },
   { icon: ShoppingBag, label: "Orders", section: "orders" },
   { icon: DollarSign, label: "Earnings", section: "earnings" },
   { icon: BarChart2, label: "Analytics", section: "analytics" },
@@ -249,6 +251,14 @@ function SidebarInner({
                 <a href={designerUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
                   <Palette className="h-3.5 w-3.5 shrink-0" />
                   <span className="truncate">Open my Designer</span>
+                </a>
+                <a href={`/store/${storeSlug}/surfaces`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <PackageOpen className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Browse Pelican products</span>
+                </a>
+                <a href={`/store/${storeSlug}/closet`} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
+                  <Palette className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">Open Closet Studio</span>
                 </a>
                 <a href={quoteUrl} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-1.5 rounded-lg hover:bg-accent">
                   <FileText className="h-3.5 w-3.5 shrink-0" />
