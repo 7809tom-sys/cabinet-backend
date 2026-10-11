@@ -163,7 +163,8 @@ export const storefrontRouter = router({
   recordFeaturedDistributorViews: publicProcedure
     .input(z.object({
       slug: z.string().min(1).max(255),
-      distributorIds: z.array(z.number().int().positive()).min(1).max(100),
+      distributorIds: z.array(z.number().int().positive()).max(100).default([]),
+      styleIds: z.array(z.number().int().positive()).max(200).default([]),
       sessionKey: z.string().min(12).max(96),
     }))
     .mutation(async ({ input }) => {
@@ -173,6 +174,7 @@ export const storefrontRouter = router({
         .where(eq(affiliates.slug, input.slug.toLowerCase())).limit(1);
       if (!affiliate) return { recorded: 0 };
       const requestedIds = Array.from(new Set(input.distributorIds));
+      const requestedStyleIds = Array.from(new Set(input.styleIds));
       const featured = await db.select({ distributorId: affiliateDistributorSelections.distributorId })
         .from(affiliateDistributorSelections)
         .where(and(
@@ -181,21 +183,44 @@ export const storefrontRouter = router({
           inArray(affiliateDistributorSelections.distributorId, requestedIds),
         ));
       const featuredIds = featured.map((row) => row.distributorId);
-      if (featuredIds.length === 0) return { recorded: 0 };
-      const alreadyRecorded = await db.select({ distributorId: affiliateFeaturedDistributorEvents.distributorId })
+      const featuredStyles = requestedStyleIds.length > 0
+        ? await db.select({ styleId: affiliateStyleBranding.styleId, distributorId: doorStyles.distributorId })
+          .from(affiliateStyleBranding)
+          .innerJoin(doorStyles, eq(doorStyles.id, affiliateStyleBranding.styleId))
+          .where(and(
+            eq(affiliateStyleBranding.affiliateId, affiliate.id),
+            eq(affiliateStyleBranding.featured, true),
+            inArray(affiliateStyleBranding.styleId, requestedStyleIds),
+          ))
+        : [];
+      if (featuredIds.length === 0 && featuredStyles.length === 0) return { recorded: 0 };
+      const alreadyRecorded = await db.select({ distributorId: affiliateFeaturedDistributorEvents.distributorId, styleId: affiliateFeaturedDistributorEvents.styleId })
         .from(affiliateFeaturedDistributorEvents)
         .where(and(
           eq(affiliateFeaturedDistributorEvents.affiliateId, affiliate.id),
           eq(affiliateFeaturedDistributorEvents.sessionKey, input.sessionKey),
-          inArray(affiliateFeaturedDistributorEvents.distributorId, featuredIds),
+          or(
+            and(isNull(affiliateFeaturedDistributorEvents.styleId), inArray(affiliateFeaturedDistributorEvents.distributorId, featuredIds)),
+            ...(featuredStyles.length > 0 ? [inArray(affiliateFeaturedDistributorEvents.styleId, featuredStyles.map((row) => row.styleId))] : []),
+          ),
         ));
-      const existingIds = new Set(alreadyRecorded.map((row) => row.distributorId));
-      const inserts = featuredIds.filter((id) => !existingIds.has(id)).map((distributorId) => ({
+      const existingDistributorIds = new Set(alreadyRecorded.filter((row) => row.styleId == null).map((row) => row.distributorId));
+      const existingStyleIds = new Set(alreadyRecorded.flatMap((row) => row.styleId == null ? [] : [row.styleId]));
+      const distributorInserts = featuredIds.filter((id) => !existingDistributorIds.has(id)).map((distributorId) => ({
         affiliateId: affiliate.id,
         distributorId,
+        styleId: null,
         eventType: "view" as const,
         sessionKey: input.sessionKey,
       }));
+      const styleInserts = featuredStyles.filter((row) => !existingStyleIds.has(row.styleId)).map((row) => ({
+        affiliateId: affiliate.id,
+        distributorId: row.distributorId,
+        styleId: row.styleId,
+        eventType: "view" as const,
+        sessionKey: input.sessionKey,
+      }));
+      const inserts = [...distributorInserts, ...styleInserts];
       if (inserts.length > 0) await db.insert(affiliateFeaturedDistributorEvents).values(inserts);
       return { recorded: inserts.length };
     }),

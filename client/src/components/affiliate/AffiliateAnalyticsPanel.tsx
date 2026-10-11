@@ -26,8 +26,9 @@ export default function AffiliateAnalyticsPanel() {
   const earningsQ = trpc.affiliates.myEarnings.useQuery();
   const referralsQ = trpc.affiliates.myReferrals.useQuery();
   const featuredLinesQ = trpc.affiliates.myFeaturedDistributorAnalytics.useQuery();
+  const featuredStylesQ = trpc.affiliates.myFeaturedStyleAnalytics.useQuery();
 
-  const isLoading = earningsQ.isLoading || referralsQ.isLoading || featuredLinesQ.isLoading;
+  const isLoading = earningsQ.isLoading || referralsQ.isLoading || featuredLinesQ.isLoading || featuredStylesQ.isLoading;
 
   if (isLoading) {
     return (
@@ -40,6 +41,7 @@ export default function AffiliateAnalyticsPanel() {
   const earnings = earningsQ.data;
   const referrals = referralsQ.data;
   const featuredLines = featuredLinesQ.data ?? [];
+  const featuredStyles = featuredStylesQ.data ?? [];
 
   if (!earnings || !referrals) {
     return <p className="text-sm text-muted-foreground py-6">Could not load analytics data.</p>;
@@ -107,6 +109,31 @@ export default function AffiliateAnalyticsPanel() {
                   <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
                     <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Views</span><strong className="mt-1 block text-lg tabular-nums">{line.views}</strong></div>
                     <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Designer leads</span><strong className="mt-1 block text-lg tabular-nums">{line.leads}</strong></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-primary" /> Featured door-style performance</CardTitle>
+          <p className="text-xs text-muted-foreground">Views and verified Designer leads for the individual door styles you feature first in My Catalog.</p>
+        </CardHeader>
+        <CardContent>
+          {featuredStyles.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Feature individual door styles in My Catalog to begin measuring their performance.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {featuredStyles.map((style) => (
+                <div key={style.styleId} className="rounded-lg border border-border bg-muted/20 p-3">
+                  <p className="font-semibold truncate" title={style.name}>{style.name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{style.distributorName}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Views</span><strong className="mt-1 block text-lg tabular-nums">{style.views}</strong></div>
+                    <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Designer leads</span><strong className="mt-1 block text-lg tabular-nums">{style.leads}</strong></div>
                   </div>
                 </div>
               ))}

@@ -12,13 +12,18 @@ describe("featured distributor analytics", () => {
     expect(affiliateRouter).toContain("affiliateDistributorSelections.featured, true");
     expect(affiliateRouter).toContain("affiliateFeaturedDistributorEvents");
     expect(affiliateRouter).toContain("designLeads.featuredDistributorId");
+    expect(affiliateRouter).toContain("myFeaturedStyleAnalytics");
+    expect(affiliateRouter).toContain("designLeads.featuredStyleId");
+    expect(affiliateRouter).toContain("reorderFeaturedStyles");
   });
 
   it("records only anonymous per-session views for actually featured storefront lines", () => {
     expect(storefrontRouter).toContain("recordFeaturedDistributorViews");
     expect(storefrontRouter).toContain("sessionKey");
     expect(storefrontRouter).toContain("affiliateDistributorSelections.featured, true");
-    expect(storefrontRouter).toContain("existingIds");
+    expect(storefrontRouter).toContain("existingDistributorIds");
+    expect(storefrontRouter).toContain("styleIds");
+    expect(storefrontRouter).toContain("affiliateFeaturedDistributorEvents.styleId");
   });
 
   it("verifies incoming Designer style attribution on the server", () => {

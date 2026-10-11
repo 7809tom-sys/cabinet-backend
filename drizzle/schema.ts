@@ -2018,6 +2018,7 @@ export const designLeads = mysqlTable("design_leads", {
   // The featured cabinet line that referred this Designer launch. It is set only
   // after server-side verification that the current affiliate featured that line.
   featuredDistributorId: int("featuredDistributorId"),
+  featuredStyleId: int("featuredStyleId"), // exact featured door style selected at Designer launch
   // Light de-dupe / engagement counters so repeat launches update one record.
   launchCount: int("launchCount").default(1).notNull(),
   lastLaunchAt: timestamp("lastLaunchAt").defaultNow().notNull(),
@@ -2035,6 +2036,7 @@ export const affiliateFeaturedDistributorEvents = mysqlTable("affiliate_featured
   id: int("id").autoincrement().primaryKey(),
   affiliateId: int("affiliateId").notNull(),
   distributorId: int("distributorId").notNull(),
+  styleId: int("styleId"), // nullable for legacy distributor-line events; populated for featured door-style views
   eventType: mysqlEnum("eventType", ["view"]).notNull(),
   sessionKey: varchar("sessionKey", { length: 96 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

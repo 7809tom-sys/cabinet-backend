@@ -16,5 +16,9 @@ describe("AffiliateCatalogPanel distributor curation", () => {
     expect(source).toContain("Feature this door style");
     expect(source).toContain("featured door styles");
     expect(source).toContain("individual door styles so they appear first");
+    expect(source).toContain("reorderFeaturedStyles");
+    expect(source).toContain("Drag featured door styles to change their storefront order");
+    expect(source).toContain("Español");
+    expect(source).toContain("Mover estilo destacado arriba");
   });
 });

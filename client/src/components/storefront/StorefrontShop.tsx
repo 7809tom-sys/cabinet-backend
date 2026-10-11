@@ -296,10 +296,12 @@ function FamilyPicker({
   useEffect(() => {
     if (!slug || !data?.length) return;
     const featuredDistributorIds = Array.from(new Set(data.filter((family) => family.featured).map((family) => family.distributorId)));
-    if (featuredDistributorIds.length === 0) return;
+    const featuredStyleIds = Array.from(new Set(data.filter((family) => family.featured && family.styleId != null).map((family) => family.styleId)));
+    if (featuredDistributorIds.length === 0 && featuredStyleIds.length === 0) return;
     recordFeaturedViews.mutate({
       slug,
       distributorIds: featuredDistributorIds,
+      styleIds: featuredStyleIds,
       sessionKey: featuredLineSessionKey(slug),
     });
   // The server de-dupes per session. Keep this isolated from favorites and local

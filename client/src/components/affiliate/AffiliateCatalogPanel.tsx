@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Star, StarOff, Upload, X, Pencil, Check, Store } from "lucide-react";
+import { Star, StarOff, Upload, X, Pencil, Check, Store, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
 
 type StyleRow = {
   id: number;
@@ -49,10 +49,12 @@ function DistributorCurationPanel({
   distributors,
   affiliateId,
   isAdminView,
+  spanish,
 }: {
   distributors: DistributorSelectionRow[];
   affiliateId?: number;
   isAdminView: boolean;
+  spanish: boolean;
 }) {
   const utils = trpc.useUtils();
   const refresh = () => {
@@ -102,18 +104,18 @@ function DistributorCurationPanel({
     <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold flex items-center gap-2"><Store className="h-4 w-4 text-primary" /> Cabinet lines on my storefront</h3>
+          <h3 className="font-semibold flex items-center gap-2"><Store className="h-4 w-4 text-primary" /> {spanish ? "Líneas de gabinetes en mi tienda" : "Cabinet lines on my storefront"}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Choose the cabinet distributors you want customers to see. Star a selected distributor to place its cabinet lines first.
+            {spanish ? "Elige los distribuidores que verán tus clientes. Marca un distribuidor seleccionado para colocar sus líneas primero." : "Choose the cabinet distributors you want customers to see. Star a selected distributor to place its cabinet lines first."}
           </p>
         </div>
         <Badge variant={selected.length ? "default" : "secondary"}>
-          {selected.length ? `${selected.length} selected` : "All active lines"}
+          {selected.length ? `${selected.length} ${spanish ? "seleccionados" : "selected"}` : (spanish ? "Todas las líneas activas" : "All active lines")}
         </Badge>
       </div>
       {selected.length === 0 && (
         <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
-          No curated supplier list is saved yet, so the storefront continues to show every active cabinet line. Select one or more below to curate it.
+          {spanish ? "Aún no hay una lista guardada; la tienda muestra todas las líneas activas. Selecciona una o más para crear tu catálogo." : "No curated supplier list is saved yet, so the storefront continues to show every active cabinet line. Select one or more below to curate it."}
         </p>
       )}
       <div className="grid gap-2 sm:grid-cols-2">
@@ -139,7 +141,7 @@ function DistributorCurationPanel({
                 aria-pressed={distributor.selected}
                 onClick={() => toggleSelected(distributor.id)}
               >
-                {distributor.selected ? "Included" : "Include"}
+                {distributor.selected ? (spanish ? "Incluido" : "Included") : (spanish ? "Incluir" : "Include")}
               </Button>
               {distributor.selected && (
                 <button
@@ -159,7 +161,7 @@ function DistributorCurationPanel({
       </div>
       {selected.length > 0 && (
         <Button variant="ghost" size="sm" className="text-muted-foreground" disabled={isSaving} onClick={() => save(distributors.map((distributor) => ({ ...distributor, selected: false, featured: false })))}>
-          Show all active cabinet lines again
+          {spanish ? "Mostrar de nuevo todas las líneas activas" : "Show all active cabinet lines again"}
         </Button>
       )}
     </section>
@@ -187,11 +189,23 @@ function StyleCard({
   affiliateDefaultBps,
   affiliateId,
   isAdminView,
+  spanish,
+  canReorder,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onMove,
 }: {
   style: StyleRow;
   affiliateDefaultBps: number;
   affiliateId?: number;
   isAdminView: boolean;
+  spanish: boolean;
+  canReorder: boolean;
+  onDragStart: (styleId: number) => void;
+  onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
+  onDrop: (styleId: number) => void;
+  onMove: (styleId: number, direction: "up" | "down") => void;
 }) {
   const utils = trpc.useUtils();
   const [editing, setEditing] = useState(false);
@@ -277,7 +291,13 @@ function StyleCard({
   const cardImg = roomScene || (style as StyleRow & { roomSceneImageUrl?: string | null }).roomSceneImageUrl || style.thumbnailImageUrl;
 
   return (
-    <div className={`rounded-lg border transition-colors ${!isEnabled ? "opacity-60 bg-muted/40 border-dashed" : featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+    <div
+      className={`rounded-lg border transition-colors ${!isEnabled ? "opacity-60 bg-muted/40 border-dashed" : featured ? "border-primary bg-primary/5" : "border-border bg-card"}`}
+      draggable={canReorder}
+      onDragStart={() => onDragStart(style.id)}
+      onDragOver={canReorder ? onDragOver : undefined}
+      onDrop={canReorder ? () => onDrop(style.id) : undefined}
+    >
       {/* Thumbnail row */}
       <div className="flex gap-3 p-3">
         <div className="w-16 h-16 rounded-md overflow-hidden bg-muted shrink-0">
@@ -303,19 +323,30 @@ function StyleCard({
                 title={featured ? "Remove door style from featured styles" : "Feature this door style"}
               >
                 {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
-                <span className="hidden text-xs font-medium sm:inline">{featured ? "Featured" : "Feature"}</span>
+                <span className="hidden text-xs font-medium sm:inline">{featured ? (spanish ? "Destacado" : "Featured") : (spanish ? "Destacar" : "Feature")}</span>
               </button>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            {featured && <Badge className="text-xs bg-primary/10 text-primary border-primary/30">Featured</Badge>}
-            {!isEnabled && <Badge variant="destructive" className="text-xs">Hidden / Disabled</Badge>}
+            {featured && <Badge className="text-xs bg-primary/10 text-primary border-primary/30">{spanish ? "Destacado" : "Featured"}</Badge>}
+            {!isEnabled && <Badge variant="destructive" className="text-xs">{spanish ? "Oculto / Desactivado" : "Hidden / Disabled"}</Badge>}
             <Badge variant="outline" className="text-xs">
               {style.override?.markupBps != null ? `${bpsToPercent(style.override.markupBps)}% markup` : `${bpsToPercent(affiliateDefaultBps)}% (default)`}
             </Badge>
             {style.color && <Badge variant="secondary" className="text-xs">{style.color}</Badge>}
           </div>
         </div>
+        {canReorder && (
+          <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
+            <GripVertical className="hidden h-4 w-4 sm:block" aria-hidden="true" />
+            <button type="button" className="rounded p-1 hover:bg-muted" aria-label={spanish ? "Mover estilo destacado arriba" : "Move featured style up"} title={spanish ? "Mover arriba" : "Move up"} onClick={() => onMove(style.id, "up")}>
+              <ChevronUp className="h-4 w-4" />
+            </button>
+            <button type="button" className="rounded p-1 hover:bg-muted" aria-label={spanish ? "Mover estilo destacado abajo" : "Move featured style down"} title={spanish ? "Mover abajo" : "Move down"} onClick={() => onMove(style.id, "down")}>
+              <ChevronDown className="h-4 w-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* These actions have a separate admin workflow; do not let a view-as
@@ -323,7 +354,7 @@ function StyleCard({
       {!isAdminView && (
         <div className="border-t border-border px-3 py-2 flex items-center justify-between bg-muted/20">
           <span className="text-xs font-medium text-foreground">
-            {isEnabled ? "Line Active on Storefront" : "Line Hidden from Storefront"}
+            {isEnabled ? (spanish ? "Línea activa en la tienda" : "Line Active on Storefront") : (spanish ? "Línea oculta en la tienda" : "Line Hidden from Storefront")}
           </span>
           <Button
             variant={isEnabled ? "outline" : "default"}
@@ -331,7 +362,7 @@ function StyleCard({
             className="h-7 text-xs"
             onClick={toggleEnabled}
           >
-            {isEnabled ? "Turn Off Line" : "Turn On Line"}
+            {isEnabled ? (spanish ? "Ocultar línea" : "Turn Off Line") : (spanish ? "Mostrar línea" : "Turn On Line")}
           </Button>
         </div>
       )}
@@ -341,7 +372,7 @@ function StyleCard({
           {roomScene ? (
             <>
               <img src={roomScene} alt="Room scene" className="w-12 h-8 rounded object-cover border border-border" />
-              <span className="text-xs text-muted-foreground flex-1">Custom room scene uploaded</span>
+              <span className="text-xs text-muted-foreground flex-1">{spanish ? "Escena personalizada cargada" : "Custom room scene uploaded"}</span>
               <button
                 onClick={() => upsert.mutate({ styleId: style.id })}
                 className="text-xs text-destructive hover:underline"
@@ -350,7 +381,7 @@ function StyleCard({
               </button>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground flex-1">No custom room scene</span>
+            <span className="text-xs text-muted-foreground flex-1">{spanish ? "Sin escena personalizada" : "No custom room scene"}</span>
           )}
           <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
           <Button
@@ -359,7 +390,7 @@ function StyleCard({
             disabled={uploadScene.isPending}
           >
             {uploadScene.isPending ? <Spinner className="h-3 w-3" /> : <Upload className="h-3 w-3" />}
-            {roomScene ? "Replace" : "Upload Photo"}
+            {roomScene ? (spanish ? "Reemplazar" : "Replace") : (spanish ? "Subir foto" : "Upload Photo")}
           </Button>
         </div>
       )}
@@ -369,7 +400,7 @@ function StyleCard({
         <div className="border-t border-border px-3 py-3 space-y-3 bg-muted/30">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs">White-label name (shown to customers)</Label>
+              <Label className="text-xs">{spanish ? "Nombre de marca (visible para clientes)" : "White-label name (shown to customers)"}</Label>
               <Input
                 value={brandName}
                 onChange={(e) => setBrandName(e.target.value)}
@@ -378,7 +409,7 @@ function StyleCard({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Markup % override (blank = use default)</Label>
+              <Label className="text-xs">{spanish ? "Margen % (vacío = usar predeterminado)" : "Markup % override (blank = use default)"}</Label>
               <div className="flex items-center gap-1.5">
                 <Input
                   type="number" min="0" step="0.5"
@@ -397,9 +428,9 @@ function StyleCard({
           </div>
           <div className="flex gap-2">
             <Button size="sm" className="gap-1 h-7" onClick={saveEdit} disabled={upsert.isPending || adminUpsert.isPending}>
-              <Check className="h-3.5 w-3.5" /> Save
+              <Check className="h-3.5 w-3.5" /> {spanish ? "Guardar" : "Save"}
             </Button>
-            <Button size="sm" variant="outline" className="h-7" onClick={() => setEditing(false)}>Cancel</Button>
+            <Button size="sm" variant="outline" className="h-7" onClick={() => setEditing(false)}>{spanish ? "Cancelar" : "Cancel"}</Button>
           </div>
         </div>
       ) : (
@@ -408,7 +439,7 @@ function StyleCard({
             onClick={() => setEditing(true)}
             className="text-xs text-primary hover:underline inline-flex items-center gap-1"
           >
-            <Pencil className="h-3 w-3" /> Edit name &amp; markup
+            <Pencil className="h-3 w-3" /> {spanish ? "Editar nombre y margen" : "Edit name &amp; markup"}
           </button>
         </div>
       )}
@@ -430,6 +461,15 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
   const data = isAdminView ? adminBranding.data : ownBranding.data;
   const isLoading = isAdminView ? adminBranding.isLoading : ownBranding.isLoading;
   const [search, setSearch] = useState("");
+  const [spanish, setSpanish] = useState(false);
+  const [draggedStyleId, setDraggedStyleId] = useState<number | null>(null);
+  const reorder = trpc.affiliates.reorderFeaturedStyles.useMutation({
+    onSuccess: () => {
+      void ownBranding.refetch();
+      toast.success(spanish ? "Orden de estilos destacado guardado" : "Featured door-style order saved");
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   if (isLoading) {
     return <div className="flex justify-center py-12"><Spinner className="h-6 w-6 text-primary" /></div>;
@@ -463,9 +503,16 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
   return (
     <div className="space-y-5 max-w-4xl">
       <div>
-        <h2 className="text-xl font-bold">My Catalog</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold">{spanish ? "Mi catálogo" : "My Catalog"}</h2>
+          <Button type="button" variant="outline" size="sm" onClick={() => setSpanish((value) => !value)} aria-pressed={spanish}>
+            {spanish ? "English" : "Español"}
+          </Button>
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose the distributors and cabinet lines for your storefront, feature individual door styles so they appear first, rename styles for your brand, set per-style markups, and upload your own room scene photos.
+          {spanish
+            ? "Elige distribuidores y líneas de gabinetes, destaca estilos de puerta individuales para mostrarlos primero, cambia nombres, configura márgenes y sube escenas propias."
+            : "Choose the distributors and cabinet lines for your storefront, feature individual door styles so they appear first, rename styles for your brand, set per-style markups, and upload your own room scene photos."}
         </p>
       </div>
 
@@ -473,18 +520,25 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
         distributors={data.distributorSelections as DistributorSelectionRow[]}
         affiliateId={affiliateId}
         isAdminView={isAdminView}
+        spanish={spanish}
       />
 
       <div className="flex flex-wrap items-center gap-3">
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search styles…"
+          placeholder={spanish ? "Buscar estilos…" : "Search styles…"}
           className="max-w-xs"
         />
-        <Badge variant="secondary">{featuredCount} featured door styles</Badge>
-        <Badge variant="outline">{data.styles.length} total styles</Badge>
+        <Badge variant="secondary">{featuredCount} {spanish ? "estilos destacados" : "featured door styles"}</Badge>
+        <Badge variant="outline">{data.styles.length} {spanish ? "estilos totales" : "total styles"}</Badge>
       </div>
+
+      {featuredCount > 0 && !isAdminView && (
+        <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          {spanish ? "Arrastra los estilos destacados para cambiar el orden. También puedes usar las flechas." : "Drag featured door styles to change their storefront order. Arrow buttons are available too."}
+        </p>
+      )}
 
       {sorted.length === 0 ? (
         <p className="text-sm text-muted-foreground py-6">No styles match your search.</p>
@@ -497,6 +551,33 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
               affiliateDefaultBps={data.defaultMarkupBps}
               affiliateId={affiliateId}
               isAdminView={isAdminView}
+              spanish={spanish}
+              canReorder={!isAdminView && Boolean(s.override?.featured)}
+              onDragStart={setDraggedStyleId}
+              onDragOver={(event) => {
+                if (draggedStyleId != null) event.preventDefault();
+              }}
+              onDrop={(targetStyleId) => {
+                if (draggedStyleId == null || draggedStyleId === targetStyleId) return;
+                const featuredStyles = sorted.filter((item) => item.override?.featured);
+                const from = featuredStyles.findIndex((item) => item.id === draggedStyleId);
+                const to = featuredStyles.findIndex((item) => item.id === targetStyleId);
+                if (from < 0 || to < 0) return;
+                const next = [...featuredStyles];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                setDraggedStyleId(null);
+                reorder.mutate({ styles: next.map((item, index) => ({ styleId: item.id, sortOrder: index })) });
+              }}
+              onMove={(styleId, direction) => {
+                const featuredStyles = sorted.filter((item) => item.override?.featured);
+                const index = featuredStyles.findIndex((item) => item.id === styleId);
+                const nextIndex = direction === "up" ? index - 1 : index + 1;
+                if (index < 0 || nextIndex < 0 || nextIndex >= featuredStyles.length) return;
+                const next = [...featuredStyles];
+                [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
+                reorder.mutate({ styles: next.map((item, itemIndex) => ({ styleId: item.id, sortOrder: itemIndex })) });
+              }}
             />
           ))}
         </div>

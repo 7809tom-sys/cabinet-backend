@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, or, and, inArray, sql } from "drizzle-orm";
+import { eq, desc, or, and, inArray, sql, isNull } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
@@ -896,7 +896,7 @@ export const affiliatesRouter = router({
     const [viewRows, leadRows] = await Promise.all([
       db.select({ distributorId: affiliateFeaturedDistributorEvents.distributorId, count: sql<number>`count(*)` })
         .from(affiliateFeaturedDistributorEvents)
-        .where(and(eq(affiliateFeaturedDistributorEvents.affiliateId, mine.id), inArray(affiliateFeaturedDistributorEvents.distributorId, ids)))
+        .where(and(eq(affiliateFeaturedDistributorEvents.affiliateId, mine.id), isNull(affiliateFeaturedDistributorEvents.styleId), inArray(affiliateFeaturedDistributorEvents.distributorId, ids)))
         .groupBy(affiliateFeaturedDistributorEvents.distributorId),
       db.select({ distributorId: designLeads.featuredDistributorId, count: sql<number>`count(*)` })
         .from(designLeads)
@@ -915,6 +915,42 @@ export const affiliatesRouter = router({
       lineMark: line.initials,
       views: views.get(line.id) ?? 0,
       leads: leads.get(line.id) ?? 0,
+    }));
+  }),
+
+  myFeaturedStyleAnalytics: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return [];
+    const db = await getDb();
+    if (!db) return [];
+    const featured = await db
+      .select({ styleId: affiliateStyleBranding.styleId, brandName: affiliateStyleBranding.brandName, sortOrder: affiliateStyleBranding.sortOrder, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, distributorName: distributors.name })
+      .from(affiliateStyleBranding)
+      .innerJoin(doorStyles, eq(doorStyles.id, affiliateStyleBranding.styleId))
+      .innerJoin(distributors, eq(distributors.id, doorStyles.distributorId))
+      .where(and(eq(affiliateStyleBranding.affiliateId, mine.id), eq(affiliateStyleBranding.featured, true)))
+      .orderBy(affiliateStyleBranding.sortOrder, doorStyles.ourName);
+    if (featured.length === 0) return [];
+    const ids = featured.map((style) => style.styleId);
+    const [viewRows, leadRows] = await Promise.all([
+      db.select({ styleId: affiliateFeaturedDistributorEvents.styleId, count: sql<number>`count(*)` })
+        .from(affiliateFeaturedDistributorEvents)
+        .where(and(eq(affiliateFeaturedDistributorEvents.affiliateId, mine.id), inArray(affiliateFeaturedDistributorEvents.styleId, ids)))
+        .groupBy(affiliateFeaturedDistributorEvents.styleId),
+      db.select({ styleId: designLeads.featuredStyleId, count: sql<number>`count(*)` })
+        .from(designLeads)
+        .where(and(eq(designLeads.affiliateId, mine.id), inArray(designLeads.featuredStyleId, ids)))
+        .groupBy(designLeads.featuredStyleId),
+    ]);
+    const views = new Map(viewRows.map((row) => [row.styleId, Number(row.count) || 0]));
+    const leads = new Map(leadRows.map((row) => [row.styleId, Number(row.count) || 0]));
+    return featured.map((style) => ({
+      styleId: style.styleId,
+      name: style.brandName?.trim() || style.ourName || style.styleCode || "Unnamed door style",
+      distributorName: style.distributorName,
+      sortOrder: style.sortOrder,
+      views: views.get(style.styleId) ?? 0,
+      leads: leads.get(style.styleId) ?? 0,
     }));
   }),
 
@@ -1026,6 +1062,31 @@ export const affiliatesRouter = router({
         });
       }
       return { styleId: input.styleId, brandName, markupBps, featured, isEnabled, sortOrder };
+    }),
+
+  reorderFeaturedStyles: partnerProcedure
+    .input(z.object({
+      styles: z.array(z.object({ styleId: z.number().int().positive(), sortOrder: z.number().int().min(0) })).max(100),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const ids = input.styles.map((style) => style.styleId);
+      if (new Set(ids).size !== ids.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Each featured door style can appear only once." });
+      if (ids.length === 0) return { updated: 0 };
+      const rows = await db.select({ id: affiliateStyleBranding.id, styleId: affiliateStyleBranding.styleId })
+        .from(affiliateStyleBranding)
+        .where(and(eq(affiliateStyleBranding.affiliateId, mine.id), eq(affiliateStyleBranding.featured, true), inArray(affiliateStyleBranding.styleId, ids)));
+      if (rows.length !== ids.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Only currently featured door styles can be reordered." });
+      await db.transaction(async (tx) => {
+        for (const style of input.styles) {
+          const row = rows.find((candidate) => candidate.styleId === style.styleId);
+          if (row) await tx.update(affiliateStyleBranding).set({ sortOrder: style.sortOrder }).where(eq(affiliateStyleBranding.id, row.id));
+        }
+      });
+      return { updated: rows.length };
     }),
 
   // Upload a room scene photo for a specific door style on this affiliate's storefront

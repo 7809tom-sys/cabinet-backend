@@ -1988,6 +1988,7 @@ export const designRouter = router({
       const affiliate = await resolveAffiliateDesignOwner(db, affiliateSlug ?? undefined);
       const affiliateId = affiliate?.id ?? null;
       let featuredDistributorId: number | null = null;
+      let featuredStyleId: number | null = null;
       if (affiliateId != null && input.featuredStyleId != null) {
         const [featuredStyle] = await db
           .select({ distributorId: doorStyles.distributorId })
@@ -2015,6 +2016,7 @@ export const designRouter = router({
             .limit(1);
           if (featuredStyleOverride || featuredDistributorSelection) {
             featuredDistributorId = featuredStyle.distributorId;
+            featuredStyleId = input.featuredStyleId;
           }
         }
       }
@@ -2022,7 +2024,7 @@ export const designRouter = router({
       // De-dupe: look for an existing lead for this email (scoped to the same
       // user when logged in). Update + bump the counter if found.
       const existing = await db
-        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone, dealId: designLeads.dealId, featuredDistributorId: designLeads.featuredDistributorId })
+        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone, dealId: designLeads.dealId, featuredDistributorId: designLeads.featuredDistributorId, featuredStyleId: designLeads.featuredStyleId })
         .from(designLeads)
         .where(
           userId
@@ -2049,6 +2051,7 @@ export const designRouter = router({
             roomType: roomType ?? undefined,
             userId: userId ?? undefined,
             featuredDistributorId: featuredDistributorId ?? existing[0].featuredDistributorId,
+            featuredStyleId: featuredStyleId ?? existing[0].featuredStyleId,
             ...(input.interaction === "contact_update" ? {} : {
               launchCount: sql`${designLeads.launchCount} + 1`,
               lastLaunchAt: new Date(),
@@ -2073,6 +2076,7 @@ export const designRouter = router({
         affiliateSlug,
         affiliateId,
         featuredDistributorId,
+        featuredStyleId,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 
