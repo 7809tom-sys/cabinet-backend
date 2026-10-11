@@ -119,6 +119,20 @@ export function StorefrontShop({
 }) {
   const { family, lock, clear } = useFamilyLock(slug);
   const branding = useStorefrontBranding(slug);
+  const availableFamilies = trpc.storefront.families.useQuery(
+    { slug },
+    { enabled: family !== null },
+  );
+
+  // An affiliate may later remove a supplier line from their storefront. Do not
+  // leave a customer trapped in a stale localStorage family lock; return them to
+  // the current picker without touching their cart or any other storefront state.
+  useEffect(() => {
+    if (!family || !availableFamilies.data) return;
+    if (!availableFamilies.data.some((candidate) => candidate.styleId === family.styleId)) {
+      clear();
+    }
+  }, [availableFamilies.data, clear, family]);
 
   if (!family) {
     return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} slug={slug} />;

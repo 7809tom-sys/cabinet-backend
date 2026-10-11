@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, or, and } from "drizzle-orm";
+import { eq, desc, or, and, inArray } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, doorStyles, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -26,6 +26,87 @@ import { reavesWayAffiliateDefaults } from "@shared/affiliateBlueprint";
 import { affiliateNonCompeteEnforcementNote } from "@shared/affiliateNonCompete";
 import { AFFILIATE_STOREFRONT_TEMPLATE_IDS, type AffiliateStorefrontTemplate } from "@shared/affiliateStorefrontTemplates";
 import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
+
+/** Cabinet supply lines that are currently active and have a published SKU.
+ * Affiliates may curate only these lines, never a dormant or unpriced source. */
+async function availableStorefrontDistributors(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
+  return db
+    .selectDistinct({
+      id: distributors.id,
+      name: distributors.name,
+      displayMode: distributors.displayMode,
+      seriesName: distributors.seriesName,
+    })
+    .from(distributors)
+    .innerJoin(doorStyles, eq(doorStyles.distributorId, distributors.id))
+    .innerJoin(distributorSkus, eq(distributorSkus.styleId, doorStyles.id))
+    .where(and(
+      eq(distributors.isActive, true),
+      eq(doorStyles.isActive, true),
+      eq(distributorSkus.isAvailable, true),
+      eq(distributorSkus.isPublished, true),
+    ))
+    .orderBy(distributors.name);
+}
+
+async function storefrontCurationForAffiliate(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  affiliateId: number,
+) {
+  const [distributorsForStore, selections] = await Promise.all([
+    availableStorefrontDistributors(db),
+    db.select().from(affiliateDistributorSelections)
+      .where(eq(affiliateDistributorSelections.affiliateId, affiliateId)),
+  ]);
+  const selectionByDistributor = new Map(selections.map((selection) => [selection.distributorId, selection]));
+  return {
+    distributorSelections: distributorsForStore.map((distributor) => ({
+      ...distributor,
+      selected: selectionByDistributor.has(distributor.id),
+      featured: selectionByDistributor.get(distributor.id)?.featured ?? false,
+      sortOrder: selectionByDistributor.get(distributor.id)?.sortOrder ?? 0,
+    })),
+  };
+}
+
+const storefrontDistributorSelectionsInput = z.object({
+  selections: z.array(z.object({
+    distributorId: z.number().int().positive(),
+    featured: z.boolean().default(false),
+  })).max(100),
+});
+
+async function saveStorefrontDistributorSelections(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  affiliateId: number,
+  selections: Array<{ distributorId: number; featured: boolean }>,
+) {
+  const selectedIds = selections.map((selection) => selection.distributorId);
+  if (new Set(selectedIds).size !== selectedIds.length) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Each distributor can be selected only once." });
+  }
+  const available = await availableStorefrontDistributors(db);
+  const availableIds = new Set(available.map((distributor) => distributor.id));
+  if (selectedIds.some((id) => !availableIds.has(id))) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "One or more selected cabinet lines are not currently available." });
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.delete(affiliateDistributorSelections)
+      .where(eq(affiliateDistributorSelections.affiliateId, affiliateId));
+    if (selections.length > 0) {
+      await tx.insert(affiliateDistributorSelections).values(
+        selections.map((selection, sortOrder) => ({
+          affiliateId,
+          distributorId: selection.distributorId,
+          featured: selection.featured,
+          sortOrder,
+        })),
+      );
+    }
+  });
+  return storefrontCurationForAffiliate(db, affiliateId);
+}
 
 // Public-safe projection of an affiliate (no internal notes / commission rate).
 function toPublicStorefront(a: typeof affiliates.$inferSelect) {
@@ -760,7 +841,7 @@ export const affiliatesRouter = router({
     const db = await getDb();
     if (!db) return null;
     const styles = await db
-      .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
       .from(doorStyles)
       .where(eq(doorStyles.isActive, true));
     const overrides = await db
@@ -772,10 +853,12 @@ export const affiliatesRouter = router({
     try {
       if (mine.categoryMarkupJson) categoryMarkup = JSON.parse(mine.categoryMarkupJson);
     } catch { categoryMarkup = {}; }
+    const curation = await storefrontCurationForAffiliate(db, mine.id);
     return {
       affiliateId: mine.id,
       defaultMarkupBps: mine.defaultMarkupBps,
       categoryMarkup,
+      ...curation,
       styles: styles
         .map((s) => ({
           ...s,
@@ -805,6 +888,19 @@ export const affiliatesRouter = router({
         await db.update(affiliates).set(set).where(eq(affiliates.id, mine.id));
       }
       return { id: mine.id };
+    }),
+
+  // Once an affiliate saves at least one selection, their storefront becomes an
+  // explicit cabinet-line assortment. Clearing the selections returns to the
+  // historical all-active-lines behavior.
+  updateMyStorefrontDistributors: partnerProcedure
+    .input(storefrontDistributorSelectionsInput)
+    .mutation(async ({ ctx, input }) => {
+      const mine = await resolveMyAffiliate(ctx);
+      if (!mine) throw new TRPCError({ code: "FORBIDDEN", message: "No affiliate account linked to you." });
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      return saveStorefrontDistributorSelections(db, mine.id, input.selections);
     }),
 
   // Upsert (or clear) one per-style override. Pass brandName=null & markupBps=null
@@ -888,7 +984,7 @@ export const affiliatesRouter = router({
       const a = rows[0];
       if (!a) return null;
       const styles = await db
-        .select({ id: doorStyles.id, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+        .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
         .from(doorStyles)
         .where(eq(doorStyles.isActive, true));
       const overrides = await db
@@ -898,10 +994,12 @@ export const affiliatesRouter = router({
       const byStyle = new Map(overrides.map((o) => [o.styleId, o]));
       let categoryMarkup: Record<string, number> = {};
       try { if (a.categoryMarkupJson) categoryMarkup = JSON.parse(a.categoryMarkupJson); } catch { categoryMarkup = {}; }
+      const curation = await storefrontCurationForAffiliate(db, a.id);
       return {
         affiliateId: a.id,
         defaultMarkupBps: a.defaultMarkupBps,
         categoryMarkup,
+        ...curation,
         styles: styles.map((s) => ({ ...s, override: byStyle.get(s.id) ?? null })).sort((a, b) => (a.ourName || "").localeCompare(b.ourName || "")),
       };
     }),
@@ -920,6 +1018,17 @@ export const affiliatesRouter = router({
       if (input.categoryMarkup !== undefined) set.categoryMarkupJson = JSON.stringify(input.categoryMarkup);
       if (Object.keys(set).length > 0) await db.update(affiliates).set(set).where(eq(affiliates.id, input.affiliateId));
       return { id: input.affiliateId };
+    }),
+
+  adminUpdateStorefrontDistributors: adminProcedure
+    .input(storefrontDistributorSelectionsInput.extend({ affiliateId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+      const [affiliate] = await db.select({ id: affiliates.id }).from(affiliates)
+        .where(eq(affiliates.id, input.affiliateId)).limit(1);
+      if (!affiliate) throw new TRPCError({ code: "NOT_FOUND", message: "Affiliate not found." });
+      return saveStorefrontDistributorSelections(db, affiliate.id, input.selections);
     }),
 
   adminUpsertStyleBranding: adminProcedure

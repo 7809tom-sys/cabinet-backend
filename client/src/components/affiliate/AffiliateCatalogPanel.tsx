@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Spinner } from "@/components/ui/spinner";
-import { Star, StarOff, Upload, X, Pencil, Check } from "lucide-react";
+import { Star, StarOff, Upload, X, Pencil, Check, Store } from "lucide-react";
 
 type StyleRow = {
   id: number;
+  distributorId: number;
   ourName: string | null;
   styleCode: string | null;
   doorStyle: string | null;
@@ -22,13 +23,139 @@ type StyleRow = {
       isEnabled: boolean;
       sortOrder: number;
       roomSceneUrl: string | null;
-    } | null;
+  } | null;
+};
+
+type DistributorSelectionRow = {
+  id: number;
+  name: string;
+  displayMode: "neutral" | "branded" | "series";
+  seriesName: string | null;
+  selected: boolean;
+  featured: boolean;
+  sortOrder: number;
 };
 
 function bpsToPercent(bps: number | null | undefined) {
   if (bps == null) return "";
   return (bps / 100).toFixed(2);
 }
+
+function DistributorCurationPanel({
+  distributors,
+  affiliateId,
+  isAdminView,
+}: {
+  distributors: DistributorSelectionRow[];
+  affiliateId?: number;
+  isAdminView: boolean;
+}) {
+  const utils = trpc.useUtils();
+  const refresh = () => {
+    if (isAdminView && affiliateId !== undefined) {
+      void utils.affiliates.adminBranding.invalidate({ affiliateId });
+    } else {
+      void utils.affiliates.myBranding.invalidate();
+    }
+  };
+  const ownSave = trpc.affiliates.updateMyStorefrontDistributors.useMutation({
+    onSuccess: () => { refresh(); toast.success("Storefront cabinet lines updated"); },
+    onError: (error) => toast.error(error.message),
+  });
+  const adminSave = trpc.affiliates.adminUpdateStorefrontDistributors.useMutation({
+    onSuccess: () => { refresh(); toast.success("Selected affiliate storefront lines updated"); },
+    onError: (error) => toast.error(error.message),
+  });
+  const selected = distributors.filter((distributor) => distributor.selected);
+  const isSaving = ownSave.isPending || adminSave.isPending;
+
+  const save = (next: DistributorSelectionRow[]) => {
+    const selections = next.filter((distributor) => distributor.selected).map((distributor) => ({
+      distributorId: distributor.id,
+      featured: distributor.featured,
+    }));
+    if (isAdminView) {
+      if (affiliateId === undefined) {
+        toast.error("Select an affiliate before changing storefront cabinet lines.");
+        return;
+      }
+      adminSave.mutate({ affiliateId, selections });
+      return;
+    }
+    ownSave.mutate({ selections });
+  };
+
+  const toggleSelected = (id: number) => save(distributors.map((distributor) =>
+    distributor.id === id
+      ? { ...distributor, selected: !distributor.selected, featured: !distributor.selected ? false : distributor.featured }
+      : distributor,
+  ));
+  const toggleFeatured = (id: number) => save(distributors.map((distributor) =>
+    distributor.id === id ? { ...distributor, featured: !distributor.featured } : distributor,
+  ));
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold flex items-center gap-2"><Store className="h-4 w-4 text-primary" /> Cabinet lines on my storefront</h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Choose the cabinet distributors you want customers to see. Star a selected distributor to place its cabinet lines first.
+          </p>
+        </div>
+        <Badge variant={selected.length ? "default" : "secondary"}>
+          {selected.length ? `${selected.length} selected` : "All active lines"}
+        </Badge>
+      </div>
+      {selected.length === 0 && (
+        <p className="rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
+          No curated supplier list is saved yet, so the storefront continues to show every active cabinet line. Select one or more below to curate it.
+        </p>
+      )}
+      <div className="grid gap-2 sm:grid-cols-2">
+        {distributors.map((distributor) => {
+          const displayName = distributor.displayMode === "series" && distributor.seriesName?.trim()
+            ? distributor.seriesName
+            : distributor.name;
+          return (
+            <div key={distributor.id} className={`flex items-center gap-2 rounded-lg border p-3 ${distributor.selected ? "border-primary bg-primary/5" : "border-border"}`}>
+              <Button
+                type="button"
+                variant={distributor.selected ? "default" : "outline"}
+                size="sm"
+                className="min-h-9 shrink-0"
+                disabled={isSaving}
+                aria-pressed={distributor.selected}
+                onClick={() => toggleSelected(distributor.id)}
+              >
+                {distributor.selected ? "Included" : "Include"}
+              </Button>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium" title={displayName}>{displayName}</span>
+              {distributor.selected && (
+                <button
+                  type="button"
+                  className={`rounded p-1.5 ${distributor.featured ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  aria-label={distributor.featured ? `Remove ${displayName} from featured lines` : `Feature ${displayName} on storefront`}
+                  title={distributor.featured ? "Featured first" : "Feature this distributor"}
+                  disabled={isSaving}
+                  onClick={() => toggleFeatured(distributor.id)}
+                >
+                  {distributor.featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {selected.length > 0 && (
+        <Button variant="ghost" size="sm" className="text-muted-foreground" disabled={isSaving} onClick={() => save(distributors.map((distributor) => ({ ...distributor, selected: false, featured: false })))}>
+          Show all active cabinet lines again
+        </Button>
+      )}
+    </section>
+  );
+}
+
 function percentToBps(pct: string): number | null {
   const n = parseFloat(pct);
   if (isNaN(n) || n < 0) return null;
@@ -326,9 +453,15 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
       <div>
         <h2 className="text-xl font-bold">My Catalog</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose which door styles to feature on your storefront, rename them for your brand, set per-style markups, and upload your own room scene photos.
+          Choose the distributors and cabinet lines for your storefront, feature what customers see first, rename lines for your brand, set per-style markups, and upload your own room scene photos.
         </p>
       </div>
+
+      <DistributorCurationPanel
+        distributors={data.distributorSelections as DistributorSelectionRow[]}
+        affiliateId={affiliateId}
+        isAdminView={isAdminView}
+      />
 
       <div className="flex flex-wrap items-center gap-3">
         <Input

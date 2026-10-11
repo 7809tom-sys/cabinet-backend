@@ -11,6 +11,7 @@ import {
   distributorSkus,
   affiliates,
   affiliateStyleBranding,
+  affiliateDistributorSelections,
   affiliateBannerSchedules,
   affiliatePromoDiscounts,
   skuMasterAliases,
@@ -79,6 +80,42 @@ export function toFamily(row: {
   };
 }
 
+/** A selected storefront supplier list is an allow-list. Empty selection rows
+ * intentionally preserve the legacy all-active-lines storefront behavior. */
+async function affiliateAllowsStyle(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  slug: string | undefined,
+  styleId: number,
+) {
+  if (!slug) return true;
+  const [affiliate] = await db.select({ id: affiliates.id }).from(affiliates)
+    .where(eq(affiliates.slug, slug.toLowerCase())).limit(1);
+  if (!affiliate) return true;
+  const [style] = await db.select({ distributorId: doorStyles.distributorId }).from(doorStyles)
+    .where(eq(doorStyles.id, styleId)).limit(1);
+  if (!style) return false;
+  const selections = await db.select({ distributorId: affiliateDistributorSelections.distributorId })
+    .from(affiliateDistributorSelections)
+    .where(eq(affiliateDistributorSelections.affiliateId, affiliate.id));
+  return selections.length === 0 || selections.some((selection) => selection.distributorId === style.distributorId);
+}
+
+export function applyAffiliateDistributorCuration<T extends { distributorId: number; styleId: number; name: string }>(
+  families: T[],
+  selectedDistributorIds: Set<number>,
+  featuredDistributorIds: Set<number>,
+  featuredStyleIds: Set<number>,
+) {
+  return families
+    .filter((family) => selectedDistributorIds.size === 0 || selectedDistributorIds.has(family.distributorId))
+    .sort((a, b) => {
+      const aFeatured = featuredStyleIds.has(a.styleId) || featuredDistributorIds.has(a.distributorId) ? 1 : 0;
+      const bFeatured = featuredStyleIds.has(b.styleId) || featuredDistributorIds.has(b.distributorId) ? 1 : 0;
+      if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+      return a.name.localeCompare(b.name);
+    });
+}
+
 // Collapse the many fine-grained Accessory subCategories into THREE clean
 // storefront display groups so a locked family never shows a sprawl of micro
 // labels. The detailed subCategory is kept in the DB for data/quoting; this is
@@ -139,6 +176,8 @@ export const storefrontRouter = router({
 
       let disabledStyleIds = new Set<number>();
       let featuredStyleIds = new Set<number>();
+      let selectedDistributorIds = new Set<number>();
+      let featuredDistributorIds = new Set<number>();
       const brandNameMap = new Map<number, string>();
       const roomSceneMap = new Map<number, string>();
 
@@ -154,12 +193,20 @@ export const storefrontRouter = router({
             .select()
             .from(affiliateStyleBranding)
             .where(eq(affiliateStyleBranding.affiliateId, a.id));
+          const distributorRows = await db
+            .select()
+            .from(affiliateDistributorSelections)
+            .where(eq(affiliateDistributorSelections.affiliateId, a.id));
           for (const r of brandRows) {
             if (r.isEnabled === false) disabledStyleIds.add(r.styleId);
             if (r.featured) featuredStyleIds.add(r.styleId);
             if (r.brandName?.trim()) brandNameMap.set(r.styleId, r.brandName.trim());
             if (r.roomSceneUrl?.trim()) roomSceneMap.set(r.styleId, r.roomSceneUrl.trim());
           }
+          // No rows preserves legacy stores exactly. Once an affiliate saves one
+          // supplier selection, only those lines appear on the public store.
+          selectedDistributorIds = new Set(distributorRows.map((row) => row.distributorId));
+          featuredDistributorIds = new Set(distributorRows.filter((row) => row.featured).map((row) => row.distributorId));
         }
       }
 
@@ -174,6 +221,9 @@ export const storefrontRouter = router({
       }
       if (input?.doorStyle) {
         conditions.push(eq(doorStyles.doorStyle, input.doorStyle));
+      }
+      if (selectedDistributorIds.size > 0) {
+        conditions.push(inArray(doorStyles.distributorId, Array.from(selectedDistributorIds)));
       }
 
       // Distinct families that actually have buyable cabinets.
@@ -209,7 +259,7 @@ export const storefrontRouter = router({
         .map((r) => {
           const fam = {
             ...toFamily(r),
-            featured: featuredStyleIds.has(r.id),
+            featured: featuredStyleIds.has(r.id) || featuredDistributorIds.has(r.distributorId),
           };
           // Affiliate-entered brandName is not a verified neutral style label.
           // Never let it override a supply line explicitly marked white-label.
@@ -222,12 +272,12 @@ export const storefrontRouter = router({
           return fam;
         });
 
-      return mapped.sort((a, b) => {
-        const aFeatured = featuredStyleIds.has(a.styleId) ? 1 : 0;
-        const bFeatured = featuredStyleIds.has(b.styleId) ? 1 : 0;
-        if (aFeatured !== bFeatured) return bFeatured - aFeatured; // featured first
-        return (a.name || "").localeCompare(b.name || "");
-      });
+      return applyAffiliateDistributorCuration(
+        mapped,
+        selectedDistributorIds,
+        featuredDistributorIds,
+        featuredStyleIds,
+      );
     }),
 
   // The distinct door-style "types" (Shaker, Raised Panel, Slab, ...) available,
@@ -251,10 +301,11 @@ export const storefrontRouter = router({
 
   // Resolve one family by styleId (for re-hydrating a locked session).
   familyById: publicProcedure
-    .input(z.object({ styleId: z.number() }))
+    .input(z.object({ styleId: z.number(), slug: z.string().optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
+      if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return null;
       const rows = await db
         .select({
           id: doorStyles.id,
@@ -381,6 +432,7 @@ export const storefrontRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { items: [], total: 0 };
+      if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return { items: [], total: 0 };
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       if (input.slug) {
@@ -549,6 +601,7 @@ export const storefrontRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return { intent: input.intent, items: [] as unknown[] };
+      if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return { intent: input.intent, items: [] as unknown[] };
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       const intent = input.intent.toLowerCase();
@@ -696,6 +749,7 @@ export const storefrontRouter = router({
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
+      if (!await affiliateAllowsStyle(db, input.slug, input.styleId)) return null;
       const affiliatePricing = await loadAffiliateStorefrontPricing(input.slug);
 
       const code = input.masterCode.toUpperCase().trim();

@@ -1510,6 +1510,29 @@ export const affiliateStyleBranding = mysqlTable("affiliate_style_branding", {
 export type AffiliateStyleBranding = typeof affiliateStyleBranding.$inferSelect;
 export type InsertAffiliateStyleBranding = typeof affiliateStyleBranding.$inferInsert;
 
+// ─── Affiliate storefront distributor curation ───────────────────────────────
+// An affiliate may either leave this table empty (the backward-compatible
+// "show every active cabinet line" mode), or choose the supply lines that are
+// allowed on their public storefront.  This is deliberately separate from the
+// per-style branding table: one distributor can have many cabinet lines, and a
+// featured distributor promotes those lines without overwriting a line's own
+// featured/hidden settings.
+export const affiliateDistributorSelections = mysqlTable("affiliate_distributor_selections", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  featured: boolean("featured").default(false).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (t) => ({
+  uniqueAffiliateDistributor: uniqueIndex("affiliate_distributor_selection_uidx").on(t.affiliateId, t.distributorId),
+  affiliateSelectionIndex: index("affiliate_distributor_selection_affiliate_idx").on(t.affiliateId),
+}));
+
+export type AffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferSelect;
+export type InsertAffiliateDistributorSelection = typeof affiliateDistributorSelections.$inferInsert;
+
 // ─── CRM: Sales pipeline (admin) + affiliate pipeline ──────────────────────────
 // A lightweight task-board / pipeline over leads & deals. A deal with
 // affiliateId = NULL is a "house" deal owned by the Cabinet Dealz sales team
