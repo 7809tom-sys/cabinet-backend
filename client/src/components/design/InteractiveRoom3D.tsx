@@ -10058,6 +10058,9 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      environmentTarget.dispose();
 	      pmremGenerator.dispose();
 	      renderer.dispose();
+      // dispose() alone leaves the browser's WebGL context alive; Chrome caps live contexts, so after
+      // many edits it refuses new ones ("device cannot start the 3D view"). Release it explicitly.
+      try { renderer.forceContextLoss(); } catch { /* already lost */ }
       renderer.domElement.remove();
       if (rendererRef.current === renderer) rendererRef.current = null;
       if (sceneRef.current === threeScene) sceneRef.current = null;
