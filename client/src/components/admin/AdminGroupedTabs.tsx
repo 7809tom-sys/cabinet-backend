@@ -36,7 +36,7 @@ import CustomersAdmin from "@/components/admin/CustomersAdmin";
 import RolesAdmin from "@/components/admin/RolesAdmin";
 import SkuImageManager from "@/components/admin/SkuImageManager";
 import FeaturedStylesAdmin from "@/components/admin/FeaturedStylesAdmin";
-import ShippingAdmin, { FreightApiLogsPanel } from "@/components/admin/ShippingAdmin";
+import ShippingAdmin, { FreightApiLogsPanel, FreightQuoteHistoryPanel } from "@/components/admin/ShippingAdmin";
 import CarrierKeysPanel from "@/components/admin/CarrierKeysPanel";
 import MarginsAdmin from "@/components/admin/MarginsAdmin";
 import DistributorMultipliersAdmin from "@/components/admin/DistributorMultipliersAdmin";
@@ -542,7 +542,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="pricing-access" className="mt-6"><AdminTabHelp tab="pricing-access" /><PricingAccessAdmin /></TabsContent>
 
         {/* Operations */}
-        <TabsContent value="shipping" className="mt-6"><AdminTabHelp tab="shipping" /><div className="mb-6"><CarrierKeysPanel /></div><ShippingAdmin /><div className="mt-6"><FreightApiLogsPanel /></div></TabsContent>
+        <TabsContent value="shipping" className="mt-6"><AdminTabHelp tab="shipping" /><div className="mb-6"><CarrierKeysPanel /></div><ShippingAdmin /><div className="mt-6"><FreightApiLogsPanel /><FreightQuoteHistoryPanel /></div></TabsContent>
         <TabsContent value="coverage" className="mt-6"><AdminTabHelp tab="coverage" /><DesignerCoverageAdmin /></TabsContent>
         <TabsContent value="designer-availability" className="mt-6"><AdminTabHelp tab="designer-availability" /><DesignerAvailabilityAdmin /></TabsContent>
         <TabsContent value="gemini-image-provider" className="mt-6"><GeminiImageProviderAdmin /></TabsContent>

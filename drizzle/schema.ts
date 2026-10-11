@@ -2932,3 +2932,24 @@ export const mediaImages = mysqlTable("media_images", {
 });
 export type MediaImageRow = typeof mediaImages.$inferSelect;
 export type InsertMediaImage = typeof mediaImages.$inferInsert;
+
+// ─── Freight quote history (permanent, never pruned) ───────────────────────
+export const freightQuoteHistory = mysqlTable("freight_quote_history", {
+  id: int("id").autoincrement().primaryKey(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  broker: varchar("broker", { length: 40 }).notNull(),
+  environment: varchar("environment", { length: 20 }),
+  fromZip: varchar("fromZip", { length: 12 }).notNull(),
+  toZip: varchar("toZip", { length: 12 }).notNull(),
+  palletCount: int("palletCount").notNull().default(0),
+  totalWeightLbs: decimal("totalWeightLbs", { precision: 10, scale: 2 }).notNull().default("0"),
+  freightClass: varchar("freightClass", { length: 20 }),
+  accessorials: text("accessorials"),
+  ok: boolean("ok").notNull().default(false),
+  amountCents: int("amountCents").notNull().default(0),
+  carrier: varchar("carrier", { length: 120 }),
+  service: varchar("service", { length: 160 }),
+  error: text("error"),
+  durationMs: int("durationMs"),
+  packagesJson: text("packagesJson"),
+});

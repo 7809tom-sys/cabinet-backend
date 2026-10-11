@@ -48,6 +48,8 @@ export function logFreightApiCall(entry: Omit<FreightApiLogEntry, "id" | "ts">):
   };
   entries.push(record);
   if (entries.length > MAX_ENTRIES) entries.shift();
+  // Permanent history: every quote attempt is also stored in the database (never pruned).
+  void persistFreightQuote(record);
   // Also log to console for server-side visibility.
   const status = record.ok ? `✓ $${(record.amountCents / 100).toFixed(2)}` : `✗ ${record.error ?? "error"}`;
   console.log(
@@ -58,4 +60,31 @@ export function logFreightApiCall(entry: Omit<FreightApiLogEntry, "id" | "ts">):
 
 export function getFreightApiLogs(limit = 50): FreightApiLogEntry[] {
   return entries.slice(-limit).reverse(); // newest first
+}
+
+async function persistFreightQuote(record: FreightApiLogEntry): Promise<void> {
+  try {
+    const { getDb } = await import("../db");
+    const { freightQuoteHistory } = await import("../../drizzle/schema");
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(freightQuoteHistory).values({
+      broker: record.broker,
+      fromZip: record.fromZip,
+      toZip: record.toZip,
+      palletCount: record.palletCount,
+      totalWeightLbs: String(record.totalWeightLbs ?? 0),
+      freightClass: record.freightClass,
+      accessorials: record.accessorials.join(","),
+      ok: record.ok,
+      amountCents: Math.round(record.amountCents || 0),
+      carrier: record.carrier ?? null,
+      service: record.service ?? null,
+      error: record.error ? String(record.error).slice(0, 2000) : null,
+      durationMs: record.durationMs,
+      packagesJson: JSON.stringify(record.packages ?? []),
+    });
+  } catch (error) {
+    console.warn("[freight-api] could not persist quote history", error instanceof Error ? error.message : error);
+  }
 }

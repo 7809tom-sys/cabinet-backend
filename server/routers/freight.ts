@@ -2641,4 +2641,30 @@ export const freightRouter = router({
     .input(z.object({ limit: z.number().int().min(1).max(200).default(50) }))
     .query(({ input }) => getFreightApiLogs(input.limit)),
 
+  // Permanent quote history (database) so rates can be compared over time.
+  adminQuoteHistory: adminProcedure
+    .input(z.object({
+      limit: z.number().int().min(1).max(500).default(100),
+      broker: z.string().max(40).optional(),
+      onlyOk: z.boolean().optional(),
+    }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return [];
+      const { freightQuoteHistory } = await import("../../drizzle/schema");
+      const { desc, eq, and } = await import("drizzle-orm");
+      const conds = [
+        input.broker ? eq(freightQuoteHistory.broker, input.broker) : undefined,
+        input.onlyOk ? eq(freightQuoteHistory.ok, true) : undefined,
+      ].filter(Boolean) as any[];
+      const rows = await db.select().from(freightQuoteHistory)
+        .where(conds.length ? and(...conds) : undefined)
+        .orderBy(desc(freightQuoteHistory.id)).limit(input.limit);
+      return rows.map((r: any) => {
+        let packages: unknown[] = [];
+        try { packages = JSON.parse(r.packagesJson ?? "[]"); } catch { /* ignore */ }
+        return { ...r, totalWeightLbs: Number(r.totalWeightLbs), packages };
+      });
+    }),
+
 });

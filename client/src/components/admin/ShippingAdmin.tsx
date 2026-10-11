@@ -1004,6 +1004,105 @@ function PelicanShippingProfilesPanel() {
   );
 }
 
+export function packageSummary(packages: Array<{ kind: string; lengthIn: number; widthIn: number; heightIn: number; weightLbs: number }> | undefined | null): string {
+  if (!packages || packages.length === 0) return "—";
+  return packages
+    .map((p, i) => `${p.kind === "pallet" ? "Pallet" : "Carton"} ${i + 1}: ${p.lengthIn}×${p.widthIn}×${p.heightIn} in, ${p.weightLbs} lb`)
+    .join("\n");
+}
+
+function csvCell(v: unknown): string {
+  const t = String(v ?? "");
+  return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+}
+
+// ─── Permanent quote history (stored in the database, never pruned) ───────
+export function FreightQuoteHistoryPanel() {
+  const [broker, setBroker] = useState<string>("");
+  const [onlyOk, setOnlyOk] = useState(false);
+  const { data: rows, isLoading, refetch } = trpc.freight.adminQuoteHistory.useQuery({
+    limit: 300, broker: broker || undefined, onlyOk: onlyOk || undefined,
+  });
+  const exportCsv = () => {
+    const header = ["Date", "Broker", "From", "To", "Pallets", "Units", "Weight lb", "Class", "Accessorials", "Result", "Price", "Carrier", "Service", "Error"];
+    const lines = (rows ?? []).map((r) => [
+      new Date(r.createdAt).toISOString(), r.broker, r.fromZip, r.toZip, r.palletCount,
+      packageSummary(r.packages as any).replace(/\n/g, " | "), r.totalWeightLbs, r.freightClass, r.accessorials,
+      r.ok ? "quoted" : "failed", r.ok ? (r.amountCents / 100).toFixed(2) : "", r.carrier, r.service, r.error,
+    ].map(csvCell).join(","));
+    const blob = new Blob([[header.join(","), ...lines].join("\n")], { type: "text/csv" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `freight-quote-history-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  return (
+    <Card data-testid="freight-quote-history">
+      <CardHeader>
+        <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+          <span className="flex items-center gap-2"><Activity className="h-5 w-5 text-primary" /> Freight Quote History (permanent)</span>
+          <span className="flex flex-wrap items-center gap-2">
+            <select className="h-8 rounded-md border bg-background px-2 text-xs" value={broker} onChange={(e) => setBroker(e.target.value)} aria-label="Filter by broker">
+              <option value="">All brokers</option>
+              <option value="worldwideexpress">Worldwide Express</option>
+              <option value="ups">UPS</option>
+              <option value="fedex">FedEx</option>
+              <option value="freightquote">Freightquote</option>
+              <option value="globaltranz">GlobalTranz</option>
+              <option value="easypost">EasyPost</option>
+            </select>
+            <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={onlyOk} onChange={(e) => setOnlyOk(e.target.checked)} /> Quoted only</label>
+            <Button variant="outline" size="sm" className="bg-background" onClick={() => refetch()}>Refresh</Button>
+            <Button variant="outline" size="sm" className="bg-background" onClick={exportCsv} disabled={!rows?.length}>Export CSV</Button>
+          </span>
+        </CardTitle>
+        <p className="text-xs text-muted-foreground">Every quote request is saved with its pallet/carton sizes and weights so you can compare against rates you look up online.</p>
+      </CardHeader>
+      <CardContent>
+        {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {!isLoading && (!rows || rows.length === 0) && <p className="text-sm text-muted-foreground">No quotes saved yet. History starts with the next quote request.</p>}
+        {rows && rows.length > 0 && (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Date</TableHead>
+                  <TableHead className="text-xs">Broker</TableHead>
+                  <TableHead className="text-xs">Route</TableHead>
+                  <TableHead className="text-xs">Pallets / cartons (L×W×H, lb)</TableHead>
+                  <TableHead className="text-xs">Weight</TableHead>
+                  <TableHead className="text-xs">Class</TableHead>
+                  <TableHead className="text-xs">Extras</TableHead>
+                  <TableHead className="text-xs">Result</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((r) => (
+                  <TableRow key={r.id}>
+                    <TableCell className="text-xs whitespace-nowrap">{new Date(r.createdAt).toLocaleString()}</TableCell>
+                    <TableCell className="text-xs font-mono">{r.broker}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-nowrap">{r.fromZip} → {r.toZip}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-pre-line">{packageSummary(r.packages as any)}</TableCell>
+                    <TableCell className="text-xs">{r.totalWeightLbs.toFixed(0)} lb</TableCell>
+                    <TableCell className="text-xs">{r.freightClass ?? "—"}</TableCell>
+                    <TableCell className="text-xs">{r.accessorials || "—"}</TableCell>
+                    <TableCell className="text-xs">
+                      {r.ok
+                        ? <span className="text-emerald-600 font-medium">${(r.amountCents / 100).toFixed(2)} {r.carrier}{r.service ? ` · ${r.service}` : ""}</span>
+                        : <span className="text-destructive" title={r.error ?? ""}>✗ {(r.error ?? "error").slice(0, 60)}</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 // ─── API Logs sub-component ───────────────────────────────────────────────────
 // Exported separately so it can be used standalone or embedded in ShippingAdmin.
 export function FreightApiLogsPanel() {
@@ -1036,6 +1135,7 @@ export function FreightApiLogsPanel() {
                   <TableHead className="text-xs">Time</TableHead>
                   <TableHead className="text-xs">Broker</TableHead>
                   <TableHead className="text-xs">Route</TableHead>
+                  <TableHead className="text-xs">Pallets / cartons (L×W×H, lb)</TableHead>
                   <TableHead className="text-xs">Weight</TableHead>
                   <TableHead className="text-xs">Class</TableHead>
                 <TableHead className="text-xs">Accessorials</TableHead>
@@ -1052,6 +1152,7 @@ export function FreightApiLogsPanel() {
                     <TableCell className="text-xs whitespace-nowrap">{new Date(log.ts).toLocaleTimeString()}</TableCell>
                     <TableCell className="text-xs font-mono">{log.broker}</TableCell>
                     <TableCell className="text-xs font-mono">{log.fromZip} → {log.toZip}</TableCell>
+                    <TableCell className="text-xs font-mono whitespace-pre-line">{packageSummary(log.packages)}</TableCell>
                     <TableCell className="text-xs">{log.totalWeightLbs.toFixed(0)} lbs</TableCell>
                     <TableCell className="text-xs">{log.freightClass}</TableCell>
                     <TableCell className="text-xs">{log.accessorials.join(", ") || "—"}</TableCell>
@@ -1083,7 +1184,7 @@ export function FreightApiLogsPanel() {
                     <TableCell className="text-xs text-muted-foreground">{log.durationMs}</TableCell>
                   </TableRow>
                   {expanded && <TableRow key={`${log.id}-packages`}>
-                    <TableCell colSpan={10} className="bg-muted/30 p-3">
+                    <TableCell colSpan={11} className="bg-muted/30 p-3">
                       <div className="space-y-2">
                         <p className="text-xs font-semibold">Exact handling units sent or prepared for this quote</p>
                         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
