@@ -29,6 +29,10 @@ type StyleRow = {
 type DistributorSelectionRow = {
   id: number;
   name: string;
+  publicName: string;
+  lineMark: string;
+  description: string;
+  styleCount: number;
   displayMode: "neutral" | "branded" | "series";
   seriesName: string | null;
   selected: boolean;
@@ -114,11 +118,18 @@ function DistributorCurationPanel({
       )}
       <div className="grid gap-2 sm:grid-cols-2">
         {distributors.map((distributor) => {
-          const displayName = distributor.displayMode === "series" && distributor.seriesName?.trim()
+          const displayName = distributor.publicName || (distributor.displayMode === "series" && distributor.seriesName?.trim()
             ? distributor.seriesName
-            : distributor.name;
+            : distributor.name);
           return (
-            <div key={distributor.id} className={`flex items-center gap-2 rounded-lg border p-3 ${distributor.selected ? "border-primary bg-primary/5" : "border-border"}`}>
+            <div key={distributor.id} className={`flex items-center gap-3 rounded-lg border p-3 ${distributor.selected ? "border-primary bg-primary/5" : "border-border"}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted text-xs font-bold tracking-wide text-foreground" aria-label={`${displayName} line mark`} title={`${displayName} line mark`}>
+                {distributor.lineMark || displayName.slice(0, 2).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium" title={displayName}>{displayName}</p>
+                <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{distributor.description || `${distributor.styleCount} active cabinet styles.`}</p>
+              </div>
               <Button
                 type="button"
                 variant={distributor.selected ? "default" : "outline"}
@@ -130,7 +141,6 @@ function DistributorCurationPanel({
               >
                 {distributor.selected ? "Included" : "Include"}
               </Button>
-              <span className="min-w-0 flex-1 truncate text-sm font-medium" title={displayName}>{displayName}</span>
               {distributor.selected && (
                 <button
                   type="button"

@@ -2015,6 +2015,9 @@ export const designLeads = mysqlTable("design_leads", {
   source: varchar("source", { length: 64 }).default("designer_launch").notNull(),
   dealId: int("dealId"), // the owning affiliate or house CRM deal (null until created)
   affiliateSlug: varchar("affiliateSlug", { length: 255 }), // affiliate storefront slug if design came from affiliate
+  // The featured cabinet line that referred this Designer launch. It is set only
+  // after server-side verification that the current affiliate featured that line.
+  featuredDistributorId: int("featuredDistributorId"),
   // Light de-dupe / engagement counters so repeat launches update one record.
   launchCount: int("launchCount").default(1).notNull(),
   lastLaunchAt: timestamp("lastLaunchAt").defaultNow().notNull(),
@@ -2024,6 +2027,23 @@ export const designLeads = mysqlTable("design_leads", {
 
 export type DesignLead = typeof designLeads.$inferSelect;
 export type InsertDesignLead = typeof designLeads.$inferInsert;
+
+// ─── Affiliate featured-line storefront analytics ────────────────────────────
+// Anonymous, first-party interaction records. The opaque session key only
+// de-dupes a storefront view and never contains a customer identifier.
+export const affiliateFeaturedDistributorEvents = mysqlTable("affiliate_featured_distributor_events", {
+  id: int("id").autoincrement().primaryKey(),
+  affiliateId: int("affiliateId").notNull(),
+  distributorId: int("distributorId").notNull(),
+  eventType: mysqlEnum("eventType", ["view"]).notNull(),
+  sessionKey: varchar("sessionKey", { length: 96 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (t) => ({
+  affiliateDistributorCreatedIndex: index("affiliate_featured_dist_event_idx").on(t.affiliateId, t.distributorId, t.createdAt),
+  affiliateSessionCreatedIndex: index("affiliate_featured_session_idx").on(t.affiliateId, t.distributorId, t.sessionKey, t.createdAt),
+}));
+
+export type AffiliateFeaturedDistributorEvent = typeof affiliateFeaturedDistributorEvents.$inferSelect;
 
 // ─── Door style sample-photo corrections ────────────────────────────────────
 // Two-way door photo tool: a field user (or admin) submits a real photo of a

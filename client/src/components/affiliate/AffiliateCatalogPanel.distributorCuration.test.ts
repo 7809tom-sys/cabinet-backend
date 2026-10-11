@@ -11,5 +11,7 @@ describe("AffiliateCatalogPanel distributor curation", () => {
     expect(source).toContain("updateMyStorefrontDistributors");
     expect(source).toContain("adminUpdateStorefrontDistributors");
     expect(source).toContain("Line Active on Storefront");
+    expect(source).toContain("line mark");
+    expect(source).toContain("active cabinet styles");
   });
 });

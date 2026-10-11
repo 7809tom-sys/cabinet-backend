@@ -5,7 +5,7 @@ import { TRPCError } from "@trpc/server";
 import { publicProcedure, protectedProcedure, router } from "../_core/trpc";
 import { getDb, notInConflict, getPlatformPricingSettings } from "../db";
 import { verifyUsAddress, formatEnteredAddress } from "../lib/addressVerification";
-import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
+import { distributorCabinetOverrides, cabinets, cabinetAliases, skuMasterAliases, kitchenDesigns, distributorSkus, doorStyles, distributors, countertopQuotes, designLeads, crmDeals, crmDealDesigns, affiliates, affiliateStyleBranding, affiliateDistributorSelections, orderRequests, payments, threeDRoomShares, designConsultations, designGeminiImageTestJobs, designImageRequests, designPhotoRenders, designViewLog } from "../../drizzle/schema";
 import { notifyOwner } from "../_core/notification";
 import { emitCrmEvent } from "../_core/crmWebhook";
 import { invokeLLM } from "../_core/llm";
@@ -1971,6 +1971,7 @@ export const designRouter = router({
         phone: z.string().max(32).optional(),
         roomType: z.string().max(32).optional(),
         affiliateSlug: z.string().max(255).optional(),
+        featuredStyleId: z.number().int().positive().optional(),
         interaction: z.enum(["launch", "contact_update"]).optional(),
       }),
     )
@@ -1986,11 +1987,42 @@ export const designRouter = router({
       const affiliateSlug = input.affiliateSlug?.trim() || null;
       const affiliate = await resolveAffiliateDesignOwner(db, affiliateSlug ?? undefined);
       const affiliateId = affiliate?.id ?? null;
+      let featuredDistributorId: number | null = null;
+      if (affiliateId != null && input.featuredStyleId != null) {
+        const [featuredStyle] = await db
+          .select({ distributorId: doorStyles.distributorId })
+          .from(doorStyles)
+          .where(eq(doorStyles.id, input.featuredStyleId))
+          .limit(1);
+        if (featuredStyle) {
+          const [featuredStyleOverride] = await db
+            .select({ id: affiliateStyleBranding.id })
+            .from(affiliateStyleBranding)
+            .where(and(
+              eq(affiliateStyleBranding.affiliateId, affiliateId),
+              eq(affiliateStyleBranding.styleId, input.featuredStyleId),
+              eq(affiliateStyleBranding.featured, true),
+            ))
+            .limit(1);
+          const [featuredDistributorSelection] = await db
+            .select({ id: affiliateDistributorSelections.id })
+            .from(affiliateDistributorSelections)
+            .where(and(
+              eq(affiliateDistributorSelections.affiliateId, affiliateId),
+              eq(affiliateDistributorSelections.distributorId, featuredStyle.distributorId),
+              eq(affiliateDistributorSelections.featured, true),
+            ))
+            .limit(1);
+          if (featuredStyleOverride || featuredDistributorSelection) {
+            featuredDistributorId = featuredStyle.distributorId;
+          }
+        }
+      }
 
       // De-dupe: look for an existing lead for this email (scoped to the same
       // user when logged in). Update + bump the counter if found.
       const existing = await db
-        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone, dealId: designLeads.dealId })
+        .select({ id: designLeads.id, name: designLeads.name, phone: designLeads.phone, dealId: designLeads.dealId, featuredDistributorId: designLeads.featuredDistributorId })
         .from(designLeads)
         .where(
           userId
@@ -2016,6 +2048,7 @@ export const designRouter = router({
             phone: phone ?? existing[0].phone,
             roomType: roomType ?? undefined,
             userId: userId ?? undefined,
+            featuredDistributorId: featuredDistributorId ?? existing[0].featuredDistributorId,
             ...(input.interaction === "contact_update" ? {} : {
               launchCount: sql`${designLeads.launchCount} + 1`,
               lastLaunchAt: new Date(),
@@ -2039,6 +2072,7 @@ export const designRouter = router({
         roomType,
         affiliateSlug,
         affiliateId,
+        featuredDistributorId,
       });
       const insertId = (result as unknown as [{ insertId: number }])[0].insertId;
 

@@ -6,7 +6,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
   LineChart, Line,
 } from "recharts";
-import { DollarSign, Package, TrendingUp, Users } from "lucide-react";
+import { DollarSign, Eye, Package, Sparkles, TrendingUp, Users } from "lucide-react";
 
 function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; label: string; value: string | number; sub?: string }) {
   return (
@@ -25,8 +25,9 @@ function StatCard({ icon: Icon, label, value, sub }: { icon: React.ElementType; 
 export default function AffiliateAnalyticsPanel() {
   const earningsQ = trpc.affiliates.myEarnings.useQuery();
   const referralsQ = trpc.affiliates.myReferrals.useQuery();
+  const featuredLinesQ = trpc.affiliates.myFeaturedDistributorAnalytics.useQuery();
 
-  const isLoading = earningsQ.isLoading || referralsQ.isLoading;
+  const isLoading = earningsQ.isLoading || referralsQ.isLoading || featuredLinesQ.isLoading;
 
   if (isLoading) {
     return (
@@ -38,6 +39,7 @@ export default function AffiliateAnalyticsPanel() {
 
   const earnings = earningsQ.data;
   const referrals = referralsQ.data;
+  const featuredLines = featuredLinesQ.data ?? [];
 
   if (!earnings || !referrals) {
     return <p className="text-sm text-muted-foreground py-6">Could not load analytics data.</p>;
@@ -88,6 +90,30 @@ export default function AffiliateAnalyticsPanel() {
         <StatCard icon={DollarSign} label="Commission earned" value={`$${(earnings.lifetimeCents / 100).toFixed(2)}`} sub={`${(commissionRate * 100).toFixed(1)}% rate`} />
         <StatCard icon={Users} label="Avg order value" value={avgOrderValue > 0 ? `$${avgOrderValue.toFixed(0)}` : "—"} sub="confirmed orders" />
       </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base"><Sparkles className="h-4 w-4 text-amber-600" /> Featured distributor performance</CardTitle>
+          <p className="text-xs text-muted-foreground">Anonymous storefront views and verified Designer leads from your currently featured cabinet lines.</p>
+        </CardHeader>
+        <CardContent>
+          {featuredLines.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Feature a distributor in My Catalog to begin measuring its storefront performance.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {featuredLines.map((line) => (
+                <div key={line.distributorId} className="rounded-lg border border-border bg-muted/20 p-3">
+                  <p className="font-semibold">{line.lineMark} <span className="ml-1">{line.name}</span></p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+                    <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Eye className="h-3.5 w-3.5" /> Views</span><strong className="mt-1 block text-lg tabular-nums">{line.views}</strong></div>
+                    <div className="rounded-md bg-background p-2"><span className="flex items-center gap-1 text-xs text-muted-foreground"><Users className="h-3.5 w-3.5" /> Designer leads</span><strong className="mt-1 block text-lg tabular-nums">{line.leads}</strong></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Payout summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

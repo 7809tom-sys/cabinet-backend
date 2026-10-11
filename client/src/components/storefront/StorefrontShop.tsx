@@ -101,6 +101,21 @@ function readFavoriteFamilyIds(storageKey: string): number[] {
   return parseFavoriteFamilyIds(window.localStorage.getItem(storageKey));
 }
 
+function featuredLineSessionKey(slug: string) {
+  const key = `cd_featured_line_session_${slug}`;
+  try {
+    const existing = window.sessionStorage.getItem(key);
+    if (existing) return existing;
+    const value = typeof crypto?.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.sessionStorage.setItem(key, value);
+    return value;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
 /**
  * Family-locked shopping surface. Until a family (cabinet line) is chosen it
  * shows the line picker. Once locked, all browsing is scoped to that one line
@@ -166,6 +181,7 @@ function FamilyPicker({
 }) {
   const { user } = useAuth();
   const { data, isLoading } = trpc.storefront.families.useQuery({ slug: slug || undefined });
+  const recordFeaturedViews = trpc.storefront.recordFeaturedDistributorViews.useMutation();
   const storageKey = buildFavoriteStorageKey(slug);
   const storefrontScope = slug || "main";
   const [favoriteIds, setFavoriteIds] = useState<number[]>(() => readFavoriteFamilyIds(storageKey));
@@ -276,6 +292,20 @@ function FamilyPicker({
     }
     return map;
   }, [affiliatePromos?.promos]);
+
+  useEffect(() => {
+    if (!slug || !data?.length) return;
+    const featuredDistributorIds = Array.from(new Set(data.filter((family) => family.featured).map((family) => family.distributorId)));
+    if (featuredDistributorIds.length === 0) return;
+    recordFeaturedViews.mutate({
+      slug,
+      distributorIds: featuredDistributorIds,
+      sessionKey: featuredLineSessionKey(slug),
+    });
+  // The server de-dupes per session. Keep this isolated from favorites and local
+  // client sorting so a visitor cannot accidentally create extra page views.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, data]);
 
   return (
     <section id="shop" className="py-16 md:py-20">

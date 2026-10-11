@@ -12,6 +12,7 @@ import {
   affiliates,
   affiliateStyleBranding,
   affiliateDistributorSelections,
+  affiliateFeaturedDistributorEvents,
   affiliateBannerSchedules,
   affiliatePromoDiscounts,
   skuMasterAliases,
@@ -157,6 +158,48 @@ export function accessoryGroupFor(row: {
 }
 
 export const storefrontRouter = router({
+  // Record an anonymous storefront view for cabinet lines this affiliate has
+  // actively featured. The browser session key only de-dupes repeat counts.
+  recordFeaturedDistributorViews: publicProcedure
+    .input(z.object({
+      slug: z.string().min(1).max(255),
+      distributorIds: z.array(z.number().int().positive()).min(1).max(100),
+      sessionKey: z.string().min(12).max(96),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) return { recorded: 0 };
+      const [affiliate] = await db.select({ id: affiliates.id }).from(affiliates)
+        .where(eq(affiliates.slug, input.slug.toLowerCase())).limit(1);
+      if (!affiliate) return { recorded: 0 };
+      const requestedIds = Array.from(new Set(input.distributorIds));
+      const featured = await db.select({ distributorId: affiliateDistributorSelections.distributorId })
+        .from(affiliateDistributorSelections)
+        .where(and(
+          eq(affiliateDistributorSelections.affiliateId, affiliate.id),
+          eq(affiliateDistributorSelections.featured, true),
+          inArray(affiliateDistributorSelections.distributorId, requestedIds),
+        ));
+      const featuredIds = featured.map((row) => row.distributorId);
+      if (featuredIds.length === 0) return { recorded: 0 };
+      const alreadyRecorded = await db.select({ distributorId: affiliateFeaturedDistributorEvents.distributorId })
+        .from(affiliateFeaturedDistributorEvents)
+        .where(and(
+          eq(affiliateFeaturedDistributorEvents.affiliateId, affiliate.id),
+          eq(affiliateFeaturedDistributorEvents.sessionKey, input.sessionKey),
+          inArray(affiliateFeaturedDistributorEvents.distributorId, featuredIds),
+        ));
+      const existingIds = new Set(alreadyRecorded.map((row) => row.distributorId));
+      const inserts = featuredIds.filter((id) => !existingIds.has(id)).map((distributorId) => ({
+        affiliateId: affiliate.id,
+        distributorId,
+        eventType: "view" as const,
+        sessionKey: input.sessionKey,
+      }));
+      if (inserts.length > 0) await db.insert(affiliateFeaturedDistributorEvents).values(inserts);
+      return { recorded: inserts.length };
+    }),
+
   // List the cabinet families a customer can lock into. Only families that have
   // at least one published+available SKU are returned, so a locked family always
   // has buyable cabinets. Optionally narrow to a single distributor/supply line.

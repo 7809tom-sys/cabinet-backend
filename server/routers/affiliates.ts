@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, desc, or, and, inArray } from "drizzle-orm";
+import { eq, desc, or, and, inArray, sql } from "drizzle-orm";
 import { storagePut } from "../storage";
 import { notifyOwner } from "../_core/notification";
 import { TRPCError } from "@trpc/server";
@@ -10,7 +10,7 @@ import {
   router,
 } from "../_core/trpc";
 import { getDb } from "../db";
-import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
+import { affiliates, affiliateTestimonials, orderRequests, affiliateStyleBranding, affiliateDistributorSelections, affiliateFeaturedDistributorEvents, doorStyles, distributors, distributorSkus, affiliatePayouts, affiliateBannerSchedules, affiliatePromoDiscounts, designConsultations, designLeads, affiliateTeamMembers, emailSettings } from "../../drizzle/schema";
 import { emailSettingsReady, sendEmailViaSettings } from "../email";
 import { buildSalesDemoInvite, deliverInviteThenGrant, SALES_DEMO_AFFILIATE_SLUG, SALES_DEMO_TEAM_ACCESS } from "../salesDemoInvite";
 import { resolveAffiliateAccess } from "../lib/affiliateAccess";
@@ -30,12 +30,16 @@ import { importAffiliateWebsiteDraft } from "../lib/affiliateWebsiteImport";
 /** Cabinet supply lines that are currently active and have a published SKU.
  * Affiliates may curate only these lines, never a dormant or unpriced source. */
 async function availableStorefrontDistributors(db: NonNullable<Awaited<ReturnType<typeof getDb>>>) {
-  return db
+  const rows = await db
     .selectDistinct({
       id: distributors.id,
       name: distributors.name,
+      initials: distributors.initials,
+      brandName: distributors.brandName,
+      brandInitials: distributors.brandInitials,
       displayMode: distributors.displayMode,
       seriesName: distributors.seriesName,
+      styleId: doorStyles.id,
     })
     .from(distributors)
     .innerJoin(doorStyles, eq(doorStyles.distributorId, distributors.id))
@@ -47,6 +51,47 @@ async function availableStorefrontDistributors(db: NonNullable<Awaited<ReturnTyp
       eq(distributorSkus.isPublished, true),
     ))
     .orderBy(distributors.name);
+  const lines = new Map<number, {
+    id: number;
+    name: string;
+    initials: string;
+    brandName: string | null;
+    brandInitials: string | null;
+    displayMode: "neutral" | "branded" | "series";
+    seriesName: string | null;
+    styleIds: Set<number>;
+  }>();
+  for (const row of rows) {
+    const line = lines.get(row.id) ?? {
+      id: row.id,
+      name: row.name,
+      initials: row.initials,
+      brandName: row.brandName,
+      brandInitials: row.brandInitials,
+      displayMode: row.displayMode,
+      seriesName: row.seriesName,
+      styleIds: new Set<number>(),
+    };
+    line.styleIds.add(row.styleId);
+    lines.set(row.id, line);
+  }
+  return Array.from(lines.values()).map(({ styleIds, ...line }) => {
+    const styleCount = styleIds.size;
+    const publicName = line.displayMode === "series" && line.seriesName?.trim()
+      ? line.seriesName.trim()
+      : line.displayMode === "branded" && line.brandName?.trim()
+        ? line.brandName.trim()
+        : line.name;
+    return {
+      ...line,
+      publicName,
+      lineMark: line.displayMode === "branded" && line.brandInitials?.trim()
+        ? line.brandInitials.trim()
+        : line.initials,
+      styleCount,
+      description: `${styleCount} active cabinet ${styleCount === 1 ? "style" : "styles"} available for this line.`,
+    };
+  });
 }
 
 async function storefrontCurationForAffiliate(
@@ -830,6 +875,47 @@ export const affiliatesRouter = router({
       summary,
       commissionRate: rate,
     };
+  }),
+
+  // Engagement is intentionally limited to lines the affiliate explicitly
+  // features. Views are anonymous first-party sessions; leads are attributed
+  // only after the Designer verifies its incoming featured style.
+  myFeaturedDistributorAnalytics: partnerProcedure.query(async ({ ctx }) => {
+    const mine = await resolveMyAffiliate(ctx);
+    if (!mine) return [];
+    const db = await getDb();
+    if (!db) return [];
+    const featured = await db
+      .select({ id: distributors.id, name: distributors.name, initials: distributors.initials, displayMode: distributors.displayMode, seriesName: distributors.seriesName, brandName: distributors.brandName })
+      .from(affiliateDistributorSelections)
+      .innerJoin(distributors, eq(distributors.id, affiliateDistributorSelections.distributorId))
+      .where(and(eq(affiliateDistributorSelections.affiliateId, mine.id), eq(affiliateDistributorSelections.featured, true)))
+      .orderBy(affiliateDistributorSelections.sortOrder, distributors.name);
+    if (featured.length === 0) return [];
+    const ids = featured.map((line) => line.id);
+    const [viewRows, leadRows] = await Promise.all([
+      db.select({ distributorId: affiliateFeaturedDistributorEvents.distributorId, count: sql<number>`count(*)` })
+        .from(affiliateFeaturedDistributorEvents)
+        .where(and(eq(affiliateFeaturedDistributorEvents.affiliateId, mine.id), inArray(affiliateFeaturedDistributorEvents.distributorId, ids)))
+        .groupBy(affiliateFeaturedDistributorEvents.distributorId),
+      db.select({ distributorId: designLeads.featuredDistributorId, count: sql<number>`count(*)` })
+        .from(designLeads)
+        .where(and(eq(designLeads.affiliateId, mine.id), inArray(designLeads.featuredDistributorId, ids)))
+        .groupBy(designLeads.featuredDistributorId),
+    ]);
+    const views = new Map(viewRows.map((row) => [row.distributorId, Number(row.count) || 0]));
+    const leads = new Map(leadRows.map((row) => [row.distributorId, Number(row.count) || 0]));
+    return featured.map((line) => ({
+      distributorId: line.id,
+      name: line.displayMode === "series" && line.seriesName?.trim()
+        ? line.seriesName.trim()
+        : line.displayMode === "branded" && line.brandName?.trim()
+          ? line.brandName.trim()
+          : line.name,
+      lineMark: line.initials,
+      views: views.get(line.id) ?? 0,
+      leads: leads.get(line.id) ?? 0,
+    }));
   }),
 
   // ─── Partner: white-label branding + markup ────────────────────────────────

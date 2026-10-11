@@ -428,6 +428,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     },
     [affiliateStyleBranding?.styleNames],
   );
+  // Carry the storefront's selected family into the launch record. The server
+  // verifies it is actually featured for this affiliate before attribution.
+  const featuredStyleIdForAttribution = useMemo(() => {
+    const value = new URLSearchParams(search).get("style");
+    const id = value ? Number(value) : NaN;
+    return Number.isInteger(id) && id > 0 ? id : undefined;
+  }, [search]);
   useWhiteLabelHead({
     storeName: affiliateBrand?.storeName,
     tagline: affiliateBrand?.tagline,
@@ -488,8 +495,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       name: contact.name,
       phone: contact.phone,
 	  affiliateSlug: affiliateSlug ?? undefined,
+      featuredStyleId: featuredStyleIdForAttribution,
     });
-  }, [affiliateSlug, captureLead]);
+  }, [affiliateSlug, captureLead, featuredStyleIdForAttribution]);
   const addOptionalContact = useCallback((contact: Pick<LeadContact, "name" | "phone">) => {
     if (!verifiedEmail || (!contact.name && !contact.phone)) return;
     setVerifiedName(contact.name ?? "");
@@ -500,12 +508,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       name: contact.name,
       phone: contact.phone,
 	  affiliateSlug: affiliateSlug ?? undefined,
+      featuredStyleId: featuredStyleIdForAttribution,
       interaction: "contact_update",
     }, {
       onSuccess: () => toast.success("Contact details saved"),
       onError: () => toast.error("Your design is still available, but we could not save those contact details."),
     });
-  }, [affiliateSlug, captureLead, verifiedEmail]);
+  }, [affiliateSlug, captureLead, featuredStyleIdForAttribution, verifiedEmail]);
   useEffect(() => {
     if (!verified || verifiedName || verifiedPhone || optionalContactDismissed) return;
     const timer = window.setTimeout(() => setShowOptionalContactNudge(true), 90_000);
@@ -562,10 +571,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // Optional door style to pre-select (?style=<styleId>), e.g. from a "Design
   // with this" CTA on the homepage or a door style product page.
   const preloadStyleId = useMemo(() => {
-    const v = new URLSearchParams(search).get("style");
-    const n = v ? Number(v) : NaN;
-    return Number.isFinite(n) ? n : null;
-  }, [search]);
+    return featuredStyleIdForAttribution ?? null;
+  }, [featuredStyleIdForAttribution]);
   const loadedDesignRef = useRef<number | null>(null);
   const canvasExportRef = useRef<HTMLDivElement>(null);
   // Auto-save draft: flips true once we've attempted to restore a saved draft,
