@@ -61,6 +61,7 @@ import { designPhotoRendersRouter } from "./routers/designPhotoRenders";
 import { generatedDesignImagesRouter } from "./routers/generatedDesignImages";
 import { adminStickyNotesRouter } from "./routers/adminStickyNotes";
 import { operationsProvidersRouter } from "./routers/operationsProviders";
+import { affiliateLiteratureRouter } from "./routers/affiliateLiterature";
 
 export const appRouter = router({
   system: systemRouter,
@@ -132,6 +133,7 @@ export const appRouter = router({
   generatedDesignImages: generatedDesignImagesRouter,
   adminStickyNotes: adminStickyNotesRouter,
   operationsProviders: operationsProvidersRouter,
+  affiliateLiterature: affiliateLiteratureRouter,
 });
 
 export type AppRouter = typeof appRouter;

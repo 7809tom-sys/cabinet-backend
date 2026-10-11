@@ -90,6 +90,7 @@ import GeminiImageProviderAdmin from "@/components/admin/GeminiImageProviderAdmi
 import ElevenLabsOperationsAdmin from "@/components/admin/ElevenLabsOperationsAdmin";
 import { ManualAiRenderQueueAdmin } from "@/components/admin/ManualAiRenderQueueAdmin";
 import StripePaymentSettingsAdmin from "@/components/admin/StripePaymentSettingsAdmin";
+import AffiliateLiteratureAdmin from "@/components/admin/AffiliateLiteratureAdmin";
 
 // ─── Group definitions ────────────────────────────────────────────────────────
 const GROUPS = [
@@ -193,6 +194,7 @@ const GROUPS = [
       { value: "api-status", label: "API Status" },
       { value: "analytics", label: "Analytics" },
       { value: "export", label: "Full Export" },
+      { value: "affiliate-literature", label: "Affiliate Literature" },
     ],
   },
 ] as const;
@@ -560,6 +562,7 @@ export default function AdminGroupedTabs() {
         <TabsContent value="api-status" className="mt-6"><ApiStatusAdmin /></TabsContent>
         <TabsContent value="analytics" className="mt-6"><AnalyticsAdmin /></TabsContent>
         <TabsContent value="export" className="mt-6"><FullDatabaseExport /></TabsContent>
+        <TabsContent value="affiliate-literature" className="mt-6"><AdminTabHelp tab="affiliate-literature" /><AffiliateLiteratureAdmin /></TabsContent>
         </div>
       </Tabs>
     </div>

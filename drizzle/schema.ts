@@ -2978,6 +2978,32 @@ export const mediaImages = mysqlTable("media_images", {
 export type MediaImageRow = typeof mediaImages.$inferSelect;
 export type InsertMediaImage = typeof mediaImages.$inferInsert;
 
+// ─── Affiliate Literature Library ─────────────────────────────────────────────
+// Administrator-managed PDFs and other sales literature prepared for affiliates.
+// Files live in object storage; this table stores searchable metadata and the
+// publication flag used when an affiliate-facing library is enabled.
+export const affiliateLiterature = mysqlTable("affiliate_literature", {
+  id: int("id").autoincrement().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  category: varchar("category", { length: 64 }).default("General").notNull(),
+  filename: varchar("filename", { length: 255 }).notNull(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
+  url: varchar("url", { length: 1024 }).notNull(),
+  mimeType: varchar("mimeType", { length: 128 }).notNull(),
+  sizeBytes: int("sizeBytes"),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  sortOrder: int("sortOrder").default(0).notNull(),
+  uploadedBy: int("uploadedBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  index("affiliate_literature_category_idx").on(table.category, table.sortOrder),
+  index("affiliate_literature_published_idx").on(table.isPublished, table.sortOrder),
+]);
+export type AffiliateLiterature = typeof affiliateLiterature.$inferSelect;
+export type InsertAffiliateLiterature = typeof affiliateLiterature.$inferInsert;
+
 // ─── Freight quote history (permanent, never pruned) ───────────────────────
 export const freightQuoteHistory = mysqlTable("freight_quote_history", {
   id: int("id").autoincrement().primaryKey(),

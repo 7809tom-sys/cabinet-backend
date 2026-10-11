@@ -111,6 +111,10 @@ const TAB_HELP: Record<string, { en: string; zh: string; link?: { label: string;
     en: "Control which users can view trade pricing. Grant or revoke pricing access for specific accounts.",
     zh: "控制哪些使用者可以查看貿易定價。為特定帳戶授予或撤銷定價存取權限。",
   },
+  "affiliate-literature": {
+    en: "Store affiliate-ready sales brochures, pricing guides, training documents, and other literature here. Keep drafts private until reviewed, then publish approved documents for future affiliate access.",
+    zh: "在此儲存聯盟準備好的銷售手冊、定價指南、培訓文件及其他資料。審核前保持草稿私密，批准後再發布供聯盟存取。",
+  },
   "designer-availability": {
     en: "Toggle which cabinets appear in the kitchen designer tool. Enable or disable individual cabinets from the designer palette.",
     zh: "切換哪些櫥櫃出現在廚房設計工具中。從設計師調色板中啟用或停用個別櫥櫃。",
