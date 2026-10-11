@@ -9245,6 +9245,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const [wallHeightIn, setWallHeightIn] = useState(() => constrainedThreeDWallHeight(roomOverride?.ceilingHeight ?? dimensions(scene.roomShape?.defaultDimensions).ceilingHeight));
   const [wallHeights, setWallHeights] = useState<Record<WallSide, number>>(() => resolvedThreeDWallHeights(roomOverride, wallHeightIn));
 	  const [webglUnavailable, setWebglUnavailable] = useState(false);
+  const webglAutoRetriesRef = useRef(0);
+  useEffect(() => {
+    // A failed start used to be permanent until a page refresh. Contexts free up a moment
+    // later, so retry automatically (twice) before asking the user to press Retry.
+    if (!webglUnavailable || webglAutoRetriesRef.current >= 2) return;
+    const timer = window.setTimeout(() => {
+      webglAutoRetriesRef.current += 1;
+      setWebglUnavailable(false);
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [webglUnavailable]);
 	  const [cabinetFinish, setCabinetFinish] = useState(initialPresentation?.cabinetFinish ?? "catalog");
 	  const [cabinetPreviewFinishId, setCabinetPreviewFinishId] = useState<string | null>(null);
 	  const [countertopFinish, setCountertopFinish] = useState(() => resolvedThreeDCountertopFinish(initialPresentation, catalogCountertopColor, scene));
@@ -9583,9 +9594,15 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 	      try {
 	        renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true, preserveDrawingBuffer: true });
 	      } catch {
-	        setWebglUnavailable(true);
-	        onGeometryRenderedRef.current?.();
-	        return;
+	        // Last resort for Chrome with a restricted GPU: default options only.
+	        try {
+	          renderer = new THREE.WebGLRenderer({ preserveDrawingBuffer: true });
+	        } catch (error) {
+	          console.warn("[3D] WebGL could not start", error);
+	          setWebglUnavailable(true);
+	          onGeometryRenderedRef.current?.();
+	          return;
+	        }
 	      }
 	    }
 	    renderer.setPixelRatio(Math.min(window.devicePixelRatio, renderQuality.pixelRatioCap));
@@ -11393,7 +11410,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">Choose a room layout or open a saved design to generate the deterministic 3D preview.</div>;
   }
   if (webglUnavailable) {
-    return <div className="flex min-h-[320px] items-center justify-center rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground">This device cannot start the interactive 3D view. Your 2D plan and elevation preview remain available.</div>;
+    return <div data-testid="webgl-unavailable" className="flex min-h-[320px] flex-col items-center justify-center gap-3 rounded-xl border border-dashed bg-muted/30 px-6 text-center text-sm text-muted-foreground"><p>{webglAutoRetriesRef.current < 2 ? "Starting the interactive 3D view…" : "The interactive 3D view could not start. Close other 3D tabs, then press Retry. Your 2D plan and elevation preview remain available."}</p><button type="button" className="rounded-md border bg-background px-3 py-1.5 text-sm font-semibold text-foreground" onClick={() => { webglAutoRetriesRef.current = 0; setWebglUnavailable(false); }}>Retry 3D view</button></div>;
   }
   const fittedFillerLabels = placed
     .map((cabinet) => ({ uid: cabinet.uid, masterCode: cabinet.masterCode, text: threeDFittedFillerWidthText(cabinet) }))
