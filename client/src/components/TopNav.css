@@ -26,6 +26,25 @@
 }
 
 @media (min-width: 1280px) {
+  [data-designer-route="true"] [data-testid="site-toolbar-row"] {
+    min-height: 3rem;
+    flex-wrap: nowrap;
+    padding-block: 0;
+  }
+
+  [data-designer-route="true"] [data-testid="site-toolbar-navigation"] {
+    order: initial;
+    flex-basis: auto;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+
+  [data-designer-route="true"] [data-testid="site-toolbar-navigation"] > a,
+  [data-designer-route="true"] [data-testid="site-toolbar-navigation"] > div > button {
+    min-height: 2rem;
+    padding-block: 0.25rem;
+  }
+
   [data-testid="site-toolbar-actions"] button {
     min-height: 2.25rem;
     padding-inline: 0.5rem;

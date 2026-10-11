@@ -179,7 +179,7 @@ export function TopNav() {
     );
   }
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
+    <header data-designer-route={location.startsWith("/design") ? "true" : undefined} className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80">
       <div data-testid="site-toolbar-row" className="container flex min-h-16 items-center justify-between gap-2 py-1">
         {/* Logo — show affiliate branding when on affiliate storefront or ?ref= present */}
         {currentAffiliate ? (

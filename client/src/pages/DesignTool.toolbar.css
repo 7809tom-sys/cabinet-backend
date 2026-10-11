@@ -44,3 +44,24 @@
     display: inline;
   }
 }
+
+/* On wide desktop Designer pages, keep primary controls in one compact,
+   horizontally scrollable rail instead of consuming a second screen row. */
+@media (min-width: 1280px) {
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) {
+    flex-wrap: nowrap;
+    gap: 2px;
+    padding-block: 2px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"])::-webkit-scrollbar {
+    display: none;
+  }
+
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) > *,
+  .designer-top-toolbar:not([data-tablet-workspace="true"]) [data-testid="primary-floor-plan-3d-switch"] {
+    flex-shrink: 0;
+  }
+}

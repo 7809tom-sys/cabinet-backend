@@ -8668,6 +8668,68 @@ export function openingTransform(opening: WallOpening, roomOrWidth: RoomData | n
   return { x: offset, z: 0.06, rotation: 0 };
 }
 
+/** A deterministic daylight view keeps windows visually useful in the planning scene. */
+function windowSceneTexture(): THREE.CanvasTexture | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = 640;
+  canvas.height = 420;
+  const context = canvas.getContext("2d");
+  if (!context) return null;
+
+  const sky = context.createLinearGradient(0, 0, 0, canvas.height);
+  sky.addColorStop(0, "#f7ead4");
+  sky.addColorStop(0.46, "#dbe8e4");
+  sky.addColorStop(0.47, "#b9cdbf");
+  sky.addColorStop(1, "#8ea08e");
+  context.fillStyle = sky;
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = "rgba(255, 247, 216, 0.9)";
+  context.beginPath();
+  context.arc(500, 92, 42, 0, Math.PI * 2);
+  context.fill();
+
+  const distantHill = (y: number, color: string, height: number) => {
+    context.fillStyle = color;
+    context.beginPath();
+    context.moveTo(0, canvas.height);
+    context.lineTo(0, y + 24);
+    for (let x = 0; x <= canvas.width; x += 40) {
+      context.lineTo(x, y + Math.sin(x / 72) * height + Math.cos(x / 31) * 8);
+    }
+    context.lineTo(canvas.width, canvas.height);
+    context.closePath();
+    context.fill();
+  };
+  distantHill(242, "#8fa89a", 26);
+  distantHill(285, "#6f8d74", 34);
+
+  context.fillStyle = "#55735c";
+  context.fillRect(0, 340, canvas.width, 80);
+  for (const tree of [55, 125, 565, 615]) {
+    context.fillStyle = "#4e6b55";
+    context.fillRect(tree - 4, 272, 8, 70);
+    context.beginPath();
+    context.moveTo(tree, 220);
+    context.lineTo(tree - 31, 292);
+    context.lineTo(tree + 31, 292);
+    context.closePath();
+    context.fill();
+    context.beginPath();
+    context.moveTo(tree, 245);
+    context.lineTo(tree - 38, 316);
+    context.lineTo(tree + 38, 316);
+    context.closePath();
+    context.fill();
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.userData = { windowScene: true, planningOnly: true };
+  return texture;
+}
+
 export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number) {
   const { x, z, rotation } = openingTransform(opening, roomOrWidth, legacyRoomDepth);
   const group = new THREE.Group();
@@ -8710,9 +8772,13 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       leaf.position.set(-width / 2 + 0.04 + leafWidth * (index + 0.5), 0, 0.02);
       leaf.userData = { architecturalBifoldLeaf: index + 1 };
       group.add(leaf);
-    }
+  }
   } else {
-  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), new THREE.MeshStandardMaterial({ color: isWindow ? "#a9c9dc" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) }));
+  const windowTexture = isWindow ? windowSceneTexture() : null;
+  const paneMaterial = isWindow && windowTexture
+    ? new THREE.MeshBasicMaterial({ map: windowTexture, side: THREE.DoubleSide })
+    : new THREE.MeshStandardMaterial({ color: isWindow ? "#dbe8e4" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) });
+  const pane = new THREE.Mesh(new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.08), paneMaterial);
   pane.position.z = 0.01;
   if (isDoor) pane.userData = { architecturalDoorSlab: true, planningOpacity: appearance.opacity };
   group.add(pane);
