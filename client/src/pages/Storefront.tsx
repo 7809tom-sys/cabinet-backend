@@ -391,6 +391,26 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
           </div>
         </section>
 
+        {/* ─── Closet Studio promo band ─────────────────────────────────── */}
+        <section className="border-b border-border py-12">
+          <div className="container flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide" style={{ color: brand.accent }}>
+                <Ruler className="h-4 w-4" /> Closet Studio
+              </div>
+              <h2 className={`${headlineFont} text-2xl font-bold`}>Plan a complete closet with your store</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                Configure towers, shelves, hanging areas, corner planning pieces and visual basket layouts, then keep the design in your affiliate storefront.
+              </p>
+            </div>
+            <Link href={withRef(`/store/${data.slug}/closet`)}>
+              <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
+                Open Closet Studio <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        </section>
+
         {/* ─── How it works ────────────────────────────────────────────── */}
         <section className="py-16 md:py-20 bg-muted/30">
           <div className="container">

@@ -11,7 +11,7 @@ import {
 } from "@/lib/pelican";
 import { ArrowLeft, ArrowRight, Layers3, Waves } from "lucide-react";
 
-export default function SurfacesDepartment({ departmentSlug }: { departmentSlug: string }) {
+export default function SurfacesDepartment({ departmentSlug, affiliateSlug }: { departmentSlug: string; affiliateSlug?: string }) {
   const department = pelicanDepartmentFromSlug(departmentSlug);
   const { data: categories, isLoading } = trpc.pelican.categories.useQuery({ scope: "catalog" });
   const available = new Set((categories ?? []).map((category) => category.category));
@@ -30,7 +30,7 @@ export default function SurfacesDepartment({ departmentSlug }: { departmentSlug:
         <Waves className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
         <h1 className="text-2xl font-bold">Department not found</h1>
         <p className="mt-2 text-muted-foreground">That Pelican department does not exist.</p>
-        <Link href="/surfaces"><Button className="mt-5 gap-2"><ArrowLeft className="h-4 w-4" /> Back to Surfaces</Button></Link>
+        <Link href={affiliateSlug ? `/store/${affiliateSlug}/surfaces` : "/surfaces"}><Button className="mt-5 gap-2"><ArrowLeft className="h-4 w-4" /> Back to Surfaces</Button></Link>
       </div>
     );
   }
@@ -39,7 +39,7 @@ export default function SurfacesDepartment({ departmentSlug }: { departmentSlug:
     <div className="min-h-screen">
       <section className="border-b border-border/50 bg-muted/40">
         <div className="container py-8">
-          <Link href="/surfaces">
+          <Link href={affiliateSlug ? `/store/${affiliateSlug}/surfaces` : "/surfaces"}>
             <button className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">
               <ArrowLeft className="h-4 w-4" /> All Surfaces & Fixtures
             </button>
@@ -69,7 +69,7 @@ export default function SurfacesDepartment({ departmentSlug }: { departmentSlug:
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {families.map((family) => (
-              <Link key={`${family.category}-${family.subCategory ?? "all"}`} href={pelicanFamilyHref(family)}>
+              <Link key={`${family.category}-${family.subCategory ?? "all"}`} href={affiliateSlug ? pelicanFamilyHref(family).replace("/surfaces", `/store/${affiliateSlug}/surfaces`) : pelicanFamilyHref(family)}>
                 <Card className="group h-full border-border/70 p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
                   <div className="h-1.5 w-14 rounded-full" style={{ background: CATEGORY_GRADIENT[family.category] }} />
                   <h3 className="mt-4 text-lg font-bold">{family.title}</h3>

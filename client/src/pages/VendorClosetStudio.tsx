@@ -243,10 +243,11 @@ function Reference({ design, onClose }: { design: StudioDesign; onClose: () => v
   </aside>;
 }
 
-export default function VendorClosetStudio() {
+export default function VendorClosetStudio({ affiliateSlug }: { affiliateSlug?: string } = {}) {
+  const storageKey = affiliateSlug ? `${STORAGE_KEY}:${affiliateSlug}` : STORAGE_KEY;
   const [isReviewDemo] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "mixed");
   const [design, setDesign] = useState<StudioDesign>(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("demo") === "mixed"
-    ? createStudioReviewDemo() : restoreStudioDesign(typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null) ?? createStudioDesign());
+    ? createStudioReviewDemo() : restoreStudioDesign(typeof window !== "undefined" ? localStorage.getItem(storageKey) : null) ?? createStudioDesign());
   const [step, setStep] = useState<"start" | "studio">(isReviewDemo ? "studio" : "start");
   const [selectedBay, setSelectedBay] = useState(isReviewDemo ? 1 : 0);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
@@ -263,8 +264,8 @@ export default function VendorClosetStudio() {
   const [phonePanel, setPhonePanel] = useState<"tower" | "parts" | "material" | null>(null);
   const [cornerPlannerRequested, setCornerPlannerRequested] = useState(false);
   const [extraPart, setExtraPart] = useState<StudioKind | "">("");
-  const [savedDraft] = useState(() => typeof window !== "undefined" && Boolean(restoreStudioDesign(localStorage.getItem(STORAGE_KEY))));
-  useEffect(() => { if (!isReviewDemo) localStorage.setItem(STORAGE_KEY, JSON.stringify(design)); }, [design, isReviewDemo]);
+  const [savedDraft] = useState(() => typeof window !== "undefined" && Boolean(restoreStudioDesign(localStorage.getItem(storageKey))));
+  useEffect(() => { if (!isReviewDemo) localStorage.setItem(storageKey, JSON.stringify(design)); }, [design, isReviewDemo, storageKey]);
   useEffect(() => {
     if (!cornerPlannerRequested) return;
     const timer = window.setTimeout(() => {

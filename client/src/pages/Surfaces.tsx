@@ -21,7 +21,7 @@ const DEPARTMENT_ICON = {
   "bath-surfaces-enclosures": ShowerHead,
 } as const;
 
-export default function Surfaces() {
+export default function Surfaces({ affiliateSlug }: { affiliateSlug?: string }) {
   useSeo({
     title: "Surfaces & Fixtures — Quartz, Flooring, Tile, Sinks & Baths | Cabinet Dealz",
     description:
@@ -87,7 +87,7 @@ export default function Surfaces() {
               const Icon = DEPARTMENT_ICON[department.slug];
               const category = department.families[0]?.category ?? "Flooring";
               return (
-                <Link key={department.slug} href={`/surfaces/department/${department.slug}`}>
+                <Link key={department.slug} href={affiliateSlug ? `/store/${affiliateSlug}/surfaces/department/${department.slug}` : `/surfaces/department/${department.slug}`}>
                   <Card className="group relative h-56 overflow-hidden border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg">
                     <div className="absolute inset-0" style={{ background: CATEGORY_GRADIENT[category] }} />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
@@ -111,7 +111,7 @@ export default function Surfaces() {
             <p className="mt-1 text-sm text-muted-foreground">Every existing Pelican category remains available for direct browsing.</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {visibleRawCategories.map((category) => (
-                <Link key={category} href={`/surfaces/${categorySlug(category)}`}>
+                <Link key={category} href={affiliateSlug ? `/store/${affiliateSlug}/surfaces/${categorySlug(category)}` : `/surfaces/${categorySlug(category)}`}>
                   <Button size="sm" variant="outline">{pelicanCategoryLabel(category)}</Button>
                 </Link>
               ))}

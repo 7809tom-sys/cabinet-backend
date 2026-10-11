@@ -23,11 +23,11 @@ export type PelicanCardProduct = {
   listPrice?: string | null;
 };
 
-export function PelicanProductCard({ product }: { product: PelicanCardProduct }) {
+export function PelicanProductCard({ product, affiliateSlug }: { product: PelicanCardProduct; affiliateSlug?: string }) {
   const gradient = CATEGORY_GRADIENT[product.category] ?? "linear-gradient(135deg,#e5e7eb,#cbd5e1)";
   const displayName = pelicanDisplayName(product);
   const productType = pelicanProductType(product);
-  const { addItem } = useCart();
+  const { addItem, setStorefrontSlug } = useCart();
   const [, navigate] = useLocation();
   const { isPreferred, togglePreferred } = usePreferredProducts();
   const preferred = isPreferred(product.id);
@@ -48,6 +48,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
     e.preventDefault();
     e.stopPropagation();
     if (!product.sellPrice) return;
+    if (affiliateSlug) setStorefrontSlug(affiliateSlug);
     const res = addItem({
       masterCode: product.pelicanCode ?? product.slug ?? `PEL-${product.id}`,
       name: product.name,
@@ -65,7 +66,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
     });
     if (res.ok) {
       toast.success(`Added ${product.name} to cart`, {
-        action: { label: "View Cart", onClick: () => navigate("/cart") },
+        action: { label: "View Cart", onClick: () => navigate(affiliateSlug ? `/store/${affiliateSlug}/cart` : "/cart") },
       });
     }
   };
@@ -77,7 +78,7 @@ export function PelicanProductCard({ product }: { product: PelicanCardProduct })
   };
 
   return (
-    <Link href={`/surfaces/product/${product.slug}`}>
+    <Link href={affiliateSlug ? `/store/${affiliateSlug}/surfaces/product/${product.slug}` : `/surfaces/product/${product.slug}`}>
       <Card className="group h-full overflow-hidden border-border/70 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md">
         <div className="relative aspect-[4/3] w-full overflow-hidden">
           {product.imageUrl ? (

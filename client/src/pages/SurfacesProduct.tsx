@@ -22,10 +22,10 @@ import { usePreferredProducts } from "@/contexts/PreferredProductsContext";
 import { ArrowLeft, DollarSign, Minus, PencilRuler, Plus, ShoppingCart, Star, Waves } from "lucide-react";
 import { toast } from "sonner";
 
-export default function SurfacesProduct({ slug }: { slug: string }) {
+export default function SurfacesProduct({ slug, affiliateSlug }: { slug: string; affiliateSlug?: string }) {
   const [, navigate] = useLocation();
-  const { data, isLoading, error } = trpc.pelican.bySlug.useQuery({ slug });
-  const { addItem } = useCart();
+  const { data, isLoading, error } = trpc.pelican.bySlug.useQuery({ slug, affiliateSlug });
+  const { addItem, setStorefrontSlug } = useCart();
   const { user } = useAuth();
   const { isPreferred, togglePreferred } = usePreferredProducts();
   const [qty, setQty] = useState(1);
@@ -43,6 +43,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
 
   const handleAddToCart = () => {
     if (!data) return;
+    if (affiliateSlug) setStorefrontSlug(affiliateSlug);
     const res = addItem({
       masterCode: data.pelicanCode,
       name: data.name,
@@ -61,7 +62,7 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
     if (res.ok) {
       toast.success(`Added ${qty}\u00d7 ${data.name} to cart`, {
         description: data.category,
-        action: { label: "View Cart", onClick: () => navigate("/cart") },
+        action: { label: "View Cart", onClick: () => navigate(affiliateSlug ? `/store/${affiliateSlug}/cart` : "/cart") },
       });
     }
   };
@@ -290,17 +291,17 @@ export default function SurfacesProduct({ slug }: { slug: string }) {
 
       {/* Complete this look: sink ↔ faucet pairing */}
       {(data.subCategory === "Faucets" || data.subCategory === "Sinks") && (
-        <CompleteThisLook slug={slug} pairedType={data.subCategory === "Faucets" ? "Sinks" : "Faucets"} />
+        <CompleteThisLook slug={slug} pairedType={data.subCategory === "Faucets" ? "Sinks" : "Faucets"} affiliateSlug={affiliateSlug} />
       )}
     </div>
   );
 }
 
-function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: string }) {
+function CompleteThisLook({ slug, pairedType, affiliateSlug }: { slug: string; pairedType: string; affiliateSlug?: string }) {
   const [, navigate] = useLocation();
-  const { addItem } = useCart();
+  const { addItem, setStorefrontSlug } = useCart();
   const { data: related, isLoading } = trpc.pelican.relatedProducts.useQuery(
-    { slug, limit: 4 },
+    { slug, affiliateSlug, limit: 4 },
     { staleTime: 60_000 }
   );
 
@@ -309,6 +310,7 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
 
   const handleAddToCart = (product: any) => {
     if (!product.sellPrice) return;
+    if (affiliateSlug) setStorefrontSlug(affiliateSlug);
     const res = addItem({
       masterCode: product.pelicanCode,
       name: product.name,
@@ -326,7 +328,7 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
     });
     if (res.ok) {
       toast.success(`Added ${product.name} to cart`, {
-        action: { label: "View Cart", onClick: () => navigate("/cart") },
+        action: { label: "View Cart", onClick: () => navigate(affiliateSlug ? `/store/${affiliateSlug}/cart` : "/cart") },
       });
     }
   };
@@ -340,7 +342,7 @@ function CompleteThisLook({ slug, pairedType }: { slug: string; pairedType: stri
         </p>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {related.map((product: any) => (
-            <Link key={product.id} href={`/surfaces/product/${product.slug}`}>
+            <Link key={product.id} href={affiliateSlug ? `/store/${affiliateSlug}/surfaces/product/${product.slug}` : `/surfaces/product/${product.slug}`}>
               <Card className="group overflow-hidden border-border/70 hover:shadow-md transition-all duration-200 cursor-pointer">
                 <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
                   {product.imageUrl ? (

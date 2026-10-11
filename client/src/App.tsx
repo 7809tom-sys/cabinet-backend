@@ -163,6 +163,8 @@ function AffiliateShell({ slug, children, fullHeight = false }: { slug: string; 
         </a>
         <nav className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs sm:text-sm font-medium text-muted-foreground" aria-label="Store navigation">
           <a href={affiliateCatalogPath(slug)} className="hover:text-foreground">Catalog</a>
+          <a href={`/store/${slug}/surfaces`} className="hover:text-foreground">Surfaces &amp; Fixtures</a>
+          <a href={`/store/${slug}/closet`} className="hover:text-foreground">Closet Studio</a>
           <a href={affiliateDesignerPath(slug)} className="hover:text-foreground">3D Designer</a>
           <a href={affiliateOrderPath(slug)} className="hover:text-foreground">Get a Quote</a>
           <a href={`/store/${slug}/cart`} aria-label="Shopping cart" className="hover:text-foreground">
@@ -401,7 +403,7 @@ export default function App() {
             </Suspense>
           )}
         </Route>
-	        <Route path="/store/:slug/bundles">
+        <Route path="/store/:slug/bundles">
           {(params) => (
             <Suspense fallback={<PageLoader />}>
               <AffiliateShell slug={params.slug}>
@@ -410,6 +412,51 @@ export default function App() {
             </Suspense>
           )}
 	        </Route>
+	        <Route path="/store/:slug/surfaces/department/:departmentSlug">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <SurfacesDepartment departmentSlug={params.departmentSlug} affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/surfaces/product/:productSlug">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <SurfacesProduct slug={params.productSlug} affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/surfaces/:categorySlug">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <SurfacesCategory slug={params.categorySlug} affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/surfaces">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug}>
+                <Surfaces affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
+        <Route path="/store/:slug/closet">
+          {(params) => (
+            <Suspense fallback={<PageLoader />}>
+              <AffiliateShell slug={params.slug} fullHeight>
+                <VendorClosetStudio affiliateSlug={params.slug} />
+              </AffiliateShell>
+            </Suspense>
+          )}
+        </Route>
 	        <Route path="/store/:slug/affiliate">
 	          <AffiliateManagementAliasRedirect target="/affiliate" />
 	        </Route>

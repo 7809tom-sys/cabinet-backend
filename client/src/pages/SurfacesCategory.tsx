@@ -19,7 +19,7 @@ import { ArrowLeft, Search, Star, ChevronLeft, ChevronRight, Waves } from "lucid
 
 const PAGE_SIZE = 24;
 
-export default function SurfacesCategory({ slug }: { slug: string }) {
+export default function SurfacesCategory({ slug, affiliateSlug }: { slug: string; affiliateSlug?: string }) {
   const [, navigate] = useLocation();
   const queryString = useSearch();
   const category = categoryFromSlug(slug);
@@ -64,8 +64,9 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
       subCategory,
       limit: PAGE_SIZE,
       offset: page * PAGE_SIZE,
+      affiliateSlug,
     }),
-    [category, debounced, subCategory, page]
+    [category, debounced, subCategory, page, affiliateSlug]
   );
 
   const { data, isLoading, error } = trpc.pelican.byCategory.useQuery(input, {
@@ -80,7 +81,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
         <p className="mt-2 text-muted-foreground">
           That surfaces category doesn't exist.
         </p>
-        <Link href="/surfaces">
+        <Link href={affiliateSlug ? `/store/${affiliateSlug}/surfaces` : "/surfaces"}>
           <Button className="mt-5 gap-2">
             <ArrowLeft className="h-4 w-4" /> Back to Surfaces
           </Button>
@@ -98,7 +99,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
       {/* Category header */}
       <section className="border-b border-border/50 bg-muted/40">
         <div className="container py-8">
-          <Link href="/surfaces">
+          <Link href={affiliateSlug ? `/store/${affiliateSlug}/surfaces` : "/surfaces"}>
             <button className="mb-3 inline-flex items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground">
               <ArrowLeft className="h-4 w-4" /> All Surfaces
             </button>
@@ -124,7 +125,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
           {/* Category quick-switch */}
           <div className="mt-4 flex flex-wrap gap-2">
             {PELICAN_STOREFRONT_CATEGORIES.map((c) => (
-              <Link key={c} href={`/surfaces/${categorySlug(c)}`}>
+              <Link key={c} href={affiliateSlug ? `/store/${affiliateSlug}/surfaces/${categorySlug(c)}` : `/surfaces/${categorySlug(c)}`}>
                 <Badge
                   variant={c === category ? "default" : "secondary"}
                   className="cursor-pointer"
@@ -201,7 +202,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
                 </div>
                 <div className="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                   {data!.suggested.map((p: any) => (
-                    <PelicanProductCard key={`sug-${p.id}`} product={p} />
+                    <PelicanProductCard key={`sug-${p.id}`} product={p} affiliateSlug={affiliateSlug} />
                   ))}
                 </div>
                 <div className="mt-8 border-t border-border/60" />
@@ -213,7 +214,7 @@ export default function SurfacesCategory({ slug }: { slug: string }) {
             </div>
             <div className="grid gap-5 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {data!.items.map((p: any) => (
-                <PelicanProductCard key={p.id} product={p} />
+                <PelicanProductCard key={p.id} product={p} affiliateSlug={affiliateSlug} />
               ))}
             </div>
 

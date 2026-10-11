@@ -16,7 +16,11 @@ const CC_PCT       = 0.04;   // 4% credit card processing
 const IT_PCT       = 0.10;   // 10% IT/platform fee
 const IT_MAX       = 100;    // capped at $100
 
-const CATEGORIES = ["base", "wall", "tall", "vanity", "specialty"] as const;
+const CATEGORIES = [
+  "base", "wall", "tall", "vanity", "specialty",
+  "Sinks & Faucets", "Flooring", "Shower & Bath", "Toilets & Bidets",
+  "Tile & Mosaic", "Quartz Slabs (Countertops)", "Samples", "Marketing & Merchandise",
+] as const;
 type Category = typeof CATEGORIES[number];
 
 const CATEGORY_LABELS: Record<Category, string> = {
@@ -25,6 +29,14 @@ const CATEGORY_LABELS: Record<Category, string> = {
   tall: "Tall / Pantry",
   vanity: "Vanity",
   specialty: "Specialty",
+  "Sinks & Faucets": "Sinks & Faucets",
+  Flooring: "Flooring",
+  "Shower & Bath": "Shower & Bath",
+  "Toilets & Bidets": "Toilets & Bidets",
+  "Tile & Mosaic": "Tile & Mosaic",
+  "Quartz Slabs (Countertops)": "Quartz Countertops",
+  Samples: "Samples",
+  "Marketing & Merchandise": "Marketing & Merchandise",
 };
 
 function computeFloor(retail: number): {
@@ -160,9 +172,17 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
       <div>
         <h2 className="text-xl font-bold">Pricing &amp; Margins</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Set your markup over your cost floor. Your customers see your prices — Cabinet Dealz is never shown.
+          {isAdminView
+            ? "Set the selected affiliate’s customer-facing overlay. The platform baseline is managed separately and is not overwritten here."
+            : "Set your markup over your cost floor. Your customers see your prices — Cabinet Dealz is never shown."}
         </p>
       </div>
+
+      <Card className="border-blue-200 bg-blue-50/60">
+        <CardContent className="p-4 text-sm text-blue-950">
+          <strong>Two pricing layers:</strong> Cabinet Dealz maintains the platform/category baseline. Each affiliate can add its own markup on cabinets, door styles, and Pelican non-cabinet categories. Blank category fields inherit the affiliate default; a saved 0% means no additional affiliate markup.
+        </CardContent>
+      </Card>
 
       {/* Cost Calculator */}
       <Card>
@@ -244,7 +264,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="space-y-1.5">
-            <Label>Default markup % (applies to all styles unless overridden)</Label>
+          <Label>Default markup % (applies to all products unless overridden)</Label>
             <div className="flex items-center gap-2 max-w-xs">
               <Input
                 type="number"
@@ -304,7 +324,7 @@ export default function AffiliatePricingPanel({ affiliateId, isAdminView = false
           <div className="flex items-start gap-2 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground">
             <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
             <span>
-              Per-style overrides (set in My Catalog) take priority over category overrides, which take priority over your default markup. A 0% markup is the cost-floor minimum; lower values cannot be saved.
+              For cabinets, per-style overrides set in My Catalog take priority over category overrides. Non-cabinet Pelican products use the matching category override, then your default markup. The platform’s base markup remains separate; this setting is your additional customer-facing markup. A 0% markup is allowed.
             </span>
           </div>
 

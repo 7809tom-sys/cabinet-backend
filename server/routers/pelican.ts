@@ -9,6 +9,8 @@ import { normalizeCode } from "../../shared/cabinetCodeMatch";
 import { positiveAuthorizedSurfaceBase } from "../../shared/surfacePricing";
 import { auditPelicanDesignerReadiness, isPelicanDesignerReady, isPelicanDesignerSelectable } from "../lib/pelicanDesignerReadiness";
 import { comparisonProfileForPelicanProduct } from "../../shared/pelicanComparablePackaging";
+import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
+import { resolveMarkupBps } from "../../shared/affiliateBranding";
 
 const CategoryEnum = z.enum([
   "Sinks & Faucets",
@@ -65,12 +67,19 @@ export function computeSellPrice(
 
 function withPricing<T extends { listPrice: string | null; yourCost: string | null; category: string }>(
   product: T,
-  map: MarkupMap
-): T & { sellPrice: number | null; markupBps: number } {
+  map: MarkupMap,
+  affiliateMarkupBps?: number,
+): T & { sellPrice: number | null; markupBps: number; platformSellPrice: number | null; affiliateMarkupBps: number } {
+  const platformSellPrice = computeSellPrice(product, map);
+  const sellPrice = platformSellPrice == null || affiliateMarkupBps == null
+    ? platformSellPrice
+    : Math.round(platformSellPrice * (1 + affiliateMarkupBps / 10000) * 100) / 100;
   return {
     ...product,
-    sellPrice: computeSellPrice(product, map),
-    markupBps: markupBpsFor(map, product.category),
+    sellPrice,
+    markupBps: affiliateMarkupBps ?? markupBpsFor(map, product.category),
+    platformSellPrice,
+    affiliateMarkupBps: affiliateMarkupBps ?? 0,
   };
 }
 
@@ -123,6 +132,7 @@ export const pelicanRouter = router({
         scope: z.enum(["designer", "catalog", "all"]).default("catalog"),
         search: z.string().trim().optional(),
         subCategory: z.string().trim().optional(),
+        affiliateSlug: z.string().trim().optional(),
         limit: z.number().min(1).max(200).default(60),
         offset: z.number().min(0).default(0),
       })
@@ -131,6 +141,10 @@ export const pelicanRouter = router({
       const db = await getDb();
       if (!db) return { suggested: [], items: [], total: 0, subCategories: [] as string[] };
       const markupMap = await loadMarkupMap(db);
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const affiliateBps = (category: string) => affiliatePricing
+        ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: category })
+        : undefined;
       const conds = [eq(pelicanProducts.category, input.category), eq(pelicanProducts.isActive, true), hasPriceData() as any];
       if (input.scope === "designer") conds.push(eq(pelicanProducts.showInDesigner, true));
       if (input.scope === "catalog") conds.push(eq(pelicanProducts.showInCatalog, true));
@@ -163,8 +177,8 @@ export const pelicanRouter = router({
         const page = readyRows.slice(input.offset, input.offset + input.limit);
         const subCategories = Array.from(new Set(readyRows.map((row) => row.subCategory).filter((value): value is string => Boolean(value))));
         return {
-          suggested: suggested.map((r) => withPricing(r, markupMap)),
-          items: page.map((r) => withPricing(r, markupMap)),
+          suggested: suggested.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
+          items: page.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
           total: readyRows.length,
           subCategories,
         };
@@ -199,14 +213,14 @@ export const pelicanRouter = router({
           eq(pelicanProducts.showInCatalog, true),
         ));
       return {
-        suggested: suggestedRows.map((r) => withPricing(r, markupMap)),
-        items: itemRows.map((r) => withPricing(r, markupMap)),
+        suggested: suggestedRows.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
+        items: itemRows.map((r) => withPricing(r, markupMap, affiliateBps(r.category))),
         total: Number(total),
         subCategories: subs.map((s) => s.subCategory).filter(Boolean) as string[],
       };
     }),
   bySlug: publicProcedure
-    .input(z.object({ slug: z.string() }))
+    .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional() }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return null;
@@ -222,7 +236,10 @@ export const pelicanRouter = router({
         .limit(1);
       if (!row) return null;
       const markupMap = await loadMarkupMap(db);
-      const priced = withPricing(row, markupMap);
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
+      const priced = withPricing(row, markupMap, affiliatePricing
+        ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: row.category })
+        : undefined);
       // Hide product detail if it has no valid sell price
       if (!priced.sellPrice || priced.sellPrice <= 0) return null;
       return priced;
@@ -230,7 +247,7 @@ export const pelicanRouter = router({
   // Returns related products for "Complete this look" pairing (sink ↔ faucet).
   // For a faucet, returns matching sinks in the same category. For a sink, returns faucets.
   relatedProducts: publicProcedure
-    .input(z.object({ slug: z.string(), limit: z.number().min(1).max(12).default(4) }))
+    .input(z.object({ slug: z.string(), affiliateSlug: z.string().trim().optional(), limit: z.number().min(1).max(12).default(4) }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) return [];
@@ -246,6 +263,7 @@ export const pelicanRouter = router({
       else if (row.subCategory === "Sinks") pairedSub = "Faucets";
       else return [];
       const markupMap = await loadMarkupMap(db);
+      const affiliatePricing = await loadAffiliateStorefrontPricing(input.affiliateSlug);
       const rows = await db
         .select()
         .from(pelicanProducts)
@@ -261,7 +279,9 @@ export const pelicanRouter = router({
         .orderBy(desc(pelicanProducts.isPopular), asc(pelicanProducts.popularRank))
         .limit(input.limit);
       return rows
-        .map((r) => withPricing(r, markupMap))
+        .map((r) => withPricing(r, markupMap, affiliatePricing
+          ? resolveMarkupBps(affiliatePricing.markup, { categoryKey: r.category })
+          : undefined))
         .filter((r) => r.sellPrice && r.sellPrice > 0);
     }),
 
