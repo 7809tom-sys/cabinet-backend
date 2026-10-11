@@ -13,5 +13,8 @@ describe("AffiliateCatalogPanel distributor curation", () => {
     expect(source).toContain("Line Active on Storefront");
     expect(source).toContain("line mark");
     expect(source).toContain("active cabinet styles");
+    expect(source).toContain("Feature this door style");
+    expect(source).toContain("featured door styles");
+    expect(source).toContain("individual door styles so they appear first");
   });
 });

@@ -299,9 +299,11 @@ function StyleCard({
               <button
                 onClick={toggleFeatured}
                 className={`shrink-0 p-1 rounded transition-colors ${featured ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
-                title={featured ? "Remove from featured" : "Feature this style"}
+                aria-label={featured ? `Remove ${displayName} door style from featured styles` : `Feature ${displayName} door style on storefront`}
+                title={featured ? "Remove door style from featured styles" : "Feature this door style"}
               >
                 {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
+                <span className="hidden text-xs font-medium sm:inline">{featured ? "Featured" : "Feature"}</span>
               </button>
             )}
           </div>
@@ -463,7 +465,7 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
       <div>
         <h2 className="text-xl font-bold">My Catalog</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Choose the distributors and cabinet lines for your storefront, feature what customers see first, rename lines for your brand, set per-style markups, and upload your own room scene photos.
+          Choose the distributors and cabinet lines for your storefront, feature individual door styles so they appear first, rename styles for your brand, set per-style markups, and upload your own room scene photos.
         </p>
       </div>
 
@@ -480,7 +482,7 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
           placeholder="Search styles…"
           className="max-w-xs"
         />
-        <Badge variant="secondary">{featuredCount} featured</Badge>
+        <Badge variant="secondary">{featuredCount} featured door styles</Badge>
         <Badge variant="outline">{data.styles.length} total styles</Badge>
       </div>
 
