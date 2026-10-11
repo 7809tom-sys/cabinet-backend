@@ -11440,6 +11440,62 @@ function raisedBarOuterMiterWedges(
  * outer corner, leaving a notch. Extend BOTH strips along their own outer and cabinet-side edges
  * until those edges meet, so the two strips share one clean mitre line. No extra piece is added.
  */
+/**
+ * Where a raised bar turns 45 degrees, the lower worktop's outer edge and the raised
+ * strips' inner edges leave a small triangle of uncovered lower top (a visible void
+ * beside the riser). Fill exactly that triangle at the lower level; nothing else moves.
+ */
+function raisedBarMiterGapFills(surfaces: readonly CountertopSurface[]): CountertopSurface[] {
+  type Pt = CountertopPlanPoint;
+  const raised = surfaces.filter((s) => s.raisedBar);
+  const lower = surfaces.filter((s) => !s.raisedBar && !s.raisedBar);
+  if (raised.length < 2 || lower.length === 0) return [];
+  const polys = raised.map((s) => countertopSurfacePlanPolygon(s));
+  const lowerPolys = lower.map((s) => countertopSurfacePlanPolygon(s));
+  const near = (a: Pt, b: Pt, t = 0.3) => Math.hypot(a.x - b.x, a.y - b.y) < t;
+  const onEdges = (pt: Pt, poly: readonly Pt[]) => poly.some((a, i) => {
+    const b = poly[(i + 1) % poly.length]!;
+    const dx = b.x - a.x, dy = b.y - a.y, l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((pt.x - a.x) * dx + (pt.y - a.y) * dy) / l2));
+    return Math.hypot(pt.x - (a.x + t * dx), pt.y - (a.y + t * dy)) < 0.3;
+  });
+  const inside = (pt: Pt, poly: readonly Pt[]) => {
+    let hit = false;
+    for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
+      const a = poly[k]!, b = poly[m]!;
+      if ((a.y > pt.y) !== (b.y > pt.y) && pt.x < ((b.x - a.x) * (pt.y - a.y)) / (b.y - a.y) + a.x) hit = !hit;
+    }
+    return hit;
+  };
+  const lowerVerts = lowerPolys.flat();
+  const out: CountertopSurface[] = [];
+  for (let i = 0; i < polys.length; i += 1) {
+    for (let j = i + 1; j < polys.length; j += 1) {
+      const A = polys[i]!, B = polys[j]!;
+      const shared = A.filter((p1) => B.some((p2) => near(p1, p2)));
+      // Only the INNER mitre point (nearest the lower worktop) borders this void; the outer
+      // point is the raised bar's own corner and must never get a lower-level fill.
+      const nearestLower = (pt: Pt) => Math.min(...lowerVerts.map((v) => Math.hypot(v.x - pt.x, v.y - pt.y)));
+      const inner = shared.slice().sort((a, b) => nearestLower(a) - nearestLower(b)).slice(0, 1);
+      for (const P of inner) {
+        const q1 = lowerVerts.find((v) => !near(v, P) && Math.hypot(v.x - P.x, v.y - P.y) < 30 && onEdges(v, A) && !onEdges(v, B));
+        const q2 = lowerVerts.find((v) => !near(v, P) && Math.hypot(v.x - P.x, v.y - P.y) < 30 && onEdges(v, B) && !onEdges(v, A));
+        if (!q1 || !q2) continue;
+        const tri: Pt[] = [P, q1, q2];
+        if (countertopPolygonArea(tri) < 2) continue;
+        const c = { x: (P.x + q1.x + q2.x) / 3, y: (P.y + q1.y + q2.y) / 3 };
+        if (lowerPolys.some((lp) => inside(c, lp))) continue;
+        const signed = tri.reduce((sum, pt, k) => { const n = tri[(k + 1) % 3]!; return sum + pt.x * n.y - n.x * pt.y; }, 0);
+        if (signed < 0) tri.reverse();
+        const base = surfaces.find((sf) => sf.raisedBar);
+        const surface = countertopSurfaceFromWorldPolygon(tri, base?.peninsulaRunId ?? "");
+        if (surface) out.push({ ...surface, linearInches: surface.width, peninsulaRunIds: base?.peninsulaRunIds });
+      }
+    }
+  }
+  return out;
+}
+
 function joinRaisedBarStripsAtMiter(
   surfaces: CountertopSurface[],
   room: Pick<RoomData, "peninsulaRuns">,
@@ -12885,6 +12941,7 @@ export function countertopSurfaces(
   // at the turn; the lower countertop is unaffected.
   void raisedBarOuterMiterWedges;
   out.splice(0, out.length, ...joinRaisedBarStripsAtMiter(out, room));
+  out.push(...raisedBarMiterGapFills(out));
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {
