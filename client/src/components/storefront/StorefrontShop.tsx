@@ -38,6 +38,7 @@ import { doorStyleColorHex } from "@/lib/doorColorSpectrum";
 import {
   familyFinishKey,
   familyFinishLabel,
+  familyImageUrl,
   groupStorefrontDoorFamilies,
   type StorefrontDoorVariant,
 } from "@/lib/storefrontDoorFamilies";
@@ -410,7 +411,7 @@ function FamilyPicker({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {groupedFamilies.map((family) => {
                 const selected = family.variants.find((variant) => variant.styleId === selectedVariantIds[family.key]) ?? family.selected;
-                const image = selected.roomSceneImageUrl || selected.doorSampleImageUrl || selected.thumbnailImageUrl;
+                const image = familyImageUrl(selected);
                 const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${selected.styleId}` : `/catalog?style=${selected.styleId}`);
                 const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${selected.styleId}` : `/design?style=${selected.styleId}`);
                 const displayName = publicStyleName(branding.brandName(selected.styleId, selected.name ?? ""));

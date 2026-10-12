@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   doorFamilyKey,
+  familyFinishLabel,
   familyFinishKey,
+  familyImageUrl,
   groupStorefrontDoorFamilies,
 } from "./storefrontDoorFamilies";
 
@@ -40,5 +42,24 @@ describe("storefront door family grouping", () => {
     const whiteA = style({ styleId: 101, color: "White" });
     const whiteB = style({ styleId: 102, color: "White" });
     expect(familyFinishKey(whiteA)).not.toBe(familyFinishKey(whiteB));
+  });
+
+  it("returns standalone human finish labels and never exposes hex or placeholders", () => {
+    expect(familyFinishLabel(style({ finish: "Dual Blanc (Preston)", name: "Dual Blanc" }))).toBe("Dual Blanc");
+    expect(familyFinishLabel(style({ finish: "Matching", color: null, name: "Midnight Glass" }))).toBe("Matching colour");
+    expect(familyFinishLabel(style({ finish: "#4f5549", color: "#4f5549", name: "Aero Sage" }))).toBe("Aero Sage");
+  });
+
+  it("uses a genuine room scene for the initial family variant and does not badge distributor-only features", () => {
+    const families = groupStorefrontDoorFamilies([
+      style({ styleId: 1, doorStyle: "Raised Panel", featuredDistributor: true, roomSceneImageUrl: "/screenshot_hero.jpg", name: "Screenshot Variant" }),
+      style({ styleId: 2, doorStyle: "Raised Panel", roomSceneImageUrl: "/real_room_scene.jpg", name: "Room Variant" }),
+    ]);
+    expect(families[0].selected.styleId).toBe(2);
+    expect(families[0].featured).toBe(false);
+  });
+
+  it("falls back to the real door sample instead of a screenshot when no room scene exists", () => {
+    expect(familyImageUrl(style({ roomSceneImageUrl: "/screenshot_hero.jpg", doorSampleImageUrl: "/real-door.jpg" }))).toBe("/real-door.jpg");
   });
 });

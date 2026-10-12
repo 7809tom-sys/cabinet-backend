@@ -80,6 +80,29 @@ function hasImage(variant: StorefrontDoorVariant) {
   return Boolean(variant.roomSceneImageUrl || variant.doorSampleImageUrl || variant.thumbnailImageUrl);
 }
 
+function cleanCatalogValue(value: string | null | undefined) {
+  return value?.replace(/\s*\([^)]*\)\s*$/, "").trim() || "";
+}
+
+function isHex(value: string) {
+  return /^#?[0-9a-f]{6}$/i.test(value.trim());
+}
+
+function isMatching(value: string) {
+  return /^matching(?:\s+(?:colour|color))?$/i.test(value.trim());
+}
+
+/** A screenshot or door-only image is not a room-scene representative. */
+export function hasGenuineRoomScene(variant: StorefrontDoorVariant) {
+  const url = variant.roomSceneImageUrl?.toLowerCase() || "";
+  return Boolean(url) && !/(screenshot|screen[_-]?shot|door[_-]?only|door[-_]?sample)/i.test(url);
+}
+
+export function familyImageUrl(variant: StorefrontDoorVariant) {
+  if (hasGenuineRoomScene(variant)) return variant.roomSceneImageUrl || variant.doorSampleImageUrl || variant.thumbnailImageUrl;
+  return variant.doorSampleImageUrl || variant.thumbnailImageUrl || variant.roomSceneImageUrl;
+}
+
 function finishKey(variant: StorefrontDoorVariant) {
   return (variant.color || variant.finish || variant.woodSpecies || variant.name || variant.styleCode || "unlabeled-finish")
     .trim()
@@ -104,7 +127,9 @@ export function groupStorefrontDoorFamilies<T extends StorefrontDoorVariant>(var
   return Array.from(groups.entries())
     .map(([key, group]) => {
       const sorted = [...group].sort((a, b) => {
-        const featuredDelta = Number(Boolean(b.featured || b.featuredDistributor)) - Number(Boolean(a.featured || a.featuredDistributor));
+        const roomSceneDelta = Number(hasGenuineRoomScene(b)) - Number(hasGenuineRoomScene(a));
+        if (roomSceneDelta !== 0) return roomSceneDelta;
+        const featuredDelta = Number(Boolean(b.featured)) - Number(Boolean(a.featured));
         if (featuredDelta !== 0) return featuredDelta;
         const imageDelta = Number(hasImage(b)) - Number(hasImage(a));
         if (imageDelta !== 0) return imageDelta;
@@ -115,7 +140,7 @@ export function groupStorefrontDoorFamilies<T extends StorefrontDoorVariant>(var
         key,
         label: doorFamilyLabel(key, group),
         variants: sorted,
-        featured: group.some((variant) => Boolean(variant.featured || variant.featuredDistributor)),
+        featured: group.some((variant) => Boolean(variant.featured)),
         featuredSortOrder: Math.min(...group.map((variant) => variant.featuredSortOrder ?? 999)),
         selected,
       };
@@ -124,7 +149,16 @@ export function groupStorefrontDoorFamilies<T extends StorefrontDoorVariant>(var
 }
 
 export function familyFinishLabel<T extends StorefrontDoorVariant>(variant: T) {
-  return variant.color || variant.finish || variant.woodSpecies || variant.name || variant.styleCode || "Finish option";
+  const finish = cleanCatalogValue(variant.finish);
+  const color = cleanCatalogValue(variant.color);
+  const wood = cleanCatalogValue(variant.woodSpecies);
+  const name = cleanCatalogValue(variant.name);
+  if (isMatching(finish) || isMatching(color)) return "Matching colour";
+  if (finish && !isHex(finish) && !isMatching(finish)) return finish;
+  if (color && !isHex(color) && !isMatching(color)) return color;
+  if (wood && !isHex(wood) && !isMatching(wood) && !/^(solid|painted|unfinished)/i.test(wood)) return wood;
+  if (name && !isHex(name)) return name;
+  return "Colour name unavailable";
 }
 
 export function familyFinishKey<T extends StorefrontDoorVariant>(variant: T) {
