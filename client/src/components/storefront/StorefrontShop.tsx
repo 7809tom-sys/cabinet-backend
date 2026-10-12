@@ -32,6 +32,8 @@ import { useCart } from "@/contexts/CartContext";
 import { toast } from "sonner";
 import { affiliateCabinetDetailHref } from "@/lib/affiliateCabinetDetailRoute";
 import { sortStorefrontCategoryTabs, storefrontCategoryTabLabel } from "@/lib/storefrontCategoryTabs";
+import { affiliateDesignerPath } from "@/lib/affiliateStorefrontUrl";
+import { useSearch } from "wouter";
 
 type Brand = { primary: string; accent: string };
 
@@ -188,6 +190,8 @@ function FamilyPicker({
   const [syncError, setSyncError] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
+  const search = useSearch();
+  const autoLockedStyleRef = useRef<number | null>(null);
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const accountFavoriteQuery = trpc.favorites.list.useQuery(
     { storefrontSlug: storefrontScope },
@@ -201,6 +205,19 @@ function FamilyPicker({
   useEffect(() => {
     setFavoriteIds(readFavoriteFamilyIds(storageKey));
   }, [storageKey]);
+
+  // Buy-now links from the room-scene gallery arrive back at this picker with
+  // the exact style in the query string. Lock that family automatically so
+  // the visitor lands in its catalog instead of having to choose again.
+  useEffect(() => {
+    const requestedStyleId = Number(new URLSearchParams(search).get("style"));
+    if (!Number.isInteger(requestedStyleId) || requestedStyleId <= 0) return;
+    if (autoLockedStyleRef.current === requestedStyleId || !data?.length) return;
+    const requestedFamily = data.find((candidate) => candidate.styleId === requestedStyleId);
+    if (!requestedFamily) return;
+    autoLockedStyleRef.current = requestedStyleId;
+    onPick(requestedFamily);
+  }, [data, onPick, search]);
 
   useEffect(() => {
     try {
@@ -362,7 +379,7 @@ function FamilyPicker({
             aria-pressed={showFavorites}
           >
             <Heart className={`h-4 w-4 ${favoriteIds.length > 0 ? "fill-current" : ""}`} />
-            My Favorites{favoriteIds.length > 0 ? ` (${favoriteIds.length})` : ""}
+            My Favorites
           </Button>
         </div>
 
@@ -373,19 +390,52 @@ function FamilyPicker({
                 <h3 className="font-serif text-2xl font-bold">Door samples</h3>
                 <p className="mt-1 text-sm text-muted-foreground">Real catalog images from the door-style records. Featured styles appear first.</p>
               </div>
-              <Badge variant="outline">{data.length} styles available</Badge>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {[...data].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured))).map((f) => {
                 const image = f.roomSceneImageUrl || f.doorSampleImageUrl || f.thumbnailImageUrl;
+                const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${f.styleId}` : `/catalog?style=${f.styleId}`);
+                const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${f.styleId}` : `/design?style=${f.styleId}`);
                 const displayName = branding.brandName(f.styleId, f.name);
                 return (
-                  <div key={`sample-${f.styleId}`} className="overflow-hidden rounded-xl border border-border bg-card">
+                  <div
+                    key={`sample-${f.styleId}`}
+                    role="link"
+                    tabIndex={0}
+                    aria-label={`Shop ${displayName}`}
+                    onClick={() => { window.location.assign(buyHref); }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        window.location.assign(buyHref);
+                      }
+                    }}
+                    className="group cursor-pointer overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
                     <div className="relative aspect-[4/3] bg-muted">
                       {image ? <img src={image} alt={`${displayName} door sample`} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">No photo yet</div>}
                       {f.featured && <Badge className="absolute left-2 top-2 border-0 text-white" style={{ backgroundColor: brand.accent }}>Featured</Badge>}
                     </div>
-                    <div className="p-3"><p className="truncate text-sm font-semibold">{displayName}</p><p className="mt-1 truncate text-xs text-muted-foreground">{f.doorStyle || f.finish || "Door style"}</p></div>
+                    <div className="p-3">
+                      <p className="truncate text-sm font-semibold">{displayName}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{f.doorStyle || f.finish || "Door style"}</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <a
+                          href={buyHref}
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex items-center justify-center rounded-md bg-primary px-2 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:opacity-90"
+                        >
+                          Buy now
+                        </a>
+                        <a
+                          href={designHref}
+                          onClick={(event) => event.stopPropagation()}
+                          className="inline-flex items-center justify-center rounded-md border border-border px-2 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                        >
+                          Design
+                        </a>
+                      </div>
+                    </div>
                   </div>
                 );
               })}

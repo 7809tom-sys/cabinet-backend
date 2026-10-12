@@ -328,7 +328,7 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
                   Ready-to-Customize Kitchen Packages
                 </h2>
                 <p className="text-muted-foreground leading-relaxed mb-6">
-                  Browse complete kitchen packages with floor plans, pricing, and cabinet counts. Customize any package to fit your space and order in minutes.
+                  Browse complete kitchen packages with floor plans and pricing. Customize any package to fit your space and order in minutes.
                 </p>
                 <Link href={withRef(`/store/${data.slug}/bundles`)}>
                   <Button className="gap-2 font-semibold text-white" style={{ backgroundColor: brand.accent }}>
