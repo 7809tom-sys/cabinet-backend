@@ -17951,16 +17951,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             return Boolean(profile && verifiedPelicanSinkFitsCabinet(profile, sinkBaseOpeningWidth));
           })
           .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
-	        const applyRangeTop = (
-	          type: "gas" | "electric" | "smooth-top",
-	          product?: typeof filteredRangeTops[0],
-	          layoutVisual?: typeof layoutCooktopVisuals["gas"],
-	        ) => {
-	          setCabAttr(sinkBaseDialog.cabinetUid, {
-	            sinkTopType: type,
-	            sinkTopProductId: product?.id ?? null,
-	            rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
-	          });
+        const applyRangeTop = (
+          type: "gas" | "electric" | "smooth-top",
+          product?: typeof filteredRangeTops[0],
+          layoutVisual?: typeof layoutCooktopVisuals["gas"],
+        ) => {
+          const cab = placed.find((item) => item.uid === sinkBaseDialog.cabinetUid);
+          const previousSurfaceIds = new Set([cab?.sinkTopProductId, cab?.faucetProductId].filter((id): id is number => typeof id === "number"));
+          setSinks((prevSinks) => prevSinks.filter((existingSink) => !cab || !fixtureBelongsToCabinet(existingSink, cab)));
+          if (previousSurfaceIds.size > 0) {
+            setSelectedSurfaces((prevSurfaces) => prevSurfaces.filter((surface) => !previousSurfaceIds.has(surface.id)));
+          }
+          setCabAttr(sinkBaseDialog.cabinetUid, {
+            sinkTopType: type,
+            sinkTopProductId: product?.id ?? null,
+            faucetProductId: null,
+            faucetImageUrl: null,
+            sinkImageUrl: null,
+            rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
+          });
           if (product) {
             addRecommendedSurface(
               { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },
@@ -17978,6 +17987,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           .filter((product) => isBathroomVanity ? isVerifiedPelicanVanityFaucet(product.pelicanCode) : !isVerifiedPelicanVanityFaucet(product.pelicanCode));
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
+          const previousRangeTopProductId = cab?.sinkTopType === "gas" || cab?.sinkTopType === "electric" || cab?.sinkTopType === "smooth-top"
+            ? cab.sinkTopProductId
+            : null;
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
           const verifiedFaucetProfile = verifiedPelicanFaucetProfile(faucetProduct?.pelicanCode);
           const cabinetWidth = sinkBaseOpeningWidthIn(cab ?? undefined);
@@ -18041,12 +18053,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             faucetFinish: verifiedFaucetProfile?.finish,
             faucetForm: verifiedFaucetProfile?.profile,
           };
-	          setSinks((prevSinks) => [
+          if (previousRangeTopProductId != null) {
+            setSelectedSurfaces((prevSurfaces) => prevSurfaces.filter((surface) => surface.id !== previousRangeTopProductId));
+          }
+          setSinks((prevSinks) => [
 	            ...prevSinks.filter((existingSink) => !fixtureBelongsToCabinet(existingSink, cab)),
 	            sinkWithFaucet,
 	          ]);
           setSelectedSinkUid(sinkWithFaucet.uid);
-          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null });
+          setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: "sink", sinkTopProductId: sinkProduct?.id ?? null, faucetProductId: faucetProduct?.id ?? null, faucetImageUrl: faucetProduct?.imageUrl ?? null, sinkImageUrl: sinkProduct?.imageUrl ?? null, rangeTopImageUrl: null, rangeTopFinish: null });
           if (sinkProduct) {
             addRecommendedSurface(
               { id: sinkProduct.id, slug: sinkProduct.slug, name: sinkProduct.name, category: sinkProduct.category, subCategory: sinkProduct.subCategory, size: sinkProduct.size, imageUrl: sinkProduct.imageUrl, sellPrice: sinkProduct.sellPrice },
