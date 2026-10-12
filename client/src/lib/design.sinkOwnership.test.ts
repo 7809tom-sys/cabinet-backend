@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fixtureBelongsToCabinet, makeSinkForCabinet, type PlacedCabinet } from "./design";
+import { fixtureBelongsToCabinet, makeDefaultSinkForCabinet, makeSinkForCabinet, type PlacedCabinet, DEFAULT_ROOM } from "./design";
 
 describe("sink fixture cabinet ownership", () => {
   const sinkBase = {
@@ -23,5 +23,13 @@ describe("sink fixture cabinet ownership", () => {
   it("keeps the footprint check only as a fallback for a legacy unlinked fixture", () => {
     const legacy = { ...makeSinkForCabinet("single", sinkBase, { width: 120, depth: 120, ceilingHeight: 96 }), cabinetUid: undefined };
     expect(fixtureBelongsToCabinet(legacy, sinkBase)).toBe(true);
+  });
+
+  it("creates a centered editable default fixture with the faucet enabled", () => {
+    const fixture = makeDefaultSinkForCabinet(sinkBase, DEFAULT_ROOM, "double");
+    expect(fixture.cabinetUid).toBe(sinkBase.uid);
+    expect(fixture.type).toBe("double");
+    expect(fixture.faucet).toBe(true);
+    expect(fixtureBelongsToCabinet(fixture, sinkBase)).toBe(true);
   });
 });

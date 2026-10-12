@@ -130,7 +130,7 @@ import {
   COUNTERTOP_MATERIALS, DEFAULT_COUNTERTOP_MATERIAL_ID, countertopMaterial,
   EDGE_PROFILES, DEFAULT_EDGE_PROFILE_ID, edgeProfile,
 	  type PlanAnnotation, type CabinetWallDragPreview, makeAnnotation,
-  makeSink, makeSinkForCabinet, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
+  makeSink, makeSinkForCabinet, makeDefaultSinkForCabinet, normalizeSinkFixturesToBases, potFillerMountedRange, isRangeOrCooktop, sinkPlanDimensions, SINK_PRESETS, type PotFillerFixture, type SinkFixture, type SinkType,
   snapToWall, snapPosition, nextFreeSpotOnWall, mountedMicrowaveOverRangeSpot, overRangeMicrowaveAttachment,
   clampCabinetsToRoom, clampOpeningsToRoom, clampIslandToRoom, clampRoomInches,
   WALL_LABELS, doorPanelKind,
@@ -5417,9 +5417,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // come in via the Accessories tab. Force a sensible placement (base vs
       // wall) and, for flat panels/skins, a slim 0.75" footprint depth so they
       // render as a thin board against the run rather than a full 24" box.
-	      const isFloatingShelf = isFloatingShelfItem(c);
-	      const isWallOpenShelf = isWallOpenShelfCabinet(c);
-	      const kitchenCrestGenericShelfCount = kitchenCrestGenericOpenEndShelfCount(c);
+      const isFloatingShelf = isFloatingShelfItem(c);
+      const isWallOpenShelf = isWallOpenShelfCabinet(c);
+      const kitchenCrestGenericShelfCount = kitchenCrestGenericOpenEndShelfCount(c);
+      const isSinkBasePlacement = c.placement === "base" && isSinkBaseCabinet(c);
       // Floating shelves remain wall-mounted accessories even when a catalog
       // filter surfaces them from the Base tab. They must never inherit a base
       // run, an island face, or a room-center fallback from that filter state.
@@ -5528,14 +5529,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        ? sinkBaseWindowPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
 	      const sinkWindowSpot = sinkWindowPlacement?.spot ?? null;
-	      const hasActiveWallWindow = wantsWindowCenteredSinkBase
-	        && openings.some((opening) => opening.kind === "window" && opening.side === activeWall);
-	      if (hasActiveWallWindow && !sinkWindowSpot) {
-	        const message = `${c.masterCode} was not added because the centered ${formatInches(width)} sink-base span below this window is blocked. Move the blocking cabinet or drag the sink base deliberately to a different location.`;
-	        setPlacementWarning(message);
-	        toast.info(message);
-	        return;
-	      }
+      const hasActiveWallWindow = wantsWindowCenteredSinkBase
+        && openings.some((opening) => opening.kind === "window" && opening.side === activeWall);
+      const sinkWindowFallbackSpot = hasActiveWallWindow && !sinkWindowSpot
+        ? (() => {
+            const opening = openings.find((item) => item.kind === "window" && item.side === activeWall);
+            if (!opening) return null;
+            const runLength = wallLength(activeWall, room);
+            const start = Math.max(0, Math.min(opening.offset + opening.width / 2 - width / 2, Math.max(0, runLength - width)));
+            return wallPlacementAt(start, width, depth, activeWall, room);
+          })()
+        : null;
       const automaticLowerMatch = accPlacement === "wall" && !isFloatingShelf && !selectedLowerTarget && x == null && y == null
 	        ? matchingLowerCabinetWallPlacement(activeWall, room, width, depth, height, prev, openings)
 	        : null;
@@ -5691,7 +5695,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               placement: accPlacement,
             }),
 	          );
-	          if (!nextSpot) {
+          if (!nextSpot && isSinkBasePlacement) {
+            // Required sink bases remain placeable even when the ordinary run
+            // is full. Prefer the centered window fallback when applicable;
+            // otherwise place at the active wall origin for user review.
+            spot = sinkWindowFallbackSpot ?? wallPlacementAt(0, width, depth, activeWall, room);
+            preserveResolvedPlacement = true;
+          } else if (!nextSpot) {
 	            const alternate = alternateWallPlacementRecommendation(
 	              activeWall,
 	              room,
@@ -5738,7 +5748,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            toast.error(message);
 	            return;
           }
-          spot = nextSpot;
+          spot = nextSpot!;
           preserveResolvedPlacement = true;
         } else {
           const segs = freeSegmentsOnWall(
@@ -6015,6 +6025,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
       // Filler auto-snap: find nearest gap and resize/reposition
       let finalCab = newCab;
+      let sinkBaseAdvisory: string | null = hasActiveWallWindow && !sinkWindowSpot
+        ? `${finalCab.masterCode} was placed beneath the window, but the centered ${formatInches(width)} span overlaps an existing item. Clearance is advisory for sink bases; review the overlap before installation.`
+        : null;
 	      if (!requestedIslandFace && /^FILL-/i.test(newCab.masterCode)) {
         const allGaps = wallGaps(room, prev, openings, 0.5);
         const fillerLayer = newCab.placement === "wall" ? "wall" : "base";
@@ -6099,7 +6112,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      const rangeHoodConflict = rangeHoodPlacement?.ok && isRangeHoodPlacement(finalCab)
 	        ? cabinetCollisionDetail(finalCab, normalizedPrevious)
 	        : null;
-      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room)) {
+      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room) && !isSinkBasePlacement) {
 	        // A hood must occupy the same upper-wall span as its range. When an
 	        // existing upper cabinet is already in that exact band, do not move
 	        // either object silently or allow physical overlap. Offer the shopper
@@ -6157,7 +6170,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           }
         }
       }
-      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room) && !validMountedMicrowavePair) {
+      const sinkBaseCollision = isSinkBasePlacement
+        ? cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room)
+        : null;
+      if (sinkBaseCollision) {
+        sinkBaseAdvisory = `${finalCab.masterCode} was placed with an overlap advisory: ${collisionReason(finalCab, normalizedPrevious, room) ?? "the selected location intersects another item"}. The sink base remains in the plan for user review.`;
+      }
+      if (cabinetPlacementCollisionDetail(finalCab, normalizedPrevious, room) && !validMountedMicrowavePair && !isSinkBasePlacement) {
 	        rememberFailedWallFit(finalCab, normalizedPrevious);
         const message = wallCabinetPlacementReason(finalCab, room, normalizedPrevious, openings) ?? collisionReason(finalCab, normalizedPrevious, room) ?? `${finalCab.masterCode} was not added because it overlaps an existing item. Move an item or choose an open space.`;
         setPlacementWarning(message);
@@ -6232,11 +6251,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		        }
 		      }
 
-	      // ── Now do all state updates and side effects exactly once ──────────
-	      setPlacementWarning(null);
-	      setFailedWallFit(null);
-	      justPlacedRef.current = true;
-	      setSelectedUid(finalCab.uid);
+      // ── Now do all state updates and side effects exactly once ──────────
+      setPlacementWarning(sinkBaseAdvisory);
+      setFailedWallFit(null);
+      justPlacedRef.current = true;
+      setSelectedUid(finalCab.uid);
+      if (sinkBaseAdvisory) toast.info(sinkBaseAdvisory);
 	      if (sinkWindowPlacement) {
 	        showSinkWindowSnap(finalCab.uid, sinkWindowPlacement.openingUid);
 	        const opening = openings.find((item) => item.uid === sinkWindowPlacement.openingUid);
@@ -6412,7 +6432,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          const defaultSinkType: SinkType = isFarmSinkBasePaletteItem(finalCab)
 	            ? "farmhouse"
 	            : finalCab.width >= 33 ? "double" : "single";
-	          const defaultSink = makeSinkForCabinet(defaultSinkType, finalCab, room);
+          const defaultSink = makeDefaultSinkForCabinet(finalCab, room, defaultSinkType);
 	          setSinks((current) => current.some((sink) => fixtureBelongsToCabinet(sink, finalCab))
 	            ? current
 	            : [...current, defaultSink]);

@@ -3769,6 +3769,14 @@ export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: 
       resolution.rejected.push(candidate);
       continue;
     }
+    // Sink bases are required planning anchors.  Keep them in the restored or
+    // newly committed plan even when the user intentionally places one over a
+    // window/opening conflict; the Designer reports the conflict as an advisory
+    // instead of silently deleting the required cabinet.
+    if (isSinkBaseCabinet(candidate)) {
+      resolution.placed.push(candidate);
+      continue;
+    }
     const appended = appendCollisionFreePlacements(resolution.placed, [candidate], room);
     resolution.placed = appended.placed;
     resolution.rejected.push(...appended.rejected);
@@ -13179,6 +13187,15 @@ export function makeSinkForCabinet(
 	  const cardinalWall = side === "top" || side === "bottom" || side === "left" || side === "right";
 	  const planRotation = cardinalWall ? 0 : ((Number(cabinet.rotation) % 360) + 360) % 360;
 	  return { ...makeSink(type, x, y, side, { width: rawWidth, depth: rawDepth }), cabinetUid: cabinet.uid, planRotation };
+}
+
+/** Default visual-planning sink created with a required sink base. */
+export function makeDefaultSinkForCabinet(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  type: SinkType = cabinet.width >= 33 ? "double" : "single",
+): SinkFixture {
+  return { ...makeSinkForCabinet(type, cabinet, room), faucet: true };
 }
 
 /** Repairs legacy sink fixtures so their plan footprint matches the owning sink-base wall. */

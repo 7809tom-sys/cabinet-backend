@@ -11,13 +11,13 @@ describe("Design Tool sink-base window placement", () => {
     expect(source).toContain("&& y == null");
     expect(source).toContain("? sinkBaseWindowPlacement(activeWall, room, width, depth, height, prev, openings)");
     expect(source).toContain("const hasActiveWallWindow = wantsWindowCenteredSinkBase");
-    expect(source).toContain("if (hasActiveWallWindow && !sinkWindowSpot)");
+    expect(source).toContain("const sinkWindowFallbackSpot = hasActiveWallWindow && !sinkWindowSpot");
     expect(source).toContain("} else if (sinkWindowSpot) {");
     expect(source).toContain("spot = sinkWindowSpot;");
   });
 
   it("adds one centered default sink with faucet and replaces it when a verified fixture is selected", () => {
-    expect(source).toContain("const defaultSink = makeSinkForCabinet(defaultSinkType, finalCab, room)");
+    expect(source).toContain("const defaultSink = makeDefaultSinkForCabinet(finalCab, room, defaultSinkType);");
     expect(source).toContain("fixtureBelongsToCabinet(sink, finalCab)");
     expect(source).toContain("...prevSinks.filter((existingSink) => !fixtureBelongsToCabinet(existingSink, cab))");
   });
