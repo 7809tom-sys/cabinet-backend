@@ -451,6 +451,32 @@ export function isApplianceCode(masterCode: string): boolean {
   return /^(RANGE|FRIDGE|DW|SINK|HOOD|MW|WINE|FIX)-/.test((masterCode || "").toUpperCase());
 }
 
+/**
+ * A base-height appliance occupies a base cabinet bay below the finished
+ * counter line and supports the same continuous slab as a base cabinet.
+ * Classification is structural—catalog category/subcategory plus installed
+ * elevation—not a SKU allow-list. Countertop-opening and freestanding
+ * appliances are explicit openings instead.
+ */
+export function isBaseHeightAppliance(p: {
+  placement?: Placement | null;
+  category?: string | null;
+  subCategory?: string | null;
+  height?: number | string | null;
+  mountBottom?: number | string | null;
+  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
+}): boolean {
+  if (p.applianceRole === "countertop-opening" || p.applianceRole === "freestanding") return false;
+  const category = `${p.category ?? ""}`.trim().toLowerCase();
+  const subCategory = `${p.subCategory ?? ""}`.trim().toLowerCase();
+  if (p.placement !== "appliance" && category !== "appliance" && !subCategory.includes("appliance")) return false;
+  if (category !== "appliance" && !subCategory.includes("appliance")) return false;
+  const bottom = Number(p.mountBottom ?? 0);
+  const height = Number(p.height);
+  return Number.isFinite(bottom) && bottom <= 1
+    && Number.isFinite(height) && height > 0 && height <= STD.BASE_HEIGHT + STD.COUNTERTOP_THICKNESS;
+}
+
 // Appliances/fixtures available for a given room type. Kitchen shows the kitchen
 // appliance set; bathroom/laundry show their fixtures. Closet/other show none
 // (closet uses modular parts; other relies on cabinets only).
@@ -548,6 +574,9 @@ export interface DesignCabinet {
   height: string | null;
   depth: string | null;
   placement: Placement;
+  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
+  applianceProductId?: number | null;
+  cooktopConversionStatus?: CooktopConversionStatus;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
   isCornerCabinet: boolean | null;
@@ -627,6 +656,11 @@ export interface PlacedCabinet {
   /** Current master corner classification, refreshed into older saved designs. */
   isCornerCabinet?: boolean | null;
   placement: Placement;
+  /** Structural appliance classification used by countertop/rendering parity. */
+  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
+  /** Selected catalog product when this is a first-class appliance item. */
+  applianceProductId?: number | null;
+  cooktopConversionStatus?: CooktopConversionStatus;
   x: number;
   y: number;
   width: number;
@@ -6370,7 +6404,7 @@ export function countertopArea(
   const perimeterPlaced = island ? placed.filter((item) => !isIslandMember(item)) : placed;
   const peninsulaRunIds = new Set((room?.peninsulaRuns ?? []).map((run) => run.id));
   const straightBases = perimeterPlaced
-    .filter((p) => p.placement === "base" && !peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM)));
+    .filter((p) => bearsCountertop(p) && !peninsulaRunIds.has(cabinetWall(p, room ?? DEFAULT_ROOM)));
   const straightRunInches = straightBases
     .reduce((sum, p) => sum + rotatedSize(p).w, 0);
   const straightCountertopSquareIn = straightBases
@@ -11240,15 +11274,19 @@ export function unifiedFortyFivePeninsulaCountertopSurfaces(
 // Tall cabinets and appliances are already excluded by the placement check.
 export function bearsCountertop(p: {
 	  placement: Placement;
+	  category?: string | null;
 	  masterCode?: string | null;
 	  description?: string | null;
 	  subCategory?: string | null;
+	  height?: number | string | null;
+	  mountBottom?: number | string | null;
+	  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
 	  fillerPieceGroupId?: string | null;
 	  fillerTotalWidth?: number | null;
 	  fillerPlacementMode?: "left" | "right" | "split" | null;
 	  fillerTransitionKind?: "angled-wedge" | "corner-provisional" | "front-miter-pair" | null;
 }): boolean {
-	  if (p.placement !== "base") return false;
+	  if (p.placement !== "base" && !isBaseHeightAppliance(p)) return false;
   // Some legacy plans stored a freestanding stove in the base layer. A stove
   // remains an appliance opening regardless of that stale layer value, so it
 	  // must never receive a countertop slab.
@@ -11266,7 +11304,7 @@ export function bearsCountertop(p: {
   );
   if (isInstalledBaseFiller) return true;
   // Sink bases ARE counter-bearing even though their tops are cut for the sink.
-  if (isSinkBaseCabinet(p)) return true;
+  if (isSinkBaseCabinet(p) || isBaseHeightAppliance(p)) return true;
   // Flat panels / skins carry no counter.
   if (isPanelItem(p)) return false;
   // Filler / scribe strips (FILL-* or a "Filler" sub-category) are non-bearing.
@@ -11826,9 +11864,13 @@ export function islandWallCabinetBaseTreatment(p: {
 /** Counter-bearing island members include genuine bases and marked shallow opposing wall faces. */
 export function bearsIslandCountertop(p: {
   placement: Placement;
+  category?: string | null;
   masterCode?: string | null;
   description?: string | null;
   subCategory?: string | null;
+  height?: number | string | null;
+  mountBottom?: number | string | null;
+  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   fillerPieceGroupId?: string | null;
   fillerTotalWidth?: number | null;
   fillerPlacementMode?: "left" | "right" | "split" | null;
@@ -12476,11 +12518,7 @@ function peninsulaCountertopSupportSegments(
 ): Array<{ start: number; end: number }> {
   const tolerance = 1 / 16;
   const intervals = placed.flatMap((cabinet) => {
-    // A dishwasher is installed beneath the slab; unlike a range, it is not
-    // an open cutout. Preserve continuity across its full 24-inch bay.
-    const dishwasher = cabinet.placement === "appliance"
-      && /^(?:DW-?\d+|DISHWASHER-?\d*)$/i.test((cabinet.masterCode ?? "").replace(/\s/g, ""));
-    if (!bearsCountertop(cabinet) && !dishwasher) return [];
+    if (!bearsCountertop(cabinet)) return [];
     const belongsToRun = cabinetWall(cabinet, room) === run.id;
     const cornerSupportsRun = !belongsToRun && peninsulaCornerCabinetSupportsCountertop(cabinet, run, room);
     if (!belongsToRun && !cornerSupportsRun) return [];
@@ -13086,6 +13124,85 @@ export function isRangeOrCooktop(cabinet: Pick<PlacedCabinet, "masterCode" | "de
   if (/^(?:RANGE|RNG|STOVE|STV|COOKTOP|CT)[\s_-]*(?:\d+)?$/i.test(code)) return true;
   return /\b(?:freestanding\s+)?(?:range|stove|cooktop)\b/i.test(text)
     && !/\b(?:wall|built[-\s]?in|single|double)\s+oven\b/i.test(text);
+}
+
+export type CooktopConversionStatus = "converted" | "unresolved-standard-base" | null;
+
+/** Convert legacy SB range-top modes into a standard base plus a first-class opening appliance. */
+export function convertLegacyCooktopPlacements(
+  placed: readonly PlacedCabinet[],
+  catalogBases: readonly DesignCabinet[],
+): { placed: PlacedCabinet[]; convertedCabinetUids: Set<string> } {
+  const convertedCabinetUids = new Set<string>();
+  const next: PlacedCabinet[] = [];
+  for (const cabinet of placed) {
+    const type = cabinet.sinkTopType;
+    if (!isSinkBaseCabinet(cabinet) || (type !== "gas" && type !== "electric" && type !== "smooth-top")) {
+      next.push(cabinet);
+      continue;
+    }
+    const width = Number(cabinet.width);
+    const base = catalogBases.find((candidate) => candidate.placement === "base"
+      && !isSinkBaseCabinet(candidate)
+      && !isPanelItem(candidate)
+      && Math.abs(Number(candidate.width) - width) < 0.01);
+    if (!base) {
+      next.push({ ...cabinet, cooktopConversionStatus: "unresolved-standard-base" });
+      continue;
+    }
+    const baseCabinet: PlacedCabinet = {
+      ...cabinet,
+      cabinetId: base.id,
+      masterCode: base.masterCode,
+      description: base.description,
+      category: base.category,
+      subCategory: base.subCategory,
+      placement: "base",
+      width,
+      depth: Number(cabinet.depth) || Number(base.depth) || STD.BASE_DEPTH,
+      height: Number(cabinet.height) || Number(base.height) || STD.BASE_HEIGHT,
+      mountBottom: null,
+      sinkTopType: null,
+      sinkTopProductId: null,
+      faucetProductId: null,
+      faucetImageUrl: null,
+      sinkImageUrl: null,
+      rangeTopImageUrl: null,
+      rangeTopFinish: null,
+      cooktopConversionStatus: "converted",
+    };
+    const productId = cabinet.sinkTopProductId ?? null;
+    const label = type === "smooth-top" ? "Smooth-top cooktop" : `${type[0]!.toUpperCase()}${type.slice(1)} cooktop`;
+    const appliance: PlacedCabinet = {
+      uid: `${cabinet.uid}:cooktop`,
+      cabinetId: 0,
+      masterCode: productId == null ? `CATALOG-APPLIANCE-${type}` : `CATALOG-APPLIANCE-${productId}`,
+      description: label,
+      category: "Appliance",
+      subCategory: "Cooktop",
+      placement: "appliance",
+      applianceRole: "countertop-opening",
+      applianceProductId: productId,
+      x: cabinet.x,
+      y: cabinet.y,
+      width,
+      depth: Number(cabinet.depth) || STD.BASE_DEPTH,
+      height: STD.COUNTERTOP_THICKNESS,
+      mountBottom: STD.BASE_HEIGHT,
+      rotation: cabinet.rotation,
+      wallId: cabinet.wallId,
+      wallOffset: cabinet.wallOffset,
+      peninsulaSide: cabinet.peninsulaSide,
+      islandFace: cabinet.islandFace,
+      peninsulaWizardId: cabinet.peninsulaWizardId,
+      rangeTopImageUrl: cabinet.rangeTopImageUrl ?? null,
+      rangeTopFinish: cabinet.rangeTopFinish ?? null,
+      cooktopConversionStatus: "converted",
+    };
+    next.push(baseCabinet, appliance);
+    convertedCabinetUids.add(cabinet.uid);
+  }
+  return { placed: next, convertedCabinetUids };
 }
 
 /**

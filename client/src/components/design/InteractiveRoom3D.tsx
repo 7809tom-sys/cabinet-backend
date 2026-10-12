@@ -14,7 +14,7 @@ import { ThreeDHandlesControl } from "./ThreeDHandlesControl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
+import { APPLIANCES, BLIND_CORNER_FILLER_WIDTH_IN, COUNTERTOP_DEPTH_IN, FURNITURE_CATALOG, STD, applianceAppearanceImage, bearsCountertop, isBaseHeightAppliance, blindCornerRearCountertopExtensionIn, cabinetWall, cabinetWallDragPreview, cornerRotationForPlaced, countertopRunFaceNormal, countertopSurfacePlanPolygon, countertopSurfaces, crownBlockingCabinets, crownEligibleCabinets, customWallCabinetSide, drywallPonyWallAppearance, elevationBox, formatEighthInches, formatInches, glassDoorShelfCount, isAgainstWall, isBaseEndCornerCabinet, isCustomRoomWall, isFillerItem, isGlassDoorCabinet, isMicrowaveOverRangePair, isRangeHoodPlacement, isRangeOrOven, isRefrigerator, isStacker, isWallRunDraggable, isWd18CountertopDrawerCabinet, kitchenCrestGenericOpenEndShelfCount, peninsulaCountertopPonyWallBackExtensionIn, peninsulaCountertopPonyWallBarOverhang, peninsulaCountertopSeatingOverhang, peninsulaCountertopWaterfallEnd, peninsulaLowerWorktopOppositeSideExtensionIn, peninsulaRunEndpoints, placedCornerGeometryKind, placedFootprint, ponyWallMiteredFootprint, ponyWallPlanFrame, potFillerMountedRange, rangeVisualAppearance, refrigeratorBayVerificationMetrics, resolveCabinetHardwarePosition, resolveSwing, roomWallAppearance, seatedWallRunFrame, wallRunFrame, selectedLowerCabinetWallPlacement, sinkPlanDimensions, usesRaisedFloorWallDoorPull, wallCabinetFitMeasure, wallGapFitPreview, wallGapFreehandPreview, wallGaps, wallPlacementAt, wallRunOffset, wallRunSpan, wallSpanMeasure, wd18CountertopFaceLayout, type CabinetWallDragPreview, type CountertopSurface, type IslandZone, type PlacedCabinet, type PlacedCornerGeometryKind, type PlacedFurniture, type PonyWall, type PotFillerFixture, rotatedSize, type RoomData, type SinkFixture, type WallCabinetFitMeasure, type WallGapFitPreview, type WallOpening, type WallSide, type WallSpanMeasure, wallTopLimit, } from "@/lib/design";
 import { islandCountertopRects, islandCountertopVisibleRects, islandRaisedBarRects, islandFaceFitMeasure } from "@/lib/islandScene";
 import { furniturePlanFrame, resolvedFurnitureDimensions } from "@/lib/design";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
@@ -140,7 +140,12 @@ type SceneSku = {
   cabinetId: number;
   masterCode: string;
   description: string | null;
+  category?: string | null;
   subCategory?: string | null;
+  applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
+  applianceProductId?: number | null;
+  rangeTopImageUrl?: string | null;
+  rangeTopFinish?: "stainless" | "black-glass" | null;
   placementType: string | null;
   width: unknown;
   height: unknown;
@@ -2102,6 +2107,7 @@ export function threeDDecorativeEndSides(treatment: SceneSku["decorativeEnd"] | 
 export function shouldRenderCountertopOverSceneItem(
 	  placementOrItem: string | Pick<PlacedCabinet,
 	    "placement" | "masterCode" | "description" | "subCategory" |
+	    "category" | "height" | "mountBottom" | "applianceRole" |
 	    "fillerPieceGroupId" | "fillerTotalWidth" | "fillerPlacementMode" | "islandFace"
 	  >,
   masterCode = "",
@@ -2116,8 +2122,7 @@ export function shouldRenderCountertopOverSceneItem(
   // code is deliberately considered even on stale placements, so an appliance
   // accidentally persisted as "base" can never receive a false counter slab.
   if (isRangeOrOven(item.masterCode, item.description)) return false;
-  if (/^(?:DW|DISHWASHER|WINE)[-_]?\d/i.test(item.masterCode ?? "")) return true;
-  if (/^(?:RANGE|FRIDGE|HOOD|MW|MICROWAVE|OVEN)[-_]?\d/i.test(item.masterCode ?? "")) return false;
+  if (isBaseHeightAppliance(item)) return true;
   return bearsCountertop(item);
 }
 
@@ -3512,6 +3517,7 @@ export function addCabinet(
   const isTall = placement === "tall";
   const isBaseCabinet = placement === "base";
   const isPlacedAppliance = placement === "appliance";
+  const isCountertopOpeningAppliance = isPlacedAppliance && sku.applianceRole === "countertop-opening";
   const isRefrigeratorAppliance = isPlacedAppliance && /FRIDGE/i.test(sku.masterCode);
   const isPanelReadyAppliance = /panel[-\s]?ready|integrated appliance/i.test(sku.description ?? "");
   const isFloorDishwasher = placement === "appliance" && /(?:^|[-_])DW(?:[-_]|\d|$)|dishwasher/i.test(`${sku.masterCode} ${sku.description ?? ""}`);
@@ -3521,7 +3527,7 @@ export function addCabinet(
   const rangeOrStoveDescription = /\b(?:freestanding\s+)?(?:range|stove)\b/i.test(sku.description ?? "")
     && !nonRangeApplianceCode
     && !/\b(?:wall|built[-\s]?in|single|double)\s+oven\b/i.test(sku.description ?? "");
-  const isFreestandingRange = placement === "appliance" && !isPlacedHood && (rangeOrStoveCode || rangeOrStoveDescription);
+  const isFreestandingRange = placement === "appliance" && !isCountertopOpeningAppliance && !isPlacedHood && (rangeOrStoveCode || rangeOrStoveDescription);
   const rangeAppearance = isFreestandingRange ? rangeVisualAppearance(sku) : null;
   const isFarmhouseSinkBase = placement === "base" && (/^(?:ada[-_])?fsb[-_]?\d/i.test(sku.masterCode) || /farm(?:house)?\s+sink|apron[-\s]?front/i.test(sku.description ?? ""));
   const isRefrigeratorEndPanel = /refrigerator[-\s]?end[-\s]?panel|refrigerator-end-panel|\brepv\b/i.test(`${sku.description ?? ""} ${sku.masterCode ?? ""} ${sku.customProfile ?? ""}`);
@@ -3980,6 +3986,37 @@ export function addCabinet(
     toeRecess.position.set(0, -bodyHeight / 2 + footHeight * 0.72, bodyDepth / 2 + 0.122);
     toeRecess.userData = { applianceCode: sku.masterCode, freestandingRangeToeRecess: true };
     cabinet.add(toeRecess);
+  } else if (isCountertopOpeningAppliance) {
+    // A built-in cooktop is a thin opening appliance on a standard base box,
+    // not a sink-base fixture and not a freestanding range chassis.
+    const surfaceMaterial = new THREE.MeshStandardMaterial({
+      color: sku.rangeTopFinish === "black-glass" || /induction|smooth|electric/i.test(sku.description ?? "") ? "#151a20" : "#b9c0c7",
+      roughness: sku.rangeTopFinish === "black-glass" ? 0.18 : 0.28,
+      metalness: sku.rangeTopFinish === "black-glass" ? 0.42 : 0.72,
+    });
+    const surface = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.94, 0.06, bodyDepth * 0.92), surfaceMaterial);
+    surface.position.set(0, bodyHeight / 2 - 0.03, 0);
+    surface.userData = { applianceCode: sku.masterCode, countertopOpeningCooktop: true, cooktopProductId: sku.applianceProductId ?? null };
+    cabinet.add(surface);
+    const gas = /gas/i.test(sku.description ?? "");
+    for (const center of [[-0.27, -0.2], [0.27, -0.2], [-0.27, 0.2], [0.27, 0.2]] as const) {
+      const burner = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.105, 0.105, 0.025, 24),
+        new THREE.MeshStandardMaterial({ color: gas ? "#171b20" : "#3b4148", roughness: 0.24, metalness: 0.55 }),
+      );
+      burner.position.set(center[0] * bodyWidth, bodyHeight / 2 + 0.006, center[1] * bodyDepth);
+      burner.userData = { applianceCode: sku.masterCode, countertopOpeningBurner: true, fuel: gas ? "gas" : "electric" };
+      cabinet.add(burner);
+      if (gas) {
+        for (const rotation of [0, Math.PI / 2]) {
+          const grate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.018, 0.026), new THREE.MeshStandardMaterial({ color: "#11151a", roughness: 0.32, metalness: 0.58 }));
+          grate.rotation.y = rotation;
+          grate.position.set(burner.position.x, bodyHeight / 2 + 0.025, burner.position.z);
+          grate.userData = { applianceCode: sku.masterCode, countertopOpeningGasGrate: true };
+          cabinet.add(grate);
+        }
+      }
+    }
   } else if (isWallOpenShelf) {
     // A wall open shelf is a full carcass, never a thin floating shelf. The
     // WEOS wall-end source alone adds the source-documented bowed shelf fronts.
@@ -5669,6 +5706,10 @@ export function addCabinet(
     masterCode: sku.masterCode,
     description: sku.description ?? "",
     subCategory: sku.subCategory ?? null,
+    category: sku.category ?? null,
+    height: Number.isFinite(Number(sku.height)) ? Number(sku.height) : undefined,
+    mountBottom: sku.mountBottom ?? null,
+    applianceRole: sku.applianceRole ?? null,
     fillerPieceGroupId: sku.fillerPieceGroupId ?? null,
 	    fillerTotalWidth: sku.fillerTotalWidth ?? null,
 	    fillerPlacementMode: sku.fillerPlacementMode ?? null,
@@ -8900,8 +8941,13 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     cabinetId: cabinet.cabinetId,
     masterCode: cabinet.masterCode,
     description: cabinet.description,
+    category: cabinet.category ?? null,
     masterTracShelfCut: cabinet.masterTracShelfCut,
     subCategory: cabinet.subCategory ?? null,
+    applianceRole: cabinet.applianceRole ?? null,
+    applianceProductId: cabinet.applianceProductId ?? null,
+    rangeTopImageUrl: cabinet.rangeTopImageUrl ?? null,
+    rangeTopFinish: cabinet.rangeTopFinish ?? null,
     placementType,
     // The placed record is primary. Older appliance records can lack one of
     // these dimensions, in which case use the same APPLIANCES definition that

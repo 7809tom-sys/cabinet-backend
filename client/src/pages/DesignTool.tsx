@@ -141,7 +141,7 @@ import {
 	  elevationBox, isStacker, glassStackerParentPlacement, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
   fridgeCornerUpperDepth, isDiagonalCorner,
-  isApplianceCode, bearsCountertop, bearsIslandCountertop,
+  isApplianceCode, isBaseHeightAppliance, convertLegacyCooktopPlacements, bearsCountertop, bearsIslandCountertop,
   type PonyWall, type DrywallPonyWallTexture, DEFAULT_DRYWALL_PONY_WALL_COLOR, DRYWALL_PONY_WALL_TEXTURE_OPTIONS, drywallPonyWallPreviewBackground, makePonyWall, makePeninsulaPonyWall, makePeninsulaDrywallBackPonyWall, ponyWallFitsRoom, clampPonyWall,
 	  type IslandZone, type IslandFace,
 		  flooringMaterial, backsplashMaterial, FLOORING_LAYOUT_PATTERNS, refreshPlacedCabinetsFromMasterConfig, refreshPlacedCabinetsFromMasterRules, restoredSavedDesignStyle, roomWithPersistedEntities, MIN_WALL_HEIGHT, wallTopLimit, reseatOnWallRun } from "@/lib/design";
@@ -3667,7 +3667,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       const persisted = d.room?.persistedEntities;
 	      const restoredOpenings = Array.isArray(persisted?.openings) ? persisted.openings : [];
 	      setOpenings(restoredOpenings);
-      setSinks(Array.isArray(persisted?.sinks) ? persisted.sinks : []);
       setPotFillers(Array.isArray(persisted?.potFillers) ? persisted.potFillers : []);
       setIsland(persisted?.island ?? null);
       setFurniture(Array.isArray(persisted?.furniture) ? persisted.furniture : []);
@@ -3676,12 +3675,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // stored placement:"tall" for FRIDGE-* or RANGE-* items. Correct them here
       // so the elevation view renders them as plain steel boxes (no door lines).
       const rawPlaced = Array.isArray(d.placed) ? d.placed : [];
-	      const normalizedPlaced = rawPlaced.map((p) => {
+      const normalizedPlaced = rawPlaced.map((p) => {
 	        const shelf = normalizeWallOpenShelfPlacement(normalizeFloatingShelfPlacement(p));
 	        return isApplianceCode(shelf.masterCode ?? "") && shelf.placement !== "appliance"
 	          ? { ...shelf, placement: "appliance" as const }
 	          : shelf;
       });
+      const cooktopConversion = convertLegacyCooktopPlacements(
+        normalizedPlaced,
+        ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+      );
+      const convertedSinkOwners = cooktopConversion.convertedCabinetUids;
+      setSinks((Array.isArray(persisted?.sinks) ? persisted.sinks : [])
+        .filter((sink) => !convertedSinkOwners.has(sink.cabinetUid ?? "")));
+      const convertedPlaced = cooktopConversion.placed;
       const restoredRoom = d.room ?? DEFAULT_ROOM;
       const restoredIsland = persisted?.island ?? null;
       const restoredStyle = restoredSavedDesignStyle(d);
@@ -3693,8 +3700,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      // persisted can have a visually seated cabinet but no wallId/wallOffset.
 	      // Repair that once while restoring so the drag preview and the final
 	      // collision check use the same physical run coordinates.
-	      const peninsulaNormalizedPlaced = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
-	        normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedPlaced), restoredRoom),
+      const peninsulaNormalizedPlaced = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
+        normalizeBlindCornerDoorSides(normalizeLCornerDepths(convertedPlaced), restoredRoom),
 	        restoredRoom,
 	      ), restoredRoom), restoredRoom);
 	      const repairedPlaced = removeOverlappingPlacements(
@@ -10967,12 +10974,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                ? { ...shelf, placement: "appliance" as const }
 	                : shelf;
 	            });
-	            const draftRoom = d.room ?? DEFAULT_ROOM;
+            const draftCooktopConversion = convertLegacyCooktopPlacements(
+              normalizedDraft,
+              ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+            );
+            if (Array.isArray(d.sinks)) {
+              setSinks((d.sinks as SinkFixture[])
+                .filter((sink) => !draftCooktopConversion.convertedCabinetUids.has(sink.cabinetUid ?? "")));
+            }
+            const draftRoom = d.room ?? DEFAULT_ROOM;
 	            // Drafts survive refreshes independently of saved designs. Bring
 	            // every older custom-wall cabinet into the current measured wall
 	            // frame before the first preview or release can inspect it.
 	            const peninsulaNormalizedDraft = clampCabinetsToRoom(backfillLegacyWallRuns(normalizeLegacyPeninsulaCabinets(
-	              normalizeBlindCornerDoorSides(normalizeLCornerDepths(normalizedDraft), draftRoom),
+              normalizeBlindCornerDoorSides(normalizeLCornerDepths(draftCooktopConversion.placed), draftRoom),
 	              draftRoom,
 	            ), draftRoom), draftRoom);
 	            setPlaced(removeOverlappingPlacements(
@@ -17962,14 +17977,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (previousSurfaceIds.size > 0) {
             setSelectedSurfaces((prevSurfaces) => prevSurfaces.filter((surface) => !previousSurfaceIds.has(surface.id)));
           }
-          setCabAttr(sinkBaseDialog.cabinetUid, {
+          const legacyWithRangeTop = cab ? {
+            ...cab,
             sinkTopType: type,
             sinkTopProductId: product?.id ?? null,
             faucetProductId: null,
             faucetImageUrl: null,
             sinkImageUrl: null,
             rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
-          });
+          } : null;
+          if (legacyWithRangeTop) {
+            const conversion = convertLegacyCooktopPlacements(
+              placed.map((item) => item.uid === legacyWithRangeTop.uid ? legacyWithRangeTop : item),
+              ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+            );
+            if (conversion.convertedCabinetUids.has(legacyWithRangeTop.uid)) {
+              setPlaced(conversion.placed);
+            } else {
+              setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null, cooktopConversionStatus: "unresolved-standard-base" });
+              toast.error("No matching standard base box was found; the cooktop remains an explicit conversion conflict.");
+            }
+          }
           if (product) {
             addRecommendedSurface(
               { id: product.id, slug: product.slug, name: product.name, category: product.category, subCategory: product.subCategory, size: product.size, imageUrl: product.imageUrl, sellPrice: product.sellPrice },

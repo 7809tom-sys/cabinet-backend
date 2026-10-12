@@ -3,7 +3,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
-  countertopMaterial, roomCeiling, bearsCountertop, isSinkBaseCabinet, isFarmerSinkBase,
+  countertopMaterial, roomCeiling, bearsCountertop, isBaseHeightAppliance, isSinkBaseCabinet, isFarmerSinkBase,
   wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
@@ -1158,9 +1158,7 @@ export function ElevationView({
           // RANGE (a slide-in/free-standing range has its own cooktop surface,
           // no counter over it) and at the FRIDGE (full-height, tall). So only
           // DW-* appliances are bridgeable here — RANGE and FRIDGE are excluded.
-          const isBridgeable = (p: PlacedCabinet) =>
-            bearsCountertop(p) ||
-            (p.placement === "appliance" && /^(DW|WINE)[-_]?\d/i.test(p.masterCode ?? ""));
+          const isBridgeable = (p: PlacedCabinet) => bearsCountertop(p) || isBaseHeightAppliance(p);
           // Base-cabinet spans along this wall, sorted by start position.
           const spans = sorted
             .filter(isBridgeable)
@@ -1592,7 +1590,10 @@ export function ElevationView({
 
         {/* Range Top / Cooktop: the burner surface is always 34½" above finished floor.
             Its visible face extends down into the base zone rather than above that line. */}
-        {sorted.filter((p) => isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top")).map((p) => {
+        {sorted.filter((p) =>
+          (isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top"))
+          || (p.placement === "appliance" && p.applianceRole === "countertop-opening")
+        ).map((p) => {
           const sizeAlong = wallRunSpan(p, side, room);
           const posAlong = wallRunOffset(p, side, room);
           // The top of this 3½-inch elevation face is the shared 34½" cooking
@@ -1602,9 +1603,9 @@ export function ElevationView({
           const panelH = COOKTOP_THICKNESS * ppi;
           const panelLeft = posAlong * ppi;
           const panelBottom = (STD.RANGE_COOKING_SURFACE_HEIGHT - COOKTOP_THICKNESS) * ppi;
-          const isGas = p.sinkTopType === "gas";
+          const isGas = p.sinkTopType === "gas" || /\bgas\b/i.test(p.description ?? "");
           const isBlackGlass = p.rangeTopFinish === "black-glass";
-          const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top";
+          const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top" || /induction|smooth|electric/i.test(p.description ?? "");
           // Burner layout: 4 burners in a single row (since the panel is thin/wide)
           const burnerR = Math.max(3, Math.min(panelH * 0.32, panelW / 14));
           const burnerPositions = [
