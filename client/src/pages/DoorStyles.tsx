@@ -109,7 +109,7 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
               <ResilientStyleImage
                 key={heroSrc}
                 src={heroSrc}
-                alt={showDoor ? `${style.ourName || style.styleCode} door sample` : `${style.ourName || style.styleCode} kitchen`}
+                alt={showDoor ? `${displayName(style)} door sample` : `${displayName(style)} kitchen`}
                 style={style}
                 loading="lazy"
                 decoding="async"
@@ -208,7 +208,7 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
           <div className="min-h-48 rounded-lg overflow-hidden border border-border">
             <ResilientStyleImage
               src={roomScene}
-              alt={`${style.ourName || style.styleCode} kitchen`}
+              alt={`${displayName(style)} kitchen`}
               style={style}
               className="w-full h-auto block"
               unavailableLabel="Kitchen image unavailable in this browser"
@@ -220,7 +220,7 @@ function StyleCard({ style, seriesName }: { style: DoorStyle; seriesName?: strin
           {doorSample ? (
             <ResilientStyleImage
               src={doorSample}
-              alt={`${style.ourName || style.styleCode} door sample`}
+              alt={`${displayName(style)} door sample`}
               style={style}
               className={roomScene ? "h-24 w-auto rounded object-contain" : "w-full h-auto block"}
             />
