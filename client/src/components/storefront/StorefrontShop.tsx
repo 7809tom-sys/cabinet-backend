@@ -396,7 +396,7 @@ function FamilyPicker({
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {[...data].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured))).map((f) => {
+              {[...visibleFamilies].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured))).map((f) => {
                 const image = f.roomSceneImageUrl || f.doorSampleImageUrl || f.thumbnailImageUrl;
                 const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${f.styleId}` : `/catalog?style=${f.styleId}`);
                 const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${f.styleId}` : `/design?style=${f.styleId}`);
@@ -419,11 +419,23 @@ function FamilyPicker({
                     <div className="relative aspect-[4/3] bg-muted">
                       {image ? <img src={image} alt={`${displayName} door sample`} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">No photo yet</div>}
                       {f.featured && <Badge className="absolute left-2 top-2 border-0 text-white" style={{ backgroundColor: brand.accent }}>Featured</Badge>}
+                      <button
+                        type="button"
+                        aria-label={favoriteIdSet.has(f.styleId) ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
+                        aria-pressed={favoriteIdSet.has(f.styleId)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleFavorite(f.styleId);
+                        }}
+                        className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-foreground shadow-md hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                      >
+                        <Heart className={`h-4 w-4 ${favoriteIdSet.has(f.styleId) ? "fill-current" : ""}`} style={favoriteIdSet.has(f.styleId) ? { color: brand.accent } : undefined} />
+                      </button>
                     </div>
                     <div className="p-3">
                       <p className="truncate text-sm font-semibold">{displayName}</p>
                       <p className="mt-1 truncate text-xs text-muted-foreground">{f.doorStyle || f.finish || "Door style"}</p>
-                      <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid grid-cols-3 gap-2">
                         <a
                           href={buyHref}
                           onClick={(event) => event.stopPropagation()}
@@ -438,6 +450,16 @@ function FamilyPicker({
                         >
                           Design
                         </a>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDetailFamily(f as never);
+                          }}
+                          className="inline-flex items-center justify-center rounded-md border border-border px-2 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
+                        >
+                          Door detail
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -462,150 +484,7 @@ function FamilyPicker({
               Browse all families
             </Button>
           </div>
-        ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleFamilies.map((f) => {
-              // STRICT ONE-FAMILY-ONE-COLOR: lead with this family's OWN verified
-              // room scene. No keyword/bucket guessing — if there's no real photo
-              // we render the color-accurate swatch on the family's finish color.
-              const scene = f.roomSceneImageUrl || null;
-              const displayName = publicStyleName(branding.brandName(f.styleId, f.name));
-              return (
-                <div
-                  key={f.styleId}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      onPick({
-                        styleId: f.styleId,
-                        distributorId: f.distributorId,
-                        name: f.name,
-                        doorStyle: f.doorStyle,
-                        finish: f.finish,
-                        color: f.color,
-                        woodSpecies: f.woodSpecies,
-                        boxConstruction: f.boxConstruction,
-                        drawerConstruction: f.drawerConstruction,
-                        hardware: f.hardware,
-                        frameSize: f.frameSize,
-                        overlayType: f.overlayType,
-                        doorPanelType: f.doorPanelType,
-                        thumbnailImageUrl: f.thumbnailImageUrl,
-                        roomSceneImageUrl: f.roomSceneImageUrl,
-                        doorSampleImageUrl: f.doorSampleImageUrl,
-                        styleCode: f.styleCode,
-                      });
-                    }
-                  }}
-                  onClick={() =>
-                    onPick({
-                      styleId: f.styleId,
-                      distributorId: f.distributorId,
-                      name: f.name,
-                      doorStyle: f.doorStyle,
-                      finish: f.finish,
-                      color: f.color,
-                      woodSpecies: f.woodSpecies,
-                      boxConstruction: f.boxConstruction,
-                      drawerConstruction: f.drawerConstruction,
-                      hardware: f.hardware,
-                      frameSize: f.frameSize,
-                      overlayType: f.overlayType,
-                      doorPanelType: f.doorPanelType,
-                      thumbnailImageUrl: f.thumbnailImageUrl,
-                      roomSceneImageUrl: f.roomSceneImageUrl,
-                      doorSampleImageUrl: f.doorSampleImageUrl,
-                      styleCode: f.styleCode,
-                    })
-                  }
-                  className="group flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-border bg-card text-left shadow-sm transition-all hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-                  style={{ ['--tw-ring-color' as string]: brand.accent }}
-                >
-                  {/* Full kitchen scene hero */}
-                  <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                    {scene ? (
-                      <img
-                        src={scene}
-                        alt={`${displayName} kitchen`}
-                        loading="lazy"
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center px-3 text-center text-sm text-muted-foreground">No room photo yet</div>
-                    )}
-                    {/* gradient for legibility */}
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
-                    {f.doorStyle && (
-                      <Badge
-                        className="absolute left-3 top-3 border-0 text-white shadow-sm"
-                        style={{ backgroundColor: brand.primary }}
-                      >
-                        {f.doorStyle}
-                      </Badge>
-                    )}
-                    <button
-                      type="button"
-                      aria-label={favoriteIdSet.has(f.styleId) ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
-                      aria-pressed={favoriteIdSet.has(f.styleId)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        toggleFavorite(f.styleId);
-                      }}
-                      className="absolute left-3 top-12 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/80 bg-white/90 text-foreground shadow-md transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
-                    >
-                      <Heart className={`h-4 w-4 ${favoriteIdSet.has(f.styleId) ? "fill-current" : ""}`} style={favoriteIdSet.has(f.styleId) ? { color: brand.accent } : undefined} />
-                    </button>
-                    {promoByStyleId.get(f.styleId) && (
-                      <Badge className="absolute right-3 top-3 border-0 bg-red-600 text-white shadow-sm font-bold">
-                        {promoByStyleId.get(f.styleId)}
-                      </Badge>
-                    )}
-                    {f.featured && (
-                      <Badge
-                        className={`absolute right-3 ${promoByStyleId.get(f.styleId) ? "top-12" : "top-3"} border-0 text-white shadow-sm font-bold inline-flex items-center gap-1`}
-                        style={{ backgroundColor: brand.accent }}
-                      >
-                        <Sparkles className="h-3 w-3" /> Featured
-                      </Badge>
-                    )}
-                    {/* Door-style detail swatch chip — click to open construction specs modal */}
-                    <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                      <div className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white/90 shadow-md">
-                        {f.doorSampleImageUrl || f.thumbnailImageUrl ? (
-                          <img src={f.doorSampleImageUrl || f.thumbnailImageUrl || undefined} alt={`${displayName} door sample`} className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-[9px] text-muted-foreground">No photo</div>
-                        )}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={(e) => { e.stopPropagation(); setDetailFamily(f as never); }}
-                        className="flex items-center gap-1 rounded-md bg-white/90 px-2 py-0.5 text-[11px] font-semibold text-foreground shadow-sm hover:bg-white transition-colors"
-                      >
-                        <Info className="h-3 w-3" />
-                        {t(lang, "family_door_detail")}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-1 flex-col p-5">
-                    <h3 className="font-serif text-lg font-bold leading-tight">{displayName}</h3>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {[f.finish, f.color].filter(Boolean).map((value) => publicStyleName(value)).join(" · ") || "\u00A0"}
-                    </p>
-                    <span
-                      className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold text-white transition-transform group-active:scale-[0.98]"
-                      style={{ backgroundColor: brand.accent }}
-                    >
-                      {t(lang, "family_shop_this")} <ArrowRight className="h-4 w-4" />
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        ) : null}
       </div>
 
       {/* Door detail modal */}

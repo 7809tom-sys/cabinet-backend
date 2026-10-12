@@ -271,6 +271,7 @@ export default function Storefront({ slug, previewData, focusShop = false }: { s
       <main className="flex-1">
         {/* ─── Affiliate promo banner ──────────────────────────────────── */}
         <AffiliateBannerBar slug={data.slug} brand={brand} />
+        <StorefrontManagementTab affiliateId={data.id} storeName={data.storeName} brand={brand} />
         {/* ─── Value strip ─────────────────────────────────────────────── */}
         <section className="border-b border-border bg-card">
           <div className="container grid grid-cols-2 lg:grid-cols-4 divide-x divide-border">
@@ -1036,6 +1037,28 @@ function AdminFooterLink({ affiliateId, storeName }: { affiliateId?: number; sto
     >
       <LogIn className="h-3.5 w-3.5" /> Affiliate portal: {storeName ?? "this store"}
     </a>
+  );
+}
+
+function StorefrontManagementTab({ affiliateId, storeName, brand }: { affiliateId: number; storeName: string; brand: Brand }) {
+  const { user } = useAuth();
+  const { data } = trpc.affiliates.myReferrals.useQuery(undefined, { enabled: !!user, retry: false });
+  const canManage = user?.role === "admin" || !!data?.affiliate;
+  if (!canManage) return null;
+  return (
+    <div className="border-b border-border bg-muted/50">
+      <div className="container flex items-center justify-between gap-3 py-2">
+        <span className="text-xs font-medium text-muted-foreground">Signed in for {storeName}</span>
+        <a
+          href={affiliateDashboardPath(affiliateId)}
+          data-testid="storefront-admin-tab"
+          className="inline-flex items-center rounded-md px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
+          style={{ backgroundColor: brand.primary }}
+        >
+          Admin
+        </a>
+      </div>
+    </div>
   );
 }
 
