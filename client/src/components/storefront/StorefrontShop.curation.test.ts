@@ -11,4 +11,10 @@ describe("StorefrontShop affiliate curation recovery", () => {
     expect(source).toContain("candidate.styleId === family.styleId");
     expect(source).toContain("clear();");
   });
+
+  it("keeps finish swatch labels standalone instead of appending the style name", () => {
+    expect(source).toContain("aria-label={label}");
+    expect(source).not.toContain("aria-label={`${familyFinishLabel(variant)} —");
+    expect(source).not.toContain("aria-label={`${label} —");
+  });
 });
