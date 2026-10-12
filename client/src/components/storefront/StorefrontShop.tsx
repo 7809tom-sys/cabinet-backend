@@ -460,7 +460,7 @@ function FamilyPicker({
                                 key={familyFinishKey(variant)}
                                 type="button"
                                 role="radio"
-                                aria-label={`${label} — ${publicStyleName(branding.brandName(variant.styleId, variant.name ?? ""))}`}
+                                aria-label={label}
                                 aria-checked={active}
                                 title={label}
                                 onClick={() => setSelectedVariantIds((current) => ({ ...current, [family.key]: variant.styleId }))}
