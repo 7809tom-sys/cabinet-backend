@@ -38,7 +38,7 @@ const standardBase = ({ width = 36 } = {}) => ({
 
 describe("convertLegacyCooktopPlacements", () => {
   it("converts gas/electric/smooth-top modes to a standard base plus opening appliance", () => {
-    for (const type of ["gas", "electric", "smooth-top"] as const) {
+    for (const type of ["gas", "electric", "induction", "smooth-top"] as const) {
       const result = convertLegacyCooktopPlacements([base({ sinkTopType: type })], [standardBase()]);
       expect(result.convertedCabinetUids.has("sb-36")).toBe(true);
       expect(result.placed).toHaveLength(2);

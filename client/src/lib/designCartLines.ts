@@ -87,13 +87,14 @@ export function buildDesignCabinetCartLines({
     // Launch appliances are visual-only design context. They remain in the 2D
     // plan and 3D selling view but are intentionally excluded from all cabinet
     // cart/quote/invoice/checkout commerce until appliance sales are enabled.
+    const firstClassCooktop = cabinet.placement === "appliance" && cabinet.applianceRole === "countertop-opening" && Boolean(cabinet.applianceCatalogCode);
     if (
-      cabinet.placement === "appliance" ||
+      (cabinet.placement === "appliance" && !firstClassCooktop) ||
       isClosetPart(cabinet.masterCode) ||
       cabinet.cabinetId == null ||
       cabinet.fillerBillingRole === "secondary"
     ) continue;
-    const unitPrice = adjustedDesignUnitPrice(cabinet, unitPriceFor(cabinet));
+    const unitPrice = adjustedDesignUnitPrice(cabinet, firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet));
     if (unitPrice == null) continue;
     const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
     // A linked glassDoorAddonCode is a separately priced replacement door. Keep
@@ -102,7 +103,7 @@ export function buildDesignCabinetCartLines({
     // Part 2: the active line may sell this cabinet under an equivalent code
     // (ERB36 placed on a BER line is sold as BER36). The cart carries the
     // code the line actually prices so the order matches the distributor.
-    const baseCode = lineCodeFor?.(cabinet) ?? cabinet.masterCode;
+    const baseCode = firstClassCooktop ? cabinet.applianceCatalogCode! : (lineCodeFor?.(cabinet) ?? cabinet.masterCode);
     const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
       ? `${baseCode}GD`
       : baseCode;
@@ -115,7 +116,7 @@ export function buildDesignCabinetCartLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: `${installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
+        name: `${firstClassCooktop ? (cabinet.applianceCatalogName ?? cabinet.description) : installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,
@@ -225,19 +226,20 @@ export function buildDesignPreviewPricingLines({
   if (!styleId) return [];
   const lines = new Map<string, DesignPreviewPricingLine>();
   for (const cabinet of placed) {
+    const firstClassCooktop = cabinet.placement === "appliance" && cabinet.applianceRole === "countertop-opening" && Boolean(cabinet.applianceCatalogCode);
     if (
-      cabinet.placement === "appliance" ||
+      (cabinet.placement === "appliance" && !firstClassCooktop) ||
       isClosetPart(cabinet.masterCode) ||
-      cabinet.cabinetId == null ||
+      (cabinet.cabinetId == null && !firstClassCooktop) ||
       cabinet.fillerBillingRole === "secondary"
     ) continue;
-    const basePrice = unitPriceFor(cabinet);
+    const basePrice = firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet);
     // A missing catalog price must never erase a cabinet from the 3D order
     // overlay. Retain it as an explicit unavailable line; do not infer or invent a
     // replacement amount from another distributor, tier, or style.
     const adjustedUnitPrice = adjustedDesignUnitPrice(cabinet, basePrice);
     const resolvedStyleId = pricingStyleIdFor?.(cabinet) ?? effectiveStyleId(cabinet, styleId) ?? styleId;
-    const masterCode = cabinet.glassDoor && !cabinet.glassDoorAddonCode
+    const masterCode = firstClassCooktop ? cabinet.applianceCatalogCode! : cabinet.glassDoor && !cabinet.glassDoorAddonCode
       ? `${cabinet.masterCode}GD`
       : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
@@ -249,7 +251,7 @@ export function buildDesignPreviewPricingLines({
     } else {
       lines.set(key, {
         masterCode,
-        name: `${installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
+        name: `${firstClassCooktop ? (cabinet.applianceCatalogName ?? cabinet.description) : installedFillerCartName(cabinet)}${glassPolicyCartSuffix(cabinet)}`,
         styleId: resolvedStyleId,
         styleLabel: styleNameById.get(resolvedStyleId) ?? "",
         distributorId,

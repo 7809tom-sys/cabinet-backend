@@ -19,6 +19,17 @@ const bec = {
 } as PlacedCabinet;
 
 describe("designer cabinet cart lines", () => {
+	  it("emits a first-class cooktop with its catalog code, name, and price", () => {
+	    const cooktop = { ...bec, uid: "cooktop-gas", cabinetId: 0, masterCode: "CATALOG-APPLIANCE-77", description: "Gas Cooktop", placement: "appliance", applianceRole: "countertop-opening" as const, applianceProductId: 77, applianceCatalogCode: "CTGAS30", applianceCatalogName: "30 in. Gas Cooktop", applianceCatalogPrice: 899 } as PlacedCabinet;
+	    expect(buildDesignCabinetCartLines({ placed: [cooktop], styleId: 330002, distributorId: 210001, tier: "homeowner", styleNameById: new Map([[330002, "Aura Cream"]]), unitPriceFor: () => null })).toEqual([
+	      expect.objectContaining({ masterCode: "CTGAS30", name: "30 in. Gas Cooktop", unitPrice: 899, qty: 1 }),
+	    ]);
+	  });
+
+	  it("keeps an unpriced first-class cooktop visible to the preview as quote-required", () => {
+	    const cooktop = { ...bec, uid: "cooktop-pending", cabinetId: 0, placement: "appliance", applianceRole: "countertop-opening" as const, applianceCatalogCode: "CTIND30", applianceCatalogName: "30 in. Induction Cooktop", applianceCatalogPrice: null } as PlacedCabinet;
+	    expect(buildDesignPreviewPricingLines({ placed: [cooktop], styleId: 330002, distributorId: 210001, tier: "homeowner", styleNameById: new Map([[330002, "Aura Cream"]]), unitPriceFor: () => null })[0]).toMatchObject({ masterCode: "CTIND30", name: "30 in. Induction Cooktop", unitPrice: null });
+	  });
 		  it("uses W-24-42's verified $265.06 tier price for legacy WFR2442 in both preview and locked cart", () => {
 	    const legacyWfr = {
 	      ...bec,

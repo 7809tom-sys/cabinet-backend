@@ -144,6 +144,9 @@ type SceneSku = {
   subCategory?: string | null;
   applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   applianceProductId?: number | null;
+  applianceCatalogCode?: string | null;
+  applianceCatalogName?: string | null;
+  applianceCatalogPrice?: number | null;
   rangeTopImageUrl?: string | null;
   rangeTopFinish?: "stainless" | "black-glass" | null;
   placementType: string | null;
@@ -3999,6 +4002,7 @@ export function addCabinet(
     surface.userData = { applianceCode: sku.masterCode, countertopOpeningCooktop: true, cooktopProductId: sku.applianceProductId ?? null };
     cabinet.add(surface);
     const gas = /gas/i.test(sku.description ?? "");
+    const induction = /induction/i.test(sku.description ?? "");
     for (const center of [[-0.27, -0.2], [0.27, -0.2], [-0.27, 0.2], [0.27, 0.2]] as const) {
       const burner = new THREE.Mesh(
         new THREE.CylinderGeometry(0.105, 0.105, 0.025, 24),
@@ -4015,6 +4019,15 @@ export function addCabinet(
           grate.userData = { applianceCode: sku.masterCode, countertopOpeningGasGrate: true };
           cabinet.add(grate);
         }
+      } else if (induction) {
+        const zone = new THREE.Mesh(
+          new THREE.TorusGeometry(0.15, 0.012, 10, 32),
+          new THREE.MeshStandardMaterial({ color: "#7e8c9b", roughness: 0.2, metalness: 0.5, emissive: "#263747", emissiveIntensity: 0.25 }),
+        );
+        zone.rotation.x = Math.PI / 2;
+        zone.position.set(burner.position.x, bodyHeight / 2 + 0.02, burner.position.z);
+        zone.userData = { applianceCode: sku.masterCode, countertopOpeningInductionZone: true };
+        cabinet.add(zone);
       }
     }
   } else if (isWallOpenShelf) {
@@ -8946,6 +8959,9 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     subCategory: cabinet.subCategory ?? null,
     applianceRole: cabinet.applianceRole ?? null,
     applianceProductId: cabinet.applianceProductId ?? null,
+    applianceCatalogCode: cabinet.applianceCatalogCode ?? null,
+    applianceCatalogName: cabinet.applianceCatalogName ?? null,
+    applianceCatalogPrice: cabinet.applianceCatalogPrice ?? null,
     rangeTopImageUrl: cabinet.rangeTopImageUrl ?? null,
     rangeTopFinish: cabinet.rangeTopFinish ?? null,
     placementType,

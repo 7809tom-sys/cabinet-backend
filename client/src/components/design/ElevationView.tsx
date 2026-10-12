@@ -1527,7 +1527,7 @@ export function ElevationView({
             Skipped when sinkTopType is a range top (gas/electric/smooth-top). */}
         {sorted.filter((p) =>
           isSinkBaseCabinet(p) &&
-          p.sinkTopType !== "gas" && p.sinkTopType !== "electric" && p.sinkTopType !== "smooth-top" &&
+          p.sinkTopType !== "gas" && p.sinkTopType !== "electric" && p.sinkTopType !== "induction" && p.sinkTopType !== "smooth-top" &&
           // Only show faucet when a sink has been explicitly assigned (sinkTopType === "sink")
           // or when a faucet product was selected. Unassigned SB-* cabinets show no faucet.
           (p.sinkTopType === "sink" || p.faucetProductId != null || p.sinkTopProductId != null)
@@ -1591,7 +1591,7 @@ export function ElevationView({
         {/* Range Top / Cooktop: the burner surface is always 34½" above finished floor.
             Its visible face extends down into the base zone rather than above that line. */}
         {sorted.filter((p) =>
-          (isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "smooth-top"))
+          (isSinkBaseCabinet(p) && (p.sinkTopType === "gas" || p.sinkTopType === "electric" || p.sinkTopType === "induction" || p.sinkTopType === "smooth-top"))
           || (p.placement === "appliance" && p.applianceRole === "countertop-opening")
         ).map((p) => {
           const sizeAlong = wallRunSpan(p, side, room);
@@ -1605,7 +1605,7 @@ export function ElevationView({
           const panelBottom = (STD.RANGE_COOKING_SURFACE_HEIGHT - COOKTOP_THICKNESS) * ppi;
           const isGas = p.sinkTopType === "gas" || /\bgas\b/i.test(p.description ?? "");
           const isBlackGlass = p.rangeTopFinish === "black-glass";
-          const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top" || /induction|smooth|electric/i.test(p.description ?? "");
+          const isSmooth = isBlackGlass || p.sinkTopType === "smooth-top" || p.sinkTopType === "induction" || /induction|smooth|electric/i.test(p.description ?? "");
           // Burner layout: 4 burners in a single row (since the panel is thin/wide)
           const burnerR = Math.max(3, Math.min(panelH * 0.32, panelW / 14));
           const burnerPositions = [

@@ -3776,9 +3776,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
 	        ? `Mitered ${p.fillerMiterAngle ?? 22.5}° (forms 45° turn)`
 	        : "";
-		      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${fillerInstallNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
+      const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${fillerInstallNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
-      const unit = unitPriceFor(p);
+      const isCooktopItem = p.placement === "appliance" && p.applianceRole === "countertop-opening";
+      const isConversionConflict = p.cooktopConversionStatus === "unresolved-standard-base";
+      const unit = isCooktopItem ? (p.applianceCatalogPrice ?? null) : unitPriceFor(p);
+      const rowCode = isCooktopItem ? (p.applianceCatalogCode ?? p.masterCode) : (resolvedLineCodeFor(p)?.swapped ? resolvedLineCodeFor(p)!.code : p.masterCode);
+      const rowDescription = isCooktopItem
+        ? `${p.applianceCatalogName ?? p.description}${isConversionConflict ? " — CONFLICT: matching standard base box required" : ""}`
+        : (resolvedLineCodeFor(p)?.swapped ? `${p.description} (master ${p.masterCode} → ${resolvedLineCodeFor(p)!.code} on this line)` : p.description);
       const existing = map.get(key);
       if (existing) {
         existing.qty += 1;
@@ -3791,8 +3797,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          // door appears as its own cart/material line instead of replacing it.
 	          // Part 2: when the active line sells this cabinet under an equivalent
 	          // code (ERB36 placed on a BER line), the list shows the line's code.
-	          code: resolvedLineCodeFor(p)?.swapped ? resolvedLineCodeFor(p)!.code : p.masterCode,
-		          description: [resolvedLineCodeFor(p)?.swapped ? `${p.description} (master ${p.masterCode} → ${resolvedLineCodeFor(p)!.code} on this line)` : p.description, sizeNote, fillerInstallNote, miterCutNote, attrNote]
+          code: rowCode,
+          description: [rowDescription, sizeNote, fillerInstallNote, miterCutNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
           color: cabColor,
@@ -3802,8 +3808,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          placement: p.placement,
 	          swing: sw === "none" ? undefined : sw,
 	          qty: 1,
-	          unitPrice: closet ? unit : styleId ? unit : null,
-	          pricingUnitPrice: adjustedDesignUnitPrice(p, closet ? unit : styleId ? unit : null),
+          unitPrice: isCooktopItem ? unit : closet ? unit : styleId ? unit : null,
+          pricingUnitPrice: isCooktopItem ? unit : adjustedDesignUnitPrice(p, closet ? unit : styleId ? unit : null),
 	          discountPct: p.discountPct ?? null,
 	        });
     }
@@ -7594,12 +7600,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   }, [sinkBaseDialog, wizardSinkQueue]);
   // Range top sub-type selection (shown after user picks "Range Top" in the sink base dialog).
   // Also used for sink/faucet steps: "sink" = sink picker, "faucet" = faucet picker.
-  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "range-type" | "range-product" | "gas" | "electric" | "smooth-top">("choose");
+  const [rangeTopStep, setRangeTopStep] = useState<"choose" | "sink" | "faucet" | "range-type" | "range-product" | "gas" | "electric" | "induction" | "smooth-top">("choose");
   // Pending sink product selected in the "sink" step, waiting for faucet selection.
   type SinkDialogProduct = { id: number; pelicanCode?: string | null; slug: string; name: string; description?: string | null; category: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null };
   const [pendingSinkProduct, setPendingSinkProduct] = useState<SinkDialogProduct | null>(null);
   // Pending range top type selected in the "range-type" step, waiting for product selection.
-  const [pendingRangeTopType, setPendingRangeTopType] = useState<"gas" | "electric" | "smooth-top" | null>(null);
+  const [pendingRangeTopType, setPendingRangeTopType] = useState<"gas" | "electric" | "induction" | "smooth-top" | null>(null);
   // Recommended range top products fetched from Stone Creek catalog.
   const { data: rangeTopProducts } = trpc.surfaces.recommended.useQuery(
     { role: "range-top", limit: 6 },
@@ -13919,8 +13925,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   </>
                 );
               })()}
+              {selectedCab.cooktopConversionStatus === "unresolved-standard-base" && (
+                <div role="alert" data-testid="cooktop-conversion-conflict" className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-950">
+                  <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+                  <span><strong>Cooktop conversion needs attention.</strong> No matching standard base box was found for this saved cooktop. The conflict is retained in Materials &amp; Parts as quote-required; choose a matching base before ordering.</span>
+                </div>
+              )}
               {/* Range Top Finish toggle — shown when a range top is on this sink base */}
-              {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "smooth-top") && (
+              {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "induction" || selectedCab.sinkTopType === "smooth-top") && (
                 <>
                   <div className="h-4 w-px bg-border" />
                   <div className="flex items-center gap-1" title="Range top face finish">
@@ -14426,7 +14438,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
                 {/* Add-ons: per-cabinet roll-out shelves (auto-sized, same line) */}
                 {/* Range Top Finish toggle — shown when a range top is on this sink base */}
-                {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "smooth-top") && (
+                {isSinkBaseCabinet(selectedCab) && (selectedCab.sinkTopType === "gas" || selectedCab.sinkTopType === "electric" || selectedCab.sinkTopType === "induction" || selectedCab.sinkTopType === "smooth-top") && (
                   <div className="rounded-xl border border-border bg-muted/30 p-3">
                     <div className="mb-3 text-sm font-semibold text-foreground">Range Top Finish</div>
                     <div className="grid grid-cols-2 gap-2">
@@ -17924,13 +17936,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 
 	      {/* Sink Base Top Dialog: opens when a sink base cabinet is placed */}
 	      {sinkBaseDialog && (() => {
-	        const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
-	          id: number; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
-	        }>;
+          const filteredRangeTops = (rangeTopProducts ?? []) as Array<{
+          id: number; pelicanCode?: string | null; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
+        }>;
 	        // These are Designer-only type visuals, intentionally separate from the
 	        // Stone Creek product query. A visual selects the correct cooktop form
 	        // for the drawing but never creates a cart line, SKU, or price.
-	        const layoutCooktopVisuals: Record<"gas" | "electric" | "smooth-top", { label: string; detail: string; imageUrl: string }> = {
+        const layoutCooktopVisuals: Record<"gas" | "electric" | "induction" | "smooth-top", { label: string; detail: string; imageUrl: string }> = {
 	          gas: {
 	            label: "Gas cooktop layout visual",
 	            detail: "Open burners · product and price pending",
@@ -17941,11 +17953,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            detail: "Coil burners · product and price pending",
 	            imageUrl: "/manus-storage/layout-visual-electric-coil-cooktop_642f511d.jpg",
 	          },
-	          "smooth-top": {
+          "smooth-top": {
 	            label: "Smooth-glass cooktop layout visual",
 	            detail: "Glass-ceramic surface · product and price pending",
-	            imageUrl: "/manus-storage/layout-visual-smooth-glass-cooktop_216fe453.jpg",
-	          },
+            imageUrl: "/manus-storage/layout-visual-smooth-glass-cooktop_216fe453.jpg",
+          },
+          induction: {
+            label: "Induction cooktop layout visual",
+            detail: "Induction zones · product and price pending",
+            imageUrl: "/manus-storage/layout-visual-smooth-glass-cooktop_216fe453.jpg",
+          },
 	        };
         const allRecommendedSinks = (sinkBaseProducts ?? []) as Array<{
           id: number; pelicanCode?: string | null; name: string; description?: string | null; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
@@ -17967,7 +17984,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           })
           .sort((left, right) => Number(Boolean(verifiedPelicanSinkProfile(right.pelicanCode))) - Number(Boolean(verifiedPelicanSinkProfile(left.pelicanCode))));
         const applyRangeTop = (
-          type: "gas" | "electric" | "smooth-top",
+          type: "gas" | "electric" | "induction" | "smooth-top",
           product?: typeof filteredRangeTops[0],
           layoutVisual?: typeof layoutCooktopVisuals["gas"],
         ) => {
@@ -17985,6 +18002,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             faucetImageUrl: null,
             sinkImageUrl: null,
             rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
+            applianceCatalogCode: product?.pelicanCode ?? product?.slug ?? null,
+            applianceCatalogName: product?.name ?? layoutVisual?.label ?? null,
+            applianceCatalogPrice: product?.sellPrice ?? null,
           } : null;
           if (legacyWithRangeTop) {
             const conversion = convertLegacyCooktopPlacements(
@@ -18007,7 +18027,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           setSinkBaseDialog(null);
           setRangeTopStep("choose");
           setPendingRangeTopType(null);
-          toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : "Smooth top added");
+              toast.success(type === "gas" ? "Gas range top added" : type === "electric" ? "Electric range top added" : type === "induction" ? "Induction cooktop added" : "Smooth top added");
         };
         const filteredFaucets = ((faucetBaseProducts ?? []) as Array<{
           id: number; pelicanCode?: string | null; name: string; subCategory: string | null; size: string | null; imageUrl: string | null; sellPrice: number | null; slug: string; category: string;
@@ -18015,7 +18035,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           .filter((product) => isBathroomVanity ? isVerifiedPelicanVanityFaucet(product.pelicanCode) : !isVerifiedPelicanVanityFaucet(product.pelicanCode));
         const applySink = (sinkProduct: typeof filteredSinks[0] | null, faucetProduct: typeof filteredFaucets[0] | null) => {
           const cab = placed.find(p => p.uid === sinkBaseDialog.cabinetUid);
-          const previousRangeTopProductId = cab?.sinkTopType === "gas" || cab?.sinkTopType === "electric" || cab?.sinkTopType === "smooth-top"
+          const previousRangeTopProductId = cab?.sinkTopType === "gas" || cab?.sinkTopType === "electric" || cab?.sinkTopType === "induction" || cab?.sinkTopType === "smooth-top"
             ? cab.sinkTopProductId
             : null;
           const verifiedProfile = verifiedPelicanSinkProfile(sinkProduct?.pelicanCode);
@@ -18226,7 +18246,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     {([
                       { type: "gas" as const, label: "Gas Range Top", desc: "Open burners, precise flame control", icon: <Flame className="h-7 w-7 text-orange-500" />, bg: "bg-orange-100 dark:bg-orange-900/30" },
                       { type: "electric" as const, label: "Electric Range Top", desc: "Coil or radiant electric burners", icon: <Zap className="h-7 w-7 text-yellow-500" />, bg: "bg-yellow-100 dark:bg-yellow-900/30" },
-                      { type: "smooth-top" as const, label: "Smooth Top / Induction", desc: "Glass-ceramic or induction surface", icon: <span className="text-2xl">〰</span>, bg: "bg-slate-100 dark:bg-slate-800" },
+                      { type: "smooth-top" as const, label: "Smooth Top", desc: "Glass-ceramic radiant surface", icon: <span className="text-2xl">〰</span>, bg: "bg-slate-100 dark:bg-slate-800" },
+                      { type: "induction" as const, label: "Induction Cooktop", desc: "Induction cooking zones", icon: <span className="text-2xl">◉</span>, bg: "bg-slate-100 dark:bg-slate-800" },
                     ]).map(({ type, label, desc, icon, bg }) => (
                       <button
                         key={type}
@@ -18246,8 +18267,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </>
               )}
               {/* Step 2 of Range Top: pick a specific product from Stone Creek */}
-              {(rangeTopStep === "range-product" || rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") && (() => {
-                const effectiveType: "gas" | "electric" | "smooth-top" = (rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "smooth-top") ? rangeTopStep : (pendingRangeTopType ?? "gas");
+              {(rangeTopStep === "range-product" || rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "induction" || rangeTopStep === "smooth-top") && (() => {
+                const effectiveType: "gas" | "electric" | "induction" | "smooth-top" = (rangeTopStep === "gas" || rangeTopStep === "electric" || rangeTopStep === "induction" || rangeTopStep === "smooth-top") ? rangeTopStep : (pendingRangeTopType ?? "gas");
                 return (
                 <>
                   <div className="flex items-center gap-2">
@@ -18256,7 +18277,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     </button>
                     <div>
                       <h2 className="text-lg font-semibold text-foreground">
-                        {effectiveType === "gas" ? "Gas" : effectiveType === "electric" ? "Electric" : "Smooth Top"} Range Tops
+                        {effectiveType === "gas" ? "Gas" : effectiveType === "electric" ? "Electric" : effectiveType === "induction" ? "Induction" : "Smooth Top"} Cooktops
                       </h2>
                       <p className="text-sm text-muted-foreground">Stone Creek Collection</p>
                     </div>
@@ -18265,7 +18286,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                    const typeProducts = filteredRangeTops.filter(p => {
 	                      if (effectiveType === "gas") return p.subCategory === "Gas";
 	                      if (effectiveType === "electric") return p.subCategory === "Electric";
-	                      return p.subCategory === "Smooth Top";
+                      return effectiveType === "induction" ? /induction/i.test(`${p.name} ${p.subCategory ?? ""}`) : p.subCategory === "Smooth Top";
 	                    });
 	                    const layoutVisual = layoutCooktopVisuals[effectiveType];
 	                    return typeProducts.length === 0 ? (

@@ -576,6 +576,9 @@ export interface DesignCabinet {
   placement: Placement;
   applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   applianceProductId?: number | null;
+  applianceCatalogCode?: string | null;
+  applianceCatalogName?: string | null;
+  applianceCatalogPrice?: number | null;
   cooktopConversionStatus?: CooktopConversionStatus;
   numberOfDoors: number | null;
   numberOfDrawers: number | null;
@@ -660,6 +663,9 @@ export interface PlacedCabinet {
   applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   /** Selected catalog product when this is a first-class appliance item. */
   applianceProductId?: number | null;
+  applianceCatalogCode?: string | null;
+  applianceCatalogName?: string | null;
+  applianceCatalogPrice?: number | null;
   cooktopConversionStatus?: CooktopConversionStatus;
   x: number;
   y: number;
@@ -879,7 +885,7 @@ export interface PlacedCabinet {
   // 'sink' = a sink fixture (default); 'gas' | 'electric' | 'smooth-top' = range top type.
   // When a range top is chosen, no sink fixture is added and the elevation
   // renders the range top burners/coils instead of a faucet.
-  sinkTopType?: "sink" | "gas" | "electric" | "smooth-top" | null;
+  sinkTopType?: "sink" | "gas" | "electric" | "induction" | "smooth-top" | null;
   // Pelican product id of the chosen sink or range top (for cart/BOM).
   sinkTopProductId?: number | null;
   // Pelican product id of the chosen faucet (for cart/BOM and elevation rendering).
@@ -13137,7 +13143,7 @@ export function convertLegacyCooktopPlacements(
   const next: PlacedCabinet[] = [];
   for (const cabinet of placed) {
     const type = cabinet.sinkTopType;
-    if (!isSinkBaseCabinet(cabinet) || (type !== "gas" && type !== "electric" && type !== "smooth-top")) {
+    if (!isSinkBaseCabinet(cabinet) || (type !== "gas" && type !== "electric" && type !== "induction" && type !== "smooth-top")) {
       next.push(cabinet);
       continue;
     }
@@ -13176,13 +13182,16 @@ export function convertLegacyCooktopPlacements(
     const appliance: PlacedCabinet = {
       uid: `${cabinet.uid}:cooktop`,
       cabinetId: 0,
-      masterCode: productId == null ? `CATALOG-APPLIANCE-${type}` : `CATALOG-APPLIANCE-${productId}`,
-      description: label,
+      masterCode: cabinet.applianceCatalogCode ?? (productId == null ? `CATALOG-APPLIANCE-${type}` : `CATALOG-APPLIANCE-${productId}`),
+      description: cabinet.applianceCatalogName ?? label,
       category: "Appliance",
       subCategory: "Cooktop",
       placement: "appliance",
       applianceRole: "countertop-opening",
       applianceProductId: productId,
+      applianceCatalogCode: cabinet.applianceCatalogCode ?? null,
+      applianceCatalogName: cabinet.applianceCatalogName ?? null,
+      applianceCatalogPrice: cabinet.applianceCatalogPrice ?? null,
       x: cabinet.x,
       y: cabinet.y,
       width,
