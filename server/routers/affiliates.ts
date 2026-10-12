@@ -966,7 +966,7 @@ export const affiliatesRouter = router({
     const db = await getDb();
     if (!db) return null;
     const styles = await db
-      .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl, roomSceneImageUrl: doorStyles.roomSceneImageUrl, doorSampleImageUrl: doorStyles.doorSampleImageUrl })
       .from(doorStyles)
       .where(eq(doorStyles.isActive, true));
     const overrides = await db
@@ -1053,6 +1053,14 @@ export const affiliatesRouter = router({
       const brandName = input.brandName === undefined ? row?.brandName ?? null : (input.brandName?.trim() || null);
       const markupBps = input.markupBps === undefined ? row?.markupBps ?? null : input.markupBps;
       const featured = input.featured === undefined ? (row?.featured ?? false) : input.featured;
+      if (featured && !row?.featured) {
+        const featuredRows = await db.select({ id: affiliateStyleBranding.id })
+          .from(affiliateStyleBranding)
+          .where(and(eq(affiliateStyleBranding.affiliateId, mine.id), eq(affiliateStyleBranding.featured, true)));
+        if (featuredRows.length >= 6) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You can feature up to 6 door styles. Turn one off before adding another." });
+        }
+      }
       const isEnabled = input.isEnabled === undefined ? (row?.isEnabled ?? true) : input.isEnabled;
       const sortOrder = input.sortOrder === undefined ? (row?.sortOrder ?? 0) : input.sortOrder;
       if (row) {
@@ -1134,7 +1142,7 @@ export const affiliatesRouter = router({
       const a = rows[0];
       if (!a) return null;
       const styles = await db
-        .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl })
+      .select({ id: doorStyles.id, distributorId: doorStyles.distributorId, ourName: doorStyles.ourName, styleCode: doorStyles.styleCode, doorStyle: doorStyles.doorStyle, color: doorStyles.color, thumbnailImageUrl: doorStyles.thumbnailImageUrl, roomSceneImageUrl: doorStyles.roomSceneImageUrl, doorSampleImageUrl: doorStyles.doorSampleImageUrl })
         .from(doorStyles)
         .where(eq(doorStyles.isActive, true));
       const overrides = await db
@@ -1187,6 +1195,7 @@ export const affiliatesRouter = router({
       styleId: z.number().int(),
       brandName: z.string().max(256).nullable().optional(),
       markupBps: z.number().int().min(0).max(1000000).nullable().optional(),
+      featured: z.boolean().optional(),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -1199,12 +1208,21 @@ export const affiliatesRouter = router({
       const row = existing[0];
       const brandName = input.brandName === undefined ? (row?.brandName ?? null) : (input.brandName?.trim() || null);
       const markupBps = input.markupBps === undefined ? (row?.markupBps ?? null) : input.markupBps;
-      if (row) {
-        await db.update(affiliateStyleBranding).set({ brandName, markupBps }).where(eq(affiliateStyleBranding.id, row.id));
-      } else {
-        await db.insert(affiliateStyleBranding).values({ affiliateId: input.affiliateId, styleId: input.styleId, brandName, markupBps, featured: false, sortOrder: 0 });
+      const featured = input.featured === undefined ? (row?.featured ?? false) : input.featured;
+      if (featured && !row?.featured) {
+        const featuredRows = await db.select({ id: affiliateStyleBranding.id })
+          .from(affiliateStyleBranding)
+          .where(and(eq(affiliateStyleBranding.affiliateId, input.affiliateId), eq(affiliateStyleBranding.featured, true)));
+        if (featuredRows.length >= 6) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "You can feature up to 6 door styles. Turn one off before adding another." });
+        }
       }
-      return { styleId: input.styleId, brandName, markupBps };
+      if (row) {
+        await db.update(affiliateStyleBranding).set({ brandName, markupBps, featured }).where(eq(affiliateStyleBranding.id, row.id));
+      } else {
+        await db.insert(affiliateStyleBranding).values({ affiliateId: input.affiliateId, styleId: input.styleId, brandName, markupBps, featured, sortOrder: 0 });
+      }
+      return { styleId: input.styleId, brandName, markupBps, featured };
     }),
 
   // ─── Admin: earnings for one affiliate (weekly breakdown) ───────────────────

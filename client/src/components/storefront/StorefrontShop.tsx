@@ -15,7 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { GlassPolicyBadge } from "@/components/GlassPolicyBadge";
 import { useFamilyLock, type LockedFamily } from "@/hooks/useFamilyLock";
 import { useStorefrontBranding, type StorefrontBranding } from "@/hooks/useStorefrontBranding";
-import { DoorStyleSwatch } from "@/components/DoorStyleSwatch";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { favoriteStorageKey as buildFavoriteStorageKey, filterFavoriteFamilies, parseFavoriteFamilyIds, toggleFavoriteFamilyId } from "@/lib/favoriteFamilies";
 import { favoriteSyncStatusText } from "@/lib/favoriteSyncStatus";
@@ -47,8 +46,8 @@ type SwatchStyle = {
 };
 
 /**
- * Shows the line's photo when it loads, otherwise (empty URL OR broken/missing
- * file) renders the code-generated DoorStyleSwatch so a card is never blank.
+ * Shows only a catalog-backed image. A missing or broken source is reported
+ * honestly instead of being replaced by a fabricated door illustration.
  */
 function FamilyCardImage({
   src,
@@ -56,12 +55,14 @@ function FamilyCardImage({
   style,
   imgClassName,
   swatchClassName,
+  emptyLabel = "No photo yet",
 }: {
   src?: string | null;
   alt: string;
   style: SwatchStyle;
   imgClassName?: string;
   swatchClassName?: string;
+  emptyLabel?: string;
 }) {
   const [failed, setFailed] = useState(false);
   const showImg = !!src && !failed;
@@ -76,11 +77,7 @@ function FamilyCardImage({
       />
     );
   }
-  return (
-    <div className={swatchClassName}>
-      <DoorStyleSwatch style={style} className="h-full w-full" />
-    </div>
-  );
+  return <div className={`${swatchClassName ?? ""} flex items-center justify-center bg-muted px-3 text-center text-xs text-muted-foreground`}>{emptyLabel}</div>;
 }
 
 function t(lang: Lang, key: StringKey, vars?: Record<string, string | number>) {
@@ -150,7 +147,7 @@ export function StorefrontShop({
   }, [availableFamilies.data, clear, family]);
 
   if (!family) {
-    return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} slug={slug} />;
+    return <FamilyPicker brand={brand} lang={lang} onPick={lock} branding={branding} slug={slug} withRef={withRef} />;
   }
   return (
     <LockedCatalog
@@ -172,12 +169,14 @@ function FamilyPicker({
   onPick,
   branding,
   slug,
+  withRef,
 }: {
   brand: Brand;
   lang: Lang;
   onPick: (f: LockedFamily) => void;
   branding: StorefrontBranding;
   slug?: string;
+  withRef: (path: string) => string;
 }) {
   const { user } = useAuth();
   const { data, isLoading } = trpc.storefront.families.useQuery({ slug: slug || undefined });
@@ -312,6 +311,20 @@ function FamilyPicker({
   return (
     <section id="shop" className="py-16 md:py-20">
       <div className="container">
+        <div className="mb-8 grid gap-3 sm:grid-cols-2">
+          <a href={withRef(`/store/${slug}/surfaces`)} className="group rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/5">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Pelican</p><p className="mt-1 font-semibold">Surfaces &amp; Fixtures</p><p className="mt-1 text-sm text-muted-foreground">Countertops, flooring, tile, sinks, faucets, tubs and toilets.</p></div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
+            </div>
+          </a>
+          <a href={withRef(`/store/${slug}/closet`)} className="group rounded-xl border border-border bg-card p-4 transition-colors hover:border-primary hover:bg-primary/5">
+            <div className="flex items-center justify-between gap-3">
+              <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Closet Studio</p><p className="mt-1 font-semibold">Plan your closet</p><p className="mt-1 text-sm text-muted-foreground">Towers, shelves, hanging areas, corners and visual basket layouts.</p></div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
+            </div>
+          </a>
+        </div>
         <div className="mb-10 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <h2 className="font-serif text-3xl md:text-4xl font-bold mb-3">
@@ -352,6 +365,33 @@ function FamilyPicker({
             My Favorites{favoriteIds.length > 0 ? ` (${favoriteIds.length})` : ""}
           </Button>
         </div>
+
+        {!isLoading && data && data.length > 0 && (
+          <div className="mb-10 rounded-2xl border border-border bg-muted/20 p-4 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h3 className="font-serif text-2xl font-bold">Door samples</h3>
+                <p className="mt-1 text-sm text-muted-foreground">Real catalog images from the door-style records. Featured styles appear first.</p>
+              </div>
+              <Badge variant="outline">{data.length} styles available</Badge>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+              {[...data].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured))).map((f) => {
+                const image = f.roomSceneImageUrl || f.doorSampleImageUrl || f.thumbnailImageUrl;
+                const displayName = branding.brandName(f.styleId, f.name);
+                return (
+                  <div key={`sample-${f.styleId}`} className="overflow-hidden rounded-xl border border-border bg-card">
+                    <div className="relative aspect-[4/3] bg-muted">
+                      {image ? <img src={image} alt={`${displayName} door sample`} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">No photo yet</div>}
+                      {f.featured && <Badge className="absolute left-2 top-2 border-0 text-white" style={{ backgroundColor: brand.accent }}>Featured</Badge>}
+                    </div>
+                    <div className="p-3"><p className="truncate text-sm font-semibold">{displayName}</p><p className="mt-1 truncate text-xs text-muted-foreground">{f.doorStyle || f.finish || "Door style"}</p></div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-16"><Spinner className="h-8 w-8" /></div>
@@ -439,17 +479,7 @@ function FamilyPicker({
                         className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <DoorStyleSwatch
-                        style={{
-                          styleCode: f.styleCode,
-                          ourName: f.name,
-                          name: f.name,
-                          doorStyle: f.doorStyle,
-                          color: f.color,
-                          finish: f.finish,
-                        }}
-                        className="h-full w-full"
-                      />
+                      <div className="flex h-full items-center justify-center px-3 text-center text-sm text-muted-foreground">No room photo yet</div>
                     )}
                     {/* gradient for legibility */}
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/0 to-black/0" />
@@ -489,18 +519,11 @@ function FamilyPicker({
                     {/* Door-style detail swatch chip — click to open construction specs modal */}
                     <div className="absolute bottom-3 left-3 flex items-center gap-2">
                       <div className="h-12 w-12 overflow-hidden rounded-lg border-2 border-white/90 shadow-md">
-                        <DoorStyleSwatch
-                          style={{
-                            styleCode: f.styleCode,
-                            ourName: f.name,
-                            name: f.name,
-                            doorStyle: f.doorStyle,
-                            color: f.color,
-                            finish: f.finish,
-                            woodSpecies: f.woodSpecies,
-                          }}
-                          className="h-full w-full"
-                        />
+                        {f.doorSampleImageUrl || f.thumbnailImageUrl ? (
+                          <img src={f.doorSampleImageUrl || f.thumbnailImageUrl || undefined} alt={`${displayName} door sample`} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-[9px] text-muted-foreground">No photo</div>
+                        )}
                       </div>
                       <button
                         type="button"
@@ -608,9 +631,7 @@ function LockedCatalog({
   return (
     <section id="shop" className="py-12 md:py-16">
       <div className="container">
-        {/* Dream-kitchen scene banner for the locked line — ONLY this family's
-            own verified photo; no bucket guessing. Falls back to the family's
-            finish color block (handled by FamilyCardImage below) if absent. */}
+        {/* Dream-kitchen scene banner for the locked line — only this family's own verified photo. */}
         <div className="relative mb-4 overflow-hidden rounded-2xl">
           <FamilyCardImage
             src={family.roomSceneImageUrl}
@@ -1206,20 +1227,7 @@ export function DoorDetailModal({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div className="h-full w-full">
-              <DoorStyleSwatch
-                style={{
-                  styleCode: family.styleCode,
-                  ourName: family.name,
-                  name: family.name,
-                  doorStyle: family.doorStyle,
-                  color: family.color,
-                  finish: family.finish,
-                  woodSpecies: family.woodSpecies,
-                }}
-                className="h-full w-full"
-              />
-            </div>
+            <div className="flex h-full w-full items-center justify-center px-4 text-center text-sm text-muted-foreground">No door sample photo yet</div>
           )}
           {family.doorStyle && (
             <Badge

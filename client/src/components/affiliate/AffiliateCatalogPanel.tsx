@@ -16,6 +16,8 @@ type StyleRow = {
   doorStyle: string | null;
   color: string | null;
   thumbnailImageUrl: string | null;
+  roomSceneImageUrl: string | null;
+  doorSampleImageUrl: string | null;
     override: {
       brandName: string | null;
       markupBps: number | null;
@@ -195,6 +197,7 @@ function StyleCard({
   onDragOver,
   onDrop,
   onMove,
+  featuredCount,
 }: {
   style: StyleRow;
   affiliateDefaultBps: number;
@@ -206,6 +209,7 @@ function StyleCard({
   onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
   onDrop: (styleId: number) => void;
   onMove: (styleId: number, direction: "up" | "down") => void;
+  featuredCount: number;
 }) {
   const utils = trpc.useUtils();
   const [editing, setEditing] = useState(false);
@@ -244,7 +248,17 @@ function StyleCard({
   const effectiveBps = style.override?.markupBps ?? affiliateDefaultBps;
 
   function toggleFeatured() {
-    upsert.mutate({ styleId: style.id, featured: !featured });
+    if (!featured && featuredCount >= 6) {
+      toast.error(spanish ? "Puedes destacar hasta 6 estilos de puerta. Desactiva uno antes de agregar otro." : "You can feature up to 6 door styles. Turn one off before adding another.");
+      return;
+    }
+    const input = { styleId: style.id, featured: !featured };
+    if (isAdminView) {
+      if (affiliateId === undefined) { toast.error("Select an affiliate first."); return; }
+      adminUpsert.mutate({ affiliateId, ...input });
+    } else {
+      upsert.mutate(input);
+    }
   }
 
   function toggleEnabled() {
@@ -288,7 +302,7 @@ function StyleCard({
 
   const roomScene = style.override?.roomSceneUrl;
   // Card thumbnail: custom affiliate room scene → global room scene → thumbnail
-  const cardImg = roomScene || (style as StyleRow & { roomSceneImageUrl?: string | null }).roomSceneImageUrl || style.thumbnailImageUrl;
+  const cardImg = roomScene || style.roomSceneImageUrl || style.doorSampleImageUrl || style.thumbnailImageUrl;
 
   return (
     <div
@@ -315,12 +329,13 @@ function StyleCard({
                 <p className="text-xs text-muted-foreground truncate">Original: {style.ourName || style.styleCode}</p>
               )}
             </div>
-            {!isAdminView && (
+            {(
               <button
                 onClick={toggleFeatured}
                 className={`shrink-0 p-1 rounded transition-colors ${featured ? "text-primary hover:text-primary/70" : "text-muted-foreground hover:text-foreground"}`}
                 aria-label={featured ? `Remove ${displayName} door style from featured styles` : `Feature ${displayName} door style on storefront`}
                 title={featured ? "Remove door style from featured styles" : "Feature this door style"}
+                disabled={!featured && featuredCount >= 6}
               >
                 {featured ? <Star className="h-4 w-4 fill-current" /> : <StarOff className="h-4 w-4" />}
                 <span className="hidden text-xs font-medium sm:inline">{featured ? (spanish ? "Destacado" : "Featured") : (spanish ? "Destacar" : "Feature")}</span>
@@ -530,13 +545,13 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
           placeholder={spanish ? "Buscar estilos…" : "Search styles…"}
           className="max-w-xs"
         />
-        <Badge variant="secondary">{featuredCount} {spanish ? "estilos destacados" : "featured door styles"}</Badge>
+        <Badge variant={featuredCount >= 6 ? "default" : "secondary"}>{featuredCount}/6 {spanish ? "estilos destacados" : "featured door styles"}</Badge>
         <Badge variant="outline">{data.styles.length} {spanish ? "estilos totales" : "total styles"}</Badge>
       </div>
 
       {featuredCount > 0 && !isAdminView && (
-        <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
-          {spanish ? "Arrastra los estilos destacados para cambiar el orden. También puedes usar las flechas." : "Drag featured door styles to change their storefront order. Arrow buttons are available too."}
+            <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          {spanish ? "Puedes destacar hasta 6 estilos. Arrastra los destacados para cambiar el orden; también puedes usar las flechas." : "You can feature up to 6 door styles. Drag featured door styles to change their storefront order. Arrow buttons are available too."}
         </p>
       )}
 
@@ -578,6 +593,7 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
                 [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
                 reorder.mutate({ styles: next.map((item, itemIndex) => ({ styleId: item.id, sortOrder: itemIndex })) });
               }}
+              featuredCount={featuredCount}
             />
           ))}
         </div>

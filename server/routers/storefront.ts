@@ -101,7 +101,7 @@ async function affiliateAllowsStyle(
   return selections.length === 0 || selections.some((selection) => selection.distributorId === style.distributorId);
 }
 
-export function applyAffiliateDistributorCuration<T extends { distributorId: number; styleId: number; name: string }>(
+export function applyAffiliateDistributorCuration<T extends { distributorId: number; styleId: number; name: string; featuredSortOrder?: number }>(
   families: T[],
   selectedDistributorIds: Set<number>,
   featuredDistributorIds: Set<number>,
@@ -113,6 +113,9 @@ export function applyAffiliateDistributorCuration<T extends { distributorId: num
       const aFeatured = featuredStyleIds.has(a.styleId) || featuredDistributorIds.has(a.distributorId) ? 1 : 0;
       const bFeatured = featuredStyleIds.has(b.styleId) || featuredDistributorIds.has(b.distributorId) ? 1 : 0;
       if (aFeatured !== bFeatured) return bFeatured - aFeatured;
+      if (aFeatured && (a.featuredSortOrder ?? 999) !== (b.featuredSortOrder ?? 999)) {
+        return (a.featuredSortOrder ?? 999) - (b.featuredSortOrder ?? 999);
+      }
       return a.name.localeCompare(b.name);
     });
 }
@@ -248,6 +251,7 @@ export const storefrontRouter = router({
       let featuredDistributorIds = new Set<number>();
       const brandNameMap = new Map<number, string>();
       const roomSceneMap = new Map<number, string>();
+      const featuredStyleOrder = new Map<number, number>();
 
       if (input?.slug) {
         const aRows = await db
@@ -268,6 +272,7 @@ export const storefrontRouter = router({
           for (const r of brandRows) {
             if (r.isEnabled === false) disabledStyleIds.add(r.styleId);
             if (r.featured) featuredStyleIds.add(r.styleId);
+            if (r.featured) featuredStyleOrder.set(r.styleId, r.sortOrder);
             if (r.brandName?.trim()) brandNameMap.set(r.styleId, r.brandName.trim());
             if (r.roomSceneUrl?.trim()) roomSceneMap.set(r.styleId, r.roomSceneUrl.trim());
           }
@@ -328,6 +333,7 @@ export const storefrontRouter = router({
           const fam = {
             ...toFamily(r),
             featured: featuredStyleIds.has(r.id) || featuredDistributorIds.has(r.distributorId),
+            featuredSortOrder: featuredStyleOrder.get(r.id) ?? 999,
           };
           // Affiliate-entered brandName is not a verified neutral style label.
           // Never let it override a supply line explicitly marked white-label.
