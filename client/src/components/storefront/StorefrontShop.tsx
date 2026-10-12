@@ -311,7 +311,7 @@ function FamilyPicker({
 
   useEffect(() => {
     if (!slug || !data?.length) return;
-    const featuredDistributorIds = Array.from(new Set(data.filter((family) => family.featured).map((family) => family.distributorId)));
+    const featuredDistributorIds = Array.from(new Set(data.filter((family) => family.featuredDistributor).map((family) => family.distributorId)));
     const featuredStyleIds = Array.from(new Set(data.filter((family) => family.featured && family.styleId != null).map((family) => family.styleId)));
     if (featuredDistributorIds.length === 0 && featuredStyleIds.length === 0) return;
     recordFeaturedViews.mutate({

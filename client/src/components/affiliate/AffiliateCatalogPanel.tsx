@@ -549,6 +549,14 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
         <Badge variant="outline">{data.styles.length} {spanish ? "estilos totales" : "total styles"}</Badge>
       </div>
 
+      {featuredCount > 6 && (
+        <p role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          {spanish
+            ? `Hay ${featuredCount} estilos destacados guardados. La tienda pública muestra solo los primeros 6 por orden guardado; desactiva los extras aquí para resolver esta selección antigua.`
+            : `${featuredCount} featured door styles are saved. The public storefront shows only the first 6 in saved order; turn off the extras here to resolve this legacy selection.`}
+        </p>
+      )}
+
       {featuredCount > 0 && !isAdminView && (
             <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
           {spanish ? "Puedes destacar hasta 6 estilos. Arrastra los destacados para cambiar el orden; también puedes usar las flechas." : "You can feature up to 6 door styles. Drag featured door styles to change their storefront order. Arrow buttons are available too."}

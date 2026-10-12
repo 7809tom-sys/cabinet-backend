@@ -54,9 +54,10 @@ export function toFamily(row: {
 }) {
   // Internal style names can contain supplier identity. Public white-labeled
   // responses must use the explicitly customer-facing label, never ourName.
-  const publicName = row.whiteLabel
+  const rawPublicName = row.whiteLabel
     ? row.featuredLabel?.trim() || row.styleCode
     : row.featuredLabel?.trim() || row.ourName;
+  const publicName = rawPublicName.replace(/\s+\([^)]*\)\s*$/, "").trim() || row.styleCode;
   return {
     styleId: row.id,
     styleCode: row.styleCode,
@@ -269,10 +270,15 @@ export const storefrontRouter = router({
             .select()
             .from(affiliateDistributorSelections)
             .where(eq(affiliateDistributorSelections.affiliateId, a.id));
+          const legacyFeaturedStyles = brandRows
+            .filter((r) => r.featured)
+            .sort((a, b) => a.sortOrder - b.sortOrder || a.styleId - b.styleId)
+            .slice(0, 6);
+          const legacyFeaturedStyleIds = new Set(legacyFeaturedStyles.map((r) => r.styleId));
           for (const r of brandRows) {
             if (r.isEnabled === false) disabledStyleIds.add(r.styleId);
-            if (r.featured) featuredStyleIds.add(r.styleId);
-            if (r.featured) featuredStyleOrder.set(r.styleId, r.sortOrder);
+            if (legacyFeaturedStyleIds.has(r.styleId)) featuredStyleIds.add(r.styleId);
+            if (legacyFeaturedStyleIds.has(r.styleId)) featuredStyleOrder.set(r.styleId, r.sortOrder);
             if (r.brandName?.trim()) brandNameMap.set(r.styleId, r.brandName.trim());
             if (r.roomSceneUrl?.trim()) roomSceneMap.set(r.styleId, r.roomSceneUrl.trim());
           }
@@ -332,7 +338,8 @@ export const storefrontRouter = router({
         .map((r) => {
           const fam = {
             ...toFamily(r),
-            featured: featuredStyleIds.has(r.id) || featuredDistributorIds.has(r.distributorId),
+            featured: featuredStyleIds.has(r.id),
+            featuredDistributor: featuredDistributorIds.has(r.distributorId),
             featuredSortOrder: featuredStyleOrder.get(r.id) ?? 999,
           };
           // Affiliate-entered brandName is not a verified neutral style label.

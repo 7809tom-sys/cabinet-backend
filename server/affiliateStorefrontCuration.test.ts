@@ -1,7 +1,32 @@
 import { describe, expect, it } from "vitest";
-import { applyAffiliateDistributorCuration } from "./routers/storefront";
+import { applyAffiliateDistributorCuration, toFamily } from "./routers/storefront";
 
 describe("affiliate storefront distributor curation", () => {
+  it("strips a trailing supplier token from customer-facing style names", () => {
+    const family = toFamily({
+      id: 7,
+      styleCode: "AERO",
+      ourName: "Aero Blanc (Preston)",
+      featuredLabel: null,
+      whiteLabel: false,
+      doorStyle: "Shaker",
+      woodSpecies: null,
+      finish: null,
+      color: null,
+      boxConstruction: null,
+      drawerConstruction: null,
+      hardware: null,
+      frameSize: null,
+      overlayType: null,
+      doorPanelType: null,
+      distributorId: 2,
+      doorSampleImageUrl: null,
+      roomSceneImageUrl: null,
+      thumbnailImageUrl: null,
+    });
+    expect(family.name).toBe("Aero Blanc");
+  });
+
   const families = [
     { styleId: 11, distributorId: 1, name: "Aspen" },
     { styleId: 12, distributorId: 2, name: "Birch" },
