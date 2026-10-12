@@ -34,6 +34,13 @@ import { affiliateCabinetDetailHref } from "@/lib/affiliateCabinetDetailRoute";
 import { sortStorefrontCategoryTabs, storefrontCategoryTabLabel } from "@/lib/storefrontCategoryTabs";
 import { affiliateDesignerPath } from "@/lib/affiliateStorefrontUrl";
 import { useSearch } from "wouter";
+import { doorStyleColorHex } from "@/lib/doorColorSpectrum";
+import {
+  familyFinishKey,
+  familyFinishLabel,
+  groupStorefrontDoorFamilies,
+  type StorefrontDoorVariant,
+} from "@/lib/storefrontDoorFamilies";
 
 type Brand = { primary: string; accent: string };
 
@@ -194,6 +201,7 @@ function FamilyPicker({
   const [syncError, setSyncError] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
   const [detailFamily, setDetailFamily] = useState<typeof data extends Array<infer T> ? T : never | null>(null);
+  const [selectedVariantIds, setSelectedVariantIds] = useState<Record<string, number>>({});
   const search = useSearch();
   const autoLockedStyleRef = useRef<number | null>(null);
   const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
@@ -300,6 +308,10 @@ function FamilyPicker({
   const visibleFamilies = showFavorites
     ? filterFavoriteFamilies(data ?? [], favoriteIds)
     : (data ?? []);
+  const groupedFamilies = useMemo(
+    () => groupStorefrontDoorFamilies(visibleFamilies as StorefrontDoorVariant[]),
+    [visibleFamilies],
+  );
 
   const { data: affiliatePromos } = trpc.storefront.activeBannerAndPromos.useQuery(
     { slug: slug! },
@@ -392,21 +404,22 @@ function FamilyPicker({
             <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <h3 className="font-serif text-2xl font-bold">Door samples</h3>
-                <p className="mt-1 text-sm text-muted-foreground">Real catalog images from the door-style records. Featured styles appear first.</p>
+                <p className="mt-1 text-sm text-muted-foreground">Choose a door profile, then preview its available finishes.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {[...visibleFamilies].sort((a, b) => Number(Boolean(b.featured)) - Number(Boolean(a.featured))).map((f) => {
-                const image = f.roomSceneImageUrl || f.doorSampleImageUrl || f.thumbnailImageUrl;
-                const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${f.styleId}` : `/catalog?style=${f.styleId}`);
-                const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${f.styleId}` : `/design?style=${f.styleId}`);
-                const displayName = publicStyleName(branding.brandName(f.styleId, f.name));
+              {groupedFamilies.map((family) => {
+                const selected = family.variants.find((variant) => variant.styleId === selectedVariantIds[family.key]) ?? family.selected;
+                const image = selected.roomSceneImageUrl || selected.doorSampleImageUrl || selected.thumbnailImageUrl;
+                const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${selected.styleId}` : `/catalog?style=${selected.styleId}`);
+                const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${selected.styleId}` : `/design?style=${selected.styleId}`);
+                const displayName = publicStyleName(branding.brandName(selected.styleId, selected.name ?? ""));
                 return (
                   <div
-                    key={`sample-${f.styleId}`}
+                    key={`sample-${family.key}`}
                     role="link"
                     tabIndex={0}
-                    aria-label={`Shop ${displayName}`}
+                    aria-label={`Shop ${family.label}, selected finish ${displayName}`}
                     onClick={() => { window.location.assign(buyHref); }}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -418,23 +431,45 @@ function FamilyPicker({
                   >
                     <div className="relative aspect-[4/3] bg-muted">
                       {image ? <img src={image} alt={`${displayName} door sample`} loading="lazy" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center px-3 text-center text-xs text-muted-foreground">No photo yet</div>}
-                      {f.featured && <Badge className="absolute left-2 top-2 border-0 text-white" style={{ backgroundColor: brand.accent }}>Featured</Badge>}
+                      {family.featured && <Badge className="absolute left-2 top-2 border-0 text-white" style={{ backgroundColor: brand.accent }}>Featured</Badge>}
                       <button
                         type="button"
-                        aria-label={favoriteIdSet.has(f.styleId) ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
-                        aria-pressed={favoriteIdSet.has(f.styleId)}
+                        aria-label={favoriteIdSet.has(selected.styleId) ? `Remove ${displayName} from favorites` : `Add ${displayName} to favorites`}
+                        aria-pressed={favoriteIdSet.has(selected.styleId)}
                         onClick={(event) => {
                           event.stopPropagation();
-                          toggleFavorite(f.styleId);
+                          toggleFavorite(selected.styleId);
                         }}
                         className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/80 bg-white/90 text-foreground shadow-md hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
-                        <Heart className={`h-4 w-4 ${favoriteIdSet.has(f.styleId) ? "fill-current" : ""}`} style={favoriteIdSet.has(f.styleId) ? { color: brand.accent } : undefined} />
+                        <Heart className={`h-4 w-4 ${favoriteIdSet.has(selected.styleId) ? "fill-current" : ""}`} style={favoriteIdSet.has(selected.styleId) ? { color: brand.accent } : undefined} />
                       </button>
                     </div>
                     <div className="p-3">
-                      <p className="truncate text-sm font-semibold">{displayName}</p>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">{f.doorStyle || f.finish || "Door style"}</p>
+                      <p className="truncate text-sm font-semibold">{family.label}</p>
+                      <p className="mt-1 truncate text-xs text-muted-foreground">{displayName}</p>
+                      <div className="mt-3" onClick={(event) => event.stopPropagation()}>
+                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Colour / finish</p>
+                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={`${family.label} colour and finish options`}>
+                          {family.variants.map((variant) => {
+                            const active = variant.styleId === selected.styleId;
+                            const label = publicStyleName(familyFinishLabel(variant));
+                            return (
+                              <button
+                                key={familyFinishKey(variant)}
+                                type="button"
+                                role="radio"
+                                aria-label={`${label} — ${publicStyleName(branding.brandName(variant.styleId, variant.name ?? ""))}`}
+                                aria-checked={active}
+                                title={label}
+                                onClick={() => setSelectedVariantIds((current) => ({ ...current, [family.key]: variant.styleId }))}
+                                className={`h-7 w-7 rounded-full border-2 shadow-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${active ? "border-foreground ring-2 ring-primary/30" : "border-white"}`}
+                                style={{ backgroundColor: doorStyleColorHex(variant) }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         <a
                           href={buyHref}
@@ -454,7 +489,7 @@ function FamilyPicker({
                           type="button"
                           onClick={(event) => {
                             event.stopPropagation();
-                            setDetailFamily(f as never);
+                            setDetailFamily(selected as never);
                           }}
                           className="inline-flex items-center justify-center rounded-md border border-border px-2 py-2 text-xs font-semibold text-foreground transition-colors hover:bg-muted"
                         >
