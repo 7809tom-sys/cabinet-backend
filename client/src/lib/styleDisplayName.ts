@@ -15,5 +15,6 @@ export function styleDisplayName(style: {
   ourName?: string | null;
   styleCode?: string | null;
 }): string {
-  return style.aliasName || style.ourName || style.styleCode || "";
+  const raw = style.aliasName || style.ourName || style.styleCode || "";
+  return raw.replace(/\s+\([^)]*\)\s*$/, "").trim() || style.styleCode || "";
 }

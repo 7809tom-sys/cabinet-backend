@@ -95,6 +95,10 @@ function money(v: unknown): string {
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`;
 }
 
+function publicStyleName(value: string | null | undefined): string {
+  return (value ?? "").replace(/\s+\([^)]*\)\s*$/, "").trim() || "Unnamed style";
+}
+
 function readFavoriteFamilyIds(storageKey: string): number[] {
   if (typeof window === "undefined") return [];
   return parseFavoriteFamilyIds(window.localStorage.getItem(storageKey));
@@ -396,7 +400,7 @@ function FamilyPicker({
                 const image = f.roomSceneImageUrl || f.doorSampleImageUrl || f.thumbnailImageUrl;
                 const buyHref = withRef(slug ? `/store/${slug}/catalog?style=${f.styleId}` : `/catalog?style=${f.styleId}`);
                 const designHref = withRef(slug ? `${affiliateDesignerPath(slug)}?style=${f.styleId}` : `/design?style=${f.styleId}`);
-                const displayName = branding.brandName(f.styleId, f.name);
+                const displayName = publicStyleName(branding.brandName(f.styleId, f.name));
                 return (
                   <div
                     key={`sample-${f.styleId}`}
@@ -465,7 +469,7 @@ function FamilyPicker({
               // room scene. No keyword/bucket guessing — if there's no real photo
               // we render the color-accurate swatch on the family's finish color.
               const scene = f.roomSceneImageUrl || null;
-              const displayName = branding.brandName(f.styleId, f.name);
+              const displayName = publicStyleName(branding.brandName(f.styleId, f.name));
               return (
                 <div
                   key={f.styleId}
@@ -588,7 +592,7 @@ function FamilyPicker({
                   <div className="flex flex-1 flex-col p-5">
                     <h3 className="font-serif text-lg font-bold leading-tight">{displayName}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {[f.finish, f.color].filter(Boolean).join(" · ") || "\u00A0"}
+                      {[f.finish, f.color].filter(Boolean).map((value) => publicStyleName(value)).join(" · ") || "\u00A0"}
                     </p>
                     <span
                       className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md px-4 py-2 font-semibold text-white transition-transform group-active:scale-[0.98]"
@@ -637,7 +641,7 @@ function LockedCatalog({
   slug?: string;
 }) {
   // The affiliate's white-label name for this line (falls back to central name).
-  const displayName = branding.brandName(family.styleId, family.name);
+  const displayName = publicStyleName(branding.brandName(family.styleId, family.name));
   const [showDetails, setShowDetails] = useState(false);
   const [category, setCategory] = useState<string | null>(null);
   const [subGroup, setSubGroup] = useState<string | null>(null);
@@ -706,7 +710,7 @@ function LockedCatalog({
             </h2>
             {[family.finish, family.color].filter(Boolean).length > 0 && (
               <p className="text-sm text-white/85">
-                {[family.finish, family.color].filter(Boolean).join(" · ")}
+                {[family.finish, family.color].filter(Boolean).map((value) => publicStyleName(value)).join(" · ")}
               </p>
             )}
           </div>
@@ -1111,7 +1115,7 @@ function CatalogCard({
                 masterCode: code,
                 name: description || code,
                 styleId,
-                styleLabel: branding.brandName(family.styleId, family.name),
+                styleLabel: publicStyleName(branding.brandName(family.styleId, family.name)),
                 distributorId: family.distributorId,
                 tier: "homeowner",
                 unitPrice,
@@ -1265,7 +1269,7 @@ export function DoorDetailModal({
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-serif text-xl">{family.name}</DialogTitle>
+          <DialogTitle className="font-serif text-xl">{publicStyleName(family.name)}</DialogTitle>
         </DialogHeader>
 
         {/* Door sample image */}
@@ -1273,7 +1277,7 @@ export function DoorDetailModal({
           {family.doorSampleImageUrl ? (
             <img
               src={family.doorSampleImageUrl}
-              alt={`${family.name} door sample`}
+              alt={`${publicStyleName(family.name)} door sample`}
               className="h-full w-full object-cover"
             />
           ) : (

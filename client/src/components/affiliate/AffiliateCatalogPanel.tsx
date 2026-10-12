@@ -557,6 +557,14 @@ export default function AffiliateCatalogPanel({ affiliateId, isAdminView = false
         </p>
       )}
 
+      {featuredCount === 0 && (
+        <p role="status" className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          {spanish
+            ? "Aún no has destacado estilos de puerta. Elige hasta 6 para mostrarlos primero en tu tienda; la galería completa seguirá disponible para comprar."
+            : "No door styles are featured yet. Choose up to 6 to show first in your storefront; the full door-sample gallery will remain available for shopping."}
+        </p>
+      )}
+
       {featuredCount > 0 && !isAdminView && (
             <p className="rounded-lg border border-dashed border-primary/40 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
           {spanish ? "Puedes destacar hasta 6 estilos. Arrastra los destacados para cambiar el orden; también puedes usar las flechas." : "You can feature up to 6 door styles. Drag featured door styles to change their storefront order. Arrow buttons are available too."}

@@ -31,6 +31,7 @@ import {
   ownerCostBreakdown,
 } from "@shared/pricingTier";
 import { CabinetImage } from "@/components/CabinetImage";
+import { styleDisplayName } from "@/lib/styleDisplayName";
 import { MediaPicker } from "@/components/admin/MediaPicker";
 import { DrawerLayoutEditor, LayoutSpecBuilder, defaultLayoutSpec } from "@/components/admin/CabinetConfigAdmin";
 import { CUSTOM_CABINET_PROFILES } from "@/lib/customCabinetProfiles";
@@ -931,7 +932,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       masterCode: resolvedMasterCode,
       name: cabinet?.description ?? row.name,
       styleId: row.styleId,
-      styleLabel: row.name,
+      styleLabel: styleDisplayName({ ourName: row.name, styleCode: row.styleCode }),
       distributorId: row.distributorId ?? null,
       tier: saleTier,
       unitPrice: unitPrice != null && !isNaN(unitPrice) ? unitPrice : null,
@@ -941,7 +942,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     });
     if (res.ok) {
       toast.success(`Added ${qty}× ${resolvedMasterCode} to cart`, {
-        description: `${row.name} · ${isAffiliateStorefront ? "affiliate sale" : tierLabel(saleTier)} pricing`,
+        description: `${styleDisplayName({ ourName: row.name, styleCode: row.styleCode })} · ${isAffiliateStorefront ? "affiliate sale" : tierLabel(saleTier)} pricing`,
       });
     }
     return res;
@@ -1088,7 +1089,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       {/* ── Door style compact strip (replaces old room-scene hero) ────────────── */}
       {(() => {
         const doorPhoto = doorFamilyPhoto(selectedRow ?? {});
-        const styleLabel = selectedRow?.name || selectedRow?.doorStyle || "your finish";
+        const styleLabel = selectedRow ? styleDisplayName({ ourName: selectedRow.name, styleCode: selectedRow.styleCode }) : "your finish";
         return doorPhoto ? (
           <a
             href="#pricing"
