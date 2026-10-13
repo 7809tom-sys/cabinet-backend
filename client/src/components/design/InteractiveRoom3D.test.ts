@@ -1603,6 +1603,17 @@ describe("interactive 3D room scene helpers", () => {
 		    ]));
 	  });
 
+	  it("wraps backsplash around both legs of a corner-drawer base instead of leaving the adjoining wall blank", () => {
+	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
+	    const cornerDrawer = { uid: "cdb-top-left", masterCode: "CDB36", description: "Corner Drawer Base", placement: "base", x: 0, y: 0, width: 36, depth: 36, height: 34.5, rotation: 0, islandFace: null } as PlacedCabinet;
+	    expect(threeDBacksplashSupportSpans(cornerDrawer, "top", room)).toEqual([{ start: 0, end: 36 }]);
+	    expect(threeDBacksplashSupportSpans(cornerDrawer, "left", room)).toEqual([{ start: 0, end: 36 }]);
+	    expect(threeDBacksplashSegments([cornerDrawer], [], room)).toEqual(expect.arrayContaining([
+	      { side: "top", start: 0, end: 36, bottom: 36, top: 54 },
+	      { side: "left", start: 0, end: 36, bottom: 36, top: 54 },
+	    ]));
+	  });
+
 	  it("clips the selected supported-run backsplash around a saved window without changing the opening or wall", () => {
 	    const room = { width: 120, depth: 96, ceilingHeight: 96 } as RoomData;
 	    const windowOpening = { uid: "window-1", kind: "window", label: "Window", side: "top", offset: 30, width: 30, height: 30, sill: 40 } as WallOpening;

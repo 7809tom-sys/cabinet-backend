@@ -8198,16 +8198,18 @@ function threeDWallRunSpan(cabinet: PlacedCabinet, side: WallSide) {
 }
 
 /**
- * A Lazy Susan is one ground-level L-corner countertop support, so it carries
- * backsplash on both wall-facing legs. Other base cabinets continue to support
- * only their owning room wall. This adds wall coverage only—it never changes
- * the saved corner footprint, cabinet placement, countertop, or camera.
+ * True folded/diagonal corner cabinets are ground-level countertop supports on
+ * both wall-facing legs, so the backsplash must wrap around the corner instead
+ * of leaving the adjoining wall blank. Blind corners remain rectangular and
+ * continue to support only their owning room wall. This adds wall coverage
+ * only—it never changes the saved corner footprint, cabinet placement,
+ * countertop, or camera.
  */
 export function threeDBacksplashSupportSpans(cabinet: PlacedCabinet, side: WallSide, room: RoomData) {
   if (!threeDSupportsBacksplash(cabinet, room)) return [];
   const cornerKind = placedCornerGeometryKind(cabinet);
-  const isLazySusan = cabinet.cornerType === "lazy-susan" || /(?:^|[-\s])LS|LAZY\s*SUSAN/i.test(`${cabinet.masterCode} ${cabinet.description ?? ""}`);
-  if (cornerKind !== "l-shape" || !isLazySusan) {
+  const wrapsCornerLegs = cornerKind === "l-shape" || cornerKind === "diagonal" || cornerKind === "corner-drawer";
+  if (!wrapsCornerLegs) {
     return cabinetWall(cabinet, room) === side ? [threeDWallRunSpan(cabinet, side)] : [];
   }
   const footprint = placedFootprint(cabinet);
