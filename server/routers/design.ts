@@ -237,6 +237,9 @@ export async function logDesignView(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   input: { designId: number; dealId?: number | null; userId?: number | null; userName?: string | null; kind: "owner" | "crm" | "staff" },
 ) {
+  // Read-only tooling (the weekly CRM price check) sets this so that opening
+  // designs to read their totals never writes "viewed by" rows into the log.
+  if (process.env.CD_SKIP_VIEW_LOG === "1") return;
   try {
     const since = new Date(Date.now() - 10 * 60 * 1000);
     const recent = await db.select({ id: designViewLog.id }).from(designViewLog).where(and(
