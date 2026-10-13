@@ -18,9 +18,9 @@ describe("Wizard 45-degree raised bar outer corner", () => {
     const straight = all.find((s) => s.raisedBar && countertopSurfacePlanPolygon(s).every((p) => p.x >= lowerMaxX - 0.5 || p.y > 47) )!;
     expect(straight).toBeTruthy();
   });
-  it("leaves the lower countertop exactly as built (3 slabs plus the gap-fill triangle)", () => {
+  it("leaves the lower countertop on its supported segments and preserves the program void", () => {
     const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
-    expect(lows.length).toBe(4);
+    expect(lows.length).toBe(2);
   });
 });
 import { readFileSync } from "node:fs";
@@ -34,7 +34,7 @@ describe("corbels are optional", () => {
 });
 
 describe("Wizard 45-degree raised bar: lower-level gap beside the riser", () => {
-  it("fills the triangle between the lower outer edge and the raised strips' inner edge", () => {
+  it("keeps the intentional triangle beside the riser open", () => {
     const all = countertopSurfaces(saved.placed as any, saved.room as any) as any[];
     const polys = all.filter((s) => !s.raisedBar).map((s) => countertopSurfacePlanPolygon(s));
     const hit = (x: number, y: number) => polys.some((poly) => {
@@ -46,6 +46,6 @@ describe("Wizard 45-degree raised bar: lower-level gap beside the riser", () => 
       return h;
     });
     // centroid of the former void: (108,48) (108,59) (100.2,66.8)
-    expect(hit(105.4, 57.9)).toBe(true);
+    expect(hit(105.4, 57.9)).toBe(false);
   });
 });

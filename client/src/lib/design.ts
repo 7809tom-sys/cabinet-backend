@@ -12605,13 +12605,18 @@ function peninsulaVoidFillSurfaces(
     return Math.min(pointSeg(a0, b0, b1), pointSeg(a1, b0, b1), pointSeg(b0, a0, a1), pointSeg(b1, a0, a1));
   };
   const rootOf = (surface: CountertopSurface): string | null => {
-    const id = surface.peninsulaRunIds?.[0] ?? surface.peninsulaRunId;
+    const id = surface.peninsulaRunIds?.[0] || surface.peninsulaRunId;
     const run = id ? runs.find((candidate) => candidate.id === id) : null;
     return run ? peninsulaRootRunId(run, room) : null;
   };
+  const splitLevelRoots = new Set(
+    runs
+      .filter((run) => !run.parentRunId && run.countertopRaisedBar === true && run.wizardRecipe?.countertopTreatment === "split-level")
+      .map((run) => run.id),
+  );
   const items = surfaces
     .map((surface) => ({ surface, root: rootOf(surface), poly: countertopSurfacePlanPolygon(surface) }))
-    .filter((item) => item.root && item.poly.length >= 3);
+    .filter((item) => item.root && !splitLevelRoots.has(item.root) && item.poly.length >= 3);
   const fills: CountertopSurface[] = [];
   for (let i = 0; i < items.length; i += 1) {
     for (let j = i + 1; j < items.length; j += 1) {
@@ -13031,7 +13036,25 @@ export function countertopSurfaces(
   // at the turn; the lower countertop is unaffected.
   void raisedBarOuterMiterWedges;
   out.splice(0, out.length, ...joinRaisedBarStripsAtMiter(out, room));
-  out.push(...raisedBarMiterGapFills(out));
+  const hasActiveSplitLevelWizard = (room.peninsulaRuns ?? []).some((run) => (
+    !run.parentRunId
+    && run.countertopRaisedBar === true
+    && run.wizardRecipe?.countertopTreatment === "split-level"
+  ));
+  out.push(...(hasActiveSplitLevelWizard ? [] : raisedBarMiterGapFills(out)));
+  // A tiered Wizard peninsula owns a structural void and a structural raised
+  // bar. Rebuild only those non-flat pieces without appliance placements so a
+  // cooktop opening can split the flat worktop but can never move, widen, or
+  // delete the void or the opposite-side/raised surface.
+  if (hasActiveSplitLevelWizard && placed.some((item) => isRangeOrOven(item.masterCode, item.description))) {
+    const structural = countertopSurfaces(
+      placed.filter((item) => !isRangeOrOven(item.masterCode, item.description)),
+      room,
+      island,
+      ponyWalls,
+    );
+    out.splice(0, out.length, ...out.filter((surface) => !surface.raisedBar), ...structural.filter((surface) => surface.raisedBar));
+  }
   if (island) {
     const supports = placed.filter((item) => isOnIsland(item, island) && bearsCountertop(item));
     if (supports.length > 0) {
