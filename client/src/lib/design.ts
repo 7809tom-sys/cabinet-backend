@@ -13158,10 +13158,10 @@ export function isRangeOrCooktop(cabinet: Pick<PlacedCabinet, "masterCode" | "de
 
 export type CooktopConversionStatus = "converted" | "unresolved-standard-base" | null;
 
-/** Convert legacy SB range-top modes into a standard base plus a first-class opening appliance. */
+/** Convert legacy SB range-top modes into the same SB plus a first-class opening appliance. */
 export function convertLegacyCooktopPlacements(
   placed: readonly PlacedCabinet[],
-  catalogBases: readonly DesignCabinet[],
+  _catalogBases: readonly DesignCabinet[],
 ): { placed: PlacedCabinet[]; convertedCabinetUids: Set<string> } {
   const convertedCabinetUids = new Set<string>();
   const next: PlacedCabinet[] = [];
@@ -13172,25 +13172,12 @@ export function convertLegacyCooktopPlacements(
       continue;
     }
     const width = Number(cabinet.width);
-    const base = catalogBases.find((candidate) => candidate.placement === "base"
-      && !isSinkBaseCabinet(candidate)
-      && !isPanelItem(candidate)
-      && Math.abs(Number(candidate.width) - width) < 0.01);
-    if (!base) {
-      next.push({ ...cabinet, cooktopConversionStatus: "unresolved-standard-base" });
-      continue;
-    }
     const baseCabinet: PlacedCabinet = {
       ...cabinet,
-      cabinetId: base.id,
-      masterCode: base.masterCode,
-      description: base.description,
-      category: base.category,
-      subCategory: base.subCategory,
       placement: "base",
       width,
-      depth: Number(cabinet.depth) || Number(base.depth) || STD.BASE_DEPTH,
-      height: Number(cabinet.height) || Number(base.height) || STD.BASE_HEIGHT,
+      depth: Number(cabinet.depth) || STD.BASE_DEPTH,
+      height: Number(cabinet.height) || STD.BASE_HEIGHT,
       mountBottom: null,
       sinkTopType: null,
       sinkTopProductId: null,

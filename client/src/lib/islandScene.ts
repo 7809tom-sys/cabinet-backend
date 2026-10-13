@@ -924,7 +924,10 @@ export function islandRaisedBarRects(island: IslandZone, placed: PlacedCabinet[]
   const side = island.raisedBarSide ?? "back";
   const overhang = island.raisedBarOverhang === 15 ? 15 : 12;
   const barDepth = ISLAND_RAISED_BAR_SUPPORT_DEPTH_IN + overhang;
-  return islandCountertopVisibleRects(island, placed).map((slab) => {
+  // A cooktop cuts only the flat worktop. The raised seating bar is supported
+  // by the continuous base run and must remain one uninterrupted strip behind
+  // the cooktop bay.
+  return islandCountertopRects(island, placed).map((slab) => {
     const radians = ((Number(slab.rotation ?? 0) || 0) * Math.PI) / 180;
     const local = side === "back"
       ? { x: 0, y: -(slab.depth / 2 + barDepth / 2), width: slab.width, depth: barDepth }

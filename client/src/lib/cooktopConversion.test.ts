@@ -73,12 +73,22 @@ describe("convertLegacyCooktopPlacements", () => {
     expect(existingCabinetSku(cooktop!).applianceRole).toBe("countertop-opening");
   });
 
-  it("converts gas/electric/smooth-top modes to a standard base plus opening appliance", () => {
+  it("keeps the exact SB cabinet and adds only an opening appliance", () => {
     for (const type of ["gas", "electric", "induction", "smooth-top"] as const) {
-      const result = convertLegacyCooktopPlacements([base({ sinkTopType: type })], [standardBase()]);
+      const original = base({ sinkTopType: type, masterCode: "SB36", description: "36 inch sink base", x: 7, y: 11, rotation: 90, width: 36 });
+      const result = convertLegacyCooktopPlacements([original], [standardBase()]);
       expect(result.convertedCabinetUids.has("sb-36")).toBe(true);
       expect(result.placed).toHaveLength(2);
-      expect(result.placed[0]).toMatchObject({ placement: "base", masterCode: "B36", sinkTopType: null });
+      expect(result.placed[0]).toMatchObject({
+        placement: "base",
+        masterCode: "SB36",
+        description: "36 inch sink base",
+        x: 7,
+        y: 11,
+        rotation: 90,
+        width: 36,
+        sinkTopType: null,
+      });
       expect(result.placed[1]).toMatchObject({
         placement: "appliance",
         applianceRole: "countertop-opening",
@@ -96,11 +106,12 @@ describe("convertLegacyCooktopPlacements", () => {
     expect(twice.convertedCabinetUids.size).toBe(0);
   });
 
-  it("marks an unresolved width conflict instead of inventing a standard box", () => {
-    const result = convertLegacyCooktopPlacements([base({ width: 33 })], [standardBase()]);
-    expect(result.placed).toHaveLength(1);
-    expect(result.placed[0]).toMatchObject({ cooktopConversionStatus: "unresolved-standard-base", masterCode: "SB36" });
-    expect(result.convertedCabinetUids.size).toBe(0);
+  it("does not require a matching standard base for a legacy SB cooktop", () => {
+    const result = convertLegacyCooktopPlacements([base({ width: 33 })], []);
+    expect(result.placed).toHaveLength(2);
+    expect(result.placed[0]).toMatchObject({ masterCode: "SB36", width: 33, placement: "base" });
+    expect(result.placed[1]).toMatchObject({ placement: "appliance", applianceRole: "countertop-opening", width: 33 });
+    expect(result.convertedCabinetUids.size).toBe(1);
   });
 
   it("classifies plural catalog appliance categories at the base elevation", () => {
@@ -131,6 +142,7 @@ describe("convertLegacyCooktopPlacements", () => {
     const worktopArea = islandCountertopVisibleRects(island, placed).reduce((sum, rect) => sum + rect.width * rect.depth, 0);
     const barArea = islandRaisedBarRects(island, placed).reduce((sum, rect) => sum + rect.width * rect.depth, 0);
     expect(worktopArea).toBe(1305);
-    expect(barArea).toBe(3802.5);
+    expect(islandRaisedBarRects(island, placed)).toHaveLength(1);
+    expect(barArea).toBe(1462.5);
   });
 });
