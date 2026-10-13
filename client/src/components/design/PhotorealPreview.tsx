@@ -39,6 +39,16 @@ export type PhotorealSceneInput = {
     | "multi-wall";
   hasIsland?: boolean;
   notes?: string;
+  /** Every visible saved-plan material/product reference, keyed to plan items. */
+  materialManifest?: Array<{
+    id: string;
+    role: string;
+    label: string;
+    itemIds: string[];
+    referenceUrl: string;
+  }>;
+  /** Exact visible inputs that prevent generation when no saved reference exists. */
+  missingMaterialInputs?: string[];
   cameraAngle?: CameraAngle;
   timeOfDay?: TimeOfDay;
 };

@@ -9453,6 +9453,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       geometryLock: string;
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
+      materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string }>;
+      missingMaterialInputs: string[];
       sourceImageHash: string;
       generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1" | "manual-final-review-gemini-nano-banana-v1";
     };
@@ -9609,14 +9611,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         : geminiCooldownActive
           ? `Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.`
           : null;
-  const photoRenderVisualReferences = [
-    activeDoorTexture ? {
-      id: "door-sample",
-      label: "Selected door sample",
-      url: activeDoorTexture,
-      description: "Applied to the current cabinet faces after it has loaded.",
-    } : null,
-  ].filter((reference): reference is { id: string; label: string; url: string; description: string } => reference !== null);
+  const photoRenderVisualReferences = photoRenderDraft?.provenance.materialManifest.map((reference) => ({
+    id: reference.id,
+    label: `${reference.role}: ${reference.label}`,
+    url: reference.referenceUrl,
+    description: `Mapped to plan item${reference.itemIds.length === 1 ? "" : "s"} ${reference.itemIds.join(", ")}.`,
+  })) ?? (activeDoorTexture ? [{
+    id: "door-sample",
+    label: "Cabinet door/finish reference",
+    url: activeDoorTexture,
+    description: "Exact saved cabinet reference; no substitute or global recolour is permitted.",
+  }] : []);
 	  const resolvedCabinetFinish = selectedCabinetPreviewFinish?.color ?? catalogFinish;
 	  const cabinetFinishLabel = selectedCabinetPreviewFinish?.name ?? catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
 	  const cycleCabinetPreviewFinish = () => {
@@ -11264,6 +11269,36 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         return null;
       }
     };
+    const materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string }> = [];
+    const missingMaterialInputs: string[] = [];
+    const addManifestEntry = (entry: { id: string; role: string; label: string; itemIds: string[]; referenceUrl: string | null | undefined }) => {
+      if (entry.referenceUrl) materialManifest.push({ ...entry, referenceUrl: entry.referenceUrl });
+      else missingMaterialInputs.push(entry.label);
+    };
+    const cabinetManifestGroups = new Map<string, { label: string; referenceUrl: string | null; itemIds: string[] }>();
+    for (const cabinet of placed) {
+      const referenceUrl = approvedMaterialUrl(resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign));
+      const label = `${cabinet.masterCode}${cabinet.description ? ` — ${cabinet.description}` : ""}`;
+      const key = `${label}|${referenceUrl ?? "missing"}`;
+      const current = cabinetManifestGroups.get(key) ?? { label, referenceUrl, itemIds: [] };
+      current.itemIds.push(cabinet.uid);
+      cabinetManifestGroups.set(key, current);
+    }
+    cabinetManifestGroups.forEach((entry, id) => addManifestEntry({ id: `cabinet:${id}`, role: "cabinet door/finish", ...entry }));
+    addManifestEntry({ id: "surface:countertop", role: "countertop", label: catalogCountertopName ?? "Selected countertop", itemIds: ["surface:countertop"], referenceUrl: approvedMaterialUrl(catalogCountertopImageUrl) });
+    addManifestEntry({ id: "surface:flooring", role: "flooring", label: catalogFlooringName ?? "Selected flooring", itemIds: ["surface:flooring"], referenceUrl: approvedMaterialUrl(catalogFlooringImageUrl) });
+    addManifestEntry({ id: "surface:backsplash", role: "backsplash", label: catalogBacksplashName ?? "Selected backsplash", itemIds: ["surface:backsplash"], referenceUrl: approvedMaterialUrl(catalogBacksplashImageUrl) });
+    if (hardwareStyleId !== "none") {
+      const selectedHardware = hardwareStyle(hardwareStyleId);
+      addManifestEntry({ id: "hardware:handles", role: "hardware/handles", label: selectedHardware.label, itemIds: placed.map((cabinet) => cabinet.uid), referenceUrl: approvedMaterialUrl(selectedHardware.referenceUrl) });
+    }
+    for (const sink of sinks) {
+      addManifestEntry({ id: `sink:${sink.uid}`, role: "sink", label: sink.pelicanProductName ?? "Selected sink", itemIds: [sink.uid], referenceUrl: approvedMaterialUrl(sink.pelicanProductImage) });
+      if (sink.pelicanFaucetProductId != null || sink.pelicanFaucetProductName) addManifestEntry({ id: `faucet:${sink.uid}`, role: "faucet", label: sink.pelicanFaucetProductName ?? "Selected faucet", itemIds: [sink.uid], referenceUrl: approvedMaterialUrl(sink.pelicanFaucetProductImage) });
+    }
+    for (const appliance of placed.filter((cabinet) => (cabinet as { placement?: string | null }).placement === "appliance" || isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode))) {
+      addManifestEntry({ id: `appliance:${appliance.uid}`, role: "appliance", label: `${appliance.masterCode}${appliance.description ? ` — ${appliance.description}` : ""}`, itemIds: [appliance.uid], referenceUrl: approvedMaterialUrl(appliance.catalogImageUrl) });
+    }
     const materials = [
       { role: "cabinet" as const, productId: catalogFinishProductId ?? null, name: catalogFinishName ?? null, materialImageUrl: approvedMaterialUrl(catalogDoorSampleUrl) },
       { role: "countertop" as const, productId: catalogCountertopProductId ?? null, name: catalogCountertopName ?? null, materialImageUrl: approvedMaterialUrl(catalogCountertopImageUrl) },
@@ -11322,6 +11357,8 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       geometryLock,
       camera: cameraSnapshot,
       materials,
+      materialManifest,
+      missingMaterialInputs,
       renderSpecification,
       sourceImageHash,
       generationMethod: "manual-final-review-deterministic-webgl-v1" as const,
@@ -11373,6 +11410,10 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     }
     if (!photoRenderDraft) {
       toast.error("Review the locked 3D reference before confirming the final image.");
+      return;
+    }
+    if (photoRenderDraft.provenance.missingMaterialInputs.length > 0) {
+      toast.error(`Add exact saved references before generating: ${photoRenderDraft.provenance.missingMaterialInputs.join(", ")}`);
       return;
     }
     if (!isPhotoQualityTest && photoVerificationStatus !== "verified") {
@@ -11911,7 +11952,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		            <p className="font-semibold">Your exact plan is protected before a photo-quality image is made.</p>
 		            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, faucet, sink, flooring, backsplash, and camera framing are locked from your saved plan. Your selected CabinetDealz and Pelican product references are included in one review package. The saved 2D/3D plan and pricing remain authoritative.</p>
 	          </div>
-	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Saved material inputs</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">The shown references identify the exact saved selections. Gemini may enhance realism but must not replace, recolor, move, add, or remove plan items.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
+	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Saved material inputs</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">The shown references identify the exact saved selections. Gemini may enhance realism but must not replace, recolor, move, add, or remove plan items.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p className="mt-3 text-[11px] font-semibold text-[#1a2744]">Manifest: {photoRenderDraft?.provenance.materialManifest.length ?? 0} exact references · {photoRenderDraft?.provenance.missingMaterialInputs.length ?? 0} missing</p>{photoRenderDraft?.provenance.missingMaterialInputs.length ? <p data-testid="photo-quality-missing-materials" role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px] font-semibold text-amber-950">Generation blocked until these exact saved references are supplied: {photoRenderDraft.provenance.missingMaterialInputs.join(", ")}</p> : <p data-testid="photo-quality-materials-complete" className="mt-2 text-[11px] font-semibold text-emerald-800">Every visible saved-plan material has an exact labeled reference.</p>}<p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
 	          {catalogRoomSceneUrl && <div data-testid="photo-quality-room-scene-not-applied" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"><strong>Style room-scene picture:</strong> catalog reference only. It is not sent as geometry, texture, or a substitute kitchen layout. This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.</div>}
 		          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p><strong>Administrator test preview.</strong> Use the exact high-resolution 3D capture to confirm plan fidelity. No customer lead is created and no customer contact information is required.</p>{IN_HOUSE_PATH_TRACE_ENABLED ? <div className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Production render test — experimental</p><p className="mt-1">Creates a 1920×1080 WebGL2 path trace from a cloned current scene and camera, preserving loaded PBR material maps while adding a clone-only deterministic daylight and interior-light rig. It then applies a conservative final denoise pass. It does not use AI or the room-scene picture, does not save a customer render, and must be visually approved before any Photo Quality claim.</p><Button data-testid="path-trace-production-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void createPathTracePreview()} disabled={pathTracePreviewBusy || !photoRenderDoorReference.ready}>{pathTracePreviewBusy ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{pathTracePreviewBusy ? `Tracing exact scene… ${pathTracePreviewProgress}%` : "Run HD production render test"}</Button>{pathTracePreviewBusy && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-[#1a2744]" style={{ width: `${pathTracePreviewProgress}%` }} /></div>}{pathTracePreviewError && <p role="alert" className="mt-2 text-rose-800">{pathTracePreviewError}</p>}</div> : <div data-testid="in-house-render-disabled" className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Photo-quality image</p><p className="mt-1">Use the Google image test for photo-quality results. The in-house browser render is switched off so it can never interfere with the 3D Designer.</p></div>}</div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Request your photo-quality kitchen image</p><p className="mt-1 text-xs leading-relaxed text-slate-700">After mobile verification, Cabinet Dealz sends your exact saved plan, selected materials, and Pelican fixture references to the review team as one AI reference package. We will email you when the finished image is attached back to this plan.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and photo-quality image request. Mobile-number verification protects the exact saved plan and confirmed follow-up information.</label></div>}
                   {!isPhotoQualityTest && <section data-testid="photo-quality-phone-verification" className="space-y-3 rounded-lg border border-[#b7c8df] bg-white p-3 text-sm text-[#1a2744]">

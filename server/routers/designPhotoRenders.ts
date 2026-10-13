@@ -120,6 +120,13 @@ const renderSpecificationSchema = z.object({
   hardware: z.string().trim().max(120).nullable(),
   appliances: z.array(z.string().trim().max(255)).max(40),
 });
+const materialManifestEntrySchema = z.object({
+  id: z.string().trim().min(1).max(160),
+  role: z.string().trim().min(1).max(80),
+  label: z.string().trim().min(1).max(255),
+  itemIds: z.array(z.string().trim().min(1).max(160)).min(1).max(500),
+  referenceUrl: safeMaterialUrl,
+});
 export const photoQualityLeadSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(320),
@@ -144,6 +151,8 @@ export const photoRenderProvenanceSchema = z.object({
     }
   }),
   renderSpecification: renderSpecificationSchema.optional(),
+  materialManifest: z.array(materialManifestEntrySchema).min(1).max(500),
+  missingMaterialInputs: z.array(z.string().trim().min(1).max(255)).max(100),
   sourceImageHash: z.string().regex(/^[a-f0-9]{64}$/i, "A SHA-256 source-image hash is required."),
   generationMethod: z.enum([
     "manual-final-review-image-service",
@@ -619,11 +628,16 @@ async function geminiMaterialReferences(
     if (!["countertop", "backsplash", "cabinet", "flooring"].includes(material.role)) continue;
     wanted.push({ role: material.role, label: `${material.role === "cabinet" ? "cabinet door finish" : material.role}${material.name ? ` — ${material.name}` : ""}`, productId: material.productId, url: material.materialImageUrl });
   }
+  for (const reference of provenance.materialManifest ?? []) {
+    if (!wanted.some((entry) => entry.url === reference.referenceUrl && entry.label === reference.label)) {
+      wanted.push({ role: reference.role, label: reference.label, productId: null, url: reference.referenceUrl });
+    }
+  }
   const specification = provenance.renderSpecification;
   if (specification?.islandCabinets?.materialImageUrl && !wanted.some((entry) => entry.url === specification.islandCabinets?.materialImageUrl)) {
     wanted.push({ role: "island", label: `island cabinet finish — ${specification.islandCabinets.color ?? specification.islandCabinets.name ?? "island"}`, productId: specification.islandCabinets.productId, url: specification.islandCabinets.materialImageUrl });
   }
-  const order = ["countertop", "backsplash", "cabinet", "island", "flooring"];
+  const order = ["countertop", "backsplash", "cabinet", "cabinet door/finish", "flooring", "hardware/handles", "sink", "faucet", "appliance", "island"];
   wanted.sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
   const out: Array<{ label: string; mimeType: "image/jpeg"; base64: string }> = [];
   for (const entry of wanted.slice(0, 6)) {
@@ -1243,7 +1257,7 @@ export const designPhotoRendersRouter = router({
           imageRequestId: request.id,
           planFingerprint: request.planFingerprint,
           sceneSignature: request.sceneSignature,
-          provenance: request.provenance,
+          provenance: request.provenance as unknown as PhotoRenderProvenanceInput,
           originHeader: ctx.req.headers.origin,
         });
         if (eventId != null) {

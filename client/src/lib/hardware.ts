@@ -38,6 +38,8 @@ export interface HardwareStyle {
   label: string;
   /** One-line description for tooltips / build-sheet note. */
   description: string;
+  /** Exact catalog/manufacturer swatch or product image when one has been sourced. */
+  referenceUrl?: string | null;
   /** What goes on a door front. */
   doorPiece: "knob" | "pull" | "none";
   /** What goes on a drawer front. */

@@ -34,15 +34,15 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("40: \"/manus-storage/acorn_20mil_7_5x48_staggered_floor_3dbd212f.webp\"");
 	    expect(designToolSource).toContain("54: \"/manus-storage/astoria_22mil_9x60_staggered_floor_cd0a1cf7.webp\"");
 	    expect(designToolSource).not.toContain("?? selected.imageUrl");
-	    expect(designToolSource).toContain('key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}');
-	    expect(designToolSource).toContain('key={`active-surfaces-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${threeDSurfaceProductIds.backsplash ?? "none"}-${threeDSurfaceTextureUrls.backsplash ?? "pending"}`}');
+    expect(designToolSource).toContain('key={`active-surfaces-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${backsplashEnabled ? threeDSurfaceProductIds.backsplash ?? "none" : "off"}-${backsplashEnabled ? threeDSurfaceTextureUrls.backsplash ?? "pending" : "off"}`}');
+    expect(designToolSource).toContain('key={`active-surfaces-full-${threeDSurfaceProductIds.flooring ?? "none"}-${threeDSurfaceTextureUrls.flooring ?? "pending"}-${backsplashEnabled ? threeDSurfaceProductIds.backsplash ?? "none" : "off"}-${backsplashEnabled ? threeDSurfaceTextureUrls.backsplash ?? "pending" : "off"}`}');
 	    expect(designToolSource).toContain("Catalog product cards can be staged-room or retail photographs");
     expect(designToolSource).toContain("catalogCountertopImageUrl={threeDSurfaceTextureUrls.countertop}");
     expect(designToolSource).toContain("catalogFlooringImageUrl={threeDSurfaceTextureUrls.flooring}");
     expect(designToolSource).toContain("catalogFlooringCategory={threeDFlooringProductMetadata?.category}");
     expect(designToolSource).toContain("catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}");
 	    expect(designToolSource).toContain("catalogFlooringSize={threeDFlooringProductMetadata?.size}");
-	    expect(designToolSource).toContain("catalogBacksplashImageUrl={threeDSurfaceTextureUrls.backsplash}");
+    expect(designToolSource).toContain("catalogBacksplashImageUrl={backsplashEnabled ? threeDSurfaceTextureUrls.backsplash : null}");
 	    expect(rendererSource).toContain('threeDProductMaterialSource("backsplash", catalogBacksplashName, catalogBacksplashImageUrl, {');
 	    expect(rendererSource).toContain("productId: catalogBacksplashProductId");
 	    expect(designToolSource).toContain("const threeDSurfaceProductIds = useMemo(() =>");
@@ -51,7 +51,7 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(designToolSource).toContain("catalogIslandCountertopImageUrl={threeDIslandCountertop.imageUrl}");
 	    expect(designToolSource).toContain("catalogIslandCountertopColor={threeDIslandCountertop.color}");
     expect(designToolSource).toContain("catalogFlooringProductId={threeDSurfaceProductIds.flooring}");
-	    expect(designToolSource).toContain("catalogBacksplashProductId={threeDSurfaceProductIds.backsplash}");
+    expect(designToolSource).toContain("catalogBacksplashProductId={backsplashEnabled ? threeDSurfaceProductIds.backsplash : null}");
 	    expect(designToolSource).toContain("activeThreeDBacksplashId={activeBacksplashSurface?.id ?? null}");
 	    expect(designToolSource).toContain("onSetActiveThreeDBacksplash={setActiveBacksplashSurface}");
 	    expect(designToolSource).toContain("const removeFlooring = useCallback(() => {");
@@ -94,7 +94,7 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain('new THREE.PointLight("#ffdca6", 2.8');
   });
 
-	  it("records the Administration room scene without falsely representing it as an input to the exact 3D capture", () => {
+  it("records the Administration room scene without falsely representing it as an input to the exact 3D capture", () => {
 	    expect(designToolSource).toContain("catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}");
 	    expect(rendererSource).toContain('renderedAsBackdropOrGeometry: false');
 	    expect(rendererSource).toContain('purpose: "material-and-lighting-reference-only"');
@@ -102,6 +102,14 @@ describe("Designer programmed photoreal material wiring", () => {
 	    expect(rendererSource).toContain('data-testid="photo-quality-room-scene-not-applied"');
 	    expect(rendererSource).toContain("This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.");
 	    expect(rendererSource).toContain("threeDPhotoRenderDoorReferenceStatus");
-	    expect(rendererSource).toContain("threeDExactPlanGeometryLock");
-	  });
+    expect(rendererSource).toContain("threeDExactPlanGeometryLock");
+  });
+
+  it("requires a complete saved-plan material manifest and forwards exact references", () => {
+    expect(rendererSource).toContain("materialManifest");
+    expect(rendererSource).toContain("missingMaterialInputs");
+    expect(rendererSource).toContain("hardware/handles");
+    expect(rendererSource).toContain("Every visible saved-plan material has an exact labeled reference.");
+    expect(rendererSource).toContain("Generation blocked until these exact saved references are supplied");
+  });
 });
