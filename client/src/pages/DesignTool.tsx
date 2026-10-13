@@ -14725,7 +14725,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                     : tab === "accessory"
                     ? t("dt_tab_accessories")
                     : tab === "furniture"
-                    ? "Furniture"
+                    ? "Modern furniture"
                     : tab === "base"
                     ? t("dt_tab_base")
                     : tab === "wall"
@@ -14952,14 +14952,19 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	              />
 	            ) : paletteType === "furniture" ? (
               (() => {
-                const cats = ["table", "chair", "stool", "bench"] as const;
-                const catLabels: Record<string, string> = { table: "Tables", chair: "Chairs", stool: "Stools", bench: "Benches" };
-                return cats.map((cat) => {
-                  const items = FURNITURE_CATALOG.filter((f) => f.category === cat);
+                const sections = [
+                  { key: "modern", label: "Modern furniture props", items: FURNITURE_CATALOG.filter((f) => f.collection === "modern") },
+                  ...(["table", "chair", "stool", "bench"] as const).map((cat) => ({
+                    key: cat,
+                    label: ({ table: "Tables", chair: "Chairs", stool: "Stools", bench: "Benches" } as Record<string, string>)[cat],
+                    items: FURNITURE_CATALOG.filter((f) => !f.collection && f.category === cat),
+                  })),
+                ];
+                return sections.map(({ key, label, items }) => {
                   if (!items.length) return null;
                   return (
-                    <div key={cat} className="space-y-1.5">
-                      <div className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">{catLabels[cat]}</div>
+                    <div key={key} className="space-y-1.5">
+                      <div className="px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">{label}</div>
                       {items.map((def) => (
                         <button
                           key={def.id}

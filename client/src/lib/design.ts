@@ -14096,6 +14096,7 @@ export interface FurnitureDef {
   id: string;
   name: string;
   category: "table" | "chair" | "stool" | "bench" | "other" | "bathroom-fixture" | "bathroom-zone";
+  collection?: "classic" | "modern";
   shape: FurnitureShape;
   /** Width in inches (diameter for round items) */
   w: number;
@@ -14104,6 +14105,8 @@ export interface FurnitureDef {
   /** Recommended clearance around the item in inches */
   clearance: number;
   color: string;
+  /** Visual planning height in inches for generic modern props. */
+  height?: number;
   /** Exact Pelican source code when this is a measured bathroom fixture. */
   pelicanCode?: string;
 }
@@ -14121,6 +14124,13 @@ export const FURNITURE_CATALOG: FurnitureDef[] = [
   { id: "stool-counter", name: "Counter Stool",           category: "stool", shape: "round", w: 16, d: 16, clearance: 0,  color: "#6b5b45" },
   { id: "bench-48",      name: 'Bench 48"',               category: "bench", shape: "rect",  w: 48, d: 14, clearance: 0,  color: "#7a6a50" },
   { id: "bench-60",      name: 'Bench 60"',               category: "bench", shape: "rect",  w: 60, d: 14, clearance: 0,  color: "#7a6a50" },
+  // Modern furniture props are visual planning items: movable, saveable, and rendered in plan/3D.
+  { id: "modern-sofa-84",       name: 'Modern Sofa 84"',         category: "other", collection: "modern", shape: "rect",  w: 84, d: 36, clearance: 30, color: "#7f8790", height: 32 },
+  { id: "modern-lounge-chair",  name: "Modern Lounge Chair",      category: "other", collection: "modern", shape: "rect",  w: 32, d: 34, clearance: 24, color: "#a88f78", height: 31 },
+  { id: "modern-coffee-table",  name: "Modern Coffee Table",      category: "table", collection: "modern", shape: "rect",  w: 48, d: 24, clearance: 24, color: "#5c4637", height: 16 },
+  { id: "modern-media-console", name: 'Modern Media Console 72"', category: "other", collection: "modern", shape: "rect",  w: 72, d: 18, clearance: 18, color: "#3f454c", height: 24 },
+  { id: "modern-floor-lamp",    name: "Modern Floor Lamp",        category: "other", collection: "modern", shape: "round", w: 14, d: 14, clearance: 12, color: "#c09b58", height: 64 },
+  { id: "modern-planter",       name: "Modern Planter",            category: "other", collection: "modern", shape: "round", w: 18, d: 18, clearance: 12, color: "#5b7b67", height: 24 },
   // Non-cartable, movable planning zones used only by the Bathroom starter.
   // These are intentionally not substitutes for actual source-priced fixtures.
   { id: "bathroom-zone-vanity-60", name: 'Vanity zone · 60"', category: "bathroom-zone", shape: "rect", w: 60, d: 24, clearance: 0, color: "#2f6690" },

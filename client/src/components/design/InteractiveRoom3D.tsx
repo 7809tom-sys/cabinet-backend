@@ -8692,7 +8692,7 @@ export function addFurniture(root: THREE.Group, furniture: PlacedFurniture, sele
     root.add(group);
     return;
   }
-  const height = def.category === "table" ? 2.5 : 1.5;
+  const height = def.height != null ? def.height * INCH : (def.category === "table" ? 2.5 : 1.5);
   const body = def.shape === "round"
     ? new THREE.Mesh(new THREE.CylinderGeometry(width / 2, width / 2, height, 20), material)
     : new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
