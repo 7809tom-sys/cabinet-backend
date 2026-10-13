@@ -12616,14 +12616,9 @@ function peninsulaVoidFillSurfaces(
     const run = id ? runs.find((candidate) => candidate.id === id) : null;
     return run ? peninsulaRootRunId(run, room) : null;
   };
-  const splitLevelRoots = new Set(
-    runs
-      .filter((run) => !run.parentRunId && run.countertopRaisedBar === true && run.wizardRecipe?.countertopTreatment === "split-level")
-      .map((run) => run.id),
-  );
   const items = surfaces
     .map((surface) => ({ surface, root: rootOf(surface), poly: countertopSurfacePlanPolygon(surface) }))
-    .filter((item) => item.root && !splitLevelRoots.has(item.root) && item.poly.length >= 3);
+    .filter((item) => item.root && item.poly.length >= 3);
   const fills: CountertopSurface[] = [];
   for (let i = 0; i < items.length; i += 1) {
     for (let j = i + 1; j < items.length; j += 1) {
@@ -12693,7 +12688,16 @@ function peninsulaVoidFillSurfaces(
       // The 3D peninsula renderer centers polygon vertices using linearInches.
       // Without it the renderer falls back to the entire parent run length,
       // translating this small infill far away from its actual plan position.
-      if (surface) fills.push({ ...surface, linearInches: surface.width, peninsulaRunIds: Array.from(new Set((A.surface.peninsulaRunIds ?? []).concat(B.surface.peninsulaRunIds ?? []))) });
+      if (surface) fills.push({
+        ...surface,
+        linearInches: surface.width,
+        peninsulaRunIds: Array.from(new Set([
+          ...(A.surface.peninsulaRunIds ?? []),
+          ...(A.surface.peninsulaRunId ? [A.surface.peninsulaRunId] : []),
+          ...(B.surface.peninsulaRunIds ?? []),
+          ...(B.surface.peninsulaRunId ? [B.surface.peninsulaRunId] : []),
+        ])),
+      });
     }
   }
   return fills;
@@ -13014,6 +13018,10 @@ export function countertopSurfaces(
   // This makes the 42-inch level exactly match the cabinet structure and its
   // 1½-inch finished edge, including each real 45° seam.
   const raisedBars = out.filter((surface) => {
+    // peninsulaVoidFillSurfaces adds a shared lower-level wedge owned by both
+    // runs. It must remain at the finished flat-top height, not be cloned into
+    // the 42-inch bar simply because it carries both run IDs.
+    if (surface.peninsulaRunIds?.length) return false;
     const ownerIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
     return ownerIds.some((id) => {
       const run = peninsulaRunById(room, id);

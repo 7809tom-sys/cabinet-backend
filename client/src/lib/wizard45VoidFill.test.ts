@@ -7,27 +7,29 @@ const countertopPolygonArea = (poly: { x: number; y: number }[]) =>
 const splitLevelLows = () => countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
 
 describe("Wizard 45-degree peninsula lower countertop", () => {
-  it("keeps only the two supported lower slabs and leaves the tiered void open", () => {
-    const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
-    const total = lows.reduce((sum: number, s: any) => sum + countertopPolygonArea(countertopSurfacePlanPolygon(s)), 0);
-    expect(lows).toHaveLength(2);
-    expect(total).toBeCloseTo(2448, 6);
+	it("adds a lower countertop fill across the tiered miter opening", () => {
+		const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
+		const total = lows.reduce((sum: number, s: any) => sum + countertopPolygonArea(countertopSurfacePlanPolygon(s)), 0);
+		expect(lows).toHaveLength(3);
+		expect(total).toBeCloseTo(2696.94535988955, 6);
   });
 });
 describe("Wizard 45-degree miter wedge winding", () => {
   it("is counter-clockwise like every other slab so its top face is visible", () => {
     const signed = (p: { x: number; y: number }[]) => p.reduce((sum, q, i) => { const n = p[(i + 1) % p.length]!; return sum + q.x * n.y - n.x * q.y; }, 0) / 2;
     const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
-    expect(lows.length).toBe(2);
+		expect(lows.length).toBe(3);
     for (const s of lows) expect(signed(countertopSurfacePlanPolygon(s))).toBeGreaterThan(0);
   });
 });
 
 describe("tiered Wizard peninsula void policy", () => {
-  it("preserves the intentional lower-level void instead of adding bridge fills", () => {
-    const lows = splitLevelLows();
-    expect(lows).toHaveLength(2);
-    expect(lows.every((surface: any) => surface.peninsulaRunIds?.length !== 0)).toBe(true);
+	it("fills the former lower-level opening with matching countertop", () => {
+		const lows = splitLevelLows();
+		expect(lows).toHaveLength(3);
+		expect(lows.every((surface: any) => surface.peninsulaRunIds?.length !== 0)).toBe(true);
+		const filled = lows.find((surface: any) => (surface.areaInches ?? 0) > 200 && (surface.areaInches ?? 0) < 300);
+		expect(filled).toMatchObject({ peninsulaRunIds: expect.arrayContaining(["peninsula_wizard_mv13btdx", "peninsula_wizard_mv13btdx_45_end"]) });
   });
 
   it("does not change ordinary peninsula void-fill geometry", () => {
@@ -48,20 +50,10 @@ describe("tiered Wizard peninsula void policy", () => {
       .filter((surface: any) => surface.raisedBar)
       .map((surface: any) => countertopSurfacePlanPolygon(surface));
     const base = structural(saved.placed as any);
-    const voidProbe = (placed: any[]) => {
-      const polygons = countertopSurfaces(placed, saved.room as any)
-        .filter((surface: any) => !surface.raisedBar)
-        .map((surface: any) => countertopSurfacePlanPolygon(surface));
-      return polygons.some((poly) => {
-        let hit = false;
-        for (let k = 0, m = poly.length - 1; k < poly.length; m = k++) {
-          const a = poly[k]!, b = poly[m]!;
-          if ((a.y > 57.9) !== (b.y > 57.9) && 105.4 < ((b.x - a.x) * (57.9 - a.y)) / (b.y - a.y) + a.x) hit = !hit;
-        }
-        return hit;
-      });
-    };
-    expect(voidProbe(saved.placed as any)).toBe(false);
+		const voidFillArea = (placed: any[]) => countertopSurfaces(placed, saved.room as any)
+			.filter((surface: any) => !surface.raisedBar && (surface.areaInches ?? 0) > 200 && (surface.areaInches ?? 0) < 300)
+			.reduce((sum: number, surface: any) => sum + (surface.areaInches ?? 0), 0);
+		expect(voidFillArea(saved.placed as any)).toBeCloseTo(248.94535988955, 6);
     for (const mode of modes.slice(1)) {
       const placed = [...(saved.placed as any[]), {
         uid: `qa-${mode}`,
@@ -78,7 +70,7 @@ describe("tiered Wizard peninsula void policy", () => {
         rangeTopType: mode,
       }];
       expect(structural(placed)).toEqual(base);
-      expect(voidProbe(placed)).toBe(false);
+			expect(voidFillArea(placed)).toBeCloseTo(248.94535988955, 6);
     }
   });
 });

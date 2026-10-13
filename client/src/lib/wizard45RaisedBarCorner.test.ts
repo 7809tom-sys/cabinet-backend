@@ -18,9 +18,10 @@ describe("Wizard 45-degree raised bar outer corner", () => {
     const straight = all.find((s) => s.raisedBar && countertopSurfacePlanPolygon(s).every((p) => p.x >= lowerMaxX - 0.5 || p.y > 47) )!;
     expect(straight).toBeTruthy();
   });
-  it("leaves the lower countertop on its supported segments and preserves the program void", () => {
-    const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
-    expect(lows.length).toBe(2);
+	it("keeps the supported segments and fills the program countertop opening", () => {
+		const lows = countertopSurfaces(saved.placed as any, saved.room as any).filter((s: any) => !s.raisedBar);
+		expect(lows.length).toBe(3);
+		expect(lows.some((surface: any) => (surface.areaInches ?? 0) > 200 && (surface.areaInches ?? 0) < 300)).toBe(true);
   });
 });
 import { readFileSync } from "node:fs";
