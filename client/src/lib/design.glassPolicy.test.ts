@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isGlassPolicyNomenclature, type PlacedCabinet } from "./design";
+import { glassCabinetPlacementAllowed, isGlassDoorCabinet, isGlassPolicyNomenclature, type PlacedCabinet } from "./design";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "./designCartLines";
 
 const glassCabinet = {
@@ -47,5 +47,13 @@ describe("distributor glass policy", () => {
     const included = { ...glassCabinet, glassIncluded: true };
     const [cartLine] = buildDesignCabinetCartLines({ placed: [included], ...pricing });
     expect(cartLine.name).toBe('24" Glass Door Wall Cabinet');
+  });
+  it("allows glass only in the wall layer and rejects floor placements", () => {
+    const glass = { masterCode: "CG-B24", description: "Crystal Glass cabinet", glassDoor: true };
+    expect(isGlassDoorCabinet(glass)).toBe(true);
+    expect(glassCabinetPlacementAllowed({ ...glass, placement: "wall" })).toBe(true);
+    for (const placement of ["base", "tall", "appliance"] as const) {
+      expect(glassCabinetPlacementAllowed({ ...glass, placement })).toBe(false);
+    }
   });
 });

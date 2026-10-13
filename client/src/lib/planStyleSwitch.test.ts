@@ -24,4 +24,11 @@ describe("plan style switch review eligibility", () => {
     const candidates = planStyleReviewCandidates(cabinets, 44, 44);
     expect(candidates.map((cabinet) => cabinet.masterCode)).toEqual(["B12"]);
   });
+  it("does not review or replace an individually locked cabinet", () => {
+    const candidates = planStyleReviewCandidates([
+      { cabinetId: 3, masterCode: "B36", styleId: 44, locked: true },
+      { cabinetId: 4, masterCode: "B24", styleId: 44, locked: false },
+    ], 44, 44);
+    expect(candidates.map((cabinet) => cabinet.masterCode)).toEqual(["B24"]);
+  });
 });

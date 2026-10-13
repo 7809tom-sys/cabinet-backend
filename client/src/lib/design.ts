@@ -2413,7 +2413,12 @@ export function isGlassDoorCabinet(cabinet: GlassDoorCabinetLike): boolean {
   const text = `${cabinet.description ?? ""} ${cabinet.subCategory ?? ""} ${cabinet.customProfile ?? ""}`.toLowerCase();
   return /GD$/.test(code) || /glass[ -]?door/.test(text) || /(?:^|_)glass(?:_|$)/.test(text);
 }
-
+/** Glass-front cabinet products are valid only in the wall layer. */
+export function glassCabinetPlacementAllowed(
+  cabinet: GlassDoorCabinetLike & { placement: Placement },
+): boolean {
+  return cabinet.placement === "wall" || !isGlassDoorCabinet(cabinet);
+}
 /**
  * Keep authored shelf fields primary. Some imported GD records describe their
  * shelves only in catalog prose (for example W2442GD: "3 Adjustable Shelves").

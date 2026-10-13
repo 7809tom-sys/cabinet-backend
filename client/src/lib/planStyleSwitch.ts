@@ -8,7 +8,7 @@ import { effectiveStyleId } from "@/lib/design";
  * dialog and prevents a designer from changing the selected door style.
  */
 export function planStyleReviewCandidates<
-  Cabinet extends { cabinetId: number; masterCode: string; styleId?: number | null },
+  Cabinet extends { cabinetId: number; masterCode: string; styleId?: number | null; locked?: boolean | null },
 >(
   cabinets: Cabinet[],
   formerStyleId: number | null,
@@ -18,6 +18,7 @@ export function planStyleReviewCandidates<
   return cabinets.filter(
     (cabinet) =>
       cabinet.cabinetId > 0 &&
+      cabinet.locked !== true &&
       !isClosetPart(cabinet.masterCode) &&
       effectiveStyleId(cabinet, designDefaultStyleId) === formerStyleId,
   );

@@ -138,7 +138,7 @@ import {
 	  formatEighthInches, formatInches, type WallGap, wallGaps, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, gapFillCandidatesByWidth, nextSmartGapPreviewIndex, withTemporarySmartGapPreview, isRangeHoodPlacement,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN,
 	  wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, baseOpeningOverlaps,
-	  elevationBox, isStacker, glassStackerParentPlacement, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
+  elevationBox, isStacker, isGlassDoorCabinet, glassCabinetPlacementAllowed, glassStackerParentPlacement, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, wallCabinetTopLine, bridgeMountBottomAboveWindow, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts,
   isRangeOrOven, isOverRangeMicrowave, isRefrigerator, isRefrigeratorWallCabinet, isHoodOverRangePair,
   fridgeCornerUpperDepth, isDiagonalCorner,
   isApplianceCode, isBaseHeightAppliance, convertLegacyCooktopPlacements, bearsCountertop, bearsIslandCountertop,
@@ -2956,6 +2956,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         : ((paletteCabinets as DesignCabinet[]) ?? []);
     const s = normalizePaletteSearch(paletteSearch);
     return source
+      .filter((c) => glassCabinetPlacementAllowed(c))
       .filter((c) => {
         // The unified Corner tab already merged the right items above; let them
         // all through here (group split happens in groupedPalette).
@@ -5436,8 +5437,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       // Floating shelves remain wall-mounted accessories even when a catalog
       // filter surfaces them from the Base tab. They must never inherit a base
       // run, an island face, or a room-center fallback from that filter state.
-	      const isAccessory = ((forceAccessory || paletteType === "accessory" || paletteType === "panel") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
-	      const accPlacement = isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
+      const isAccessory = ((forceAccessory || paletteType === "accessory" || paletteType === "panel") && isPlaceableAccessory(c)) || isFloatingShelf || isWallOpenShelf;
+      const accPlacement = isFloatingShelf || isWallOpenShelf ? "wall" : isAccessory ? accessoryPlacement(c) : c.placement;
+      if (!glassCabinetPlacementAllowed({ ...c, placement: accPlacement })) {
+        const message = `${c.masterCode} is a glass-front cabinet and can only be placed as a wall cabinet or wall stacker.`;
+        setPlacementWarning(message);
+        toast.error(message);
+        return;
+      }
       const isFlatPanel = isAccessory && isPanelItem(c);
       const isFillerAccessory = isAccessory && isFillerItem(c);
       const catalogDimensions = resolvedDesignCabinetDimensions(c);
@@ -8451,6 +8458,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         for (const wall of plan) {
           const side = wall.wallId as WallSide;
           for (const it of wall.items) {
+            if (!glassCabinetPlacementAllowed({ ...it, placement: it.placement as PlacedCabinet["placement"] })) continue;
             const width = it.width;
             const depth = it.placement === "wall" ? STD.WALL_DEPTH : STD.BASE_DEPTH;
             const height = it.placement === "wall" ? STD.WALL_HEIGHT : it.placement === "tall" ? STD.TALL_HEIGHT : STD.BASE_HEIGHT;
@@ -10475,10 +10483,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (slot === "A") {
       const formerDefaultStyleId = styleA ?? styleId;
       setPlaced((previous) => {
+        const lockedByUid = new Map(previous.filter((cabinet) => cabinet.locked === true).map((cabinet) => [cabinet.uid, cabinet]));
         const rebased = rebaseFormerDefaultStyleOverrides(previous, formerDefaultStyleId, newStyleId, styleB != null);
-        return styleB != null && formerDefaultStyleId != null
-          ? rebased.map((cabinet) => cabinet.styleId === formerDefaultStyleId ? { ...cabinet, styleId: newStyleId } : cabinet)
-          : rebased;
+        return rebased.map((cabinet) => {
+          const locked = lockedByUid.get(cabinet.uid);
+          if (locked) return locked;
+          return styleB != null && formerDefaultStyleId != null && cabinet.styleId === formerDefaultStyleId
+            ? { ...cabinet, styleId: newStyleId }
+            : cabinet;
+        });
       });
       setStyleA(newStyleId);
       if (activeSlot === "A" || noStyleYet) {
@@ -10488,7 +10501,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     } else {
       const formerSlotStyleId = styleB;
       if (formerSlotStyleId != null) {
-        setPlaced((previous) => previous.map((cabinet) => cabinet.styleId === formerSlotStyleId ? { ...cabinet, styleId: newStyleId } : cabinet));
+        setPlaced((previous) => previous.map((cabinet) => cabinet.locked === true
+          ? cabinet
+          : cabinet.styleId === formerSlotStyleId ? { ...cabinet, styleId: newStyleId } : cabinet));
       }
       setStyleB(newStyleId);
       if (activeSlot === "B" || noStyleYet) {
