@@ -9486,6 +9486,26 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const requestPhotoVerificationMutation = trpc.designPhotoRenders.requestPhoneVerification.useMutation();
   const confirmPhotoVerificationMutation = trpc.designPhotoRenders.confirmPhoneVerification.useMutation();
   useEffect(() => {
+    if (!import.meta.env.DEV || typeof window === "undefined") return;
+    const room = roomOverride ?? { width: 144, depth: 120, ceilingHeight: 96 } as RoomData;
+    const sceneItems = placed.map((item) => {
+      const sku = existingCabinetSku(item, room);
+      const transform = existingCabinetTransform(item, room);
+      const meshKind = sku.applianceRole === "countertop-opening"
+        ? /gas/i.test(sku.description ?? "") ? "cooktop-gas" : /induction/i.test(sku.description ?? "") ? "cooktop-induction" : /electric|smooth/i.test(sku.description ?? "") ? "cooktop-electric" : "cooktop-opening"
+        : sku.placementType === "appliance" ? "appliance" : sku.placementType ?? "cabinet";
+      return { uid: item.uid, code: item.masterCode, placement: item.placement, x: item.x, y: item.y, z: transform.z, width: Number(sku.width), depth: Number(sku.depth), height: Number(sku.height), mountBottom: sku.mountBottom, islandFace: item.islandFace ?? null, wallId: item.wallId ?? null, rotation: item.rotation ?? 0, mappedMeshKind: meshKind, skuPlacement: sku.placementType, applianceRole: sku.applianceRole ?? null };
+    });
+    const debugWindow = window as typeof window & { __cdDebug?: unknown; __cdDebugInstances?: Record<string, unknown> };
+    const instanceKey = embedded ? "embedded" : "native";
+    debugWindow.__cdDebugInstances = { ...(debugWindow.__cdDebugInstances ?? {}), [instanceKey]: {
+      sceneItems,
+      planItems: placed.map((item) => ({ uid: item.uid, code: item.masterCode, placement: item.placement, x: item.x, y: item.y, width: item.width, depth: item.depth, height: item.height, islandFace: item.islandFace ?? null, wallId: item.wallId ?? null })),
+      elevationItems: placed.map((item) => ({ uid: item.uid, code: item.masterCode, placement: item.placement, width: item.width, height: item.height, mountBottom: item.mountBottom ?? null, islandFace: item.islandFace ?? null })),
+    }};
+    debugWindow.__cdDebug = debugWindow.__cdDebugInstances;
+  }, [embedded, placed, roomOverride]);
+  useEffect(() => {
     if (!temporaryPreviewTransitionKey || typeof window === "undefined") { setTemporaryPreviewFading(false); return; }
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
     if (!threeDPreviewFadeAllowed(reducedMotion)) { setTemporaryPreviewFading(false); return; }

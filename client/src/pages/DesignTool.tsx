@@ -958,16 +958,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // sink base changes. This removes a stale elevated mount after a window is
   // deleted while preserving the minimum valid clearance when a window remains.
   useEffect(() => {
-    const normalized = normalizeGlassStackersToParentFronts(
-      normalizeStandardWallMounts(
-        normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(placed, openings, room)),
-        openings,
+    setPlaced((current) => normalizeGlassStackersToParentFronts(
+        normalizeStandardWallMounts(
+          normalizeWd18CountertopMounts(normalizeOverSinkWallMounts(current, openings, room)),
+          openings,
+          room,
+        ),
         room,
-      ),
-      room,
-    );
-    if (normalized !== placed) setPlaced(normalized);
-  }, [placed, openings, room]);
+      ));
+  }, [placed, openings, room, setPlaced]);
   // Trim toggles rendered in elevation + added to the BOM. Toe kick, crown,
   // light rail, and batten AUTO-APPLY based on their physical layout rules.
   // An arched valance is decorative and must be deliberately selected—having a
@@ -18009,7 +18008,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (legacyWithRangeTop) {
             const conversion = convertLegacyCooktopPlacements(
               placed.map((item) => item.uid === legacyWithRangeTop.uid ? legacyWithRangeTop : item),
-              ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
+              // The dedicated base query can still be pending when Attributes
+              // opens immediately after the catalog. The already-loaded active
+              // catalog is the same source of truth and avoids a false conflict.
+              (((autoFillCabinets as DesignCabinet[] | undefined)?.length
+                ? (autoFillCabinets as DesignCabinet[])
+                : ((liveMasterCabinets as DesignCabinet[] | undefined) ?? []))),
             );
             if (conversion.convertedCabinetUids.has(legacyWithRangeTop.uid)) {
               // Keep imperative placement consumers (history, move handlers, and

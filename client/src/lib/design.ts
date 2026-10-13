@@ -3818,6 +3818,18 @@ export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: 
       resolution.placed.push(candidate);
       continue;
     }
+    // A countertop-opening cooktop intentionally occupies the same plan bay as
+    // its supporting base box. It is a nested visual/appliance placement, not a
+    // second freestanding cabinet, so the generic overlap repair must not
+    // delete it immediately after a successful legacy-SB conversion.
+    const ownerUid = candidate.uid.endsWith(":cooktop") ? candidate.uid.slice(0, -":cooktop".length) : null;
+    const supportingBase = ownerUid
+      ? resolution.placed.find((item) => item.uid === ownerUid && item.placement === "base" && Math.abs(item.x - candidate.x) < COLLISION_EPSILON_IN && Math.abs(item.y - candidate.y) < COLLISION_EPSILON_IN && Math.abs(item.width - candidate.width) < COLLISION_EPSILON_IN && Math.abs(item.depth - candidate.depth) < COLLISION_EPSILON_IN && Math.abs(Number(item.rotation ?? 0) - Number(candidate.rotation ?? 0)) < COLLISION_EPSILON_IN && item.wallId === candidate.wallId && item.islandFace === candidate.islandFace)
+      : null;
+    if (candidate.placement === "appliance" && candidate.applianceRole === "countertop-opening" && supportingBase) {
+      resolution.placed.push(candidate);
+      continue;
+    }
     const appended = appendCollisionFreePlacements(resolution.placed, [candidate], room);
     resolution.placed = appended.placed;
     resolution.rejected.push(...appended.rejected);
@@ -4803,6 +4815,17 @@ export function conflictingUids(placed: PlacedCabinet[], room?: RoomData): Set<s
         (isSinkAppliance(a) && isSinkBaseCabinet(b)) ||
         (isSinkAppliance(b) && isSinkBaseCabinet(a));
       if (sinkOverSinkBase) continue;
+      const cooktopOverOwnBase = (cooktop: PlacedCabinet, base: PlacedCabinet) => (
+        cooktop.placement === "appliance"
+        && cooktop.applianceRole === "countertop-opening"
+        && cooktop.uid === `${base.uid}:cooktop`
+        && base.placement === "base"
+        && Math.abs(cooktop.x - base.x) < COLLISION_EPSILON_IN
+        && Math.abs(cooktop.y - base.y) < COLLISION_EPSILON_IN
+        && Math.abs(cooktop.width - base.width) < COLLISION_EPSILON_IN
+        && Math.abs(cooktop.depth - base.depth) < COLLISION_EPSILON_IN
+      );
+      if (cooktopOverOwnBase(a, b) || cooktopOverOwnBase(b, a)) continue;
       // EXEMPTION: a bridge (short) wall cabinet mounted over an over-range
       // microwave/hood is the intended layout, so it must never be flagged.
       if (isBridgeOverRange(a, b)) continue;

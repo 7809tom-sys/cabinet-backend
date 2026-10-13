@@ -3,6 +3,7 @@ import {
   convertLegacyCooktopPlacements,
   countertopArea,
   isBaseHeightAppliance,
+  removeOverlappingPlacements,
   type DesignCabinet,
   type PlacedCabinet,
 } from "./design";
@@ -41,6 +42,19 @@ const standardBase = ({ width = 36 } = {}) => ({
 }) as unknown as DesignCabinet;
 
 describe("convertLegacyCooktopPlacements", () => {
+  it("preserves an owned cooktop over its exact supporting base, but not a mismatched bay", () => {
+    const converted = convertLegacyCooktopPlacements([base({ sinkTopType: "gas" })], [standardBase()]);
+    const cooktop = converted.placed.find((item) => item.applianceRole === "countertop-opening")!;
+    expect(removeOverlappingPlacements(converted.placed).placed.map((item) => item.uid)).toEqual([
+      "sb-36",
+      "sb-36:cooktop",
+    ]);
+    expect(removeOverlappingPlacements([
+      converted.placed[0]!,
+      { ...cooktop, x: 12 },
+    ]).placed.map((item) => item.uid)).toEqual(["sb-36"]);
+  });
+
   it("keeps the applied cooktop in the plan, elevation, and 3D placement contract", () => {
     const converted = convertLegacyCooktopPlacements([base({ sinkTopType: "gas" })], [standardBase()]);
     const cooktop = converted.placed.find((item) => item.applianceRole === "countertop-opening");
