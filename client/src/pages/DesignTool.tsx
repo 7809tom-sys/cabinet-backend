@@ -9163,6 +9163,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		    setPlaced((prev) => {
 		      const cabinet = prev.find((p) => p.uid === uid);
 		      if (!cabinet) return prev;
+		      if (cabinet.locked) {
+		        toast.info(`${cabinet.masterCode} is locked — unlock it before moving.`);
+		        return prev;
+		      }
 		      const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 		      const workingPrev = prev.filter((item) => item.fillerPieceGroupId !== requiredFillerGroupId);
 		      // ONE engine for every wall. The requested plan point is projected onto
@@ -9324,13 +9328,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // bypasses magnetic seam attraction, while `moveCabinet` remains the single
   // authority for bounds, collisions, sink fixtures, refrigerator assemblies,
   // and blind-corner fillers.
-  const setCabinetWallOffset = useCallback((uid: string, requestedOffsetIn: number) => {
-    if (cabinetsLocked) {
+	  const setCabinetWallOffset = useCallback((uid: string, requestedOffsetIn: number) => {
+	    if (cabinetsLocked) {
       toast.error("Cabinets are locked. Unlock the layout before changing a measured position.");
       return;
-    }
-    const cabinet = placedRef.current.find((item) => item.uid === uid);
-    if (!cabinet || cabinet.islandFace) return;
+	    }
+	    const cabinet = placedRef.current.find((item) => item.uid === uid);
+	    if (!cabinet || cabinet.islandFace) return;
+	    if (cabinet.locked) { toast.info(`${cabinet.masterCode} is locked — unlock it before moving.`); return; }
 	    if (isProtectedCornerCabinet(cabinet.masterCode, cabinet.description) && !cabinet.cornerSnapUnlocked) {
       toast.error(`${cabinet.masterCode} is locked to its seated corner. Use Unlock first before moving it along a wall.`);
       return;
@@ -9344,11 +9349,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     moveCabinet(uid, spot.x, spot.y, spot.rotation, true, { wallId: side, wallOffset: offset });
   }, [cabinetsLocked, moveCabinet, room]);
 
-  const swingSelected = () => {
-    if (!selectedUid) return;
-    setPlaced((prev) =>
-      prev.map((p) => {
-        if (p.uid !== selectedUid) return p;
+	  const swingSelected = () => {
+	    if (!selectedUid) return;
+	    setPlaced((prev) =>
+	      prev.map((p) => {
+	        if (p.uid !== selectedUid) return p;
+	        if (p.locked) { toast.info(`${p.masterCode} is locked — unlock it before changing the door swing.`); return p; }
         if (!hasDoorSwing(p)) {
           toast.info(t("dt_t_no_door_swing"));
           return p;
@@ -9365,11 +9371,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     );
   };
 
-		  const rotateSelected = () => {
-		    if (!selectedUid) return;
+	  const rotateSelected = () => {
+	    if (!selectedUid) return;
 	    setPlaced((prev) =>
-      prev.map((p) => {
-        if (p.uid !== selectedUid) return p;
+	      prev.map((p) => {
+	        if (p.uid !== selectedUid) return p;
+	        if (p.locked) { toast.info(`${p.masterCode} is locked — unlock it before rotating.`); return p; }
         const owningWall = p.wallId ? wallRunFrame(p.wallId, room) : null;
         if (owningWall && !p.islandFace && !isCornerCabinet(p.masterCode, p.description)) {
           // A cabinet seated to a wall never rotates square to the screen. The
@@ -9474,13 +9481,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     );
   }, [cabinetsLocked]);
 
-  const deleteSelected = () => {
+	  const deleteSelected = () => {
     // Cabinet selection takes priority; otherwise delete a selected sink,
     // wall opening, or pony wall so EVERY selectable object on the canvas is
     // removable from the same Delete control (mobile toolbar + Delete/Backspace key).
-    if (selectedUid) {
-      if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
-	      requestCabinetDeletion(selectedUid);
+	    if (selectedUid) {
+	      if (cabinetsLocked) { toast.info("Cabinets are locked — click \"Lock Cabs\" to unlock first"); return; }
+	      if (placedRef.current.find((p) => p.uid === selectedUid)?.locked) { toast.info("This cabinet is locked — unlock it before deleting."); return; }
+		      requestCabinetDeletion(selectedUid);
       return;
     }
     if (selectedSinkUid) {
@@ -9507,6 +9515,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		    if (!selectedUid) return;
 		    const current = placedRef.current.find((item) => item.uid === selectedUid);
 		    if (!current) return;
+		    if (current.locked) { toast.info(`${current.masterCode} is locked — unlock it before moving.`); return; }
 		    const seatedWall = current.wallId ? wallRunFrame(current.wallId, room) : null;
 		    if (seatedWall && !current.islandFace) {
 		      // The compact arrow controls are screen arrows, but a cabinet attached to
@@ -9554,6 +9563,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      const current = prev.find((p) => p.uid === uid);
 	      const isKneeDrawer = current?.placement === "baseTop" && isKneeDrawerItem(current);
 	      if (!current || (current.placement !== "wall" && !isKneeDrawer)) return prev;
+	      if (current.locked) { toast.info(`${current.masterCode} is locked — unlock it before editing dimensions.`); return prev; }
 	      const limit = current.placement === "wall" ? wallCabinetVerticalMoveLimit(current, room) : null;
 		      const bounded = isKneeDrawer
 		        ? Math.max(KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, Math.min(KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, Math.round(mountBottom * 8) / 8))
@@ -9584,6 +9594,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      return { status: "blocked", message };
 	    };
 	    if (!cabinet) return blocked("The selected cabinet is no longer in this design. Select it again and retry the move.");
+	    if (cabinet.locked) return blocked(`${cabinet.masterCode} is locked — unlock it before moving.`);
 		    const requiredFillerGroupId = requiredBlindCornerFillerGroupId(cabinet);
 		    const placedWithoutLinkedFiller = prev.filter(
 		      (item) => item.fillerPieceGroupId !== requiredFillerGroupId,
@@ -9726,12 +9737,27 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // ─── Per-cabinet door / hardware attributes (right-click dialog) ────────────
   // Update one attribute on a SPECIFIC cabinet by uid (the dialog edits the
   // cabinet it was opened on, which may not be the keyboard-selected one).
-  const setCabAttr = useCallback(
-    (uid: string, patch: Partial<PlacedCabinet>) => {
-      setPlaced((prev) => prev.map((p) => (p.uid === uid ? { ...p, ...patch } : p)));
-    },
-    []
-  );
+	  const setCabAttr = useCallback(
+	    (uid: string, patch: Partial<PlacedCabinet>) => {
+	      setPlaced((prev) => prev.map((p) => {
+	        if (p.uid !== uid) return p;
+	        if (p.locked) {
+	          toast.info(`${p.masterCode} is locked — unlock it before changing attributes.`);
+	          return p;
+	        }
+	        return { ...p, ...patch };
+	      }));
+	    },
+	    []
+	  );
+	  const toggleCabinetLock = useCallback((uid: string) => {
+	    setPlaced((prev) => prev.map((p) => {
+	      if (p.uid !== uid) return p;
+	      const locked = !p.locked;
+	      toast.success(`${p.masterCode} ${locked ? "locked" : "unlocked"}.`);
+	      return { ...p, locked };
+	    }));
+	  }, []);
 
   // Right-click attributes dialog (email item 1). Opening it selects the cabinet
   // so the existing selected-based size/swing handlers operate on it.
@@ -10187,6 +10213,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
+        if (p.locked) { toast.info(`${p.masterCode} is locked — unlock it before editing dimensions.`); return p; }
         const fillerRange = fillerWidthRange(p);
         const minWidth = fillerRange?.min ?? MIN_W;
         const maxWidth = fillerRange?.max ?? MAX_W;
@@ -10239,7 +10266,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const MIN_H = 6;
     const MAX_H = 96;
     const next = Math.max(MIN_H, Math.min(MAX_H, Math.round(nextRaw * 10) / 10));
-    setPlaced((prev) => prev.map((p) => (p.uid === selectedUid ? { ...p, height: next } : p)));
+    setPlaced((prev) => prev.map((p) => {
+      if (p.uid !== selectedUid) return p;
+      if (p.locked) { toast.info(`${p.masterCode} is locked — unlock it before editing dimensions.`); return p; }
+      return { ...p, height: next };
+    }));
   }, [selectedUid]);
 
   const adjustHeight = useCallback((deltaIn: number) => {
@@ -10265,6 +10296,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPlaced((prev) =>
       prev.map((p) => {
         if (p.uid !== selectedUid) return p;
+        if (p.locked) { toast.info(`${p.masterCode} is locked — unlock it before editing dimensions.`); return p; }
         const next = Math.max(MIN_D, Math.min(MAX_D, Math.round(nextRaw * 10) / 10));
 	        const resized = { ...p, depth: next };
 	        const peers = prev.filter((c) => c.uid !== p.uid);
@@ -13751,6 +13783,22 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   onClick={() => setCompactMoveControlsOpen((open) => !open)}
                 >
                   <Move className="h-3.5 w-3.5" /> Move
+                </Button>
+              )}
+              {!measureMode && (
+                <Button
+                  type="button"
+                  data-testid="tablet-cabinet-lock-toggle"
+                  variant={selectedCab.locked ? "default" : "outline"}
+                  size="sm"
+                  className={`h-8 shrink-0 gap-1 px-2.5 text-xs font-semibold ${selectedCab.locked ? "bg-amber-600 text-white hover:bg-amber-700" : ""}`}
+                  aria-pressed={Boolean(selectedCab.locked)}
+                  aria-label={selectedCab.locked ? `Unlock ${selectedCab.masterCode}` : `Lock ${selectedCab.masterCode}`}
+                  title={selectedCab.locked ? "Unlock this cabinet so it can be moved or edited" : "Lock this cabinet in place and protect its attributes"}
+                  onClick={() => toggleCabinetLock(selectedCab.uid)}
+                >
+                  {selectedCab.locked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                  {selectedCab.locked ? "Unlock" : "Lock"}
                 </Button>
               )}
               {!isMobile && !measureMode && (
@@ -17988,6 +18036,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           layoutVisual?: typeof layoutCooktopVisuals["gas"],
         ) => {
           const cab = placed.find((item) => item.uid === sinkBaseDialog.cabinetUid);
+          if (cab?.locked) {
+            toast.info(`${cab.masterCode} is locked — unlock it before adding an appliance top.`);
+            return;
+          }
           const previousSurfaceIds = new Set([cab?.sinkTopProductId, cab?.faucetProductId].filter((id): id is number => typeof id === "number"));
           setSinks((prevSinks) => prevSinks.filter((existingSink) => !cab || !fixtureBelongsToCabinet(existingSink, cab)));
           if (previousSurfaceIds.size > 0) {

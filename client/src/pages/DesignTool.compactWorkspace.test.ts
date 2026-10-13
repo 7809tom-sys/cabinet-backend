@@ -104,6 +104,16 @@ describe("Designer Compact Workspace", () => {
     expect(source).toContain("Open every property for this cabinet, including exact wall position and corner clearance");
   });
 
+  it("puts a touch-safe Lock/Unlock action beside the selected cabinet controls", () => {
+    expect(source).toContain('data-testid="tablet-cabinet-lock-toggle"');
+    expect(source).toContain("!measureMode && (");
+    expect(source).toContain("aria-pressed={Boolean(selectedCab.locked)}");
+    expect(source).toContain("toggleCabinetLock(selectedCab.uid)");
+    expect(source).toContain('selectedCab.locked ? "Unlock" : "Lock"');
+    expect(source).toContain("if (cabinet.locked)");
+    expect(source).toContain("if (current.locked)");
+  });
+
   it("uses a broad tablet overlay and two-column cabinet browsing instead of a narrow catalog panel", () => {
     expect(source).toContain('w-[min(840px,96vw)]');
     expect(source).toContain('className={isCompactWorkspace ? "grid grid-cols-2 gap-2" : undefined}');
