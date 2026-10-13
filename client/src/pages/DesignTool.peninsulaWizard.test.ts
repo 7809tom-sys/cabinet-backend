@@ -81,7 +81,7 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('const hasChildFortyFiveReturn = Boolean((nextRoom.peninsulaRuns ?? []).some((candidate) => (');
     expect(source).toContain('const itemsForSegment = hasChildFortyFiveReturn && plan.items.at(-1)?.isFiller');
     expect(source).toContain('const miterRepair = repairMissingAngledWallFillers(working, nextRoom, catalogFillers, makeUid, styleIdRef.current ?? null);');
-    expect(source).toContain('The 135° joint needs a matching catalog filler pair on this line. No peninsula was added;');
+    expect(source).toContain('The 135° joint needs a matching catalog filler pair on this line. No peninsula was added.');
     expect(source).toContain('At the 135° joint formed by this 45° return, the Wizard adds the required pair of real selected-line filler boards');
   });
 
@@ -106,8 +106,24 @@ describe("Peninsula Wizard", () => {
     expect(source).toContain('previous.filter((item) => !item.uid.startsWith(`peninsula-stool:${wizardRootId}:`))');
     expect(source).toContain('const ordinaryCabinetOnExistingReturn = existingFortyFiveReturn && placed.some((cabinet) => (');
     expect(source).toContain('This 45° return has an ordinary cabinet. Keep its turn and direction');
-    expect(source).toContain('Any ordinary cabinet on this run was kept; move it or choose a non-overlapping Wizard sequence.');
+    expect(source).toContain('const ordinarySupportBlock = peninsulaWizardEditBlockReason(room, placed, editingPeninsulaWizardRootId, layoutRuns);');
+    expect(source).toContain('if (ordinarySupportBlock) { failWizard(ordinarySupportBlock); return; }');
     expect(source).toContain('Only the Wizard-owned assembly was replaced; ordinary cabinets were kept.');
+  });
+
+  it("never first-fits selected cabinets past an obstacle or silently drops unavailable choices", () => {
+    expect(source).toContain('let selectedOffset = segment.start;');
+    expect(source).toContain('const seatBounds = { start: selectedOffset, end: selectedOffset };');
+    expect(source).toContain('selectedOffset += width;');
+    expect(source).toContain('resolvePeninsulaWizardSelection(');
+    expect(source).toContain('data-testid="peninsula-wizard-missing-items"');
+    expect(source).toContain('peninsulaWizardMissingIds.length > 0');
+  });
+
+  it("rebinds surviving configured sinks and removes fixtures with deleted cabinet owners", () => {
+    expect(source).toContain('reconcilePeninsulaWizardSinks(sinks, placed, working, wizardRootId)');
+    expect(source).toContain('setSinks([...retainedWizardSinks, ...seeded]);');
+    expect(source).toContain('removeSinksOwnedByCabinets(previous, outgoingCabinets)');
   });
 
   it("identifies an editable Wizard-built run directly in its Attributes panel", () => {

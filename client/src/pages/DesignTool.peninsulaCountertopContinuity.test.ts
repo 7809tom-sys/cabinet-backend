@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(process.cwd(), "client/src/pages/Des
 
 describe("connected peninsula countertop continuity", () => {
 	it("activates the perimeter countertop when any real base or corner support is placed", () => {
-	  expect(source).toContain('isApplianceCode, bearsCountertop, bearsIslandCountertop');
+	  expect(source).toContain('bearsCountertop, bearsIslandCountertop');
 	  expect(source).toContain('if (!requestedIslandFace && bearsCountertop(finalCab)) setCountertop(true);');
 	  expect(source).toContain('() => !!island || placed.some((p) => bearsCountertop(p))');
 	  expect(source).toContain('const countertopSupportCount = useMemo(');

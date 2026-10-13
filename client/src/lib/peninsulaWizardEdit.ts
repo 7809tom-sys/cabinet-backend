@@ -66,6 +66,7 @@ function recipeDraft(root: PeninsulaRun): PeninsulaWizardEditDraft | null {
     applianceCode: recipe.applianceCode === "DW-24" || recipe.applianceCode === "WINE-24" ? recipe.applianceCode : "none",
     seatingOverhang: recipe.seatingOverhang === 10 || recipe.seatingOverhang === 12 || recipe.seatingOverhang === 15 ? recipe.seatingOverhang : 0,
     waterfall: Boolean(recipe.waterfall),
+    ...(recipe.corbels !== undefined ? { corbels: recipe.corbels === true } : {}),
     addPonyWall: Boolean(recipe.addPonyWall),
     ponyWallLength: numberValue(recipe.ponyWallLength, 36),
     ponyWallHeight: numberValue(recipe.ponyWallHeight, 34.5),

@@ -10329,6 +10329,8 @@ export interface CountertopSurface {
 	supportWallId?: WallSide;
 	/** Stable physical cabinet run represented by this single countertop piece. */
 	cabinetRunId?: string;
+  /** Lower-only structural fill at a peninsula miter, never a raised-bar source. */
+  peninsulaMiterInfill?: boolean;
   /** Along-wall start for a measured continuous-wall countertop piece. */
   customWallRunStartIn?: number;
   /** Exact continuous-wall IDs joined by a physical countertop miter bridge. */
@@ -12691,6 +12693,7 @@ function peninsulaVoidFillSurfaces(
       if (surface) fills.push({
         ...surface,
         linearInches: surface.width,
+        peninsulaMiterInfill: true,
         peninsulaRunIds: Array.from(new Set([
           ...(A.surface.peninsulaRunIds ?? []),
           ...(A.surface.peninsulaRunId ? [A.surface.peninsulaRunId] : []),
@@ -13020,8 +13023,9 @@ export function countertopSurfaces(
   const raisedBars = out.filter((surface) => {
     // peninsulaVoidFillSurfaces adds a shared lower-level wedge owned by both
     // runs. It must remain at the finished flat-top height, not be cloned into
-    // the 42-inch bar simply because it carries both run IDs.
-    if (surface.peninsulaRunIds?.length) return false;
+    // the 42-inch bar. Merged real run slabs also carry both IDs, so ownership
+    // alone cannot distinguish them from the lower-only structural infill.
+    if (surface.peninsulaMiterInfill) return false;
     const ownerIds = surface.peninsulaRunIds ?? (surface.peninsulaRunId ? [surface.peninsulaRunId] : []);
     return ownerIds.some((id) => {
       const run = peninsulaRunById(room, id);

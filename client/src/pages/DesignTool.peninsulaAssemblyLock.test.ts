@@ -10,7 +10,8 @@ describe("peninsula assembly lock", () => {
     expect(designTool).toContain("Lock peninsula assembly");
     expect(designTool).toContain("togglePeninsulaAssemblyLock");
     expect(designTool).toContain("Peninsula locked — its wall attachment and connected returns are frozen.");
-    expect(designTool).toContain('data-testid={`toggle-peninsula-lock-${run.id}`}');
+    expect(designTool).toContain('id="peninsula-assembly-lock-toggle"');
+    expect(designTool).toContain('aria-label="Lock peninsula assembly against accidental movement"');
   });
 
   it("blocks accidental attachment movement, return creation, deletion, and saved geometry edits until unlocked", () => {
@@ -19,6 +20,8 @@ describe("peninsula assembly lock", () => {
     expect(designTool).toContain("Unlock this peninsula before adding a connected return.");
     expect(designTool).toContain("Unlock this peninsula before deleting a run or connected return.");
     expect(designTool).toContain("Unlock this peninsula before changing its attachment, turn, direction, or length.");
+    expect(designTool).toContain('const editBlockReason = peninsulaWizardEditBlockReason(room, placed, editingPeninsulaWizardRootId);');
+    expect(designTool).toContain('if (editBlockReason) { failWizard(editBlockReason); return; }');
   });
 
   it("removes the drag affordance and labels the selected run as locked in plan view", () => {

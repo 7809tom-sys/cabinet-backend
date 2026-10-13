@@ -68,6 +68,16 @@ describe("editable Peninsula Wizard ownership", () => {
     expect(editablePeninsulaWizard(room, "peninsula_wizard_recipe")).toBeNull();
   });
 
+  it("keeps optional corbels enabled when reopening a saved Wizard recipe", () => {
+    const room = roomWithWizard();
+    room.peninsulaRuns![0]!.wizardRecipe = { ...recipe, corbels: true };
+    expect(editablePeninsulaWizard(room, "peninsula_wizard_recipe")?.draft.corbels).toBe(true);
+  });
+
+  it("keeps legacy recipes without corbels unchanged", () => {
+    expect(editablePeninsulaWizard(roomWithWizard(), "peninsula_wizard_recipe")?.draft.corbels).toBeUndefined();
+  });
+
   it("preserves a later shared attachment move when reopening the recipe", () => {
     const room = roomWithWizard();
     room.peninsulaRuns![0] = {
