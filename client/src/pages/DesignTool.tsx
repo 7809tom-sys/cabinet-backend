@@ -207,7 +207,7 @@ import { buildMaterialsListRows, type MaterialsListSupplement } from "@/lib/desi
 import { RoomSizeControl, RoomSizeInline } from "@/components/design/RoomSizeControl";
 import { RoomLayoutStarter } from "@/components/design/RoomLayoutStarter";
 import type { WallBuilderDraft } from "@/components/design/WallBuilder";
-import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult, type WindowSceneKind } from "@/components/design/InteractiveRoom3D";
+import { InteractiveRoom3D, threeDCrownPerimeterSegments, threeDBacksplashSegments, threeDWallFitGuideText, type InteractiveRoomCatalogItem, type InteractiveRoomOrderLine, type InteractiveRoomOrderSummary, type InteractiveRoomScene, type ThreeDCabinetMoveDirection, type ThreeDCabinetMoveResult, type WindowSceneKind, type WindowFrameStyle } from "@/components/design/InteractiveRoom3D";
 import { crownTakeoffFromExposedSegments } from "@/lib/crownTakeoff";
 import { hasDesignedRoomGeometry, initialDesignWorkspaceView, threeDLeftCatalogDragPayload } from "./designTool3DWorkspace";
 import { nearestFreeWallDropStart, targetedLowerCabinetForThreeDDrop, targetedSinkBaseForThreeDDrop, type ThreeDWallDropTarget } from "./designTool3DDropPlacement";
@@ -672,6 +672,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const [requestedThreeDPreview, setRequestedThreeDPreview] = useState(() => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preview") === "3d");
   const [interactive3dPresentation, setInteractive3dPresentation] = useState<{ cabinetFinish: string; countertopFinish: string } | null>(null);
   const [windowSceneKind, setWindowSceneKind] = useState<WindowSceneKind>("daylight");
+  const [windowFrameStyle, setWindowFrameStyle] = useState<WindowFrameStyle>("white");
 
   // Room + placement state
   const [room, setRoom] = useState<RoomData>(DEFAULT_ROOM);
@@ -1934,10 +1935,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const threeDPresentationForSave = useMemo(() => ({
     ...(interactive3dPresentation ?? {}),
     windowScene: windowSceneKind,
+    windowFrameStyle,
     backsplashEnabled,
     backsplashHeightMode,
     countertopBacksplashHeightIn,
-  }), [interactive3dPresentation, windowSceneKind, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn]);
+  }), [interactive3dPresentation, windowSceneKind, windowFrameStyle, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn]);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
   // Flooring layout pattern: how planks are arranged (random stagger, 1/3 offset, diagonal, herringbone).
@@ -10880,7 +10882,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     const room = (savedDesign.roomData ?? null) as RoomData | null;
     const placedCabs = (savedDesign.placedCabinets ?? null) as PlacedCabinet[] | null;
     const savedSurfaces = (savedDesign as { selectedSurfaces?: SelectedSurface[] | null }).selectedSurfaces;
-    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string; windowScene?: WindowSceneKind; backsplashEnabled?: boolean; backsplashHeightMode?: "standard" | "full-height"; countertopBacksplashHeightIn?: 0 | 2.5 | 3 } | null }).threeDPresentation;
+    const savedPresentation = (savedDesign as { threeDPresentation?: { cabinetFinish?: string; countertopFinish?: string; windowScene?: WindowSceneKind; windowFrameStyle?: WindowFrameStyle; backsplashEnabled?: boolean; backsplashHeightMode?: "standard" | "full-height"; countertopBacksplashHeightIn?: 0 | 2.5 | 3 } | null }).threeDPresentation;
     loadSavedDesign({
       room: room ?? DEFAULT_ROOM,
       placed: Array.isArray(placedCabs) ? placedCabs : [],
@@ -10903,8 +10905,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (savedPresentation?.countertopBacksplashHeightIn === 2.5 || savedPresentation?.countertopBacksplashHeightIn === 3) {
       setCountertopBacksplashHeightIn(savedPresentation.countertopBacksplashHeightIn);
     }
-    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "garden" || savedPresentation?.windowScene === "woodland" || savedPresentation?.windowScene === "coastal" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
+    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "garden" || savedPresentation?.windowScene === "woodland" || savedPresentation?.windowScene === "coastal" || savedPresentation?.windowScene === "urban" || savedPresentation?.windowScene === "mountain" || savedPresentation?.windowScene === "night" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
       setWindowSceneKind(savedPresentation.windowScene);
+    }
+    if (savedPresentation?.windowFrameStyle === "white" || savedPresentation?.windowFrameStyle === "black" || savedPresentation?.windowFrameStyle === "wood") {
+      setWindowFrameStyle(savedPresentation.windowFrameStyle);
     }
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
   }, [loadDesignId, savedDesign, loadSavedDesign]);
@@ -12148,6 +12153,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
 	      catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
 	      windowSceneKind={windowSceneKind}
+      windowFrameStyle={windowFrameStyle}
       catalogDoorProfile={activeStyle ? (() => {
 	        const styleProfile = activeStyle as typeof activeStyle & {
 	          railWidth?: string | number | null; stileWidth?: string | number | null;
@@ -12328,6 +12334,17 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         <label className="hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
           <span className="text-muted-foreground">Window</span>
           <select
+            value={windowFrameStyle}
+            onChange={(event) => setWindowFrameStyle(event.target.value as WindowFrameStyle)}
+            className="h-7 bg-transparent text-xs font-semibold outline-none"
+            aria-label="Window frame style"
+            data-testid="window-frame-style-selector"
+          >
+            <option value="white">White frame</option>
+            <option value="black">Black frame</option>
+            <option value="wood">Wood frame</option>
+          </select>
+          <select
             value={windowSceneKind}
             onChange={(event) => setWindowSceneKind(event.target.value as WindowSceneKind)}
             className="h-7 bg-transparent text-xs font-semibold outline-none"
@@ -12338,6 +12355,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <option value="garden">Garden photo</option>
             <option value="woodland">Woodland photo</option>
             <option value="coastal">Coastal photo</option>
+            <option value="urban">Urban photo</option>
+            <option value="mountain">Mountain photo</option>
+            <option value="night">Night photo</option>
             <option value="suburban">Suburban view</option>
             <option value="privacy">Privacy glass</option>
           </select>
@@ -19312,6 +19332,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
 	                catalogRoomSceneUrl={active3DRoomSceneReferenceUrl}
 	                windowSceneKind={windowSceneKind}
+	                windowFrameStyle={windowFrameStyle}
 	                catalogDoorProfile={activeStyle ? (() => {
 	                  const styleProfile = activeStyle as typeof activeStyle & {
 	                    railWidth?: string | number | null; stileWidth?: string | number | null;
