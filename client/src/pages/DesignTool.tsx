@@ -17994,16 +17994,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (previousSurfaceIds.size > 0) {
             setSelectedSurfaces((prevSurfaces) => prevSurfaces.filter((surface) => !previousSurfaceIds.has(surface.id)));
           }
-          const legacyWithRangeTop = cab ? {
-            ...cab,
+	          const legacyWithRangeTop = cab ? {
+	            ...cab,
             sinkTopType: type,
             sinkTopProductId: product?.id ?? null,
             faucetProductId: null,
             faucetImageUrl: null,
             sinkImageUrl: null,
             rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null,
-            applianceCatalogCode: product?.pelicanCode ?? product?.slug ?? null,
-            applianceCatalogName: product?.name ?? layoutVisual?.label ?? null,
+	            applianceCatalogCode: product?.pelicanCode ?? product?.slug ?? `CATALOG-APPLIANCE-${type}`,
+	            applianceCatalogName: product?.name ?? layoutVisual?.label ?? `${type[0]!.toUpperCase()}${type.slice(1)} cooktop`,
             applianceCatalogPrice: product?.sellPrice ?? null,
           } : null;
           if (legacyWithRangeTop) {

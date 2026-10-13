@@ -469,8 +469,9 @@ export function isBaseHeightAppliance(p: {
   if (p.applianceRole === "countertop-opening" || p.applianceRole === "freestanding") return false;
   const category = `${p.category ?? ""}`.trim().toLowerCase();
   const subCategory = `${p.subCategory ?? ""}`.trim().toLowerCase();
-  if (p.placement !== "appliance" && category !== "appliance" && !subCategory.includes("appliance")) return false;
-  if (category !== "appliance" && !subCategory.includes("appliance")) return false;
+  const isApplianceCategory = category.includes("appliance") || subCategory.includes("appliance");
+  if (p.placement !== "appliance" && !isApplianceCategory) return false;
+  if (!isApplianceCategory) return false;
   const bottom = Number(p.mountBottom ?? 0);
   const height = Number(p.height);
   return Number.isFinite(bottom) && bottom <= 1
@@ -13179,18 +13180,20 @@ export function convertLegacyCooktopPlacements(
     };
     const productId = cabinet.sinkTopProductId ?? null;
     const label = type === "smooth-top" ? "Smooth-top cooktop" : `${type[0]!.toUpperCase()}${type.slice(1)} cooktop`;
+    const applianceCode = cabinet.applianceCatalogCode ?? (productId == null ? `CATALOG-APPLIANCE-${type}` : `CATALOG-APPLIANCE-${productId}`);
+    const applianceName = cabinet.applianceCatalogName ?? label;
     const appliance: PlacedCabinet = {
       uid: `${cabinet.uid}:cooktop`,
       cabinetId: 0,
-      masterCode: cabinet.applianceCatalogCode ?? (productId == null ? `CATALOG-APPLIANCE-${type}` : `CATALOG-APPLIANCE-${productId}`),
-      description: cabinet.applianceCatalogName ?? label,
+      masterCode: applianceCode,
+      description: applianceName,
       category: "Appliance",
       subCategory: "Cooktop",
       placement: "appliance",
       applianceRole: "countertop-opening",
       applianceProductId: productId,
-      applianceCatalogCode: cabinet.applianceCatalogCode ?? null,
-      applianceCatalogName: cabinet.applianceCatalogName ?? null,
+      applianceCatalogCode: applianceCode,
+      applianceCatalogName: applianceName,
       applianceCatalogPrice: cabinet.applianceCatalogPrice ?? null,
       x: cabinet.x,
       y: cabinet.y,

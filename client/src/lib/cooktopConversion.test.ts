@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   convertLegacyCooktopPlacements,
+  isBaseHeightAppliance,
   type DesignCabinet,
   type PlacedCabinet,
 } from "./design";
@@ -47,6 +48,7 @@ describe("convertLegacyCooktopPlacements", () => {
         placement: "appliance",
         applianceRole: "countertop-opening",
         applianceProductId: 902,
+        applianceCatalogCode: "CATALOG-APPLIANCE-902",
         description: type === "smooth-top" ? "Smooth-top cooktop" : `${type[0].toUpperCase()}${type.slice(1)} cooktop`,
       });
     }
@@ -64,5 +66,11 @@ describe("convertLegacyCooktopPlacements", () => {
     expect(result.placed).toHaveLength(1);
     expect(result.placed[0]).toMatchObject({ cooktopConversionStatus: "unresolved-standard-base", masterCode: "SB36" });
     expect(result.convertedCabinetUids.size).toBe(0);
+  });
+
+  it("classifies plural catalog appliance categories at the base elevation", () => {
+    expect(isBaseHeightAppliance({ placement: "appliance", category: "Appliances", subCategory: "Dishwasher", height: 34.5, mountBottom: 0 })).toBe(true);
+    expect(isBaseHeightAppliance({ placement: "appliance", category: "Appliances", subCategory: "Refrigerator", height: 70, mountBottom: 0 })).toBe(false);
+    expect(isBaseHeightAppliance({ placement: "appliance", category: "Appliances", subCategory: "Cooktop", height: 3, mountBottom: 34.5, applianceRole: "countertop-opening" })).toBe(false);
   });
 });
