@@ -13200,7 +13200,10 @@ export function convertLegacyCooktopPlacements(
       width,
       depth: Number(cabinet.depth) || STD.BASE_DEPTH,
       height: STD.COUNTERTOP_THICKNESS,
-      mountBottom: STD.BASE_HEIGHT,
+      // A countertop-opening appliance is a thin body seated under the
+      // finished surface, not a second 34½-inch cabinet box. Its top must
+      // meet the 36-inch finished countertop line.
+      mountBottom: STD.COUNTERTOP_HEIGHT - STD.COUNTERTOP_THICKNESS,
       rotation: cabinet.rotation,
       wallId: cabinet.wallId,
       wallOffset: cabinet.wallOffset,

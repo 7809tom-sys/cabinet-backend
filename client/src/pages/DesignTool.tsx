@@ -18012,6 +18012,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               ((autoFillCabinets as DesignCabinet[] | undefined) ?? []),
             );
             if (conversion.convertedCabinetUids.has(legacyWithRangeTop.uid)) {
+              // Keep imperative placement consumers (history, move handlers, and
+              // the 3D scene handoff) on the same array as the React commit.
+              placedRef.current = conversion.placed;
               setPlaced(conversion.placed);
             } else {
               setCabAttr(sinkBaseDialog.cabinetUid, { sinkTopType: type, sinkTopProductId: product?.id ?? null, rangeTopImageUrl: product?.imageUrl ?? layoutVisual?.imageUrl ?? null, cooktopConversionStatus: "unresolved-standard-base" });

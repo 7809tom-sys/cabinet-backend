@@ -3998,7 +3998,10 @@ export function addCabinet(
       metalness: sku.rangeTopFinish === "black-glass" ? 0.42 : 0.72,
     });
     const surface = new THREE.Mesh(new THREE.BoxGeometry(bodyWidth * 0.94, 0.06, bodyDepth * 0.92), surfaceMaterial);
-    surface.position.set(0, bodyHeight / 2 - 0.03, 0);
+    // Keep the appliance top slightly above the finished slab so WebGL depth
+    // testing cannot bury the cooktop in a coplanar countertop surface.
+    const cooktopReveal = 0.035 * INCH;
+    surface.position.set(0, bodyHeight / 2 - 0.03 + cooktopReveal, 0);
     surface.userData = { applianceCode: sku.masterCode, countertopOpeningCooktop: true, cooktopProductId: sku.applianceProductId ?? null };
     cabinet.add(surface);
     const gas = /gas/i.test(sku.description ?? "");
@@ -4008,14 +4011,14 @@ export function addCabinet(
         new THREE.CylinderGeometry(0.105, 0.105, 0.025, 24),
         new THREE.MeshStandardMaterial({ color: gas ? "#171b20" : "#3b4148", roughness: 0.24, metalness: 0.55 }),
       );
-      burner.position.set(center[0] * bodyWidth, bodyHeight / 2 + 0.006, center[1] * bodyDepth);
+      burner.position.set(center[0] * bodyWidth, bodyHeight / 2 + 0.006 + cooktopReveal, center[1] * bodyDepth);
       burner.userData = { applianceCode: sku.masterCode, countertopOpeningBurner: true, fuel: gas ? "gas" : "electric" };
       cabinet.add(burner);
       if (gas) {
         for (const rotation of [0, Math.PI / 2]) {
           const grate = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.018, 0.026), new THREE.MeshStandardMaterial({ color: "#11151a", roughness: 0.32, metalness: 0.58 }));
           grate.rotation.y = rotation;
-          grate.position.set(burner.position.x, bodyHeight / 2 + 0.025, burner.position.z);
+          grate.position.set(burner.position.x, bodyHeight / 2 + 0.025 + cooktopReveal, burner.position.z);
           grate.userData = { applianceCode: sku.masterCode, countertopOpeningGasGrate: true };
           cabinet.add(grate);
         }
@@ -4025,7 +4028,7 @@ export function addCabinet(
           new THREE.MeshStandardMaterial({ color: "#7e8c9b", roughness: 0.2, metalness: 0.5, emissive: "#263747", emissiveIntensity: 0.25 }),
         );
         zone.rotation.x = Math.PI / 2;
-        zone.position.set(burner.position.x, bodyHeight / 2 + 0.02, burner.position.z);
+        zone.position.set(burner.position.x, bodyHeight / 2 + 0.02 + cooktopReveal, burner.position.z);
         zone.userData = { applianceCode: sku.masterCode, countertopOpeningInductionZone: true };
         cabinet.add(zone);
       }
