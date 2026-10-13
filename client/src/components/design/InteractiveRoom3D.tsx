@@ -654,15 +654,20 @@ interface Props {
   catalogIslandDoorSampleUrl?: string | null;
   catalogCountertopName?: string | null;
   catalogCountertopProductId?: number | null;
+  catalogCountertopReferenceUrl?: string | null;
   catalogIslandCountertopName?: string | null;
   catalogIslandCountertopProductId?: number | null;
+  catalogIslandCountertopReferenceUrl?: string | null;
   catalogFlooringName?: string | null;
   catalogFlooringProductId?: number | null;
+  catalogFlooringReferenceUrl?: string | null;
   catalogFlooringCategory?: string | null;
   catalogFlooringSubCategory?: string | null;
   catalogFlooringSize?: string | null;
   catalogBacksplashName?: string | null;
   catalogBacksplashProductId?: number | null;
+  catalogBacksplashReferenceUrl?: string | null;
+  catalogHardwareReferenceUrl?: string | null;
   /** Saved-design identity anchors a manual final render to an auditable record. */
   savedDesignId?: number | null;
   savedDesignRevision?: string | null;
@@ -9370,7 +9375,7 @@ export function MobileThreeDViewerNavigation(actions: ThreeDViewerNavigationActi
   );
 }
 
-export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, windowSceneKind = "daylight", hardwareStyleId = "none", onHardwareStyleChange, catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogFlooringName, catalogFlooringProductId, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onOpenDoorEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
+export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick = false, roomOverride, openings = [], sinks = [], potFillers = [], island = null, islandFocusRequest = null, furniture = [], selectedFurnitureUid = null, onSelectFurniture, onRemoveFurniture, onRotateFurniture, onOpenFurnitureAttributes, ponyWalls = [], orderSummary, orderLines = [], initialPresentation, catalogFinishOverride, cabinetFinishPreviewOptions = [], cabinetFinishOverrides, cabinetDoorProfiles, cabinetDoorSampleUrls, cabinetFrontVisuals, catalogDoorSampleUrl, catalogRoomSceneUrl, catalogDoorProfile, windowSceneKind = "daylight", hardwareStyleId = "none", onHardwareStyleChange, catalogFinishName, catalogFinishProductId, catalogIslandCabinetName, catalogIslandCabinetColor, catalogIslandCabinetProductId, catalogIslandDoorSampleUrl, catalogCountertopName, catalogCountertopProductId, catalogCountertopReferenceUrl, catalogIslandCountertopName, catalogIslandCountertopProductId, catalogIslandCountertopReferenceUrl, catalogFlooringName, catalogFlooringProductId, catalogFlooringReferenceUrl, catalogFlooringCategory, catalogFlooringSubCategory, catalogFlooringSize, catalogBacksplashName, catalogBacksplashProductId, catalogBacksplashReferenceUrl, catalogHardwareReferenceUrl, savedDesignId, savedDesignRevision, isCurrentPlanSaved = false, savedPlanFingerprintPayload = null, backsplashHeightMode = "standard", countertopBacksplashHeightIn = 0, catalogCountertopColor, catalogIslandCountertopColor, catalogCountertopImageUrl, catalogIslandCountertopImageUrl, catalogFlooringImageUrl, catalogBacksplashImageUrl, shareContext, catalogItems = [], catalogDragItem = null, catalogDropWall, onAddCatalogItem, onAddRangeHood, onSaveToAccount, onSyncCart, onPresentationChange, onRoomWallHeightChange, onRoomWallHeightsChange, onMoveCabinet, onMoveCabinetTo, selectedCabinetUid, attributesTargetUid = null, missingPriceUids, onSelectCabinet, onOpenCabinetEditor, onSelectOpening, onOpenWindowEditor, onOpenDoorEditor, onRequestFiller, onSnapGlassCabinetToFront, onRotateCabinet, onRemoveCabinet, showWallLayer, onToggleWallLayer, temporaryPreviewMessage, onClearTemporaryPreview, temporaryPreviewCounter, temporaryPreviewTransitionKey, fillerInsertionTransition, cabinetConfigHref, embedded = false, cutawayRoomWalls = false, hybridPlanUnderlay = false, className, onGeometryRendered }: Props) {
   const previewRootRef = useRef<HTMLElement>(null);
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -9453,7 +9458,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       geometryLock: string;
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
-      materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string }>;
+      materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string; provenance: string; provenanceDetails?: string }>;
       missingMaterialInputs: string[];
       sourceImageHash: string;
       generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1" | "manual-final-review-gemini-nano-banana-v1";
@@ -9600,7 +9605,18 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const geminiAutomaticRetryLabel = geminiAutomaticRetrySeconds >= 60
     ? `${Math.floor(geminiAutomaticRetrySeconds / 60)}m ${String(geminiAutomaticRetrySeconds % 60).padStart(2, "0")}s`
     : `${geminiAutomaticRetrySeconds}s`;
-  const geminiImageTestBlockingReason = geminiImageTestJobId
+  const geminiManifestValidationIssues = photoRenderDraft
+    ? [
+        ...photoRenderDraft.provenance.missingMaterialInputs.map((label) => `Missing exact swatch: ${label}`),
+        ...photoRenderDraft.provenance.materialManifest
+          .filter((entry) => !entry.provenance.trim() || entry.provenance.trim().length > 160)
+          .map((entry) => `${entry.role} — ${entry.label} (${entry.provenance.trim().length} character provenance; maximum 160)`),
+      ]
+    : [];
+  const geminiManifestValidationReason = geminiManifestValidationIssues.length > 0
+    ? `Google image test blocked: ${geminiManifestValidationIssues.join("; ")}`
+    : null;
+  const geminiImageTestBlockingReason = geminiManifestValidationReason ?? geminiImageTestJobId
     ? geminiAutomaticRetrySeconds > 0
       ? `Google will retry this image test automatically in ${geminiAutomaticRetryLabel}.`
       : "Google is generating this saved-plan test. Status checks continue automatically."
@@ -9616,12 +9632,22 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
     label: `${reference.role}: ${reference.label}`,
     url: reference.referenceUrl,
     description: `Mapped to plan item${reference.itemIds.length === 1 ? "" : "s"} ${reference.itemIds.join(", ")}.`,
+    missing: false,
   })) ?? (activeDoorTexture ? [{
     id: "door-sample",
     label: "Cabinet door/finish reference",
     url: activeDoorTexture,
     description: "Exact saved cabinet reference; no substitute or global recolour is permitted.",
+    missing: false,
   }] : []);
+  const photoRenderMissingReferences = photoRenderDraft?.provenance.missingMaterialInputs.map((label) => ({
+    id: `missing:${label}`,
+    label: `Missing exact swatch — ${label}`,
+    url: null,
+    description: "No exact saved reference was found; generation is blocked rather than using a blank or inferred substitute.",
+    missing: true,
+  })) ?? [];
+  const photoRenderReviewReferences = [...photoRenderVisualReferences, ...photoRenderMissingReferences];
 	  const resolvedCabinetFinish = selectedCabinetPreviewFinish?.color ?? catalogFinish;
 	  const cabinetFinishLabel = selectedCabinetPreviewFinish?.name ?? catalogFinishName ?? scene.materials?.cabinet.publicName ?? scene.materials?.cabinet.name ?? scene.materials?.cabinet.finish ?? "Active catalog finish";
 	  const cycleCabinetPreviewFinish = () => {
@@ -11219,10 +11245,6 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       toast.error("Save this design before creating a high-resolution 3D preview so the image remains tied to its exact plan.");
       return;
     }
-    if (!photoRenderDoorReference.ready && !isPhotoQualityTest) {
-      toast.error(photoRenderDoorReference.message);
-      return;
-    }
     const reference = capturePhotoRenderReference();
     if (!reference) {
       toast.error("The 3D view is still loading. Please try the high-resolution preview again in a moment.");
@@ -11269,15 +11291,19 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         return null;
       }
     };
-    const materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string }> = [];
+    const materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string; provenance: string; provenanceDetails?: string }> = [];
     const missingMaterialInputs: string[] = [];
+    const conciseManifestProvenance = (role: string, label: string) => `${role}: ${label}`.slice(0, 160);
     const addManifestEntry = (entry: { id: string; role: string; label: string; itemIds: string[]; referenceUrl: string | null | undefined }) => {
-      if (entry.referenceUrl) materialManifest.push({ ...entry, referenceUrl: entry.referenceUrl });
+      if (entry.referenceUrl) materialManifest.push({ ...entry, referenceUrl: entry.referenceUrl, provenance: conciseManifestProvenance(entry.role, entry.label), provenanceDetails: `${entry.role}: ${entry.label} [${entry.itemIds.join(", ")}]` });
       else missingMaterialInputs.push(entry.label);
     };
     const cabinetManifestGroups = new Map<string, { label: string; referenceUrl: string | null; itemIds: string[] }>();
     for (const cabinet of placed) {
-      const referenceUrl = approvedMaterialUrl(resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign));
+      const referenceUrl = approvedMaterialUrl(
+        resolvedPlacedCabinetDoorSampleUrl(cabinet, cabinetDoorSampleUrls, catalogDoorSampleUrl, renderExistingDesign)
+          ?? cabinetFrontVisuals?.[cabinet.uid],
+      );
       const label = `${cabinet.masterCode}${cabinet.description ? ` — ${cabinet.description}` : ""}`;
       const key = `${label}|${referenceUrl ?? "missing"}`;
       const current = cabinetManifestGroups.get(key) ?? { label, referenceUrl, itemIds: [] };
@@ -11285,12 +11311,12 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       cabinetManifestGroups.set(key, current);
     }
     cabinetManifestGroups.forEach((entry, id) => addManifestEntry({ id: `cabinet:${id}`, role: "cabinet door/finish", ...entry }));
-    addManifestEntry({ id: "surface:countertop", role: "countertop", label: catalogCountertopName ?? "Selected countertop", itemIds: ["surface:countertop"], referenceUrl: approvedMaterialUrl(catalogCountertopImageUrl) });
-    addManifestEntry({ id: "surface:flooring", role: "flooring", label: catalogFlooringName ?? "Selected flooring", itemIds: ["surface:flooring"], referenceUrl: approvedMaterialUrl(catalogFlooringImageUrl) });
-    addManifestEntry({ id: "surface:backsplash", role: "backsplash", label: catalogBacksplashName ?? "Selected backsplash", itemIds: ["surface:backsplash"], referenceUrl: approvedMaterialUrl(catalogBacksplashImageUrl) });
+    addManifestEntry({ id: "surface:countertop", role: "countertop", label: catalogCountertopName ?? "Selected countertop", itemIds: ["surface:countertop"], referenceUrl: approvedMaterialUrl(catalogCountertopReferenceUrl ?? catalogCountertopImageUrl) });
+    addManifestEntry({ id: "surface:flooring", role: "flooring", label: catalogFlooringName ?? "Selected flooring", itemIds: ["surface:flooring"], referenceUrl: approvedMaterialUrl(catalogFlooringReferenceUrl ?? catalogFlooringImageUrl) });
+    addManifestEntry({ id: "surface:backsplash", role: "backsplash", label: catalogBacksplashName ?? "Selected backsplash", itemIds: ["surface:backsplash"], referenceUrl: approvedMaterialUrl(catalogBacksplashReferenceUrl ?? catalogBacksplashImageUrl) });
     if (hardwareStyleId !== "none") {
       const selectedHardware = hardwareStyle(hardwareStyleId);
-      addManifestEntry({ id: "hardware:handles", role: "hardware/handles", label: selectedHardware.label, itemIds: placed.map((cabinet) => cabinet.uid), referenceUrl: approvedMaterialUrl(selectedHardware.referenceUrl) });
+      addManifestEntry({ id: "hardware:handles", role: "hardware/handles", label: selectedHardware.label, itemIds: placed.map((cabinet) => cabinet.uid), referenceUrl: approvedMaterialUrl(catalogHardwareReferenceUrl ?? selectedHardware.referenceUrl) });
     }
     for (const sink of sinks) {
       addManifestEntry({ id: `sink:${sink.uid}`, role: "sink", label: sink.pelicanProductName ?? "Selected sink", itemIds: [sink.uid], referenceUrl: approvedMaterialUrl(sink.pelicanProductImage) });
@@ -11537,13 +11563,25 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       setGeminiImageTestError("The locked view is still preparing. Close Final preview, reopen it, then start the Google test.");
       return;
     }
+    if (geminiManifestValidationReason) {
+      setGeminiImageTestError(geminiManifestValidationReason);
+      return;
+    }
     setGeminiImageTestError(null);
     try {
       const googleImageInput = await compactGoogleImageTestInput(photoRenderDraft.sceneImageDataUrl);
+      const requestProvenance = {
+        ...photoRenderDraft.provenance,
+        materialManifest: photoRenderDraft.provenance.materialManifest.map((entry) => ({
+          ...entry,
+          provenanceDetails: entry.provenanceDetails ?? entry.provenance,
+          provenance: `${entry.role}: ${entry.label}`.slice(0, 160),
+        })),
+      };
       const result = await startGeminiImageTestMutation.mutateAsync({
         sceneSignature: `${photoRenderDraft.sceneSignature}-gemini-test`,
         sceneImageDataUrl: googleImageInput,
-        provenance: photoRenderDraft.provenance,
+        provenance: requestProvenance,
         restartPending: Boolean(geminiImageTestJobId),
       });
       setGeminiImageTestJobId(result.jobId);
@@ -11945,14 +11983,14 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          <DialogTitle>Request your photo-quality kitchen image</DialogTitle>
 		          <DialogDescription>We create one locked reference package from your saved plan, selected CabinetDealz and Pelican products, and camera view. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
-          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
-	          {isPhotoQualityTest && geminiImageTestJobQuery.data?.status === "completed" && geminiImageTestJobQuery.data.imageUrl && <section data-testid="completed-gemini-image-test" className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950"><p className="font-semibold">Google image test is ready</p><p className="mt-1">The completed illustrative image is saved and can be reopened after a refresh, including for an administrator snapshot.</p><Button data-testid="open-completed-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openCompletedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open completed Google image</Button></section>}
-	          {isPhotoQualityTest && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
+          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive || Boolean(geminiManifestValidationReason)} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+          {isPhotoQualityTest && photoRenderDraft && !geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === "completed" && geminiImageTestJobQuery.data.imageUrl && <section data-testid="completed-gemini-image-test" className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950"><p className="font-semibold">Google image test is ready</p><p className="mt-1">The completed illustrative image is saved and can be reopened after a refresh, including for an administrator snapshot.</p><Button data-testid="open-completed-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openCompletedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open completed Google image</Button></section>}
+          {isPhotoQualityTest && !geminiManifestValidationReason && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 		          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">
 		            <p className="font-semibold">Your exact plan is protected before a photo-quality image is made.</p>
 		            <p className="text-xs leading-relaxed">Cabinet locations, sizes, doors, fillers, appliances, openings, walls, islands, countertops, faucet, sink, flooring, backsplash, and camera framing are locked from your saved plan. Your selected CabinetDealz and Pelican product references are included in one review package. The saved 2D/3D plan and pricing remain authoritative.</p>
 	          </div>
-	          {photoRenderVisualReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Saved material inputs</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">The shown references identify the exact saved selections. Gemini may enhance realism but must not replace, recolor, move, add, or remove plan items.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderVisualReferences.map((reference) => <figure key={reference.id} className="min-w-0"><img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /><figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p className="mt-3 text-[11px] font-semibold text-[#1a2744]">Manifest: {photoRenderDraft?.provenance.materialManifest.length ?? 0} exact references · {photoRenderDraft?.provenance.missingMaterialInputs.length ?? 0} missing</p>{photoRenderDraft?.provenance.missingMaterialInputs.length ? <p data-testid="photo-quality-missing-materials" role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px] font-semibold text-amber-950">Generation blocked until these exact saved references are supplied: {photoRenderDraft.provenance.missingMaterialInputs.join(", ")}</p> : <p data-testid="photo-quality-materials-complete" className="mt-2 text-[11px] font-semibold text-emerald-800">Every visible saved-plan material has an exact labeled reference.</p>}<p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
+          {photoRenderReviewReferences.length > 0 && <section data-testid="photo-quality-selected-door-input" className="rounded-lg border border-slate-200 bg-slate-50 p-3"><p className="text-xs font-semibold text-[#1a2744]">Saved material inputs</p><p className="mt-1 text-[11px] leading-relaxed text-slate-600">Every card is keyed to the saved plan. Gemini may enhance realism but must not replace, recolor, move, add, or remove plan items.</p><div className="mt-3 grid grid-cols-1 gap-2">{photoRenderReviewReferences.map((reference) => <figure key={reference.id} className={`min-w-0 rounded border p-2 ${reference.missing ? "border-amber-300 bg-amber-50" : "border-slate-200 bg-white"}`}>{reference.url ? <img src={reference.url} alt={reference.label} className="h-20 w-full rounded border bg-white object-contain" /> : <div role="img" aria-label={reference.label} className="flex h-20 items-center justify-center rounded border border-dashed border-amber-400 bg-amber-100 px-3 text-center text-[10px] font-semibold text-amber-950">No exact saved swatch</div>}<figcaption className="mt-1 text-[10px] font-semibold text-slate-700">{reference.label}</figcaption><p className="text-[9px] leading-snug text-slate-500">{reference.description}</p></figure>)}</div><p className="mt-3 text-[11px] font-semibold text-[#1a2744]">Manifest: {photoRenderDraft?.provenance.materialManifest.length ?? 0} exact references · {photoRenderDraft?.provenance.missingMaterialInputs.length ?? 0} missing</p>{photoRenderDraft?.provenance.missingMaterialInputs.length ? <p data-testid="photo-quality-missing-materials" role="alert" className="mt-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px] font-semibold text-amber-950">Generation blocked until these exact saved references are supplied: {photoRenderDraft.provenance.missingMaterialInputs.join(", ")}</p> : <p data-testid="photo-quality-materials-complete" className="mt-2 text-[11px] font-semibold text-emerald-800">Every visible saved-plan material has an exact labeled reference.</p>}<p data-testid="photo-quality-door-reference-status" className={`mt-3 text-[11px] font-semibold ${photoRenderDoorReference.ready ? "text-emerald-800" : "text-amber-800"}`}>{photoRenderDoorReference.message}</p></section>}
 	          {catalogRoomSceneUrl && <div data-testid="photo-quality-room-scene-not-applied" className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-950"><strong>Style room-scene picture:</strong> catalog reference only. It is not sent as geometry, texture, or a substitute kitchen layout. This exact 3D preview does not use it to change lighting, cabinet materials, camera, or any kitchen object.</div>}
 		          {isPhotoQualityTest ? <div data-testid="photo-quality-admin-test" className="space-y-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p><strong>Administrator test preview.</strong> Use the exact high-resolution 3D capture to confirm plan fidelity. No customer lead is created and no customer contact information is required.</p>{IN_HOUSE_PATH_TRACE_ENABLED ? <div className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Production render test — experimental</p><p className="mt-1">Creates a 1920×1080 WebGL2 path trace from a cloned current scene and camera, preserving loaded PBR material maps while adding a clone-only deterministic daylight and interior-light rig. It then applies a conservative final denoise pass. It does not use AI or the room-scene picture, does not save a customer render, and must be visually approved before any Photo Quality claim.</p><Button data-testid="path-trace-production-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void createPathTracePreview()} disabled={pathTracePreviewBusy || !photoRenderDoorReference.ready}>{pathTracePreviewBusy ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{pathTracePreviewBusy ? `Tracing exact scene… ${pathTracePreviewProgress}%` : "Run HD production render test"}</Button>{pathTracePreviewBusy && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-sky-100"><div className="h-full bg-[#1a2744]" style={{ width: `${pathTracePreviewProgress}%` }} /></div>}{pathTracePreviewError && <p role="alert" className="mt-2 text-rose-800">{pathTracePreviewError}</p>}</div> : <div data-testid="in-house-render-disabled" className="rounded-md border border-sky-200 bg-white/70 p-2.5"><p className="font-semibold">Photo-quality image</p><p className="mt-1">Use the Google image test for photo-quality results. The in-house browser render is switched off so it can never interfere with the 3D Designer.</p></div>}</div> : <div data-testid="photo-quality-contact-lead" className="space-y-3 rounded-lg border border-[#b7c8df] bg-[#f5f8fc] p-3"><div><p className="text-sm font-semibold text-[#1a2744]">Request your photo-quality kitchen image</p><p className="mt-1 text-xs leading-relaxed text-slate-700">After mobile verification, Cabinet Dealz sends your exact saved plan, selected materials, and Pelican fixture references to the review team as one AI reference package. We will email you when the finished image is attached back to this plan.</p></div><div className="grid gap-2 sm:grid-cols-2"><label className="space-y-1 text-xs font-semibold text-slate-700">Name<Input value={photoQualityLead.name} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, name: event.target.value }))} autoComplete="name" /></label><label className="space-y-1 text-xs font-semibold text-slate-700">Email<Input value={photoQualityLead.email} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, email: event.target.value }))} type="email" autoComplete="email" /></label></div><label className="block space-y-1 text-xs font-semibold text-slate-700">Mobile phone<Input value={photoQualityLead.phone} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, phone: event.target.value }))} type="tel" inputMode="tel" autoComplete="tel" placeholder="(555) 555-5555" /></label><label className="flex items-start gap-2 text-xs leading-relaxed text-slate-700"><input type="checkbox" checked={photoQualityLead.followUpConsent} onChange={(event) => setPhotoQualityLead((current) => ({ ...current, followUpConsent: event.target.checked }))} className="mt-0.5 h-4 w-4 shrink-0 accent-[#1a2744]" />I agree that Cabinet Dealz may contact me about this kitchen design and photo-quality image request. Mobile-number verification protects the exact saved plan and confirmed follow-up information.</label></div>}
                   {!isPhotoQualityTest && <section data-testid="photo-quality-phone-verification" className="space-y-3 rounded-lg border border-[#b7c8df] bg-white p-3 text-sm text-[#1a2744]">

@@ -120,13 +120,27 @@ const renderSpecificationSchema = z.object({
   hardware: z.string().trim().max(120).nullable(),
   appliances: z.array(z.string().trim().max(255)).max(40),
 });
-const materialManifestEntrySchema = z.object({
+const boundedManifestProvenance = (role: string, label: string) => `${role}: ${label}`.trim().slice(0, 160);
+const materialManifestEntrySchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const entry = value as Record<string, unknown>;
+  const role = typeof entry.role === "string" ? entry.role : "material";
+  const label = typeof entry.label === "string" ? entry.label : "Selected material";
+  const rawProvenance = typeof entry.provenance === "string" ? entry.provenance : "";
+  return {
+    ...entry,
+    provenanceDetails: typeof entry.provenanceDetails === "string" ? entry.provenanceDetails.slice(0, 4_000) : rawProvenance.slice(0, 4_000),
+    provenance: boundedManifestProvenance(role, label),
+  };
+}, z.object({
   id: z.string().trim().min(1).max(160),
   role: z.string().trim().min(1).max(80),
   label: z.string().trim().min(1).max(255),
   itemIds: z.array(z.string().trim().min(1).max(160)).min(1).max(500),
   referenceUrl: safeMaterialUrl,
-});
+  provenanceDetails: z.string().trim().max(4_000).optional(),
+  provenance: z.string().trim().min(1).max(160),
+}));
 export const photoQualityLeadSchema = z.object({
   name: z.string().trim().min(2).max(120),
   email: z.string().trim().email().max(320),

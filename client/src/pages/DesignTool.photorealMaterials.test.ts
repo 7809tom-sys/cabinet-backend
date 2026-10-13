@@ -112,4 +112,14 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain("Every visible saved-plan material has an exact labeled reference.");
     expect(rendererSource).toContain("Generation blocked until these exact saved references are supplied");
   });
+
+  it("bounds provenance and blocks Google-image readiness until every manifest input is valid", () => {
+    expect(rendererSource).toContain("conciseManifestProvenance");
+    expect(rendererSource).toContain(".slice(0, 160)");
+    expect(rendererSource).toContain("geminiManifestValidationReason");
+    expect(rendererSource).toContain("Boolean(geminiManifestValidationReason)");
+    expect(rendererSource).toContain("!geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === \"completed\"");
+    expect(rendererSource).toContain("!geminiManifestValidationReason && savedGeminiImageTestQuery.data");
+    expect(rendererSource).toContain("maximum 160");
+  });
 });

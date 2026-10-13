@@ -12143,15 +12143,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogIslandDoorSampleUrl={threeDIslandCabinet.doorSampleUrl}
 	      catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	      catalogCountertopProductId={threeDSurfaceProductIds.countertop}
+	      catalogCountertopReferenceUrl={perimeterCountertopSurface?.materialImageUrl ?? perimeterCountertopSurface?.imageUrl ?? null}
 	      catalogIslandCountertopName={threeDIslandCountertop.name}
 	      catalogIslandCountertopProductId={threeDIslandCountertop.productId}
+	      catalogIslandCountertopReferenceUrl={islandCountertopSurface?.materialImageUrl ?? islandCountertopSurface?.imageUrl ?? null}
 	      catalogFlooringName={threeDSurfaceProductNames.flooring}
 	      catalogFlooringProductId={threeDSurfaceProductIds.flooring}
+	      catalogFlooringReferenceUrl={activeFlooringSurface?.materialImageUrl ?? activeFlooringSurface?.imageUrl ?? null}
 	      catalogFlooringCategory={threeDFlooringProductMetadata?.category}
 	      catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	      catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	      catalogBacksplashName={backsplashEnabled ? threeDSurfaceProductNames.backsplash : null}
 	      catalogBacksplashProductId={backsplashEnabled ? threeDSurfaceProductIds.backsplash : null}
+	      catalogBacksplashReferenceUrl={backsplashEnabled ? activeBacksplashSurface?.materialImageUrl ?? activeBacksplashSurface?.imageUrl ?? null : null}
+	      catalogHardwareReferenceUrl={HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
 	      savedDesignId={currentSavedDesignId ?? null}
 	      savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	      isCurrentPlanSaved={isCurrentPlanSaved}
@@ -19298,15 +19303,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogIslandDoorSampleUrl={threeDIslandCabinet.doorSampleUrl}
 	                catalogCountertopName={threeDSurfaceProductNames.countertop || (countertopMaterialId !== DEFAULT_COUNTERTOP_MATERIAL_ID ? countertopMaterial(countertopMaterialId).name : undefined)}
 	                catalogCountertopProductId={threeDSurfaceProductIds.countertop}
+	                catalogCountertopReferenceUrl={perimeterCountertopSurface?.materialImageUrl ?? perimeterCountertopSurface?.imageUrl ?? null}
 	                catalogIslandCountertopName={threeDIslandCountertop.name}
 	                catalogIslandCountertopProductId={threeDIslandCountertop.productId}
+	                catalogIslandCountertopReferenceUrl={islandCountertopSurface?.materialImageUrl ?? islandCountertopSurface?.imageUrl ?? null}
 	                catalogFlooringName={threeDSurfaceProductNames.flooring}
 	                catalogFlooringProductId={threeDSurfaceProductIds.flooring}
+	                catalogFlooringReferenceUrl={activeFlooringSurface?.materialImageUrl ?? activeFlooringSurface?.imageUrl ?? null}
 	                catalogFlooringCategory={threeDFlooringProductMetadata?.category}
 	                catalogFlooringSubCategory={threeDFlooringProductMetadata?.subCategory}
 	                catalogFlooringSize={threeDFlooringProductMetadata?.size}
 	                catalogBacksplashName={backsplashEnabled ? threeDSurfaceProductNames.backsplash : null}
 	                catalogBacksplashProductId={backsplashEnabled ? threeDSurfaceProductIds.backsplash : null}
+	                catalogBacksplashReferenceUrl={backsplashEnabled ? activeBacksplashSurface?.materialImageUrl ?? activeBacksplashSurface?.imageUrl ?? null : null}
+	                catalogHardwareReferenceUrl={HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
 	                savedDesignId={currentSavedDesignId ?? null}
 	                savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	                isCurrentPlanSaved={isCurrentPlanSaved}
