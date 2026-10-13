@@ -10903,7 +10903,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (savedPresentation?.countertopBacksplashHeightIn === 2.5 || savedPresentation?.countertopBacksplashHeightIn === 3) {
       setCountertopBacksplashHeightIn(savedPresentation.countertopBacksplashHeightIn);
     }
-    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
+    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "garden" || savedPresentation?.windowScene === "woodland" || savedPresentation?.windowScene === "coastal" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
       setWindowSceneKind(savedPresentation.windowScene);
     }
     toast.success(t("dt_toast_loaded_design", { name: savedDesign.name }));
@@ -12335,6 +12335,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             data-testid="window-scene-selector"
           >
             <option value="daylight">Daylight</option>
+            <option value="garden">Garden photo</option>
+            <option value="woodland">Woodland photo</option>
+            <option value="coastal">Coastal photo</option>
             <option value="suburban">Suburban view</option>
             <option value="privacy">Privacy glass</option>
           </select>

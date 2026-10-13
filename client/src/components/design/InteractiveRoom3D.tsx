@@ -425,7 +425,18 @@ export type InteractiveRoomPresentation = {
   windowScene?: WindowSceneKind;
 };
 
-export type WindowSceneKind = "daylight" | "suburban" | "privacy";
+export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "suburban" | "privacy";
+
+/** Real reference photographs used behind architectural window openings. */
+export const WINDOW_SCENE_ASSETS: Partial<Record<WindowSceneKind, string>> = {
+  garden: "/manus-storage/pasted_file_GWZE6m_image_d5f4babf.png",
+  woodland: "/manus-storage/pasted_file_kJH8GI_image_62365b0f.png",
+  coastal: "/manus-storage/pasted_file_nNovz1_image_f0dfe581.png",
+};
+
+export function windowSceneAssetUrl(kind: WindowSceneKind): string | null {
+  return WINDOW_SCENE_ASSETS[kind] ?? null;
+}
 
 export type ThreeDCabinetFinishPreviewOption = {
   id: string;
@@ -8825,6 +8836,24 @@ function windowSceneTexture(kind: WindowSceneKind = "daylight"): THREE.CanvasTex
   return texture;
 }
 
+function windowPhotoTexture(kind: WindowSceneKind): THREE.Texture | null {
+  const url = windowSceneAssetUrl(kind);
+  if (!url || typeof window === "undefined") return null;
+  const texture = new THREE.TextureLoader().load(url);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = THREE.ClampToEdgeWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.userData = { windowScene: true, windowSceneKind: kind, realPhotograph: true, planningOnly: true };
+  return texture;
+}
+
+function windowMullionGrid(kind: WindowSceneKind): { columns: number; rows: number } {
+  if (kind === "woodland") return { columns: 2, rows: 1 };
+  if (kind === "coastal") return { columns: 1, rows: 2 };
+  if (kind === "garden") return { columns: 1, rows: 0 };
+  return { columns: 1, rows: 1 };
+}
+
 export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWidth: RoomData | number, legacyRoomDepth?: number, windowSceneKind: WindowSceneKind = "daylight") {
   const { x, z, rotation } = openingTransform(opening, roomOrWidth, legacyRoomDepth);
   const group = new THREE.Group();
@@ -8869,7 +8898,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       group.add(leaf);
   }
   } else {
-  const windowTexture = isWindow ? windowSceneTexture(windowSceneKind) : null;
+  const windowTexture = isWindow ? (windowPhotoTexture(windowSceneKind) ?? windowSceneTexture(windowSceneKind)) : null;
   const paneMaterial = isWindow && windowTexture
     ? new THREE.MeshBasicMaterial({ map: windowTexture, side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({ color: isWindow ? "#dbe8e4" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) });
@@ -8879,14 +8908,30 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
   group.add(pane);
   if (isWindow) {
     const muntin = new THREE.MeshStandardMaterial({ color: "#f7f5ef", roughness: 0.45 });
-    const vertical = new THREE.Mesh(new THREE.BoxGeometry(0.04, height - 0.05, 0.09), muntin);
-    const horizontal = new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.04, 0.09), muntin);
-    vertical.userData = { windowMuntin: "vertical" };
-    horizontal.userData = { windowMuntin: "horizontal" };
+    const grid = windowMullionGrid(windowSceneKind);
+    const mullions: THREE.Mesh[] = [];
+    for (let column = 1; column <= grid.columns; column += 1) {
+      const vertical = new THREE.Mesh(new THREE.BoxGeometry(0.035, height - 0.05, 0.09), muntin);
+      vertical.position.x = -width / 2 + (width * column) / (grid.columns + 1);
+      vertical.userData = { windowMuntin: "vertical", windowMuntinIndex: column };
+      mullions.push(vertical);
+    }
+    for (let row = 1; row <= grid.rows; row += 1) {
+      const horizontal = new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.035, 0.09), muntin);
+      horizontal.position.y = -height / 2 + (height * row) / (grid.rows + 1);
+      horizontal.userData = { windowMuntin: "horizontal", windowMuntinIndex: row };
+      mullions.push(horizontal);
+    }
+    const glass = new THREE.Mesh(
+      new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.018),
+      new THREE.MeshPhysicalMaterial({ color: "#d9f0f2", transparent: true, opacity: 0.12, roughness: 0.08, metalness: 0.02, transmission: 0.04, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    glass.position.z = 0.062;
+    glass.userData = { windowGlassReflection: true, windowSceneKind, realPhotograph: Boolean(windowSceneAssetUrl(windowSceneKind)) };
     const sill = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2.7, trimWidth * 1.5, 0.2), trimMaterial);
     sill.position.set(0, -height / 2 - trimWidth * 0.85, 0.12);
     sill.userData = { architecturalWindowSill: true };
-    group.add(vertical, horizontal, sill);
+    group.add(...mullions, glass, sill);
   } else {
     const doorPanelMaterial = new THREE.MeshStandardMaterial({ color: isDoor ? appearance.color : "#6f503b", roughness: 0.54, ...(isDoor ? { transparent: true, opacity: appearance.opacity * 0.6, depthWrite: false } : {}) });
     const upperPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.26, 0.035), doorPanelMaterial);
