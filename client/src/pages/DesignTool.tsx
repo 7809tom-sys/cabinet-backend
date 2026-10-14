@@ -10906,7 +10906,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (savedPresentation?.countertopBacksplashHeightIn === 2.5 || savedPresentation?.countertopBacksplashHeightIn === 3) {
       setCountertopBacksplashHeightIn(savedPresentation.countertopBacksplashHeightIn);
     }
-    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "garden" || savedPresentation?.windowScene === "woodland" || savedPresentation?.windowScene === "coastal" || savedPresentation?.windowScene === "urban" || savedPresentation?.windowScene === "mountain" || savedPresentation?.windowScene === "night" || savedPresentation?.windowScene === "city-skyline" || savedPresentation?.windowScene === "desert" || savedPresentation?.windowScene === "snow" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
+    if (savedPresentation?.windowScene === "daylight" || savedPresentation?.windowScene === "garden" || savedPresentation?.windowScene === "woodland" || savedPresentation?.windowScene === "coastal" || savedPresentation?.windowScene === "urban" || savedPresentation?.windowScene === "mountain" || savedPresentation?.windowScene === "night" || savedPresentation?.windowScene === "city-skyline" || savedPresentation?.windowScene === "desert" || savedPresentation?.windowScene === "snow" || savedPresentation?.windowScene === "seasonal-garden" || savedPresentation?.windowScene === "autumn-woodland" || savedPresentation?.windowScene === "suburban" || savedPresentation?.windowScene === "privacy") {
       setWindowSceneKind(savedPresentation.windowScene);
     }
     if (savedPresentation?.windowFrameStyle === "white" || savedPresentation?.windowFrameStyle === "black" || savedPresentation?.windowFrameStyle === "wood") {
@@ -12362,6 +12362,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             <option value="city-skyline">City skyline photo</option>
             <option value="desert">Desert photo</option>
             <option value="snow">Snowy mountain photo</option>
+            <option value="seasonal-garden">Seasonal garden</option>
+            <option value="autumn-woodland">Autumn woodland</option>
             <option value="suburban">Suburban view</option>
             <option value="privacy">Privacy glass</option>
           </select>

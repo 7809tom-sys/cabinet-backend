@@ -426,7 +426,7 @@ export type InteractiveRoomPresentation = {
   windowFrameStyle?: WindowFrameStyle;
 };
 
-export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "suburban" | "privacy";
+export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "seasonal-garden" | "autumn-woodland" | "suburban" | "privacy";
 export type WindowFrameStyle = "white" | "black" | "wood";
 export const DEFAULT_WINDOW_SCENE_KIND: WindowSceneKind = "garden";
 
@@ -449,6 +449,8 @@ export const WINDOW_SCENE_ASSETS: Partial<Record<WindowSceneKind, string>> = {
   "city-skyline": "/manus-storage/city-skyline-window_f7ff8dee.jpg",
   desert: "/manus-storage/desert-landscape_64300d12.jpg",
   snow: "/manus-storage/snowy-mountain-window_37b56d4c.jpeg",
+  "seasonal-garden": "/manus-storage/seasonal-garden_a6dc49d7.jpg",
+  "autumn-woodland": "/manus-storage/autumn-woodland_eed9c157.jpg",
 };
 
 /** Source and license notes for the photographic presets shown in the Designer. */
@@ -459,6 +461,8 @@ export const WINDOW_SCENE_SOURCES = {
   "city-skyline": { photographer: "Clark Gu", license: "Unsplash License", source: "Unsplash — A view of a city from a window in a building" },
   desert: { photographer: "NEOM", license: "Unsplash License", source: "Unsplash — A desert landscape with mountains in the background" },
   snow: { photographer: "Chris F", license: "Pexels License", source: "Pexels — Serene snowy mountain landscape in winter" },
+  "seasonal-garden": { photographer: "Manus image generation", license: "Original generated asset", source: "Manus-generated outdoor seasonal garden background" },
+  "autumn-woodland": { photographer: "Manus image generation", license: "Original generated asset", source: "Manus-generated outdoor autumn woodland background" },
 } as const;
 
 export function windowSceneAssetUrl(kind: WindowSceneKind): string | null {
@@ -8888,6 +8892,8 @@ function windowMullionGrid(kind: WindowSceneKind): { columns: number; rows: numb
   if (kind === "city-skyline") return { columns: 2, rows: 1 };
   if (kind === "desert") return { columns: 1, rows: 0 };
   if (kind === "snow") return { columns: 2, rows: 1 };
+  if (kind === "seasonal-garden") return { columns: 1, rows: 1 };
+  if (kind === "autumn-woodland") return { columns: 2, rows: 2 };
   return { columns: 1, rows: 1 };
 }
 

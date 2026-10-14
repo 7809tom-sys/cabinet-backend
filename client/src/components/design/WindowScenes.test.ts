@@ -13,15 +13,21 @@ describe("Designer window scenes", () => {
     expect(windowSceneAssetUrl("city-skyline")).toBe(WINDOW_SCENE_ASSETS["city-skyline"]);
     expect(windowSceneAssetUrl("desert")).toBe(WINDOW_SCENE_ASSETS.desert);
     expect(windowSceneAssetUrl("snow")).toBe(WINDOW_SCENE_ASSETS.snow);
+    expect(windowSceneAssetUrl("seasonal-garden")).toBe(WINDOW_SCENE_ASSETS["seasonal-garden"]);
+    expect(windowSceneAssetUrl("autumn-woodland")).toBe(WINDOW_SCENE_ASSETS["autumn-woodland"]);
     expect(WINDOW_SCENE_ASSETS.garden).toMatch(/garden-outdoor_.*\.jpg$/);
     expect(WINDOW_SCENE_ASSETS.woodland).toMatch(/woodland-outdoor_.*\.jpg$/);
     expect(WINDOW_SCENE_ASSETS.coastal).toMatch(/coastal-outdoor_.*\.jpg$/);
+    expect(WINDOW_SCENE_ASSETS["seasonal-garden"]).toMatch(/seasonal-garden_.*\.jpg$/);
+    expect(WINDOW_SCENE_ASSETS["autumn-woodland"]).toMatch(/autumn-woodland_.*\.jpg$/);
     expect(WINDOW_SCENE_SOURCES.garden.license).toBe("CC BY-SA 4.0");
     expect(WINDOW_SCENE_SOURCES.woodland.license).toBe("CC0 1.0");
     expect(WINDOW_SCENE_SOURCES.coastal.license).toBe("CC BY-SA 2.0");
     expect(WINDOW_SCENE_SOURCES["city-skyline"].license).toBe("Unsplash License");
     expect(WINDOW_SCENE_SOURCES.desert.license).toBe("Unsplash License");
     expect(WINDOW_SCENE_SOURCES.snow.license).toBe("Pexels License");
+    expect(WINDOW_SCENE_SOURCES["seasonal-garden"].license).toBe("Original generated asset");
+    expect(WINDOW_SCENE_SOURCES["autumn-woodland"].license).toBe("Original generated asset");
   });
 
   it("keeps procedural scenes as safe fallbacks", () => {
