@@ -3396,6 +3396,25 @@ describe("blind corner pull spec", () => {
     ]);
     expect(v.size).toBe(0);
   });
+
+  it("does not treat the owned 3-inch required filler as a BBC collision", () => {
+    const room: RoomData = { width: 144, depth: 120 };
+    const blind: PlacedCabinet = {
+      uid: "bbc-owner", cabinetId: 1, masterCode: "BBC36", description: "Blind Corner Base",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 1, numberOfDrawers: 1,
+    };
+    const filler: PlacedCabinet = {
+      uid: "bbc-filler", cabinetId: 2, masterCode: "F342", description: '3" Filler — required BBC clearance',
+      category: "Filler", subCategory: "Filler", placement: "base", x: 0, y: 23.75,
+      width: 3, nominalWidth: 3, depth: 24, height: 34.5, rotation: 90,
+      numberOfDoors: 0, numberOfDrawers: 0, fillerForCabinetUid: blind.uid,
+      fillerPieceGroupId: "bbc-required-filler-bbc-owner",
+    };
+    expect(cabinetPlacementCollisionDetail(filler, [blind], room)).toBeNull();
+    expect(cabinetPlacementCollisionDetail({ ...filler, width: 3.25 }, [blind], room)).not.toBeNull();
+    expect(cabinetPlacementCollisionDetail({ ...filler, fillerForCabinetUid: "other-bbc" }, [blind], room)).not.toBeNull();
+  });
 });
 
 describe("blindCornerAutoFiller — auto 3in filler opposite the pull", () => {

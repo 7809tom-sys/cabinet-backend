@@ -274,6 +274,27 @@ export function adjacentCabinetForFiller(
 }
 
 /**
+ * A required blind-corner filler is trim, not a second cabinet body. Its
+ * installed face is capped at the trade-standard 3 inches and may touch the
+ * owning BBC/WBC at the intended return. Unrelated fillers remain collisions.
+ */
+function isRequiredBlindCornerFillerJoinPeer(
+  filler: PlacedCabinet,
+  peer: PlacedCabinet,
+): boolean {
+  if (!isFillerItem(filler) || !isBlindCorner(peer.masterCode, peer.description)) return false;
+  if (filler.fillerForCabinetUid !== peer.uid) return false;
+  if (!/^(?:bbc|wbc)-required-filler-/.test(filler.fillerPieceGroupId ?? "")) return false;
+  const installedWidth = Number(filler.width);
+  if (!Number.isFinite(installedWidth) || installedWidth <= 0 || installedWidth > BLIND_CORNER_FILLER_WIDTH_IN + COLLISION_EPSILON_IN) return false;
+  const fillerElevation = elevationBox(filler);
+  const peerElevation = elevationBox(peer);
+  return filler.placement === peer.placement
+    && Math.abs(fillerElevation.bottom - peerElevation.bottom) <= COLLISION_EPSILON_IN
+    && Math.abs(fillerElevation.height - peerElevation.height) <= COLLISION_EPSILON_IN;
+}
+
+/**
  * Installation rule: a filler is cut to the exact vertical envelope of the
  * cabinet beside it and sits on the same front-depth datum. Catalog/nominal
  * dimensions remain available for purchasing; installed dimensions drive the
@@ -3305,6 +3326,7 @@ export function cabinetPlacementCollisionDetail(
 ): CabinetCollisionDetail | null {
   if (!room) return cabinetCollisionDetail(moving, others);
   for (const other of others) {
+    if (isRequiredBlindCornerFillerJoinPeer(moving, other) || isRequiredBlindCornerFillerJoinPeer(other, moving)) continue;
     // Test both directions so a shared-corner reservation is enforced whether
     // the straight cabinet or the ERB/L/diagonal cabinet is moving.
     const movingCornerReservation = customWallCornerReservationCollision(moving, other, other, room);
