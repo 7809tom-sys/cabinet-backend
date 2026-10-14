@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { windowFrameColor, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
+import { DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
 
 describe("Designer window scenes", () => {
   it("maps the real reference scenes to stored photographic assets", () => {
+    expect(DEFAULT_WINDOW_SCENE_KIND).toBe("garden");
     expect(windowSceneAssetUrl("garden")).toBe(WINDOW_SCENE_ASSETS.garden);
     expect(windowSceneAssetUrl("woodland")).toBe(WINDOW_SCENE_ASSETS.woodland);
     expect(windowSceneAssetUrl("coastal")).toBe(WINDOW_SCENE_ASSETS.coastal);
