@@ -1,15 +1,23 @@
 # Designer window-scene photo sources
 
-The Designer uses these real photographs for the Garden, Woodland, and Coastal presets. The existing Daylight, Suburban, Privacy, Urban, Mountain, and Night presets remain available.
+The Designer keeps the existing Daylight, Suburban, and Privacy procedural fallbacks, plus Urban, Mountain, Night, City Skyline, Desert, and Snow presets. Garden, Woodland, and Coastal now use outdoor-only scene plates so the Designer's own frame and glass are the only architectural window elements visible.
 
-- **Garden** — Karl432, “View into a garden through an open ground floor window in Germany,” Wikimedia Commons. **CC BY-SA 4.0.** Source: https://commons.wikimedia.org/wiki/File:View_into_a_garden_through_an_open_ground_floor_window_in_Germany.jpg
-- **Woodland** — Johannes Plenio, “Pexels-photo-1114896.jpg,” Wikimedia Commons. **CC0 1.0.** Source: https://commons.wikimedia.org/wiki/File:Pexels-photo-1114896.jpg
-- **Coastal** — Peter Toporowski, “Sylt – Fenster mit Aussicht – Window With A View,” Wikimedia Commons. **CC BY-SA 2.0.** Source: https://commons.wikimedia.org/wiki/File:Sylt_-_Fenster_mit_Aussicht_-_Window_With_A_View_-_Flickr_-_PHOTOGRAPHY_Toporowski.jpg
+## Current Garden, Woodland, and Coastal assets
 
-The photographs are stored through WebDev storage and referenced by `/manus-storage/` paths in `InteractiveRoom3D.tsx`; they are not bundled into `client/public`.
+These replacement plates were generated as original outdoor landscape imagery for this project after reviewing real garden, woodland, and coastal photographic references online. They intentionally contain **no window, door, interior room, frame, glass reflection, or border**.
 
-## Added 2026-10-14
+- **Garden** — `/manus-storage/garden-outdoor_99c686e1.jpg`
+- **Woodland** — `/manus-storage/woodland-outdoor_a7243038.jpg`
+- **Coastal** — `/manus-storage/coastal-outdoor_a5ed6982.jpg`
 
-- **City skyline** — Clark Gu, “A view of a city from a window in a building,” Unsplash License. Source: https://unsplash.com/photos/a-view-of-a-city-from-a-window-in-a-building-lkVo8kFiiOQ. Stored asset: `/manus-storage/city-skyline-window_f7ff8dee.jpg`.
-- **Desert** — NEOM, “a desert landscape with mountains in the background,” Unsplash License. Source: https://unsplash.com/photos/a-desert-landscape-with-mountains-in-the-background-AQgbiXczUVg. Stored asset: `/manus-storage/desert-landscape_64300d12.jpg`.
-- **Snow** — Chris F, “Serene snowy mountain landscape in winter,” Pexels License. Source: https://www.pexels.com/photo/serene-snowy-mountain-landscape-in-winter-31718574/. Stored asset: `/manus-storage/snowy-mountain-window_37b56d4c.jpeg`.
+## Previously sourced references
+
+The previous photographic references remain recorded for provenance, but are no longer used for these three presets because they included architectural window/interior framing inside the image:
+
+- Garden — Karl432, “View into a garden through an open ground floor window in Germany,” Wikimedia Commons, CC BY-SA 4.0.
+- Woodland — Johannes Plenio, “Pexels-photo-1114896.jpg,” Wikimedia Commons, CC0 1.0.
+- Coastal — Peter Toporowski, “Sylt – Fenster mit Aussicht – Window With A View,” Wikimedia Commons, CC BY-SA 2.0.
+
+## Interaction
+
+Plan view and 3D both support right-click, double-click, and keyboard activation on a window. Each action selects the saved opening and opens the existing Window Attributes dialog, where the scene preset, frame style, dimensions, position, and deletion controls remain authoritative.

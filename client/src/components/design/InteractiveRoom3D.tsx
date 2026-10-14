@@ -438,9 +438,11 @@ export function windowFrameColor(style: WindowFrameStyle): string {
 
 /** Real reference photographs used behind architectural window openings. */
 export const WINDOW_SCENE_ASSETS: Partial<Record<WindowSceneKind, string>> = {
-  garden: "/manus-storage/garden-window_d9fcb987.jpg",
-  woodland: "/manus-storage/woodland-window_cf5e6286.jpg",
-  coastal: "/manus-storage/coastal-window_07b458fc.jpg",
+  // Outdoor-only photos: the Designer supplies the architectural frame and
+  // glass, so these assets must not contain a second window or interior room.
+  garden: "/manus-storage/garden-outdoor_99c686e1.jpg",
+  woodland: "/manus-storage/woodland-outdoor_a7243038.jpg",
+  coastal: "/manus-storage/coastal-outdoor_a5ed6982.jpg",
   urban: "/manus-storage/window-urban_617d07dc.jpg",
   mountain: "/manus-storage/window-mountain_2ede9ff2.jpg",
   night: "/manus-storage/window-night_0bb50bde.jpg",
