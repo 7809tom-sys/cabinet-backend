@@ -426,7 +426,7 @@ export type InteractiveRoomPresentation = {
   windowFrameStyle?: WindowFrameStyle;
 };
 
-export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "suburban" | "privacy";
+export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "suburban" | "privacy";
 export type WindowFrameStyle = "white" | "black" | "wood";
 export const DEFAULT_WINDOW_SCENE_KIND: WindowSceneKind = "garden";
 
@@ -444,6 +444,9 @@ export const WINDOW_SCENE_ASSETS: Partial<Record<WindowSceneKind, string>> = {
   urban: "/manus-storage/window-urban_617d07dc.jpg",
   mountain: "/manus-storage/window-mountain_2ede9ff2.jpg",
   night: "/manus-storage/window-night_0bb50bde.jpg",
+  "city-skyline": "/manus-storage/city-skyline-window_f7ff8dee.jpg",
+  desert: "/manus-storage/desert-landscape_64300d12.jpg",
+  snow: "/manus-storage/snowy-mountain-window_37b56d4c.jpeg",
 };
 
 /** Source and license notes for the photographic presets shown in the Designer. */
@@ -451,6 +454,9 @@ export const WINDOW_SCENE_SOURCES = {
   garden: { photographer: "Karl432", license: "CC BY-SA 4.0", source: "Wikimedia Commons — View into a garden through an open ground floor window in Germany" },
   woodland: { photographer: "Johannes Plenio", license: "CC0 1.0", source: "Wikimedia Commons — Pexels-photo-1114896.jpg" },
   coastal: { photographer: "Peter Toporowski", license: "CC BY-SA 2.0", source: "Wikimedia Commons — Sylt: Window With A View" },
+  "city-skyline": { photographer: "Clark Gu", license: "Unsplash License", source: "Unsplash — A view of a city from a window in a building" },
+  desert: { photographer: "NEOM", license: "Unsplash License", source: "Unsplash — A desert landscape with mountains in the background" },
+  snow: { photographer: "Chris F", license: "Pexels License", source: "Pexels — Serene snowy mountain landscape in winter" },
 } as const;
 
 export function windowSceneAssetUrl(kind: WindowSceneKind): string | null {
@@ -8877,6 +8883,9 @@ function windowMullionGrid(kind: WindowSceneKind): { columns: number; rows: numb
   if (kind === "urban") return { columns: 2, rows: 2 };
   if (kind === "mountain") return { columns: 1, rows: 1 };
   if (kind === "night") return { columns: 2, rows: 1 };
+  if (kind === "city-skyline") return { columns: 2, rows: 1 };
+  if (kind === "desert") return { columns: 1, rows: 0 };
+  if (kind === "snow") return { columns: 2, rows: 1 };
   return { columns: 1, rows: 1 };
 }
 
