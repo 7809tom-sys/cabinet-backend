@@ -437,13 +437,20 @@ export function windowFrameColor(style: WindowFrameStyle): string {
 
 /** Real reference photographs used behind architectural window openings. */
 export const WINDOW_SCENE_ASSETS: Partial<Record<WindowSceneKind, string>> = {
-  garden: "/manus-storage/pasted_file_GWZE6m_image_d5f4babf.png",
-  woodland: "/manus-storage/pasted_file_kJH8GI_image_62365b0f.png",
-  coastal: "/manus-storage/pasted_file_nNovz1_image_f0dfe581.png",
+  garden: "/manus-storage/garden-window_d9fcb987.jpg",
+  woodland: "/manus-storage/woodland-window_cf5e6286.jpg",
+  coastal: "/manus-storage/coastal-window_07b458fc.jpg",
   urban: "/manus-storage/window-urban_617d07dc.jpg",
   mountain: "/manus-storage/window-mountain_2ede9ff2.jpg",
   night: "/manus-storage/window-night_0bb50bde.jpg",
 };
+
+/** Source and license notes for the photographic presets shown in the Designer. */
+export const WINDOW_SCENE_SOURCES = {
+  garden: { photographer: "Karl432", license: "CC BY-SA 4.0", source: "Wikimedia Commons — View into a garden through an open ground floor window in Germany" },
+  woodland: { photographer: "Johannes Plenio", license: "CC0 1.0", source: "Wikimedia Commons — Pexels-photo-1114896.jpg" },
+  coastal: { photographer: "Peter Toporowski", license: "CC BY-SA 2.0", source: "Wikimedia Commons — Sylt: Window With A View" },
+} as const;
 
 export function windowSceneAssetUrl(kind: WindowSceneKind): string | null {
   return WINDOW_SCENE_ASSETS[kind] ?? null;
@@ -8942,14 +8949,21 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
     }
     const glass = new THREE.Mesh(
       new THREE.BoxGeometry(width - 0.08, height - 0.08, 0.018),
-      new THREE.MeshPhysicalMaterial({ color: "#d9f0f2", transparent: true, opacity: 0.12, roughness: 0.08, metalness: 0.02, transmission: 0.04, depthWrite: false, side: THREE.DoubleSide }),
+      new THREE.MeshPhysicalMaterial({ color: "#d9f0f2", transparent: true, opacity: 0.16, roughness: 0.055, metalness: 0.08, transmission: 0.12, ior: 1.46, thickness: 0.04, depthWrite: false, side: THREE.DoubleSide }),
     );
     glass.position.z = 0.062;
     glass.userData = { windowGlassReflection: true, windowSceneKind, realPhotograph: Boolean(windowSceneAssetUrl(windowSceneKind)) };
+    const reflection = new THREE.Mesh(
+      new THREE.PlaneGeometry(Math.max(0.08, width * 0.16), height * 0.88),
+      new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.075, depthWrite: false, side: THREE.DoubleSide }),
+    );
+    reflection.position.set(-width * 0.22, height * 0.02, 0.075);
+    reflection.rotation.z = -0.28;
+    reflection.userData = { windowGlassHighlight: true, windowSceneKind };
     const sill = new THREE.Mesh(new THREE.BoxGeometry(width + trimWidth * 2.7, trimWidth * 1.5, 0.2), trimMaterial);
     sill.position.set(0, -height / 2 - trimWidth * 0.85, 0.12);
     sill.userData = { architecturalWindowSill: true };
-    group.add(...mullions, glass, sill);
+    group.add(...mullions, glass, reflection, sill);
   } else {
     const doorPanelMaterial = new THREE.MeshStandardMaterial({ color: isDoor ? appearance.color : "#6f503b", roughness: 0.54, ...(isDoor ? { transparent: true, opacity: appearance.opacity * 0.6, depthWrite: false } : {}) });
     const upperPanel = new THREE.Mesh(new THREE.BoxGeometry(width * 0.68, height * 0.26, 0.035), doorPanelMaterial);
