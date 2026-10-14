@@ -1,0 +1,6327 @@
+{
+  "generatedAt": "2026-10-14T01:17:09.042029+00:00",
+  "policy": {
+    "noRetirement": true,
+    "everyCodeIsMasterOrAlias": true,
+    "selectionRule": "Within each connected nomenclature group, choose the candidate with the greatest total approved master/alias coverage; break ties by supplier-link count, active state, visibility, inbound links, then lexical order.",
+    "priceRowsChanged": false,
+    "cabinetRowsDeleted": false
+  },
+  "preMigrationSummary": {
+    "cabinetRows": 682,
+    "active": 552,
+    "inactive": 130,
+    "approvedSkuAliases": 382,
+    "conflicts": 2,
+    "cabinetAliases": 514,
+    "equivalences": 155,
+    "mappedToActive": 78,
+    "selectedInactive": 52,
+    "unresolved": 24
+  },
+  "preMigrationInactiveAudit": [
+    {
+      "retiredId": 9360016,
+      "retiredCode": "BFH24",
+      "retiredDescription": "Base Full Height 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BFHB24",
+      "chosenMaster": "B24FH",
+      "chosenMasterId": 9390197,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "B24FH",
+          "id": 9390197,
+          "active": true,
+          "inbound": 4,
+          "outbound": 0,
+          "supplierLinks": 50
+        },
+        {
+          "code": "BFH-24",
+          "id": 9360016,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFH24",
+          "id": 9360016,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB24",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFHB24",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360017,
+      "retiredCode": "BFH27",
+      "retiredDescription": "Base Full Height 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BFHB27",
+      "chosenMaster": "B-27FH",
+      "chosenMasterId": 9390198,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "B-27FH",
+          "id": 9390198,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "B27FH",
+          "id": 9390198,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "BFH-27",
+          "id": 9360017,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFH27",
+          "id": 9360017,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFHB27",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB27",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360018,
+      "retiredCode": "BFH30",
+      "retiredDescription": "Base Full Height 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BFHB30",
+      "chosenMaster": "B-30FH",
+      "chosenMasterId": 9390199,
+      "chosenMasterActive": true,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "B-30FH",
+          "id": 9390199,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 50
+        },
+        {
+          "code": "B30FH",
+          "id": 9390199,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 50
+        },
+        {
+          "code": "BFH-30",
+          "id": 9360018,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFH30",
+          "id": 9360018,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB30",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFHB30",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360019,
+      "retiredCode": "BFH33",
+      "retiredDescription": "Base Full Height 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BFHB33",
+      "chosenMaster": "B-33FH",
+      "chosenMasterId": 9390200,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "B-33FH",
+          "id": 9390200,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "B33FH",
+          "id": 9390200,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "BFH-33",
+          "id": 9360019,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFH33",
+          "id": 9360019,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFHB33",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB33",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360020,
+      "retiredCode": "BFH36",
+      "retiredDescription": "Base Full Height 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BFHB36",
+      "chosenMaster": "B-36FH",
+      "chosenMasterId": 9390201,
+      "chosenMasterActive": true,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "B-36FH",
+          "id": 9390201,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 50
+        },
+        {
+          "code": "B36FH",
+          "id": 9390201,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 50
+        },
+        {
+          "code": "BFH-36",
+          "id": 9360020,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFH36",
+          "id": 9360020,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB36",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BFHB36",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360041,
+      "retiredCode": "ERB33",
+      "retiredDescription": "33\" Easy Reach Base Cabinet with Lazy Susan",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ERB33",
+      "chosenMaster": "ERB-33",
+      "chosenMasterId": 9360041,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "ERB-33",
+          "id": 9360041,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ERB33",
+          "id": 9360041,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BER33",
+          "id": 9390243,
+          "active": true,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 51
+        },
+        {
+          "code": "EBB33",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360042,
+      "retiredCode": "ERB36",
+      "retiredDescription": "36\" Easy Reach Base Cabinet with Lazy Susan",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ERB36",
+      "chosenMaster": "ERB-36",
+      "chosenMasterId": 9360042,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "ERB-36",
+          "id": 9360042,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ERB36",
+          "id": 9360042,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BER36",
+          "id": 9390244,
+          "active": true,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 51
+        },
+        {
+          "code": "EBB36",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360049,
+      "retiredCode": "BSDC6",
+      "retiredDescription": "6 in. Base Spice Drawer Cabinet \u2014 5 drawers",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BSDC6",
+      "chosenMaster": "BSD6",
+      "chosenMasterId": 9390024,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "BSD6",
+          "id": 9390024,
+          "active": true,
+          "inbound": 3,
+          "outbound": 1,
+          "supplierLinks": 31
+        },
+        {
+          "code": "BSDC6",
+          "id": 9360049,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360166,
+      "retiredCode": "WRC3015",
+      "retiredDescription": "30\"X 15\" Wall Wine Rack Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WRC3015",
+      "chosenMaster": "WRC-30-15",
+      "chosenMasterId": 9360166,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "WRC-30-15",
+          "id": 9360166,
+          "active": false,
+          "inbound": 2,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WRC3015",
+          "id": 9360166,
+          "active": false,
+          "inbound": 2,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "LWR3015",
+          "id": 9390050,
+          "active": true,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 31
+        }
+      ]
+    },
+    {
+      "retiredId": 9360181,
+      "retiredCode": "RS18",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 13\u215c\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT18",
+      "chosenMaster": "RS-18",
+      "chosenMasterId": 9360181,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-18",
+          "id": 9360181,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS18",
+          "id": 9360181,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS18-Type A",
+          "id": 9390452,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS18-TypeA",
+          "id": 9390452,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS18-TYPEA",
+          "id": 9390452,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT18",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360183,
+      "retiredCode": "RS21",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 16\u215c\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT21",
+      "chosenMaster": "RS-21",
+      "chosenMasterId": 9360183,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-21",
+          "id": 9360183,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS21",
+          "id": 9360183,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS21-Type A",
+          "id": 9390453,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS21-TypeA",
+          "id": 9390453,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS21-TYPEA",
+          "id": 9390453,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT21",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360185,
+      "retiredCode": "RS24",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 19\u00bd\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT24",
+      "chosenMaster": "RS-24",
+      "chosenMasterId": 9360185,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-24",
+          "id": 9360185,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS24",
+          "id": 9360185,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS24-Type A",
+          "id": 9390454,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS24-TypeA",
+          "id": 9390454,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS24-TYPEA",
+          "id": 9390454,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT24",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360187,
+      "retiredCode": "RS27",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 22\u00bd\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT27",
+      "chosenMaster": "RS-27",
+      "chosenMasterId": 9360187,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-27",
+          "id": 9360187,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS27",
+          "id": 9360187,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS27-Type A",
+          "id": 9390455,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS27-TypeA",
+          "id": 9390455,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS27-TYPEA",
+          "id": 9390455,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT27",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360189,
+      "retiredCode": "RS30",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 25\u215c\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT30",
+      "chosenMaster": "RS-30",
+      "chosenMasterId": 9360189,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-30",
+          "id": 9360189,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS30",
+          "id": 9360189,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS30-Type A",
+          "id": 9390456,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS30-TypeA",
+          "id": 9390456,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS30-TYPEA",
+          "id": 9390456,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT30",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360190,
+      "retiredCode": "RS33",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 28\u215c\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT33",
+      "chosenMaster": "RS-33",
+      "chosenMasterId": 9360190,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-33",
+          "id": 9360190,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS33",
+          "id": 9360190,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS33-Type A",
+          "id": 9390457,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS33-TypeA",
+          "id": 9390457,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS33-TYPEA",
+          "id": 9390457,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT33",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360191,
+      "retiredCode": "RS36",
+      "retiredDescription": "Roll-Out Shelf, Type A \u2014 31\u215c\" \u00d7 3\u215c\" \u00d7 20 7/16\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROT36",
+      "chosenMaster": "RS-36",
+      "chosenMasterId": 9360191,
+      "chosenMasterActive": false,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "RS-36",
+          "id": 9360191,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS36",
+          "id": 9360191,
+          "active": false,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 6
+        },
+        {
+          "code": "RS36-Type A",
+          "id": 9390458,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS36-TypeA",
+          "id": 9390458,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "RS36-TYPEA",
+          "id": 9390458,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 33
+        },
+        {
+          "code": "ROT36",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360200,
+      "retiredCode": "TKC",
+      "retiredDescription": "Toe Kick - 96\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "TKC",
+      "chosenMaster": "TK-8(TKC)",
+      "chosenMasterId": 9390073,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "TK-8(TKC)",
+          "id": 9390073,
+          "active": true,
+          "inbound": 4,
+          "outbound": 1,
+          "supplierLinks": 67
+        },
+        {
+          "code": "TK8(TKC)",
+          "id": 9390073,
+          "active": true,
+          "inbound": 4,
+          "outbound": 1,
+          "supplierLinks": 67
+        },
+        {
+          "code": "TK-8",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "TKC",
+          "id": 9360200,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9360221,
+      "retiredCode": "OCM8",
+      "retiredDescription": "Outside Corner Moulding - 96\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "OCS8",
+      "chosenMaster": "OCM",
+      "chosenMasterId": 9390403,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "OCM",
+          "id": 9390403,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 68
+        },
+        {
+          "code": "OCS8",
+          "id": 9390054,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "OCM8",
+          "id": 9360221,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9360245,
+      "retiredCode": "SD",
+      "retiredDescription": "11-inch \u00d7 15-inch \u00d7 3/4-inch Sample Door",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "SD",
+      "chosenMaster": "Sample Door",
+      "chosenMasterId": 9390459,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "Sample Door",
+          "id": 9390459,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 32
+        },
+        {
+          "code": "SD",
+          "id": 9360245,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 30
+        },
+        {
+          "code": "DD",
+          "id": 9390036,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390006,
+      "retiredCode": "ARCHIVE-B24-9390006",
+      "retiredDescription": "24\" Double Door Single Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB249390006",
+      "chosenMaster": "B-24",
+      "chosenMasterId": 9360006,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "B-24",
+          "id": 9360006,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B24",
+          "id": 9360006,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "24B",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B24-1DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B24-9390006",
+          "id": 9390006,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390007,
+      "retiredCode": "ARCHIVE-B27-9390007",
+      "retiredDescription": "27\" Double Door Single Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB279390007",
+      "chosenMaster": "B-27",
+      "chosenMasterId": 9360007,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "B-27",
+          "id": 9360007,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B27",
+          "id": 9360007,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "27B",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B27-1DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B27-9390007",
+          "id": 9390007,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390008,
+      "retiredCode": "ARCHIVE-B30-9390008",
+      "retiredDescription": "30\" Double Door Two Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB309390008",
+      "chosenMaster": "B-30",
+      "chosenMasterId": 9360008,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B-30",
+          "id": 9360008,
+          "active": true,
+          "inbound": 8,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B30",
+          "id": 9360008,
+          "active": true,
+          "inbound": 8,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B30S",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "30B-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B-30-2",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B30-1DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B30-2DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B30-9390008",
+          "id": 9390008,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390009,
+      "retiredCode": "ARCHIVE-B33-9390009",
+      "retiredDescription": "33\" Double Door Two Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB339390009",
+      "chosenMaster": "B-33",
+      "chosenMasterId": 9360009,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "B-33",
+          "id": 9360009,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B33",
+          "id": 9360009,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "33B",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B-33-2",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B33-2DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B33-9390009",
+          "id": 9390009,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390010,
+      "retiredCode": "ARCHIVE-B36-9390010",
+      "retiredDescription": "36\" Double Door Two Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB369390010",
+      "chosenMaster": "B-36",
+      "chosenMasterId": 9360010,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "B-36",
+          "id": 9360010,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B36",
+          "id": 9360010,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "36B",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B36-2DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B36-9390010",
+          "id": 9390010,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390012,
+      "retiredCode": "ARCHIVE-B42-9390012",
+      "retiredDescription": "42\" Double Door Two Drawer Base Cabinet with Adjustable Shelf",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEB429390012",
+      "chosenMaster": "B-42",
+      "chosenMasterId": 9360011,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "B-42",
+          "id": 9360011,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "B42",
+          "id": 9360011,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "42B",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B42-2DR-2D",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-B42-9390012",
+          "id": 9390012,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390023,
+      "retiredCode": "BMC30",
+      "retiredDescription": "30\" Microwave Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BMW30",
+      "chosenMaster": "MB-30",
+      "chosenMasterId": 9360050,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "MB-30",
+          "id": 9360050,
+          "active": true,
+          "inbound": 2,
+          "outbound": 3,
+          "supplierLinks": 65
+        },
+        {
+          "code": "MB30",
+          "id": 9360050,
+          "active": true,
+          "inbound": 2,
+          "outbound": 3,
+          "supplierLinks": 65
+        },
+        {
+          "code": "BMW-30",
+          "id": 9390253,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BMW30",
+          "id": 9390253,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BMC30",
+          "id": 9390023,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390028,
+      "retiredCode": "ARCHIVE-3DB12-9390028",
+      "retiredDescription": "12\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": true,
+      "root": "ARCHIVE3DB129390028",
+      "chosenMaster": "3-DB-12",
+      "chosenMasterId": 9360024,
+      "chosenMasterActive": true,
+      "chosenCoverage": 13,
+      "candidates": [
+        {
+          "code": "3-DB-12",
+          "id": 9360024,
+          "active": true,
+          "inbound": 8,
+          "outbound": 5,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3-DB12",
+          "id": 9360024,
+          "active": true,
+          "inbound": 8,
+          "outbound": 5,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3DB12",
+          "id": 9360024,
+          "active": true,
+          "inbound": 8,
+          "outbound": 5,
+          "supplierLinks": 68
+        },
+        {
+          "code": "DB-12-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "12DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB12-9390028",
+          "id": 9390028,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390029,
+      "retiredCode": "ARCHIVE-3DB15-9390029",
+      "retiredDescription": "15\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVE3DB159390029",
+      "chosenMaster": "3-DB15",
+      "chosenMasterId": 9360025,
+      "chosenMasterActive": true,
+      "chosenCoverage": 8,
+      "candidates": [
+        {
+          "code": "3-DB15",
+          "id": 9360025,
+          "active": true,
+          "inbound": 6,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3DB15",
+          "id": 9360025,
+          "active": true,
+          "inbound": 6,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "15BD-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "15DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BD-15-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "DB-15-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB15-9390029",
+          "id": 9390029,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390030,
+      "retiredCode": "ARCHIVE-3DB18-9390030",
+      "retiredDescription": "18\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVE3DB189390030",
+      "chosenMaster": "3-DB18",
+      "chosenMasterId": 9360026,
+      "chosenMasterActive": true,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "3-DB18",
+          "id": 9360026,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3DB18",
+          "id": 9360026,
+          "active": true,
+          "inbound": 6,
+          "outbound": 3,
+          "supplierLinks": 68
+        },
+        {
+          "code": "DB-18-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "18DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB18-9390030",
+          "id": 9390030,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390031,
+      "retiredCode": "ARCHIVE-3DB21-9390031",
+      "retiredDescription": "21\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": true,
+      "root": "ARCHIVE3DB219390031",
+      "chosenMaster": "3-DB21",
+      "chosenMasterId": 9360027,
+      "chosenMasterActive": true,
+      "chosenCoverage": 11,
+      "candidates": [
+        {
+          "code": "3-DB21",
+          "id": 9360027,
+          "active": true,
+          "inbound": 7,
+          "outbound": 4,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3DB21",
+          "id": 9360027,
+          "active": true,
+          "inbound": 7,
+          "outbound": 4,
+          "supplierLinks": 68
+        },
+        {
+          "code": "DB-21-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "21DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB21-9390031",
+          "id": 9390031,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390032,
+      "retiredCode": "ARCHIVE-3DB24-9390032",
+      "retiredDescription": "24\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVE3DB249390032",
+      "chosenMaster": "3-DB24",
+      "chosenMasterId": 9360028,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "3-DB24",
+          "id": 9360028,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "3DB24",
+          "id": 9360028,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "DB-24-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "24DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB24-9390032",
+          "id": 9390032,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390033,
+      "retiredCode": "ARCHIVE-3DB30-9390033",
+      "retiredDescription": "30\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVE3DB309390033",
+      "chosenMaster": "3-DB30",
+      "chosenMasterId": 9360031,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "3-DB30",
+          "id": 9360031,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 65
+        },
+        {
+          "code": "3DB30",
+          "id": 9360031,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 65
+        },
+        {
+          "code": "DB-30-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "30DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB30-9390033",
+          "id": 9390033,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390034,
+      "retiredCode": "ARCHIVE-3DB36-9390034",
+      "retiredDescription": "36\" 3 Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVE3DB369390034",
+      "chosenMaster": "3-DB36",
+      "chosenMasterId": 9360032,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "3-DB36",
+          "id": 9360032,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 65
+        },
+        {
+          "code": "3DB36",
+          "id": 9360032,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 65
+        },
+        {
+          "code": "DB-36-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "36DB-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-3DB36-9390034",
+          "id": 9390034,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390035,
+      "retiredCode": "DCSB36",
+      "retiredDescription": "36\" Diagonal Corner Sink Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "DCSB36",
+      "chosenMaster": "CSB-36",
+      "chosenMasterId": 9360038,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "CSB-36",
+          "id": 9360038,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 29
+        },
+        {
+          "code": "CSB36",
+          "id": 9360038,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 29
+        },
+        {
+          "code": "DCSB36",
+          "id": 9390035,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390036,
+      "retiredCode": "DD",
+      "retiredDescription": "Display Door",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "SD",
+      "chosenMaster": "Sample Door",
+      "chosenMasterId": 9390459,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "Sample Door",
+          "id": 9390459,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 32
+        },
+        {
+          "code": "SD",
+          "id": 9360245,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 30
+        },
+        {
+          "code": "DD",
+          "id": 9390036,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390037,
+      "retiredCode": "DD-Q",
+      "retiredDescription": "Quarter Display Door",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "DDQ",
+      "chosenMaster": "DD-Q",
+      "chosenMasterId": 9390037,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "DD-Q",
+          "id": 9390037,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 9
+        }
+      ]
+    },
+    {
+      "retiredId": 9390043,
+      "retiredCode": "ARCHIVE-FSB36-9390043",
+      "retiredDescription": "36\" Farm Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEFSB369390043",
+      "chosenMaster": "FSB-36",
+      "chosenMasterId": 9360037,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "FSB-36",
+          "id": 9360037,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 66
+        },
+        {
+          "code": "FSB36",
+          "id": 9360037,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 66
+        },
+        {
+          "code": "ARCHIVE-FSB36-9390043",
+          "id": 9390043,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390045,
+      "retiredCode": "KIOSK-DA",
+      "retiredDescription": "Hanging Display Door & Drawer Front",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "KIOSKDA",
+      "chosenMaster": "KIOSK-DA",
+      "chosenMasterId": 9390045,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "KIOSK-DA",
+          "id": 9390045,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 13
+        }
+      ]
+    },
+    {
+      "retiredId": 9390047,
+      "retiredCode": "LRM-8",
+      "retiredDescription": "Light Rail Molding - 96\"",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "LRM8",
+      "chosenMaster": "LRM-8",
+      "chosenMasterId": 9390047,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "LRM-8",
+          "id": 9390047,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "LRM8",
+          "id": 9390047,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390048,
+      "retiredCode": "LS3312",
+      "retiredDescription": "33\" Lazy Susan Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "LS3312",
+      "chosenMaster": "LSB33",
+      "chosenMasterId": 9390246,
+      "chosenMasterActive": true,
+      "chosenCoverage": 1,
+      "candidates": [
+        {
+          "code": "LSB33",
+          "id": 9390246,
+          "active": true,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 37
+        },
+        {
+          "code": "LS33",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "LS3312",
+          "id": 9390048,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390049,
+      "retiredCode": "LS3612",
+      "retiredDescription": "36\" Lazy Susan Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "LS3612",
+      "chosenMaster": "LSB36",
+      "chosenMasterId": 9390247,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "LSB36",
+          "id": 9390247,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 37
+        },
+        {
+          "code": "LS3612",
+          "id": 9390049,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390054,
+      "retiredCode": "OCS8",
+      "retiredDescription": "96\" Outside Corner Moulding",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "OCS8",
+      "chosenMaster": "OCM",
+      "chosenMasterId": 9390403,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "OCM",
+          "id": 9390403,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 68
+        },
+        {
+          "code": "OCS8",
+          "id": 9390054,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "OCM8",
+          "id": 9360221,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390058,
+      "retiredCode": "PR-30-15",
+      "retiredDescription": "30\" x 15\" Plate Rack",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "PR3015",
+      "chosenMaster": "PR-30-15",
+      "chosenMasterId": 9390058,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "PR-30-15",
+          "id": 9390058,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "PR3015",
+          "id": 9390058,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390062,
+      "retiredCode": "Rope8",
+      "retiredDescription": "96\" x 1/4\" Rope Insert Moulding",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ROPE8",
+      "chosenMaster": "ROPE",
+      "chosenMasterId": 9360222,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "ROPE",
+          "id": 9360222,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 14
+        },
+        {
+          "code": "Rope8",
+          "id": 9390062,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390063,
+      "retiredCode": "ARCHIVE-SB33-9390063",
+      "retiredDescription": "33\" Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVESB339390063",
+      "chosenMaster": "SB-33",
+      "chosenMasterId": 9360035,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "SB-33",
+          "id": 9360035,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "SB33",
+          "id": 9360035,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "ARCHIVE-SB33-9390063",
+          "id": 9390063,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390064,
+      "retiredCode": "ARCHIVE-SB36-9390064",
+      "retiredDescription": "36\" Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVESB369390064",
+      "chosenMaster": "SB-36",
+      "chosenMasterId": 9360036,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "SB-36",
+          "id": 9360036,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "SB36",
+          "id": 9360036,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "ARCHIVE-SB36-9390064",
+          "id": 9390064,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390066,
+      "retiredCode": "SGH",
+      "retiredDescription": "12\" x 30\" Stem Glass Holder",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "SGH",
+      "chosenMaster": "SGH30",
+      "chosenMasterId": 9360239,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "SGH30",
+          "id": 9360239,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 54
+        },
+        {
+          "code": "SGH",
+          "id": 9390066,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390067,
+      "retiredCode": "SHM8",
+      "retiredDescription": "96\" Shoe Molding",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "SHM8",
+      "chosenMaster": "SHM",
+      "chosenMasterId": 9360227,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "SHM",
+          "id": 9360227,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 68
+        },
+        {
+          "code": "SHM8",
+          "id": 9390067,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390070,
+      "retiredCode": "TB09",
+      "retiredDescription": "9\" Tray Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "TB09",
+      "chosenMaster": "BT9",
+      "chosenMasterId": 9390192,
+      "chosenMasterActive": true,
+      "chosenCoverage": 8,
+      "candidates": [
+        {
+          "code": "BT9",
+          "id": 9390192,
+          "active": true,
+          "inbound": 8,
+          "outbound": 0,
+          "supplierLinks": 67
+        },
+        {
+          "code": "BFH9",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHB09",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B-9",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "B9",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BT09",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "FHBO9",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "TBO9",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390071,
+      "retiredCode": "TF396",
+      "retiredDescription": "3\" x 96\" Filler",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WF396",
+      "chosenMaster": "F396",
+      "chosenMasterId": 9360198,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "F396",
+          "id": 9360198,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 55
+        },
+        {
+          "code": "WF396",
+          "id": 9390178,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 14
+        },
+        {
+          "code": "TF396",
+          "id": 9390071,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 14
+        }
+      ]
+    },
+    {
+      "retiredId": 9390076,
+      "retiredCode": "ARCHIVE-U189024-9390076",
+      "retiredDescription": "18\" x 90\" Tall Utility/Pantry Cabinet - 2 Doors (stacked upper & lower) with 1 Fixed Shelf and 5 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": true,
+      "root": "ARCHIVEU1890249390076",
+      "chosenMaster": "U-18-90-24",
+      "chosenMasterId": 9360173,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "U-18-90-24",
+          "id": 9360173,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 67
+        },
+        {
+          "code": "U189024",
+          "id": 9360173,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 67
+        },
+        {
+          "code": "UC1890",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WP1890",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-U189024-9390076",
+          "id": 9390076,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390078,
+      "retiredCode": "ARCHIVE-U248424-9390078",
+      "retiredDescription": "24\" x 84\" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 4 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEU2484249390078",
+      "chosenMaster": "U-24-84-24",
+      "chosenMasterId": 9360176,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "U-24-84-24",
+          "id": 9360176,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "U248424",
+          "id": 9360176,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "UC2484",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WP2484",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-U248424-9390078",
+          "id": 9390078,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390079,
+      "retiredCode": "ARCHIVE-U249024-9390079",
+      "retiredDescription": "24\" x 90\" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEU2490249390079",
+      "chosenMaster": "U-24-90-24",
+      "chosenMasterId": 9360177,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "U-24-90-24",
+          "id": 9360177,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "U249024",
+          "id": 9360177,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "UC2490",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WP2490",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-U249024-9390079",
+          "id": 9390079,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390080,
+      "retiredCode": "ARCHIVE-U249624-9390080",
+      "retiredDescription": "24\" x 96\" Tall Utility/Pantry Cabinet - 4 Doors (2 upper & 2 lower) with 1 Fixed Shelf and 5 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ARCHIVEU2496249390080",
+      "chosenMaster": "U-24-96-24",
+      "chosenMasterId": 9360178,
+      "chosenMasterActive": true,
+      "chosenCoverage": 7,
+      "candidates": [
+        {
+          "code": "U-24-96-24",
+          "id": 9360178,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "U249624",
+          "id": 9360178,
+          "active": true,
+          "inbound": 5,
+          "outbound": 2,
+          "supplierLinks": 69
+        },
+        {
+          "code": "UC2496",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WP2496",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ARCHIVE-U249624-9390080",
+          "id": 9390080,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390081,
+      "retiredCode": "UCD30",
+      "retiredDescription": "Base Desk Drawer",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UCD30",
+      "chosenMaster": "DKD30",
+      "chosenMasterId": 9390255,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "DKD30",
+          "id": 9390255,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 37
+        },
+        {
+          "code": "UCD30",
+          "id": 9390081,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390083,
+      "retiredCode": "UOC3384(O338424)",
+      "retiredDescription": "33\"x 84\" Oven Pantry Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UOC338424",
+      "chosenMaster": "O338424",
+      "chosenMasterId": 9360184,
+      "chosenMasterActive": true,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "O338424",
+          "id": 9360184,
+          "active": true,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 65
+        },
+        {
+          "code": "UOC3384(O338424)",
+          "id": 9390083,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "UOC3384",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "UOC338424",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390084,
+      "retiredCode": "UOC3390(O339024)",
+      "retiredDescription": "33\"x 90\" Oven Pantry Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UOC339024",
+      "chosenMaster": "UOC3390(O339024)",
+      "chosenMasterId": 9390084,
+      "chosenMasterActive": false,
+      "chosenCoverage": 1,
+      "candidates": [
+        {
+          "code": "UOC3390(O339024)",
+          "id": 9390084,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "UOC3390",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "O339024",
+          "id": 9360186,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 65
+        },
+        {
+          "code": "UOC339024",
+          "id": 9390366,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390085,
+      "retiredCode": "UOC3396(O339624)",
+      "retiredDescription": "33\"x 96\" Oven Pantry Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UOC3396",
+      "chosenMaster": "O339624",
+      "chosenMasterId": 9360188,
+      "chosenMasterActive": true,
+      "chosenCoverage": 1,
+      "candidates": [
+        {
+          "code": "O339624",
+          "id": 9360188,
+          "active": true,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 65
+        },
+        {
+          "code": "UOC3396(O339624)",
+          "id": 9390085,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "UOC3396",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "UOC339624",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390087,
+      "retiredCode": "V2421",
+      "retiredDescription": "24\" Vanity Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V2421",
+      "chosenMaster": "VS-24",
+      "chosenMasterId": 9360249,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "VS-24",
+          "id": 9360249,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VS24",
+          "id": 9360249,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "V2421",
+          "id": 9390087,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390090,
+      "retiredCode": "V2721",
+      "retiredDescription": "27\" Vanity Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V2721",
+      "chosenMaster": "VS-27",
+      "chosenMasterId": 9360250,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "VS-27",
+          "id": 9360250,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VS27",
+          "id": 9360250,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "V2721",
+          "id": 9390090,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390091,
+      "retiredCode": "V3021",
+      "retiredDescription": "30\" Vanity Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V3021",
+      "chosenMaster": "VS-30",
+      "chosenMasterId": 9360251,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "VS-30",
+          "id": 9360251,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "VS30",
+          "id": 9360251,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 44
+        },
+        {
+          "code": "V3021",
+          "id": 9390091,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390092,
+      "retiredCode": "V-30-21DL",
+      "retiredDescription": "30\" Vanity Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "V3021DL",
+      "chosenMaster": "V-30-21DL",
+      "chosenMasterId": 9390092,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "V-30-21DL",
+          "id": 9390092,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "V3021DL",
+          "id": 9390092,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390093,
+      "retiredCode": "V-30-21DR",
+      "retiredDescription": "30\" Vanity Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "V3021DR",
+      "chosenMaster": "V-30-21DR",
+      "chosenMasterId": 9390093,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "V-30-21DR",
+          "id": 9390093,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "V3021DR",
+          "id": 9390093,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390094,
+      "retiredCode": "V3621",
+      "retiredDescription": "36\" Vanity Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V3621",
+      "chosenMaster": "VS-36",
+      "chosenMasterId": 9360253,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "VS-36",
+          "id": 9360253,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VS36",
+          "id": 9360253,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "V3621",
+          "id": 9390094,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390095,
+      "retiredCode": "V-36-21DL",
+      "retiredDescription": "36\" Vanity Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "V3621DL",
+      "chosenMaster": "V-36-21DL",
+      "chosenMasterId": 9390095,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "V-36-21DL",
+          "id": 9390095,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "V3621DL",
+          "id": 9390095,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390096,
+      "retiredCode": "V-36-21DR",
+      "retiredDescription": "36\" Vanity Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "V3621DR",
+      "chosenMaster": "V-36-21DR",
+      "chosenMasterId": 9390096,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "V-36-21DR",
+          "id": 9390096,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "V3621DR",
+          "id": 9390096,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390097,
+      "retiredCode": "V4821DD",
+      "retiredDescription": "48\" Vanity Base Cabinet \u2014 Drawers Both Sides (6 Drawers)",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V4821DD",
+      "chosenMaster": "VDDB48",
+      "chosenMasterId": 10110067,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "VDDB48",
+          "id": 10110067,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 37
+        },
+        {
+          "code": "V4821DD",
+          "id": 9390097,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390099,
+      "retiredCode": "VA-48",
+      "retiredDescription": "48\" x 5\" Arched Valance",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "VA48",
+      "chosenMaster": "VA-48",
+      "chosenMasterId": 9390099,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "VA-48",
+          "id": 9390099,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "VA48",
+          "id": 9390099,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390100,
+      "retiredCode": "VDB1221(3VDB12)",
+      "retiredDescription": "12\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB1221",
+      "chosenMaster": "3VDB12",
+      "chosenMasterId": 9360263,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "3VDB12",
+          "id": 9360263,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VDB1221(3VDB12)",
+          "id": 9390100,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "VDB-12-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "VDB1221",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390101,
+      "retiredCode": "VDB1521(3VDB15)",
+      "retiredDescription": "15\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB1521",
+      "chosenMaster": "3VDB15",
+      "chosenMasterId": 9360264,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "3VDB15",
+          "id": 9360264,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VDB1521(3VDB15)",
+          "id": 9390101,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "VDB-15-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "VDB1521",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390102,
+      "retiredCode": "VDB1821(3VDB18)",
+      "retiredDescription": "18\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB1821",
+      "chosenMaster": "3VDB18",
+      "chosenMasterId": 9360265,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "3VDB18",
+          "id": 9360265,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 68
+        },
+        {
+          "code": "VDB1821(3VDB18)",
+          "id": 9390102,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "VDB-18-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "VDB1821",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390103,
+      "retiredCode": "VDB2121",
+      "retiredDescription": "21\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB213",
+      "chosenMaster": "3VDB21",
+      "chosenMasterId": 9360266,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "3VDB21",
+          "id": 9360266,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 33
+        },
+        {
+          "code": "VDB-21-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "VDB2121",
+          "id": 9390103,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390104,
+      "retiredCode": "VDB2421",
+      "retiredDescription": "24\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB243",
+      "chosenMaster": "3VDB24",
+      "chosenMasterId": 9360267,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "3VDB24",
+          "id": 9360267,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 57
+        },
+        {
+          "code": "VDB-24-3",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "VDB2421",
+          "id": 9390104,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390142,
+      "retiredCode": "W-3312",
+      "retiredDescription": "33\" \u00d7 12\" \u00d7 12\" Wall Cabinet \u2014 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "W3312",
+      "chosenMaster": "W-33-12",
+      "chosenMasterId": 9390142,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "W-33-12",
+          "id": 9390142,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W-3312",
+          "id": 9390142,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W3312",
+          "id": 9390142,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        }
+      ]
+    },
+    {
+      "retiredId": 9390144,
+      "retiredCode": "W-3315",
+      "retiredDescription": "33\" \u00d7 15\" \u00d7 12\" Wall Cabinet \u2014 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "W3315",
+      "chosenMaster": "W-33-15",
+      "chosenMasterId": 9390144,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "W-33-15",
+          "id": 9390144,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W-3315",
+          "id": 9390144,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W3315",
+          "id": 9390144,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        }
+      ]
+    },
+    {
+      "retiredId": 9390145,
+      "retiredCode": "W-3318",
+      "retiredDescription": "33\" \u00d7 18\" \u00d7 12\" Wall Cabinet \u2014 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "W3318",
+      "chosenMaster": "W-33-18",
+      "chosenMasterId": 9390145,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "W-33-18",
+          "id": 9390145,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W-3318",
+          "id": 9390145,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W3318",
+          "id": 9390145,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        }
+      ]
+    },
+    {
+      "retiredId": 9390147,
+      "retiredCode": "W-3324",
+      "retiredDescription": "33\" \u00d7 24\" \u00d7 12\" Wall Cabinet \u2014 2 Doors, 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "W3324",
+      "chosenMaster": "W-33-24",
+      "chosenMasterId": 9390147,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "W-33-24",
+          "id": 9390147,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W-3324",
+          "id": 9390147,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        },
+        {
+          "code": "W3324",
+          "id": 9390147,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 20
+        }
+      ]
+    },
+    {
+      "retiredId": 9390160,
+      "retiredCode": "W-39-30",
+      "retiredDescription": "39\" Double Door Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "W3930",
+      "chosenMaster": "W-39-30",
+      "chosenMasterId": 9390160,
+      "chosenMasterActive": false,
+      "chosenCoverage": 8,
+      "candidates": [
+        {
+          "code": "W-39-30",
+          "id": 9390160,
+          "active": false,
+          "inbound": 4,
+          "outbound": 4,
+          "supplierLinks": 42
+        },
+        {
+          "code": "W-3930",
+          "id": 9390160,
+          "active": false,
+          "inbound": 4,
+          "outbound": 4,
+          "supplierLinks": 42
+        },
+        {
+          "code": "W3930",
+          "id": 9390160,
+          "active": false,
+          "inbound": 4,
+          "outbound": 4,
+          "supplierLinks": 42
+        }
+      ]
+    },
+    {
+      "retiredId": 9390166,
+      "retiredCode": "WBC-27-30",
+      "retiredDescription": "27\" Blind Corner Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WBC2730",
+      "chosenMaster": "WBC-27-30",
+      "chosenMasterId": 9390166,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "WBC-27-30",
+          "id": 9390166,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WBC2730",
+          "id": 9390166,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390167,
+      "retiredCode": "WBC-27-36",
+      "retiredDescription": "27\" Blind Corner Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WBC2736",
+      "chosenMaster": "WBC-27-36",
+      "chosenMasterId": 9390167,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "WBC-27-36",
+          "id": 9390167,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WBC2736",
+          "id": 9390167,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390168,
+      "retiredCode": "WBC-27-42",
+      "retiredDescription": "27\" Blind Corner Wall Cabinet with 3 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WBC2742",
+      "chosenMaster": "WBC-27-42",
+      "chosenMasterId": 9390168,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "WBC-27-42",
+          "id": 9390168,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WBC2742",
+          "id": 9390168,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390169,
+      "retiredCode": "WCA1230",
+      "retiredDescription": "12\" x 30\" Wall Angle Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WCA1230",
+      "chosenMaster": "AW-12-30",
+      "chosenMasterId": 9450008,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "AW-12-30",
+          "id": 9450008,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 38
+        },
+        {
+          "code": "AW1230",
+          "id": 9450008,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 38
+        },
+        {
+          "code": "WCA1230",
+          "id": 9390169,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390170,
+      "retiredCode": "WCA1236",
+      "retiredDescription": "12\" x 36\" Wall Angle Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WCA1236",
+      "chosenMaster": "AW-12-36",
+      "chosenMasterId": 9450009,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "AW-12-36",
+          "id": 9450009,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "AW1236",
+          "id": 9450009,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WCA1236",
+          "id": 9390170,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390171,
+      "retiredCode": "WCA1242",
+      "retiredDescription": "12\" x 42\" Wall Angle Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WDC1242",
+      "chosenMaster": "AW-12-42",
+      "chosenMasterId": 9450010,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "AW-12-42",
+          "id": 9450010,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "AW1242",
+          "id": 9450010,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WCA1242",
+          "id": 9390171,
+          "active": false,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WDC1242",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390172,
+      "retiredCode": "WDC2430",
+      "retiredDescription": "24\" Diagonal Corner Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WDC2430",
+      "chosenMaster": "DCW-24-30",
+      "chosenMasterId": 9360149,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "DCW-24-30",
+          "id": 9360149,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 58
+        },
+        {
+          "code": "DCW2430",
+          "id": 9360149,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 58
+        },
+        {
+          "code": "WDC2430",
+          "id": 9390172,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390173,
+      "retiredCode": "WDC2436",
+      "retiredDescription": "24\" Diagonal Corner Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WDC2436",
+      "chosenMaster": "DCW-24-36",
+      "chosenMasterId": 9450046,
+      "chosenMasterActive": false,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "DCW-24-36",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "DCW-2436",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "DCW2436",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WDC2436",
+          "id": 9390173,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390174,
+      "retiredCode": "WDC2442",
+      "retiredDescription": "24\" Diagonal Corner Wall Cabinet with 3 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WDC2442",
+      "chosenMaster": "DCW-24-42",
+      "chosenMasterId": 9360151,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "DCW-24-42",
+          "id": 9360151,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 58
+        },
+        {
+          "code": "DCW2442",
+          "id": 9360151,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 58
+        },
+        {
+          "code": "WDC2442",
+          "id": 9390174,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390177,
+      "retiredCode": "WF342",
+      "retiredDescription": "3\" x 42\" Filler",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BF3",
+      "chosenMaster": "F-3-42",
+      "chosenMasterId": 9360195,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "F-3-42",
+          "id": 9360195,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "F342",
+          "id": 9360195,
+          "active": true,
+          "inbound": 4,
+          "outbound": 2,
+          "supplierLinks": 68
+        },
+        {
+          "code": "BF-3",
+          "id": 9390017,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 13
+        },
+        {
+          "code": "BF3",
+          "id": 9390017,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 13
+        },
+        {
+          "code": "WF342",
+          "id": 9390177,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390179,
+      "retiredCode": "WF642",
+      "retiredDescription": "6\" x 42\" Filler",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "F642",
+      "chosenMaster": "F-6-42",
+      "chosenMasterId": 9360197,
+      "chosenMasterActive": true,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "F-6-42",
+          "id": 9360197,
+          "active": true,
+          "inbound": 2,
+          "outbound": 4,
+          "supplierLinks": 68
+        },
+        {
+          "code": "F642",
+          "id": 9360197,
+          "active": true,
+          "inbound": 2,
+          "outbound": 4,
+          "supplierLinks": 68
+        },
+        {
+          "code": "WF642",
+          "id": 9390179,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390183,
+      "retiredCode": "WR331524(W331524)",
+      "retiredDescription": "33\"X 15\" Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "W331524",
+      "chosenMaster": "WR331524(W331524)",
+      "chosenMasterId": 9390183,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "WR331524(W331524)",
+          "id": 9390183,
+          "active": false,
+          "inbound": 4,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "W-33-15-24",
+          "id": 9360124,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 59
+        },
+        {
+          "code": "W331524",
+          "id": 9360124,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 59
+        },
+        {
+          "code": "WR331524",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WR3315",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390184,
+      "retiredCode": "WR3324",
+      "retiredDescription": "33\" Double Door Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WR3324",
+      "chosenMaster": "W-33-24-24",
+      "chosenMasterId": 9360130,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "W-33-24-24",
+          "id": 9360130,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 67
+        },
+        {
+          "code": "W332424",
+          "id": 9360130,
+          "active": true,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 67
+        },
+        {
+          "code": "WR3324",
+          "id": 9390184,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390185,
+      "retiredCode": "WR3612(W361224)",
+      "retiredDescription": "36\"X 12\"Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WR3612",
+      "chosenMaster": "W-36-12-24",
+      "chosenMasterId": 9360126,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "W-36-12-24",
+          "id": 9360126,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "W361224",
+          "id": 9360126,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "WR3612(W361224)",
+          "id": 9390185,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WR3612",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390186,
+      "retiredCode": "WR3615(W361524)",
+      "retiredDescription": "36\"X 15\" Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WR3615",
+      "chosenMaster": "W-36-15-24",
+      "chosenMasterId": 9360127,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "W-36-15-24",
+          "id": 9360127,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 59
+        },
+        {
+          "code": "W361524",
+          "id": 9360127,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 59
+        },
+        {
+          "code": "WR3615(W361524)",
+          "id": 9390186,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WR3615",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390187,
+      "retiredCode": "WR3618(W361824)",
+      "retiredDescription": "36\"X 18\" Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WR3618",
+      "chosenMaster": "W-36-18-24",
+      "chosenMasterId": 9360128,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "W-36-18-24",
+          "id": 9360128,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "W361824",
+          "id": 9360128,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "WR3618(W361824)",
+          "id": 9390187,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WR3618",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390189,
+      "retiredCode": "WR3624(W362424)",
+      "retiredDescription": "36\"X 24\" Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WR3624",
+      "chosenMaster": "W-36-24-24",
+      "chosenMasterId": 9360131,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "W-36-24-24",
+          "id": 9360131,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "W362424",
+          "id": 9360131,
+          "active": true,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 70
+        },
+        {
+          "code": "WR3624(W362424)",
+          "id": 9390189,
+          "active": false,
+          "inbound": 2,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WR3624",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390228,
+      "retiredCode": "UV-SBF4242",
+      "retiredDescription": "42\" Vanity Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UVSBF4242",
+      "chosenMaster": "SBF4242",
+      "chosenMasterId": 9360238,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "SBF4242",
+          "id": 9360238,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 41
+        },
+        {
+          "code": "UV-SBF4242",
+          "id": 9390228,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390241,
+      "retiredCode": "LEGACY-3DB15ADA-9390241",
+      "retiredDescription": "15\" \u00d7 32.5\" \u00d7 24\" ADA Three-Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "LEGACY3DB15ADA9390241",
+      "chosenMaster": "3DB15ADA",
+      "chosenMasterId": 9690002,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "3DB15ADA",
+          "id": 9690002,
+          "active": true,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA-3DB15",
+          "id": null,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "LEGACY-3DB15ADA-9390241",
+          "id": 9390241,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390242,
+      "retiredCode": "LEGACY-3DB18ADA-9390242",
+      "retiredDescription": "18\" \u00d7 32.5\" \u00d7 24\" ADA Three-Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "LEGACY3DB18ADA9390242",
+      "chosenMaster": "3DB18ADA",
+      "chosenMasterId": 9690003,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "3DB18ADA",
+          "id": 9690003,
+          "active": true,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA-3DB18",
+          "id": null,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "LEGACY-3DB18ADA-9390242",
+          "id": 9390242,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390248,
+      "retiredCode": "LSB36ADA",
+      "retiredDescription": "36 in. ADA Easy Reach Corner Base with Lazy Susan Trays \u2014 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "LSB36ADA",
+      "chosenMaster": "BER36ADA",
+      "chosenMasterId": 9390245,
+      "chosenMasterActive": true,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "BER36ADA",
+          "id": 9390245,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        },
+        {
+          "code": "LSB36ADA",
+          "id": 9390248,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        }
+      ]
+    },
+    {
+      "retiredId": 9390253,
+      "retiredCode": "BMW30",
+      "retiredDescription": "30\" Microwave Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "BMW30",
+      "chosenMaster": "MB-30",
+      "chosenMasterId": 9360050,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "MB-30",
+          "id": 9360050,
+          "active": true,
+          "inbound": 2,
+          "outbound": 3,
+          "supplierLinks": 65
+        },
+        {
+          "code": "MB30",
+          "id": 9360050,
+          "active": true,
+          "inbound": 2,
+          "outbound": 3,
+          "supplierLinks": 65
+        },
+        {
+          "code": "BMW-30",
+          "id": 9390253,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BMW30",
+          "id": 9390253,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "BMC30",
+          "id": 9390023,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    },
+    {
+      "retiredId": 9390311,
+      "retiredCode": "WR3318(W331824)",
+      "retiredDescription": "33\"X 18\" Refrigerator Wall Cabinet Double Doors",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WR3318",
+      "chosenMaster": "W-33-18-24",
+      "chosenMasterId": 9360125,
+      "chosenMasterActive": true,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "W-33-18-24",
+          "id": 9360125,
+          "active": true,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 54
+        },
+        {
+          "code": "W331824",
+          "id": 9360125,
+          "active": true,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 54
+        },
+        {
+          "code": "WR3318(W331824)",
+          "id": 9390311,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WR3318",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390366,
+      "retiredCode": "UOC339024",
+      "retiredDescription": "33\" W x 90\" H x 24\" D Oven Cabinet \u2014 details TBD",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "UOC339024",
+      "chosenMaster": "UOC3390(O339024)",
+      "chosenMasterId": 9390084,
+      "chosenMasterActive": false,
+      "chosenCoverage": 1,
+      "candidates": [
+        {
+          "code": "UOC3390(O339024)",
+          "id": 9390084,
+          "active": false,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 1
+        },
+        {
+          "code": "UOC3390",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "O339024",
+          "id": 9360186,
+          "active": true,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 65
+        },
+        {
+          "code": "UOC339024",
+          "id": 9390366,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390378,
+      "retiredCode": "LEGACY-VS36ADA-9390378",
+      "retiredDescription": "36\" \u00d7 32.5\" \u00d7 21\" ADA Vanity Sink Base Cabinet \u2014 2 Doors",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "LEGACYVS36ADA9390378",
+      "chosenMaster": "VS36ADA",
+      "chosenMasterId": 9690026,
+      "chosenMasterActive": true,
+      "chosenCoverage": 5,
+      "candidates": [
+        {
+          "code": "VS36ADA",
+          "id": 9690026,
+          "active": true,
+          "inbound": 3,
+          "outbound": 2,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA-VS36",
+          "id": null,
+          "active": false,
+          "inbound": 1,
+          "outbound": 2,
+          "supplierLinks": 0
+        },
+        {
+          "code": "LEGACY-VS36ADA-9390378",
+          "id": 9390378,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390383,
+      "retiredCode": "3VDB15ADA",
+      "retiredDescription": "15\" W x 32-1/2\" H x 21\" D ADA Vanity Drawer Base \u2014 3 Drawers (14-1/2\" W fronts)",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ADA3VDB15",
+      "chosenMaster": "3VDB15ADA",
+      "chosenMasterId": 9390383,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "3VDB15ADA",
+          "id": 9390383,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        },
+        {
+          "code": "ADA-3VDB15",
+          "id": 9690007,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 3
+        }
+      ]
+    },
+    {
+      "retiredId": 9390391,
+      "retiredCode": "VDB42",
+      "retiredDescription": "42\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB42",
+      "chosenMaster": "VDB42",
+      "chosenMasterId": 9390391,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "VDB42",
+          "id": 9390391,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 19
+        }
+      ]
+    },
+    {
+      "retiredId": 9390392,
+      "retiredCode": "VDB48",
+      "retiredDescription": "48\" Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "VDB48",
+      "chosenMaster": "VDB48",
+      "chosenMasterId": 9390392,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "VDB48",
+          "id": 9390392,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 19
+        }
+      ]
+    },
+    {
+      "retiredId": 9390398,
+      "retiredCode": "DCM",
+      "retiredDescription": "Crown Molding - 96\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "DCM",
+      "chosenMaster": "BCM8(DCM)",
+      "chosenMasterId": 9360225,
+      "chosenMasterActive": true,
+      "chosenCoverage": 1,
+      "candidates": [
+        {
+          "code": "BCM8(DCM)",
+          "id": 9360225,
+          "active": true,
+          "inbound": 1,
+          "outbound": 0,
+          "supplierLinks": 41
+        },
+        {
+          "code": "BCM8",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "DCM",
+          "id": 9390398,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9390405,
+      "retiredCode": "SCR",
+      "retiredDescription": "Scribe Molding - 96\"",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "SCR",
+      "chosenMaster": "SM-8",
+      "chosenMasterId": 9390068,
+      "chosenMasterActive": true,
+      "chosenCoverage": 3,
+      "candidates": [
+        {
+          "code": "SM-8",
+          "id": 9390068,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 43
+        },
+        {
+          "code": "SM8",
+          "id": 9390068,
+          "active": true,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 43
+        },
+        {
+          "code": "SM8(SCR)",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "SCR",
+          "id": 9390405,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 24
+        }
+      ]
+    },
+    {
+      "retiredId": 9390461,
+      "retiredCode": "MERCHHUTCH",
+      "retiredDescription": "Merchandising Hutch",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "MERCHHUTCH",
+      "chosenMaster": "MerchHutch",
+      "chosenMasterId": 9390461,
+      "chosenMasterActive": false,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "MerchHutch",
+          "id": 9390461,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 9
+        },
+        {
+          "code": "MERCHHUTCH",
+          "id": 9390461,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 9
+        }
+      ]
+    },
+    {
+      "retiredId": 9390462,
+      "retiredCode": "B12-DISPLAYFRONT",
+      "retiredDescription": "B12 Display Front",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "B12DISPLAYFRONT",
+      "chosenMaster": "B12-DisplayFront",
+      "chosenMasterId": 9390462,
+      "chosenMasterActive": false,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "B12-DisplayFront",
+          "id": 9390462,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        },
+        {
+          "code": "B12-DISPLAYFRONT",
+          "id": 9390462,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        }
+      ]
+    },
+    {
+      "retiredId": 9390464,
+      "retiredCode": "10SWATCH",
+      "retiredDescription": "10 Color Swatch",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "10SWATCH",
+      "chosenMaster": "10Swatch",
+      "chosenMasterId": 9390464,
+      "chosenMasterActive": false,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "10Swatch",
+          "id": 9390464,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        },
+        {
+          "code": "10SWATCH",
+          "id": 9390464,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        }
+      ]
+    },
+    {
+      "retiredId": 9450008,
+      "retiredCode": "AW-12-30",
+      "retiredDescription": "12\" \u00d7 30\" \u00d7 12\" Wall Angle Cabinet \u2014 1 Door, 2 Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WCA1230",
+      "chosenMaster": "AW-12-30",
+      "chosenMasterId": 9450008,
+      "chosenMasterActive": false,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "AW-12-30",
+          "id": 9450008,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 38
+        },
+        {
+          "code": "AW1230",
+          "id": 9450008,
+          "active": false,
+          "inbound": 2,
+          "outbound": 2,
+          "supplierLinks": 38
+        },
+        {
+          "code": "WCA1230",
+          "id": 9390169,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450009,
+      "retiredCode": "AW-12-36",
+      "retiredDescription": "12\" \u00d7 36\" \u00d7 12\" Wall Angle Cabinet \u2014 1 Door, 2 Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WCA1236",
+      "chosenMaster": "AW-12-36",
+      "chosenMasterId": 9450009,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "AW-12-36",
+          "id": 9450009,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "AW1236",
+          "id": 9450009,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WCA1236",
+          "id": 9390170,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450010,
+      "retiredCode": "AW-12-42",
+      "retiredDescription": "12\" \u00d7 42\" \u00d7 12\" Wall Angle Cabinet \u2014 1 Door, 3 Shelves",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WDC1242",
+      "chosenMaster": "AW-12-42",
+      "chosenMasterId": 9450010,
+      "chosenMasterActive": false,
+      "chosenCoverage": 6,
+      "candidates": [
+        {
+          "code": "AW-12-42",
+          "id": 9450010,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "AW1242",
+          "id": 9450010,
+          "active": false,
+          "inbound": 3,
+          "outbound": 3,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WCA1242",
+          "id": 9390171,
+          "active": false,
+          "inbound": 2,
+          "outbound": 1,
+          "supplierLinks": 0
+        },
+        {
+          "code": "WDC1242",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450046,
+      "retiredCode": "DCW-2436",
+      "retiredDescription": "24\"x 36\" Diagonal Corner Wall Cabinet with 2 Adjustable Shelves",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "WDC2436",
+      "chosenMaster": "DCW-24-36",
+      "chosenMasterId": 9450046,
+      "chosenMasterActive": false,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "DCW-24-36",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "DCW-2436",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "DCW2436",
+          "id": 9450046,
+          "active": false,
+          "inbound": 5,
+          "outbound": 5,
+          "supplierLinks": 1
+        },
+        {
+          "code": "WDC2436",
+          "id": 9390173,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450078,
+      "retiredCode": "SB15MINI",
+      "retiredDescription": "12\" Sink Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "SB15MINI",
+      "chosenMaster": "SB-15MINI",
+      "chosenMasterId": 9450078,
+      "chosenMasterActive": false,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "SB-15MINI",
+          "id": 9450078,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        },
+        {
+          "code": "SB15MINI",
+          "id": 9450078,
+          "active": false,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 19
+        }
+      ]
+    },
+    {
+      "retiredId": 9450091,
+      "retiredCode": "V-30-21TDL",
+      "retiredDescription": "30\" Vanity Sink Base with1 False Front,1D, 2 Left DRW",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V3021TDL",
+      "chosenMaster": "V-30-TDL",
+      "chosenMasterId": 9450093,
+      "chosenMasterActive": true,
+      "chosenCoverage": 2,
+      "candidates": [
+        {
+          "code": "V-30-TDL",
+          "id": 9450093,
+          "active": true,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 6
+        },
+        {
+          "code": "V30TDL",
+          "id": 9450093,
+          "active": true,
+          "inbound": 1,
+          "outbound": 1,
+          "supplierLinks": 6
+        },
+        {
+          "code": "V-30-21TDL",
+          "id": 9450091,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        }
+      ]
+    },
+    {
+      "retiredId": 9450098,
+      "retiredCode": "V-36-21TDL",
+      "retiredDescription": "Vanity Sink Base - 36\"W x 34 1/2\" x 21\"D with 1 False Front,2D, 2 Left DRW",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V3621TDL",
+      "chosenMaster": "V-36-21TDL",
+      "chosenMasterId": 9450098,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "V-36-21TDL",
+          "id": 9450098,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        }
+      ]
+    },
+    {
+      "retiredId": 9450099,
+      "retiredCode": "V-36-21TDR",
+      "retiredDescription": "Vanity Sink Base - 36\"W x 34 1/2\" x 21\"D with 1 False Front,2D, 2 Right DRW",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "V3621TDR",
+      "chosenMaster": "V-36-21TDR",
+      "chosenMasterId": 9450099,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "V-36-21TDR",
+          "id": 9450099,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        }
+      ]
+    },
+    {
+      "retiredId": 9450181,
+      "retiredCode": "WER-2430",
+      "retiredDescription": "Wall Easy Reach Corner Cabinet - 24\" W X 30\" H X 12\" D - 2D - 2S",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WER2412GD",
+      "chosenMaster": "WER-24-30",
+      "chosenMasterId": 9450181,
+      "chosenMasterActive": false,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "WER-24-30",
+          "id": 9450181,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-2430",
+          "id": 9450181,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER2430",
+          "id": 9450181,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-24-12GD",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450182,
+      "retiredCode": "WER-2436",
+      "retiredDescription": "Wall Easy Reach Corner Cabinet - 24\" W X 36\" H X 12\" D - 2D - 2S",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WER2415GD",
+      "chosenMaster": "WER-24-36",
+      "chosenMasterId": 9450182,
+      "chosenMasterActive": false,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "WER-24-36",
+          "id": 9450182,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-2436",
+          "id": 9450182,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER2436",
+          "id": 9450182,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-24-15GD",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9450183,
+      "retiredCode": "WER-2442",
+      "retiredDescription": "Wall Easy Reach Corner Cabinet - 24\" W X 42\" H X 12\" D - 2D - 2S",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "WER2418GD",
+      "chosenMaster": "WER-24-42",
+      "chosenMasterId": 9450183,
+      "chosenMasterActive": false,
+      "chosenCoverage": 9,
+      "candidates": [
+        {
+          "code": "WER-24-42",
+          "id": 9450183,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-2442",
+          "id": 9450183,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER2442",
+          "id": 9450183,
+          "active": false,
+          "inbound": 5,
+          "outbound": 4,
+          "supplierLinks": 5
+        },
+        {
+          "code": "WER-24-18GD",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 1,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690006,
+      "retiredCode": "ADA-3VDB12",
+      "retiredDescription": "12\" ADA Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ADA3DB12",
+      "chosenMaster": "3DB12ADA",
+      "chosenMasterId": 9690001,
+      "chosenMasterActive": true,
+      "chosenCoverage": 4,
+      "candidates": [
+        {
+          "code": "3DB12ADA",
+          "id": 9690001,
+          "active": true,
+          "inbound": 4,
+          "outbound": 0,
+          "supplierLinks": 3
+        },
+        {
+          "code": "ADA-3VDB12",
+          "id": 9690006,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 3
+        },
+        {
+          "code": "ADA-3DB12",
+          "id": null,
+          "active": false,
+          "inbound": 0,
+          "outbound": 2,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690007,
+      "retiredCode": "ADA-3VDB15",
+      "retiredDescription": "15\" ADA Vanity Drawer Base Cabinet",
+      "retiredActive": false,
+      "retiredCatalog": false,
+      "retiredDesigner": false,
+      "root": "ADA3VDB15",
+      "chosenMaster": "3VDB15ADA",
+      "chosenMasterId": 9390383,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "3VDB15ADA",
+          "id": 9390383,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 5
+        },
+        {
+          "code": "ADA-3VDB15",
+          "id": 9690007,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 3
+        }
+      ]
+    },
+    {
+      "retiredId": 9690009,
+      "retiredCode": "ADA-B12",
+      "retiredDescription": "12\" \u00d7 32.5\" \u00d7 24\" ADA Accessible Base Cabinet \u2014 1 Door, 1 Drawer, 1 Shelf",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ADAB12",
+      "chosenMaster": "B12-ADA",
+      "chosenMasterId": 9390206,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B12-ADA",
+          "id": 9390206,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "B12ADA",
+          "id": 9390206,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA B12",
+          "id": 9690009,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ADA-B12",
+          "id": 9690009,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690010,
+      "retiredCode": "ADA-B15",
+      "retiredDescription": "15\" \u00d7 32.5\" \u00d7 24\" ADA Accessible Base Cabinet \u2014 1 Door, 1 Drawer, 1 Shelf",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ADAB15",
+      "chosenMaster": "B15-ADA",
+      "chosenMasterId": 9390207,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B15-ADA",
+          "id": 9390207,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "B15ADA",
+          "id": 9390207,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA B15",
+          "id": 9690010,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ADA-B15",
+          "id": 9690010,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690011,
+      "retiredCode": "ADA-B18",
+      "retiredDescription": "18\" \u00d7 32.5\" \u00d7 24\" ADA Accessible Base Cabinet \u2014 1 Door, 1 Drawer, 1 Shelf",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ADAB18",
+      "chosenMaster": "B18-ADA",
+      "chosenMasterId": 9390208,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B18-ADA",
+          "id": 9390208,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "B18ADA",
+          "id": 9390208,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA B18",
+          "id": 9690011,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ADA-B18",
+          "id": 9690011,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690013,
+      "retiredCode": "ADA-B24",
+      "retiredDescription": "24\" \u00d7 32.5\" \u00d7 24\" ADA Accessible Base Cabinet \u2014 2 Doors, 1 Drawer, 1 Shelf",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ADAB24",
+      "chosenMaster": "B24-ADA",
+      "chosenMasterId": 9390212,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B24-ADA",
+          "id": 9390212,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "B24ADA",
+          "id": 9390212,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA B24",
+          "id": 9690013,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ADA-B24",
+          "id": 9690013,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 9690017,
+      "retiredCode": "ADA-B36",
+      "retiredDescription": "36\" \u00d7 32.5\" \u00d7 24\" ADA Accessible Base Cabinet \u2014 2 Doors, 2 Drawers, 1 Shelf",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "ADAB36",
+      "chosenMaster": "B36-ADA",
+      "chosenMasterId": 9390218,
+      "chosenMasterActive": true,
+      "chosenCoverage": 10,
+      "candidates": [
+        {
+          "code": "B36-ADA",
+          "id": 9390218,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "B36ADA",
+          "id": 9390218,
+          "active": true,
+          "inbound": 7,
+          "outbound": 3,
+          "supplierLinks": 8
+        },
+        {
+          "code": "ADA B36",
+          "id": 9690017,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        },
+        {
+          "code": "ADA-B36",
+          "id": 9690017,
+          "active": false,
+          "inbound": 0,
+          "outbound": 4,
+          "supplierLinks": 0
+        }
+      ]
+    },
+    {
+      "retiredId": 11310001,
+      "retiredCode": "TEST-ONE-DOLLAR-1789756227567",
+      "retiredDescription": "TEST ONLY \u2014 $1.00 Checkout Cabinet (Temporary)",
+      "retiredActive": false,
+      "retiredCatalog": true,
+      "retiredDesigner": true,
+      "root": "TESTONEDOLLAR1789756227567",
+      "chosenMaster": "TEST-ONE-DOLLAR-1789756227567",
+      "chosenMasterId": 11310001,
+      "chosenMasterActive": false,
+      "chosenCoverage": 0,
+      "candidates": [
+        {
+          "code": "TEST-ONE-DOLLAR-1789756227567",
+          "id": 11310001,
+          "active": false,
+          "inbound": 0,
+          "outbound": 0,
+          "supplierLinks": 1
+        }
+      ]
+    }
+  ],
+  "preMigrationConflicts": [
+    {
+      "id": 30016,
+      "aliasCode": "BEC-24",
+      "masterCode": "BA-24",
+      "notes": "BEC-24 is the same physical 24x24 angled-front end cabinet as BA-24; canonical catalog record is BA-24. [Held for review: canonical master BA-24 is missing.]",
+      "conflictStatus": "conflict",
+      "createdBy": 1,
+      "createdAt": "2026-07-21T14:32:36.000Z",
+      "updatedAt": "2026-09-20T00:45:44.000Z"
+    },
+    {
+      "id": 240001,
+      "aliasCode": "BEC24",
+      "masterCode": "BA-24",
+      "notes": "BEC24 is the no-dash legacy code for canonical BA-24, the shared 24x24 angled-front end cabinet. [Held for review: canonical master BA-24 is missing.]",
+      "conflictStatus": "conflict",
+      "createdBy": null,
+      "createdAt": "2026-08-14T01:02:34.000Z",
+      "updatedAt": "2026-09-20T00:45:44.000Z"
+    }
+  ],
+  "promotedMasters": [
+    {
+      "retiredId": 9360041,
+      "retiredCode": "ERB33",
+      "finalMaster": "ERB33"
+    },
+    {
+      "retiredId": 9360042,
+      "retiredCode": "ERB36",
+      "finalMaster": "ERB36"
+    },
+    {
+      "retiredId": 9360166,
+      "retiredCode": "WRC3015",
+      "finalMaster": "WRC3015"
+    },
+    {
+      "retiredId": 9360181,
+      "retiredCode": "RS18",
+      "finalMaster": "RS18-TYPEA"
+    },
+    {
+      "retiredId": 9360183,
+      "retiredCode": "RS21",
+      "finalMaster": "RS21-TYPEA"
+    },
+    {
+      "retiredId": 9360185,
+      "retiredCode": "RS24",
+      "finalMaster": "RS24-TYPEA"
+    },
+    {
+      "retiredId": 9360187,
+      "retiredCode": "RS27",
+      "finalMaster": "RS27-TYPEA"
+    },
+    {
+      "retiredId": 9360189,
+      "retiredCode": "RS30",
+      "finalMaster": "RS30-TYPEA"
+    },
+    {
+      "retiredId": 9360190,
+      "retiredCode": "RS33",
+      "finalMaster": "RS33-TYPEA"
+    },
+    {
+      "retiredId": 9360191,
+      "retiredCode": "RS36",
+      "finalMaster": "RS36-TYPEA"
+    },
+    {
+      "retiredId": 9390037,
+      "retiredCode": "DD-Q",
+      "finalMaster": "DD-Q"
+    },
+    {
+      "retiredId": 9390045,
+      "retiredCode": "KIOSK-DA",
+      "finalMaster": "KIOSK-DA"
+    },
+    {
+      "retiredId": 9390047,
+      "retiredCode": "LRM-8",
+      "finalMaster": "LRM8"
+    },
+    {
+      "retiredId": 9390058,
+      "retiredCode": "PR-30-15",
+      "finalMaster": "PR3015"
+    },
+    {
+      "retiredId": 9390084,
+      "retiredCode": "UOC3390(O339024)",
+      "finalMaster": "UOC3390(O339024)"
+    },
+    {
+      "retiredId": 9390092,
+      "retiredCode": "V-30-21DL",
+      "finalMaster": "V3021DL"
+    },
+    {
+      "retiredId": 9390093,
+      "retiredCode": "V-30-21DR",
+      "finalMaster": "V3021DR"
+    },
+    {
+      "retiredId": 9390095,
+      "retiredCode": "V-36-21DL",
+      "finalMaster": "V3621DL"
+    },
+    {
+      "retiredId": 9390096,
+      "retiredCode": "V-36-21DR",
+      "finalMaster": "V3621DR"
+    },
+    {
+      "retiredId": 9390099,
+      "retiredCode": "VA-48",
+      "finalMaster": "VA48"
+    },
+    {
+      "retiredId": 9390142,
+      "retiredCode": "W-3312",
+      "finalMaster": "W-3312"
+    },
+    {
+      "retiredId": 9390144,
+      "retiredCode": "W-3315",
+      "finalMaster": "W-3315"
+    },
+    {
+      "retiredId": 9390145,
+      "retiredCode": "W-3318",
+      "finalMaster": "W-3318"
+    },
+    {
+      "retiredId": 9390147,
+      "retiredCode": "W-3324",
+      "finalMaster": "W-3324"
+    },
+    {
+      "retiredId": 9390160,
+      "retiredCode": "W-39-30",
+      "finalMaster": "W-39-30"
+    },
+    {
+      "retiredId": 9390166,
+      "retiredCode": "WBC-27-30",
+      "finalMaster": "WBC2730"
+    },
+    {
+      "retiredId": 9390167,
+      "retiredCode": "WBC-27-36",
+      "finalMaster": "WBC2736"
+    },
+    {
+      "retiredId": 9390168,
+      "retiredCode": "WBC-27-42",
+      "finalMaster": "WBC2742"
+    },
+    {
+      "retiredId": 9390169,
+      "retiredCode": "WCA1230",
+      "finalMaster": "AW1230"
+    },
+    {
+      "retiredId": 9390170,
+      "retiredCode": "WCA1236",
+      "finalMaster": "AW1236"
+    },
+    {
+      "retiredId": 9390171,
+      "retiredCode": "WCA1242",
+      "finalMaster": "AW1242"
+    },
+    {
+      "retiredId": 9390173,
+      "retiredCode": "WDC2436",
+      "finalMaster": "DCW2436"
+    },
+    {
+      "retiredId": 9390183,
+      "retiredCode": "WR331524(W331524)",
+      "finalMaster": "W331524"
+    },
+    {
+      "retiredId": 9390366,
+      "retiredCode": "UOC339024",
+      "finalMaster": "UOC3390(O339024)"
+    },
+    {
+      "retiredId": 9390383,
+      "retiredCode": "3VDB15ADA",
+      "finalMaster": "3VDB15ADA"
+    },
+    {
+      "retiredId": 9390391,
+      "retiredCode": "VDB42",
+      "finalMaster": "VDB42"
+    },
+    {
+      "retiredId": 9390392,
+      "retiredCode": "VDB48",
+      "finalMaster": "VDB48"
+    },
+    {
+      "retiredId": 9390461,
+      "retiredCode": "MERCHHUTCH",
+      "finalMaster": "MERCHHUTCH"
+    },
+    {
+      "retiredId": 9390462,
+      "retiredCode": "B12-DISPLAYFRONT",
+      "finalMaster": "B12-DISPLAYFRONT"
+    },
+    {
+      "retiredId": 9390464,
+      "retiredCode": "10SWATCH",
+      "finalMaster": "10SWATCH"
+    },
+    {
+      "retiredId": 9450008,
+      "retiredCode": "AW-12-30",
+      "finalMaster": "AW1230"
+    },
+    {
+      "retiredId": 9450009,
+      "retiredCode": "AW-12-36",
+      "finalMaster": "AW1236"
+    },
+    {
+      "retiredId": 9450010,
+      "retiredCode": "AW-12-42",
+      "finalMaster": "AW1242"
+    },
+    {
+      "retiredId": 9450046,
+      "retiredCode": "DCW-2436",
+      "finalMaster": "DCW2436"
+    },
+    {
+      "retiredId": 9450078,
+      "retiredCode": "SB15MINI",
+      "finalMaster": "SB15MINI"
+    },
+    {
+      "retiredId": 9450098,
+      "retiredCode": "V-36-21TDL",
+      "finalMaster": "V-36-21TDL"
+    },
+    {
+      "retiredId": 9450099,
+      "retiredCode": "V-36-21TDR",
+      "finalMaster": "V-36-21TDR"
+    },
+    {
+      "retiredId": 9450181,
+      "retiredCode": "WER-2430",
+      "finalMaster": "WER2430"
+    },
+    {
+      "retiredId": 9450182,
+      "retiredCode": "WER-2436",
+      "finalMaster": "WER2436"
+    },
+    {
+      "retiredId": 9450183,
+      "retiredCode": "WER-2442",
+      "finalMaster": "WER2442"
+    },
+    {
+      "retiredId": 9690007,
+      "retiredCode": "ADA-3VDB15",
+      "finalMaster": "3VDB15ADA"
+    },
+    {
+      "retiredId": 11310001,
+      "retiredCode": "TEST-ONE-DOLLAR-1789756227567",
+      "finalMaster": "TEST-ONE-DOLLAR-1789756227567"
+    }
+  ],
+  "postMigrationSummary": {
+    "cabinetRows": 682,
+    "active": 682,
+    "inactive": 0,
+    "approvedSkuAliases": 580,
+    "conflicts": 0,
+    "cabinetAliases": 607,
+    "equivalences": 155,
+    "mappedToActive": 0,
+    "selectedInactive": 0,
+    "unresolved": 0
+  },
+  "finalAliasGraphVerification": {
+    "cabinetRows": 682,
+    "skuAliases": 580,
+    "missingMasterCount": 0,
+    "missingMaster": [],
+    "aliasChainCount": 0,
+    "aliasChains": [],
+    "conflictCount": 0
+  },
+  "representativeResolutions": [
+    {
+      "alias": "BEC-24",
+      "master": "BA-24",
+      "status": "ok"
+    },
+    {
+      "alias": "BEC24",
+      "master": "BA-24",
+      "status": "ok"
+    },
+    {
+      "alias": "W-2742",
+      "master": "W2742",
+      "status": "ok"
+    },
+    {
+      "alias": "ERB-33",
+      "master": "ERB33",
+      "status": "ok"
+    },
+    {
+      "alias": "RS-18",
+      "master": "RS18-TYPEA",
+      "status": "ok"
+    },
+    {
+      "alias": "WCA1230",
+      "master": "AW1230",
+      "status": "ok"
+    },
+    {
+      "alias": "ADA-3VDB15",
+      "master": "3VDB15ADA",
+      "status": "ok"
+    }
+  ],
+  "scripts": [
+    "scripts/apply_retired_sku_master_audit.ts",
+    "scripts/reconcile_sku_aliases.ts",
+    "scripts/verify_alias_graph2.ts"
+  ],
+  "finalFormerlyInactiveMappings": [
+    {
+      "retiredId": 9360041,
+      "retiredCode": "ERB33",
+      "finalMaster": "ERB33"
+    },
+    {
+      "retiredId": 9360042,
+      "retiredCode": "ERB36",
+      "finalMaster": "ERB36"
+    },
+    {
+      "retiredId": 9360166,
+      "retiredCode": "WRC3015",
+      "finalMaster": "WRC3015"
+    },
+    {
+      "retiredId": 9360181,
+      "retiredCode": "RS18",
+      "finalMaster": "RS18-TYPEA"
+    },
+    {
+      "retiredId": 9360183,
+      "retiredCode": "RS21",
+      "finalMaster": "RS21-TYPEA"
+    },
+    {
+      "retiredId": 9360185,
+      "retiredCode": "RS24",
+      "finalMaster": "RS24-TYPEA"
+    },
+    {
+      "retiredId": 9360187,
+      "retiredCode": "RS27",
+      "finalMaster": "RS27-TYPEA"
+    },
+    {
+      "retiredId": 9360189,
+      "retiredCode": "RS30",
+      "finalMaster": "RS30-TYPEA"
+    },
+    {
+      "retiredId": 9360190,
+      "retiredCode": "RS33",
+      "finalMaster": "RS33-TYPEA"
+    },
+    {
+      "retiredId": 9360191,
+      "retiredCode": "RS36",
+      "finalMaster": "RS36-TYPEA"
+    },
+    {
+      "retiredId": 9390037,
+      "retiredCode": "DD-Q",
+      "finalMaster": "DD-Q"
+    },
+    {
+      "retiredId": 9390045,
+      "retiredCode": "KIOSK-DA",
+      "finalMaster": "KIOSK-DA"
+    },
+    {
+      "retiredId": 9390047,
+      "retiredCode": "LRM-8",
+      "finalMaster": "LRM8"
+    },
+    {
+      "retiredId": 9390058,
+      "retiredCode": "PR-30-15",
+      "finalMaster": "PR3015"
+    },
+    {
+      "retiredId": 9390084,
+      "retiredCode": "UOC3390(O339024)",
+      "finalMaster": "UOC3390(O339024)"
+    },
+    {
+      "retiredId": 9390092,
+      "retiredCode": "V-30-21DL",
+      "finalMaster": "V3021DL"
+    },
+    {
+      "retiredId": 9390093,
+      "retiredCode": "V-30-21DR",
+      "finalMaster": "V3021DR"
+    },
+    {
+      "retiredId": 9390095,
+      "retiredCode": "V-36-21DL",
+      "finalMaster": "V3621DL"
+    },
+    {
+      "retiredId": 9390096,
+      "retiredCode": "V-36-21DR",
+      "finalMaster": "V3621DR"
+    },
+    {
+      "retiredId": 9390099,
+      "retiredCode": "VA-48",
+      "finalMaster": "VA48"
+    },
+    {
+      "retiredId": 9390142,
+      "retiredCode": "W-3312",
+      "finalMaster": "W-3312"
+    },
+    {
+      "retiredId": 9390144,
+      "retiredCode": "W-3315",
+      "finalMaster": "W-3315"
+    },
+    {
+      "retiredId": 9390145,
+      "retiredCode": "W-3318",
+      "finalMaster": "W-3318"
+    },
+    {
+      "retiredId": 9390147,
+      "retiredCode": "W-3324",
+      "finalMaster": "W-3324"
+    },
+    {
+      "retiredId": 9390160,
+      "retiredCode": "W-39-30",
+      "finalMaster": "W-39-30"
+    },
+    {
+      "retiredId": 9390166,
+      "retiredCode": "WBC-27-30",
+      "finalMaster": "WBC2730"
+    },
+    {
+      "retiredId": 9390167,
+      "retiredCode": "WBC-27-36",
+      "finalMaster": "WBC2736"
+    },
+    {
+      "retiredId": 9390168,
+      "retiredCode": "WBC-27-42",
+      "finalMaster": "WBC2742"
+    },
+    {
+      "retiredId": 9390169,
+      "retiredCode": "WCA1230",
+      "finalMaster": "AW1230"
+    },
+    {
+      "retiredId": 9390170,
+      "retiredCode": "WCA1236",
+      "finalMaster": "AW1236"
+    },
+    {
+      "retiredId": 9390171,
+      "retiredCode": "WCA1242",
+      "finalMaster": "AW1242"
+    },
+    {
+      "retiredId": 9390173,
+      "retiredCode": "WDC2436",
+      "finalMaster": "DCW2436"
+    },
+    {
+      "retiredId": 9390183,
+      "retiredCode": "WR331524(W331524)",
+      "finalMaster": "W331524"
+    },
+    {
+      "retiredId": 9390366,
+      "retiredCode": "UOC339024",
+      "finalMaster": "UOC3390(O339024)"
+    },
+    {
+      "retiredId": 9390383,
+      "retiredCode": "3VDB15ADA",
+      "finalMaster": "3VDB15ADA"
+    },
+    {
+      "retiredId": 9390391,
+      "retiredCode": "VDB42",
+      "finalMaster": "VDB42"
+    },
+    {
+      "retiredId": 9390392,
+      "retiredCode": "VDB48",
+      "finalMaster": "VDB48"
+    },
+    {
+      "retiredId": 9390461,
+      "retiredCode": "MERCHHUTCH",
+      "finalMaster": "MERCHHUTCH"
+    },
+    {
+      "retiredId": 9390462,
+      "retiredCode": "B12-DISPLAYFRONT",
+      "finalMaster": "B12-DISPLAYFRONT"
+    },
+    {
+      "retiredId": 9390464,
+      "retiredCode": "10SWATCH",
+      "finalMaster": "10SWATCH"
+    },
+    {
+      "retiredId": 9450008,
+      "retiredCode": "AW-12-30",
+      "finalMaster": "AW1230"
+    },
+    {
+      "retiredId": 9450009,
+      "retiredCode": "AW-12-36",
+      "finalMaster": "AW1236"
+    },
+    {
+      "retiredId": 9450010,
+      "retiredCode": "AW-12-42",
+      "finalMaster": "AW1242"
+    },
+    {
+      "retiredId": 9450046,
+      "retiredCode": "DCW-2436",
+      "finalMaster": "DCW2436"
+    },
+    {
+      "retiredId": 9450078,
+      "retiredCode": "SB15MINI",
+      "finalMaster": "SB15MINI"
+    },
+    {
+      "retiredId": 9450098,
+      "retiredCode": "V-36-21TDL",
+      "finalMaster": "V-36-21TDL"
+    },
+    {
+      "retiredId": 9450099,
+      "retiredCode": "V-36-21TDR",
+      "finalMaster": "V-36-21TDR"
+    },
+    {
+      "retiredId": 9450181,
+      "retiredCode": "WER-2430",
+      "finalMaster": "WER2430"
+    },
+    {
+      "retiredId": 9450182,
+      "retiredCode": "WER-2436",
+      "finalMaster": "WER2436"
+    },
+    {
+      "retiredId": 9450183,
+      "retiredCode": "WER-2442",
+      "finalMaster": "WER2442"
+    },
+    {
+      "retiredId": 9690007,
+      "retiredCode": "ADA-3VDB15",
+      "finalMaster": "3VDB15ADA"
+    },
+    {
+      "retiredId": 11310001,
+      "retiredCode": "TEST-ONE-DOLLAR-1789756227567",
+      "finalMaster": "TEST-ONE-DOLLAR-1789756227567"
+    }
+  ]
+}
