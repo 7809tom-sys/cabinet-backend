@@ -6,7 +6,7 @@ const source = fs.readFileSync(path.resolve(__dirname, "DesignTool.tsx"), "utf8"
 
 describe("DesignTool decorative trim selection", () => {
   it("keeps crown opt-in instead of adding it when a wall cabinet exists", () => {
-    expect(source).toContain("Crown and valances are decorative selections. They must remain opt-in");
+    expect(source).toContain("Crown, batten, and valances remain opt-in");
     expect(source).not.toContain("if (!o.crown && hasWallCab && !crown) setCrown(true);");
     expect(source).not.toMatch(/setCrown\(true\)/);
   });
