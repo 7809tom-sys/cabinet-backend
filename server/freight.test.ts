@@ -1,4 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+// Tests must never call the real UPS API or depend on the saved production keys.
+vi.mock("./_core/ups", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./_core/ups")>();
+  return { ...actual, upsParcelQuote: vi.fn(async () => ({ ok: false, amountCents: 0, packages: [], error: "UPS parcel rate unavailable (test)" })) };
+});
+import { upsParcelQuote } from "./_core/ups";
+import { AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS, isSmallUpsShipment } from "@shared/parcelEligibility";
+import { upsKeysSaved } from "./routers/freight";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 
@@ -131,6 +139,57 @@ describe("freight.estimate", () => {
   }, 15_000);
 });
 
+describe("automatic UPS routing for small shipments", () => {
+  it("upsKeysSaved needs the Client ID, Client Secret and account number", () => {
+    expect(upsKeysSaved(null)).toBe(false);
+    expect(upsKeysSaved({ upsClientId: "id", upsClientSecret: "secret", upsAccountNumber: "" })).toBe(false);
+    expect(upsKeysSaved({ upsClientId: "id", upsClientSecret: null, upsAccountNumber: "A1B2C3" })).toBe(false);
+    expect(upsKeysSaved({ upsClientId: " id ", upsClientSecret: "secret", upsAccountNumber: "A1B2C3" })).toBe(true);
+  });
+  it("only a small total packaged weight is routed to UPS without the checkbox", () => {
+    const carton = (weightLbs: number) => ({ package: { weightLbs } });
+    expect(isSmallUpsShipment([])).toBe(false);
+    expect(isSmallUpsShipment([{ package: null }])).toBe(false);
+    expect(isSmallUpsShipment([carton(36)])).toBe(true);
+    expect(isSmallUpsShipment([carton(36), carton(36), carton(36)])).toBe(true);
+    expect(isSmallUpsShipment([carton(AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS)])).toBe(true);
+    expect(isSmallUpsShipment([carton(AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS), carton(1)])).toBe(false);
+    expect(isSmallUpsShipment(Array.from({ length: 12 }, () => carton(36)))).toBe(false);
+  });
+  it("one B12 with no UPS checkbox is quoted by UPS parcel, never LTL (when the UPS keys are saved)", async () => {
+    const row = await readSettings();
+    if (!row || !upsKeysSaved(row)) return; // nothing to assert without saved UPS keys
+    vi.mocked(upsParcelQuote).mockResolvedValueOnce({ ok: true, amountCents: 1615, carrier: "UPS", service: "03", packages: [{ label: null, amountCents: 1615, carrier: "UPS", service: "03" }] } as never);
+    const q = await appRouter.createCaller(publicCtx()).freight.estimate({
+      destinationZip: "60601",
+      items: [{ cabinetId: 9390002, masterCode: "B12", qty: 1 }],
+      merchandiseSubtotalCents: 15000,
+    });
+    expect(q.shipmentGroups?.[0]?.transportMode).toBe("parcel");
+    expect(q.shipmentGroups?.[0]?.status).toBe("quoted");
+    expect(q.lines.some((line) => /Live parcel/.test(line.label))).toBe(true);
+  }, 20_000);
+  it("a small cart whose UPS rate fails shows the failure, not an LTL pallet quote (when the UPS keys are saved)", async () => {
+    const row = await readSettings();
+    if (!row || !upsKeysSaved(row)) return;
+    const q = await appRouter.createCaller(publicCtx()).freight.estimate({
+      destinationZip: "60601",
+      items: [{ cabinetId: 9390002, masterCode: "B12", qty: 1 }],
+      merchandiseSubtotalCents: 15000,
+    });
+    expect(q.available).toBe(false);
+    expect(q.shipmentGroups?.[0]?.transportMode).toBe("parcel");
+    expect(q.shipmentGroups?.[0]?.status).toBe("carrier_error");
+  }, 20_000);
+  it("a large order (12 B12) stays on the LTL pallet path", async () => {
+    const q = await appRouter.createCaller(publicCtx()).freight.estimate({
+      destinationZip: "60601",
+      items: [{ cabinetId: 9390002, masterCode: "B12", qty: 12 }],
+      merchandiseSubtotalCents: 150000,
+    });
+    expect(q.shipmentGroups?.[0]?.transportMode).not.toBe("parcel");
+  }, 20_000);
+});
 describe("freight admin", () => {
   it("adminGet is admin-only", async () => {
     const userCaller = appRouter.createCaller(userCtx("user"));

@@ -63,6 +63,7 @@ import {
 import {
   bundleTrimPackages,
   resolveParcelShipmentMode,
+  isSmallUpsShipment,
   type AuthoritativeParcelPackage,
 } from "@shared/parcelEligibility";
 import { freightClassFromDensity, genericCabinetPackage } from "@shared/genericCabinetPackaging";
@@ -1122,6 +1123,10 @@ type LiveRateResult = {
   retryAfterMs?: number;
 };
 
+/** True when the UPS Client ID, Client Secret and account number are all saved. */
+export function upsKeysSaved(row: { upsClientId?: string | null; upsClientSecret?: string | null; upsAccountNumber?: string | null } | null | undefined): boolean {
+  return Boolean(row?.upsClientId?.trim() && row?.upsClientSecret?.trim() && row?.upsAccountNumber?.trim());
+}
 async function requestLiveRate(input: {
   provider: NonNullable<ShippingSettings["liveProvider"]>;
   settings: ShippingSettings;
@@ -1780,10 +1785,14 @@ export const freightRouter = router({
           // established LTL pallet path with no invented carton dimensions.
           const parcelDecision = resolveParcelShipmentMode(resolvedGroup.parcelPackages);
           const verifiedPelicanParcel = group.profileTransportMode === "parcel";
-          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || input.carrierPreference === "ups")
+          // Small packages go to UPS automatically once the UPS keys are saved:
+          // a cart whose cartons all pass the UPS parcel screen never gets an
+          // LTL pallet quote, even if the customer did not tick the UPS box.
+          const autoUpsSmallShipment = upsKeysSaved(settingsRow) && isSmallUpsShipment(parcelDecision.packageResults);
+          const directUpsParcel = (verifiedPelicanParcel || liveProvider === "ups" || input.carrierPreference === "ups" || autoUpsSmallShipment)
             && parcelDecision.mode === "parcel"
             && parcelDecision.eligibleCarriers.includes("ups");
-          const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel);
+          const upsParcelMustNotBecomeLtl = directUpsParcel && (upsOnlyRequested || verifiedPelicanParcel || autoUpsSmallShipment);
           const easyPostParcel = !verifiedPelicanParcel && liveProvider === "easypost" && parcelDecision.mode === "parcel";
           if (verifiedPelicanParcel && !directUpsParcel) {
             shipmentGroups.push({

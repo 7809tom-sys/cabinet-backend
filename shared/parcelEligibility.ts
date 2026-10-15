@@ -40,6 +40,21 @@ export interface AuthoritativeParcelPackage {
   isTrim?: boolean;
 }
 
+/**
+ * Automatic UPS routing (no customer checkbox) only applies to small shipments.
+ * Above this total packaged weight a cart stays on the LTL pallet path; a
+ * customer who ticks "Prefer a UPS package quote" is still quoted as asked.
+ */
+export const AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS = 150;
+export function isSmallUpsShipment(packageResults: ReadonlyArray<{ package: { weightLbs: number } | null }>): boolean {
+  if (packageResults.length === 0) return false;
+  let total = 0;
+  for (const result of packageResults) {
+    if (!result.package) return false;
+    total += result.package.weightLbs;
+  }
+  return total <= AUTO_UPS_MAX_SHIPMENT_WEIGHT_LBS;
+}
 export const TRIM_BUNDLE_MAX_WEIGHT_LBS = 40;
 
 /** Consolidate measured trim pieces into one parcel when their combined weight is <= 40 lb. */
