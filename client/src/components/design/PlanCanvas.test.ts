@@ -644,6 +644,16 @@ describe("plan placement assistance wiring", () => {
 	  });
 });
 
+describe("BBC filler measurement label", () => {
+  it("shows installed filler width beside a qualifying filler and the 3-inch maximum", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="bbc-filler-measurement-label"');
+    expect(source).toContain("Installed filler width");
+    expect(source).toContain("BBC return maximum");
+    expect(source).toContain("FILLER {formatInches(installedFillerWidth)} · MAX {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}");
+  });
+});
+
 describe("plan countertop material scopes", () => {
   it("renders visible island countertop fragments from the island material while perimeter runs retain the wall material", () => {
     const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");

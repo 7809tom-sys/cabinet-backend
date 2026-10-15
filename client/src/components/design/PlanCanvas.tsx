@@ -10,12 +10,12 @@ import {
   clampRoomInches, inchesToFeetInches, WallSide, type PeninsulaRun, peninsulaRunEndpoints, peninsulaRunMaxLength, peninsulaRunHitAtPoint, peninsulaRunStartOffsetAtPoint, peninsulaRunAssemblyLocked, peninsulaRootRunId,
 	  cabinetWall, wallSpanMeasure, wallRunFrame, wallRunDistanceToPoint, peninsulaRunById, continuousWallApplianceSnapInfo, configuredRefrigeratorAssemblyMembers, customWallCabinetSide,
 	  countertopSurfaces, countertopMaterial, potFillerMountedRange, type CountertopSurface, type PotFillerFixture, type SinkFixture, SINK_PRESETS,
-	  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
+  wallGaps, freeSegmentsOnWall, wallGapFitPreview, wallGapFreehandPreview, nearestRectRoomWallAtPoint, nearestWallRunAtPoint, cabinetWallMovePreview, refrigeratorMagneticSnapEnvelope, CABINET_CONFLICT_LOCK_IN, BLIND_CORNER_FILLER_WIDTH_IN, STD, resolvedDesignCabinetDimensions, cabinetPlacementHoverDetail, bestFitCatalogOption, smartGapCatalogOptions, smartGapRecommendation, type WallGap, type WallGapFitPreview,
   type DesignCabinet,
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-	  cabinetWallRunSegment, retainedWallSegmentForSplit, floorPlanWallDimensionChains, roomWallRunFrames,
+  cabinetWallRunSegment, retainedWallSegmentForSplit, floorPlanWallDimensionChains, roomWallRunFrames, isFillerItem,
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -2445,7 +2445,14 @@ export function PlanCanvas({
             const collides = cabinetPlacementCollisionDetail(p, cabinets, room) != null;
             const inConflict = conflictUids?.has(p.uid) ?? false;
             const priceMissing = missingPriceUids?.has(p.uid) ?? false;
-	            const splitFillerTooltip = splitFillerDimensionTooltip(p);
+            const installedFillerWidth = isFillerItem(p)
+              ? Math.min(Math.abs(Number(p.width)), Math.abs(Number(p.depth)))
+              : null;
+            const showBbcFillerMeasurement = installedFillerWidth != null
+              && installedFillerWidth > 0
+              && installedFillerWidth <= BLIND_CORNER_FILLER_WIDTH_IN + 0.001
+              && (Boolean(p.fillerForCabinetUid) || /required\s+(?:bbc|wbc)/i.test(p.description ?? "") || /^F342$/i.test(p.masterCode));
+            const splitFillerTooltip = splitFillerDimensionTooltip(p);
 	            const placementHoverDetail = cabinetPlacementHoverDetail(p);
 	            const placementHoverTooltip = placementHoverDetail
 	              ? `${placementHoverDetail.title} · ${formatEighthInches(placementHoverDetail.dimensions.width)}W × ${formatEighthInches(placementHoverDetail.dimensions.height)}H × ${formatEighthInches(placementHoverDetail.dimensions.depth)}D. ${placementHoverDetail.clearance}`
@@ -2600,7 +2607,17 @@ export function PlanCanvas({
                     PRICE MISSING
                   </span>
                 )}
-		                {showWallSnapSuccess && (
+                {showBbcFillerMeasurement && installedFillerWidth != null && (
+                  <span
+                    data-testid="bbc-filler-measurement-label"
+                    role="status"
+                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-sky-200 bg-sky-800 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_10px_rgba(14,116,144,0.5)]"
+                    title={`Installed filler width ${formatInches(installedFillerWidth)}; BBC return maximum ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}`}
+                  >
+                    FILLER {formatInches(installedFillerWidth)} · MAX {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}
+                  </span>
+                )}
+                {showWallSnapSuccess && (
 		                  <span
 		                    data-testid="wall-snap-success-indicator"
 	                    role="status"
