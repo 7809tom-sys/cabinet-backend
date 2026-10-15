@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyCabinetDoorHardwareToAll, isCabinetDoorHardwareEligible, resolveCabinetHardwarePosition, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, type PlacedCabinet } from "./design";
+import { applyCabinetDoorHardwareToAll, isCabinetDoorHardwareEligible, isFullHeightCabinet, isTrashCanRolloutCabinet, requiresCenteredTopDoorPull, resolveCabinetHardwarePosition, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, type PlacedCabinet } from "./design";
 
 function cabinet(overrides: Partial<PlacedCabinet>): PlacedCabinet {
   return {
@@ -33,6 +33,26 @@ describe("B15/B18 centered top-rail pull", () => {
     expect(isCabinetDoorHardwareEligible(b15, "top-center")).toBe(true);
     expect(isCabinetDoorHardwareEligible(b24, "top-center")).toBe(false);
     expect(applyCabinetDoorHardwareToAll([b15, b18, b24, w18], "top-center").map((item) => item.hardwarePosition ?? null)).toEqual(["top-center", "top-center", null, null]);
+  });
+
+  it("forces TD and BT9PO pulls to the centered top rail", () => {
+    for (const code of ["B12TD", "B15TD", "B18TD", "BT9PO"]) {
+      const item = cabinet({ uid: code, masterCode: code, hardwarePosition: "left" });
+      expect(requiresCenteredTopDoorPull(item)).toBe(true);
+      expect(resolveCabinetHardwarePosition(item)).toBe("top-center");
+      expect(supportsCenteredTopDoorPull(item)).toBe(true);
+    }
+  });
+
+  it("keeps B15/B18 trashcan placement selectable while full-height cabinets default high", () => {
+    const trash = cabinet({ uid: "trash", masterCode: "B18", description: "B18 trashcan rollout", hardwarePosition: "right" });
+    const tall = cabinet({ uid: "tall", masterCode: "PANTRY1884", description: "Full Height Pantry Cabinet", placement: "tall", width: 18, height: 84 });
+    expect(isTrashCanRolloutCabinet(trash)).toBe(true);
+    expect(supportsCenteredTopDoorPull(trash)).toBe(true);
+    expect(resolveCabinetHardwarePosition(trash)).toBe("right");
+    expect(isFullHeightCabinet(tall)).toBe(true);
+    expect(usesRaisedFloorWallDoorPull(tall)).toBe(true);
+    expect(resolveCabinetHardwarePosition({ ...tall, hardwarePosition: "top-center" })).toBe("auto");
   });
 
   it("makes the upward vertical pull automatic for Island mode and 4½-inch floor-seated wall cabinets", () => {

@@ -1153,16 +1153,44 @@ export function customSizeNote(p: PlacedCabinet): string {
   return parts.length ? `CUSTOM ${parts.join(" × ")}` : "";
 }
 
+/** Full-height/tall floor cabinets use the upper end of a side rail by default. */
+export function isFullHeightCabinet(p: { masterCode?: string | null; description?: string | null; category?: string | null; subCategory?: string | null; placement?: Placement | string | null }): boolean {
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const hay = `${p.category ?? ""} ${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
+  return p.placement === "tall" || /\bfull\s*height\b|\btall\s+(?:cabinet|pantry)|\bpantry\b/.test(hay) || /^(?:FHD|FH|PANTRY)\d/.test(code);
+}
+/** Trash/waste rollout cabinets retain a selectable door-handle placement. */
+export function isTrashCanRolloutCabinet(p: { masterCode?: string | null; description?: string | null; category?: string | null; subCategory?: string | null }): boolean {
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const hay = `${p.category ?? ""} ${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
+  return /trash|waste|\btcpo\b|\bfhtcpo\b/.test(hay) || /(?:TCPO|FHTCPO)$/.test(code);
+}
+/** TD and BT9PO have a construction-defined centered pull on the top rail. */
+export function requiresCenteredTopDoorPull(p: { masterCode?: string | null; placement?: Placement | string | null }): boolean {
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return p.placement === "base" && /^(?:B(?:12|15|18)TD|BT9PO)$/.test(code);
+}
+/** B15/B18 trashcan doors expose a user-selectable placement choice. */
+export function supportsTrashCanHandleChoice(p: { masterCode?: string | null; placement?: Placement | null; description?: string | null; category?: string | null; subCategory?: string | null }): boolean {
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return p.placement === "base" && /^(?:B15|B18)(?:FH)?(?:TCPO|FHTCPO)$/.test(code) && isTrashCanRolloutCabinet(p);
+}
 /** True when a wall cabinet is used as floor casework rather than as an upper.
  * Its door pull stays on the same hinge-aware side rail but moves upward for
  * comfortable access. Island ownership remains authoritative for older saves
  * whose mountBottom still contains the former room-wall value. */
 export function usesRaisedFloorWallDoorPull(p: {
+  masterCode?: string | null;
+  description?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
   placement?: Placement | string | null;
   mountBottom?: number | null;
   islandFace?: IslandFace | null;
   islandCounterHeightWallCabinet?: boolean | null;
 }): boolean {
+  if (isTrashCanRolloutCabinet(p)) return false;
+  if (isFullHeightCabinet(p)) return true;
   if (p.placement !== "wall") return false;
   if (p.islandFace || p.islandCounterHeightWallCabinet === true) return true;
   return typeof p.mountBottom === "number"
@@ -1172,11 +1200,16 @@ export function usesRaisedFloorWallDoorPull(p: {
 export function resolveCabinetHardwarePosition(p: {
   hardwarePosition?: CabinetHardwarePosition | null;
   handleSide?: "left" | "right" | "top" | "bottom" | null;
+  masterCode?: string | null;
+  description?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
   placement?: Placement | string | null;
   mountBottom?: number | null;
   islandFace?: IslandFace | null;
   islandCounterHeightWallCabinet?: boolean | null;
 }): CabinetHardwarePosition {
+  if (requiresCenteredTopDoorPull(p)) return "top-center";
   // The raised position is a construction rule for floor-seated wall cabinets,
   // not an editable hardware style. Retire any saved top-center override while
   // preserving an explicit left/right rail choice.
@@ -1210,16 +1243,19 @@ export function cabinetHardwarePositionPatch(
   };
 }
 
-/** The centered horizontal pull on the top rail is available for B15/B18 bases.
- * Floor-seated wall cabinets use an automatic raised vertical pull instead. */
+/** Top-rail pulls are construction-defined for TD/BT9PO; B15/B18 trashcans may choose. */
 export function supportsCenteredTopDoorPull(p: {
   masterCode?: string | null;
+  description?: string | null;
+  category?: string | null;
+  subCategory?: string | null;
   placement?: Placement | null;
   islandFace?: IslandFace | null;
   islandCounterHeightWallCabinet?: boolean | null;
 }): boolean {
-  const code = `${p.masterCode ?? ""}`.trim().toUpperCase();
-  return p.placement === "base" && /^B[-_ ]?(?:15|18)(?:\D|$)/.test(code);
+  if (requiresCenteredTopDoorPull(p)) return true;
+  const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  return p.placement === "base" && (/^(?:B15|B18)/.test(code) || isTrashCanRolloutCabinet(p));
 }
 
 /** True when a placed record has a real door front eligible for the requested

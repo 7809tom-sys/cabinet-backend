@@ -121,7 +121,7 @@ import {
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, cabinetWallRunSegment, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
-  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
+  resolveSwing, cycleSwing, swingText, hasDoorSwing, DoorSwing, resolveCabinetHardwarePosition, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, supportsCenteredTopDoorPull, requiresCenteredTopDoorPull, usesRaisedFloorWallDoorPull, isWd18CountertopDrawerCabinet, normalizeWd18CountertopMounts, ordinaryWallMountBottom,
   // (closet helpers imported separately below)
   APPLIANCES, applianceAsDesignCabinet, appliancesForRoom, ROOM_TYPES, type RoomType,
   FURNITURE_CATALOG, makeFurniture, makePelicanBathroomFixture, furnitureFootprint, type PlacedFurniture,
@@ -14322,19 +14322,25 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                        Upward door pulls are automatic for this floor-seated wall cabinet.
 	                      </p>
 	                    )}
-	                    {supportsCenteredTopDoorPull(selectedCab) && !usesRaisedFloorWallDoorPull(selectedCab) && (
-	                      <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/20">
-	                        <div>
-	                          <div className="text-sm font-semibold text-foreground">Raise door handle</div>
-	                          <p className="text-[11px] text-muted-foreground">B15/B18 only.</p>
-	                        </div>
-	                        <Switch
-	                          checked={resolveCabinetHardwarePosition(selectedCab) === "top-center"}
-	                          aria-label="Move B15/B18 door handle to top center"
-	                          onCheckedChange={(checked) => setHandleSideFor(selectedCab.uid, checked ? "top-center" : "auto")}
-	                        />
-	                      </div>
-	                    )}
+                    {supportsCenteredTopDoorPull(selectedCab) && !usesRaisedFloorWallDoorPull(selectedCab) && (
+                      <div className="flex items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50/70 px-3 py-2 dark:border-amber-800 dark:bg-amber-950/20">
+                        <div>
+                          <div className="text-sm font-semibold text-foreground">Top-rail centered handle</div>
+                          <p className="text-[11px] text-muted-foreground">
+                            {requiresCenteredTopDoorPull(selectedCab) ? "Required for this tray-divider or pull-out door." : "Selectable for this trashcan cabinet."}
+                          </p>
+                        </div>
+                        {requiresCenteredTopDoorPull(selectedCab) ? (
+                          <span className="rounded border border-amber-400 px-2 py-1 text-[11px] font-semibold">Required</span>
+                        ) : (
+                          <Switch
+                            checked={resolveCabinetHardwarePosition(selectedCab) === "top-center"}
+                            aria-label="Move trashcan door handle to top center"
+                            onCheckedChange={(checked) => setHandleSideFor(selectedCab.uid, checked ? "top-center" : "auto")}
+                          />
+                        )}
+                      </div>
+                    )}
 	                    {resolveSwing(selectedCab) === "double" && (
 	                      <Button variant={resolveCabinetHardwarePosition(selectedCab) === "paired" ? "default" : "outline"} size="sm" className="h-8 w-full" onClick={() => setHandleSideFor(selectedCab.uid, "paired")}>Paired doors — pulls at the center meeting edge</Button>
 	                    )}
