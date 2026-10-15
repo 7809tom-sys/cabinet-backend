@@ -428,7 +428,7 @@ export type InteractiveRoomPresentation = {
 
 export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "seasonal-garden" | "autumn-woodland" | "suburban" | "privacy";
 export type WindowFrameStyle = "white" | "black" | "wood";
-export type WindowGridStyle = "scene-default" | "none" | "1x1" | "2x1" | "2x2" | "3x2";
+export type WindowGridStyle = "scene-default" | "none" | "1x0" | "2x0" | "3x0" | "0x1" | "0x2" | "0x3" | "1x1" | "2x1" | "2x2" | "3x2";
 export const DEFAULT_WINDOW_SCENE_KIND: WindowSceneKind = "garden";
 
 export function windowFrameColor(style: WindowFrameStyle): string {
@@ -8885,6 +8885,12 @@ function windowPhotoTexture(kind: WindowSceneKind): THREE.Texture | null {
 
 export function windowMullionGrid(kind: WindowSceneKind, style: WindowGridStyle = "scene-default"): { columns: number; rows: number } {
   if (style === "none") return { columns: 0, rows: 0 };
+  if (style === "1x0") return { columns: 1, rows: 0 };
+  if (style === "2x0") return { columns: 2, rows: 0 };
+  if (style === "3x0") return { columns: 3, rows: 0 };
+  if (style === "0x1") return { columns: 0, rows: 1 };
+  if (style === "0x2") return { columns: 0, rows: 2 };
+  if (style === "0x3") return { columns: 0, rows: 3 };
   if (style === "1x1") return { columns: 1, rows: 1 };
   if (style === "2x1") return { columns: 2, rows: 1 };
   if (style === "2x2") return { columns: 2, rows: 2 };

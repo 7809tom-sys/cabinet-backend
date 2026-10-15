@@ -41,6 +41,8 @@ describe("WindowAttributesDialog", () => {
     expect(screen.getByLabelText("Window scene for this window")).toBeTruthy();
     expect(screen.getByLabelText("Window frame finish for this window")).toBeTruthy();
     expect(screen.getByLabelText("Window mullion grid for this window")).toBeTruthy();
+    expect(screen.getByRole("option", { name: "One horizontal only" })).toBeTruthy();
+    expect(screen.getByRole("option", { name: "Two horizontal only" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Window scene for this window"), { target: { value: "coastal" } });
     fireEvent.change(screen.getByLabelText("Window frame finish for this window"), { target: { value: "black" } });
     fireEvent.change(screen.getByLabelText("Window mullion grid for this window"), { target: { value: "2x2" } });

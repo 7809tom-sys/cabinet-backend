@@ -26,6 +26,12 @@ const WINDOW_SCENE_OPTIONS: Array<{ value: WindowSceneKind; label: string }> = [
 const WINDOW_GRID_OPTIONS: Array<{ value: WindowGridStyle; label: string }> = [
   { value: "scene-default", label: "Scene default" },
   { value: "none", label: "Clear glass — no grid" },
+  { value: "1x0", label: "One vertical only" },
+  { value: "2x0", label: "Two vertical only" },
+  { value: "3x0", label: "Three vertical only" },
+  { value: "0x1", label: "One horizontal only" },
+  { value: "0x2", label: "Two horizontal only" },
+  { value: "0x3", label: "Three horizontal only" },
   { value: "1x1", label: "One vertical × one horizontal" },
   { value: "2x1", label: "Two vertical × one horizontal" },
   { value: "2x2", label: "Two vertical × two horizontal" },

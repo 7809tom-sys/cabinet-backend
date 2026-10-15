@@ -46,6 +46,9 @@ describe("Designer window scenes", () => {
   it("supports explicit mullion presets instead of forcing a scene default", () => {
     expect(windowMullionGrid("garden")).toEqual({ columns: 1, rows: 0 });
     expect(windowMullionGrid("garden", "none")).toEqual({ columns: 0, rows: 0 });
+    expect(windowMullionGrid("garden", "1x0")).toEqual({ columns: 1, rows: 0 });
+    expect(windowMullionGrid("garden", "0x1")).toEqual({ columns: 0, rows: 1 });
+    expect(windowMullionGrid("garden", "0x3")).toEqual({ columns: 0, rows: 3 });
     expect(windowMullionGrid("garden", "2x2")).toEqual({ columns: 2, rows: 2 });
   });
 
