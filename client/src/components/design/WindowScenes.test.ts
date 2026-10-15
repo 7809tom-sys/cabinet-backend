@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addWallOpening, DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowMullionGrid, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
+import { addWallOpening, DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowMullionGrid, windowPhotoCoverCrop, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
 
 describe("Designer window scenes", () => {
   it("maps the real reference scenes to stored photographic assets", () => {
@@ -41,6 +41,14 @@ describe("Designer window scenes", () => {
     expect(windowFrameColor("white")).toBe("#f4f0e8");
     expect(windowFrameColor("black")).toBe("#20252b");
     expect(windowFrameColor("wood")).toBe("#8a5a35");
+  });
+
+  it("center-crops landscape photos into portrait windows without stretching them", () => {
+    const crop = windowPhotoCoverCrop(16 / 9, 36 / 48);
+    expect(crop.repeatY).toBe(1);
+    expect(crop.repeatX).toBeLessThan(1);
+    expect(crop.offsetX).toBeCloseTo((1 - crop.repeatX) / 2);
+    expect(crop.offsetY).toBe(0);
   });
 
   it("supports explicit mullion presets instead of forcing a scene default", () => {

@@ -8872,13 +8872,32 @@ function windowSceneTexture(kind: WindowSceneKind = "daylight"): THREE.CanvasTex
   return texture;
 }
 
-function windowPhotoTexture(kind: WindowSceneKind): THREE.Texture | null {
+export function windowPhotoCoverCrop(imageAspect: number, openingAspect: number): { repeatX: number; repeatY: number; offsetX: number; offsetY: number } {
+  if (!Number.isFinite(imageAspect) || imageAspect <= 0 || !Number.isFinite(openingAspect) || openingAspect <= 0) {
+    return { repeatX: 1, repeatY: 1, offsetX: 0, offsetY: 0 };
+  }
+  if (imageAspect > openingAspect) {
+    const repeatX = openingAspect / imageAspect;
+    return { repeatX, repeatY: 1, offsetX: (1 - repeatX) / 2, offsetY: 0 };
+  }
+  const repeatY = imageAspect / openingAspect;
+  return { repeatX: 1, repeatY, offsetX: 0, offsetY: (1 - repeatY) / 2 };
+}
+
+function windowPhotoTexture(kind: WindowSceneKind, openingAspect: number): THREE.Texture | null {
   const url = windowSceneAssetUrl(kind);
   if (!url || typeof window === "undefined") return null;
-  const texture = new THREE.TextureLoader().load(url);
+  const texture = new THREE.TextureLoader().load(url, (loaded) => {
+    const image = loaded.image as { width?: number; height?: number } | undefined;
+    const crop = windowPhotoCoverCrop(Number(image?.width) / Number(image?.height), openingAspect);
+    loaded.repeat.set(crop.repeatX, crop.repeatY);
+    loaded.offset.set(crop.offsetX, crop.offsetY);
+    loaded.needsUpdate = true;
+  });
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.center.set(0.5, 0.5);
   texture.userData = { windowScene: true, windowSceneKind: kind, realPhotograph: true, planningOnly: true };
   return texture;
 }
@@ -8956,7 +8975,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       group.add(leaf);
   }
   } else {
-  const windowTexture = isWindow ? (windowPhotoTexture(effectiveWindowSceneKind) ?? windowSceneTexture(effectiveWindowSceneKind)) : null;
+  const windowTexture = isWindow ? (windowPhotoTexture(effectiveWindowSceneKind, width / height) ?? windowSceneTexture(effectiveWindowSceneKind)) : null;
   const paneMaterial = isWindow && windowTexture
     ? new THREE.MeshBasicMaterial({ map: windowTexture, side: THREE.DoubleSide })
     : new THREE.MeshStandardMaterial({ color: isWindow ? "#dbe8e4" : isDoor ? appearance.color : "#4a3528", roughness: 0.28, metalness: isWindow ? 0.12 : 0, ...(isDoor ? { transparent: true, opacity: appearance.opacity, depthWrite: false } : {}) });
