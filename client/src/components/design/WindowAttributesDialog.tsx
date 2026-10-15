@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { type RoomData, type WallOpening } from "@/lib/design";
-import type { WindowFrameStyle, WindowSceneKind } from "./InteractiveRoom3D";
+import type { WindowConstructionStyle, WindowFrameStyle, WindowSceneKind } from "./InteractiveRoom3D";
 import { OpeningSizeEditor } from "./OpeningSizeEditor";
 
 type WindowGridStyle = NonNullable<WallOpening["windowGridStyle"]>;
@@ -55,7 +55,7 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
     ? Math.max(0.125, Math.min(48, Math.round(parsedMovement * 8) / 8))
     : 1;
   if (!opening || opening.kind !== "window") return null;
-  const updateAppearance = (patch: Partial<Pick<WallOpening, "windowSceneKind" | "windowFrameStyle" | "windowGridStyle">>) => {
+  const updateAppearance = (patch: Partial<Pick<WallOpening, "windowSceneKind" | "windowFrameStyle" | "windowConstructionStyle" | "windowGridStyle">>) => {
     onChange({ ...opening, ...patch });
   };
   return (
@@ -87,7 +87,7 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
             <h3 id="window-appearance-heading" className="text-sm font-semibold">Window appearance</h3>
             <p className="text-xs text-muted-foreground">These choices are saved on this window only. Use them to keep multiple windows realistic and visually distinct.</p>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <label className="grid gap-1.5 text-sm font-medium">
               Scene
               <select
@@ -110,6 +110,21 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
                 <option value="white">White</option>
                 <option value="black">Black</option>
                 <option value="wood">Wood</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-sm font-medium">
+              Construction / style
+              <select
+                aria-label="Window construction style for this window"
+                value={opening.windowConstructionStyle ?? "picture"}
+                onChange={(event) => updateAppearance({ windowConstructionStyle: event.target.value as WindowConstructionStyle })}
+                className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="picture">Picture</option>
+                <option value="double-hung">Double-hung</option>
+                <option value="casement">Casement</option>
+                <option value="slider">Slider</option>
+                <option value="french-cottage">French / Cottage</option>
               </select>
             </label>
             <label className="grid gap-1.5 text-sm font-medium">

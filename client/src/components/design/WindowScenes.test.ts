@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
-import { addWallOpening, DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowMullionGrid, windowPhotoCoverCrop, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
+import { addWallOpening, DEFAULT_WINDOW_SCENE_KIND, windowConstructionGrid, windowFrameColor, windowMullionGrid, windowPhotoCoverCrop, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
 
 describe("Designer window scenes", () => {
   it("maps the real reference scenes to stored photographic assets", () => {
@@ -43,6 +43,14 @@ describe("Designer window scenes", () => {
     expect(windowFrameColor("wood")).toBe("#8a5a35");
   });
 
+  it("maps each construction style to its architectural mullion layout", () => {
+    expect(windowConstructionGrid("picture")).toEqual({ columns: 0, rows: 0 });
+    expect(windowConstructionGrid("double-hung")).toEqual({ columns: 0, rows: 1 });
+    expect(windowConstructionGrid("casement")).toEqual({ columns: 1, rows: 0 });
+    expect(windowConstructionGrid("slider")).toEqual({ columns: 1, rows: 0 });
+    expect(windowConstructionGrid("french-cottage")).toEqual({ columns: 1, rows: 1 });
+  });
+
   it("center-crops landscape photos into portrait windows without stretching them", () => {
     const crop = windowPhotoCoverCrop(16 / 9, 36 / 48);
     expect(crop.repeatY).toBe(1);
@@ -73,6 +81,7 @@ describe("Designer window scenes", () => {
       sill: 42,
       windowSceneKind: "coastal",
       windowFrameStyle: "black",
+      windowConstructionStyle: "double-hung",
       windowGridStyle: "none",
     }, { width: 144, depth: 120, ceilingHeight: 96 });
     const muntins: THREE.Object3D[] = [];
@@ -81,8 +90,8 @@ describe("Designer window scenes", () => {
       if (node.userData.windowMuntin) muntins.push(node);
       if (node.userData.windowGlassReflection) glass = node;
     });
-    expect(muntins).toHaveLength(0);
-    expect(glass?.userData).toMatchObject({ windowSceneKind: "coastal", windowGridStyle: "none" });
+    expect(muntins).toHaveLength(1);
+    expect(glass?.userData).toMatchObject({ windowSceneKind: "coastal", windowConstructionStyle: "double-hung", windowGridStyle: "none" });
     const trim = root.children[0]?.children.find((node) => node.userData.architecturalOpeningTrim) as THREE.Mesh | undefined;
     expect((trim?.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("20252b");
   });

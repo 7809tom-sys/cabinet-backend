@@ -428,6 +428,7 @@ export type InteractiveRoomPresentation = {
 
 export type WindowSceneKind = "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "seasonal-garden" | "autumn-woodland" | "suburban" | "privacy";
 export type WindowFrameStyle = "white" | "black" | "wood";
+export type WindowConstructionStyle = "picture" | "double-hung" | "casement" | "slider" | "french-cottage";
 export type WindowGridStyle = "scene-default" | "none" | "1x0" | "2x0" | "3x0" | "0x1" | "0x2" | "0x3" | "1x1" | "2x1" | "2x2" | "3x2";
 export const DEFAULT_WINDOW_SCENE_KIND: WindowSceneKind = "garden";
 
@@ -435,6 +436,12 @@ export function windowFrameColor(style: WindowFrameStyle): string {
   if (style === "black") return "#20252b";
   if (style === "wood") return "#8a5a35";
   return "#f4f0e8";
+}
+export function windowConstructionGrid(style: WindowConstructionStyle = "picture"): { columns: number; rows: number } {
+  if (style === "double-hung") return { columns: 0, rows: 1 };
+  if (style === "casement" || style === "slider") return { columns: 1, rows: 0 };
+  if (style === "french-cottage") return { columns: 1, rows: 1 };
+  return { columns: 0, rows: 0 };
 }
 
 /** Real reference photographs used behind architectural window openings. */
@@ -8941,6 +8948,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
   const isBifold = opening.kind === "door" && opening.doorStyle === "bifold";
   const effectiveWindowSceneKind = opening.windowSceneKind ?? windowSceneKind;
   const effectiveWindowFrameStyle = opening.windowFrameStyle ?? windowFrameStyle;
+  const effectiveWindowConstructionStyle = opening.windowConstructionStyle ?? "picture";
   const effectiveWindowGridStyle = opening.windowGridStyle ?? "scene-default";
   const trimMaterial = new THREE.MeshStandardMaterial({ color: windowFrameColor(effectiveWindowFrameStyle), roughness: effectiveWindowFrameStyle === "wood" ? 0.62 : 0.5, metalness: effectiveWindowFrameStyle === "black" ? 0.08 : 0 });
   const openingDepth = 0.12;
@@ -8986,16 +8994,18 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
   if (isWindow) {
     const muntin = new THREE.MeshStandardMaterial({ color: windowFrameColor(effectiveWindowFrameStyle), roughness: effectiveWindowFrameStyle === "wood" ? 0.62 : 0.45, metalness: effectiveWindowFrameStyle === "black" ? 0.08 : 0 });
     const grid = windowMullionGrid(effectiveWindowSceneKind, effectiveWindowGridStyle);
+    const constructionGrid = windowConstructionGrid(effectiveWindowConstructionStyle);
+    const resolvedGrid = { columns: Math.max(grid.columns, constructionGrid.columns), rows: Math.max(grid.rows, constructionGrid.rows) };
     const mullions: THREE.Mesh[] = [];
-    for (let column = 1; column <= grid.columns; column += 1) {
+    for (let column = 1; column <= resolvedGrid.columns; column += 1) {
       const vertical = new THREE.Mesh(new THREE.BoxGeometry(0.035, height - 0.05, 0.09), muntin);
-      vertical.position.x = -width / 2 + (width * column) / (grid.columns + 1);
+      vertical.position.x = -width / 2 + (width * column) / (resolvedGrid.columns + 1);
       vertical.userData = { windowMuntin: "vertical", windowMuntinIndex: column };
       mullions.push(vertical);
     }
-    for (let row = 1; row <= grid.rows; row += 1) {
+    for (let row = 1; row <= resolvedGrid.rows; row += 1) {
       const horizontal = new THREE.Mesh(new THREE.BoxGeometry(width - 0.05, 0.035, 0.09), muntin);
-      horizontal.position.y = -height / 2 + (height * row) / (grid.rows + 1);
+      horizontal.position.y = -height / 2 + (height * row) / (resolvedGrid.rows + 1);
       horizontal.userData = { windowMuntin: "horizontal", windowMuntinIndex: row };
       mullions.push(horizontal);
     }
@@ -9004,7 +9014,7 @@ export function addWallOpening(root: THREE.Group, opening: WallOpening, roomOrWi
       new THREE.MeshPhysicalMaterial({ color: "#d9f0f2", transparent: true, opacity: 0.16, roughness: 0.055, metalness: 0.08, transmission: 0.12, ior: 1.46, thickness: 0.04, depthWrite: false, side: THREE.DoubleSide }),
     );
     glass.position.z = 0.062;
-    glass.userData = { windowGlassReflection: true, windowSceneKind: effectiveWindowSceneKind, windowGridStyle: effectiveWindowGridStyle, realPhotograph: Boolean(windowSceneAssetUrl(effectiveWindowSceneKind)) };
+    glass.userData = { windowGlassReflection: true, windowSceneKind: effectiveWindowSceneKind, windowConstructionStyle: effectiveWindowConstructionStyle, windowGridStyle: effectiveWindowGridStyle, realPhotograph: Boolean(windowSceneAssetUrl(effectiveWindowSceneKind)) };
     const reflection = new THREE.Mesh(
       new THREE.PlaneGeometry(Math.max(0.08, width * 0.16), height * 0.88),
       new THREE.MeshBasicMaterial({ color: "#ffffff", transparent: true, opacity: 0.075, depthWrite: false, side: THREE.DoubleSide }),

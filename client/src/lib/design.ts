@@ -5796,6 +5796,8 @@ export interface WallOpening {
   windowSceneKind?: "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "seasonal-garden" | "autumn-woodland" | "suburban" | "privacy";
   /** Optional per-window architectural frame finish; absent windows use the Designer default. */
   windowFrameStyle?: "white" | "black" | "wood";
+  /** Optional per-window construction style; absent windows remain picture windows. */
+  windowConstructionStyle?: "picture" | "double-hung" | "casement" | "slider" | "french-cottage";
   /** Optional per-window mullion preset; absent windows use the selected scene's grid. */
   windowGridStyle?: "scene-default" | "none" | "1x0" | "2x0" | "3x0" | "0x1" | "0x2" | "0x3" | "1x1" | "2x1" | "2x2" | "3x2";
   /** Generic room-door illustration, not a catalog MasterTrac door or a hardware specification. */
