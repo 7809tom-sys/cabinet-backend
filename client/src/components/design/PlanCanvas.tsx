@@ -2452,6 +2452,9 @@ export function PlanCanvas({
               && installedFillerWidth > 0
               && installedFillerWidth <= BLIND_CORNER_FILLER_WIDTH_IN + 0.001
               && (Boolean(p.fillerForCabinetUid) || /required\s+(?:bbc|wbc)/i.test(p.description ?? "") || /^F342$/i.test(p.masterCode));
+            const measuredFillerGapWidth = Number.isFinite(Number(p.fillerTotalWidth)) && Number(p.fillerTotalWidth) > 0
+              ? Number(p.fillerTotalWidth)
+              : null;
             const splitFillerTooltip = splitFillerDimensionTooltip(p);
 	            const placementHoverDetail = cabinetPlacementHoverDetail(p);
 	            const placementHoverTooltip = placementHoverDetail
@@ -2473,10 +2476,16 @@ export function PlanCanvas({
 	              && peninsulaRunById(room, p.wallId as WallSide),
 	            );
 	            const isFrontMiterPair = p.fillerTransitionKind === "front-miter-pair";
-	            const isMiteredAngledWallFiller = (p.placement === "wall" || p.placement === "base")
-	              && !p.fillerTransitionKind
-	              && p.fillerMiterAngle === 45
-	              && (p.fillerMiteredEnd === "start" || p.fillerMiteredEnd === "end");
+            const isMiteredAngledWallFiller = (p.placement === "wall" || p.placement === "base")
+              && !p.fillerTransitionKind
+              && p.fillerMiterAngle === 45
+              && (p.fillerMiteredEnd === "start" || p.fillerMiteredEnd === "end");
+            const showMeasuredFillerMeasurement = isFillerItem(p)
+              && installedFillerWidth != null
+              && installedFillerWidth > 0
+              && !showBbcFillerMeasurement
+              && !p.fillerTransitionKind
+              && !isMiteredAngledWallFiller;
 	            const transitionFootprint = angledWallTransitionFootprint(p, room, cabinets)
 	              ?? (p.fillerTransitionPlanFootprint?.length ? p.fillerTransitionPlanFootprint : null);
 	            const transitionBounds = transitionFootprint
@@ -2615,6 +2624,16 @@ export function PlanCanvas({
                     title={`Installed filler width ${formatInches(installedFillerWidth)}; BBC return maximum ${formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}`}
                   >
                     FILLER {formatInches(installedFillerWidth)} · MAX {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}
+                  </span>
+                )}
+                {showMeasuredFillerMeasurement && installedFillerWidth != null && (
+                  <span
+                    data-testid="measured-filler-measurement-label"
+                    role="status"
+                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-violet-200 bg-violet-800 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_10px_rgba(109,40,217,0.5)]"
+                    title={`Measured filler gap ${formatInches(measuredFillerGapWidth ?? installedFillerWidth)}; installed filler width ${formatInches(installedFillerWidth)}`}
+                  >
+                    FILLER {formatInches(installedFillerWidth)}{measuredFillerGapWidth != null && Math.abs(measuredFillerGapWidth - installedFillerWidth) > 0.001 ? ` · GAP ${formatInches(measuredFillerGapWidth)}` : ""}
                   </span>
                 )}
                 {showWallSnapSuccess && (

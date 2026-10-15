@@ -652,6 +652,14 @@ describe("BBC filler measurement label", () => {
     expect(source).toContain("BBC return maximum");
     expect(source).toContain("FILLER {formatInches(installedFillerWidth)} · MAX {formatInches(BLIND_CORNER_FILLER_WIDTH_IN)}");
   });
+
+  it("also exposes the installed width for non-BBC measured filler gaps", () => {
+    const source = readFileSync(new URL("./PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(source).toContain('data-testid="measured-filler-measurement-label"');
+    expect(source).toContain("Measured filler gap");
+    expect(source).toContain("FILLER {formatInches(installedFillerWidth)}");
+    expect(source).toContain("GAP ${formatInches(measuredFillerGapWidth)}");
+  });
 });
 
 describe("plan countertop material scopes", () => {
