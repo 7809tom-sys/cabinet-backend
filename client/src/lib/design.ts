@@ -283,15 +283,29 @@ function isRequiredBlindCornerFillerJoinPeer(
   peer: PlacedCabinet,
 ): boolean {
   if (!isFillerItem(filler) || !isBlindCorner(peer.masterCode, peer.description)) return false;
-  if (filler.fillerForCabinetUid !== peer.uid) return false;
-  if (!/^(?:bbc|wbc)-required-filler-/.test(filler.fillerPieceGroupId ?? "")) return false;
-  const installedWidth = Number(filler.width);
+  const hasRequiredGroup = /^(?:bbc|wbc)-required-filler-/.test(filler.fillerPieceGroupId ?? "");
+  const explicitlyOwned = filler.fillerForCabinetUid === peer.uid && hasRequiredGroup;
+  const installedWidth = Math.min(Math.abs(Number(filler.width)), Math.abs(Number(filler.depth)));
   if (!Number.isFinite(installedWidth) || installedWidth <= 0 || installedWidth > BLIND_CORNER_FILLER_WIDTH_IN + COLLISION_EPSILON_IN) return false;
   const fillerElevation = elevationBox(filler);
   const peerElevation = elevationBox(peer);
-  return filler.placement === peer.placement
-    && Math.abs(fillerElevation.bottom - peerElevation.bottom) <= COLLISION_EPSILON_IN
-    && Math.abs(fillerElevation.height - peerElevation.height) <= COLLISION_EPSILON_IN;
+  if (filler.placement !== peer.placement
+    || Math.abs(fillerElevation.bottom - peerElevation.bottom) > COLLISION_EPSILON_IN
+    || Math.abs(fillerElevation.height - peerElevation.height) > COLLISION_EPSILON_IN) return false;
+  if (explicitlyOwned) return true;
+  if (filler.fillerForCabinetUid || filler.fillerPieceGroupId || hasRequiredGroup) return false;
+
+  // Older saved drawings can retain the real 3-inch filler code and geometry
+  // without fillerForCabinetUid/fillerPieceGroupId. Permit only the shallow
+  // boundary overlap that represents the BBC return; do not waive a filler
+  // buried inside a cabinet or an unrelated cabinet-sized overlap.
+  const fillerFootprint = placedFootprint(filler);
+  const peerFootprint = placedFootprint(peer);
+  const overlapX = Math.min(filler.x + fillerFootprint.w, peer.x + peerFootprint.w) - Math.max(filler.x, peer.x);
+  const overlapY = Math.min(filler.y + fillerFootprint.d, peer.y + peerFootprint.d) - Math.max(filler.y, peer.y);
+  return overlapX > COLLISION_EPSILON_IN
+    && overlapY > COLLISION_EPSILON_IN
+    && Math.min(overlapX, overlapY) <= 0.5;
 }
 
 /**
@@ -4896,6 +4910,10 @@ export function blindCornerViolations(
     for (const o of placed) {
       if (o.uid === blind.uid) continue;
       if (isBlindCorner(o.masterCode, o.description)) continue;
+      // A 3-inch-or-smaller filler is the required trim return beside a BBC,
+      // not the perpendicular cabinet that the pull-clearance rule measures.
+      // It must not reintroduce a red conflict after placement or restore.
+      if (isRequiredBlindCornerFillerJoinPeer(o, blind)) continue;
       // Only same vertical zone neighbors matter (base-vs-base, wall-vs-wall).
       if (occupiesUpperZone(o) !== occupiesUpperZone(blind)) continue;
       const ro = footprintRect(o);

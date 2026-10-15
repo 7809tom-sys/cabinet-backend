@@ -20,7 +20,7 @@ import {
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, firstCollisionFreeWallPlacement, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
-  blindCornerSpecViolations, blindPullRange,
+  blindCornerSpecViolations, blindCornerViolations, blindPullRange,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
 			  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
@@ -3414,6 +3414,13 @@ describe("blind corner pull spec", () => {
     expect(cabinetPlacementCollisionDetail(filler, [blind], room)).toBeNull();
     expect(cabinetPlacementCollisionDetail({ ...filler, width: 3.25 }, [blind], room)).not.toBeNull();
     expect(cabinetPlacementCollisionDetail({ ...filler, fillerForCabinetUid: "other-bbc" }, [blind], room)).not.toBeNull();
+  });
+  it("does not flag a legacy 3-inch BBC filler with a quarter-inch boundary overlap", () => {
+    const blind = cab({ uid: "bbc-owner", masterCode: "BBC36", description: "Blind Corner Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
+    const legacyFiller = cab({ uid: "legacy-f342", masterCode: "F342", description: '3" Filler', category: "Filler", subCategory: "Filler", placement: "base", x: 0, y: 23.75, width: 3, depth: 24, height: 34.5, rotation: 90 });
+    expect(cabinetPlacementCollisionDetail(legacyFiller, [blind], { width: 144, depth: 120 })).toBeNull();
+    expect(blindCornerViolations([blind, legacyFiller])).not.toContain(blind.uid);
+    expect(cabinetPlacementCollisionDetail({ ...legacyFiller, width: 4 }, [blind], { width: 144, depth: 120 })).not.toBeNull();
   });
 });
 

@@ -4618,11 +4618,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     () => ceilingFitViolations(placed, room),
     [placed, room]
   );
+  const applianceConflictUids = useMemo(
+    () => conflictingUids(placed, room),
+    [placed, room]
+  );
   const conflictUids = useMemo(() => {
     // Keep the warning rail on the same physical wall-run collision rule as
     // catalog drops, Plan drags, 3D drags, and mobile nudges. A diagonal
     // screen envelope is not an appliance-in-cabinet collision.
-    const set = conflictingUids(placed, room);
+    const set = new Set(applianceConflictUids);
     // (ceilingViolationUids declared above)
     // Blind corner rule: a blind corner whose neighbor isn't pulled the
     // required 3" off the corner is also a conflict.
@@ -4643,7 +4647,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // Non-corner base cabinet placed at a room corner (needs BBC/ERB/LSB/CSB).
     missingCornerBaseViolations(placed, room, island, openings).forEach((uid: string) => set.add(uid));
     return set;
-  }, [placed, room, island, openings, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
+  }, [placed, room, island, openings, applianceConflictUids, rangeClearanceUids, wallOpeningUids, baseOpeningUids, blindSpecIssues, ceilingViolationUids]);
   const cabinetUidsByCustomWall = useMemo(() => {
     const byWall: Record<string, string[]> = {};
     for (const cabinet of placed) {
@@ -17170,7 +17174,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   {cornerBaseViolationUids.size > 0
                     ? `${cornerBaseViolationUids.size} standard base cabinet${cornerBaseViolationUids.size > 1 ? "s are" : " is"} placed at a doorway corner — select an ER36 or BER36 Easy Reach corner cabinet for that opening. `
                     : ""}
-                  An appliance running into a cabinet must be fixed before ordering.
+                  {applianceConflictUids.size > 0
+                    ? "An appliance running into a cabinet must be fixed before ordering."
+                    : "A cabinet or filler spacing conflict must be corrected before ordering. Small BBC fillers up to 3\" are permitted at the required return."}
                 </span>
               </div>
             )}
