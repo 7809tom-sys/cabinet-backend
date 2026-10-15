@@ -4987,6 +4987,22 @@ export type GlassStackerParentPlacementResult =
   | { ok: true; x: number; y: number; rotation: number; mountBottom: number; parentUid: string; parentCode: string }
   | { ok: false; reason: "not-stacker" | "no-matching-parent" | "ceiling"; parentCode?: string; requiredTop?: number; ceiling?: number };
 
+export type GlassStackerParentPlacementOptions = {
+  /**
+   * Catalog-click mode. The stacker has no meaningful position yet (the add
+   * flow only holds a placeholder spot, which falls back to the room centre
+   * when the Back wall's upper row is full), so the parent is found from the
+   * wall cabinets themselves, on whichever wall they hang: the selected
+   * cabinet first, then a matching cabinet with no stacker yet (the active
+   * wall first), then the nearest. Without this a perfectly good 36" wall
+   * cabinet on the Back wall was rejected because the placeholder spot read
+   * as the Front wall.
+   */
+  anyWall?: boolean;
+  /** Wall to try first among otherwise equal parents (the Designer's active wall). */
+  preferredSide?: WallSide | null;
+};
+
 /**
  * A shallow glass stacker above a deeper upper (most commonly a 12-inch glass
  * cabinet above a 24-inch refrigerator/corner upper) is packed out from the
@@ -5041,47 +5057,94 @@ export function glassStackerFrontFlushSpot(
  * strict by room wall, installed width, and cabinet family; a WDC glass stacker
  * cannot silently land on a standard W cabinet. The currently selected matching
  * parent wins, otherwise the nearest matching run position is used.
+ *
+ * A stacker is never rejected for being SHALLOWER than its parent: a 12-inch
+ * deep glass stacker on a 24-inch deep wall cabinet (for example a 36x12x24
+ * refrigerator wall cabinet) is valid. It is brought forward flush with the
+ * parent's face by glassStackerFrontFlushSpot and a concealed false back fills
+ * the 12-inch gap behind it.
  */
 export function glassStackerParentPlacement(
   stacker: PlacedCabinet,
   placed: readonly PlacedCabinet[],
   room: RoomData,
   preferredParentUid?: string | null,
+  options?: GlassStackerParentPlacementOptions,
 ): GlassStackerParentPlacementResult {
   if (stacker.placement !== "wall" || !isStacker(stacker)) return { ok: false, reason: "not-stacker" };
+  const anyWall = options?.anyWall === true;
   const side = cabinetWall(stacker, room);
   const horizontal = side === "top" || side === "bottom";
-  const wallLengthIn = Math.max(1, horizontal ? room.width : room.depth);
   const stackerFamily = glassStackerFamily(stacker);
   const stackerWidth = Number(stacker.width);
   const stackerStart = horizontal ? stacker.x : stacker.y;
   const stackerCenter = stackerStart + stackerWidth / 2;
+  const stackerFootprint = placedFootprint(stacker);
+  const stackerPlanCenter = { x: stacker.x + stackerFootprint.w / 2, y: stacker.y + stackerFootprint.d / 2 };
+  // A parent that already carries a stacker (explicit link, or a stacker sitting
+  // right on its top) is the last choice in catalog-click mode, so a second
+  // glass cabinet goes on the next free matching wall cabinet.
+  const hasStacker = (parent: PlacedCabinet): boolean => {
+    const parentFootprint = placedFootprint(parent);
+    const parentElevation = elevationBox(parent, room);
+    return placed.some((other) => {
+      if (other.uid === stacker.uid || other.placement !== "wall" || !isStacker(other)) return false;
+      if (other.stackedOnCabinetUid === parent.uid) return true;
+      const otherFootprint = placedFootprint(other);
+      const overlapW = Math.min(parent.x + parentFootprint.w, other.x + otherFootprint.w) - Math.max(parent.x, other.x);
+      const overlapD = Math.min(parent.y + parentFootprint.d, other.y + otherFootprint.d) - Math.max(parent.y, other.y);
+      if (overlapW <= 1 || overlapD <= 1) return false;
+      return Math.abs(elevationBox(other, room).bottom - (parentElevation.bottom + parentElevation.height)) <= 0.5;
+    });
+  };
   const candidates = placed.filter((parent) => {
     if (parent.uid === stacker.uid || parent.placement !== "wall" || parent.islandFace || isStacker(parent)) return false;
-    if (cabinetWall(parent, room) !== side || !isAgainstWall(parent, side, room)) return false;
+    const parentSide = cabinetWall(parent, room);
+    if (!isAgainstWall(parent, parentSide, room)) return false;
+    if (!anyWall && parentSide !== side) return false;
     if (Math.abs(Number(parent.width) - stackerWidth) > 0.5) return false;
     const parentFamily = glassStackerFamily(parent);
     return stackerFamily == null || parentFamily === stackerFamily;
-  }).sort((left, right) => {
-    const leftPreferred = left.uid === preferredParentUid ? 0 : 1;
-    const rightPreferred = right.uid === preferredParentUid ? 0 : 1;
-    if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
-    const leftStart = horizontal ? left.x : left.y;
-    const rightStart = horizontal ? right.x : right.y;
-    return Math.abs(leftStart + Number(left.width) / 2 - stackerCenter) - Math.abs(rightStart + Number(right.width) / 2 - stackerCenter);
-  });
+  }).map((parent) => ({ parent, parentSide: cabinetWall(parent, room), occupied: anyWall ? hasStacker(parent) : false }))
+    .sort((left, right) => {
+      if (anyWall && left.occupied !== right.occupied) return left.occupied ? 1 : -1;
+      const leftPreferred = left.parent.uid === preferredParentUid ? 0 : 1;
+      const rightPreferred = right.parent.uid === preferredParentUid ? 0 : 1;
+      if (leftPreferred !== rightPreferred) return leftPreferred - rightPreferred;
+      if (anyWall) {
+        const wantedSide = options?.preferredSide ?? null;
+        if (wantedSide) {
+          const leftWall = left.parentSide === wantedSide ? 0 : 1;
+          const rightWall = right.parentSide === wantedSide ? 0 : 1;
+          if (leftWall !== rightWall) return leftWall - rightWall;
+        }
+        const planDistance = (candidate: PlacedCabinet) => {
+          const footprint = placedFootprint(candidate);
+          return Math.hypot(candidate.x + footprint.w / 2 - stackerPlanCenter.x, candidate.y + footprint.d / 2 - stackerPlanCenter.y);
+        };
+        return planDistance(left.parent) - planDistance(right.parent);
+      }
+      const leftStart = horizontal ? left.parent.x : left.parent.y;
+      const rightStart = horizontal ? right.parent.x : right.parent.y;
+      return Math.abs(leftStart + Number(left.parent.width) / 2 - stackerCenter) - Math.abs(rightStart + Number(right.parent.width) / 2 - stackerCenter);
+    })
+    .map((entry) => entry.parent);
   if (candidates.length === 0) return { ok: false, reason: "no-matching-parent" };
-
   let firstCeilingBlock: Extract<GlassStackerParentPlacementResult, { ok: false }> | null = null;
   for (const parent of candidates) {
+    // Each parent is measured on ITS wall (a catalog click can pick a parent
+    // on a different wall than the placeholder spot).
+    const parentSide = cabinetWall(parent, room);
+    const parentHorizontal = parentSide === "top" || parentSide === "bottom";
+    const wallLengthIn = Math.max(1, parentHorizontal ? room.width : room.depth);
     const parentBox = elevationBox(parent, room);
     const mountBottom = parentBox.bottom + parentBox.height;
     const footprint = placedFootprint(parent);
-    const start = horizontal ? parent.x : parent.y;
-    const span = horizontal ? footprint.w : footprint.d;
+    const start = parentHorizontal ? parent.x : parent.y;
+    const span = parentHorizontal ? footprint.w : footprint.d;
     const ceiling = Math.min(
-      wallCeilingAt(room, side, start / wallLengthIn),
-      wallCeilingAt(room, side, (start + span) / wallLengthIn),
+      wallCeilingAt(room, parentSide, start / wallLengthIn),
+      wallCeilingAt(room, parentSide, (start + span) / wallLengthIn),
     );
     const requiredTop = mountBottom + placedHeight(stacker);
     if (requiredTop <= ceiling + COLLISION_EPSILON_IN) {

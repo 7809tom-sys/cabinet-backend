@@ -5856,11 +5856,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          depth,
 	          height,
 	          rotation: spot.rotation,
-	        }, prev, room, selectedUid);
+	        }, prev, room, selectedUid, {
+	          // A catalog click has no real position yet, so the glass cabinet looks for
+	          // its matching wall cabinet on every wall (the selected one first, then
+	          // one with no stacker yet, the active wall first) instead of trusting the
+	          // placeholder spot. A drag-drop keeps its own wall and position.
+	          anyWall: x == null && y == null,
+	          preferredSide: activeWall,
+	        });
 	        if (!stackerPlacement.ok) {
 	          const message = stackerPlacement.reason === "ceiling"
 	            ? `${c.masterCode} cannot stack above ${stackerPlacement.parentCode ?? "the matching wall cabinet"}: the combined top would reach ${formatInches(stackerPlacement.requiredTop ?? 0)}, but the ceiling is ${formatInches(stackerPlacement.ceiling ?? 0)} at that cabinet.`
-	            : `${c.masterCode} must stack on a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family on the selected ${wallNameFor(activeWall, room)} wall. Select or add that wall cabinet first.`;
+	            : (x == null && y == null
+	              ? `${c.masterCode} goes on top of a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family, and none is in the design yet (or each one already has a glass cabinet on it). Add that wall cabinet first and the glass cabinet will snap on top of it.`
+	              : `${c.masterCode} must stack on a matching ${formatInches(width)}-wide wall cabinet from the same cabinet family on the selected ${wallNameFor(activeWall, room)} wall. Select or add that wall cabinet first.`);
 	          setPlacementWarning(message);
 	          toast.error(message);
 	          return;
@@ -5869,7 +5878,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	        stackerMountBottom = stackerPlacement.mountBottom;
 	        stackerParentUid = stackerPlacement.parentUid;
 	        preserveResolvedPlacement = true;
-	        toast.success(`Stacker snapped above ${stackerPlacement.parentCode}`);
+	        const stackerParent = prev.find((cabinet) => cabinet.uid === stackerPlacement.parentUid);
+	        const stackerGap = (Number(stackerParent?.depth) || STD.WALL_DEPTH) - depth;
+	        toast.success(stackerGap > 0.25
+	          ? `Stacker snapped above ${stackerPlacement.parentCode}, flush with its front. A false back fills the ${formatInches(stackerGap)} behind it.`
+	          : `Stacker snapped above ${stackerPlacement.parentCode}`);
 	      }
 
       // ── OTR microwave auto-snap over a range ───────────────────────────

@@ -3190,6 +3190,61 @@ describe("autoPlaceRangeFillers (corner filler auto-placement)", () => {
 	    }
 	  });
 
+	  describe("catalog-click glass stacker on a 24-inch deep wall cabinet (false back rule)", () => {
+	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
+	    const fridgeUpper = (extra: Partial<PlacedCabinet> = {}) => cab({ uid: "wr", cabinetId: 9390185, masterCode: "WR3612(W361224)", description: '36"X 12"Refrigerator Wall Cabinet Double Doors', placement: "wall", x: 54, y: 0, width: 36, depth: 24, height: 12, rotation: 0, mountBottom: 72, ...extra });
+	    const stackerAt = (x: number, y: number, extra: Partial<PlacedCabinet> = {}) => cab({ uid: "glass-stacker-preview", cabinetId: 9360119, masterCode: "W3612GD", description: '36"x 12" Double Door Glass Door Wall Cabinet', category: "Wall", subCategory: "Standard Wall", placement: "wall", x, y, width: 36, depth: 12, height: 12, rotation: 0, ...extra });
+	    it("is refused today when the placeholder spot falls to the room centre (Back wall row full)", () => {
+	      // Reproduces the live toast: the add flow only has a placeholder spot, which reads as the Front wall.
+	      const placeholder = stackerAt(54, 54);
+	      expect(glassStackerParentPlacement(placeholder, [fridgeUpper()], room, "wr")).toEqual({ ok: false, reason: "no-matching-parent" });
+	    });
+	    it("snaps a 12-inch glass stacker on the selected 24-inch deep wall cabinet, flush with its face, on any wall", () => {
+	      const placeholder = stackerAt(54, 54);
+	      const resolved = glassStackerParentPlacement(placeholder, [fridgeUpper()], room, "wr", { anyWall: true, preferredSide: "top" });
+	      expect(resolved).toEqual({ ok: true, x: 54, y: 12, rotation: 0, mountBottom: 84, parentUid: "wr", parentCode: "WR3612(W361224)" });
+	      if (!resolved.ok) return;
+	      // Stacker back is 12" off the wall and its face (y + 12) equals the parent face (0 + 24).
+	      expect(resolved.y + 12).toBe(24);
+	      const placed = { ...placeholder, x: resolved.x, y: resolved.y, rotation: resolved.rotation, mountBottom: resolved.mountBottom, stackedOnCabinetUid: resolved.parentUid, depthPositionAdjusted: true };
+	      expect(elevationBox(placed, room).bottom).toBe(84);
+	      expect(hasCollision(placed, [fridgeUpper()])).toBe(false);
+	      // The 12" gap behind it is the false back.
+	      expect(normalizeGlassStackersToParentFronts([fridgeUpper(), placed], room)[1]).toBe(placed);
+	      expect(glassStackerFrontSnapTarget(placed, [fridgeUpper(), placed], room)?.alreadyAligned).toBe(true);
+	    });
+	    it("finds the parent on a side wall too, flush with that wall's room-facing face", () => {
+	      const leftParent = fridgeUpper({ uid: "wr-left", x: 0, y: 40, rotation: 90 });
+	      const placeholder = stackerAt(54, 54);
+	      const resolved = glassStackerParentPlacement(placeholder, [leftParent], room, null, { anyWall: true, preferredSide: "top" });
+	      expect(resolved).toMatchObject({ ok: true, parentUid: "wr-left", mountBottom: 84, rotation: 90 });
+	      if (resolved.ok) expect(hasCollision({ ...placeholder, x: resolved.x, y: resolved.y, rotation: resolved.rotation, mountBottom: resolved.mountBottom }, [leftParent])).toBe(false);
+	    });
+	    it("puts a second glass cabinet on the next free matching cabinet, not on top of the first stacker", () => {
+	      const first = fridgeUpper({ uid: "wr-a", x: 10 });
+	      const second = fridgeUpper({ uid: "wr-b", x: 80 });
+	      const stackedOnFirst = stackerAt(10, 12, { uid: "stk-a", mountBottom: 84, stackedOnCabinetUid: "wr-a", depthPositionAdjusted: true });
+	      const resolved = glassStackerParentPlacement(stackerAt(54, 54), [first, second, stackedOnFirst], room, null, { anyWall: true, preferredSide: "top" });
+	      expect(resolved).toMatchObject({ ok: true, parentUid: "wr-b", x: 80, y: 12 });
+	    });
+	    it("keeps the active wall first and still prefers the selected cabinet", () => {
+	      const backParent = fridgeUpper({ uid: "wr-back", x: 10 });
+	      const leftParent = fridgeUpper({ uid: "wr-left", x: 0, y: 40, rotation: 90 });
+	      const placeholder = stackerAt(54, 54);
+	      expect(glassStackerParentPlacement(placeholder, [leftParent, backParent], room, null, { anyWall: true, preferredSide: "top" })).toMatchObject({ ok: true, parentUid: "wr-back" });
+	      expect(glassStackerParentPlacement(placeholder, [leftParent, backParent], room, "wr-left", { anyWall: true, preferredSide: "top" })).toMatchObject({ ok: true, parentUid: "wr-left" });
+	    });
+	    it("never matches a different family or width, and still reports the ceiling", () => {
+	      expect(glassStackerParentPlacement(stackerAt(54, 54), [fridgeUpper({ width: 30 })], room, null, { anyWall: true })).toEqual({ ok: false, reason: "no-matching-parent" });
+	      expect(glassStackerParentPlacement(stackerAt(54, 54), [fridgeUpper({ masterCode: "WDC3612" })], room, null, { anyWall: true })).toEqual({ ok: false, reason: "no-matching-parent" });
+	      // Parent hung 6" higher than the datum: 78 + 12 = 90, so a 12" stacker would reach 102 on a 96" ceiling.
+	      expect(glassStackerParentPlacement(stackerAt(54, 54), [fridgeUpper({ mountBottom: 78 })], room, null, { anyWall: true })).toMatchObject({ ok: false, reason: "ceiling", parentCode: "WR3612(W361224)", requiredTop: 102, ceiling: 96 });
+	    });
+	    it("without the option keeps the strict same-wall rule used by drag-drop and bulk placement", () => {
+	      expect(glassStackerParentPlacement(stackerAt(54, 0), [fridgeUpper()], room, "wr")).toMatchObject({ ok: true, parentUid: "wr", y: 12 });
+	      expect(glassStackerParentPlacement(stackerAt(54, 108), [fridgeUpper()], room, "wr")).toEqual({ ok: false, reason: "no-matching-parent" });
+	    });
+	  });
 	  it("blocks a glass stacker when its matching parent would push it through the ceiling", () => {
 	    const room: RoomData = { width: 144, depth: 120, ceilingHeight: 96 };
 	    const parent = cab({ uid: "parent", placement: "wall", masterCode: "W3042", description: "30x42 Wall Cabinet", x: 24, y: 0, width: 30, depth: 12, height: 42, rotation: 0 });

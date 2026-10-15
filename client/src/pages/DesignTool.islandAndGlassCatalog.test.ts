@@ -267,7 +267,8 @@ describe("DesignTool island scene and glass catalog wiring", () => {
 
 		  it("places every supported-height glass stacker on its respective matching wall cabinet without changing its width", () => {
 		    expect(source).toContain("glassStackerParentPlacement({");
-		    expect(source).toContain("}, prev, room, selectedUid)");
+		    expect(source).toContain("}, prev, room, selectedUid, {");
+		    expect(source).toContain("anyWall: x == null && y == null");
 		    expect(source).toContain("stackerParentUid = stackerPlacement.parentUid");
 		    expect(source).toContain("stackedOnCabinetUid: stackerParentUid");
 		    expect(source).toContain("width,");
