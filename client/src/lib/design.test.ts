@@ -1073,6 +1073,12 @@ describe("wall openings (doors & windows)", () => {
     expect(o.offset).toBe(42);
   });
 
+  it("creates the dedicated over-sink window at 36 by 48 inches and a 42-inch sill", () => {
+    const def = OPENINGS.find((o) => o.key === "window-over-sink")!;
+    const o = makeOpening(def, "top", { width: 144, depth: 120, ceilingHeight: 96 });
+    expect(o).toMatchObject({ kind: "window", width: 36, height: 48, sill: 42 });
+  });
+
   it("clamps offset so the opening stays within the wall", () => {
     const def = OPENINGS.find((o) => o.key === "window-std")!;
     const o = makeOpening(def, "top", room);

@@ -5781,7 +5781,7 @@ export const OPENINGS: OpeningDef[] = [
   { key: "patio-door", kind: "door", label: 'Patio / Sliding 72"', width: 72, height: 80, sill: 0 },
   { key: "window-std", kind: "window", label: 'Window 36"', width: 36, height: 36, sill: 42 },
   { key: "window-wide", kind: "window", label: 'Window 60"', width: 60, height: 36, sill: 42 },
-  { key: "window-over-sink", kind: "window", label: 'Over-Sink Window 30"', width: 30, height: 30, sill: 44 },
+  { key: "window-over-sink", kind: "window", label: 'Over-Sink Window 36" × 48"', width: 36, height: 48, sill: 42 },
   // Cased openings / pass-throughs (no door). Width is fully adjustable after
   // placing — measure with a tape and type the exact inches.
   { key: "cased-opening", kind: "opening", label: 'Cased Opening 36"', width: 36, height: 80, sill: 0 },

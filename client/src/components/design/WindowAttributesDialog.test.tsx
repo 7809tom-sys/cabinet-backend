@@ -44,6 +44,8 @@ describe("WindowAttributesDialog", () => {
     expect(screen.getByLabelText("Window mullion grid for this window")).toBeTruthy();
     expect(screen.getByLabelText("Common window proportion")).toBeTruthy();
     expect(screen.getByLabelText("Common over-sink sill height")).toBeTruthy();
+    expect(screen.getByTestId("window-countertop-height-visualization").textContent).toContain("Finished top: 37.5″");
+    expect(screen.getByTestId("window-countertop-height-visualization").textContent).toContain("Window sill is 4.5″ above");
     expect(screen.getByRole("option", { name: "One horizontal only" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Two horizontal only" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Window scene for this window"), { target: { value: "coastal" } });

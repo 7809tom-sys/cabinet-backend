@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { clampOpening, type RoomData, type WallOpening } from "@/lib/design";
+import { clampOpening, STD, type RoomData, type WallOpening } from "@/lib/design";
 import type { WindowConstructionStyle, WindowFrameStyle, WindowSceneKind } from "./InteractiveRoom3D";
 import { OpeningSizeEditor } from "./OpeningSizeEditor";
 
@@ -78,6 +78,11 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
   };
   const currentSizePreset = WINDOW_SIZE_PRESETS.find((preset) => preset.value === `${opening.width}x${opening.height}`)?.value ?? "custom";
   const currentSillPreset = WINDOW_SILL_PRESETS.find((preset) => Number(preset.value) === opening.sill)?.value ?? "custom";
+  const countertopTopIn = STD.COUNTERTOP_HEIGHT + STD.COUNTERTOP_THICKNESS;
+  const sillClearanceIn = Math.round((opening.sill - countertopTopIn) * 8) / 8;
+  const visualizationMaxIn = Math.max(60, opening.sill + 8, countertopTopIn + 8);
+  const countertopLineBottom = `${(countertopTopIn / visualizationMaxIn) * 100}%`;
+  const sillLineBottom = `${(opening.sill / visualizationMaxIn) * 100}%`;
   const applySizePreset = (value: string) => {
     if (value === "custom") return;
     const [width, height] = value.split("x").map(Number);
@@ -193,6 +198,23 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
               {WINDOW_SILL_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
             </select>
           </label>
+          <div className="grid gap-2 rounded-md border border-amber-200 bg-white/70 p-2" data-testid="window-countertop-height-visualization" aria-label="Countertop and window sill height visualization">
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <span className="font-semibold text-[#1a2744]">Countertop-height reference</span>
+              <span className="text-muted-foreground">Finished top: {countertopTopIn}″</span>
+            </div>
+            <div className="relative h-24 rounded border border-slate-200 bg-gradient-to-t from-stone-100 to-sky-50">
+              <div className="absolute inset-x-0 border-t-2 border-amber-700" style={{ bottom: countertopLineBottom }} aria-hidden="true" />
+              <div className="absolute inset-x-0 border-t-2 border-sky-700" style={{ bottom: sillLineBottom }} aria-hidden="true" />
+              <span className="absolute right-1 -translate-y-1/2 bg-white/85 px-1 text-[10px] text-amber-900" style={{ bottom: countertopLineBottom }}>Countertop 37½″</span>
+              <span className="absolute left-1 -translate-y-1/2 bg-white/85 px-1 text-[10px] text-sky-900" style={{ bottom: sillLineBottom }}>Sill {opening.sill}″</span>
+            </div>
+            <p className={`text-[11px] ${sillClearanceIn >= 0 ? "text-muted-foreground" : "font-semibold text-amber-800"}`}>
+              {sillClearanceIn >= 0
+                ? `Window sill is ${sillClearanceIn}″ above the finished countertop.`
+                : `Window sill is ${Math.abs(sillClearanceIn)}″ below the finished countertop line.`}
+            </p>
+          </div>
           <p className="text-[11px] text-muted-foreground">The selected photograph, architectural frame, glass reflection, sill, and mullion grid are rendered together in 3D.</p>
         </section>
         <div className="rounded-lg border bg-muted/20 p-3">
