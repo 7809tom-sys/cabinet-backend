@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LanguageProvider } from "@/contexts/LanguageContext";
+import type { WallOpening } from "@/lib/design";
 import { WindowAttributesDialog } from "./WindowAttributesDialog";
 
 describe("WindowAttributesDialog", () => {
@@ -24,6 +25,30 @@ describe("WindowAttributesDialog", () => {
     expect(screen.getByLabelText("Move toward end of wall")).toBeTruthy();
     expect(screen.getByLabelText("Window position reference")).toBeTruthy();
     expect(screen.getByLabelText("Window distance from wall start / left in inches")).toBeTruthy();
+  });
+
+  it("shows scene, frame, and mullion controls and saves each choice on the selected window", () => {
+    const changes: WallOpening[] = [];
+    const onChange = vi.fn((next: WallOpening) => { changes.push(next); });
+    render(createElement(LanguageProvider, null, createElement(WindowAttributesDialog, {
+      opening: { uid: "window-appearance-1", kind: "window", label: 'Window 36"', side: "top", offset: 24, width: 36, height: 36, sill: 42 },
+      room: { width: 144, depth: 120, ceilingHeight: 96 },
+      open: true,
+      onOpenChange: () => undefined,
+      onChange,
+      onDelete: () => undefined,
+    })));
+    expect(screen.getByLabelText("Window scene for this window")).toBeTruthy();
+    expect(screen.getByLabelText("Window frame finish for this window")).toBeTruthy();
+    expect(screen.getByLabelText("Window mullion grid for this window")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Window scene for this window"), { target: { value: "coastal" } });
+    fireEvent.change(screen.getByLabelText("Window frame finish for this window"), { target: { value: "black" } });
+    fireEvent.change(screen.getByLabelText("Window mullion grid for this window"), { target: { value: "2x2" } });
+    expect(changes).toEqual(expect.arrayContaining([
+      expect.objectContaining({ windowSceneKind: "coastal" }),
+      expect.objectContaining({ windowFrameStyle: "black" }),
+      expect.objectContaining({ windowGridStyle: "2x2" }),
+    ]));
   });
 
   it("moves the authoritative window by the selected eighth-inch distance", () => {

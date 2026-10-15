@@ -5792,6 +5792,12 @@ export const OPENINGS: OpeningDef[] = [
 export interface WallOpening {
   uid: string;
   kind: OpeningKind;
+  /** Optional per-window photographic scene; absent windows use the Designer default. */
+  windowSceneKind?: "daylight" | "garden" | "woodland" | "coastal" | "urban" | "mountain" | "night" | "city-skyline" | "desert" | "snow" | "seasonal-garden" | "autumn-woodland" | "suburban" | "privacy";
+  /** Optional per-window architectural frame finish; absent windows use the Designer default. */
+  windowFrameStyle?: "white" | "black" | "wood";
+  /** Optional per-window mullion preset; absent windows use the selected scene's grid. */
+  windowGridStyle?: "scene-default" | "none" | "1x1" | "2x1" | "2x2" | "3x2";
   /** Generic room-door illustration, not a catalog MasterTrac door or a hardware specification. */
   doorStyle?: "bifold";
   /** User-selected room-door paint color; absent standard doors render white. */

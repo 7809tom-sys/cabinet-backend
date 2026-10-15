@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
+import * as THREE from "three";
+import { addWallOpening, DEFAULT_WINDOW_SCENE_KIND, windowFrameColor, windowMullionGrid, windowSceneAssetUrl, WINDOW_SCENE_ASSETS, WINDOW_SCENE_SOURCES } from "./InteractiveRoom3D";
 
 describe("Designer window scenes", () => {
   it("maps the real reference scenes to stored photographic assets", () => {
@@ -40,5 +41,38 @@ describe("Designer window scenes", () => {
     expect(windowFrameColor("white")).toBe("#f4f0e8");
     expect(windowFrameColor("black")).toBe("#20252b");
     expect(windowFrameColor("wood")).toBe("#8a5a35");
+  });
+
+  it("supports explicit mullion presets instead of forcing a scene default", () => {
+    expect(windowMullionGrid("garden")).toEqual({ columns: 1, rows: 0 });
+    expect(windowMullionGrid("garden", "none")).toEqual({ columns: 0, rows: 0 });
+    expect(windowMullionGrid("garden", "2x2")).toEqual({ columns: 2, rows: 2 });
+  });
+
+  it("renders saved per-window scene, frame, and grid metadata on the opening mesh", () => {
+    const root = new THREE.Group();
+    addWallOpening(root, {
+      uid: "appearance-window",
+      kind: "window",
+      label: "Window",
+      side: "top",
+      offset: 24,
+      width: 36,
+      height: 36,
+      sill: 42,
+      windowSceneKind: "coastal",
+      windowFrameStyle: "black",
+      windowGridStyle: "none",
+    }, { width: 144, depth: 120, ceilingHeight: 96 });
+    const muntins: THREE.Object3D[] = [];
+    let glass: THREE.Object3D | null = null;
+    root.traverse((node) => {
+      if (node.userData.windowMuntin) muntins.push(node);
+      if (node.userData.windowGlassReflection) glass = node;
+    });
+    expect(muntins).toHaveLength(0);
+    expect(glass?.userData).toMatchObject({ windowSceneKind: "coastal", windowGridStyle: "none" });
+    const trim = root.children[0]?.children.find((node) => node.userData.architecturalOpeningTrim) as THREE.Mesh | undefined;
+    expect((trim?.material as THREE.MeshStandardMaterial).color.getHexString()).toBe("20252b");
   });
 });
