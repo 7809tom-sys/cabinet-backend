@@ -48,6 +48,14 @@ const WINDOW_SIZE_PRESETS = [
   { value: "60x48", label: '60″ W × 48″ H — picture' },
 ] as const;
 
+const WINDOW_SILL_PRESETS = [
+  { value: "37.5", label: 'Countertop line — 37½″' },
+  { value: "39", label: 'Low over-sink — 39″' },
+  { value: "42", label: 'Typical over-sink — 42″' },
+  { value: "44", label: 'Raised over-sink — 44″' },
+  { value: "48", label: 'High sill — 48″' },
+] as const;
+
 export type WindowAttributesDialogProps = {
   opening: WallOpening | null;
   room: RoomData;
@@ -69,10 +77,16 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
     onChange({ ...opening, ...patch });
   };
   const currentSizePreset = WINDOW_SIZE_PRESETS.find((preset) => preset.value === `${opening.width}x${opening.height}`)?.value ?? "custom";
+  const currentSillPreset = WINDOW_SILL_PRESETS.find((preset) => Number(preset.value) === opening.sill)?.value ?? "custom";
   const applySizePreset = (value: string) => {
     if (value === "custom") return;
     const [width, height] = value.split("x").map(Number);
     if (Number.isFinite(width) && Number.isFinite(height)) onChange(clampOpening({ ...opening, width, height }, room));
+  };
+  const applySillPreset = (value: string) => {
+    if (value === "custom") return;
+    const sill = Number(value);
+    if (Number.isFinite(sill)) onChange(clampOpening({ ...opening, sill }, room));
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -165,6 +179,18 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
             >
               <option value="custom">Custom size — use width and height below</option>
               {WINDOW_SIZE_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+            </select>
+          </label>
+          <label className="grid max-w-sm gap-1.5 text-sm font-medium">
+            Common over-sink sill height
+            <select
+              aria-label="Common over-sink sill height"
+              value={currentSillPreset}
+              onChange={(event) => applySillPreset(event.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value="custom">Custom sill height — use the sill field below</option>
+              {WINDOW_SILL_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
             </select>
           </label>
           <p className="text-[11px] text-muted-foreground">The selected photograph, architectural frame, glass reflection, sill, and mullion grid are rendered together in 3D.</p>
