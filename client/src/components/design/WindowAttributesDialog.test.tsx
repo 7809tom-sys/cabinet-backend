@@ -42,17 +42,20 @@ describe("WindowAttributesDialog", () => {
     expect(screen.getByLabelText("Window frame finish for this window")).toBeTruthy();
     expect(screen.getByLabelText("Window construction style for this window")).toBeTruthy();
     expect(screen.getByLabelText("Window mullion grid for this window")).toBeTruthy();
+    expect(screen.getByLabelText("Common window proportion")).toBeTruthy();
     expect(screen.getByRole("option", { name: "One horizontal only" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "Two horizontal only" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Window scene for this window"), { target: { value: "coastal" } });
     fireEvent.change(screen.getByLabelText("Window frame finish for this window"), { target: { value: "black" } });
     fireEvent.change(screen.getByLabelText("Window construction style for this window"), { target: { value: "double-hung" } });
     fireEvent.change(screen.getByLabelText("Window mullion grid for this window"), { target: { value: "2x2" } });
+    fireEvent.change(screen.getByLabelText("Common window proportion"), { target: { value: "48x36" } });
     expect(changes).toEqual(expect.arrayContaining([
       expect.objectContaining({ windowSceneKind: "coastal" }),
       expect.objectContaining({ windowFrameStyle: "black" }),
       expect.objectContaining({ windowConstructionStyle: "double-hung" }),
       expect.objectContaining({ windowGridStyle: "2x2" }),
+      expect.objectContaining({ width: 48, height: 36, offset: 24 }),
     ]));
   });
 

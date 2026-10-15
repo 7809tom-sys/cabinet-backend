@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { type RoomData, type WallOpening } from "@/lib/design";
+import { clampOpening, type RoomData, type WallOpening } from "@/lib/design";
 import type { WindowConstructionStyle, WindowFrameStyle, WindowSceneKind } from "./InteractiveRoom3D";
 import { OpeningSizeEditor } from "./OpeningSizeEditor";
 
@@ -38,6 +38,16 @@ const WINDOW_GRID_OPTIONS: Array<{ value: WindowGridStyle; label: string }> = [
   { value: "3x2", label: "Three vertical × two horizontal" },
 ];
 
+const WINDOW_SIZE_PRESETS = [
+  { value: "24x36", label: '24″ W × 36″ H — narrow' },
+  { value: "30x36", label: '30″ W × 36″ H — standard' },
+  { value: "36x36", label: '36″ W × 36″ H — square' },
+  { value: "36x48", label: '36″ W × 48″ H — portrait' },
+  { value: "48x36", label: '48″ W × 36″ H — landscape' },
+  { value: "48x48", label: '48″ W × 48″ H — wide square' },
+  { value: "60x48", label: '60″ W × 48″ H — picture' },
+] as const;
+
 export type WindowAttributesDialogProps = {
   opening: WallOpening | null;
   room: RoomData;
@@ -57,6 +67,12 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
   if (!opening || opening.kind !== "window") return null;
   const updateAppearance = (patch: Partial<Pick<WallOpening, "windowSceneKind" | "windowFrameStyle" | "windowConstructionStyle" | "windowGridStyle">>) => {
     onChange({ ...opening, ...patch });
+  };
+  const currentSizePreset = WINDOW_SIZE_PRESETS.find((preset) => preset.value === `${opening.width}x${opening.height}`)?.value ?? "custom";
+  const applySizePreset = (value: string) => {
+    if (value === "custom") return;
+    const [width, height] = value.split("x").map(Number);
+    if (Number.isFinite(width) && Number.isFinite(height)) onChange(clampOpening({ ...opening, width, height }, room));
   };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,6 +155,18 @@ export function WindowAttributesDialog({ opening, room, open, onOpenChange, onCh
               </select>
             </label>
           </div>
+          <label className="grid max-w-sm gap-1.5 text-sm font-medium">
+            Common window proportion
+            <select
+              aria-label="Common window proportion"
+              value={currentSizePreset}
+              onChange={(event) => applySizePreset(event.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value="custom">Custom size — use width and height below</option>
+              {WINDOW_SIZE_PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+            </select>
+          </label>
           <p className="text-[11px] text-muted-foreground">The selected photograph, architectural frame, glass reflection, sill, and mullion grid are rendered together in 3D.</p>
         </section>
         <div className="rounded-lg border bg-muted/20 p-3">
