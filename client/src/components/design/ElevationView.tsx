@@ -3,7 +3,7 @@ import {
   PlacedCabinet, RoomData, STD, elevationBox, WallOpening,
   FinishColors, DEFAULT_FINISH_COLORS, CROWN_HEIGHT_IN, TOE_KICK_HEIGHT_IN, BATTEN_WIDTH_IN, LIGHT_RAIL_HEIGHT_IN,
   type DoorPanelKind, type WallSide, cabinetWall,
-  countertopMaterial, roomCeiling, bearsCountertop, isBaseHeightAppliance, isSinkBaseCabinet, isFarmerSinkBase,
+  countertopMaterial, roomCeiling, bearsCountertop, isBaseHeightAppliance, isSinkBaseCabinet, isFarmerSinkBase, isFillerItem, fillerWidthRange, formatEighthInches,
   wallCeiling, wallCeilingIsSloped, wallLength, wallRunOffset, wallRunSpan, wallRunFrame, wallPlacementAt,
   backsplashMaterial, isStacker, isBridgeOverRange, resolveSwing,
   isRangeOrOven, wallCabinetTopLine, isBlindCorner, placedFootprint, crownEligibleCabinets, isLightRailEligibleCabinet, usesRaisedFloorWallDoorPull,
@@ -529,6 +529,11 @@ export function ElevationView({
     const blindLeft = isBlind ? (isWallBlindCornerCabinet(p) || posAlong <= 2) : true;
     const canDrag = !seam && !moveLocked && !!onMove && !isAppliance;
 
+    const installedFillerWidth = isFillerItem(p) ? Math.min(Math.abs(Number(p.width)), Math.abs(Number(p.depth))) : null;
+    const fillerRange = isFillerItem(p) ? fillerWidthRange(p) : null;
+    const showFillerMeasurement = !seam && installedFillerWidth != null && installedFillerWidth > 0;
+    const fillerExceedsMaximum = showFillerMeasurement && fillerRange != null && installedFillerWidth > fillerRange.max + 0.001;
+
     return (
       <div
         key={seam ? `${p.uid}-seam` : p.uid}
@@ -591,6 +596,11 @@ export function ElevationView({
       >
         <div className="w-full h-full relative">
           {isAttributesTarget && <span data-testid="elevation-cabinet-attributes-target" className="pointer-events-none absolute left-1/2 top-1 z-30 -translate-x-1/2 rounded-full border border-amber-200 bg-[#1a2744] px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-white shadow-sm motion-safe:animate-pulse">Editing</span>}
+          {showFillerMeasurement && installedFillerWidth != null && (
+            <span data-testid={fillerExceedsMaximum ? "elevation-filler-overmaximum" : "elevation-filler-measurement"} role={fillerExceedsMaximum ? "alert" : "status"} className={`pointer-events-none absolute left-1/2 top-0 z-30 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86)] ${fillerExceedsMaximum ? "border-red-200 bg-red-700" : "border-violet-200 bg-violet-800"}`} title={fillerExceedsMaximum ? `Installed filler width ${formatEighthInches(installedFillerWidth)} exceeds catalog maximum ${formatEighthInches(fillerRange!.max)}` : `Installed filler width ${formatEighthInches(installedFillerWidth)}; catalog maximum ${formatEighthInches(fillerRange?.max ?? installedFillerWidth)}`}>
+              FILLER {formatEighthInches(installedFillerWidth)} · MAX {formatEighthInches(fillerRange?.max ?? installedFillerWidth)}{fillerExceedsMaximum ? " · OVER MAX" : ""}
+            </span>
+          )}
           {/* Always render the DoorFront panel structure so the face frame is
               visible. When a door sample image is available, it's applied as the
               background of individual door/drawer panels (not the full face). */}

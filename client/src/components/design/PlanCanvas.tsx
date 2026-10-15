@@ -15,7 +15,7 @@ import {
   type PlacedFurniture, FURNITURE_CATALOG, furnitureFootprint,
   flooringMaterial,
   type PlanAnnotation,
-  cabinetWallRunSegment, retainedWallSegmentForSplit, floorPlanWallDimensionChains, roomWallRunFrames, isFillerItem,
+  cabinetWallRunSegment, retainedWallSegmentForSplit, floorPlanWallDimensionChains, roomWallRunFrames, isFillerItem, fillerWidthRange,
 		  type PonyWall, clampPonyWall, ponyWallMiteredFootprint, ponyWallPlanFrame, drywallPonyWallAppearance, drywallPonyWallPreviewBackground,
 	  type IslandZone, type IslandFace,
 	} from "@/lib/design";
@@ -2448,6 +2448,8 @@ export function PlanCanvas({
             const installedFillerWidth = isFillerItem(p)
               ? Math.min(Math.abs(Number(p.width)), Math.abs(Number(p.depth)))
               : null;
+            const fillerMaximum = isFillerItem(p) ? fillerWidthRange(p)?.max ?? 3 : null;
+            const fillerExceedsMaximum = installedFillerWidth != null && fillerMaximum != null && installedFillerWidth > fillerMaximum + 0.001;
             const showBbcFillerMeasurement = installedFillerWidth != null
               && installedFillerWidth > 0
               && installedFillerWidth <= BLIND_CORNER_FILLER_WIDTH_IN + 0.001
@@ -2629,11 +2631,12 @@ export function PlanCanvas({
                 {showMeasuredFillerMeasurement && installedFillerWidth != null && (
                   <span
                     data-testid="measured-filler-measurement-label"
-                    role="status"
-                    className="pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border border-violet-200 bg-violet-800 px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86),0_0_10px_rgba(109,40,217,0.5)]"
+                    data-filler-warning={fillerExceedsMaximum ? "over-maximum" : undefined}
+                    role={fillerExceedsMaximum ? "alert" : "status"}
+                    className={`pointer-events-none absolute left-1/2 top-0 z-40 inline-flex -translate-x-1/2 -translate-y-[calc(100%+5px)] items-center whitespace-nowrap rounded border px-1.5 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-[0_0_0_2px_rgba(255,255,255,0.86)] ${fillerExceedsMaximum ? "border-red-200 bg-red-700" : "border-violet-200 bg-violet-800"}`}
                     title={`Measured filler gap ${formatInches(measuredFillerGapWidth ?? installedFillerWidth)}; installed filler width ${formatInches(installedFillerWidth)}`}
                   >
-                    FILLER {formatInches(installedFillerWidth)}{measuredFillerGapWidth != null && Math.abs(measuredFillerGapWidth - installedFillerWidth) > 0.001 ? ` · GAP ${formatInches(measuredFillerGapWidth)}` : ""}
+                    FILLER {formatInches(installedFillerWidth)}{measuredFillerGapWidth != null && Math.abs(measuredFillerGapWidth - installedFillerWidth) > 0.001 ? ` · GAP ${formatInches(measuredFillerGapWidth)}` : ""}{fillerExceedsMaximum ? ` · MAX ${formatInches(fillerMaximum!)} · OVER MAX` : ""}
                   </span>
                 )}
                 {showWallSnapSuccess && (

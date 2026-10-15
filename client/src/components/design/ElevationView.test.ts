@@ -42,7 +42,7 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
     expect(markup).toContain("top:50%;height:50%");
   });
 
-  it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
+	  it("keeps a 34½-inch base envelope as a 30-inch face above a 4½-inch toe kick", () => {
     const markup = renderToStaticMarkup(
       createElement(LanguageProvider, null, createElement(ElevationView, {
         room: { width: 144, depth: 120, ceilingHeight: 96 },
@@ -56,8 +56,22 @@ import { CustomProfileFace, DoorFront, ElevationView, isBaseEndAngleCabinet, isR
     // At the stable four-pixel-per-inch server render scale: 30" face = 120px,
     // 4½" toe kick = 18px, and the assembled envelope = 34½" / 138px.
     expect(markup).toContain("bottom:18px;height:120px");
-    expect(markup).toContain("height:18px");
-  });
+	    expect(markup).toContain("height:18px");
+	  });
+
+	  it("shows installed filler measurement and an explicit over-maximum warning", () => {
+	    const markup = renderToStaticMarkup(
+	      createElement(LanguageProvider, null, createElement(ElevationView, {
+	        room: { width: 144, depth: 120, ceilingHeight: 96 },
+	        cabinets: [{ uid: "oversized-filler", cabinetId: 83, masterCode: "FILL-3", description: "Measured filler", placement: "base", x: 0, y: 0, width: 3.5, height: 34.5, depth: 24, rotation: 0, nominalWidth: 3 }],
+	        selectedUid: null, onSelect: () => undefined, wall: "back",
+	      })),
+	    );
+
+	    expect(markup).toContain('data-testid="elevation-filler-overmaximum"');
+	    expect(markup).toContain('role="alert"');
+	    expect(markup).toContain("OVER MAX");
+	  });
 
   it("renders a rear-control range with a 34½-inch chassis plus a distinct raised backguard", () => {
     const markup = renderToStaticMarkup(
