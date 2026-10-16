@@ -20,7 +20,7 @@ import {
 	  freeSegmentsOnWall, magneticAvailableWallStart, nearestAvailableWallStart, firstCollisionFreeWallPlacement, wallPlacementAt, wallRunOffset, wallGapFitPreview, wallGaps, paletteActiveWallPlacement, kneeDrawerWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, customWallTrueCornerPlacement, adjoiningWallRunMountBottom, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, matchingLowerCabinetWallPlacement, continuousWallApplianceSnapInfo,
   rangeOvenClearanceViolations, RANGE_CLEARANCE_FILLER_IN, autoPlaceRangeFillers,
   wallOpeningClearanceViolations, WALL_OPENING_CLEARANCE_IN, bridgeMountBottomAboveWindow, overSinkWindowStart, overSinkWallMountBottom, overSinkWindowClearanceMeasure, overSinkWindowClearanceBlocked, normalizeOverSinkWallMounts, OVER_SINK_WALL_MOUNT_BOTTOM,
-  blindCornerSpecViolations, blindCornerViolations, blindPullRange,
+  blindCornerSpecViolations, blindCornerViolations, blindPullRange, blindCornerPullPlacement,
 	  blindCornerAutoFiller, blindCornerRearCountertopExtensionIn,
 			  isStacker, glassStackerParentPlacement, glassStackerFrontFlushSpot, glassStackerFrontSnapTarget, normalizeGlassStackersToParentFronts, isWd18CountertopDrawerCabinet, wd18CountertopFaceLayout, normalizeWd18CountertopMounts, normalizeStandardWallMounts,
   isDiagonalCorner, footprintDepth,
@@ -3423,6 +3423,25 @@ describe("wall cabinet clearance from doors/windows", () => {
 });
 
 describe("blind corner pull spec", () => {
+  it("pulls a BBC up to six inches from the corner while keeping its back on the wall", () => {
+    const blind: PlacedCabinet = {
+      uid: "bbc-pull", cabinetId: 1, masterCode: "BBC36", description: "36 inch Blind Corner Base",
+      placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0,
+      wallId: "top", wallOffset: 0, numberOfDoors: 1, numberOfDrawers: 1,
+    };
+    const pulled = blindCornerPullPlacement(blind, ROOM_12x10, 6);
+    expect(pulled).toMatchObject({ x: 6, y: 0, wallId: "top", wallOffset: 6, blindPull: 6 });
+  });
+
+  it("clamps a requested blind-corner pull to the three-to-six-inch trade range", () => {
+    const blind = {
+      uid: "bbc-pull", masterCode: "BBC36", description: "Blind Corner Base", placement: "base",
+      x: 0, y: 0, width: 36, depth: 24, height: 34.5, rotation: 0, wallId: "top", wallOffset: 0,
+    } as PlacedCabinet;
+    expect(blindCornerPullPlacement(blind, ROOM_12x10, 9)?.blindPull).toBe(6);
+    expect(blindCornerPullPlacement(blind, ROOM_12x10, 1)?.blindPull).toBe(3);
+  });
+
   it("blindPullRange defaults to 3-6 when spec missing", () => {
     // With the corrected behavior, blindPullRange always returns a value
     // (defaults to 3-6") so cabinets can always be placed.

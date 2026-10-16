@@ -118,7 +118,7 @@ import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, RAISED_BAR_HEIGHT_IN, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, peninsulaRunEndpoints,
 	  resolvedDesignCabinetDimensions, wallCabinetSkuDimensions, cabinetPlacementHoverDetail, normalizeFloatingShelfPlacement, normalizeWallOpenShelfPlacement,
-		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
+		  normalizeLCornerDepths, normalizeBlindCornerDoorSides, blindCornerPullPlacement, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation, refrigeratorBayRunMetrics, refrigeratorMagneticSnapEnvelope, fitExplicitRefrigeratorOptionPlacements, commitIndependentCabinetCandidate, commitConfiguredRefrigeratorCandidate, isMicrowaveOverRangePair,
 	  conflictingUids, blindCornerViolations, blindCornerSpecViolations, ceilingFitViolations, roomCeiling, inchesToFeetInches, isBlindCorner, BLIND_CORNER_FILLER_WIDTH_IN, blindPullRange, isOnIsland, isCornerCabinet, isAngledWallCabinet, isProtectedCornerCabinet, requiresRoomCornerPlacement, missingCornerBaseViolations,
 	  isSinkBaseCabinet, isFarmSinkBasePaletteItem, fixtureBelongsToCabinet, fixtureIsOnCabinetFootprint, placedFootprint, hasCollision, cabinetCollisionDetail, COLLISION_EPSILON_IN, CABINET_CONFLICT_LOCK_IN, nearestCollisionFreeMountBottom, collisionReason, wallCabinetFitMeasure, wallCabinetPlacementReason, cabinetWallRunSegment, compatibleWallCabinetAlternatives, snapCabinetSeamOverlap, shouldBlockPlacementCollision, appendCollisionFreePlacements, appendRefrigeratorEnclosurePlacements, removeOverlappingPlacements, effectiveStyleId, pricingStyleId, rebaseFormerDefaultStyleOverrides, clearForeignSavedStyleOverrides, distinctStyleIds, isMixedFinish, paletteActiveWallPlacement, refrigeratorAdjacentOpeningPlacement, nextAvailableRoomCornerPlacement, nextAvailablePeninsulaCornerPlacement, cabinetCornerPlacementInfo, blindCornerSnapInfo, wallCabinetVerticalMoveLimit, repairWallCabinetPlanSeamForVerticalMove, selectedSinkBaseWallPlacement, sinkBaseWindowPlacement, selectedLowerCabinetWallPlacement, selectedCornerBaseWallPlacement, matchingLowerCabinetWallPlacement, snapWallCabinetToOwningWall, normalizeStandardWallMounts,
 		  isPlaceableAccessory, accessoryPlacement, isPanelItem, isFillerItem, adjacentCabinetForFiller, matchInstalledFillerToCabinet, isFloatingShelfItem, isWallOpenShelfCabinet, isKneeDrawerItem, kitchenCrestGenericOpenEndShelfCount, KNEE_DRAWER_MIN_MOUNT_BOTTOM_IN, KNEE_DRAWER_MAX_MOUNT_BOTTOM_IN, fillerWidthRange, alternateWallPlacementRecommendation, PENINSULA_INSIDE_CORNER_CLEARANCE_IN,
@@ -9239,7 +9239,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setPlacementWarning(null);
   }, [addCabinet, peninsulaFitRecommendation, room]);
 
-			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false, target?: { wallId?: string; wallOffset?: number }) => {
+			const moveCabinet = useCallback((uid: string, x: number, y: number, rotation?: number, exactWallDrag = false, target?: { wallId?: string; wallOffset?: number }, attributePatch?: Partial<PlacedCabinet>) => {
 		    setPlaced((prev) => {
 		      const cabinet = prev.find((p) => p.uid === uid);
 		      if (!cabinet) return prev;
@@ -9253,8 +9253,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		      // the wall run (standard side, drawn wall or peninsula), resolved into a
 		      // clear 1/8-inch position and seated with wallPlacementAt. Only a floor
 		      // cabinet dragged beyond the 6-inch wall magnet stays free-floating.
-		      const requestedBody: PlacedCabinet = {
-		        ...cabinet,
+			      const requestedBody: PlacedCabinet = {
+			        ...cabinet,
+			        ...attributePatch,
 		        x,
 		        y,
 		        ...(rotation != null ? { rotation } : {}),
@@ -9313,6 +9314,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      }
       const movedCabinet: PlacedCabinet = {
         ...alignedCabinet,
+        ...attributePatch,
         ...(isRangeHoodPlacement(cabinet) ? { rangeHoodPositionAdjusted: true } : {}),
       };
       if (shouldBlockPlacementCollision(movedCabinet, peers, customPlacementMode, room)) {
@@ -9813,6 +9815,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       prev.map((p) => (p.uid === selectedUid ? { ...p, [field]: value } : p))
     );
   }, [selectedUid]);
+  const setBlindPullDistance = useCallback((uid: string, pull: number) => {
+    const cabinet = placedRef.current.find((item) => item.uid === uid);
+    if (!cabinet) return;
+    const placement = blindCornerPullPlacement(cabinet, room, pull);
+    if (!placement) return;
+    moveCabinet(
+      uid,
+      placement.x,
+      placement.y,
+      placement.rotation,
+      true,
+      { wallId: placement.wallId, wallOffset: placement.wallOffset },
+      { blindPull: placement.blindPull, cornerSnapUnlocked: placement.blindPull > 0 },
+    );
+  }, [moveCabinet, room]);
 
   // ─── Per-cabinet door / hardware attributes (right-click dialog) ────────────
   // Update one attribute on a SPECIFIC cabinet by uid (the dialog edits the
@@ -14082,7 +14099,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         variant="outline"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.max(dMin, dCurrent - 1) })}
+                        onClick={() => setBlindPullDistance(selectedCab.uid, Math.max(dMin, dCurrent - 1))}
                         disabled={dCurrent <= dMin}
                       >
                         <Minus className="h-3 w-3" />
@@ -14092,7 +14109,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         variant="outline"
                         size="sm"
                         className="h-7 w-7 p-0"
-                        onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.min(dMax, dCurrent + 1) })}
+                        onClick={() => setBlindPullDistance(selectedCab.uid, Math.min(dMax, dCurrent + 1))}
                         disabled={dCurrent >= dMax}
                       >
                         <Plus className="h-3 w-3" />
@@ -14601,7 +14618,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             variant="outline"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.max(bMin, bCurrent - 1) })}
+                            onClick={() => setBlindPullDistance(selectedCab.uid, Math.max(bMin, bCurrent - 1))}
                             disabled={bCurrent <= bMin}
                           >
                             <Minus className="h-3.5 w-3.5" />
@@ -14615,14 +14632,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                             className="h-8 w-16 text-center text-sm"
                             onChange={(e) => {
                               const v = Number(e.target.value);
-                              if (Number.isFinite(v)) setCabAttr(selectedCab.uid, { blindPull: Math.max(bMin, Math.min(bMax, v)) });
+                              if (Number.isFinite(v)) setBlindPullDistance(selectedCab.uid, Math.max(bMin, Math.min(bMax, v)));
                             }}
                           />
                           <Button
                             variant="outline"
                             size="sm"
                             className="h-8 w-8 p-0"
-                            onClick={() => setCabAttr(selectedCab.uid, { blindPull: Math.min(bMax, bCurrent + 1) })}
+                            onClick={() => setBlindPullDistance(selectedCab.uid, Math.min(bMax, bCurrent + 1))}
                             disabled={bCurrent >= bMax}
                           >
                             <Plus className="h-3.5 w-3.5" />
@@ -18064,7 +18081,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         onSetDecorativeEnd={(uid, treatment) => setCabAttr(uid, { decorativeEnd: treatment })}
         glassDoorAvailable={glassDoorAvailableForAttr}
         onAddGlassDoorToCart={addGlassDoorToCart}
-        onSetBlindPull={(uid, pull) => setCabAttr(uid, { blindPull: pull })}
+        onSetBlindPull={setBlindPullDistance}
         onSetWaterfall={(uid, side, enabled) => setCabAttr(uid, side === "left" ? { waterfallLeft: enabled } : { waterfallRight: enabled })}
         onSetCategory={(uid, category, subCategory) => setCabAttr(uid, { category, subCategory })}
         onSetCustomProfile={(uid, customProfile) => setCabAttr(uid, { customProfile })}

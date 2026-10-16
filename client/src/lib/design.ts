@@ -6854,9 +6854,13 @@ export function blindCornerAutoFiller(
   // Which end sits in the room corner? A corner end is within tolerance of 0 or
   // the wall's far end. If NEITHER end is in a corner, the placement is
   // ambiguous — we can't tell which side the pull/return faces.
-  const T = 2;
-  const atStart = Math.abs(runStart - 0) <= T;
-  const atEnd = Math.abs(runEnd - runMax) <= T;
+  const pullMax = blindPullRange(blind)?.max ?? 6;
+  // A pulled BBC is intentionally several inches off the corner on its short
+  // return. Treat any position inside the manufacturer's pull envelope as the
+  // same corner ownership; the back remains seated on the owning wall.
+  const T = pullMax + 2;
+  const atStart = runStart <= T;
+  const atEnd = runEnd >= runMax - T;
   if (atStart === atEnd) {
     // Both in a corner (cabinet spans the whole wall) or neither -> ambiguous.
     return { filler: null, ambiguous: true, reason: "corner-undetermined" };
@@ -8929,6 +8933,29 @@ export function blindCornerSnapInfo(
  * the blind side: a start-side/left corner exposes the right door and an
  * end-side/right corner exposes the left door.
  */
+/** Resolve a 3–6 inch blind-corner pull while keeping the cabinet back seated on its wall. */
+export function blindCornerPullPlacement(
+  cabinet: PlacedCabinet,
+  room: RoomData,
+  requestedPullIn: number,
+): ({ x: number; y: number; rotation: number; wallId?: string; wallOffset?: number; blindPull: number } | null) {
+  if (!isBlindCorner(cabinet.masterCode, cabinet.description) || cabinet.islandFace) return null;
+  const side = (cabinet.wallId ?? cabinetWall(cabinet, room)) as WallSide;
+  const length = wallLength(side, room);
+  const span = wallRunSpan(cabinet, side, room);
+  const range = blindPullRange(cabinet);
+  if (length <= COLLISION_EPSILON_IN || span <= COLLISION_EPSILON_IN || !range) return null;
+  const pull = Math.max(range.min, Math.min(range.max, Number(requestedPullIn) || range.max));
+  const currentOffset = cabinet.wallOffset != null
+    ? Math.max(0, Number(cabinet.wallOffset) || 0)
+    : wallRunOffset(cabinet, side, room);
+  const currentEndGap = Math.max(0, length - (currentOffset + span));
+  const cornerAtStart = currentOffset <= currentEndGap;
+  const offset = cornerAtStart ? pull : Math.max(0, length - span - pull);
+  const spot = wallPlacementAt(offset, span, Number(cabinet.depth) || STD.BASE_DEPTH, side, room, cabinet.peninsulaSide);
+  return { ...spot, blindPull: pull };
+}
+
 export function blindCornerDoorSide(
   cabinet: PlacedCabinet,
   room: RoomData,
