@@ -10416,7 +10416,11 @@ export function wallCabinetPlacementReason(
   others: PlacedCabinet[],
   openings: WallOpening[],
 ): string | null {
-  const collision = cabinetCollisionDetail(moving, others);
+  // Keep the diagnostic in lockstep with the commit guard. A required or
+  // legacy 3-inch BBC return may overlap the rectangular envelope by its
+  // shallow boundary seam; re-checking with the raw rectangle helper here
+  // incorrectly reports that allowed F342 overlap as a hard rejection.
+  const collision = cabinetPlacementCollisionDetail(moving, others, room);
   if (moving.placement !== "wall" && moving.placement !== "base") return collisionReason(moving, others);
   const fit = wallCabinetFitMeasure(moving, room, others, openings);
   if (!fit.seated) return collisionReason(moving, others);

@@ -26,7 +26,7 @@ import {
   isDiagonalCorner, footprintDepth,
   isLCornerCabinet, cornerLegRatioForPlaced, placedCornerGeometryKind, placedFootprint, normalizeLCornerDepths,
   baseOpeningOverlaps, blocksFloorRun, missingCornerBaseViolations,
-  snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
+  snapPosition, snapCabinetSeamOverlap, CABINET_CONFLICT_LOCK_IN, orientToWall, hasCollision, collisionReason, cabinetPlacementCollisionDetail, wallCabinetPlacementReason, removeOverlappingPlacements, shouldBlockPlacementCollision, isHoodOverRangePair,
   resolveSwing, cycleSwing, swingLabel, swingText, hasDoorSwing, type DoorSwing,
   isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, dimLabel,
 		  cabinetAttrNote, cabinetHardwarePositionPatch, isCabinetDoorHardwareEligible, applyCabinetDoorHardwareToAll, cabinetWallDragPreview, cabinetWallMovePreview, isWallRunDraggable, wallGapFreehandPreview, roomWithPersistedEntities, potFillerMountedRange, restoredSavedDesignStyle, clearForeignSavedStyleOverrides, pricingStyleId, normalizeRefrigeratorBayUppers, refrigeratorSurroundElevation,
@@ -3501,6 +3501,11 @@ describe("blind corner pull spec", () => {
     expect(cabinetPlacementCollisionDetail(legacyFiller, [blind], { width: 144, depth: 120 })).toBeNull();
     expect(blindCornerViolations([blind, legacyFiller])).not.toContain(blind.uid);
     expect(cabinetPlacementCollisionDetail({ ...legacyFiller, width: 4 }, [blind], { width: 144, depth: 120 })).not.toBeNull();
+  });
+  it("does not turn the allowed legacy BBC/F342 seam into the exact-position rejection message", () => {
+    const blind = cab({ uid: "bbc-owner", masterCode: "BBC36", description: "Blind Corner Base", placement: "base", x: 0, y: 0, width: 36, depth: 24, height: 34.5 });
+    const legacyFiller = cab({ uid: "legacy-f342", masterCode: "F342", description: '3" Filler', category: "Filler", subCategory: "Filler", placement: "base", x: 0, y: 23.75, width: 3, depth: 24, height: 34.5, rotation: 90 });
+    expect(wallCabinetPlacementReason(blind, { width: 144, depth: 120 }, [legacyFiller], [])).toBeNull();
   });
 });
 
