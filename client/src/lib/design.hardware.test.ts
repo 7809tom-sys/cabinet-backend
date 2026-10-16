@@ -55,6 +55,12 @@ describe("B15/B18 centered top-rail pull", () => {
     expect(resolveCabinetHardwarePosition({ ...tall, hardwarePosition: "top-center" })).toBe("auto");
   });
 
+  it("recognizes a B15/B18 cabinet with a selected rollout as trashcan mode", () => {
+    expect(isTrashCanRolloutCabinet(cabinet({ masterCode: "B18", rolloutQty: 1 }))).toBe(true);
+    expect(isTrashCanRolloutCabinet(cabinet({ masterCode: "B18", rolloutQty: 0 }))).toBe(false);
+    expect(isTrashCanRolloutCabinet(cabinet({ masterCode: "B24", rolloutQty: 1 }))).toBe(false);
+  });
+
   it("makes the upward vertical pull automatic for Island mode and 4½-inch floor-seated wall cabinets", () => {
     const elevatedUpper = cabinet({ uid: "upper", masterCode: "W1830", placement: "wall", mountBottom: 54 });
     const floorWall = cabinet({ uid: "floor", masterCode: "W1830", placement: "wall", mountBottom: 4.5, hardwarePosition: "left" });

@@ -1160,10 +1160,11 @@ export function isFullHeightCabinet(p: { masterCode?: string | null; description
   return p.placement === "tall" || /\bfull\s*height\b|\btall\s+(?:cabinet|pantry)|\bpantry\b/.test(hay) || /^(?:FHD|FH|PANTRY)\d/.test(code);
 }
 /** Trash/waste rollout cabinets retain a selectable door-handle placement. */
-export function isTrashCanRolloutCabinet(p: { masterCode?: string | null; description?: string | null; category?: string | null; subCategory?: string | null }): boolean {
+export function isTrashCanRolloutCabinet(p: { masterCode?: string | null; description?: string | null; category?: string | null; subCategory?: string | null; rolloutQty?: number | null }): boolean {
   const code = `${p.masterCode ?? ""}`.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
   const hay = `${p.category ?? ""} ${p.subCategory ?? ""} ${p.description ?? ""}`.toLowerCase();
-  return /trash|waste|\btcpo\b|\bfhtcpo\b/.test(hay) || /(?:TCPO|FHTCPO)$/.test(code);
+  const b15OrB18WithRollout = /^(?:B15|B18)$/.test(code) && Number(p.rolloutQty ?? 0) > 0;
+  return b15OrB18WithRollout || /trash|waste|\btcpo\b|\bfhtcpo\b/.test(hay) || /(?:TCPO|FHTCPO)$/.test(code);
 }
 /** TD and BT9PO have a construction-defined centered pull on the top rail. */
 export function requiresCenteredTopDoorPull(p: { masterCode?: string | null; placement?: Placement | string | null }): boolean {

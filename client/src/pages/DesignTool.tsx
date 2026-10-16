@@ -10189,8 +10189,16 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	  // Set 0–5 roll-out trays inside the exact eligible cabinet. The matching
 	  // same-line RS shelf is resolved by the picker and flows into BOM/cart lines.
 	  const setRolloutQtyFor = useCallback((uid: string, qty: number) => {
-	    setCabAttr(uid, { rolloutQty: normalizedRollOutTrayQty(qty) });
-	  }, [setCabAttr]);
+	    const normalizedQty = normalizedRollOutTrayQty(qty);
+	    const cabinet = placed.find((item) => item.uid === uid);
+	    const isB15OrB18 = /^(?:B15|B18)$/i.test(cabinet?.masterCode ?? "");
+	    setCabAttr(uid, {
+	      rolloutQty: normalizedQty,
+	      ...(normalizedQty > 0 && isB15OrB18
+	        ? { hardwarePosition: "top-center", handleSide: null }
+	        : {}),
+	    });
+	  }, [placed, setCabAttr]);
 
   // Set per-item discount/surcharge percentage for a specific cabinet.
   // Negative = discount (e.g. -10 means 10% off), positive = surcharge.
