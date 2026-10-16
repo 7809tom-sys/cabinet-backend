@@ -10,6 +10,7 @@ import {
   wallSegmentLength as polygonWallSegmentLength,
 } from "./polygonRoom";
 import { VERIFIED_PELICAN_BATHROOM_FIXTURE_PROFILES, verifiedPelicanBathroomFixtureProfile } from "./pelicanBathroomFixtureProfiles";
+import { aefPrintedGeometryForSku, hasAefPrintedGeometry } from "@shared/aefFramelessGeometry";
 export { isGlassPolicyNomenclature } from "./glassPolicy";
 
 export const STD = {
@@ -610,6 +611,8 @@ export interface DesignCabinet {
   height: string | null;
   depth: string | null;
   placement: Placement;
+  /** Distributor-specific construction marker; AEF uses printed geometry instead of shared-master defaults. */
+  constructionMethod?: string | null;
   applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   applianceProductId?: number | null;
   applianceCatalogCode?: string | null;
@@ -695,6 +698,8 @@ export interface PlacedCabinet {
   /** Current master corner classification, refreshed into older saved designs. */
   isCornerCabinet?: boolean | null;
   placement: Placement;
+  /** Preserves distributor-specific printed geometry through placement and restore. */
+  constructionMethod?: string | null;
   /** Structural appliance classification used by countertop/rendering parity. */
   applianceRole?: "base-height" | "countertop-opening" | "freestanding" | null;
   /** Selected catalog product when this is a first-class appliance item. */
@@ -2504,6 +2509,30 @@ export function glassDoorShelfCount(cabinet: GlassDoorCabinetLike): number {
 }
 
 export function resolvedDesignCabinetDimensions(cabinet: DesignCabinet): CabinetDimensionsIn {
+  if (hasAefPrintedGeometry(cabinet)) {
+    const printed = aefPrintedGeometryForSku(cabinet.masterCode);
+    if (printed) {
+      return {
+        width: printed.width,
+        height: printed.height,
+        depth: printed.depth,
+      };
+    }
+    return {
+      width: isBlindCorner(cabinet.masterCode, cabinet.description)
+        ? blindCornerNominalWidth(cabinet)
+        : dim(cabinet.width, 24),
+      height: dim(cabinet.height, standardHeight(cabinet.placement)),
+      depth: dim(
+        cabinet.depth,
+        cabinet.placement === "wall"
+          ? STD.WALL_DEPTH
+          : cabinet.placement === "tall"
+            ? STD.TALL_DEPTH
+            : STD.BASE_DEPTH,
+      ),
+    };
+  }
   const sku = cabinet.placement === "wall" ? wallCabinetSkuDimensions(cabinet.masterCode) : null;
   return {
     width: isBlindCorner(cabinet.masterCode, cabinet.description)
@@ -2527,6 +2556,15 @@ export function isBaseEndCornerCabinet(c: Pick<DesignCabinet, "masterCode" | "de
 export function footprintDepth(c: DesignCabinet): number {
   // Panels/skins are flat 3/4" stock regardless of placement bucket.
   if (isPanelItem(c)) return dim(c.depth, STD.PANEL_THICKNESS) || STD.PANEL_THICKNESS;
+  // AEF's distributor-specific depth is printed geometry, not the shared SKU
+  // parser's standard 12-inch wall depth. Keep it authoritative in every
+  // plan/placement path that asks for a footprint.
+  if (hasAefPrintedGeometry(c)) {
+    return aefPrintedGeometryForSku(c.masterCode)?.depth ?? dim(
+      c.depth,
+      c.placement === "wall" ? STD.WALL_DEPTH : c.placement === "tall" ? STD.TALL_DEPTH : STD.BASE_DEPTH,
+    );
+  }
   const wallSku = c.placement === "wall" ? wallCabinetSkuDimensions(c.masterCode) : null;
   if (wallSku) return wallSku.depth;
   // BEC end returns occupy a true 24x24 box, even if historical supplier data

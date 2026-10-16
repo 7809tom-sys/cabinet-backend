@@ -113,6 +113,7 @@ import { unavailableSavedStyleIds } from "@/lib/unavailableSavedStyles";
 import { applyGlassStackerBulkPlacement as applyBulkGlassStackerPlacements, glassStackerBulkCeilingBlocksAtHeight, glassStackerBulkHeightOptions, glassStackerBulkPlacementCandidates, glassStackerUidsForRemoval, type GlassStackerBulkPlacementCandidate } from "@/lib/glassStackerBulkPlacement";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AEF_PRINTED_GEOMETRY_MARKER } from "@shared/aefFramelessGeometry";
 import {
           PlacedCabinet, RoomData, DEFAULT_ROOM, DesignCabinet, type WallCabinetFitMeasure, type PeninsulaRun, type PeninsulaTurn, type PeninsulaDirection, type PeninsulaCabinetSide,
 	  dim, refrigeratorEndPanelThickness, footprintDepth, makeUid, STD, RAISED_BAR_HEIGHT_IN, rotatedSize, nextFreeSpot, standardHeight, dimLabel, placedHeight, isCustomWidth, isCustomHeight, isCustomDepth, isCustomSize, customSizeNote, customSizeFee, CUSTOM_SIZE_FEE, peninsulaRunEndpoints,
@@ -5490,7 +5491,15 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       }
       const isFlatPanel = isAccessory && isPanelItem(c);
       const isFillerAccessory = isAccessory && isFillerItem(c);
-      const catalogDimensions = resolvedDesignCabinetDimensions(c);
+      // The catalog API carries this marker, but keep the active Frameless
+      // distributor scope authoritative at the click boundary as well. This
+      // prevents a stale shared-master row from reintroducing 12-inch wall
+      // depth or 34.5-inch base height during a direct palette placement.
+      const isAefCatalogScope = (distributorNameById.get(catalogDistributorScopeId ?? -1) ?? "").toLowerCase().includes("frameless");
+      const placementCatalogCabinet = isAefCatalogScope && !c.constructionMethod
+        ? { ...c, constructionMethod: AEF_PRINTED_GEOMETRY_MARKER }
+        : c;
+      const catalogDimensions = resolvedDesignCabinetDimensions(placementCatalogCabinet);
       const shelfWidthFromCode = isFloatingShelf ? Number(/^FS[-_ ]?(\d+(?:\.\d+)?)$/i.exec(c.masterCode)?.[1]) : NaN;
       const width = isFloatingShelf && Number.isFinite(shelfWidthFromCode) && shelfWidthFromCode > 0
         ? shelfWidthFromCode
@@ -5907,19 +5916,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         uid: makeUid(),
         cabinetId: c.id,
         masterCode: c.masterCode,
-        description: c.description,
-        category: c.category ?? null,
-        subCategory: c.subCategory ?? null,
-        placement: accPlacement,
-        x: spot.x,
-        y: spot.y,
-	        width,
-	        nominalWidth: width,
-        depth,
-        nominalDepth: depth,
-        height,
-        nominalHeight: height,
-        rotation: spot.rotation,
+	        description: c.description,
+	        category: c.category ?? null,
+	        subCategory: c.subCategory ?? null,
+	        placement: accPlacement,
+	        x: spot.x,
+	        y: spot.y,
+		        width,
+		        nominalWidth: width,
+	        depth,
+	        nominalDepth: depth,
+	        height,
+	        nominalHeight: height,
+        ...(placementCatalogCabinet.constructionMethod ? { constructionMethod: placementCatalogCabinet.constructionMethod } : {}),
+	        rotation: spot.rotation,
 	        numberOfDoors: c.numberOfDoors,
 	        numberOfDrawers: c.numberOfDrawers,
 	        catalogImageUrl: c.catalogImageUrl ?? null,
@@ -6560,7 +6570,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         setMobilePanel(null);
       }
     },
-	    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, appliancePalette, styleId, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
+    [room, activeWall, openings, island, islandPlacementMode, islandFace, catalogFillers, appliancePalette, styleId, catalogDistributorScopeId, distributorNameById, rememberFailedWallFit, setSinks, setSelectedSinkUid, setCountertop, queueSmallGapFillerOpportunity]
 	  );
 	  const placeOnRecommendedWall = useCallback(() => {
 	    const recommendation = alternateWallRecommendation;
@@ -11235,6 +11245,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSlotStyle("A", preloadStyleId);
   }, [verified, preloadStyleId, doorStyles, styleId, setSlotStyle]);
 
+  // Admin-only AEF preview: a staged line should open with a real finish so
+  // its catalog prices and source-backed sample image are immediately testable.
+  // Public users never enter this branch because unpublished AEF is not in
+  // their distributor/style data.
+  useEffect(() => {
+    if (!isAdmin || !verified || !draftRestoredRef.current || styleId != null) return;
+    const scopedName = distributorNameById.get(catalogDistributorScopeId ?? -1) ?? "";
+    if (!scopedName.toLowerCase().includes("frameless")) return;
+    const firstAefStyle = (doorStyles ?? [])
+      .filter((style) => style.distributorId === catalogDistributorScopeId)
+      .sort((a, b) => (a.styleCode ?? "").localeCompare(b.styleCode ?? ""))[0];
+    if (firstAefStyle) setSlotStyle("A", firstAefStyle.id);
+  }, [catalogDistributorScopeId, distributorNameById, doorStyles, isAdmin, setSlotStyle, styleId, verified]);
+
   // Consume the Surfaces & Fixtures wizard hand-off ONCE, after verification and
   // after the draft has been restored. This only fires when the customer clicked
   // "I'm ready to design my kitchen" in the wizard (which writes the dedicated
@@ -11487,8 +11511,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 		  }, [room, selectedCab]);
 		  const selectedCabDisplayDescription = (() => {
 		    if (!selectedCab) return "";
-		    const description = selectedCab.description ?? "";
-		    if (!(selectedCab.fillerPieceGroupId && selectedCab.fillerPlacementMode && /\bscribe\b/i.test(description))) return description;
+    const description = selectedCab.description ?? "";
+    if (selectedCab.constructionMethod === AEF_PRINTED_GEOMETRY_MARKER && description.includes("—")) {
+      const suffix = description.slice(description.indexOf("—"));
+      return `${formatEighthInches(selectedCab.width)} W × ${formatEighthInches(Number(selectedCab.height ?? 0))} H × ${formatEighthInches(selectedCab.depth)} D Wall Cabinet ${suffix}`;
+    }
+    if (!(selectedCab.fillerPieceGroupId && selectedCab.fillerPlacementMode && /\bscribe\b/i.test(description))) return description;
 		    const cut = description.match(/(?:[AB]\s+front\s+)?filler\s+cut\s+to\s+.+$/i)?.[0]
 		      ?? description.match(/cut\s+to\s+.+$/i)?.[0];
 		    return cut ? `Filler — ${cut}` : "Filler";

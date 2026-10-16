@@ -56,7 +56,11 @@ describe("AEF admin preview visibility", () => {
     expect(adminBase.some((row) => row.masterCode === "B18")).toBe(true);
     expect(adminWall.some((row) => row.masterCode === "W3012")).toBe(true);
     expect(adminTall.some((row) => row.masterCode === "T1884")).toBe(true);
-    expect(adminAll).toHaveLength(92);
+    expect(adminAll).toHaveLength(115);
+    expect(adminBase.find((row) => row.masterCode === "B18")).toMatchObject({ height: "34.75", depth: "24.00" });
+    expect(adminWall.find((row) => row.masterCode === "W3012")).toMatchObject({ height: "12.63", depth: "13.50" });
+    expect(adminAll.some((row) => row.masterCode === "B18FH")).toBe(true);
+    expect(adminAll.some((row) => row.masterCode === "B24S")).toBe(true);
 
     const [publicStyles, adminStyles, publicLines, adminLines] = await Promise.all([
       publicCaller.doorStyles.list({ distributorId: aef.id }),

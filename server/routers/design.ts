@@ -28,6 +28,10 @@ import { resolveCanonicalCatalogSources } from "../lib/canonicalCatalogSources";
 import { applyDistributorCabinetConfig, parseDistributorCabinetConfig } from "../lib/distributorCabinetConfig";
 import { loadAffiliateStorefrontPricing } from "../lib/affiliateStorefrontPricing";
 import {
+  AEF_PRINTED_GEOMETRY_MARKER,
+  aefPrintedGeometryForSku,
+} from "../../shared/aefFramelessGeometry";
+import {
   relevantCategories,
   selectRecommendations,
   type CrossSellCategory,
@@ -345,6 +349,16 @@ export const designRouter = router({
         .select({
           sourceMasterCode: cabinets.masterCode,
           glassIncluded: distributors.glassIncluded,
+          sourceDistributorCode: distributors.code,
+          sourceDistributorSkuId: distributorSkus.id,
+          sourceDistributorSku: distributorSkus.distributorSku,
+          sourceConstructionType: distributorSkus.constructionType,
+          sourceGeometryWidth: distributorSkus.geometryWidth,
+          sourceGeometryHeight: distributorSkus.geometryHeight,
+          sourceGeometryDepth: distributorSkus.geometryDepth,
+          sourceGeometryToeKickHeight: distributorSkus.geometryToeKickHeight,
+          sourceGeometrySourcePage: distributorSkus.geometrySourcePage,
+          sourceGeometryStatus: distributorSkus.geometryStatus,
         })
         .from(distributorSkus)
         .innerJoin(cabinets, eq(distributorSkus.cabinetId, cabinets.id))
@@ -405,9 +419,28 @@ export const designRouter = router({
 
       const byCanonicalId = new Map<number, (typeof masterRows)[number] & { glassIncluded: boolean }>();
       for (const { source, master } of resolveCanonicalCatalogSources(sourceRows, aliases, masterRows)) {
-        if (!byCanonicalId.has(master.id)) {
-          byCanonicalId.set(master.id, { ...master, glassIncluded: Boolean(source.glassIncluded) });
-        }
+        const existing = byCanonicalId.get(master.id);
+        const aefGeometry = source.sourceDistributorCode === "AEF"
+          && source.sourceGeometryStatus === "verified"
+          ? aefPrintedGeometryForSku(source.sourceDistributorSku)
+          : null;
+        // AEF's printed construction belongs to the distributor SKU, not the
+        // shared master. Prefer a verified AEF source when the same master is
+        // also present through another style or the excluded SCL style.
+        const next = {
+          ...master,
+          ...(aefGeometry
+            ? {
+                width: aefGeometry.width.toFixed(2),
+                height: aefGeometry.height.toFixed(2),
+                depth: aefGeometry.depth.toFixed(2),
+                toeKickHeight: aefGeometry.toeKickHeight == null ? null : aefGeometry.toeKickHeight.toFixed(2),
+                constructionMethod: AEF_PRINTED_GEOMETRY_MARKER,
+              }
+            : {}),
+          glassIncluded: Boolean(source.glassIncluded),
+        };
+        if (!existing || aefGeometry) byCanonicalId.set(master.id, next);
       }
       // Per-distributor configuration rules: when the palette is scoped to one
       // supply line (directly or through the chosen door style), apply that
@@ -926,14 +959,22 @@ export const designRouter = router({
         styleId: z.number(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db || input.cabinetIds.length === 0) return [];
+
+      const adminAefPreview = ctx.user?.role === "admin";
 
       const conditions = [
         inArray(distributorSkus.cabinetId, input.cabinetIds),
         eq(distributorSkus.styleId, input.styleId),
         eq(distributorSkus.isAvailable, true),
+        adminAefPreview
+          ? or(
+              eq(distributorSkus.isPublished, true),
+              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
+            )
+          : eq(distributorSkus.isPublished, true),
       ];
       // distributorId is optional now — door-style-first pricing resolves the
       // supply line internally. When omitted we take the cheapest contractor
@@ -951,6 +992,7 @@ export const designRouter = router({
           contractorPrice: distributorSkus.contractorPrice,
         })
         .from(distributorSkus)
+        .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...conditions));
 
       // Collapse to one priced row per cabinet (cheapest contractor price).
@@ -988,9 +1030,11 @@ export const designRouter = router({
         distributorId: z.number().optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db || input.pairs.length === 0) return [];
+
+      const adminAefPreview = ctx.user?.role === "admin";
 
       // Saved plans can retain a retired product record whose source-truth
       // master code is an approved alias (for example 3-DB24 -> 3DB24). Resolve
@@ -1140,7 +1184,12 @@ export const designRouter = router({
         inArray(distributorSkus.cabinetId, candidateCabinetIds),
         inArray(distributorSkus.styleId, styleIds),
         eq(distributorSkus.isAvailable, true),
-        eq(distributorSkus.isPublished, true),
+        adminAefPreview
+          ? or(
+              eq(distributorSkus.isPublished, true),
+              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
+            )
+          : eq(distributorSkus.isPublished, true),
       ];
       if (input.distributorId) {
         conditions.push(eq(distributorSkus.distributorId, input.distributorId));

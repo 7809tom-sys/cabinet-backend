@@ -47,6 +47,27 @@ describe("authoritative wall cabinet SKU dimensions", () => {
       .toEqual({ width: 36, height: 24, depth: 12 });
   });
 
+  it("uses the AEF printed dimensions instead of stale shared-master columns", () => {
+    expect(resolvedDesignCabinetDimensions(wallCabinet("W3012", {
+      width: "30",
+      height: "12",
+      depth: "12",
+      constructionMethod: "Frameless; distributor geometry is printed in AltaEuro Collection Full Spec Book V8.2",
+    }))).toEqual({ width: 30, height: 12.625, depth: 13.5 });
+  });
+
+  it("uses the AEF printed 34.75-inch overall base height without changing the shared master rule", () => {
+    expect(resolvedDesignCabinetDimensions({
+      ...wallCabinet("B18", { width: "18", height: "34.75", depth: "24" }),
+      placement: "base",
+      constructionMethod: "Frameless; distributor geometry is printed in AltaEuro Collection Full Spec Book V8.2",
+    })).toEqual({ width: 18, height: 34.75, depth: 24 });
+    expect(resolvedDesignCabinetDimensions({
+      ...wallCabinet("B18", { width: "18", height: "34.5", depth: "24" }),
+      placement: "base",
+    })).toEqual({ width: 18, height: 34.5, depth: 24 });
+  });
+
   it("leaves non-dimensional and non-wall catalog families on their stored dimensions", () => {
     expect(wallCabinetSkuDimensions("AW1242")).toBeNull();
     expect(resolvedDesignCabinetDimensions({ ...wallCabinet("B-36", { width: "36", height: "34.5", depth: "24" }), placement: "base" }))

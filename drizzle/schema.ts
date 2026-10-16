@@ -711,6 +711,15 @@ export const distributorSkus = mysqlTable("distributor_skus", {
   styleId: int("styleId").notNull(),
   platformSku: varchar("platformSku", { length: 128 }).notNull().unique(), // DB24-SW-UCD
   distributorSku: varchar("distributorSku", { length: 128 }).notNull(), // 3DB24
+  // Distributor-specific construction and printed geometry. Shared cabinet
+  // masters remain unchanged when a supplier's construction differs.
+  constructionType: varchar("constructionType", { length: 32 }), // framed | frameless
+  geometryWidth: decimal("geometryWidth", { precision: 6, scale: 2 }),
+  geometryHeight: decimal("geometryHeight", { precision: 6, scale: 2 }),
+  geometryDepth: decimal("geometryDepth", { precision: 6, scale: 2 }),
+  geometryToeKickHeight: decimal("geometryToeKickHeight", { precision: 5, scale: 2 }),
+  geometrySourcePage: varchar("geometrySourcePage", { length: 128 }),
+  geometryStatus: varchar("geometryStatus", { length: 16 }), // verified | held
   listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
   yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
   adjustedListPrice: decimal("adjustedListPrice", { precision: 10, scale: 2 }),

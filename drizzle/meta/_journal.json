@@ -1310,6 +1310,13 @@
       "when": 1791753518160,
       "tag": "0187_concerned_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "5",
+      "when": 1792181283239,
+      "tag": "0188_careful_khan",
+      "breakpoints": true
     }
   ]
 }
