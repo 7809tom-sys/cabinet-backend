@@ -14,7 +14,7 @@ function contextFor(user: TrpcContext["user"]): TrpcContext {
 }
 
 describe("AEF admin preview visibility", () => {
-  it("shows staged AEF cabinets and styles to admins but not public viewers", async () => {
+  it("shows the full staged AEF line to admins but not public viewers", async () => {
     const db = await getDb();
     if (!db) return;
     const [aef] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.code, "AEF")).limit(1);
@@ -36,22 +36,27 @@ describe("AEF admin preview visibility", () => {
       pricingTier: "homeowner",
       companyName: null,
       emailLower: null,
-      lastSignedIn: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     } as TrpcContext["user"]));
 
-    const [publicBase, publicWall, adminBase, adminWall] = await Promise.all([
+    const [publicBase, publicWall, publicTall, adminBase, adminWall, adminTall, adminAll] = await Promise.all([
       publicCaller.design.placeableCabinets({ placement: "base", distributorId: aef.id, search: "B18" }),
       publicCaller.design.placeableCabinets({ placement: "wall", distributorId: aef.id, search: "W3012" }),
+      publicCaller.design.placeableCabinets({ placement: "tall", distributorId: aef.id, search: "T1884" }),
       adminCaller.design.placeableCabinets({ placement: "base", distributorId: aef.id, search: "B18" }),
       adminCaller.design.placeableCabinets({ placement: "wall", distributorId: aef.id, search: "W3012" }),
+      adminCaller.design.placeableCabinets({ placement: "tall", distributorId: aef.id, search: "T1884" }),
+      adminCaller.design.placeableCabinets({ distributorId: aef.id }),
     ]);
 
     expect(publicBase.some((row) => row.masterCode === "B18")).toBe(false);
     expect(publicWall.some((row) => row.masterCode === "W3012")).toBe(false);
+    expect(publicTall.some((row) => row.masterCode === "T1884")).toBe(false);
     expect(adminBase.some((row) => row.masterCode === "B18")).toBe(true);
     expect(adminWall.some((row) => row.masterCode === "W3012")).toBe(true);
+    expect(adminTall.some((row) => row.masterCode === "T1884")).toBe(true);
+    expect(adminAll).toHaveLength(92);
 
     const [publicStyles, adminStyles, publicLines, adminLines] = await Promise.all([
       publicCaller.doorStyles.list({ distributorId: aef.id }),
@@ -61,7 +66,7 @@ describe("AEF admin preview visibility", () => {
     ]);
     expect(publicStyles.length).toBe(0);
     expect(publicLines.some((row) => row.code === "AEF")).toBe(false);
-    expect(adminStyles.some((row) => row.styleCode !== "SCL")).toBe(true);
+    expect(adminStyles).toHaveLength(48);
     expect(adminStyles.some((row) => row.styleCode === "SCL")).toBe(false);
     expect(adminLines.some((row) => row.code === "AEF")).toBe(true);
 

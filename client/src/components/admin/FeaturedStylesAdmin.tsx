@@ -65,6 +65,11 @@ interface AdminStyle {
   drawerFrontType?: "five-piece-raised" | "five-piece-flat" | "slab" | null;
   grainDirection?: "vertical-stiles-horizontal-rails" | "vertical" | "horizontal" | "none" | null;
   finishSheen?: "satin" | "matte" | "gloss" | null;
+  boxConstruction?: string | null;
+  drawerConstruction?: string | null;
+  hardware?: string | null;
+  overlayType?: string | null;
+  doorPanelType?: string | null;
   profileNotes: string | null;
   profileDescription?: string | null;
   sourceSpecification?: string | null;
@@ -132,6 +137,22 @@ function CatalogPreviewModal({
               <Badge variant="secondary" className="text-xs">{style.color}</Badge>
             )}
           </div>
+          {(style.boxConstruction || style.doorPanelType || style.drawerConstruction || style.hardware || style.profileNotes) && (
+            <div className="mt-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-3 py-2 text-[11px] leading-snug text-[#49381a]" data-testid="admin-catalog-style-specifications">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-semibold uppercase tracking-wide">Automatic manufacturer specifications</span>
+                <span className="text-[10px] text-[#806a42]">Stored on this finish record</span>
+              </div>
+              <div className="grid gap-x-4 gap-y-0.5 sm:grid-cols-2">
+                {style.boxConstruction && <span><b>Box:</b> {style.boxConstruction}</span>}
+                {style.doorPanelType && <span><b>Front:</b> {style.doorPanelType}</span>}
+                {style.drawerConstruction && <span><b>Drawers:</b> {style.drawerConstruction}</span>}
+                {style.hardware && <span><b>Hardware:</b> {style.hardware}</span>}
+                {style.overlayType && <span><b>Overlay:</b> {style.overlayType}</span>}
+              </div>
+              {style.profileNotes && <p className="mt-1 text-[#806a42]">{style.profileNotes}</p>}
+            </div>
+          )}
           <div className="relative mt-2">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input

@@ -16632,6 +16632,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             </Popover>
           </div>
 
+          {activeStyle && (activeStyle.boxConstruction || activeStyle.doorPanelType || activeStyle.drawerConstruction || activeStyle.hardware || activeStyle.profileNotes) && (
+            <div className="mx-3 mt-2 rounded-md border border-[#d8c7a1] bg-[#fffaf0] px-2.5 py-2 text-[10px] leading-snug text-[#49381a]" data-testid="catalog-style-specifications">
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="font-semibold uppercase tracking-wide">Catalog specifications</span>
+                <span className="text-[9px] text-[#806a42]">Auto-filled from manufacturer sheets</span>
+              </div>
+              <div className="grid grid-cols-1 gap-x-3 gap-y-0.5 sm:grid-cols-2">
+                {activeStyle.boxConstruction && <span><b>Box:</b> {activeStyle.boxConstruction}</span>}
+                {activeStyle.doorPanelType && <span><b>Front:</b> {activeStyle.doorPanelType}</span>}
+                {activeStyle.drawerConstruction && <span><b>Drawers:</b> {activeStyle.drawerConstruction}</span>}
+                {activeStyle.hardware && <span><b>Hardware:</b> {activeStyle.hardware}</span>}
+                {activeStyle.finishSheen && <span><b>Sheen:</b> {activeStyle.finishSheen}</span>}
+              </div>
+              {activeStyle.profileNotes && <p className="mt-1 text-[#806a42]">{activeStyle.profileNotes}</p>}
+              <p className="mt-1 font-medium text-[#49381a]">Cabinet width, height, and depth remain SKU-specific and are shown on each catalog card.</p>
+            </div>
+          )}
           {/* Door style & pricing picker: collapses into an accordion once a door
               style is chosen so it stops dominating the panel (esp. on mobile).
               The header summarizes the active style + tier when collapsed. The

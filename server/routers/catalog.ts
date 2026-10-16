@@ -177,7 +177,9 @@ async function availableStyleIds(
           : eq(distributorSkus.isPublished, true),
         eq(distributorSkus.isAvailable, true),
         eq(cabinets.isActive, true),
-        eq(cabinets.showInDesigner, true),
+        includeAdminAefPreview
+          ? or(eq(cabinets.showInDesigner, true), eq(distributors.code, "AEF"))
+          : eq(cabinets.showInDesigner, true),
         notInConflict()
       )
     );

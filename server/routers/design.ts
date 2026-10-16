@@ -318,7 +318,7 @@ export const designRouter = router({
       const db = await getDb();
       if (!db) return [];
 
-      const adminAefPreview = ctx.user?.role === "admin";
+      const adminAefPreview = ctx.user?.role === "admin" && input?.distributorId != null;
       // Availability gate: a cabinet is only offered in the designer if it has
       // at least one positive, published, available distributor SKU. Admins may
       // additionally preview unpublished AEF rows; this never changes their
@@ -351,6 +351,9 @@ export const designRouter = router({
         .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
         .where(and(...skuConditions, ne(cabinets.conflictStatus, "conflict")));
 
+      const stagedAefMasterCodes = adminAefPreview
+        ? Array.from(new Set(sourceRows.map((row) => row.sourceMasterCode)))
+        : [];
       const [aliases, masterRows] = await Promise.all([
         db
           .select({ aliasCode: skuMasterAliases.aliasCode, masterCode: skuMasterAliases.masterCode })
@@ -393,7 +396,9 @@ export const designRouter = router({
           .from(cabinets)
           .where(and(
             eq(cabinets.isActive, true),
-            eq(cabinets.showInDesigner, true),
+            adminAefPreview && stagedAefMasterCodes.length > 0
+              ? or(eq(cabinets.showInDesigner, true), inArray(cabinets.masterCode, stagedAefMasterCodes))
+              : eq(cabinets.showInDesigner, true),
             ne(cabinets.conflictStatus, "conflict"),
           )),
       ]);
