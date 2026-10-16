@@ -119,6 +119,12 @@ const renderSpecificationSchema = z.object({
   islandCountertop: z.string().trim().max(255).nullable(),
   hardware: z.string().trim().max(120).nullable(),
   appliances: z.array(z.string().trim().max(255)).max(40),
+  glassStackers: z.array(z.object({
+    code: z.string().trim().min(1).max(255),
+    parentCode: z.string().trim().min(1).max(255),
+    frontFlush: z.boolean(),
+    falseBack: z.boolean(),
+  })).max(100),
 });
 const boundedManifestProvenance = (role: string, label: string) => `${role}: ${label}`.trim().slice(0, 160);
 const materialManifestEntrySchema = z.preprocess((value) => {
@@ -148,10 +154,9 @@ const materialManifestEntrySchema = z.preprocess((value) => {
   provenance: z.string().trim().min(1).max(160),
 }).superRefine((entry, ctx) => {
   if (entry.referenceSource === "locked-designer-jpeg") {
-    if (entry.id !== "hardware:handles" || entry.role !== "hardware/handles"
-      || !["Knobs", "Bar Pulls", "Cup Pulls", "Knobs + Pulls"].includes(entry.label)
-      || entry.referenceUrl !== null) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Only generic planning hardware can use the locked Designer JPEG as its reference." });
+    const supportedRoles = ["cabinet door/finish", "countertop", "flooring", "backsplash", "sink", "faucet", "appliance", "hardware/handles"];
+    if (!supportedRoles.includes(entry.role) || entry.referenceUrl !== null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "A supported plan item with no swatch may use the locked Designer JPEG as its reference." });
     }
   } else if (!entry.referenceUrl) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An exact catalog material image is required." });
@@ -622,13 +627,18 @@ function emitPhotoQualityLead(args: {
 }
 
 function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceInput["renderSpecification"]) {
+  const glassStackerInstruction = specification?.glassStackers.length
+    ? `Glass stacker inventory (non-negotiable): ${specification.glassStackers.map((stacker) => `${stacker.code} sits visibly ABOVE ${stacker.parentCode}${stacker.frontFlush ? ", flush with the parent cabinet face" : ""}${stacker.falseBack ? ", with its concealed false back behind the shallow glass box" : ""}`).join("; ")}. Render each listed glass stacker exactly once, above its named parent, with its glass doors/shelves visibly present. Do not replace it with a plain wall cabinet, omit it, or place a wall in front of it.`
+    : "";
   return [
     "Create a genuinely photorealistic, high-end architectural interior photograph from the FIRST reference image—not a screenshot, wireframe, illustration, or a copy of the reference pixels.",
-    "The first image is the exact locked CabinetDealz Designer plan and camera composition. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, walls, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
+    "The first image is a clear, wall-free cabinet crop of the exact locked CabinetDealz Designer plan and camera composition. It deliberately excludes every Designer room-wall mesh, including transparent or ghost walls. Treat no blank edge, translucent panel, crop boundary, or editor background in image 1 as a wall or architectural element to reproduce. Preserve its visible cabinets, fillers, countertops, appliances, sinks, faucets, windows, doors, islands, ceiling heights, fixtures, room dimensions, and camera framing exactly: do not add, remove, move, rotate, resize, substitute, merge, hide, or invent any of them. Do not change the camera angle, crop, viewpoint, or room dimensions.",
     "Use the following reference images only to improve physically plausible surface appearance for the exact matching selected cabinet finish, countertop, flooring, and backsplash. Use the material references only on their exact matching existing surfaces. Render realistic daylight, physically plausible soft contact shadows, true cabinet grain, countertop depth, metal, glass, tile texture, and surface reflections. Improve realism substantially while keeping geometry and composition locked.",
     specification ? `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Island cabinets are ${specification.islandCabinets?.color ?? "not present"} ${specification.islandCabinets?.doorStyle ?? ""}. Do not change these colors or styles. Perimeter countertop: ${specification.perimeterCountertop ?? "selected"}. Island countertop: ${specification.islandCountertop ?? "none"}. Hardware: ${specification.hardware ?? "as shown"}. Appliances: ${specification.appliances.join(", ") || "only those shown"}.` : "",
     "FOLLOW THE KITCHEN PLAN ONLY. Image 1 is the complete list of cabinets: count the base, wall, tall, and island cabinets in it and render exactly that many, in exactly those positions, with the same widths, door and drawer counts, and gaps. Do not add a cabinet, a cabinet run, an island, a shelf unit, open shelving, a hutch, a pantry, or any furniture that is not in image 1. Empty wall space in image 1 must stay empty wall (a window, plain wall, or backsplash), never new cabinets. Props are the only additions.",
-    "The countertop sample picture and the backsplash sample picture that follow are the exact products from the CabinetDealz database. Match their color, veining, pattern, and tile layout exactly: countertop sample on every countertop surface, backsplash sample on the backsplash area between the countertop and wall cabinets, and do not substitute a different stone, tile, or color.",
+    glassStackerInstruction,
+    "Use every supplied swatch as the authoritative reference for its mapped product: match its color, veining, pattern and tile layout. Apply countertop samples only to their mapped countertops and backsplash samples only to their mapped backsplash areas. Do not substitute a different product where a swatch is provided.",
+    "If an item has no swatch, automatically render its appearance from image 1 and its saved description. Use a plausible prediction only for appearance details absent from both; never invent a SKU, brand, price, extra appliance or extra cabinet. This is an inferred appearance, not a verified product match. Keep the item's existing dimensions, shape, location, count and specified color locked.",
     "Generic hardware planning styles (knobs, bar pulls, cup pulls) have no catalog SKU or product swatch. Preserve their exact visible shape, finish, count and placement from the locked Designer image 1; do not invent or substitute a hardware product.",
     "Light staging is allowed and wanted: add only a plant, coffee cup, bowl, towel, cookbook, or similarly minimal kitchen accessory. Keep counters mostly clear so cabinet doors and drawers remain visible. Props must not cover the island cabinet faces.",
     "Never add or move cabinets, appliances, windows, walls, fixtures, or architectural elements. The layout, camera, and dimensions remain exactly the locked design.",
@@ -660,7 +670,7 @@ async function geminiMaterialReferences(
     wanted.push({ role: material.role, label: `${material.role === "cabinet" ? "cabinet door finish" : material.role}${material.name ? ` — ${material.name}` : ""}`, productId: material.productId, url: material.materialImageUrl });
   }
   for (const reference of provenance.materialManifest ?? []) {
-    // Generic hardware is already in image 1, not an external product sample.
+    // A missing swatch uses image 1, not an invented external product sample.
     if (reference.referenceSource === "locked-designer-jpeg") continue;
     if (!wanted.some((entry) => entry.url === reference.referenceUrl && entry.label === reference.label)) {
       wanted.push({ role: reference.role, label: reference.label, productId: null, url: reference.referenceUrl });

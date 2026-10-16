@@ -105,18 +105,21 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain("threeDExactPlanGeometryLock");
   });
 
-  it("requires a complete saved-plan material manifest and forwards exact references", () => {
+  it("records supplied swatches or automatic locked-plan references for every material", () => {
     expect(rendererSource).toContain("materialManifest");
     expect(rendererSource).toContain("missingMaterialInputs");
     expect(rendererSource).toContain("geminiHardwareReference(hardwareStyleId");
     expect(rendererSource).toContain('reference.referenceSource === "locked-designer-jpeg"');
-    expect(rendererSource).toContain("Every visible saved-plan material has an exact labeled reference.");
-    expect(rendererSource).toContain("Generation blocked until these exact saved references are supplied");
+    expect(rendererSource).toContain("materialManifest.push(geminiMaterialReference(entry))");
+    expect(rendererSource).not.toContain("else missingMaterialInputs.push(entry.label)");
+    expect(rendererSource).toContain("missing swatches render automatically from the locked 3D view");
+    expect(rendererSource).toContain('data-testid="gemini-automatic-predictions"');
+    expect(rendererSource).toContain('cabinet.placement === "appliance" || isRefrigerator(cabinet) || isRangeOrOven(cabinet.masterCode)) continue');
   });
 
-  it("bounds provenance and blocks Google-image readiness until every manifest input is valid", () => {
-    expect(rendererSource).toContain("conciseManifestProvenance");
-    expect(rendererSource).toContain(".slice(0, 160)");
+  it("keeps malformed-provenance safeguards without blocking missing swatches", () => {
+    const referenceSource = readFileSync(new URL("../lib/geminiMaterialReference.ts", import.meta.url), "utf8");
+    expect(referenceSource).toContain(".slice(0, 160)");
     expect(rendererSource).toContain("geminiManifestValidationReason");
     expect(rendererSource).toContain("setGeminiImageTestError(geminiManifestValidationReason)");
     expect(rendererSource).toContain("disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive}");

@@ -25,14 +25,14 @@ describe("Gemini generic hardware source validation", () => {
     const parsed = photoRenderProvenanceSchema.parse(request([product, hardware]));
     expect(parsed.materialManifest[1]).toMatchObject(hardware);
   });
-  it("requires real URLs for countertops, flooring, backsplash, and cabinets", () => {
+  it("requires an explicit locked-image source if a product has no swatch", () => {
     for (const role of ["countertop", "flooring", "backsplash", "cabinet door/finish"]) {
       expect(photoRenderProvenanceSchema.safeParse(request([{ ...product, role, referenceUrl: null }])).success).toBe(false);
-      expect(photoRenderProvenanceSchema.safeParse(request([{ ...product, role, referenceUrl: null, referenceSource: "locked-designer-jpeg" }])).success).toBe(false);
+      expect(photoRenderProvenanceSchema.safeParse(request([{ ...product, role, referenceUrl: null, referenceSource: "locked-designer-jpeg" }])).success).toBe(true);
     }
   });
-  it("does not allow arbitrary catalog hardware products to claim generic-source exemption", () => {
-    expect(photoRenderProvenanceSchema.safeParse(request([{ ...hardware, label: "Custom manufacturer SKU" }])).success).toBe(false);
+  it("never represents a supplied product swatch as a locked-image prediction", () => {
+    expect(photoRenderProvenanceSchema.safeParse(request([{ ...hardware, role: "unsupported" }])).success).toBe(false);
     expect(photoRenderProvenanceSchema.safeParse(request([{ ...hardware, referenceUrl: product.referenceUrl }])).success).toBe(false);
     expect(photoRenderProvenanceSchema.safeParse(request([{ ...hardware, referenceSource: undefined }])).success).toBe(false);
   });
