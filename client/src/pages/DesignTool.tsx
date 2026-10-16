@@ -14002,10 +14002,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <SelectValue placeholder={t("dt_cx_match_design")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        <SelectItem value="__match__">
+                          <span className="flex items-center gap-2">
+                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-7 w-6 shrink-0 rounded border border-border" />}
+                            <span>{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</span>
+                          </span>
+                        </SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{affiliateStyleName(s)}</SelectItem>
-                        ))}                      </SelectContent>
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            <span className="flex items-center gap-2">
+                              <DoorStyleSwatch style={s} className="h-7 w-6 shrink-0 rounded border border-border" />
+                              <span className="truncate">{affiliateStyleName(s)}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
                       <Button
@@ -14470,10 +14481,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                         <SelectValue placeholder={t("dt_cx_match_design")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__match__">{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</SelectItem>
+                        <SelectItem value="__match__">
+                          <span className="flex items-center gap-2">
+                            {activeStyle && <DoorStyleSwatch style={activeStyle} className="h-7 w-6 shrink-0 rounded border border-border" />}
+                            <span>{t("dt_cx_match_design")}{activeStyleName ? ` (${activeStyleName})` : ""}</span>
+                          </span>
+                        </SelectItem>
                         {uniqueDoorStyles.map((s) => (
-                                    <SelectItem key={s.id} value={String(s.id)}>{affiliateStyleName(s)}</SelectItem>
-                        ))}                      </SelectContent>
+                          <SelectItem key={s.id} value={String(s.id)}>
+                            <span className="flex items-center gap-2">
+                              <DoorStyleSwatch style={s} className="h-7 w-6 shrink-0 rounded border border-border" />
+                              <span className="truncate">{affiliateStyleName(s)}</span>
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
                     </Select>
                     {selectedCab.styleId != null && (
                       <Button
