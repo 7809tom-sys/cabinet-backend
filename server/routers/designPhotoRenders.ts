@@ -129,6 +129,11 @@ const materialManifestEntrySchema = z.preprocess((value) => {
   const rawProvenance = typeof entry.provenance === "string" ? entry.provenance : "";
   return {
     ...entry,
+    // Older clients included the complete description + URL in this ID.
+    // Hash only that oversized identifier; preserve labels, images and item IDs.
+    id: typeof entry.id === "string" && entry.id.trim().length > 160
+      ? `material:${createHash("sha256").update(entry.id).digest("hex")}`
+      : entry.id,
     provenanceDetails: typeof entry.provenanceDetails === "string" ? entry.provenanceDetails.slice(0, 4_000) : rawProvenance.slice(0, 4_000),
     provenance: boundedManifestProvenance(role, label),
   };
@@ -137,9 +142,20 @@ const materialManifestEntrySchema = z.preprocess((value) => {
   role: z.string().trim().min(1).max(80),
   label: z.string().trim().min(1).max(255),
   itemIds: z.array(z.string().trim().min(1).max(160)).min(1).max(500),
-  referenceUrl: safeMaterialUrl,
+  referenceUrl: safeMaterialUrl.nullable(),
+  referenceSource: z.enum(["catalog-image", "locked-designer-jpeg"]).optional(),
   provenanceDetails: z.string().trim().max(4_000).optional(),
   provenance: z.string().trim().min(1).max(160),
+}).superRefine((entry, ctx) => {
+  if (entry.referenceSource === "locked-designer-jpeg") {
+    if (entry.id !== "hardware:handles" || entry.role !== "hardware/handles"
+      || !["Knobs", "Bar Pulls", "Cup Pulls", "Knobs + Pulls"].includes(entry.label)
+      || entry.referenceUrl !== null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Only generic planning hardware can use the locked Designer JPEG as its reference." });
+    }
+  } else if (!entry.referenceUrl) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "An exact catalog material image is required." });
+  }
 }));
 export const photoQualityLeadSchema = z.object({
   name: z.string().trim().min(2).max(120),
@@ -613,6 +629,7 @@ function exactPlanPrompt(summary: string, specification?: PhotoRenderProvenanceI
     specification ? `Perimeter cabinets are ${specification.perimeterCabinets.color ?? "the selected perimeter color"} ${specification.perimeterCabinets.doorStyle ?? "the selected door style"}. Island cabinets are ${specification.islandCabinets?.color ?? "not present"} ${specification.islandCabinets?.doorStyle ?? ""}. Do not change these colors or styles. Perimeter countertop: ${specification.perimeterCountertop ?? "selected"}. Island countertop: ${specification.islandCountertop ?? "none"}. Hardware: ${specification.hardware ?? "as shown"}. Appliances: ${specification.appliances.join(", ") || "only those shown"}.` : "",
     "FOLLOW THE KITCHEN PLAN ONLY. Image 1 is the complete list of cabinets: count the base, wall, tall, and island cabinets in it and render exactly that many, in exactly those positions, with the same widths, door and drawer counts, and gaps. Do not add a cabinet, a cabinet run, an island, a shelf unit, open shelving, a hutch, a pantry, or any furniture that is not in image 1. Empty wall space in image 1 must stay empty wall (a window, plain wall, or backsplash), never new cabinets. Props are the only additions.",
     "The countertop sample picture and the backsplash sample picture that follow are the exact products from the CabinetDealz database. Match their color, veining, pattern, and tile layout exactly: countertop sample on every countertop surface, backsplash sample on the backsplash area between the countertop and wall cabinets, and do not substitute a different stone, tile, or color.",
+    "Generic hardware planning styles (knobs, bar pulls, cup pulls) have no catalog SKU or product swatch. Preserve their exact visible shape, finish, count and placement from the locked Designer image 1; do not invent or substitute a hardware product.",
     "Light staging is allowed and wanted: add only a plant, coffee cup, bowl, towel, cookbook, or similarly minimal kitchen accessory. Keep counters mostly clear so cabinet doors and drawers remain visible. Props must not cover the island cabinet faces.",
     "Never add or move cabinets, appliances, windows, walls, fixtures, or architectural elements. The layout, camera, and dimensions remain exactly the locked design.",
     "After rendering, check the island cabinet color against the locked 3D reference. If it does not match, re-render once. If it still does not match, return the image with a clear colors-may-not-match note instead of passing it off as an exact match.",
@@ -643,6 +660,8 @@ async function geminiMaterialReferences(
     wanted.push({ role: material.role, label: `${material.role === "cabinet" ? "cabinet door finish" : material.role}${material.name ? ` — ${material.name}` : ""}`, productId: material.productId, url: material.materialImageUrl });
   }
   for (const reference of provenance.materialManifest ?? []) {
+    // Generic hardware is already in image 1, not an external product sample.
+    if (reference.referenceSource === "locked-designer-jpeg") continue;
     if (!wanted.some((entry) => entry.url === reference.referenceUrl && entry.label === reference.label)) {
       wanted.push({ role: reference.role, label: reference.label, productId: null, url: reference.referenceUrl });
     }

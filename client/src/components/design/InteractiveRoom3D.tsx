@@ -31,6 +31,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { normalizeCode } from "@shared/cabinetCodeMatch";
 import { toast } from "sonner";
 import { masterTracProduct, masterTracFinishColor } from "@/lib/closet";
+import { geminiHardwareReference, type GeminiMaterialManifestEntry } from "@/lib/geminiHardwareReference";
 
 /**
  * The in-house browser path tracer is switched off: it opens a second WebGL
@@ -9607,7 +9608,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       geometryLock: string;
       camera: { position: [number, number, number]; target: [number, number, number]; zoom: number };
       materials: Array<{ role: "cabinet" | "countertop" | "flooring" | "backsplash" | "faucet" | "sink"; productId: number | null; name: string | null; materialImageUrl: string | null }>;
-      materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string; provenance: string; provenanceDetails?: string }>;
+      materialManifest: GeminiMaterialManifestEntry[];
       missingMaterialInputs: string[];
       sourceImageHash: string;
       generationMethod: "manual-final-review-image-service" | "manual-final-review-gpt-image-2-high-v2" | "manual-final-review-deterministic-webgl-v1" | "manual-final-review-gemini-nano-banana-v1";
@@ -9765,22 +9766,26 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
   const geminiManifestValidationReason = geminiManifestValidationIssues.length > 0
     ? `Google image test blocked: ${geminiManifestValidationIssues.join("; ")}`
     : null;
-  const geminiImageTestBlockingReason = geminiManifestValidationReason ?? geminiImageTestJobId
-    ? geminiAutomaticRetrySeconds > 0
-      ? `Google will retry this image test automatically in ${geminiAutomaticRetryLabel}.`
-      : "Google is generating this saved-plan test. Status checks continue automatically."
-    : startGeminiImageTestMutation.isPending
-      ? "Starting the Google image test for this locked saved plan…"
-      : !photoRenderDraft
-        ? "Open Final preview to prepare the locked saved-plan image for Google."
-        : geminiCooldownActive
-          ? `Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.`
-          : null;
+  const geminiImageTestBlockingReason = geminiManifestValidationReason
+    ? geminiManifestValidationReason
+    : geminiImageTestJobId
+      ? geminiAutomaticRetrySeconds > 0
+        ? `Google will retry this image test automatically in ${geminiAutomaticRetryLabel}.`
+        : "Google is generating this saved-plan test. Status checks continue automatically."
+      : startGeminiImageTestMutation.isPending
+        ? "Starting the Google image test for this locked saved plan…"
+        : !photoRenderDraft
+          ? "Open Final preview to prepare the locked saved-plan image for Google."
+          : geminiCooldownActive
+            ? `Google is rate-limited. Safe retry available in ${geminiCooldownLabel}.`
+            : null;
   const photoRenderVisualReferences = photoRenderDraft?.provenance.materialManifest.map((reference) => ({
     id: reference.id,
     label: `${reference.role}: ${reference.label}`,
-    url: reference.referenceUrl,
-    description: `Mapped to plan item${reference.itemIds.length === 1 ? "" : "s"} ${reference.itemIds.join(", ")}.`,
+    url: reference.referenceSource === "locked-designer-jpeg" ? photoRenderReferenceUrl : reference.referenceUrl,
+    description: reference.referenceSource === "locked-designer-jpeg"
+      ? "Planning hardware style — copy the handles already visible in the locked Designer image. No catalog hardware product is selected or invented."
+      : `Mapped to plan item${reference.itemIds.length === 1 ? "" : "s"} ${reference.itemIds.join(", ")}.`,
     missing: false,
   })) ?? (activeDoorTexture ? [{
     id: "door-sample",
@@ -11440,7 +11445,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
         return null;
       }
     };
-    const materialManifest: Array<{ id: string; role: string; label: string; itemIds: string[]; referenceUrl: string; provenance: string; provenanceDetails?: string }> = [];
+    const materialManifest: GeminiMaterialManifestEntry[] = [];
     const missingMaterialInputs: string[] = [];
     const conciseManifestProvenance = (role: string, label: string) => `${role}: ${label}`.slice(0, 160);
     const addManifestEntry = (entry: { id: string; role: string; label: string; itemIds: string[]; referenceUrl: string | null | undefined }) => {
@@ -11459,13 +11464,17 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
       current.itemIds.push(cabinet.uid);
       cabinetManifestGroups.set(key, current);
     }
-    cabinetManifestGroups.forEach((entry, id) => addManifestEntry({ id: `cabinet:${id}`, role: "cabinet door/finish", ...entry }));
+    // Identity is snapshot-local; keep long labels/URLs in their own fields,
+    // not in the schema-bounded reference ID.
+    let cabinetManifestIndex = 0;
+    cabinetManifestGroups.forEach((entry) => addManifestEntry({ id: `cabinet:${cabinetManifestIndex++}`, role: "cabinet door/finish", ...entry }));
     addManifestEntry({ id: "surface:countertop", role: "countertop", label: catalogCountertopName ?? "Selected countertop", itemIds: ["surface:countertop"], referenceUrl: approvedMaterialUrl(catalogCountertopReferenceUrl ?? catalogCountertopImageUrl) });
     addManifestEntry({ id: "surface:flooring", role: "flooring", label: catalogFlooringName ?? "Selected flooring", itemIds: ["surface:flooring"], referenceUrl: approvedMaterialUrl(catalogFlooringReferenceUrl ?? catalogFlooringImageUrl) });
     addManifestEntry({ id: "surface:backsplash", role: "backsplash", label: catalogBacksplashName ?? "Selected backsplash", itemIds: ["surface:backsplash"], referenceUrl: approvedMaterialUrl(catalogBacksplashReferenceUrl ?? catalogBacksplashImageUrl) });
     if (hardwareStyleId !== "none") {
       const selectedHardware = hardwareStyle(hardwareStyleId);
-      addManifestEntry({ id: "hardware:handles", role: "hardware/handles", label: selectedHardware.label, itemIds: placed.map((cabinet) => cabinet.uid), referenceUrl: approvedMaterialUrl(catalogHardwareReferenceUrl ?? selectedHardware.referenceUrl) });
+      const hardwareReference = geminiHardwareReference(hardwareStyleId, placed.map((cabinet) => cabinet.uid), approvedMaterialUrl(catalogHardwareReferenceUrl ?? selectedHardware.referenceUrl));
+      if (hardwareReference) materialManifest.push(hardwareReference);
     }
     for (const sink of sinks) {
       addManifestEntry({ id: `sink:${sink.uid}`, role: "sink", label: sink.pelicanProductName ?? "Selected sink", itemIds: [sink.uid], referenceUrl: approvedMaterialUrl(sink.pelicanProductImage) });
@@ -12144,7 +12153,7 @@ export function InteractiveRoom3D({ scene, placed = [], crown = false, toeKick =
 		          <DialogTitle>Request your photo-quality kitchen image</DialogTitle>
 		          <DialogDescription>We create one locked reference package from your saved plan, selected CabinetDealz and Pelican products, and camera view. Your editable plan does not change.</DialogDescription>
 	          </DialogHeader>
-          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive || Boolean(geminiManifestValidationReason)} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
+          {isPhotoQualityTest && <section data-testid="gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Google/Gemini image test — administrator only</p><p className="mt-1">This sends a locked current-design snapshot and selected-material names to Google Gemini. If the plan is saved, the test stays linked to that saved revision; otherwise it is stored as an administrator snapshot only. It does not change pricing, customer image flow, or CRM.</p><Button type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={() => void startGeminiImageTest()} disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive} title={geminiImageTestBlockingReason ?? undefined}>{startGeminiImageTestMutation.isPending ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}{startGeminiImageTestMutation.isPending ? "Starting Google image test…" : geminiCooldownActive ? `Try Google again in ${geminiCooldownLabel}` : geminiImageTestJobId ? "Start fresh Google image test" : "Run Google image test"}</Button>{geminiImageTestBlockingReason && <p data-testid="gemini-image-test-blocking-reason" role="status" className="mt-2 text-sky-900">{geminiImageTestBlockingReason}</p>}{geminiImageTestError && <p role="alert" className="mt-2 text-rose-800">{geminiImageTestError}</p>}</section>}
           {isPhotoQualityTest && photoRenderDraft && !geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === "completed" && geminiImageTestJobQuery.data.imageUrl && <section data-testid="completed-gemini-image-test" className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-950"><p className="font-semibold">Google image test is ready</p><p className="mt-1">The completed illustrative image is saved and can be reopened after a refresh, including for an administrator snapshot.</p><Button data-testid="open-completed-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openCompletedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open completed Google image</Button></section>}
           {isPhotoQualityTest && !geminiManifestValidationReason && savedGeminiImageTestQuery.data && <section data-testid="saved-gemini-image-test" className="mt-3 rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs leading-relaxed text-sky-950"><p className="font-semibold">Saved Google image test</p><p className="mt-1">Reopen the illustrative result saved for this exact plan revision after leaving the Designer page.</p><Button data-testid="open-saved-gemini-image-test" type="button" size="sm" className="mt-2 bg-[#1a2744] text-white hover:bg-[#24375f]" onClick={openSavedGeminiImageTest}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Open saved Google test</Button></section>}
 		          <div className="space-y-2 rounded-lg border border-[#d9c196] bg-[#fffaf1] p-3 text-sm text-[#4b3a20]">

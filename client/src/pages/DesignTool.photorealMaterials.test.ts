@@ -108,7 +108,8 @@ describe("Designer programmed photoreal material wiring", () => {
   it("requires a complete saved-plan material manifest and forwards exact references", () => {
     expect(rendererSource).toContain("materialManifest");
     expect(rendererSource).toContain("missingMaterialInputs");
-    expect(rendererSource).toContain("hardware/handles");
+    expect(rendererSource).toContain("geminiHardwareReference(hardwareStyleId");
+    expect(rendererSource).toContain('reference.referenceSource === "locked-designer-jpeg"');
     expect(rendererSource).toContain("Every visible saved-plan material has an exact labeled reference.");
     expect(rendererSource).toContain("Generation blocked until these exact saved references are supplied");
   });
@@ -117,7 +118,8 @@ describe("Designer programmed photoreal material wiring", () => {
     expect(rendererSource).toContain("conciseManifestProvenance");
     expect(rendererSource).toContain(".slice(0, 160)");
     expect(rendererSource).toContain("geminiManifestValidationReason");
-    expect(rendererSource).toContain("Boolean(geminiManifestValidationReason)");
+    expect(rendererSource).toContain("setGeminiImageTestError(geminiManifestValidationReason)");
+    expect(rendererSource).toContain("disabled={startGeminiImageTestMutation.isPending || geminiCooldownActive}");
     expect(rendererSource).toContain("!geminiManifestValidationReason && geminiImageTestJobQuery.data?.status === \"completed\"");
     expect(rendererSource).toContain("!geminiManifestValidationReason && savedGeminiImageTestQuery.data");
     expect(rendererSource).toContain("maximum 160");
