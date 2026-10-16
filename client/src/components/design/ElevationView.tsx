@@ -671,6 +671,8 @@ export function ElevationView({
               isWall={isWall}
               faceWidthIn={sizeAlong}
               frameStileIn={cabFrameMetrics?.stileInches}
+              frameRailIn={cabFrameMetrics?.railInches}
+              cabinetHeightIn={height}
             />
           )}
           {/* Appliance-specific detail overlays */}
@@ -2059,7 +2061,7 @@ export function ElevationView({
 // Pieces are tiny CSS shapes positioned by percentage so they scale with zoom.
 //   knob → small filled circle   pull → short horizontal bar   cup → half-moon
 export function HardwareOverlay({
-  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, raisedDoorPullOnRail = false,
+  doors, drawers, doorPiece, drawerPiece, accent, hardwarePosition, swing, isWall = false, faceWidthIn, frameStileIn, frameRailIn, cabinetHeightIn, raisedDoorPullOnRail = false,
 }: {
   doors: number;
   drawers: number;
@@ -2071,6 +2073,8 @@ export function HardwareOverlay({
   isWall?: boolean;
   faceWidthIn: number;
   frameStileIn?: number | null;
+  frameRailIn?: number | null;
+  cabinetHeightIn?: number | null;
   raisedDoorPullOnRail?: boolean;
 }) {
   // Brushed-metal sheen: diagonal light streak over accent color with crisp
@@ -2180,8 +2184,14 @@ export function HardwareOverlay({
     // the handle side (opposite of the hinge).
     // Bar pulls: position near the bottom 20% of the door (like real kitchens).
     // Knobs: position near the top 15% of the door (near the handle side corner).
+    const doorHeightPct = 100 - drawerBand;
+    const resolvedCabinetHeight = Number(cabinetHeightIn);
+    const resolvedRail = Number(frameRailIn ?? frameStileIn);
+    const topRailCenterPct = Number.isFinite(resolvedCabinetHeight) && resolvedCabinetHeight > 0
+      ? (resolvedRail > 0 ? resolvedRail : 3) / 2 / (resolvedCabinetHeight * (doorHeightPct / 100)) * doorHeightPct
+      : doorHeightPct * 0.06;
     const doorTop = raisedDoorPullOnRail || normalizedDoorPosition === "top-center"
-      ? drawerBand + (100 - drawerBand) * 0.13
+      ? drawerBand + topRailCenterPct
       : drawerBand + (100 - drawerBand) * (doorPiece === "knob" ? 0.15 : isWall ? 0.76 : 0.24);
     const visibleDoorPieces = normalizedDoorPosition === "paired" || (normalizedDoorPosition === "auto" && doors > 1)
       ? Math.min(doors, 2)

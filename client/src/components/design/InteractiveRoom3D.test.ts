@@ -4126,6 +4126,28 @@ describe("interactive 3D room scene helpers", () => {
     expect(paired.every((pull) => pull.userData.hardwarePosition === "paired" && pull.userData.pullEdge === "opposite-hinge")).toBe(true);
   });
 
+  it("places a B18 trashcan top-center pull on the door's physical upper rail, not its center panel", () => {
+    const cabinet = {
+      uid: "b18-trashcan-top-rail", cabinetId: 1, masterCode: "B18",
+      description: "18 inch Base Cabinet used as trashcan rollout", placement: "base",
+      x: 0, y: 0, width: 18, depth: 24, height: 34.5, rotation: 0,
+      numberOfDoors: 1, numberOfDrawers: 1, hardwarePosition: "top-center",
+    } as never;
+    const root = new THREE.Group();
+    addCabinetWithBarPulls(root, existingCabinetSku(cabinet), null, {}, 144, 120, "#d1ba8f", "#ffffff", { doorStyle: "Shaker", doorPanelType: null }, existingCabinetTransform(cabinet));
+    const doors: THREE.Mesh[] = [];
+    const pulls: THREE.Object3D[] = [];
+    root.traverse((node) => {
+      if (node instanceof THREE.Mesh && node.userData.cabinetFront && !node.userData.cabinetDrawerFront) doors.push(node);
+      if (node.userData.cabinetHardware && node.userData.cabinetPull === "door") pulls.push(node);
+    });
+    expect(doors).toHaveLength(1);
+    expect(pulls).toHaveLength(1);
+    expect(pulls[0]!.userData).toMatchObject({ hardwarePosition: "top-center", pullEdge: "top-center", verticalPull: false });
+    const doorHeight = (doors[0]!.geometry as THREE.BoxGeometry).parameters.height;
+    expect(pulls[0]!.position.y).toBeCloseTo(doors[0]!.position.y + doorHeight / 2 - 3 / 24, 6);
+  });
+
   it("places standard and paired 3D door pulls exactly 1.5 inches from their physical door edges", () => {
     const renderDoorHardware = (width: number, doors: number, hardwarePosition: "right" | "center" | "paired", placement: "base" | "wall" = "base") => {
       const cabinet = {

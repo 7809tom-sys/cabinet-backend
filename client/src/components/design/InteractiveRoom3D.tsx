@@ -4573,6 +4573,10 @@ export function addCabinet(
     const effectiveHardwarePosition = raisedFloorWallDoorPull && hardwarePosition === "top-center" ? "auto" : hardwarePosition;
     const requestedTopCenteredDoorPull = !drawer && effectiveHardwarePosition === "top-center";
     const horizontalTopRailPull = requestedTopCenteredDoorPull && !raisedFloorWallDoorPull && piece === "pull";
+    // Top-center is a construction position, not the center of the panel. For
+    // framed doors it belongs on the physical upper rail. The old 34% offset
+    // placed a B18 trashcan pull in the recessed center panel.
+    const topRailWidth = threeDShakerRailThickness(faceWidth, faceHeight, doorProfile?.railWidth);
     const pullLength = Math.min(Math.max(0.12, ((drawer || horizontalTopRailPull) ? faceWidth : faceHeight) * ((drawer || horizontalTopRailPull) ? 0.48 : 0.28)), (drawer || horizontalTopRailPull) ? 0.62 : 0.86);
     const isKnob = piece === "knob";
     const isCupPull = piece === "cup";
@@ -4601,7 +4605,13 @@ export function addCabinet(
         explicitSide < 0 ? "left" : explicitSide > 0 ? "right" : "center",
         profileFrameWidthIn,
       ) * INCH;
-    const pullY = drawer ? y : raisedFloorWallDoorPull || requestedTopCenteredDoorPull ? y + faceHeight * 0.34 : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
+    const pullY = drawer
+      ? y
+      : raisedFloorWallDoorPull
+        ? y + faceHeight * 0.34
+        : requestedTopCenteredDoorPull
+          ? y + faceHeight / 2 - topRailWidth / 2
+          : y + (doorZone === "upper" ? -1 : 1) * faceHeight * 0.3;
     pull.position.set(pullX, pullY, isKnob ? z + 0.012 : z);
     pull.userData = {
       cabinetHardware: true,
