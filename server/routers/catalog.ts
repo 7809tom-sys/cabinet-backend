@@ -113,15 +113,28 @@ function dayKeyUTC(d: Date = new Date()): string {
 // ─── Distributors ─────────────────────────────────────────────────────────────
 
 export const distributorsRouter = router({
-  list: publicProcedure.query(async () => {
+  list: publicProcedure.query(async ({ ctx }) => {
     const db = await getDb();
     if (!db) return [];
     const rows = await db
       .select()
       .from(distributors)
       .where(eq(distributors.isActive, true));
+    const publicLineRows = await db
+      .selectDistinct({ distributorId: distributorSkus.distributorId })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .where(and(
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+        eq(cabinets.isActive, true),
+        eq(cabinets.showInDesigner, true),
+        notInConflict(),
+        sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
+      ));
+    const publicLineIds = new Set(publicLineRows.map((row) => row.distributorId));
     // Resolve the customer-facing label per line; never leak hidden supplier names.
-    return rows.map((d) => {
+    return rows.filter((d) => ctx.user?.role === "admin" || publicLineIds.has(d.id)).map((d) => {
       const p = resolvePresentation(d);
       return {
         id: d.id,
@@ -146,15 +159,22 @@ export const distributorsRouter = router({
 // Design Tool picker. Empty styles remain visible in the admin back office.
 // Returns the SET of styleIds that qualify; callers intersect their result with it.
 async function availableStyleIds(
-  db: NonNullable<Awaited<ReturnType<typeof getDb>>>
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  includeAdminAefPreview = false,
 ): Promise<Set<number>> {
   const rows = await db
     .selectDistinct({ styleId: distributorSkus.styleId })
     .from(distributorSkus)
     .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+    .innerJoin(distributors, eq(distributors.id, distributorSkus.distributorId))
     .where(
       and(
-        eq(distributorSkus.isPublished, true),
+        includeAdminAefPreview
+          ? or(
+              eq(distributorSkus.isPublished, true),
+              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
+            )
+          : eq(distributorSkus.isPublished, true),
         eq(distributorSkus.isAvailable, true),
         eq(cabinets.isActive, true),
         eq(cabinets.showInDesigner, true),
@@ -167,7 +187,7 @@ async function availableStyleIds(
 export const doorStylesRouter = router({
   list: publicProcedure
     .input(z.object({ distributorId: z.number().optional() }).optional())
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
       // Explicit projection: include distributorId (needed for client-side warehouse
@@ -216,7 +236,7 @@ export const doorStylesRouter = router({
         sourceSpecification: doorStyles.sourceSpecification,
         cornerSwatchImageUrl: doorStyles.cornerSwatchImageUrl,
       };
-      const available = await availableStyleIds(db);
+      const available = await availableStyleIds(db, ctx.user?.role === "admin");
       const rows = input?.distributorId
         ? await db
             .select(projection)
@@ -230,7 +250,7 @@ export const doorStylesRouter = router({
         : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
-      return filterStylesByAvailability(rows, available);
+      return filterStylesByAvailability(rows, available).filter((style) => style.styleCode !== "SCL");
     }),
 
   // Manufacturer specification references are intentionally separate from the

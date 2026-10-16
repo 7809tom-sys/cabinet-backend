@@ -314,18 +314,23 @@ export const designRouter = router({
         styleId: z.number().optional(),
       }).optional()
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) return [];
 
+      const adminAefPreview = ctx.user?.role === "admin";
       // Availability gate: a cabinet is only offered in the designer if it has
-      // at least one positive, published, available distributor SKU. If a
-      // specific line/style is selected, the SKU must match that exact
-      // combination. The row can be attached to a retired source alias; its
-      // configuration is resolved to the active canonical master below.
+      // at least one positive, published, available distributor SKU. Admins may
+      // additionally preview unpublished AEF rows; this never changes their
+      // publication flag and never broadens any public catalog procedure.
       const skuConditions = [
         eq(distributorSkus.isAvailable, true),
-        eq(distributorSkus.isPublished, true),
+        adminAefPreview
+          ? or(
+              eq(distributorSkus.isPublished, true),
+              and(eq(distributorSkus.isPublished, false), eq(distributors.code, "AEF")),
+            )
+          : eq(distributorSkus.isPublished, true),
         sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
       ];
       if (input?.distributorId) {
