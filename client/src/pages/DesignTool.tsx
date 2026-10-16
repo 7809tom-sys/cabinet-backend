@@ -7421,8 +7421,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    && cutWidth >= SMALL_GAP_FILLER_MIN_IN - 0.001
 	    && cutWidth <= opportunity.remaining + 0.001;
 	  const cutOpportunity = opportunity && cutIsValid ? { ...opportunity, remaining: cutWidth } : null;
+	  // Split mode purchases one catalog-valid stock board per physical half.
+	  // Thus a six-inch opening can use two three-inch fillers even when the
+	  // active catalog has no single six-inch filler SKU.
+	  const catalogLookupWidth = mode === "split" && cutOpportunity
+	    ? cutOpportunity.remaining / 2
+	    : cutOpportunity?.remaining ?? 0;
 	  const fillerDef = cutOpportunity
-	    ? catalogFillerForGap(catalogFillers, cutOpportunity.remaining, cutOpportunity.layer)
+	    ? catalogFillerForGap(catalogFillers, catalogLookupWidth, cutOpportunity.layer)
 	    : null;
 	    if (!cutOpportunity || !fillerDef) {
 	      toast.info(requestedCabinet

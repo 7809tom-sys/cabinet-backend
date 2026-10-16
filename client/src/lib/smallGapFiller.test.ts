@@ -315,7 +315,7 @@ const cabinet: PlacedCabinet = {
     expect(opportunity).toMatchObject({ cabinetUid: cabinet.uid, openingStart: 0, openingLength: 20.5, remaining: 2.5 });
   });
 
-  it("prompts for a six-inch cabinet-to-cabinet seam and retains left/right/split placement choices", () => {
+	  it("prompts for a six-inch cabinet-to-cabinet seam and retains left/right/split placement choices", () => {
     const left: PlacedCabinet = { ...cabinet, uid: "left-b18", masterCode: "B18", width: 18, x: 0 };
     const right: PlacedCabinet = { ...cabinet, uid: "right-b18", masterCode: "B18", width: 18, x: 24 };
     const opportunity = findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 96 }, [left, right], [], right.uid);
@@ -325,8 +325,23 @@ const cabinet: PlacedCabinet = {
       openingLength: 24,
       preferredMode: "left",
     });
-    expect(canSplitSmallGapFiller(opportunity!)).toBe(true);
-  });
+	    expect(canSplitSmallGapFiller(opportunity!)).toBe(true);
+	  });
+
+	  it("splits a six-inch opening into two exact three-inch pieces", () => {
+	    const opportunity = {
+	      cabinetUid: "six-inch-gap-cabinet",
+	      wall: "top" as const,
+	      layer: "wall" as const,
+	      cabinetStart: 6,
+	      cabinetSpan: 24,
+	      openingStart: 0,
+	      openingLength: 30,
+	      remaining: 6,
+	    };
+	    expect(canSplitSmallGapFiller(opportunity)).toBe(true);
+	    expect(smallGapFillerLayout(opportunity, "split").pieces.map((piece) => piece.width)).toEqual([3, 3]);
+	  });
 
 	  it("prompts for DB18 in a 21-inch opening but suppresses the prompt after an exact-fit DB21 replacement", () => {
 	    const room = { ...DEFAULT_ROOM, width: 21 };

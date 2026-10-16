@@ -35,6 +35,14 @@ describe("FillerAttributesDialog", () => {
     expect(onApply).toHaveBeenCalledWith("split", 2);
   });
 
+  it("offers an auto-split action for a six-inch opening", () => {
+    const onApply = vi.fn();
+    render(<FillerAttributesDialog filler={{ ...filler, width: 6, nominalWidth: 3, fillerTotalWidth: 6 }} open onOpenChange={vi.fn()} measuredOpening={6} onApply={onApply} onResizeStandalone={vi.fn()} onRemove={vi.fn()} />);
+    expect(screen.getByTestId("filler-auto-split-guidance").textContent).toMatch(/two 3(?:-inch|"|″) fillers/i);
+    fireEvent.click(screen.getByRole("button", { name: "Auto-split into two fillers" }));
+    expect(onApply).toHaveBeenCalledWith("split", 6);
+  });
+
   it("removes the complete normal filler group through the host callback", () => {
     const onRemove = vi.fn();
     render(<FillerAttributesDialog filler={filler} open onOpenChange={vi.fn()} measuredOpening={1} onApply={vi.fn()} onResizeStandalone={vi.fn()} onRemove={onRemove} />);

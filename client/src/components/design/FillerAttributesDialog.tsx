@@ -96,6 +96,14 @@ export function FillerAttributesDialog({
             </div>
           )}
 
+          {!requiredBlindCorner && linkedOpening && parsedSize > 3 && parsedSize <= 6 && Number.isInteger(parsedSize * 4) && (
+            <div className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950" data-testid="filler-auto-split-guidance">
+              <p className="font-semibold">Auto-split this opening</p>
+              <p className="mt-1 text-xs leading-5">Divide the {formatEighthInches(parsedSize)} opening into two equal catalog-valid fillers ({formatEighthInches(parsedSize / 2)} each). A full 6-inch opening becomes two 3-inch fillers.</p>
+              <Button type="button" className="mt-2" disabled={!validSize} onClick={() => apply("split")}>Auto-split into two fillers</Button>
+            </div>
+          )}
+
           {!requiredBlindCorner && !linkedOpening && (
             <Button type="button" disabled={!validSize} onClick={() => apply("right")}>Apply size</Button>
           )}
