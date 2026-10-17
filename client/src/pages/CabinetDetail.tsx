@@ -48,6 +48,7 @@ import { nonEmptyStyleCategories } from "@/lib/catalogCategories";
 import { DoorDrawerDiagram } from "@/components/design/DoorDrawerDiagram";
 import { affiliateCabinetHref, affiliateCatalogRootHref, affiliateDesignerHref } from "@/lib/affiliateStorefrontRoute";
 import { affiliateSlugForStoreScope, resolveStoreScope } from "@/lib/affiliateContext";
+import { aefPrintedGeometryForSku } from "@shared/aefFramelessGeometry";
 import {
   CABINET_ATTENTION_RETURN_URL,
   DESIGNER_COVERAGE_RETURN_URL,
@@ -127,6 +128,21 @@ function fmt(val: string | null | undefined): string {
   return isNaN(n) ? "—" : `$${n.toFixed(2)}`;
 }
 
+/** Display stored decimal inches in the source book's familiar eighth-inch form. */
+function formatCatalogInches(value: string | null | undefined): string | null {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const whole = Math.floor(n);
+  const eighths = Math.round((n - whole) * 8);
+  const fraction = new Map<number, string>([
+    [1, "1/8"], [2, "1/4"], [3, "3/8"], [4, "1/2"],
+    [5, "5/8"], [6, "3/4"], [7, "7/8"],
+  ]).get(eighths);
+  if (eighths === 0) return `${whole}\"`;
+  if (eighths === 8) return `${whole + 1}\"`;
+  return fraction ? `${whole} ${fraction}\"` : `${n}\"`;
+}
+
 // ─── Door-style pricing row (distributor identity never exposed) ───────────────
 
 interface StyleRow {
@@ -150,6 +166,8 @@ interface StyleRow {
   // supplier acquisition cost must never be returned alongside this value.
   affiliateCost?: string | null;
   platformSku: string;
+  /** Source-backed line description; preserves supplier-specific construction. */
+  supplierDescription?: string | null;
   leadTimeDays: number | null;
   distributorId: number | null;
   /** Whether this selected distributor includes the insert for PG/GD/G cabinetry. */
@@ -436,6 +454,16 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
+  // A line may share the master code with another supplier but have a different
+  // construction (for example, Frameless B24S). Use the selected line's source
+  // description without ever changing the shared master description.
+  const displayedDescription = selectedRow?.supplierDescription?.trim() || masterCabinet?.description || canonicalMasterCode;
+  const aefDetailGeometry = useMemo(
+    () => selectedRow?.supplierDescription?.includes("Frameless Collection") && masterCabinet
+      ? aefPrintedGeometryForSku(masterCabinet.masterCode)
+      : null,
+    [masterCabinet?.masterCode, selectedRow?.supplierDescription],
+  );
   // A distributor's own configuration rule (saved per distributor from the
   // Edit Cabinet picker) is layered over the shared master for display only
   // while that distributor's door style is selected. Never touches pricing.
@@ -444,22 +472,31 @@ export default function CabinetDetail({ masterCode }: Props) {
     { enabled: Boolean(masterCabinet?.id && selectedRow?.distributorId) },
   );
   const cabinet = useMemo(() => {
-    if (!masterCabinet || !distributorRule?.config) return masterCabinet;
+    if (!masterCabinet) return masterCabinet;
     const next: Record<string, unknown> = { ...masterCabinet };
     let changed = false;
-    for (const [key, value] of Object.entries(distributorRule.config)) {
+    for (const [key, value] of Object.entries(distributorRule?.config ?? {})) {
       if (value === undefined || !(key in next)) continue;
       if (next[key] !== value) { next[key] = value; changed = true; }
     }
+    // AEF shares master codes with framed lines. For this line only, show the
+    // exact source-book dimensions instead of the shared master defaults.
+    if (aefDetailGeometry) {
+      for (const [key, value] of Object.entries({
+        width: String(aefDetailGeometry.width),
+        height: String(aefDetailGeometry.height),
+        depth: String(aefDetailGeometry.depth),
+      })) {
+        if (next[key] !== value) { next[key] = value; changed = true; }
+      }
+    }
     return changed ? (next as typeof masterCabinet) : masterCabinet;
-  }, [masterCabinet, distributorRule]);
+  }, [masterCabinet, distributorRule, aefDetailGeometry]);
   const hasDistributorRule = Boolean(distributorRule?.config) && cabinet !== masterCabinet;
 
   const resolvedMasterCode = cabinet?.masterCode ?? canonicalMasterCode;
 
-  const seoName = cabinet?.description
-    ? translateSpec(cabinet.description, lang)
-    : resolvedMasterCode;
+  const seoName = translateSpec(displayedDescription, lang);
   // Product structured data (no Offer — cabinet pricing is tier/member-gated
   // and must not be published in markup). Memoized so the JSON-LD <script>
   // isn't re-injected on every render.
@@ -468,7 +505,7 @@ export default function CabinetDetail({ masterCode }: Props) {
       cabinet
         ? buildProductJsonLd({
             name: seoName,
-            description: translateSpec(cabinet.description ?? "", lang),
+            description: translateSpec(displayedDescription, lang),
             sku: resolvedMasterCode,
             image: cabinet.catalogImageUrl ?? undefined,
             url:
@@ -478,7 +515,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             category: cabinet.category ?? undefined,
           })
         : undefined,
-    [cabinet, seoName, resolvedMasterCode, lang],
+    [cabinet, displayedDescription, seoName, resolvedMasterCode, lang],
   );
   useSeo({
     title: t("seo_cabinet_t", { name: seoName }),
@@ -930,7 +967,7 @@ export default function CabinetDetail({ masterCode }: Props) {
     const unitPrice = priceNumberForTier(row, saleTier);
     const res = addItem({
       masterCode: resolvedMasterCode,
-      name: cabinet?.description ?? row.name,
+      name: row.supplierDescription?.trim() || cabinet?.description || row.name,
       styleId: row.styleId,
       styleLabel: styleDisplayName({ ourName: row.name, styleCode: row.styleCode }),
       distributorId: row.distributorId ?? null,
@@ -1305,9 +1342,9 @@ export default function CabinetDetail({ masterCode }: Props) {
                 const { doors, drawers } = resolveDoorDrawerCounts(cabinet);
                 const rows: { label: string; value: string | null }[] = [
                   { label: "Type", value: cabinetTypeLabel(cabinet) },
-                  { label: "Width", value: cabinet.width ? `${cabinet.width}"` : null },
-                  { label: "Height", value: cabinet.height ? `${cabinet.height}"` : null },
-                  { label: "Depth", value: cabinet.depth ? `${cabinet.depth}"` : null },
+                  { label: "Width", value: formatCatalogInches(cabinet.width) },
+                  { label: "Height", value: formatCatalogInches(cabinet.height) },
+                  { label: "Depth", value: formatCatalogInches(cabinet.depth) },
                 ];
                 if (!isTrim) {
                   if (doors) rows.push({ label: "Doors", value: String(doors) });
@@ -1393,7 +1430,7 @@ export default function CabinetDetail({ masterCode }: Props) {
           <div className="flex items-start justify-between gap-2 mt-2 mb-1">
             <div className="min-w-0">
               <h1 className="font-serif text-2xl md:text-3xl font-bold text-foreground">
-                {translateSpec(cabinet.description, lang)}
+                {translateSpec(displayedDescription, lang)}
               </h1>
               {isOwner && hasDistributorRule && selectedRow && (
                 <Badge variant="outline" className="mt-1 text-[10px]" data-testid="cabinet-detail-distributor-rule">

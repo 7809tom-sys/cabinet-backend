@@ -95,6 +95,33 @@ describe("catalog.stylesForCabinet", () => {
     expect(styles.some((style) => style.styleId === row.styleId)).toBe(true);
   });
 
+  it("returns the published Frameless source description instead of shared-master staging text", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const [row] = await db
+      .select({ cabinetId: cabinets.id, styleId: doorStyles.id })
+      .from(cabinets)
+      .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+      .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .where(and(
+        eq(cabinets.masterCode, "2DBID36"),
+        eq(distributors.code, "AEF"),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ))
+      .limit(1);
+    if (!row) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const styles = await caller.pricing.stylesForCabinet({ cabinetId: row.cabinetId, styleId: row.styleId });
+    const selected = styles.find((style) => style.styleId === row.styleId);
+
+    expect(selected?.supplierDescription).toContain("Two Drawer Base with One Inner Drawer");
+    expect(selected?.supplierDescription).not.toMatch(/staged|pending Designer proof/i);
+  });
+
   it("keeps the temporary one-dollar checkout SKU purchasable with an active style", async () => {
     const db = await getDb();
     if (!db) return;

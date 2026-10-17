@@ -4094,6 +4094,9 @@ export const pricingRouter = router({
           yourCost: distributorSkus.yourCost,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
+          // A supplier line can reuse a shared master code while its printed
+          // manufacturer description differs (for example, Frameless B24S).
+          supplierDescription: distributorSkus.supplierDescription,
           leadTimeDays: distributors.leadTimeDays,
           distributorId: distributorSkus.distributorId,
           retailPriceBasis: distributors.retailPriceBasis,
@@ -4224,6 +4227,7 @@ export const pricingRouter = router({
             affiliateCost: isAffiliateOwnerViewingOwnStore ? affiliateAdjustedCost : null,
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
+            supplierDescription: r.supplierDescription ?? null,
             leadTimeDays: r.leadTimeDays,
             distributorId: r.distributorId,
             glassIncluded: r.glassIncluded,
