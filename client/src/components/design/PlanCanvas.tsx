@@ -24,6 +24,7 @@ import { CheckCircle2, Compass, Eye, EyeOff, Maximize2, Minus, PanelTop, Plus, R
 import { useLanguage } from "@/contexts/LanguageContext";
 import { cabinetDrawingType, isSquareDoubleDoorBaseEnd } from "@/lib/cabinetGraphics";
 import { catalogFillerSuggestion, type CatalogFillerCandidate } from "@/lib/catalogFiller";
+import { findIslandSmallGapFillerOpportunity, findPreferredSmallGapFillerOpportunity } from "@/lib/smallGapFiller";
 import { angledWallTransitionFootprint } from "@/lib/angledWallFiller";
 import { islandCountertopVisibleRects, islandFaceCapacity, islandRaisedBarRects } from "@/lib/islandScene";
 import { miteredWallOutlinesFromInteriorFaces, ROOM_WALL_THICKNESS_IN } from "@/lib/polygonRoom";
@@ -422,6 +423,8 @@ interface Props {
   fillerGapPreview?: readonly PlacedCabinet[];
   onFillGap?: (gap: WallGap, cabinet: DesignCabinet) => void;
   onPlaceFiller?: (gap: WallGap) => void;
+  /** Opens the measured filler workflow for a placed cabinet with a real side gap. */
+  onRequestFiller?: (uid: string) => void;
   /** Place a cabinet + auto-sized filler in a gap as a combo. */
   onFillGapWithCabAndFiller?: (gap: WallGap, cabinet: DesignCabinet) => void;
   /** Visualize a Smart Gap option in 3D without adding it to the saved plan. */
@@ -480,11 +483,12 @@ export function PlanCanvas({
   catalogFillerCandidates = [],
   smartGapCandidates = [],
   smartGapCandidatePrices,
-	  fillerGapPreview = [],
+  fillerGapPreview = [],
   onFillGap,
   onPlaceFiller,
   onFillGapWithCabAndFiller,
   onPreviewGap,
+  onRequestFiller,
   annotations = [], selectedAnnotationUid = null, onSelectAnnotation, onMoveAnnotation, onDeleteAnnotation,
   ponyWalls = [], selectedPonyWallUid = null, onSelectPonyWall, onPonyWallChange, onDeletePonyWall,
 }: Props) {
@@ -2443,6 +2447,11 @@ export function PlanCanvas({
             const edgeColor = isAppliance ? "#8a8f96" : cabFinish.edge;
             const lbl = readableLabel(faceFill);
             const collides = cabinetPlacementCollisionDetail(p, cabinets, room) != null;
+            const fillerOpportunity = onRequestFiller && !isFillerItem(p)
+              ? p.islandFace && island
+                ? findIslandSmallGapFillerOpportunity(island, cabinets, p.uid)
+                : findPreferredSmallGapFillerOpportunity(room, cabinets, openings, p.uid)
+              : null;
             const inConflict = conflictUids?.has(p.uid) ?? false;
             const priceMissing = missingPriceUids?.has(p.uid) ?? false;
             const installedFillerWidth = isFillerItem(p)
@@ -2638,6 +2647,19 @@ export function PlanCanvas({
                   >
                     FILLER {formatInches(installedFillerWidth)}{measuredFillerGapWidth != null && Math.abs(measuredFillerGapWidth - installedFillerWidth) > 0.001 ? ` · GAP ${formatInches(measuredFillerGapWidth)}` : ""}{fillerExceedsMaximum ? ` · MAX ${formatInches(fillerMaximum!)} · OVER MAX` : ""}
                   </span>
+                )}
+                {fillerOpportunity && onRequestFiller && (
+                  <button
+                    type="button"
+                    data-testid={`plan-add-filler-${p.uid}`}
+                    aria-label={`Add filler for ${p.masterCode}; measured gap ${formatEighthInches(fillerOpportunity.remaining)}`}
+                    title={`Add filler to the ${formatEighthInches(fillerOpportunity.remaining)} measured side gap`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => { event.stopPropagation(); onSelect(p.uid); onRequestFiller(p.uid); }}
+                    className="pointer-events-auto absolute left-full top-1/2 z-50 ml-1 inline-flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded border border-[#8a651f]/40 bg-amber-50 px-1.5 py-1 text-[9px] font-bold leading-none text-[#765416] shadow-md hover:bg-amber-100 active:scale-95"
+                  >
+                    <Plus className="h-3 w-3" /> Add filler · {formatEighthInches(fillerOpportunity.remaining)}
+                  </button>
                 )}
                 {showWallSnapSuccess && (
 		                  <span

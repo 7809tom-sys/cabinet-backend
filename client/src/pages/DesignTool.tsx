@@ -15731,6 +15731,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onSelectOpening={selectOpening}
               onOpenWindowAttributes={openWindowAttributes}
               onOpenDoorAttributes={openDoorAttributes}
+              onRequestFiller={requestFillerAction}
               onOpeningChange={changeOpening}
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
@@ -16017,6 +16018,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  onSelectOpening={selectOpening}
                   onOpenWindowAttributes={openWindowAttributes}
               onOpenDoorAttributes={openDoorAttributes}
+                  onRequestFiller={requestFillerAction}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}

@@ -8,7 +8,7 @@ describe("Design Tool small-gap filler workflow", () => {
 	    expect(source).toContain("queueSmallGapFillerOpportunity(committedRun, finalCab.uid)");
 	    expect(source).toContain('finalCab.placement !== "appliance" || isRangeOrOven(finalCab.masterCode)');
 	    expect(source).toContain("!isBlindCorner(finalCab.masterCode, finalCab.description)");
-    expect(source).toContain("findSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
+    expect(source).toContain("findPreferredSmallGapFillerOpportunity(room, nextPlaced, openings, cabinetUid)");
     const queueStart = source.indexOf("const queueSmallGapFillerOpportunity");
     const queueEnd = source.indexOf("}, [openings, room]);", queueStart) + "}, [openings, room]);".length;
     const queueSource = source.slice(queueStart, queueEnd);
@@ -78,7 +78,7 @@ describe("Design Tool small-gap filler workflow", () => {
 	    const applyEnd = source.indexOf("const previewSmartGap", applyStart);
 	    const applySource = source.slice(applyStart, applyEnd);
 	    expect(applySource).toContain("const committedPlaced = placedRef.current");
-	    expect(applySource).toContain("findSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
+    expect(applySource).toContain("findPreferredSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
 	    expect(applySource).toContain("Choose an installable filler cut from");
 	    expect(applySource).toContain("wallOffset: cabinetSpot.wallOffset");
 	    expect(applySource).toContain("placedRef.current = result.placed");
@@ -86,19 +86,28 @@ describe("Design Tool small-gap filler workflow", () => {
 
   it("opens the same catalog-backed filler dialog from a manual selected-cabinet action", () => {
     expect(source).toContain("const requestSmallGapFiller = useCallback");
-    expect(source).toContain("findSmallGapFillerOpportunity(room, placed, openings, cabinetUid)");
+    expect(source).toContain("findPreferredSmallGapFillerOpportunity(room, placed, openings, cabinetUid)");
     expect(source).toContain("catalogFillerForGap(catalogFillers, opportunity.remaining, opportunity.layer)");
     expect(source).toContain("setSmallGapFillerPrompt(opportunity)");
     expect(source).toContain("installedSmallGapFillerEditOpportunity(room, placed, openings, cabinetUid, island)");
     expect(source).toContain("findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)");
 	    expect(source).toContain("islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)");
     expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
-    expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(2);
+    expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(4);
     expect(source).toContain("if (!openFillerAttributes(uid)) requestSmallGapFiller(uid)");
     expect(source).toContain("if (openFillerAttributes(uid)) return");
     expect(source).toContain("<FillerAttributesDialog");
     expect(source).toContain("onApply={applyFillerAttributes}");
     expect(source).toContain("onRemove={removeFillerFromAttributes}");
+  });
+
+  it("keeps Add filler visible beside every placed cabinet with a measured side gap", () => {
+    const planSource = readFileSync(new URL("../components/design/PlanCanvas.tsx", import.meta.url), "utf8");
+    expect(planSource).toContain("onRequestFiller?: (uid: string) => void");
+    expect(planSource).toContain("findPreferredSmallGapFillerOpportunity(room, cabinets, openings, p.uid)");
+    expect(planSource).toContain("findIslandSmallGapFillerOpportunity(island, cabinets, p.uid)");
+    expect(planSource).toContain('data-testid={`plan-add-filler-${p.uid}`}');
+    expect(planSource).toContain("Add filler · {formatEighthInches(fillerOpportunity.remaining)}");
   });
 
 	  it("preserves exact placement and one purchased filler identity", () => {
