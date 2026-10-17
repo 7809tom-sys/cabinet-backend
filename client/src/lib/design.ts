@@ -4024,15 +4024,22 @@ export function refrigeratorEndPanelConflictDetail(
     const physicallyIntersects = cabinetPlanBodiesIntersect(panel, item);
     if (!physicallyIntersects) continue;
     const sameMeasuredWall = Boolean(room && cabinetWall(panel, room) === cabinetWall(item, room));
-    const overlapIn = sameMeasuredWall
+    const overlapIn = room
       ? (() => {
-          const side = cabinetWall(panel, room!);
-          const panelStart = wallRunOffset(panel, side, room!);
-          const itemStart = wallRunOffset(item, side, room!);
-          return Math.max(0, Math.min(
-            panelStart + wallRunSpan(panel, side, room!),
-            itemStart + wallRunSpan(item, side, room!),
-          ) - Math.max(panelStart, itemStart));
+          const side = cabinetWall(panel, room);
+          // At a corner, measure the collision along the panel's wall run.
+          // Using the smaller screen-axis overlap can under-shift a panel when
+          // the perpendicular cabinet enters the panel footprint by only a few
+          // inches even though a longer open segment is available on the panel wall.
+          const runInterval = (candidate: PlacedCabinet) => {
+            const size = placedFootprint(candidate);
+            const start = side === "top" || side === "bottom" ? candidate.x : candidate.y;
+            const span = side === "top" || side === "bottom" ? size.w : size.d;
+            return { start, end: start + span };
+          };
+          const panelRun = runInterval(panel);
+          const itemRun = runInterval(item);
+          return Math.max(0, Math.min(panelRun.end, itemRun.end) - Math.max(panelRun.start, itemRun.start));
         })()
       : Math.min(overlapX, overlapY);
     return { panel, cabinet: item, overlapIn };

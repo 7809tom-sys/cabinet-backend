@@ -7914,7 +7914,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       fridgeWidth?: number;
       fridgeHeight?: number;
       fridgeDepth?: number;
-    }) => {
+    }) : boolean => {
       const fridge = fridgeForDialog;
       const surround = fridgeSurround as
         | { deepAbove: DesignCabinet[]; bridgeAbove: DesignCabinet[]; endPanels: DesignCabinet[]; smoothPanels: DesignCabinet[] }
@@ -7926,7 +7926,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         setPlacementWarning(message);
         toast.error(message);
         if (!fridge) setFridgeDialog(null);
-        return;
+        return false;
       }
       let configuredFridge = fridge;
       if (opts.fridgeWidth || opts.fridgeHeight || opts.fridgeDepth) {
@@ -7949,7 +7949,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           const message = collisionReason(resizedFridge, peers) ?? `The refrigerator cannot be resized because it would cover an existing cabinet.`;
           setPlacementWarning(message);
           toast.error(message);
-          return;
+          return false;
         }
         configuredFridge = resizedFridge;
       }
@@ -8005,7 +8005,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             const message = "The exact over-refrigerator cabinet you selected is no longer available in this line. Choose an enabled catalog size before adding it to the plan.";
             setPlacementWarning(message);
             toast.error(message);
-            return;
+            return false;
           }
         } else {
           chosen = pickByWidth(src, fw);
@@ -8014,7 +8014,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           const message = "No source-priced over-refrigerator cabinet is available for this door style, so the selected refrigerator options were not added.";
           setPlacementWarning(message);
           toast.error(message);
-          return;
+          return false;
         }
         if (chosen) {
           // The cap itself remains a real catalog box. The finished opening is
@@ -8026,7 +8026,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
             const message = `${chosen.masterCode} is wider than the ${formatEighthInches(bay.openingWidth)} refrigerator opening. Choose a source cabinet that fits the opening.`;
             setPlacementWarning(message);
             toast.error(message);
-            return;
+            return false;
           }
           const isDeep = opts.above === "deep";
           // The selected cap and panels share a front datum when both are chosen.
@@ -8093,7 +8093,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               const message = `No source-priced wall filler can close the ${formatEighthInches(eachFillerWidth)} refrigerator-cap gap on each side.`;
               setPlacementWarning(message);
               toast.error(message);
-              return;
+              return false;
             }
 	            const addCapFiller = (role: "bridge-left-filler" | "bridge-right-filler", along: number) => {
 	              // This is an optional, source-priced cap filler. It is placed as
@@ -8138,7 +8138,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const message = "No source-priced refrigerator end panel is available for this door style, so the selected refrigerator options were not added.";
         setPlacementWarning(message);
         toast.error(message);
-        return;
+        return false;
       }
       let panelBuildError: string | null = null;
       const placePanel = (leftEdge: boolean) => {
@@ -8215,7 +8215,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       if (panelBuildError) {
         setPlacementWarning(panelBuildError);
         toast.error(panelBuildError);
-        return;
+        return false;
       }
 
       // 3) Optional smooth refrigerator PANEL (flat skin sheet) — added as a BOM
@@ -8286,7 +8286,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         const message = `${rejected} cannot be added.${details} The refrigerator and every existing cabinet remain exactly where they are.`;
         setPlacementWarning(message);
         toast.error(message);
-        return;
+        return false;
       }
       const omittedCapFillerCodes = Array.from(new Set(
         previewResult.rejected
@@ -8312,6 +8312,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         }
       }
       setFridgeDialog(null);
+      return true;
     },
 	    [catalogFillers, fridgeForDialog, fridgeSurround, refrigeratorCabinetToReplace, room, t]
 	  );

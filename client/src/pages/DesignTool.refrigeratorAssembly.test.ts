@@ -65,7 +65,7 @@ describe("Design Tool independent refrigerator options", () => {
     expect(rejected).toBeGreaterThan(-1);
     expect(commit).toBeGreaterThan(rejected);
     expect(transaction.slice(rejected, commit)).toContain("The refrigerator and every existing cabinet remain exactly where they are.");
-    expect(transaction.slice(rejected, commit)).toContain("return;");
+    expect(transaction.slice(rejected, commit)).toContain("return false;");
     expect(transaction).toContain("const optionalCapFillerUids = new Set(");
     expect(transaction).toContain("The selected refrigerator end panel needs clear space at this corner or wall end.");
     expect(transaction).toContain("Refrigerator and selected parts moved");

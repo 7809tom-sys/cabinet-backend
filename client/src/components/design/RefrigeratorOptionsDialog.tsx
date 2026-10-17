@@ -82,8 +82,8 @@ export interface RefrigeratorOptionsDialogProps {
   errorMessage?: string | null;
   /** Existing refrigerator choices, used when reopening the same popup to edit a placed bay. */
   initialChoice?: Partial<FridgeSurroundChoice> | null;
-  /** Apply the chosen surround. */
-  onApply: (choice: FridgeSurroundChoice) => void;
+  /** Apply the chosen surround. Returns false when placement was rejected. */
+  onApply: (choice: FridgeSurroundChoice) => boolean | void;
   /** Keep just the refrigerator (no surround). */
   onSkip: () => void;
 }
@@ -408,7 +408,7 @@ export function RefrigeratorOptionsDialog({
       onSkip();
       return;
     }
-    onApply({
+    const applied = onApply({
       above,
       bridgeCabinetId: chosenBridge ? chosenBridge.id : null,
       bridgeHeight: above === "bridge" ? bridgeHeightChoice : null,
@@ -423,6 +423,11 @@ export function RefrigeratorOptionsDialog({
       fridgeHeight: fridgeH,
       fridgeDepth: fridgeD,
     });
+    // The dialog is controlled by the Designer, but closing here prevents the
+    // modal from remaining on screen after a successful transaction. A false
+    // result deliberately keeps it open so the user can correct a placement
+    // or catalog-fit error shown by the parent.
+    if (applied !== false) onOpenChange(false);
   };
 
   return (
