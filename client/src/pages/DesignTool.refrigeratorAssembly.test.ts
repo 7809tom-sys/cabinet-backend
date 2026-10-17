@@ -55,11 +55,11 @@ describe("Design Tool independent refrigerator options", () => {
     expect(transaction).not.toContain("? opts.bridgeWidth : fp.w");
   });
 
-  it("cuts refrigerator side fillers to the selected refrigerator height", () => {
+  it("keeps panels on their surround geometry and attaches cap fillers to the bridge", () => {
     const transaction = refrigeratorTransaction();
-    expect(transaction).toContain("const pHeight = actualFridgeHeight");
-    expect(transaction).toContain("mountBottom: 0");
-    expect(transaction).not.toContain("refrigeratorSurroundTop\n          : (opts.panelHeight");
+    expect(transaction).toContain("const pHeight = opts.above !== \"none\"");
+    expect(transaction).toContain("const bridgeUid = makeUid()");
+    expect(transaction).toContain("fillerForCabinetUid: bridgeUid");
   });
 
   it("fits only the refrigerator and the options selected in this accept action", () => {

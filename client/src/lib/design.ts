@@ -351,7 +351,13 @@ export function normalizeInstalledFillersToAdjacentCabinets(
   let changed = false;
   const next = placements.map((item) => {
     if (!isFillerItem(item) || item.integratedWallBlindFiller === true) return item;
-    const owner = adjacentCabinetForFiller(item, placements, room);
+    const bridgeOwner = (item.refrigeratorAssemblyRole === "bridge-left-filler" || item.refrigeratorAssemblyRole === "bridge-right-filler")
+      && item.refrigeratorAssemblyId
+      ? placements.find((candidate) => candidate.uid === item.refrigeratorAssemblyId
+        && candidate.refrigeratorAssemblyRole === "bridge"
+        && !isFillerItem(candidate)) ?? null
+      : null;
+    const owner = bridgeOwner ?? adjacentCabinetForFiller(item, placements, room);
     if (!owner) return item;
     // Front-miter pairs retain their deliberately shallow physical board and
     // measured plan footprint. Their vertical band still belongs exactly to
@@ -7557,7 +7563,7 @@ export function refrigeratorSurroundElevation(_room: RoomData | null | undefined
  * by the refrigerator collision rule.
  */
 export function normalizeRefrigeratorBayUppers(placed: PlacedCabinet[], _room?: RoomData | null): PlacedCabinet[] {
-  // Compatibility shim for saved designs.  A refrigerator, cabinet-above,
+  // Compatibility shim for saved designs. A refrigerator, cabinet-above,
   // filler, and end panels are independent catalog parts; do not infer, move,
   // resize, create, remove, or group them during normal plan processing.
   return placed;

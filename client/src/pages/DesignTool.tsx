@@ -8072,8 +8072,9 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           const surroundElevation = refrigeratorSurroundElevation(room, actualFridgeHeight, aHeight);
           const mountBottom = surroundElevation.mountBottom;
           refrigeratorSurroundTop = surroundElevation.top;
+          const bridgeUid = makeUid();
           toPlace.push({
-            uid: makeUid(),
+            uid: bridgeUid,
             cabinetId: chosen.id,
             masterCode: chosen.masterCode,
             description: chosen.description,
@@ -8137,6 +8138,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 styleId: styleIdRef.current ?? null,
                 refrigeratorAssemblyId: fridge.uid,
                 refrigeratorAssemblyRole: role,
+                // A cap filler belongs to the over-fridge cabinet, not the
+                // refrigerator end panel. Its installed envelope therefore
+                // follows the cap in every view.
+                fillerForCabinetUid: bridgeUid,
                 mountBottom,
               });
             };
@@ -8182,11 +8187,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         // For REPV/TDEP/S-series panels: width column = face thickness (1.5" or 0.75").
         // Fall back to inferredDepth (0.75") if width is missing or implausibly large.
         const pThick = refrigeratorEndPanelThickness(panelRow!.width, inferredDepth);
-        // The source sheet may be 96" tall, but the installed side filler must
-        // line up with the selected refrigerator's actual floor-to-top envelope.
-        // Keep the source SKU for pricing/takeoff while cutting the rendered
-        // board to the appliance height instead of letting it rise above it.
-        const pHeight = actualFridgeHeight;
+        // End panels finish at the same cap as the dedicated refrigerator
+        // cabinet, preserving the full-height enclosure and its clearance.
+        const pHeight = opts.above !== "none"
+          ? refrigeratorSurroundTop
+          : (opts.panelHeight && opts.panelHeight > 0
+            ? opts.panelHeight
+            : (parseFloat(String(panelRow.height ?? "")) || inferredHeight));
         // Along-wall position: just outside the finished refrigerator opening.
         // Keep the exact coordinate even when it begins beyond a wall endpoint.
         // The shared configuration-time fitter below can shift only this
@@ -8214,7 +8221,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           numberOfDoors: 0,
           numberOfDrawers: 0,
           customProfile: "refrigerator-end-panel",
-          // The installed side filler follows the refrigerator's floor datum.
+          // Refrigerator end panels remain full-height architectural panels.
           mountBottom: 0,
           catalogImageUrl: panelRow!.catalogImageUrl ?? null,
           styleId: styleIdRef.current ?? null,
