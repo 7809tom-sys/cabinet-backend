@@ -12292,8 +12292,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       onOpenCabinetEditor={openAttributes}
       onSelectOpening={selectOpening}
       onOpenWindowEditor={openWindowAttributes}
-      onOpenDoorEditor={openDoorAttributes}
-	      onRequestFiller={requestFillerAction}
+	      onOpenDoorEditor={openDoorAttributes}
 	      onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
       onRotateCabinet={rotateCabinet}
       onRemoveCabinet={deleteCabinet}
@@ -19552,8 +19551,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                onOpenCabinetEditor={openAttributes}
 	                onSelectOpening={selectOpening}
 	                onOpenWindowEditor={openWindowAttributes}
-      onOpenDoorEditor={openDoorAttributes}
-		                onRequestFiller={requestFillerAction}
+	                onOpenDoorEditor={openDoorAttributes}
 		                onSnapGlassCabinetToFront={cabinetsLocked ? undefined : snapGlassCabinetToFront}
 	                onSaveToAccount={() => setSaveSignal((signal) => signal + 1)}
 	                onSyncCart={syncThreeDOrderWithCart}

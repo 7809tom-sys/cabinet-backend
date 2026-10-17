@@ -93,7 +93,7 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)");
 	    expect(source).toContain("islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)");
     expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
-    expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(2);
+    expect(source).not.toContain("onRequestFiller={requestFillerAction}");
     expect(source).toContain("if (!openFillerAttributes(uid)) requestSmallGapFiller(uid)");
     expect(source).toContain("if (openFillerAttributes(uid)) return");
     expect(source).toContain("<FillerAttributesDialog");
