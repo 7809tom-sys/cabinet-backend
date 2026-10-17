@@ -3954,7 +3954,7 @@ export function removeOverlappingPlacements(placements: PlacedCabinet[], room?: 
   const normalizedPlacements = fillerNormalized.map(normalizePlacedWallCabinetSkuDimensions);
   const resolution: CollisionResolution = { placed: [], rejected: [] };
   for (const candidate of normalizedPlacements) {
-    if (isRefrigeratorEndPanel(candidate) && refrigeratorEndPanelConflictDetail(candidate, resolution.placed)) {
+    if (isRefrigeratorEndPanel(candidate) && refrigeratorEndPanelConflictDetail(candidate, resolution.placed, undefined, room)) {
       resolution.rejected.push(candidate);
       continue;
     }
@@ -4160,7 +4160,13 @@ export function fitExplicitRefrigeratorOptionPlacements(
     const shiftedAdditions = additions.map((item) => shifted(item, shiftIn));
     if (!withinRunAndRoom(shiftedRefrigerator) || shiftedAdditions.some((item) => !withinRunAndRoom(item))) return null;
     if (cabinetPlacementCollisionDetail(shiftedRefrigerator, peers, room)) return null;
-    if (shiftedAdditions.some((item) => cabinetPlacementCollisionDetail(item, peers, room))) return null;
+    // Refrigerator end panels are architectural skins. Their only collision
+    // guard is the narrow panel-vs-existing-cabinet check below; sending them
+    // through the generic cabinet-body collision path re-rejects valid corner
+    // placements after the panel fitter has already found clear run space.
+    if (shiftedAdditions
+      .filter((item) => !isRefrigeratorEndPanel(item))
+      .some((item) => cabinetPlacementCollisionDetail(item, peers, room))) return null;
     if (shiftedAdditions
       .filter(isRefrigeratorEndPanel)
       .some((panel) => refrigeratorEndPanelConflictDetail(panel, peers, refrigeratorUid, room))) return null;
@@ -4232,10 +4238,12 @@ export function appendRefrigeratorEnclosurePlacements(
     }
   }
   const allowedAdditions = additions.filter((addition) => !blockedPanelUids.has(addition.uid) && !offRun.has(addition.uid));
-  const appended = appendCollisionFreePlacements(existing, allowedAdditions, room ?? undefined);
+  const panels = allowedAdditions.filter(isRefrigeratorEndPanel);
+  const ordinaryAdditions = allowedAdditions.filter((addition) => !isRefrigeratorEndPanel(addition));
+  const appended = appendCollisionFreePlacements(existing, ordinaryAdditions, room ?? undefined);
   const blockedPanels = additions.filter((addition) => blockedPanelUids.has(addition.uid) || offRun.has(addition.uid));
   return {
-    placed: appended.placed,
+    placed: [...appended.placed, ...panels],
     rejected: [...blockedPanels, ...appended.rejected],
     panelConflicts,
   };
