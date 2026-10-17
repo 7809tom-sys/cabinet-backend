@@ -61,6 +61,11 @@ describe("distributor multiplier → cost → sell pipeline", () => {
     expect(sellPriceForTier({ yourCost: cost }, SETTINGS, "homeowner")).toBe(305.76);
   });
 
+  it("keeps a source-list supplier at its printed price instead of applying USCD markup", () => {
+    expect(sellPriceForTier({ retailPriceBasis: "source_list", listPrice: 837 }, SETTINGS, "homeowner")).toBe(837);
+    expect(sellPriceForTier({ retailPriceBasis: "source_list", listPrice: 837 }, SETTINGS, "contractor")).toBe(837);
+  });
+
   it("lowering only the freight/tariff portion lowers the effective multiplier and cost", () => {
     const list = 753.0;
     const before = effectiveMultiplier(0.23, 0.07); // 0.2461

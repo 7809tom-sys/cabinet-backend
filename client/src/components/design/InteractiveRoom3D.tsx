@@ -5708,8 +5708,25 @@ export function addCabinet(
 	    } else if (profileKind === "raised" || doorProfile?.panelConstruction === "raised") {
 	      addShakerFrame(doorWidth, doorHeight, door.position.x, door.position.y);
 	    }
-  }
-  const drawerRows = wd18Layout
+	  }
+	  // Preserve the measured 1/8-inch door gap, but add enough contrast for the
+	  // two-door wall face to remain legible at the normal 3D camera distance.
+	  if (placement === "wall" && doorCount > 1) {
+	    for (let i = 1; i < standardDoorColumns.columnCount; i++) {
+	      const seam = new THREE.Mesh(
+	        new THREE.BoxGeometry(standardDoorColumns.centerGap, doorHeight, 0.012),
+	        shadowRevealMaterial,
+	      );
+	      seam.position.set(
+	        standardDoorColumns.centerX(i) - standardDoorColumns.columnWidth / 2 - standardDoorColumns.centerGap / 2,
+	        wd18Layout ? bodyHeight / 2 - 0.04 - doorHeight / 2 : standardDoorCenterY,
+	        0.058,
+	      );
+	      seam.userData = { cabinetDoorSeam: true, wallCabinetDoorSeam: true, doorIndex: i - 1 };
+	      frontGroup.add(seam);
+	    }
+	  }
+	  const drawerRows = wd18Layout
     ? wd18Layout.drawerHeights.map((heightIn) => ({ count: 1, height: heightIn * INCH }))
     : resolvedThreeDDrawerRows(
       sku,

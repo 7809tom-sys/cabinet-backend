@@ -12764,6 +12764,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           >
 	            <Palette className="h-4 w-4" />
 	          </button>
+	          <button
+	            type="button"
+	            title={`Handles: ${HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.label ?? "None"}`}
+	            aria-label="Cabinet handles"
+	            data-testid="mobile-designer-handles"
+	            onClick={() => setHardwareSheetOpen(true)}
+	            className={`inline-flex items-center justify-center h-8 w-8 rounded-md border transition-colors ${
+	              hardwareStyleId !== "none" ? "border-[#d4a75a] bg-[#d4a75a]/20 text-[#1a2744]" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+	            }`}
+	          >
+	            <Wrench className="h-4 w-4" />
+	          </button>
 		  <button
 		    title={viewMode === "elevation" ? "Plan view" : "Front view"}
 	            aria-label={viewMode === "elevation" ? "Plan view" : "Front view"}

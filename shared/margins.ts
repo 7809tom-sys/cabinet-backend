@@ -113,6 +113,13 @@ export function sellPriceForTier(
   s: TierMarkupBps,
   tier: PricingTier,
 ): number | null {
+  // Some suppliers publish a verified customer-facing list and explicitly do
+  // not use Cabinet Dealz tier markup (for example the staged AltaEuro line).
+  // Keep that printed value exact. Cost-plus-tier suppliers such as USCD still
+  // follow the normal landed-cost × tier multiplier path below.
+  if (row.retailPriceBasis === "source_list") {
+    return toNum(row.listPrice);
+  }
   const base = resolveCostBase(row);
   if (base === null) return null;
   const bps = clampBps(markupBpsForTier(s, tier));
