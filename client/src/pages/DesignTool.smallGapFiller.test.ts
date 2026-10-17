@@ -93,7 +93,7 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("findIslandSmallGapFillerOpportunity(islandMember, placed, cabinetUid)");
 	    expect(source).toContain("islandFacePlacement(cabinet, island, cutOpportunity.islandFace, layout.cabinetStart)");
     expect(source).toContain("fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.");
-    expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(4);
+    expect(source.match(/onRequestFiller=\{requestFillerAction\}/g)).toHaveLength(2);
     expect(source).toContain("if (!openFillerAttributes(uid)) requestSmallGapFiller(uid)");
     expect(source).toContain("if (openFillerAttributes(uid)) return");
     expect(source).toContain("<FillerAttributesDialog");
@@ -101,14 +101,6 @@ describe("Design Tool small-gap filler workflow", () => {
     expect(source).toContain("onRemove={removeFillerFromAttributes}");
   });
 
-  it("keeps Add filler visible beside every placed cabinet with a measured side gap", () => {
-    const planSource = readFileSync(new URL("../components/design/PlanCanvas.tsx", import.meta.url), "utf8");
-    expect(planSource).toContain("onRequestFiller?: (uid: string) => void");
-    expect(planSource).toContain("findPreferredSmallGapFillerOpportunity(room, cabinets, openings, p.uid)");
-    expect(planSource).toContain("findIslandSmallGapFillerOpportunity(island, cabinets, p.uid)");
-    expect(planSource).toContain('data-testid={`plan-add-filler-${p.uid}`}');
-    expect(planSource).toContain("Add filler · {formatEighthInches(fillerOpportunity.remaining)}");
-  });
 
 	  it("preserves exact placement and one purchased filler identity", () => {
 		  expect(source).toContain("smallGapFillerLayout(cutOpportunity, mode)");

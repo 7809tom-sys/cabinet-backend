@@ -2676,6 +2676,18 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // cabinet measurement badge.
     const cabinet = nextPlaced.find((item) => item.uid === cabinetUid);
     toast.info(`${cabinet?.masterCode ?? "Cabinet"} leaves a ${formatEighthInches(opportunity.remaining)} measured gap. Choose a catalog filler or leave the space open.`);
+    // The add-cabinet transaction also commits selection, placement warnings,
+    // sink/appliance dialogs, and the placed array. Re-check on the next paint
+    // so a later state update cannot clear the one-time filler choice before it
+    // becomes visible to the user. Never resurrect it for a deleted cabinet or
+    // for a gap that changed while the transaction was settling.
+    window.setTimeout(() => {
+      const committed = placedRef.current;
+      const stillPlaced = committed.some((item) => item.uid === cabinetUid);
+      if (!stillPlaced) return;
+      const latest = findPreferredSmallGapFillerOpportunity(room, committed, openings, cabinetUid);
+      if (latest) setSmallGapFillerPrompt(latest);
+    }, 0);
   }, [openings, room]);
 
   const requestSmallGapFiller = useCallback((cabinetUid: string) => {
@@ -15747,7 +15759,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               onSelectOpening={selectOpening}
               onOpenWindowAttributes={openWindowAttributes}
               onOpenDoorAttributes={openDoorAttributes}
-              onRequestFiller={requestFillerAction}
               onOpeningChange={changeOpening}
               onDeleteOpening={deleteOpening}
               finish={activeFinish}
@@ -16034,7 +16045,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                  onSelectOpening={selectOpening}
                   onOpenWindowAttributes={openWindowAttributes}
               onOpenDoorAttributes={openDoorAttributes}
-                  onRequestFiller={requestFillerAction}
                   onOpeningChange={changeOpening}
                   onDeleteOpening={deleteOpening}
                   finish={activeFinish}
