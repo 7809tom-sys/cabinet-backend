@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import { getDb } from "./db";
-import { cabinets, distributorSkus, doorStyles } from "../drizzle/schema";
+import { cabinets, distributorSkus, doorStyles, distributors } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { TEMPORARY_ONE_DOLLAR_TEST_SKU } from "../shared/temporaryCheckoutTest";
 
@@ -66,6 +66,33 @@ describe("catalog.stylesForCabinet", () => {
 
     expect(airDawn?.name).toBe("Air Dawn (Preston)");
     expect(airDawn?.name).not.toBe("Slim White Oak");
+  });
+
+  it("keeps a Frameless catalog link inside the selected USCD supplier line", async () => {
+    const db = await getDb();
+    if (!db) return;
+
+    const [row] = await db
+      .select({ cabinetId: cabinets.id, styleId: doorStyles.id, distributorId: distributors.id })
+      .from(cabinets)
+      .innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id))
+      .innerJoin(doorStyles, eq(distributorSkus.styleId, doorStyles.id))
+      .innerJoin(distributors, eq(distributorSkus.distributorId, distributors.id))
+      .where(and(
+        eq(cabinets.masterCode, "3DB21"),
+        eq(distributors.code, "AEF"),
+        eq(distributorSkus.isAvailable, true),
+        eq(distributorSkus.isPublished, true),
+      ))
+      .limit(1);
+    if (!row) return;
+
+    const caller = appRouter.createCaller(publicCtx());
+    const styles = await caller.pricing.stylesForCabinet({ cabinetId: row.cabinetId, styleId: row.styleId });
+
+    expect(styles.length).toBeGreaterThan(0);
+    expect(styles.every((style) => style.distributorId === row.distributorId)).toBe(true);
+    expect(styles.some((style) => style.styleId === row.styleId)).toBe(true);
   });
 
   it("keeps the temporary one-dollar checkout SKU purchasable with an active style", async () => {

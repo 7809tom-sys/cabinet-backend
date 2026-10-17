@@ -3966,7 +3966,14 @@ export const pricingRouter = router({
   // and surface ONLY style metadata + prices. No distributor name/SKU ever
   // leaves the server, so the UI can present purely by door style.
   stylesForCabinet: publicProcedure
-    .input(z.object({ cabinetId: z.number(), affiliateSlug: z.string().min(1).max(160).optional() }))
+    .input(z.object({
+      cabinetId: z.number(),
+      affiliateSlug: z.string().min(1).max(160).optional(),
+      // A catalog detail page linked from a style family must keep that supplier
+      // line's full finish range together. Without this scope a shared master
+      // such as 3DB21 mixed Frameless styles with Preston/Madison styles.
+      styleId: z.number().int().positive().optional(),
+    }))
     .query(async ({ input, ctx }) => {
       const db = await getDb();
       if (!db) return [];
@@ -4025,6 +4032,19 @@ export const pricingRouter = router({
         .where(eq(cabinets.id, input.cabinetId))
         .limit(1);
       const masterCode = masterCabinetRow[0]?.masterCode ?? null;
+
+      // Door-style IDs belong to exactly one distributor line. When the detail
+      // page carries ?style=…, use that line as the presentation scope; product
+      // details then show the selected line's own door samples and prices only.
+      // A direct, unscoped cabinet link retains the existing cross-line choice.
+      const requestedStyle = input.styleId == null
+        ? null
+        : (await db
+          .select({ distributorId: doorStyles.distributorId })
+          .from(doorStyles)
+          .where(and(eq(doorStyles.id, input.styleId), eq(doorStyles.isActive, true)))
+          .limit(1))[0] ?? null;
+      const selectedDistributorId = requestedStyle?.distributorId ?? null;
 
       // Collect all cabinet IDs to include (direct + aliased)
       let allCabinetIds: number[] = [input.cabinetId];
@@ -4107,6 +4127,7 @@ export const pricingRouter = router({
             sql`(COALESCE(${distributorSkus.listPrice}, 0) > 0 OR COALESCE(${distributorSkus.yourCost}, 0) > 0)`,
             eq(doorStyles.isActive, true),
             eq(distributors.isActive, true),
+            ...(selectedDistributorId == null ? [] : [eq(distributorSkus.distributorId, selectedDistributorId)]),
             // Alias source records are deliberately retired from product
             // listings, but their exact supplier price/style overlays remain
             // valid for the active canonical detail page.

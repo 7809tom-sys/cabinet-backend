@@ -419,7 +419,7 @@ export default function CabinetDetail({ masterCode }: Props) {
   const masterCabinet = cabinetById ?? cabinetByCode;
   const cabinetLoading = cabinetIdParam != null ? cabinetByIdLoading : cabinetByCodeLoading;
   const { data: styles, isLoading: pricingLoading } = trpc.pricing.stylesForCabinet.useQuery(
-    { cabinetId: masterCabinet?.id ?? 0, affiliateSlug },
+    { cabinetId: masterCabinet?.id ?? 0, affiliateSlug, styleId: styleParam ?? undefined },
     { enabled: !!masterCabinet?.id }
   );
 
@@ -1134,7 +1134,7 @@ export default function CabinetDetail({ masterCode }: Props) {
             </div>
             <p className="text-[11px] text-muted-foreground mt-1.5 text-center">
               {(selectedRow?.distributorImageUrl || cabinet.catalogImageUrl)
-                ? "Catalog illustration — code-specific technical drawing"
+                ? "Catalog illustration — line-specific product render"
                 : `Drawn to scale${selectedRow ? ` in ${selectedRow.name}` : ""} — front elevation`}
             </p>
             {/* Admin: scoped image replace button */}
