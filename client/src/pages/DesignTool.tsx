@@ -2661,6 +2661,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setSmallGapFillerPrompt(opportunity);
     if (!opportunity) return;
     setMobilePanel(null);
+    // Keep a short seam discoverable while another Designer surface or the
+    // catalog query is settling. This is particularly important for B15/B18
+    // trashcan runs, where a half-inch remainder is easy to miss beside the
+    // cabinet measurement badge.
+    const cabinet = nextPlaced.find((item) => item.uid === cabinetUid);
+    toast.info(`${cabinet?.masterCode ?? "Cabinet"} leaves a ${formatEighthInches(opportunity.remaining)} measured gap. Choose a catalog filler or leave the space open.`);
   }, [openings, room]);
 
   const requestSmallGapFiller = useCallback((cabinetUid: string) => {
