@@ -2,6 +2,7 @@ import type { CartItem } from "@/contexts/CartContext";
 import { customSizeFee, effectiveStyleId, isFillerItem, isGlassPolicyNomenclature, type PlacedCabinet } from "@/lib/design";
 import { isClosetPart } from "@/lib/closet";
 import { calculateCartSubtotal } from "@/lib/cartTotals";
+import { combinedFillerNote, fillerCutSourceFor, isCombinedSmallFiller } from "@/lib/fillerBilling";
 
 type BuildDesignCabinetCartLinesArgs = {
   placed: PlacedCabinet[];
@@ -92,7 +93,8 @@ export function buildDesignCabinetCartLines({
       (cabinet.placement === "appliance" && !firstClassCooktop) ||
       isClosetPart(cabinet.masterCode) ||
       cabinet.cabinetId == null ||
-      cabinet.fillerBillingRole === "secondary"
+      cabinet.fillerBillingRole === "secondary" ||
+      isCombinedSmallFiller(cabinet, placed)
     ) continue;
     const unitPrice = adjustedDesignUnitPrice(cabinet, firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet));
     if (unitPrice == null) continue;
@@ -110,9 +112,15 @@ export function buildDesignCabinetCartLines({
     // Different discounts or custom-size fees must remain separate locked
     // lines; combining them would assign one cabinet's adjusted price to both.
     const key = `${masterCode}::${resolvedStyleId}::${unitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
+    const cutNotes = placed
+      .filter((candidate) => fillerCutSourceFor(candidate, placed)?.uid === cabinet.uid)
+      .map((candidate) => combinedFillerNote(candidate, placed))
+      .filter((note): note is string => Boolean(note));
+    const cutNote = cutNotes.join("; ");
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
+      if (cutNote) existing.qtyNote = [existing.qtyNote, cutNote].filter(Boolean).join("; ");
     } else {
       lines.set(key, {
         masterCode,
@@ -124,6 +132,7 @@ export function buildDesignCabinetCartLines({
         unitPrice,
         priceLocked: true,
         qty: 1,
+        ...(cutNote ? { qtyNote: cutNote } : {}),
         catalogImageUrl: cabinet.catalogImageUrl ?? null,
         ...fillerCartDimensions(cabinet),
       });
@@ -231,7 +240,8 @@ export function buildDesignPreviewPricingLines({
       (cabinet.placement === "appliance" && !firstClassCooktop) ||
       isClosetPart(cabinet.masterCode) ||
       (cabinet.cabinetId == null && !firstClassCooktop) ||
-      cabinet.fillerBillingRole === "secondary"
+      cabinet.fillerBillingRole === "secondary" ||
+      isCombinedSmallFiller(cabinet, placed)
     ) continue;
     const basePrice = firstClassCooktop ? (cabinet.applianceCatalogPrice ?? null) : unitPriceFor(cabinet);
     // A missing catalog price must never erase a cabinet from the 3D order
@@ -244,10 +254,16 @@ export function buildDesignPreviewPricingLines({
       : cabinet.masterCode;
     // Different discounts or custom fees must remain distinct priced lines.
     const key = `${masterCode}::${resolvedStyleId}::${adjustedUnitPrice == null ? "pending" : adjustedUnitPrice.toFixed(4)}::${fillerCartIdentity(cabinet)}`;
+    const cutNotes = placed
+      .filter((candidate) => fillerCutSourceFor(candidate, placed)?.uid === cabinet.uid)
+      .map((candidate) => combinedFillerNote(candidate, placed))
+      .filter((note): note is string => Boolean(note));
+    const cutNote = cutNotes.join("; ");
     const existing = lines.get(key);
     if (existing) {
       existing.qty += 1;
       existing.placementUids = [...(existing.placementUids ?? []), cabinet.uid];
+      if (cutNote) existing.qtyNote = [existing.qtyNote, cutNote].filter(Boolean).join("; ");
     } else {
       lines.set(key, {
         masterCode,
@@ -258,6 +274,7 @@ export function buildDesignPreviewPricingLines({
         tier,
         unitPrice: adjustedUnitPrice,
         qty: 1,
+        ...(cutNote ? { qtyNote: cutNote } : {}),
         catalogImageUrl: cabinet.catalogImageUrl ?? null,
         ...fillerCartDimensions(cabinet),
         placementUids: [cabinet.uid],

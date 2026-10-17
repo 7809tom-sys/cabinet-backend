@@ -82,6 +82,7 @@ import { affiliateStyleName as resolveAffiliateStyleName } from "@/lib/affiliate
 import { frameInsetPxFromInches } from "@/lib/elevationFrameGeometry";
 import { designerDoorFrameMetrics } from "@/lib/doorFrameMetrics";
 import { adjustedDesignUnitPrice, buildDesignCabinetCartLines, buildDesignPreviewPricingLines, bundleCabinetPricingSignature, calculateCartSubtotal, completeDesignPricingLines, lockDesignCartLinesToPackageTotal, mergeDesignCartLines } from "@/lib/designCartLines";
+import { combinedFillerNote, fillerCutSourceFor, isCombinedSmallFiller } from "@/lib/fillerBilling";
 import { activeCatalogPricingIdsByMasterCode, currentCatalogPricingCabinetId } from "@/lib/designPricingIdentity";
 import { catalogFillerForGap, catalogFillerPricingId, fittedCatalogFillerDescription, isCatalogFiller, type CatalogFillerCandidate } from "@/lib/catalogFiller";
 import { selectedPeninsulaCabinetSequencePlan, selectedPeninsulaCabinetTotalIn, wizardEligibleBaseCabinets, type PeninsulaWizardCabinet } from "@/lib/peninsulaWizardPlan";
@@ -3839,7 +3840,10 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const buildRows = useMemo<BuildSheetRow[]>(() => {
     const map = new Map<string, BuildSheetRow>();
     for (const p of placed) {
-      if (p.fillerBillingRole === "secondary") continue;
+      // A sub-inch gap remains present in the drawing, but is a field cut from
+      // another filler already on the order. Never create a separate material
+      // line for that visual piece.
+      if (p.fillerBillingRole === "secondary" || isCombinedSmallFiller(p, placed)) continue;
       const sw = resolveSwing(p);
       const sizeNote = customSizeNote(p);
       // Per-cabinet door/hardware attribute notes (from the right-click dialog).
@@ -3858,9 +3862,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      const fillerInstallNote = fillerOwner
 	        ? `Installed to match ${fillerOwner.masterCode}: ${formatInches(placedHeight(p))} high at ${formatInches(elevationBox(p, room).bottom)} above floor`
 	        : "";
-		      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
+	      const miterCutNote = p.fillerTransitionKind === "front-miter-pair"
 	        ? `Mitered ${p.fillerMiterAngle ?? 22.5}° (forms 45° turn)`
 	        : "";
+	      const combinedCutNotes = placed
+	        .filter((candidate) => fillerCutSourceFor(candidate, placed)?.uid === p.uid)
+	        .map((candidate) => combinedFillerNote(candidate, placed))
+	        .filter((note): note is string => Boolean(note));
+	      const combinedCutNote = combinedCutNotes.join("; ");
       const key = `${p.masterCode}|${Math.round(p.width)}|${Math.round(placedHeight(p))}|${Math.round(p.depth)}|${sw}|${p.noDoor ? "nd" : ""}|${p.handleSide ?? ""}|${miterCutNote}|${fillerInstallNote}|${cabStyleId ?? "_"}|${discKey}|${gdFlag}`;
       const closet = isClosetPart(p.masterCode);
       const isCooktopItem = p.placement === "appliance" && p.applianceRole === "countertop-opening";
@@ -3883,7 +3892,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          // Part 2: when the active line sells this cabinet under an equivalent
 	          // code (ERB36 placed on a BER line), the list shows the line's code.
           code: rowCode,
-          description: [rowDescription, sizeNote, fillerInstallNote, miterCutNote, attrNote]
+          description: [rowDescription, sizeNote, fillerInstallNote, miterCutNote, combinedCutNote, attrNote]
             .filter(Boolean)
             .join(" \u2014 "),
           color: cabColor,

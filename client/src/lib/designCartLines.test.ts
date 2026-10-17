@@ -19,6 +19,45 @@ const bec = {
 } as PlacedCabinet;
 
 describe("designer cabinet cart lines", () => {
+	  it("combines a one-inch-or-smaller visual filler cut into an existing filler line", () => {
+	    const primary = {
+	      ...bec,
+	      uid: "primary-filler",
+	      cabinetId: 342,
+	      masterCode: "F342",
+	      description: '3" Stock Wall Filler',
+	      category: "Filler",
+	      subCategory: "Filler",
+	      placement: "wall",
+	      width: 3,
+	      nominalWidth: 3,
+	      fillerTotalWidth: 3,
+	      fillerBillingRole: "primary" as const,
+	    } as PlacedCabinet;
+	    const cut = { ...primary, uid: "sub-inch-cut", width: 0.5, fillerTotalWidth: 0.5 } as PlacedCabinet;
+	    const lines = buildDesignCabinetCartLines({
+	      placed: [primary, cut],
+	      styleId: 330002,
+	      distributorId: 210001,
+	      tier: "homeowner",
+	      styleNameById: new Map([[330002, "Aura Cream"]]),
+	      unitPriceFor: () => 35,
+    });
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ masterCode: "F342", qty: 1 });
+    expect(lines[0]?.qtyNote).toContain('Includes 0.5" field-cut from F342 already on order');
+    const preview = buildDesignPreviewPricingLines({
+      placed: [primary, cut],
+      styleId: 330002,
+      distributorId: 210001,
+      tier: "homeowner",
+      styleNameById: new Map([[330002, "Aura Cream"]]),
+      unitPriceFor: () => 35,
+    });
+    expect(preview).toHaveLength(1);
+    expect(preview[0]?.qtyNote).toContain('Includes 0.5" field-cut from F342 already on order');
+  });
+
 	  it("emits a first-class cooktop with its catalog code, name, and price", () => {
 	    const cooktop = { ...bec, uid: "cooktop-gas", cabinetId: 0, masterCode: "CATALOG-APPLIANCE-77", description: "Gas Cooktop", placement: "appliance", applianceRole: "countertop-opening" as const, applianceProductId: 77, applianceCatalogCode: "CTGAS30", applianceCatalogName: "30 in. Gas Cooktop", applianceCatalogPrice: 899 } as PlacedCabinet;
 	    expect(buildDesignCabinetCartLines({ placed: [cooktop], styleId: 330002, distributorId: 210001, tier: "homeowner", styleNameById: new Map([[330002, "Aura Cream"]]), unitPriceFor: () => null })).toEqual([
@@ -183,7 +222,7 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(lines)).toBe(731.9);
   });
 
-  it("keeps each short filler’s three-inch stock board and exact installed cut distinct in the cart", () => {
+	  it("combines a sub-inch filler cut into the wider filler already on order", () => {
     const shortFiller = {
       ...bec,
       uid: "f342-five-eighths",
@@ -206,11 +245,9 @@ describe("designer cabinet cart lines", () => {
       unitPriceFor: () => 18.66,
     });
 
-    expect(lines).toEqual(expect.arrayContaining([
-      expect.objectContaining({ masterCode: "F342", qty: 1, fillerStockWidthIn: 3, fillerInstalledCutWidthIn: 0.625 }),
-      expect.objectContaining({ masterCode: "F342", qty: 1, fillerStockWidthIn: 3, fillerInstalledCutWidthIn: 2 }),
-    ]));
-    expect(lines).toHaveLength(2);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toMatchObject({ masterCode: "F342", qty: 1, fillerInstalledCutWidthIn: 2 });
+    expect(lines[0]?.qtyNote).toContain('Includes 0.625" field-cut from F342 already on order');
   });
 
   it.each(["wholesale", "contractor", "homeowner"] as const)("marks every %s design line as price-locked at the designer-to-cart handoff", (tier) => {
