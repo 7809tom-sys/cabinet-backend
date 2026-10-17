@@ -213,8 +213,9 @@ type SceneSku = {
   decorativeEnd?: "none" | "left" | "right" | "both";
   masterTracShelfCut?: PlacedCabinet["masterTracShelfCut"];
 	  fillerPieceGroupId?: string | null;
-	  fillerTotalWidth?: number | null;
-		  fillerPlacementMode?: "left" | "right" | "split" | null;
+		  fillerTotalWidth?: number | null;
+			  fillerPlacementMode?: "left" | "right" | "split" | null;
+			  fillerMatchesFullOwnerEnvelope?: boolean | null;
 		  fillerMiterAngle?: 22.5 | 45 | null;
 		  fillerMiteredEnd?: "start" | "end" | null;
 		  fillerTransitionKind?: "angled-wedge" | "corner-provisional" | "front-miter-pair" | null;
@@ -3683,7 +3684,7 @@ export function addCabinet(
   // catalog height includes the 4½-inch base toe kick so its top agrees with
   // the adjoining cabinet, but its visible board starts above that kick. This
   // applies equally to straight, split, and 45-degree miter filler pieces.
-  const usesBaseFillerFaceElevation = isBaseFillerPiece;
+  const usesBaseFillerFaceElevation = isBaseFillerPiece && sku.fillerMatchesFullOwnerEnvelope !== true;
   const isFloorStandingCabinet = placement !== "appliance"
     && !isRefrigeratorEndPanel
     && !usesBaseFillerFaceElevation
@@ -9217,7 +9218,8 @@ export function existingCabinetSku(cabinet: PlacedCabinet, room?: RoomData): Sce
     decorativeEnd: cabinet.decorativeEnd ?? "none",
 	    fillerPieceGroupId: cabinet.fillerPieceGroupId ?? null,
 	    fillerTotalWidth: cabinet.fillerTotalWidth ?? null,
-		    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
+	    fillerPlacementMode: cabinet.fillerPlacementMode ?? null,
+	    fillerMatchesFullOwnerEnvelope: cabinet.fillerMatchesFullOwnerEnvelope ?? null,
 	    fillerMiterAngle: cabinet.fillerMiterAngle ?? null,
 	    fillerMiteredEnd: cabinet.fillerMiteredEnd ?? null,
 	    fillerTransitionKind: cabinet.fillerTransitionKind ?? null,

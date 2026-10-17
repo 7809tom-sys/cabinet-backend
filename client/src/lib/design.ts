@@ -339,6 +339,7 @@ export function matchInstalledFillerToCabinet(
     height: ownerElevation.height,
     mountBottom: ownerElevation.bottom,
     fillerForCabinetUid: owner.uid,
+    fillerMatchesFullOwnerEnvelope: owner.placement === "appliance" && isRefrigerator(owner),
   };
 }
 
@@ -363,7 +364,8 @@ export function normalizeInstalledFillersToAdjacentCabinets(
       const differs = item.placement !== placement
         || Math.abs(Number(item.height) - ownerElevation.height) > 0.001
         || Math.abs(Number(item.mountBottom ?? 0) - ownerElevation.bottom) > 0.001
-        || item.fillerForCabinetUid !== owner.uid;
+        || item.fillerForCabinetUid !== owner.uid
+        || item.fillerMatchesFullOwnerEnvelope !== (owner.placement === "appliance" && isRefrigerator(owner));
       if (!differs) return item;
       changed = true;
       return {
@@ -372,6 +374,7 @@ export function normalizeInstalledFillersToAdjacentCabinets(
         height: ownerElevation.height,
         mountBottom: ownerElevation.bottom,
         fillerForCabinetUid: owner.uid,
+        fillerMatchesFullOwnerEnvelope: owner.placement === "appliance" && isRefrigerator(owner),
       };
     }
     const matched = matchInstalledFillerToCabinet(item, owner, room);
@@ -381,7 +384,8 @@ export function normalizeInstalledFillersToAdjacentCabinets(
       || Math.abs(Number(matched.depth) - Number(item.depth)) > 0.001
       || Math.abs(Number(matched.height) - Number(item.height)) > 0.001
       || itemBottom !== matchedBottom
-      || item.fillerForCabinetUid !== matched.fillerForCabinetUid;
+      || item.fillerForCabinetUid !== matched.fillerForCabinetUid
+      || item.fillerMatchesFullOwnerEnvelope !== matched.fillerMatchesFullOwnerEnvelope;
     if (!differs) return item;
     changed = true;
     return matched;
@@ -815,6 +819,8 @@ export interface PlacedCabinet {
   fillerPlacementMode?: "left" | "right" | "split" | null;
 	/** Cabinet whose measured opening owns this editable filler group. */
 	fillerForCabinetUid?: string | null;
+	/** Refrigerator-side fillers align to the appliance's complete bottom-to-top envelope. */
+	fillerMatchesFullOwnerEnvelope?: boolean | null;
 	/**
 	 * Cut angle on this individual fitted filler board. Legacy records retain a
 	 * 45° single cut; a pair that changes the run by 45° uses two 22.5° cuts.
@@ -5368,6 +5374,12 @@ export function elevationBox(
   p: PlacedCabinet,
   room?: { ceilingHeight?: number } | null
 ): { bottom: number; height: number } {
+  if (isFillerItem(p) && p.fillerMatchesFullOwnerEnvelope === true) {
+    return {
+      bottom: typeof p.mountBottom === "number" && p.mountBottom >= 0 ? p.mountBottom : 0,
+      height: placedHeight(p),
+    };
+  }
   // Refrigerator enclosure panels are full architectural skins. They never
   // inherit a neighboring base cabinet's mount height or an arbitrary room
   // ceiling: their selected/source height is kept until assembly normalization

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
+import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, elevationBox, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
 	appendSmallGapFillerPlacement,
@@ -239,6 +239,41 @@ const cabinet: PlacedCabinet = {
 	      mountBottom: 1,
 	      fillerForCabinetUid: owner.uid,
 	    });
+	  });
+
+	  it("makes refrigerator-side fillers span exactly the refrigerator bottom and top", () => {
+	    const refrigerator: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "refrigerator",
+	      masterCode: "FRIDGE-36",
+	      description: "36 inch refrigerator",
+	      placement: "appliance",
+	      width: 36,
+	      depth: 30,
+	      height: 70,
+	      mountBottom: 0,
+	    };
+	    const filler: PlacedCabinet = {
+	      ...cabinet,
+	      uid: "refrigerator-filler",
+	      masterCode: "FILL-3",
+	      description: "3 inch filler",
+	      category: "Filler",
+	      width: 3,
+	      height: 84,
+	      mountBottom: 0,
+	    };
+
+	    const matched = matchInstalledFillerToCabinet(filler, refrigerator, DEFAULT_ROOM);
+
+	    expect(matched).toMatchObject({
+	      placement: "base",
+	      height: 70,
+	      mountBottom: 0,
+	      fillerForCabinetUid: refrigerator.uid,
+	      fillerMatchesFullOwnerEnvelope: true,
+	    });
+	    expect(elevationBox(matched, DEFAULT_ROOM)).toEqual({ bottom: 0, height: 70 });
 	  });
 
 	  it("repairs a legacy wall filler from the exact cabinet touching its edge", () => {
