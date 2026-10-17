@@ -21,15 +21,17 @@ interface Props {
   value: CatalogHardwareSelection | null;
   onSelect: (selection: CatalogHardwareSelection) => void;
   onClear: () => void;
+  affiliateSlug?: string | null;
   compact?: boolean;
 }
 
 /**
- * Regular Designer visual selector for a real Hardware Resources variant.
- * It never adds a merchandise line: its only responsibility is selecting the
- * exact product reference and the compatible existing visual proxy.
+ * Regular Designer selector for a real Hardware Resources variant. It records
+ * only the exact product reference and compatible visual proxy; current retail
+ * pricing is intentionally re-read from the public catalog when the Designer
+ * prepares its materials list and cart line.
  */
-export function HardwareCatalogPicker({ value, onSelect, onClear, compact = false }: Props) {
+export function HardwareCatalogPicker({ value, onSelect, onClear, affiliateSlug, compact = false }: Props) {
   const [open, setOpen] = useState(false);
   const [collection, setCollection] = useState<string | undefined>();
   const [productType, setProductType] = useState<string | undefined>();
@@ -42,7 +44,8 @@ export function HardwareCatalogPicker({ value, onSelect, onClear, compact = fals
     search: search.trim() || undefined,
     limit: 60,
     offset: 0,
-  }), [collection, productType, search]);
+    affiliateSlug: affiliateSlug?.trim() || undefined,
+  }), [affiliateSlug, collection, productType, search]);
   const { data: filters } = trpc.hardware.configurationFilters.useQuery(undefined, { staleTime: 60_000 });
   const { data, isLoading, error } = trpc.hardware.listConfigurations.useQuery(input, { enabled: open });
   const supportedTypes = (filters?.productTypes ?? []).filter(isCatalogCabinetHardwareType);
@@ -86,7 +89,7 @@ export function HardwareCatalogPicker({ value, onSelect, onClear, compact = fals
           <DialogHeader className="sticky top-0 z-10 border-b bg-background px-5 py-4 text-left">
             <DialogTitle>Select real cabinet hardware</DialogTitle>
             <DialogDescription>
-              Select a Hardware Resources knob, pull, cup pull, tab pull, or T-knob. The exact finish, SKU, image, and compatible visual proxy apply across the regular Designer; this selection does not add merchandise to the cart.
+              Select a Hardware Resources knob, pull, cup pull, tab pull, or T-knob. The exact finish, SKU, image, compatible visual proxy, and current catalog price apply across the regular Designer.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 p-5">

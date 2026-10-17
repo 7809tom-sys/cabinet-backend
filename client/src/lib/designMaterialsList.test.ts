@@ -123,6 +123,44 @@ describe("complete Designer materials list", () => {
     })]);
   });
 
+  it("shows a selected exact Hardware Resources SKU once with its current unit and extended price", () => {
+    const hardware = buildMaterialsListRows({
+      buildRows: [],
+      pricingLines: [{
+        masterCode: "5319BG",
+        name: "KEYGRANDE Bar pull — 14-1/8-inch Overall Length",
+        styleId: -3900179,
+        styleLabel: "Brushed Gold",
+        distributorId: null,
+        tier: "homeowner",
+        unitPrice: 9.8,
+        qty: 38,
+        category: "Handles & hardware",
+        productKind: "hardware",
+        vendorProductId: 3900179,
+        qtyNote: "38 bar pulls",
+      }],
+    });
+
+    expect(hardware).toHaveLength(1);
+    expect(hardware[0]).toMatchObject({
+      section: "other",
+      code: "5319BG",
+      description: "KEYGRANDE Bar pull — 14-1/8-inch Overall Length",
+      category: "Handles & hardware",
+      supplier: "Hardware Resources",
+      styleColor: "Brushed Gold",
+      qty: 38,
+      unitPrice: 9.8,
+      priceStatus: "priced",
+      notes: "38 bar pulls",
+    });
+    expect(hardware[0]?.lineTotal).toBeCloseTo(372.4, 8);
+    expect(materialsListPricedTotal(hardware)).toBe(372.4);
+    expect(materialsListCsv(hardware)).toContain("A,Other materials,5319BG");
+    expect(materialsListPrintHtml({ rows: hardware })).toContain("$372.40");
+  });
+
   it("includes an arched valance only when the plan deliberately supplies it", () => {
     const withoutValance = buildMaterialsListRows({
       buildRows: [{

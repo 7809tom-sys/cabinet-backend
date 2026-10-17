@@ -121,11 +121,11 @@ export function cartStorageKeys(scope: StoreScope) {
 }
 
 function lineKey(
-  i: Pick<CartItem, "masterCode" | "styleId" | "tier" | "fillerStockWidthIn" | "fillerInstalledCutWidthIn"> & { bundleId?: string },
+  i: Pick<CartItem, "masterCode" | "styleId" | "tier" | "productKind" | "vendorProductId" | "fillerStockWidthIn" | "fillerInstalledCutWidthIn"> & { bundleId?: string },
 ) {
   // Bundle parts are keyed with their bundleId so two different Split Pantries
   // (or a loose part vs a bundled part) never collapse into one line.
-  return `${i.masterCode}::${i.styleId}::${i.tier}::${i.bundleId ?? ""}::${i.fillerStockWidthIn ?? ""}::${i.fillerInstalledCutWidthIn ?? ""}`;
+  return `${i.masterCode}::${i.styleId}::${i.tier}::${i.productKind ?? "cabinet"}::${i.vendorProductId ?? ""}::${i.bundleId ?? ""}::${i.fillerStockWidthIn ?? ""}::${i.fillerInstalledCutWidthIn ?? ""}`;
 }
 
 function ScopedCartProvider({ children, scope }: { children: ReactNode; scope: StoreScope }) {

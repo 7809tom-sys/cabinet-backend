@@ -95,7 +95,8 @@ function alphaLabel(index: number): string {
   return result;
 }
 
-function supplierFor(line: Pick<CartItem, "distributorId" | "category">, names: ReadonlyMap<number, string>, fallback: string): string {
+function supplierFor(line: Pick<CartItem, "distributorId" | "category" | "productKind">, names: ReadonlyMap<number, string>, fallback: string): string {
+  if (line.productKind === "hardware") return "Hardware Resources";
   if (line.distributorId != null) return names.get(line.distributorId) ?? fallback;
   return line.category?.trim() || "Surfaces & Fixtures";
 }
@@ -301,7 +302,7 @@ export function materialsListCsv(rows: readonly MaterialsListRow[]): string {
 }
 
 export function materialsListPricedTotal(rows: readonly MaterialsListRow[]): number {
-  return rows.reduce((sum, row) => sum + (row.lineTotal ?? 0), 0);
+  return Math.round(rows.reduce((sum, row) => sum + (row.lineTotal ?? 0), 0) * 100) / 100;
 }
 
 function htmlEscape(value: string | number): string {

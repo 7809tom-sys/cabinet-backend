@@ -339,6 +339,8 @@ export function mergeDesignCartLines(lines: readonly CartItem[]): CartItem[] {
       line.distributorId ?? "none",
       line.tier,
       line.unitPrice ?? "pending",
+      line.productKind ?? "cabinet",
+      line.vendorProductId ?? "",
       line.fillerStockWidthIn ?? "",
       line.fillerInstalledCutWidthIn ?? "",
     ].join("::");

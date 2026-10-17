@@ -65,4 +65,19 @@ describe("public hardware catalog contract", () => {
     expect(groupedSource).not.toContain("pkgWeight:");
     expect(groupedSource).not.toContain("pkgLength:");
   });
+
+  it("resolves one selected exact SKU at its current public price for the regular Designer material list", () => {
+    const selectedStart = source.indexOf("selected:");
+    const selectedEnd = source.indexOf("\n  listConfigurations:", selectedStart);
+    const selectedSource = source.slice(selectedStart, selectedEnd);
+    expect(selectedStart).toBeGreaterThan(-1);
+    expect(selectedSource).toContain("vendorProductId");
+    expect(selectedSource).toContain("eq(vendorProducts.id, input.vendorProductId)");
+    expect(selectedSource).toContain("publicHardwareConditions()");
+    expect(selectedSource).toContain("hardwareRetailCents(item.listPrice, affiliatePricing.markupBps)");
+    expect(selectedSource).toContain("configurationLabel: vendorProducts.hardwareConfigurationLabel");
+    expect(selectedSource).not.toContain("yourCost:");
+    expect(selectedSource).not.toContain("pkgWeight:");
+    expect(selectedSource).not.toContain("pkgLength:");
+  });
 });

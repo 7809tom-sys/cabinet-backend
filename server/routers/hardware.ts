@@ -29,6 +29,11 @@ const configurationListInput = z.object({
   affiliateSlug: z.string().trim().min(1).max(64).optional(),
 });
 
+const selectedHardwareInput = z.object({
+  vendorProductId: z.number().int().positive(),
+  affiliateSlug: z.string().trim().min(1).max(64).optional(),
+});
+
 const hardwareLineInput = z.object({
   vendorProductId: z.number().int().positive(),
   qty: z.number().int().min(1).max(999),
@@ -127,6 +132,44 @@ export const hardwareRouter = router({
     return {
       collections: Array.from(new Set(rows.map((row) => row.collection?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b)),
       productTypes: Array.from(new Set(rows.map((row) => row.productType?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b)),
+    };
+  }),
+
+  /**
+   * Reprice one saved Designer hardware selection at read time. The saved design
+   * retains only the exact product identity and visual specification; this route
+   * deliberately obtains a current public sell price rather than trusting a
+   * historical browser value.
+   */
+  selected: publicProcedure.input(selectedHardwareInput).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) return null;
+    const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
+    const [item] = await db
+      .select({
+        id: vendorProducts.id,
+        sku: vendorProducts.vendorSku,
+        name: vendorProducts.name,
+        description: vendorProducts.description,
+        collection: vendorProducts.hardwareCollection,
+        productType: vendorProducts.hardwareProductType,
+        finish: vendorProducts.hardwareFinish,
+        configurationKey: vendorProducts.hardwareConfigurationKey,
+        configurationLabel: vendorProducts.hardwareConfigurationLabel,
+        listPrice: vendorProducts.listPrice,
+        imageUrl: vendorProducts.imageUrl,
+      })
+      .from(vendorProducts)
+      .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+      .where(and(publicHardwareConditions(), eq(vendorProducts.id, input.vendorProductId)))
+      .limit(1);
+    if (!item) return null;
+    const unitPriceCents = hardwareRetailCents(item.listPrice, affiliatePricing.markupBps);
+    if (unitPriceCents == null) return null;
+    return {
+      ...item,
+      unitPriceCents,
+      affiliateMarkupBps: affiliatePricing.markupBps,
     };
   }),
 

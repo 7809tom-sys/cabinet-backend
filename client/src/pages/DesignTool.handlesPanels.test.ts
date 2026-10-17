@@ -9,12 +9,16 @@ describe("regular Designer handles and Panels integration", () => {
     expect(source).toContain('<CabinetHandlesControl value={hardwareStyleId} onChange={setGenericHardwareStyle} tablet={isTabletWorkspace} />');
     expect(source).toContain('if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);');
   });
-  it("offers an exact source-backed hardware picker as a visual selection without changing the cart contract", () => {
+  it("uses a real selected hardware SKU as one current-priced material and cart line, with generic quote fallback", () => {
     expect(source).toContain('HardwareCatalogPicker');
     expect(source).toContain('catalogHardwareSelection');
     expect(source).toContain('normalizeCatalogHardwareSelection');
     expect(source).toContain('catalogHardwareReferenceUrl={catalogHardwareSelection?.imageUrl ?? HARDWARE_STYLES');
-    expect(source).not.toContain('vendorProductId: catalogHardwareSelection.vendorProductId');
+    expect(source).toContain('trpc.hardware.selected.useQuery');
+    expect(source).toContain('productKind: "hardware"');
+    expect(source).toContain('vendorProductId: selectedPricedHardware.id');
+    expect(source).toContain('const hardwareLines: CartItem[]');
+    expect(source).toContain('!hasSelectedPricedHardware && hwSchedule.total > 0');
   });
   it("makes Panels explicit, pressed-state accessible and non-scrolling on tablets", () => {
     expect(source).toContain('tab === "panel"');

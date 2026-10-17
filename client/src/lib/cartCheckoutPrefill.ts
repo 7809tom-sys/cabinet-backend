@@ -66,13 +66,15 @@ export function cartItemToCheckoutPrefill(
 
 /** Legacy Pelican carts predate productKind and used several supplier-code shapes. */
 export function isSurfaceCheckoutPrefill(item: CartCheckoutPrefillItem): boolean {
-  return item.productKind === "surface"
+  return item.productKind !== "hardware" && (
+    item.productKind === "surface"
     || (item.distributorId == null && /^PEL-\d+$/i.test(item.code))
     || (
       item.distributorId == null
       && item.unitPrice != null
       && Number.isFinite(item.unitPrice)
       && Boolean(item.category?.trim())
+    )
   );
 }
 

@@ -33,10 +33,10 @@ function isCornerDrawerBase(p: PlacedCabinet): boolean {
 export type HardwareStyleId = "none" | "knob" | "bar-pull" | "cup-pull" | "knob-and-pull";
 
 /**
- * Exact Hardware Resources variant selected as a visual specification in the
- * regular Designer. This record deliberately has no price, quantity, cart, or
- * shipment fields: it controls the look/reference only until a future explicit
- * hardware takeoff and checkout workflow is approved.
+ * Exact Hardware Resources variant selected in the regular Designer. This saved
+ * presentation record deliberately has no price, quantity, cart, or shipment
+ * fields: the current public retail price is re-read from this immutable product
+ * identity when the Designer prepares its materials and cart lines.
  */
 export type CatalogHardwareSelection = {
   vendorProductId: number;

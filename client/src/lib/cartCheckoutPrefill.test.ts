@@ -128,6 +128,46 @@ describe("cart checkout surface prefill", () => {
     });
   });
 
+  it("preserves an exact priced Hardware Resources variant for authoritative server re-pricing", () => {
+    const item: CartItem = {
+      masterCode: "5319BG",
+      name: "KEYGRANDE Bar pull — 14-1/8-inch Overall Length",
+      styleId: -3900179,
+      styleLabel: "Brushed Gold",
+      distributorId: null,
+      tier: "homeowner",
+      unitPrice: 9.8,
+      priceLocked: true,
+      productKind: "hardware",
+      vendorProductId: 3900179,
+      category: "Handles & hardware",
+      qty: 38,
+    };
+    expect(cartItemToCheckoutPrefill(item, 9.8)).toMatchObject({
+      code: "5319BG",
+      qty: 38,
+      unitPrice: 9.8,
+      priceLocked: true,
+      productKind: "hardware",
+      vendorProductId: 3900179,
+    });
+    expect(applyCartCheckoutPrefill(unmatched, {
+      code: "5319BG",
+      qty: 38,
+      distributorId: null,
+      unitPrice: 9.8,
+      priceLocked: true,
+      category: "Handles & hardware",
+      productKind: "hardware",
+      vendorProductId: 3900179,
+    })).toMatchObject({
+      matched: true,
+      cartProductKind: "hardware",
+      cartVendorProductId: 3900179,
+      cartUnitPrice: 9.8,
+    });
+  });
+
   it("does not convert an ordinary unmatched cabinet code into a selected surface", () => {
     const result = applyCartCheckoutPrefill({ ...unmatched, rawCode: "UNKNOWN", normalized: "UNKNOWN" }, {
       code: "UNKNOWN",

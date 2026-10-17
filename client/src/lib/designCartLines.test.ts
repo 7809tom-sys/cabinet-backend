@@ -418,6 +418,28 @@ describe("designer cabinet cart lines", () => {
     expect(calculateCartSubtotal(merged)).toBe(1270);
   });
 
+  it("does not merge two exact Hardware Resources variants just because their display fields overlap", () => {
+    const common = {
+      masterCode: "5319",
+      name: "KEYGRANDE Bar pull",
+      styleId: -1,
+      styleLabel: "Brushed Gold",
+      distributorId: null,
+      tier: "homeowner" as const,
+      unitPrice: 9.8,
+      priceLocked: true,
+      qty: 1,
+      category: "Handles & hardware",
+      productKind: "hardware" as const,
+    };
+    const merged = mergeDesignCartLines([
+      { ...common, vendorProductId: 3900179 },
+      { ...common, vendorProductId: 3900180 },
+    ]);
+    expect(merged).toHaveLength(2);
+    expect(merged.map((line) => line.vendorProductId)).toEqual([3900179, 3900180]);
+  });
+
   it("keeps an unpriced placed cabinet in the 3D order lines as a pending-price item", () => {
     const pendingSinkBase = {
       ...bec,
