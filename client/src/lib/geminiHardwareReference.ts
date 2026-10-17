@@ -18,20 +18,22 @@ export function geminiHardwareReference(
   styleId: HardwareStyleId,
   itemIds: string[],
   referenceUrl: string | null,
+  catalogLabel?: string | null,
 ): GeminiMaterialManifestEntry | null {
   if (styleId === "none" || itemIds.length === 0) return null;
   const style = hardwareStyle(styleId);
+  const label = catalogLabel?.trim() || style.label;
   const source = referenceUrl ? "catalog-image" : "locked-designer-jpeg";
   return {
     id: "hardware:handles",
     role: "hardware/handles",
-    label: style.label,
+    label,
     itemIds,
     referenceUrl,
     referenceSource: source,
-    provenance: `hardware/handles: ${style.label} — ${source}`.slice(0, 160),
+    provenance: `hardware/handles: ${label} — ${source}`.slice(0, 160),
     provenanceDetails: referenceUrl
-      ? `Selected hardware reference: ${referenceUrl}`
+      ? `Selected hardware reference: ${label} · ${referenceUrl}`
       : `${style.label} is a planning style, not a catalog SKU. Copy the handles, finish and placement already visible in image 1; do not substitute a hardware product.`,
   };
 }

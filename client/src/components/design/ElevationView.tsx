@@ -83,6 +83,8 @@ interface Props {
   // Decorative hardware spec to draw on the fronts (knob / pull / cup). When
   // omitted or "none", no hardware is drawn.
   hardwareStyleId?: HardwareStyleId | null;
+  /** Optional source-selected real hardware finish tint for the existing proxy. */
+  hardwareAccent?: string;
   // Corner cabinets that physically wrap THIS corner but are owned by the
   // adjoining wall. CornerView injects them so a lazy-Susan / diagonal / blind
   // corner unit is drawn on BOTH walls, pinned to the seam (corner end of the
@@ -251,7 +253,7 @@ export function ElevationView({
   room, cabinets, selectedUid, attributesTargetUid = null, onSelect, wall, onSelectWall, countertopMaterialId = null, backsplashMaterialId = null, openings = [],
   finish = DEFAULT_FINISH_COLORS, crown = false, toeKick = false, batten = false, lightRail = false,
   panelKind = "shaker", mirror = false, hideSwitcher = false,
-  hardwareStyleId = null,
+  hardwareStyleId = null, hardwareAccent = "#1a2744",
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, seamCabinets = [],
   frameInsetFor, frameMetricsFor,
   onMove, onMoveVertical, moveLocked = false,
@@ -664,7 +666,7 @@ export function ElevationView({
               drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
-              accent="#1a2744"
+              accent={hardwareAccent}
               hardwarePosition={resolveCabinetHardwarePosition(p)}
               raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
               swing={resolveSwing(p)}

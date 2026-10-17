@@ -166,10 +166,15 @@ import { commitThreeDCabinetCandidate, countertopMountedCabinet, threeDSeatedWal
 import {
   type HardwareStyleId,
   HARDWARE_STYLES,
+  catalogHardwareFinishAccent,
+  catalogHardwareStyleId,
   hardwareSchedule,
   hardwarePlacementNote,
+  normalizeCatalogHardwareSelection,
+  type CatalogHardwareSelection,
 } from "@/lib/hardware";
 import { CabinetHandlesControl, DEFAULT_DESIGNER_HARDWARE_STYLE_ID } from "@/components/design/CabinetHandlesControl";
+import { HardwareCatalogPicker } from "@/components/design/HardwareCatalogPicker";
 import { isPanelPaletteItem } from "./designToolPanels";
 import { normalizePaletteSearch, matchesPaletteSearch } from "@/lib/paletteSearch";
 import { buildGlassCornerCatalogChoices } from "@/lib/glassCornerCatalog";
@@ -1929,6 +1934,21 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // countertop-supported runs. A rear upstand is the physical strip below wall tile.
   const [backsplashHeightMode, setBacksplashHeightMode] = useState<"standard" | "full-height">("standard");
   const [countertopBacksplashHeightIn, setCountertopBacksplashHeightIn] = useState<0 | 2.5 | 3>(0);
+  // Generic styles retain support for existing designs. A selected catalog item
+  // stores the exact Hardware Resources visual reference only, never a cart line.
+  const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
+  const [catalogHardwareSelection, setCatalogHardwareSelection] = useState<CatalogHardwareSelection | null>(null);
+  const setGenericHardwareStyle = useCallback((style: HardwareStyleId) => {
+    setHardwareStyleId(style);
+    setCatalogHardwareSelection(null);
+  }, []);
+  const selectCatalogHardware = useCallback((selection: CatalogHardwareSelection) => {
+    const normalized = normalizeCatalogHardwareSelection(selection);
+    const proxy = normalized ? catalogHardwareStyleId(normalized.productType) : null;
+    if (!normalized || !proxy) return;
+    setCatalogHardwareSelection(normalized);
+    setHardwareStyleId(proxy);
+  }, []);
   const selectedPlanSurfaces = useMemo(
     () => backsplashEnabled
       ? selectedSurfaces
@@ -1942,7 +1962,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     backsplashEnabled,
     backsplashHeightMode,
     countertopBacksplashHeightIn,
-  }), [interactive3dPresentation, windowSceneKind, windowFrameStyle, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn]);
+    catalogHardwareSelection,
+  }), [interactive3dPresentation, windowSceneKind, windowFrameStyle, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn, catalogHardwareSelection]);
   // Flooring material: shown as a pattern in the bird's-eye plan view.
   const [flooringMaterialId, setFlooringMaterialId] = useState<string | null>(null);
   // Flooring layout pattern: how planks are arranged (random stagger, 1/3 offset, diagonal, herringbone).
@@ -2071,11 +2092,6 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   // When the user explicitly overrides the distributor lock (acknowledging extra
   // shipping), this flag prevents the auto-lock effect from re-engaging.
   const [mixedWarehouseOverride, setMixedWarehouseOverride] = useState(false);
-  // Decorative hardware spec (knobs / pulls / cup pulls). A finishing choice,
-  // not a priced catalog SKU: it draws on the fronts and lists a piece count on
-  // the build sheet as a note. Defaults to "none".
-  const [hardwareStyleId, setHardwareStyleId] = useState<HardwareStyleId>(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
-
   // Wall cabinet height room setting: 42", 36", or 30" (default). This is a
   // room-level preference that determines the height of wall cabinets placed
   // via the "Place matching wall cabinet above?" suggestion. A one-time prompt
@@ -8576,10 +8592,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       finishName: activeStyleName || undefined,
       doorStyle: activeStyle ? ((activeStyle as { doorStyle?: string | null }).doorStyle || activeStyleName || undefined) : undefined,
       secondFinishName: secondFinish,
-	      countertop: islandCountertopName && perimeterCountertopName && islandCountertopName !== perimeterCountertopName
-	        ? `Wall runs: ${perimeterCountertopName}; Island: ${islandCountertopName}`
-	        : perimeterCountertopName ?? islandCountertopName,
-      hardware: hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined,
+      countertop: islandCountertopName && perimeterCountertopName && islandCountertopName !== perimeterCountertopName
+        ? `Wall runs: ${perimeterCountertopName}; Island: ${islandCountertopName}`
+        : perimeterCountertopName ?? islandCountertopName,
+      hardware: catalogHardwareSelection
+        ? `${catalogHardwareSelection.collection} ${catalogHardwareSelection.productType} — ${catalogHardwareSelection.finish}`
+        : hardwareStyleId !== "none" ? (HARDWARE_STYLES.find((h) => h.id === hardwareStyleId)?.label || undefined) : undefined,
       flooring: flooringSurf?.name || undefined,
       backsplash: backsplashSurf?.name || undefined,
       sink: sinkSurf?.name || undefined,
@@ -8590,7 +8608,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
       layoutType,
       hasIsland: island != null,
     };
-	}, [placed, room, island, selectedSurfaces, activeStyleName, activeStyle, styleA, styleB, doorStyles, countertopMaterialId, hardwareStyleId]);
+	}, [placed, room, island, selectedSurfaces, activeStyleName, activeStyle, styleA, styleB, doorStyles, countertopMaterialId, hardwareStyleId, catalogHardwareSelection]);
 
   // The room's four walls as spans (usable length = full wall minus the openings
   // on it), so the consultant works with realistic numbers.
@@ -11149,13 +11167,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    sinks,
 	    potFillers,
 	    furniture,
-	    roomType,
+    roomType,
     activeWall,
     layoutLocked,
     lockedWalls: Array.from(lockedWalls),
     lockedDistributorId,
     mixedWarehouseOverride,
     hardwareStyleId,
+    catalogHardwareSelection,
     wallCabHeight,
     annotations,
     ponyWalls,
@@ -11310,6 +11329,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           if (typeof d.lockedDistributorId === "number") setLockedDistributorId(d.lockedDistributorId);
           if (d.mixedWarehouseOverride === true) setMixedWarehouseOverride(true);
           if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);
+          setCatalogHardwareSelection(normalizeCatalogHardwareSelection(d.catalogHardwareSelection));
           if (d.wallCabHeight === 30 || d.wallCabHeight === 36 || d.wallCabHeight === 42) {
             setWallCabHeight(d.wallCabHeight);
             wallCabHeightRef.current = d.wallCabHeight;
@@ -11431,7 +11451,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     if (!draftRestoredRef.current) return;
     const t = setTimeout(writeDraft, 400);
     return () => clearTimeout(t);
-  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, potFillers, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, wallCabHeight, annotations, writeDraft]);
+  }, [room, placed, openings, island, styleId, tier, crown, toeKick, batten, lightRail, valance, trimQtyOverride, countertop, countertopMaterialId, edgeProfileId, backsplashMaterialId, backsplashEnabled, backsplashHeightMode, countertopBacksplashHeightIn, flooringMaterialId, flooringPattern, selectedSurfaces, cabinetsLocked, sinks, potFillers, roomType, activeWall, layoutLocked, lockedWalls, lockedDistributorId, mixedWarehouseOverride, hardwareStyleId, catalogHardwareSelection, wallCabHeight, annotations, writeDraft]);
 
   // Immediate save when the tab is hidden/backgrounded or about to unload —
   // this is what catches an incoming phone call or an OS tab eviction.
@@ -11974,6 +11994,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     setCountertopMaterialId(DEFAULT_COUNTERTOP_MATERIAL_ID);
     setEdgeProfileId(DEFAULT_EDGE_PROFILE_ID);
     setHardwareStyleId(DEFAULT_DESIGNER_HARDWARE_STYLE_ID);
+    setCatalogHardwareSelection(null);
     setBacksplashMaterialId(null);
     setFlooringMaterialId(null);
     setFlooringPattern("random-stagger");
@@ -12307,7 +12328,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      cabinetFinishOverrides={threeDCabinetFinishOverrides}
       cabinetDoorProfiles={threeDCabinetDoorProfiles}
 	      hardwareStyleId={hardwareStyleId}
-                  onHardwareStyleChange={setHardwareStyleId}
+                  hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
+                  onHardwareStyleChange={setGenericHardwareStyle}
 	      cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 	      cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	      catalogDoorSampleUrl={active3DDoorSampleUrl}
@@ -12360,7 +12382,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      catalogBacksplashName={backsplashEnabled ? threeDSurfaceProductNames.backsplash : null}
 	      catalogBacksplashProductId={backsplashEnabled ? threeDSurfaceProductIds.backsplash : null}
 	      catalogBacksplashReferenceUrl={backsplashEnabled ? activeBacksplashSurface?.materialImageUrl ?? activeBacksplashSurface?.imageUrl ?? null : null}
-	      catalogHardwareReferenceUrl={HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
+	      catalogHardwareReferenceUrl={catalogHardwareSelection?.imageUrl ?? HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
+	      catalogHardwareName={catalogHardwareSelection ? `${catalogHardwareSelection.collection} ${catalogHardwareSelection.productType} · ${catalogHardwareSelection.finish} · ${catalogHardwareSelection.sku}` : null}
 	      savedDesignId={currentSavedDesignId ?? null}
 	      savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	      isCurrentPlanSaved={isCurrentPlanSaved}
@@ -12490,7 +12513,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           </Button>
         </div>
 
-        <CabinetHandlesControl value={hardwareStyleId} onChange={setHardwareStyleId} tablet={isTabletWorkspace} />
+        <CabinetHandlesControl value={hardwareStyleId} onChange={setGenericHardwareStyle} tablet={isTabletWorkspace} />
+        <HardwareCatalogPicker
+          value={catalogHardwareSelection}
+          onSelect={selectCatalogHardware}
+          onClear={() => setCatalogHardwareSelection(null)}
+          compact={isTabletWorkspace}
+        />
         <label className="hidden items-center gap-1.5 rounded-md border border-border bg-background px-2 text-xs font-medium text-foreground lg:flex" title="Choose the visual scene shown through windows">
           <span className="text-muted-foreground">Window</span>
           <select
@@ -13395,12 +13424,20 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 </div>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto overscroll-contain p-3" style={{ WebkitOverflowScrolling: "touch" }}>
-                <p className="mb-3 text-xs text-muted-foreground">Choose the hardware style for doors and drawers. This is a finishing spec — hardware is not priced in the catalog.</p>
+                <p className="mb-3 text-xs text-muted-foreground">Choose a real catalog item for its matching visual finish, or use the generic handle styles. This is a finishing specification — no merchandise line is added here.</p>
+                <div className="mb-3">
+                  <HardwareCatalogPicker
+                    value={catalogHardwareSelection}
+                    onSelect={(selection) => { selectCatalogHardware(selection); setHardwareSheetOpen(false); }}
+                    onClear={() => setCatalogHardwareSelection(null)}
+                    compact
+                  />
+                </div>
                 <div className="space-y-2">
                   {HARDWARE_STYLES.map((h) => (
                     <button
                       key={h.id}
-                      onClick={() => setHardwareStyleId(h.id)}
+                      onClick={() => setGenericHardwareStyle(h.id)}
                       className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors ${
                         hardwareStyleId === h.id
                           ? "border-[#1a2744] bg-[#1a2744]/8"
@@ -13834,6 +13871,11 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 if (d.threeDPresentation && typeof d.threeDPresentation.cabinetFinish === "string" && typeof d.threeDPresentation.countertopFinish === "string") {
                   setInteractive3dPresentation({ cabinetFinish: d.threeDPresentation.cabinetFinish, countertopFinish: d.threeDPresentation.countertopFinish });
                 }
+                setCatalogHardwareSelection(normalizeCatalogHardwareSelection(
+                  d.threeDPresentation && typeof d.threeDPresentation === "object"
+                    ? (d.threeDPresentation as Record<string, unknown>).catalogHardwareSelection
+                    : null,
+                ));
                 if (d.threeDPresentation?.backsplashHeightMode === "standard" || d.threeDPresentation?.backsplashHeightMode === "full-height") {
                   setBacksplashHeightMode(d.threeDPresentation.backsplashHeightMode);
                 }
@@ -15929,6 +15971,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
+              hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
@@ -15967,6 +16010,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                 lightRail={lightRail}
                 panelKind={activePanelKind}
                 hardwareStyleId={hardwareStyleId}
+                hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
                 finishFor={finishForCab}
                 panelKindFor={panelKindForCab}
                 doorSampleUrlFor={doorSampleForCab}
@@ -15994,6 +16038,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
               lightRail={lightRail}
               panelKind={activePanelKind}
               hardwareStyleId={hardwareStyleId}
+              hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
               finishFor={finishForCab}
               panelKindFor={panelKindForCab}
               doorSampleUrlFor={doorSampleForCab}
@@ -16123,6 +16168,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                   lightRail={lightRail}
                   panelKind={activePanelKind}
                   hardwareStyleId={hardwareStyleId}
+                  hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
                   finishFor={finishForCab}
                   panelKindFor={panelKindForCab}
                   doorSampleUrlFor={doorSampleForCab}
@@ -19562,7 +19608,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                cabinetFinishOverrides={threeDCabinetFinishOverrides}
 	                cabinetDoorProfiles={threeDCabinetDoorProfiles}
 	                hardwareStyleId={hardwareStyleId}
-                  onHardwareStyleChange={setHardwareStyleId}
+                  hardwareAccent={catalogHardwareSelection ? catalogHardwareFinishAccent(catalogHardwareSelection.finish) : undefined}
+                  onHardwareStyleChange={setGenericHardwareStyle}
 	                cabinetDoorSampleUrls={threeDCabinetDoorSamples}
 		                cabinetFrontVisuals={threeDCabinetFrontVisuals}
 	                catalogDoorSampleUrl={active3DDoorSampleUrl}
@@ -19615,7 +19662,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	                catalogBacksplashName={backsplashEnabled ? threeDSurfaceProductNames.backsplash : null}
 	                catalogBacksplashProductId={backsplashEnabled ? threeDSurfaceProductIds.backsplash : null}
 	                catalogBacksplashReferenceUrl={backsplashEnabled ? activeBacksplashSurface?.materialImageUrl ?? activeBacksplashSurface?.imageUrl ?? null : null}
-	                catalogHardwareReferenceUrl={HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
+	                catalogHardwareReferenceUrl={catalogHardwareSelection?.imageUrl ?? HARDWARE_STYLES.find((style) => style.id === hardwareStyleId)?.referenceUrl ?? null}
+	      catalogHardwareName={catalogHardwareSelection ? `${catalogHardwareSelection.collection} ${catalogHardwareSelection.productType} · ${catalogHardwareSelection.finish} · ${catalogHardwareSelection.sku}` : null}
 	                savedDesignId={currentSavedDesignId ?? null}
 	                savedDesignRevision={savedDesign?.updatedAt ? new Date(savedDesign.updatedAt).toISOString() : null}
 	                isCurrentPlanSaved={isCurrentPlanSaved}

@@ -10,9 +10,9 @@ const vanity = {
   placementType: "base", width: 48, height: 34.5, depth: 21,
   numberOfDoors: 2, numberOfDrawers: 6,
 };
-function render(sku: typeof vanity, style: "none" | "bar-pull" | "knob" | "cup-pull" = DEFAULT_DESIGNER_HARDWARE_STYLE_ID) {
+function render(sku: typeof vanity, style: "none" | "bar-pull" | "knob" | "cup-pull" = DEFAULT_DESIGNER_HARDWARE_STYLE_ID, hardwareAccent?: string) {
   const group = new THREE.Group();
-  addCabinet(group, sku as never, null, {}, 120, 96, "#f2e8d0", "#ffffff", { doorStyle: "Shaker" }, undefined, undefined, undefined, { hardwareStyleId: style });
+  addCabinet(group, sku as never, null, {}, 120, 96, "#f2e8d0", "#ffffff", { doorStyle: "Shaker" }, undefined, undefined, undefined, { hardwareStyleId: style, hardwareAccent });
   const hardware: THREE.Object3D[] = [];
   group.traverse(node => { if (node.userData.cabinetHardware) hardware.push(node); });
   return hardware;
@@ -33,6 +33,12 @@ describe("regular Designer actual 3D handles", () => {
     const hardware = render(vanity, "cup-pull");
     expect(hardware.some(node => node.userData.cabinetPull === "cup-pull")).toBe(true);
     expect(hardware.some(node => node.userData.cabinetPull === "knob")).toBe(true);
+  });
+  it("applies a selected real hardware finish to existing proxy meshes without changing None behavior", () => {
+    const hardware = render(vanity, "bar-pull", "#1d2024");
+    const pull = hardware.find((node) => node.userData.cabinetPull === "door") as THREE.Mesh;
+    expect((pull.material as THREE.MeshPhysicalMaterial).color.getHexString()).toBe("1d2024");
+    expect(render(vanity, "none", "#1d2024")).toHaveLength(0);
   });
   it("does not add handles to finished panel stock", () => {
     expect(render({ ...vanity, masterCode: "WEP1542", description: "Wall End Panel", placementType: "wall", width: 15, height: 42, depth: 0.75, numberOfDoors: 0, numberOfDrawers: 0 })).toHaveLength(0);

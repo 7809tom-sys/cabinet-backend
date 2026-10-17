@@ -6,8 +6,15 @@ describe("regular Designer handles and Panels integration", () => {
   it("starts and resets only this Designer with visible handles, preserving saved None metadata", () => {
     expect(source).toContain("useState<HardwareStyleId>(DEFAULT_DESIGNER_HARDWARE_STYLE_ID)");
     expect(source).toContain("setHardwareStyleId(DEFAULT_DESIGNER_HARDWARE_STYLE_ID)");
-    expect(source).toContain('<CabinetHandlesControl value={hardwareStyleId} onChange={setHardwareStyleId} tablet={isTabletWorkspace} />');
+    expect(source).toContain('<CabinetHandlesControl value={hardwareStyleId} onChange={setGenericHardwareStyle} tablet={isTabletWorkspace} />');
     expect(source).toContain('if (typeof d.hardwareStyleId === "string") setHardwareStyleId(d.hardwareStyleId as HardwareStyleId);');
+  });
+  it("offers an exact source-backed hardware picker as a visual selection without changing the cart contract", () => {
+    expect(source).toContain('HardwareCatalogPicker');
+    expect(source).toContain('catalogHardwareSelection');
+    expect(source).toContain('normalizeCatalogHardwareSelection');
+    expect(source).toContain('catalogHardwareReferenceUrl={catalogHardwareSelection?.imageUrl ?? HARDWARE_STYLES');
+    expect(source).not.toContain('vendorProductId: catalogHardwareSelection.vendorProductId');
   });
   it("makes Panels explicit, pressed-state accessible and non-scrolling on tablets", () => {
     expect(source).toContain('tab === "panel"');

@@ -17,6 +17,11 @@ import { geminiHardwareReference } from "./geminiHardwareReference";
     const url = "https://www.cabinetdealz.com/manus-storage/hardware.jpg";
     expect(geminiHardwareReference("bar-pull", ["b12"], url)).toMatchObject({ referenceSource: "catalog-image", referenceUrl: url });
   });
+  it("records an exact selected catalog hardware label with its supplied image", () => {
+    const reference = geminiHardwareReference("bar-pull", ["b12"], "/manus-storage/5319BG.jpg", "KEYGRANDE Bar pull · Brushed Gold · 5319BG");
+    expect(reference).toMatchObject({ label: "KEYGRANDE Bar pull · Brushed Gold · 5319BG", referenceSource: "catalog-image" });
+    expect(reference?.provenanceDetails).toContain("5319BG");
+  });
   it("requires no hardware reference for None or an empty layout", () => {
     expect(geminiHardwareReference("none", ["b12"], null)).toBeNull();
     expect(geminiHardwareReference("bar-pull", [], null)).toBeNull();

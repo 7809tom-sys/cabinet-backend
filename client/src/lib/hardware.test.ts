@@ -15,6 +15,9 @@ import {
   normalizeDoorHardwareFramePosition,
   hardwarePlacementSpec,
   hardwarePlacementNote,
+  catalogHardwareFinishAccent,
+  catalogHardwareStyleId,
+  normalizeCatalogHardwareSelection,
 } from "./hardware";
 import type { PlacedCabinet } from "./design";
 
@@ -46,6 +49,33 @@ describe("hardware styles", () => {
     expect(hardwareStyle(null).id).toBe("none");
     // @ts-expect-error testing an invalid id at runtime
     expect(hardwareStyle("bogus").id).toBe("none");
+  });
+
+  it("maps only supported Hardware Resources cabinet product types to existing visual proxies", () => {
+    expect(catalogHardwareStyleId("Knob")).toBe("knob");
+    expect(catalogHardwareStyleId("T-knob")).toBe("knob");
+    expect(catalogHardwareStyleId("Pull")).toBe("bar-pull");
+    expect(catalogHardwareStyleId("Bar pull")).toBe("bar-pull");
+    expect(catalogHardwareStyleId("Tab pull")).toBe("bar-pull");
+    expect(catalogHardwareStyleId("Cup pull")).toBe("cup-pull");
+    expect(catalogHardwareStyleId("Appliance handle")).toBeNull();
+  });
+
+  it("uses an explicit published finish map and rejects malformed or appliance-only saved selection data", () => {
+    expect(catalogHardwareFinishAccent("Matte Black")).toBe("#1d2024");
+    expect(catalogHardwareFinishAccent("Satin Bronze")).toBe("#a9783d");
+    expect(catalogHardwareFinishAccent("unknown future finish")).toBe("#b8bbc0");
+    expect(normalizeCatalogHardwareSelection({
+      vendorProductId: 3900354,
+      sku: "5319SN",
+      collection: "KEYGRANDE",
+      productType: "Bar pull",
+      configurationKey: "source-key",
+      configurationLabel: "14-1/8 inch Bar Pull",
+      finish: "Satin Nickel",
+      imageUrl: "/manus-storage/5319SN.jpg",
+    })).toMatchObject({ vendorProductId: 3900354, sku: "5319SN", productType: "Bar pull" });
+    expect(normalizeCatalogHardwareSelection({ vendorProductId: 1, sku: "MO6373", collection: "Milan", productType: "Appliance handle", configurationKey: "a", configurationLabel: "Appliance", finish: "Satin Nickel" })).toBeNull();
   });
 });
 

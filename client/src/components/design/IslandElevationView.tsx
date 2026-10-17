@@ -318,6 +318,8 @@ interface Props {
   lightRail?: boolean;
   panelKind?: DoorPanelKind;
   hardwareStyleId?: HardwareStyleId | null;
+  /** Optional source-selected real hardware finish tint for the existing proxy. */
+  hardwareAccent?: string;
   finishFor?: (cab: PlacedCabinet) => FinishColors;
   panelKindFor?: (cab: PlacedCabinet) => DoorPanelKind;
   doorSampleUrlFor?: (cab: PlacedCabinet) => string | null;
@@ -342,7 +344,7 @@ export function IslandElevationView({
   countertopMaterialId = null,
   finish = DEFAULT_FINISH_COLORS,
   crown = false, toeKick = false, batten = false, lightRail = false,
-  panelKind = "shaker", hardwareStyleId = null,
+  panelKind = "shaker", hardwareStyleId = null, hardwareAccent = "#1a2744",
   finishFor, panelKindFor, doorSampleUrlFor, drawerSampleUrlFor, frameInsetFor, frameMetricsFor,
 }: Props) {
   const { t } = useLanguage();
@@ -494,7 +496,7 @@ export function IslandElevationView({
               drawers={displayCounts.drawers}
               doorPiece={hw.doorPiece}
               drawerPiece={hw.drawerPiece}
-              accent="#1a2744"
+              accent={hardwareAccent}
               hardwarePosition={resolveCabinetHardwarePosition(p)}
               raisedDoorPullOnRail={usesRaisedFloorWallDoorPull(p)}
               swing={resolveSwing(p)}

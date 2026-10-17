@@ -32,6 +32,80 @@ function isCornerDrawerBase(p: PlacedCabinet): boolean {
 // touch-latch / push-to-open job) and produces an empty schedule.
 export type HardwareStyleId = "none" | "knob" | "bar-pull" | "cup-pull" | "knob-and-pull";
 
+/**
+ * Exact Hardware Resources variant selected as a visual specification in the
+ * regular Designer. This record deliberately has no price, quantity, cart, or
+ * shipment fields: it controls the look/reference only until a future explicit
+ * hardware takeoff and checkout workflow is approved.
+ */
+export type CatalogHardwareSelection = {
+  vendorProductId: number;
+  sku: string;
+  collection: string;
+  productType: string;
+  configurationKey: string;
+  configurationLabel: string;
+  finish: string;
+  imageUrl: string | null;
+};
+
+/** Cabinet front product types the regular Designer can represent today. */
+export function catalogHardwareStyleId(productType: string | null | undefined): HardwareStyleId | null {
+  const normalized = (productType ?? "").trim().toLocaleLowerCase();
+  if (normalized === "knob" || normalized === "t-knob") return "knob";
+  if (normalized === "cup pull") return "cup-pull";
+  if (normalized === "pull" || normalized === "bar pull" || normalized === "tab pull") return "bar-pull";
+  // Appliance handles are source products, but they are not cabinet-door or
+  // drawer hardware. Do not silently apply them to cabinets.
+  return null;
+}
+
+export function isCatalogCabinetHardwareType(productType: string | null | undefined): boolean {
+  return catalogHardwareStyleId(productType) !== null;
+}
+
+/**
+ * Map only the supplier's published finish labels to a stable visual metal
+ * tone. An unknown future finish safely retains neutral nickel; no color is
+ * inferred from a SKU, title, or product image.
+ */
+export function catalogHardwareFinishAccent(finish: string | null | undefined): string {
+  switch ((finish ?? "").trim().toLocaleLowerCase()) {
+    case "matte black": return "#1d2024";
+    case "gun metal": return "#4d555d";
+    case "brushed pewter":
+    case "distressed pewter": return "#8b8f8c";
+    case "brushed oil rubbed bronze": return "#5b4335";
+    case "satin bronze": return "#a9783d";
+    case "brushed gold": return "#b08a36";
+    case "polished chrome": return "#c9d0d6";
+    case "satin nickel": return "#aeb4b9";
+    default: return "#b8bbc0";
+  }
+}
+
+/** Reject malformed saved browser data before it becomes a visual selection. */
+export function normalizeCatalogHardwareSelection(value: unknown): CatalogHardwareSelection | null {
+  if (!value || typeof value !== "object") return null;
+  const input = value as Record<string, unknown>;
+  const vendorProductId = Number(input.vendorProductId);
+  const strings = ["sku", "collection", "productType", "configurationKey", "configurationLabel", "finish"] as const;
+  if (!Number.isInteger(vendorProductId) || vendorProductId <= 0) return null;
+  if (strings.some((key) => typeof input[key] !== "string" || !(input[key] as string).trim())) return null;
+  const productType = String(input.productType).trim();
+  if (!isCatalogCabinetHardwareType(productType)) return null;
+  return {
+    vendorProductId,
+    sku: String(input.sku).trim(),
+    collection: String(input.collection).trim(),
+    productType,
+    configurationKey: String(input.configurationKey).trim(),
+    configurationLabel: String(input.configurationLabel).trim(),
+    finish: String(input.finish).trim(),
+    imageUrl: typeof input.imageUrl === "string" && input.imageUrl.trim() ? input.imageUrl.trim() : null,
+  };
+}
+
 export interface HardwareStyle {
   id: HardwareStyleId;
   /** Short label for the picker. */
