@@ -9,10 +9,20 @@ import {
   hardwareProfileIsComplete,
   hardwareRetailCents,
 } from "@shared/hardwareCommerce";
+import { groupHardwareConfigurations } from "@shared/hardwareCatalogGrouping";
 import { createFreightQuoteToken } from "../_core/freightQuoteToken";
 
 const listInput = z.object({
   category: z.string().trim().min(1).max(128).optional(),
+  search: z.string().trim().max(120).optional(),
+  limit: z.number().int().min(1).max(60).default(24),
+  offset: z.number().int().min(0).default(0),
+  affiliateSlug: z.string().trim().min(1).max(64).optional(),
+});
+
+const configurationListInput = z.object({
+  collection: z.string().trim().min(1).max(128).optional(),
+  productType: z.string().trim().min(1).max(128).optional(),
   search: z.string().trim().max(120).optional(),
   limit: z.number().int().min(1).max(60).default(24),
   offset: z.number().int().min(0).default(0),
@@ -101,6 +111,68 @@ export const hardwareRouter = router({
     return rows
       .filter((row): row is { category: string; count: number } => Boolean(row.category?.trim()))
       .map((row) => ({ category: row.category, count: Number(row.count) }));
+  }),
+
+  configurationFilters: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) return { collections: [], productTypes: [] };
+    const rows = await db
+      .select({
+        collection: vendorProducts.hardwareCollection,
+        productType: vendorProducts.hardwareProductType,
+      })
+      .from(vendorProducts)
+      .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+      .where(publicHardwareConditions());
+    return {
+      collections: Array.from(new Set(rows.map((row) => row.collection?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b)),
+      productTypes: Array.from(new Set(rows.map((row) => row.productType?.trim()).filter((value): value is string => Boolean(value)))).sort((a, b) => a.localeCompare(b)),
+    };
+  }),
+
+  listConfigurations: publicProcedure.input(configurationListInput).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) return { items: [], hasMore: false, affiliateMarkupBps: 0 };
+    const affiliatePricing = await affiliateHardwareMarkupBps(db, input.affiliateSlug);
+    const conditions = [publicHardwareConditions()];
+    if (input.collection) conditions.push(eq(vendorProducts.hardwareCollection, input.collection));
+    if (input.productType) conditions.push(eq(vendorProducts.hardwareProductType, input.productType));
+    const rows = await db
+      .select({
+        id: vendorProducts.id,
+        vendorSku: vendorProducts.vendorSku,
+        name: vendorProducts.name,
+        description: vendorProducts.description,
+        collection: vendorProducts.hardwareCollection,
+        productType: vendorProducts.hardwareProductType,
+        finish: vendorProducts.hardwareFinish,
+        configurationKey: vendorProducts.hardwareConfigurationKey,
+        configurationLabel: vendorProducts.hardwareConfigurationLabel,
+        listPrice: vendorProducts.listPrice,
+        imageUrl: vendorProducts.imageUrl,
+      })
+      .from(vendorProducts)
+      .innerJoin(distributors, eq(vendorProducts.distributorId, distributors.id))
+      .where(and(...conditions));
+    const configurations = groupHardwareConfigurations(rows.map((row) => ({
+      id: row.id,
+      sku: row.vendorSku,
+      name: row.name,
+      description: row.description,
+      collection: row.collection,
+      productType: row.productType,
+      finish: row.finish,
+      configurationKey: row.configurationKey,
+      configurationLabel: row.configurationLabel,
+      imageUrl: row.imageUrl,
+      unitPriceCents: hardwareRetailCents(row.listPrice, affiliatePricing.markupBps),
+    })), input.search);
+    const items = configurations.slice(input.offset, input.offset + input.limit);
+    return {
+      items,
+      hasMore: input.offset + items.length < configurations.length,
+      affiliateMarkupBps: affiliatePricing.markupBps,
+    };
   }),
 
   list: publicProcedure.input(listInput).query(async ({ input }) => {

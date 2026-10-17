@@ -41,4 +41,28 @@ describe("public hardware catalog contract", () => {
     expect(importer).toContain("row.name = publicCopy");
     expect(importer).toContain("row.description = publicCopy");
   });
+
+  it("keeps all exact SKUs but persists reviewed collection, type, finish, and configuration metadata", () => {
+    expect(importer).toContain("const EXPECTED_COLLECTIONS = 57");
+    expect(importer).toContain("const EXPECTED_CONFIGURATIONS = 236");
+    expect(importer).toContain("CONFIGURATION_FAMILY_OVERRIDES");
+    expect(importer).toContain("hardwareCollection = VALUES(hardwareCollection)");
+    expect(importer).toContain("hardwareFinish = VALUES(hardwareFinish)");
+    expect(importer).toContain("hardwareConfigurationKey = VALUES(hardwareConfigurationKey)");
+  });
+
+  it("lists shopper-facing configurations with exact finish variants without exposing dealer-only data", () => {
+    const groupedStart = source.indexOf("listConfigurations:");
+    const groupedEnd = source.indexOf("\n  list:", groupedStart);
+    const groupedSource = source.slice(groupedStart, groupedEnd);
+    expect(groupedSource).toContain("groupHardwareConfigurations");
+    expect(groupedSource).toContain("collection: vendorProducts.hardwareCollection");
+    expect(groupedSource).toContain("finish: vendorProducts.hardwareFinish");
+    expect(groupedSource).toContain("configurationKey: vendorProducts.hardwareConfigurationKey");
+    expect(groupedSource).toContain("unitPriceCents: hardwareRetailCents");
+    expect(groupedSource).toContain("configurations.slice(input.offset, input.offset + input.limit)");
+    expect(groupedSource).not.toContain("yourCost:");
+    expect(groupedSource).not.toContain("pkgWeight:");
+    expect(groupedSource).not.toContain("pkgLength:");
+  });
 });

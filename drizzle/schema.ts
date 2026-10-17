@@ -766,6 +766,14 @@ export const vendorProducts = mysqlTable("vendor_products", {
   name: varchar("name", { length: 255 }).notNull(),
   description: text("description"),
   category: varchar("category", { length: 128 }),
+  // Source-backed product-family metadata. Only populated for suppliers that
+  // provide structured variant information (currently Hardware Resources).
+  // Exact vendorSku remains the purchasing, price, availability, and cart key.
+  hardwareCollection: varchar("hardwareCollection", { length: 128 }),
+  hardwareProductType: varchar("hardwareProductType", { length: 128 }),
+  hardwareFinish: varchar("hardwareFinish", { length: 128 }),
+  hardwareConfigurationKey: varchar("hardwareConfigurationKey", { length: 128 }),
+  hardwareConfigurationLabel: varchar("hardwareConfigurationLabel", { length: 512 }),
   listPrice: decimal("listPrice", { precision: 10, scale: 2 }),
   yourCost: decimal("yourCost", { precision: 10, scale: 2 }),
   imageUrl: varchar("imageUrl", { length: 512 }),
@@ -781,6 +789,12 @@ export const vendorProducts = mysqlTable("vendor_products", {
 }, (t) => ({
   lineSkuUnique: uniqueIndex("vendor_products_line_sku_uq").on(t.distributorId, t.vendorSku),
   lineStatusIndex: index("vendor_products_line_status_idx").on(t.distributorId, t.status),
+  hardwareConfigurationIndex: index("vendor_products_hardware_configuration_idx").on(
+    t.distributorId,
+    t.hardwareCollection,
+    t.hardwareProductType,
+    t.hardwareConfigurationKey,
+  ),
 }));
 
 export type VendorProduct = typeof vendorProducts.$inferSelect;
