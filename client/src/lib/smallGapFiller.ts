@@ -210,12 +210,32 @@ export function findSmallGapFillerOpportunity(
 	}
 	const before = installableSmallGapRemainder(measurement.before);
 	const after = installableSmallGapRemainder(measurement.after);
+	// Base-cabinet fit measurement ignores window clearance, so a window can be
+	// the real boundary of a short visible seam even though the free segment spans
+	// the whole wall. Treat only the cabinet-to-opening edge as a filler seam;
+	// never propose a board that crosses the opening itself.
+	const openingBefore = openings
+		.filter((opening) => opening.side === wall)
+		.map((opening) => cabinetStart - (opening.offset + opening.width))
+		.filter((gap) => gap >= -EDGE_EPSILON_IN && gap <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN)
+		.map((gap) => Math.max(0, gap))
+		.sort((left, right) => left - right)[0];
+	const openingAfter = openings
+		.filter((opening) => opening.side === wall)
+		.map((opening) => opening.offset - cabinetEnd)
+		.filter((gap) => gap >= -EDGE_EPSILON_IN && gap <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN)
+		.map((gap) => Math.max(0, gap))
+		.sort((left, right) => left - right)[0];
+	const measuredBefore = before ?? installableSmallGapRemainder(openingBefore ?? Number.NaN);
+	const measuredAfter = after ?? installableSmallGapRemainder(openingAfter ?? Number.NaN);
 	const beforeIsClear = before != null
 		&& !protectedLeadingClearance
 		&& !gapCrossesWallOpening(openings, wall, leadingStart, measurement.before);
 	const afterIsClear = after != null
 		&& !protectedTrailingClearance
 		&& !gapCrossesWallOpening(openings, wall, cabinetEnd, measurement.after);
+	const openingBeforeIsClear = before == null && measuredBefore != null && !protectedLeadingClearance;
+	const openingAfterIsClear = after == null && measuredAfter != null && !protectedTrailingClearance;
 	const combined = installableSmallGapRemainder(
 		(protectedLeadingClearance ? 0 : measurement.before)
 		+ (protectedTrailingClearance ? 0 : measurement.after),
@@ -245,20 +265,22 @@ export function findSmallGapFillerOpportunity(
 	  // guidance even if the cabinet's other side remains open for more cabinets.
 	  // Pick the left seam first for a deterministic prompt; after it is resolved,
 	  // the next cabinet placement/recheck can offer the independent right seam.
-	  if (beforeIsClear) {
+	  if (beforeIsClear || openingBeforeIsClear) {
+	    const remaining = measuredBefore!;
 	    return {
 	      cabinetUid,
 	      wall,
 	      layer,
 	      cabinetStart,
 	      cabinetSpan,
-	      openingStart: cabinetStart - before!,
-	      openingLength: cabinetSpan + before!,
-	      remaining: before!,
+	      openingStart: cabinetStart - remaining,
+	      openingLength: cabinetSpan + remaining,
+	      remaining,
 	      preferredMode: wallBlindCornerPreferredFillerMode(cabinet, wall) ?? "left",
 	    };
 	  }
-	  if (afterIsClear) {
+	  if (afterIsClear || openingAfterIsClear) {
+	    const remaining = measuredAfter!;
 	    return {
 	      cabinetUid,
 	      wall,
@@ -266,8 +288,8 @@ export function findSmallGapFillerOpportunity(
 	      cabinetStart,
 	      cabinetSpan,
 	      openingStart: cabinetStart,
-	      openingLength: cabinetSpan + after!,
-	      remaining: after!,
+	      openingLength: cabinetSpan + remaining,
+      remaining,
 	      preferredMode: wallBlindCornerPreferredFillerMode(cabinet, wall) ?? "right",
 	    };
 	  }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildDesignCabinetCartLines, buildDesignPreviewPricingLines } from "@/lib/designCartLines";
-import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData } from "@/lib/design";
+import { DEFAULT_ROOM, adjacentCabinetForFiller, cabinetWallDragPreview, matchInstalledFillerToCabinet, normalizeInstalledFillersToAdjacentCabinets, wallCabinetFitMeasure, wallPlacementAt, type IslandFace, type IslandZone, type PlacedCabinet, type RoomData, type WallOpening } from "@/lib/design";
 import { islandFacePlacement } from "@/lib/islandScene";
 import {
 	appendSmallGapFillerPlacement,
@@ -117,6 +117,26 @@ const cabinet: PlacedCabinet = {
 		  expect(canSplitSmallGapFiller({ remaining: 0.125 })).toBe(false);
 		  expect(canSplitSmallGapFiller({ remaining: 0.25 })).toBe(true);
 		  expect(canSplitSmallGapFiller({ remaining: 0.625 })).toBe(false);
+		});
+
+		it("prompts for a B18 half-inch seam immediately before a window opening", () => {
+		  const b18: PlacedCabinet = { ...cabinet, uid: "b18-before-window", masterCode: "B18", x: 81.5, width: 18 };
+		  const window: WallOpening = {
+		    uid: "window-right-of-b18",
+		    kind: "window",
+		    label: "Window",
+		    side: "top",
+		    offset: 100,
+		    width: 20,
+		    height: 48,
+		    sill: 42,
+		  };
+		  expect(findSmallGapFillerOpportunity({ ...DEFAULT_ROOM, width: 120 }, [b18], [window], b18.uid)).toMatchObject({
+		    remaining: 0.5,
+		    openingStart: 81.5,
+		    openingLength: 18.5,
+		    preferredMode: "right",
+		  });
 		});
 
 		it("places a start-corner WBC-27-42 filler on the blind side, to the left of its door", () => {
