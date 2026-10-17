@@ -66,8 +66,10 @@ async function startServer() {
   // Trust the proxy so req.headers.host reflects the original public host
   // (Cloud Run / Manus edge terminate TLS in front of us).
   app.set("trust proxy", true);
-  // Deployment health checks must be host-agnostic and must not enter the SPA,
-  // authentication, affiliate rewriting, or database layers.
+  // Deployment liveness checks must be host-agnostic and must not enter the
+  // SPA, authentication, affiliate rewriting, or database layers. Keep this
+  // route ahead of all hostname-specific middleware so a platform probe can
+  // isolate process health from storefront routing.
   app.get("/health", (_req, res) => {
     res.set("Cache-Control", "no-store");
     res.status(200).json({ ok: true });
