@@ -2606,7 +2606,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
   const selectedSmallGapFillerCut = useMemo(() => {
     if (!smallGapFillerPrompt) return 0;
     const requested = smallGapFillerCustomWidth ?? smallGapFillerPrompt.remaining;
-    return Math.round(requested * 8) / 8;
+    return Math.round(requested * 16) / 16;
   }, [smallGapFillerCustomWidth, smallGapFillerPrompt]);
   const optimalSmallGapFillerWidth = useMemo(
     () => smallGapFillerPrompt ? optimalSmallGapFillerCut(smallGapFillerPrompt) : null,
@@ -2747,12 +2747,12 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         return;
       }
       const remaining = fit.before + fit.after;
-      if (fit.status === "fits" && remaining < SMALL_GAP_FILLER_MIN_IN) {
+      if (fit.status === "fits" && remaining <= 0.001) {
         toast.info(`${cabinet.masterCode} fills the measured ${formatEighthInches(fit.availableSpan)} opening. No filler is needed.`);
       } else if (remaining > SMALL_GAP_FILLER_MAX_IN) {
         toast.info(`The measured opening has ${formatEighthInches(remaining)} remaining. Add another cabinet or use the gap tools before fitting a filler.`);
       } else {
-        toast.info("No eligible 1/8-inch to 6-inch cabinet seam was found beside this cabinet.");
+        toast.info("No eligible positive-to-6-inch cabinet seam was found beside this cabinet.");
       }
       return;
     }
@@ -7526,7 +7526,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	      ? findIslandSmallGapFillerOpportunity(island, committedPlaced, requestedCabinet.uid)
 	      : findPreferredSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)
 	    : null);
-	  const cutWidth = requestedCutWidth == null ? opportunity?.remaining ?? 0 : Math.round(requestedCutWidth * 8) / 8;
+  const cutWidth = requestedCutWidth == null ? opportunity?.remaining ?? 0 : Math.round(requestedCutWidth * 16) / 16;
 	  const cutIsValid = opportunity != null
 	    && cutWidth >= SMALL_GAP_FILLER_MIN_IN - 0.001
 	    && cutWidth <= opportunity.remaining + 0.001;
@@ -7542,7 +7542,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    : null;
 	    if (!cutOpportunity || !fillerDef) {
 	      toast.info(requestedCabinet
-	        ? `Choose an installable filler cut from ${formatInches(SMALL_GAP_FILLER_MIN_IN)} through ${formatInches(opportunity?.remaining ?? 0)}.`
+        ? `Choose a positive filler cut through ${formatInches(opportunity?.remaining ?? 0)}.`
 	        : "The selected cabinet opening is no longer available for filler placement.");
 	      setSmallGapFillerPrompt(null);
 	      return;
@@ -19280,7 +19280,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	            inputMode="decimal"
 	            min={SMALL_GAP_FILLER_MIN_IN}
 	            max={smallGapFillerPrompt?.remaining ?? 0}
-	            step={0.125}
+            step={0.0625}
 	            value={smallGapFillerCustomWidth ?? ""}
 	            onChange={(event) => {
 	              const raw = event.target.value;
@@ -19290,7 +19290,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	          />
 	          <span className="text-sm text-muted-foreground">inches</span>
 	        </div>
-		        <p className="mt-1 text-xs text-muted-foreground">Choose any cut from {formatEighthInches(SMALL_GAP_FILLER_MIN_IN)} through {formatEighthInches(smallGapFillerPrompt?.remaining ?? 0)} in 1/8-inch increments. A smaller cut leaves the balance open.</p>
+		        <p className="mt-1 text-xs text-muted-foreground">Choose any positive cut through {formatEighthInches(smallGapFillerPrompt?.remaining ?? 0)}. A smaller cut leaves the balance open.</p>
 	        {!selectedSmallGapFillerCutIsValid && <p className="mt-1 text-xs font-medium text-destructive">Enter a cut inside the measured seam before choosing a placement.</p>}
 	      </div>
 	      <Button

@@ -36,10 +36,19 @@ describe("catalogFillerForGap", () => {
 	  expect(isCatalogFiller(refrigeratorEndPanel)).toBe(false);
 	  expect(isCatalogFiller(panelNamedAsFiller)).toBe(false);
 	  expect(catalogFillerForGap([refrigeratorEndPanel, panelNamedAsFiller, ...fillers], 1, "base")?.masterCode).toBe("BF-3");
-	  expect(catalogFillerPricingId({ id: 2796, masterCode: "REPV2796", description: refrigeratorEndPanel.description, category: "Filler", subCategory: "Accessory", width: 1, placement: "base" }, [refrigeratorEndPanel, ...fillers])).toBe(2796);
-	});
+		expect(catalogFillerPricingId({ id: 2796, masterCode: "REPV2796", description: refrigeratorEndPanel.description, category: "Filler", subCategory: "Accessory", width: 1, placement: "base" }, [refrigeratorEndPanel, ...fillers])).toBe(2796);
+		});
 
-		it("never treats a verified decorative-leg code as filler stock, even if a legacy import marks it Filler", () => {
+		it("never substitutes dishwasher panels or toe-kick trim for CabinetDealz filler stock", () => {
+			const forbidden = [
+				{ id: 80, masterCode: "DW-PANEL", description: "Dishwasher end panel", category: "Filler", subCategory: "Filler", width: 3, depth: 24, height: 34.5, catalogImageUrl: null },
+				{ id: 81, masterCode: "TK-4", description: "Toe kick board", category: "Filler", subCategory: "Filler", width: 4, depth: 0.25, height: 4.5, catalogImageUrl: null },
+			] as const;
+			for (const candidate of forbidden) expect(isCatalogFiller(candidate)).toBe(false);
+			expect(catalogFillerForGap([...forbidden, ...fillers], 2, "base")?.masterCode).toBe("BF-3");
+		});
+
+			it("never treats a verified decorative-leg code as filler stock, even if a legacy import marks it Filler", () => {
 		  const flutedDecorativeLeg = {
 	    id: 9360233,
 	    masterCode: "FLDL",

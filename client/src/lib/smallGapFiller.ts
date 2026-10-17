@@ -24,12 +24,12 @@ import { islandFaceFitMeasure, islandOffsetForPlaced } from "@/lib/islandScene";
 import { isWallBlindCornerCabinet } from "@/lib/cabinetGraphics";
 
 const EDGE_EPSILON_IN = 0.001;
-/** Cuttable source filler can close any physical seam at the shared 1/8-inch precision. */
-export const SMALL_GAP_FILLER_MIN_IN = 0.125;
+/** Any positive measured seam may be field-cut; there is no minimum filler width. */
+export const SMALL_GAP_FILLER_MIN_IN = 0;
 /** A cabinet-to-cabinet seam up to six inches can be intentionally filled. */
 export const SMALL_GAP_FILLER_MAX_IN = 6;
-/** Two pieces are available only when each half is an exact 1/8-inch cut. */
-export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0.125;
+/** Two pieces are available whenever both halves have a positive cut width. */
+export const SMALL_GAP_SPLIT_PIECE_MIN_IN = 0;
 
 export type SmallGapFillerPlacementMode = "left" | "right" | "split";
 
@@ -109,11 +109,12 @@ function near(left: number, right: number) {
   return Math.abs(left - right) <= EDGE_EPSILON_IN;
 }
 
-/** Gap prompts use installable 1/8-inch source-filler cuts. */
+/** Gap prompts use field-cut source-filler widths with fine tape-measure precision. */
 export function installableSmallGapRemainder(value: number): number | null {
-  if (!Number.isFinite(value) || value < SMALL_GAP_FILLER_MIN_IN - EDGE_EPSILON_IN || value > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
-  const rounded = Math.round(value * 8) / 8;
-  return rounded >= SMALL_GAP_FILLER_MIN_IN && rounded <= SMALL_GAP_FILLER_MAX_IN ? rounded : null;
+  if (!Number.isFinite(value) || value <= EDGE_EPSILON_IN || value > SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN) return null;
+  const rounded = Math.round(value * 16) / 16;
+  const normalized = rounded > EDGE_EPSILON_IN ? rounded : value;
+  return normalized > EDGE_EPSILON_IN && normalized <= SMALL_GAP_FILLER_MAX_IN + EDGE_EPSILON_IN ? normalized : null;
 }
 
 /** The optimal filler consumes the entire measured cabinet-to-cabinet seam. */
@@ -409,8 +410,9 @@ export function smallGapFillerOpportunityFromDragPreview(
 
 export function canSplitSmallGapFiller(opportunity: Pick<SmallGapFillerOpportunity, "remaining">) {
   const half = opportunity.remaining / 2;
-  return half + EDGE_EPSILON_IN >= SMALL_GAP_SPLIT_PIECE_MIN_IN
-    && Math.abs(half * 8 - Math.round(half * 8)) <= EDGE_EPSILON_IN;
+  return half > EDGE_EPSILON_IN
+    && half + EDGE_EPSILON_IN >= SMALL_GAP_SPLIT_PIECE_MIN_IN
+    && Math.abs(half * 16 - Math.round(half * 16)) <= EDGE_EPSILON_IN;
 }
 
 /** Chooses the safest one-click layout while reusing the existing priced filler transaction. */

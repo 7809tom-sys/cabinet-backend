@@ -79,7 +79,7 @@ describe("Design Tool small-gap filler workflow", () => {
 	    const applySource = source.slice(applyStart, applyEnd);
 	    expect(applySource).toContain("const committedPlaced = placedRef.current");
     expect(applySource).toContain("findPreferredSmallGapFillerOpportunity(room, committedPlaced, openings, requestedCabinet.uid)");
-	    expect(applySource).toContain("Choose an installable filler cut from");
+    expect(applySource).toContain("Choose a positive filler cut through");
 	    expect(applySource).toContain("wallOffset: cabinetSpot.wallOffset");
 	    expect(applySource).toContain("placedRef.current = result.placed");
 	  });

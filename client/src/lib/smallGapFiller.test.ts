@@ -107,16 +107,17 @@ const cabinet: PlacedCabinet = {
 		  expect(optimalSmallGapFillerCut({ remaining: 6.125 })).toBeNull();
 		});
 
-		it("offers left or right placement for a source-backed sub-inch seam and only splits even eighth-inch halves", () => {
+		it("offers left or right placement for a source-backed sub-inch seam with no minimum cut", () => {
 		  const subInchRoom = { ...DEFAULT_ROOM, width: 18.625 };
 		  const subInchCabinet = { ...cabinet, uid: "sub-inch-right", width: 18 };
 		  expect(findSmallGapFillerOpportunity(subInchRoom, [subInchCabinet], [], subInchCabinet.uid)).toMatchObject({
 		    remaining: 0.625,
 		    preferredMode: "right",
 		  });
-		  expect(canSplitSmallGapFiller({ remaining: 0.125 })).toBe(false);
-		  expect(canSplitSmallGapFiller({ remaining: 0.25 })).toBe(true);
-		  expect(canSplitSmallGapFiller({ remaining: 0.625 })).toBe(false);
+			expect(optimalSmallGapFillerCut({ remaining: 0.0625 })).toBe(0.0625);
+			expect(canSplitSmallGapFiller({ remaining: 0.125 })).toBe(true);
+			expect(canSplitSmallGapFiller({ remaining: 0.25 })).toBe(true);
+			expect(canSplitSmallGapFiller({ remaining: 0.625 })).toBe(true);
 		});
 
 		it("prompts for a B18 half-inch seam immediately before a window opening", () => {

@@ -49,6 +49,11 @@ export function isCatalogDecorativeLeg(candidate: Pick<CatalogFillerCandidate, "
 export function isCatalogFiller(candidate: Pick<CatalogFillerCandidate, "masterCode" | "description" | "category" | "subCategory">): boolean {
   if (isCatalogPanel(candidate) || isCatalogDecorativeLeg(candidate)) return false;
   const text = `${candidate.masterCode} ${candidate.description ?? ""} ${candidate.category ?? ""} ${candidate.subCategory ?? ""}`.toLowerCase();
+  // Only CabinetDealz filler stock may be field-cut. Dishwasher panels and
+  // toe-kick/utility trim are not filler boards and must never be substituted
+  // into a measured cabinet seam, even when an import classified them as
+  // "Filler".
+  if (/dishwasher|dishwasher[-\s]*(?:end\s*)?panel|toe[-\s]*kick|kick[-\s]*board/.test(text)) return false;
   return /\bfiller\b|\bscribe\b|^wf|^bf|^ff/.test(text);
 }
 
