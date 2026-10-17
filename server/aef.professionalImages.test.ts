@@ -31,4 +31,8 @@ describe("professionalAefImageFor", () => {
     expect(professionalAefImageFor(sourceCabinet("W2430S", "Wall"))).toBe("wallSingleDoor");
     expect(professionalAefImageFor(sourceCabinet("VSB24S", "Vanity"))).toBe("vanitySingleDoor");
   });
+
+  it("uses the tall finished-panel illustration for the refrigerator-only TEP3096 source panel", () => {
+    expect(professionalAefImageFor(sourceCabinet("TEP3096", "Accessory"))).toBe("accessoryPanel");
+  });
 });

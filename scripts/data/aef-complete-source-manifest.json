@@ -4485,6 +4485,37 @@
     "description": "18\" W \u00d7 84\" H \u00d7 21\" D Tall One Door Vanity Utility Cabinet with Three Drawers"
   },
   {
+    "sku": "TEP3096",
+    "category": "Accessory",
+    "sourcePage": 74,
+    "weightLb": 50.0,
+    "priceCount": 7,
+    "prices": [
+      "482",
+      "994",
+      "910",
+      "1260",
+      "1305",
+      "910",
+      "1260"
+    ],
+    "configuration": {
+      "placement": "accessory",
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "refrigerator-end-panel",
+      "cabinet": false,
+      "isNotCabinet": true,
+      "productType": "refrigerator-end-panel"
+    },
+    "isCabinet": false,
+    "width": 29.875,
+    "height": 96,
+    "depth": 0.75,
+    "toeKickHeight": null,
+    "description": "29-7/8\" W \u00d7 96\" H \u00d7 3/4\" D Tall End Panel for Refrigerator Bridge Cabinet"
+  },
+  {
     "sku": "OCM8",
     "category": "Accessory",
     "sourcePage": 17,
@@ -4717,5 +4748,160 @@
     },
     "isCabinet": false,
     "description": "Frameless Collection accessory"
+  },
+  {
+    "category": "Accessory",
+    "priceCount": 7,
+    "configuration": {
+      "cabinet": false,
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "panel",
+      "isNotCabinet": true,
+      "placement": "accessory",
+      "productType": "end-panel"
+    },
+    "isCabinet": false,
+    "toeKickHeight": null,
+    "sku": "BEP2535",
+    "description": "25-5/8\" W \u00d7 35-1/4\" H \u00d7 3/4\" D Base End Panel",
+    "width": 25.625,
+    "height": 35.25,
+    "depth": 0.75,
+    "weightLb": 18.0,
+    "prices": [
+      "156",
+      "318",
+      "290",
+      "400",
+      "415",
+      "290",
+      "400"
+    ],
+    "sourcePage": 73
+  },
+  {
+    "category": "Accessory",
+    "priceCount": 7,
+    "configuration": {
+      "cabinet": false,
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "panel",
+      "isNotCabinet": true,
+      "placement": "accessory",
+      "productType": "end-panel"
+    },
+    "isCabinet": false,
+    "toeKickHeight": null,
+    "sku": "WEP1523",
+    "description": "15-1/4\" W \u00d7 22-5/8\" H \u00d7 3/4\" D Wall End Panel",
+    "width": 15.25,
+    "height": 22.625,
+    "depth": 0.75,
+    "weightLb": 7.0,
+    "prices": [
+      "58",
+      "121",
+      "110",
+      "155",
+      "160",
+      "110",
+      "155"
+    ],
+    "sourcePage": 74
+  },
+  {
+    "category": "Accessory",
+    "priceCount": 7,
+    "configuration": {
+      "cabinet": false,
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "panel",
+      "isNotCabinet": true,
+      "placement": "accessory",
+      "productType": "end-panel"
+    },
+    "isCabinet": false,
+    "toeKickHeight": null,
+    "sku": "WEP1530",
+    "description": "15-1/4\" W \u00d7 30-1/4\" H \u00d7 3/4\" D Wall End Panel",
+    "width": 15.25,
+    "height": 30.25,
+    "depth": 0.75,
+    "weightLb": 10.0,
+    "prices": [
+      "79",
+      "161",
+      "150",
+      "205",
+      "215",
+      "150",
+      "205"
+    ],
+    "sourcePage": 74
+  },
+  {
+    "category": "Accessory",
+    "priceCount": 7,
+    "configuration": {
+      "cabinet": false,
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "panel",
+      "isNotCabinet": true,
+      "placement": "accessory",
+      "productType": "end-panel"
+    },
+    "isCabinet": false,
+    "toeKickHeight": null,
+    "sku": "WEP1535",
+    "description": "15-1/4\" W \u00d7 35-1/4\" H \u00d7 3/4\" D Wall End Panel",
+    "width": 15.25,
+    "height": 35.25,
+    "depth": 0.75,
+    "weightLb": 11.0,
+    "prices": [
+      "91",
+      "186",
+      "175",
+      "240",
+      "250",
+      "175",
+      "240"
+    ],
+    "sourcePage": 74
+  },
+  {
+    "category": "Accessory",
+    "priceCount": 7,
+    "configuration": {
+      "cabinet": false,
+      "doors": 0,
+      "drawers": 0,
+      "graphic": "panel",
+      "isNotCabinet": true,
+      "placement": "accessory",
+      "productType": "end-panel"
+    },
+    "isCabinet": false,
+    "toeKickHeight": null,
+    "sku": "WEP1542",
+    "description": "15-1/4\" W \u00d7 41-3/4\" H \u00d7 3/4\" D Wall End Panel",
+    "width": 15.25,
+    "height": 41.75,
+    "depth": 0.75,
+    "weightLb": 13.0,
+    "prices": [
+      "105",
+      "214",
+      "205",
+      "285",
+      "295",
+      "205",
+      "285"
+    ],
+    "sourcePage": 74
   }
 ]

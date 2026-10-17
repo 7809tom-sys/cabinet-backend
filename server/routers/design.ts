@@ -705,7 +705,8 @@ export const designRouter = router({
   // match the locked door style. Given the fridge width we return:
   //  - deepAbove:  the 24"-deep refrigerator WALL cabinet options (W-30-*-24 ...)
   //  - bridgeAbove: the 12"-deep short bridge wall cabinet options (W-30-12 ...)
-  //  - endPanels:  tall/deep refrigerator end panels (REPV-24-96 / REPV-27-96)
+  //  - endPanels:  tall/deep refrigerator end panels (REPV-24-96 / REPV-27-96
+  //                plus USCD Frameless TEP3096, cut-to-fit beside a bridge cabinet)
   //  - smoothPanel: a plain smooth skin panel sheet (WSV-*) cut-to-fit
   // Each is availability-gated to the chosen style so it prices + colors right.
   surroundForFridge: publicProcedure
@@ -828,6 +829,7 @@ export const designRouter = router({
                 OR ${cabinets.masterCode} LIKE 'WSV%'
               )`,
             ),
+            eq(cabinets.masterCode, "TEP3096"),
           )!,
         ));
       // Sort end panels: REP2496 (Clark & Sons) first, then REPV* (Skyline/USCD), then PLY panels.
@@ -837,6 +839,7 @@ export const designRouter = router({
         || /^REP9/.test(r.masterCode)
         || r.masterCode === 'REP2496'
         || r.masterCode === 'S2496'
+        || r.masterCode === 'TEP3096'
       ));
       const endPanels = endPanelsRaw.sort((a, b) => {
         const rank = (code: string) => {
@@ -844,6 +847,7 @@ export const designRouter = router({
           if (/^REPV/.test(code)) return 1;          // Skyline/USCD standard panels
           if (/^REP9/.test(code)) return 2;          // legacy REP9* panels
           if (code === 'S2496') return 3;            // Madison finished shelf board used as panel
+          if (code === 'TEP3096') return 4;           // AEF stock panel cut-to-fit beside a bridge
           return 4;                                  // any remaining verified panel
         };
         const diff = rank(a.masterCode) - rank(b.masterCode);
@@ -931,12 +935,14 @@ export const designRouter = router({
         ...(await run(like(cabinets.masterCode, "W-%-24"))),
         ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, like(cabinets.masterCode, "WR%"), sql`${cabinets.masterCode} NOT LIKE 'WRC%'`))),
       ];
-      // End panels: REPV-* (Skyline/USCD) and REP9*/REP2496 (Clark and Sons).
+      // End panels: REPV-* (Skyline/USCD), REP9*/REP2496 (Clark and Sons),
+      // and the AEF TEP3096 stock panel cut-to-fit for a refrigerator bridge.
       // PLYEB42 is a separately sold 42 × 96 plywood edge-banded board, not
       // an automatically cut refrigerator end panel.
       const panelRows = [
         ...(await run(like(cabinets.masterCode, "REPV%"))),
         ...(await run(like(cabinets.masterCode, "REP9%"))),
+        ...(await db.select(cols).from(cabinets).innerJoin(distributorSkus, eq(distributorSkus.cabinetId, cabinets.id)).where(and(gate, eq(cabinets.masterCode, "TEP3096")))),
       ];
       // Standard wall cabinets (short/tall boxes) minus the deep "-24" fridge box and WR cabinets.
       const wallRows = (await run(like(cabinets.masterCode, "W-%"))).filter(

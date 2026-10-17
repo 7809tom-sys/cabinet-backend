@@ -4,6 +4,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { cabinets, distributorSkus, distributors, doorStyles } from "../drizzle/schema";
 import { getDb } from "./db";
+import { appRouter } from "./routers";
 import { AEF_EXPANDED_SOURCE_GEOMETRY } from "../shared/aefFramelessExpandedGeometry";
 
 type SourceRow = {
@@ -79,11 +80,11 @@ describe("AEF USCD Frameless release integrity", () => {
     const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
     const styles = await db.select({ id: doorStyles.id, code: doorStyles.styleCode }).from(doorStyles).where(eq(doorStyles.distributorId, aef!.id));
     expect(styles).toHaveLength(49);
-    expect(Object.keys(AEF_EXPANDED_SOURCE_GEOMETRY)).toHaveLength(151);
-    expect(completeSource).toHaveLength(162);
+    expect(Object.keys(AEF_EXPANDED_SOURCE_GEOMETRY)).toHaveLength(157);
+    expect(completeSource).toHaveLength(168);
 
     const cabinetSource = completeSource.filter((row) => row.width !== undefined);
-    expect(cabinetSource).toHaveLength(151);
+    expect(cabinetSource).toHaveLength(157);
     for (const row of cabinetSource) {
       expect(AEF_EXPANDED_SOURCE_GEOMETRY[row.sku]).toMatchObject({
         width: row.width,
@@ -119,7 +120,7 @@ describe("AEF USCD Frameless release integrity", () => {
     const expanded = rows.filter((row) => sourceSet.has(row.sourceSku));
     const bySku = new Map<string, typeof expanded>();
     for (const row of expanded) bySku.set(row.sourceSku, [...(bySku.get(row.sourceSku) ?? []), row]);
-    expect(bySku.size).toBe(162);
+    expect(bySku.size).toBe(168);
 
     for (const source of completeSource) {
       const sourceRows = bySku.get(source.sku) ?? [];
@@ -153,6 +154,75 @@ describe("AEF USCD Frameless release integrity", () => {
           geometryToeKick: geometry.toeKickHeight?.toFixed(2) ?? null,
         });
       }
+    }
+  });
+
+  it("offers TEP3096 only through Refrigerator Options on the published AEF finish line", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const [style] = await db
+      .select({ id: doorStyles.id })
+      .from(doorStyles)
+      .where(and(eq(doorStyles.distributorId, aef!.id), eq(doorStyles.styleCode, "LSA")))
+      .limit(1);
+    const caller = appRouter.createCaller({} as any);
+    const surround = await caller.design.surroundForFridge({ styleId: style!.id, fridgeWidth: 36 });
+
+    expect(surround.endPanels).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        masterCode: "TEP3096",
+        description: expect.stringMatching(/refrigerator bridge cabinet/i),
+        width: "29.875",
+        height: "96.000",
+        depth: "0.750",
+        numberOfDoors: 0,
+        numberOfDrawers: 0,
+      }),
+    ]));
+  });
+
+  it("publishes every BEP and WEP exposed panel as exact 3/4-inch AEF stock without changing the framed WEP master", async () => {
+    const db = await getDb();
+    if (!db) return;
+    const [aef] = await db.select().from(distributors).where(eq(distributors.code, "AEF")).limit(1);
+    const [style] = await db
+      .select({ id: doorStyles.id })
+      .from(doorStyles)
+      .where(and(eq(doorStyles.distributorId, aef!.id), eq(doorStyles.styleCode, "LSA")))
+      .limit(1);
+    const sourceCodes = ["BEP2535", "WEP1523", "WEP1530", "WEP1535", "WEP1542"];
+    const rows = await db
+      .select({
+        code: cabinets.masterCode,
+        sourceCode: distributorSkus.distributorSku,
+        listPrice: distributorSkus.listPrice,
+        homeownerPrice: distributorSkus.homeownerPrice,
+        width: distributorSkus.geometryWidth,
+        height: distributorSkus.geometryHeight,
+        depth: distributorSkus.geometryDepth,
+        published: distributorSkus.isPublished,
+        available: distributorSkus.isAvailable,
+      })
+      .from(distributorSkus)
+      .innerJoin(cabinets, eq(cabinets.id, distributorSkus.cabinetId))
+      .where(and(eq(distributorSkus.distributorId, aef!.id), eq(distributorSkus.styleId, style!.id), inArray(distributorSkus.distributorSku, sourceCodes)));
+    expect(rows).toHaveLength(5);
+    for (const row of rows) {
+      const source = completeSource.find((entry) => entry.sku === row.sourceCode)!;
+      const list = sourcePrice(source.prices[SOURCE_COLUMN_BY_STYLE.LSA]!);
+      const cost = landedCost(list);
+      expect(row).toMatchObject({
+        code: source.sku,
+        sourceCode: source.sku,
+        listPrice: list.toFixed(2),
+        homeownerPrice: (Math.round(cost * 1.58 * 100) / 100).toFixed(2),
+        width: source.width!.toFixed(3),
+        height: source.height!.toFixed(3),
+        depth: "0.750",
+        published: true,
+        available: true,
+      });
     }
   });
 });

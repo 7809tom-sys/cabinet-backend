@@ -28,6 +28,15 @@ const madisonShelfBoard = {
   depth: "0.75",
 };
 
+const aefBridgePanel = {
+  id: 9903096,
+  masterCode: "TEP3096",
+  description: "29-7/8 inch Tall End Panel for Refrigerator Bridge Cabinet",
+  width: "29.875",
+  height: "96",
+  depth: "0.75",
+};
+
 const refrigeratorCap = {
   id: 9390060,
   masterCode: "W3612",
@@ -205,6 +214,29 @@ describe("RefrigeratorOptionsDialog end-panel defaults", () => {
     fireEvent.click(screen.getByText("More enclosure options"));
     fireEvent.click(screen.getByRole("button", { name: "Both" }));
     expect(screen.getAllByText(/S2496 — finished shelf board \/ refrigerator side panel/i)).toHaveLength(2);
+  });
+
+  it("labels TEP3096 as a cut-to-fit refrigerator bridge side panel and preserves its stock sheet depth", () => {
+    const onApply = vi.fn();
+    render(
+      <RefrigeratorOptionsDialog
+        open
+        onOpenChange={vi.fn()}
+        fridgeWidthInches={36}
+        endPanels={[aefBridgePanel]}
+        deepAbove={[refrigeratorCap]}
+        onApply={onApply}
+        onSkip={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("More enclosure options"));
+    fireEvent.click(screen.getByRole("button", { name: "Both" }));
+    expect(screen.getAllByText(/TEP3096 — 29-7\/8″ stock panel, cut to fit/i)).toHaveLength(2);
+    expect(screen.getByText(/refrigerator bridge side panel/i)).toBeTruthy();
+    expect(screen.getByText(/panel depth:/i).textContent).toContain("29.875″");
+    fireEvent.click(screen.getByRole("button", { name: "dt_fridge_apply" }));
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ endPanelId: 9903096, panelDepth: 29.875, panels: "both" }));
   });
 
 	it("never offers a generic refrigerator bay when the selected line has no source-priced cap or panels", () => {

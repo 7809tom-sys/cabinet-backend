@@ -4507,6 +4507,7 @@ describe("accessory placement (item 5: accessories into the drawing)", () => {
     expect(isPlaceableAccessory({ masterCode: "LR-8", description: "Light Rail Molding" })).toBe(false);
     expect(isPlaceableAccessory({ masterCode: "ROT-21", description: "Roll-Out Tray 21", subCategory: "Roll-Out Trays" })).toBe(false);
     expect(isPlaceableAccessory({ masterCode: "PULL-5", description: "Bar Pull Hardware" })).toBe(false);
+    expect(isPlaceableAccessory({ masterCode: "TEP3096", description: "Tall End Panel for Refrigerator Bridge Cabinet", subCategory: "Refrigerator End Panel" })).toBe(false);
   });
 
   it("isLooseTrimItem flags molding/hardware/trays", () => {

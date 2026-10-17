@@ -66,6 +66,7 @@ const MANIFEST_PATH = path.join(ROOT, "scripts/data/aef-complete-source-manifest
 const IMAGES = {
   accessoryFinish: "/manus-storage/aef-accessory-finish_a160d2a7.png",
   accessoryMoulding: "/manus-storage/aef-accessory-moulding_56f3c613.png",
+  accessoryPanel: "/manus-storage/aef-accessory-panel-render_252d1d1a.webp",
   base2drawer: "/manus-storage/aef-base-2drawer_a8a40175.png",
   base3drawer: "/manus-storage/aef-base-3drawer_e6f7a40c.png",
   baseBlind: "/manus-storage/aef-base-blind-corner_0213de3e.png",
@@ -122,8 +123,18 @@ function placementFor(row: SourceRow): "base" | "wall" | "tall" | "accessory" {
   return "base";
 }
 
+/** Source-priced but intentionally selectable only from Refrigerator Options. */
+function refrigeratorOnlyPanel(row: SourceRow): boolean {
+  return row.sku === "TEP3096";
+}
+
 function subCategoryFor(row: SourceRow): string | null {
-  if (row.category === "Accessory") return row.sku === "OCM8" || row.sku === "BM8" || row.sku === "SM8" || row.sku === "TKC" || row.sku.includes("PVC") ? "Molding" : "Accessory";
+  if (row.category === "Accessory") {
+    if (row.sku === "TEP3096") return "Refrigerator End Panel";
+    if (row.sku === "BEP2535") return "Base End Panel";
+    if (/^WEP\d+$/i.test(row.sku)) return "Wall End Panel";
+    return row.sku === "OCM8" || row.sku === "BM8" || row.sku === "SM8" || row.sku === "TKC" || row.sku.includes("PVC") ? "Molding" : "Accessory";
+  }
   if (row.configuration.cornerType === "blind-corner") return row.category === "Wall" ? "Blind Corner Wall" : "Blind Corner Base";
   if (row.configuration.cornerType === "l-shape") return "Lazy Susan Corner";
   if (row.sku.startsWith("WFD")) return "Flip-Up Wall";
@@ -133,7 +144,11 @@ function subCategoryFor(row: SourceRow): string | null {
 
 function imageFor(row: SourceRow): string {
   const code = row.sku;
-  if (row.category === "Accessory") return code === "OCM8" || code === "BM8" || code === "SM8" || code === "TKC" || code.includes("PVC") ? IMAGES.accessoryMoulding : IMAGES.accessoryFinish;
+  if (row.category === "Accessory") {
+    if (code === "TEP3096") return IMAGES.accessoryPanel;
+    if (code === "BEP2535" || /^WEP\d+$/i.test(code)) return IMAGES.accessoryPanel;
+    return code === "OCM8" || code === "BM8" || code === "SM8" || code === "TKC" || code.includes("PVC") ? IMAGES.accessoryMoulding : IMAGES.accessoryFinish;
+  }
   if (code.startsWith("WFD")) return IMAGES.wallFlipUp;
   if (code.startsWith("WBC")) return IMAGES.wallBlind;
   if (code.startsWith("BBC")) return IMAGES.baseBlind;
@@ -198,13 +213,14 @@ function masterValues(row: SourceRow): unknown[] {
   const c = row.configuration;
   const geometry = AEF_EXPANDED_SOURCE_GEOMETRY[row.sku];
   const isAccessory = row.category === "Accessory";
+  const refrigeratorOnly = refrigeratorOnlyPanel(row);
   return [
     row.sku, row.description, "manufacturer_spec", row.category, subCategoryFor(row),
     printedDimension(geometry?.width), printedDimension(geometry?.height), printedDimension(geometry?.depth),
     printedDimension(geometry?.width), row.weightLb.toFixed(2), placementFor(row),
     c.doors ?? 0, c.drawers ?? 0, geometry?.toeKickHeight?.toFixed(2) ?? null,
     Boolean(c.isCorner), c.cornerType === "blind-corner" ? "3.00" : null, c.cornerType === "blind-corner" ? "6.00" : null,
-    c.graphic ?? "accessory", true, true, true, true, row.weightLb.toFixed(2), Boolean(isAccessory || c.isNotCabinet),
+    c.graphic ?? "accessory", true, !refrigeratorOnly, !refrigeratorOnly, !refrigeratorOnly, row.weightLb.toFixed(2), Boolean(isAccessory || c.isNotCabinet),
     c.cornerType ?? null, c.doorOrientation ?? null,
     `${row.description}; source: AltaEuro / U.S. Cabinet Depot Frameless Collection Full Spec Book V8.2 p. ${row.sourcePage}.`, imageFor(row),
     `Exact distributor source configuration; shared-master geometry is never used for the AEF line.`,
@@ -215,10 +231,10 @@ function masterValues(row: SourceRow): unknown[] {
 
 async function main() {
   const manifest = JSON.parse(fs.readFileSync(MANIFEST_PATH, "utf8")) as SourceRow[];
-  if (manifest.length !== 162) throw new Error(`Expected 162 expanded source records; found ${manifest.length}`);
+  if (manifest.length !== 168) throw new Error(`Expected 168 expanded source records; found ${manifest.length}`);
   if (new Set(manifest.map((row) => row.sku)).size !== manifest.length) throw new Error("Manifest contains duplicate source SKUs");
   const geometryRows = manifest.filter((row) => row.width !== undefined);
-  if (geometryRows.length !== 151 || Object.keys(AEF_EXPANDED_SOURCE_GEOMETRY).length !== 151) throw new Error("Expanded source geometry table must contain all 151 cabinet models");
+  if (geometryRows.length !== 157 || Object.keys(AEF_EXPANDED_SOURCE_GEOMETRY).length !== 157) throw new Error("Expanded source geometry table must contain all 157 source-verified items");
   for (const row of geometryRows) {
     const geometry = AEF_EXPANDED_SOURCE_GEOMETRY[row.sku];
     if (!geometry || geometry.width !== row.width || geometry.height !== row.height || geometry.depth !== row.depth || geometry.sourcePage !== String(row.sourcePage)) {
@@ -285,9 +301,18 @@ async function main() {
         existingByCode.set(row.sku, { id: Number(result.insertId), masterCode: row.sku, isActive: 1, showInCatalog: 1, showInDesigner: 1, nonAefSkuCount: 0 });
       }
 
-      // AEF-only masters can be public. Shared masters have already been asserted public and are not touched.
-      const aefOnlyIds = Array.from(existingByCode.values()).filter((row) => !Number(row.nonAefSkuCount)).map((row) => row.id);
+      // AEF-only masters can be public. TEP3096 is source-priced but appears only
+      // inside Refrigerator Options, where it is cut to the installation depth.
+      // Shared masters have already been asserted public and are not touched.
+      const refrigeratorOnlyCodes = new Set(manifest.filter(refrigeratorOnlyPanel).map((row) => row.sku));
+      const aefOnlyIds = Array.from(existingByCode.values())
+        .filter((row) => !Number(row.nonAefSkuCount) && !refrigeratorOnlyCodes.has(row.masterCode))
+        .map((row) => row.id);
       if (aefOnlyIds.length) await conn.query(`UPDATE cabinets SET isActive=1,showInCatalog=1,showInDesigner=1,showIn2020=1 WHERE id IN (${aefOnlyIds.map(() => "?").join(",")})`, aefOnlyIds);
+      const refrigeratorOnlyIds = Array.from(existingByCode.values())
+        .filter((row) => refrigeratorOnlyCodes.has(row.masterCode))
+        .map((row) => row.id);
+      if (refrigeratorOnlyIds.length) await conn.query(`UPDATE cabinets SET isActive=1,showInCatalog=0,showInDesigner=0,showIn2020=0 WHERE id IN (${refrigeratorOnlyIds.map(() => "?").join(",")})`, refrigeratorOnlyIds);
 
       // Geometry, visuals and face layouts are AEF-only overrides; never alter a framed shared master.
       for (const row of manifest) {

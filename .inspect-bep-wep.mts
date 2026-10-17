@@ -1,0 +1,4 @@
+import mysql from 'mysql2/promise';
+const db=await mysql.createConnection(process.env.DATABASE_URL!);
+const [rows]=await db.query(`SELECT d.code distributor,d.name distributorName,c.id cabinetId,c.masterCode,c.description,c.category,c.subCategory,c.width,c.height,c.depth,c.placementType,c.showInCatalog,c.showInDesigner,c.isActive,ds.id skuId,ds.distributorSku,ds.geometryWidth,ds.geometryHeight,ds.geometryDepth,ds.geometrySourcePage,ds.isPublished,ds.isAvailable,ds.listPrice,ds.homeownerPrice,ds.styleId FROM cabinets c JOIN distributor_skus ds ON ds.cabinetId=c.id JOIN distributors d ON d.id=ds.distributorId WHERE c.masterCode LIKE 'BEP%' OR c.masterCode LIKE 'WEP%' OR ds.distributorSku LIKE 'BEP%' OR ds.distributorSku LIKE 'WEP%' ORDER BY d.code,c.masterCode,ds.distributorSku LIMIT 500`);
+console.log(JSON.stringify(rows,null,2)); await db.end();

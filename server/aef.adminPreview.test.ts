@@ -86,8 +86,8 @@ describe("AEF USCD frameless release", () => {
         eq(distributorSkus.isPublished, true),
       ))
       ;
-    // Existing 115 × 49 finish rows + complete-line source rows (7,484).
-    expect(publishedState).toHaveLength(13_119);
+    // Existing 115 × 49 finish rows + complete-line source rows (7,778).
+    expect(publishedState).toHaveLength(13_413);
     expect(publishedState.every((row) => row.geometryStatus === "verified" && row.isPublished)).toBe(true);
   });
 });

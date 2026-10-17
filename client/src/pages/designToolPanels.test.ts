@@ -8,6 +8,8 @@ describe("dedicated Panels palette", () => {
   it("includes real decorative/end panels and wall/base/refrigerator/dishwasher skins", () => {
     for (const record of [
       item("BEP2434", "Base End Panel — 24 x 34.5", "Standard Base"),
+      item("BEP2535", "25-5/8\" W × 35-1/4\" H × 3/4\" D Base End Panel", "Base End Panel"),
+      item("WEP1523", "15-1/4\" W × 22-5/8\" H × 3/4\" D Wall End Panel", "Wall End Panel"),
       item("WEP1542", "Wall End Panel — 15 x 42", "Standard Wall"),
       item("WS1542", "15 x 42 Wall Skin Panel", "Standard Wall"),
       item("REP2496", "Refrigerator End Panel", "Refrigerator End Panel"),
@@ -31,5 +33,10 @@ describe("dedicated Panels palette", () => {
     expect(panel.depth).toBe("12.00");
     expect(panel.retailPrice).toBe("83.17");
     expect(STD.PANEL_THICKNESS).toBe(0.75);
+  });
+  it("preserves source-sized AEF exposed panel stock as thin boards", () => {
+    const wallPanel = Object.freeze({ ...item("WEP1542", "15-1/4\" W × 41-3/4\" H × 3/4\" D Wall End Panel", "Wall End Panel"), width: "15.250", height: "41.750", depth: "0.750" });
+    expect(isPanelPaletteItem(wallPanel)).toBe(true);
+    expect(wallPanel).toMatchObject({ width: "15.250", height: "41.750", depth: "0.750" });
   });
 });

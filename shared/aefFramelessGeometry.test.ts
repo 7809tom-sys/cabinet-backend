@@ -34,6 +34,9 @@ describe("AEF printed frameless geometry", () => {
   it("uses the exact complete-line V8.2 source geometry and rejects unknown codes", () => {
     expect(aefPrintedGeometryForSku("2DB18")).toMatchObject({ width: 18, height: 34.75, depth: 24, toeKickHeight: 4.5, sourcePage: "23" });
     expect(aefPrintedGeometryForSku("BPO6FH")).toMatchObject({ width: 6, height: 34.75, depth: 24, toeKickHeight: 4.5, sourcePage: "33" });
+    expect(aefPrintedGeometryForSku("TEP3096")).toMatchObject({ width: 29.875, height: 96, depth: 0.75, toeKickHeight: null, sourcePage: "74" });
+    expect(aefPrintedGeometryForSku("BEP2535")).toMatchObject({ width: 25.625, height: 35.25, depth: 0.75, toeKickHeight: null, sourcePage: "73" });
+    expect(aefPrintedGeometryForSku("WEP1542")).toMatchObject({ width: 15.25, height: 41.75, depth: 0.75, toeKickHeight: null, sourcePage: "74" });
     expect(aefPrintedGeometryForSku("SCL")).toBeNull();
     expect(aefPrintedGeometryForSku("NOT-A-CABINET")).toBeNull();
   });

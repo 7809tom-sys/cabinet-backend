@@ -156,6 +156,7 @@ import { buildTrimCartLines,
   type TrimPrice,
 } from "@/lib/trimCart";
 import { hickorySkinSuggestions, type HickorySkinSuggestion, exposedEnds, isHickoryStyle } from "@/lib/hickorySkins";
+import { aefWindowEndPanelRequirements } from "@/lib/aefWindowEndPanels";
 import { automaticAngledWallFiller, measuredAngledWallTransition, repairMissingAngledWallFillers } from "@/lib/angledWallFiller";
 import { resolveOverRangeMicrowavePlacement } from "./designToolMicrowavePlacement";
 import { resolveRangeHoodPlacement } from "./designToolRangeHoodPlacement";
@@ -2388,6 +2389,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     () => (threeDAccessoryCatalog as DesignCabinet[] | undefined) ?? [],
     [threeDAccessoryCatalog],
   );
+  // Frameless V8.2 rule: a window breaks an upper run, so each upper end facing
+  // the window receives one real 3/4-inch WEP panel on the build sheet. This is
+  // a materials requirement only: it never auto-places an object, and does not
+  // affect framed lines or any Continuous Wall Builder geometry.
+  const aefWindowEndPanels = useMemo(
+    () => aefWindowEndPanelRequirements(placed, openings, room, catalogFillers),
+    [placed, openings, room, catalogFillers],
+  );
   // The Wizard presents actual active base cabinets from the selected line.
   // Catalog fillers remain a separate, priced stock source for true remainders.
 	  const peninsulaWizardBaseCabinets = useMemo(() => {
@@ -3240,6 +3249,13 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    // prospective rows, a physically required filler could never pass the
 	    // positive-price gate until it had somehow already been added.
 	    catalogFillers.filter(isCatalogFiller).forEach((filler) => push(filler.id, styleId, filler.masterCode));
+	    // AEF window-break WEP panels are source-priced stock. Price each one in
+	    // the exact finish of the upper cabinet whose exposed end it covers.
+	    aefWindowEndPanels.forEach((panel) => {
+	      if (panel.cabinetId == null || !panel.masterCode) return;
+	      const owner = placed.find((cabinet) => cabinet.uid === panel.cabinetUid);
+	      push(panel.cabinetId, owner ? (pricingStyleIdFor(owner) ?? styleId) : styleId, panel.masterCode);
+	    });
       const refrigeratorParts = refrigeratorSurroundCatalog as
         | { deepAbove?: DesignCabinet[]; bridgeAbove?: DesignCabinet[]; endPanels?: DesignCabinet[]; smoothPanels?: DesignCabinet[] }
         | undefined;
@@ -3250,7 +3266,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
         ...(refrigeratorParts?.smoothPanels ?? []),
       ].forEach((part) => push(part.id, styleId, part.masterCode));
 	    return pairs;
-	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers, refrigeratorSurroundCatalog]);
+	  }, [placed, pricingIdForPlacedCabinet, pricingStyleIdFor, styleId, glassDoorAddonCodeFor, glassDoorCatalogProduct, catalogFillers, aefWindowEndPanels, refrigeratorSurroundCatalog]);
 
   const { data: priceRows, isFetching: priceRowsFetching, isFetched: priceRowsFetched } = trpc.design.priceForCabinetsByStyles.useQuery(
     { pairs: pricePairs, distributorId: lockedDistributorId ?? undefined },
@@ -3670,16 +3686,24 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     [placed, room, activeStyle]
   );
 
-  // NOTE: Only HICKORY ships with unfinished exposed ends that REQUIRE a skin
-  // (handled by the hickorySkins engine above). Every other door style comes
-  // with FINISHED ends, so nothing is auto-added for them. Decorative end
-  // panels on finished-end styles are purely cosmetic and remain an OPTIONAL
-  // choice the user can add from the catalog/accessories — never auto-added.
-  // We keep this as an empty list so the build-sheet integration below stays
-  // unchanged while no panels are forced onto non-Hickory designs.
+  // Regular finished ends remain optional. The only non-Hickory exception is
+  // the manufacturer-specific AEF window-break requirement above: the two
+  // facing upper ends need source-sized 3/4-inch panels.
   const autoEndPanels = useMemo<
-    Array<{ code: string; cabinetId: number | null; description: string; height: number; depth: number; pendingSku: boolean }>
-  >(() => [], []);
+    Array<{ code: string; cabinetId: number | null; description: string; stockWidth: number; stockHeight: number; stockThickness: number; styleId: number | null; pendingSku: boolean }>
+  >(() => aefWindowEndPanels.map((panel) => {
+    const owner = placed.find((cabinet) => cabinet.uid === panel.cabinetUid);
+    return {
+      code: panel.masterCode ?? "AEF-WEP-CUSTOM-COVERAGE",
+      cabinetId: panel.cabinetId,
+      description: panel.description,
+      stockWidth: panel.stockWidth,
+      stockHeight: panel.stockHeight,
+      stockThickness: panel.stockThickness,
+      styleId: owner ? (pricingStyleIdFor(owner) ?? styleId) : styleId,
+      pendingSku: panel.pendingSku,
+    };
+  }), [aefWindowEndPanels, placed, pricingStyleIdFor, styleId]);
 
   // Restore a saved design (room + placed cabinets + style) onto the canvas.
   const loadSavedDesign = useCallback(
@@ -3871,22 +3895,23 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     // locked style; otherwise emitted as a pending placeholder.
     const panelMap = new Map<string, BuildSheetRow>();
     for (const ep of autoEndPanels) {
-      const key = `${ep.code}|${Math.round(ep.height)}`;
+	      const key = `${ep.code}|${ep.styleId ?? "_"}`;
       const existing = panelMap.get(key);
       if (existing) existing.qty += 1;
       else
         panelMap.set(key, {
           code: ep.code,
           description: ep.description,
-          widthIn: 0,
-          heightIn: ep.height,
-          depthIn: ep.depth,
-          placement: "accessory",
-          qty: 1,
-          unitPrice:
-            !ep.pendingSku && ep.cabinetId != null && styleId
-              ? priceMap.get(`${ep.cabinetId}:${styleId}`) ?? null
-              : null,
+	          widthIn: ep.stockWidth,
+	          heightIn: ep.stockHeight,
+	          depthIn: ep.stockThickness,
+	          placement: "accessory",
+	          qty: 1,
+	          color: ep.styleId != null ? (styleNameById.get(ep.styleId) ?? null) : null,
+	          unitPrice:
+	            !ep.pendingSku && ep.cabinetId != null && ep.styleId != null
+	              ? priceMap.get(`${ep.cabinetId}:${ep.styleId}`) ?? null
+	              : null,
         });
     }
     rows.push(...Array.from(panelMap.values()));
@@ -3996,6 +4021,28 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
 	    });
     return mergeDesignCartLines([...baseLines, ...rolloutCartLines]);
   }, [placedWithGlassDoorLinks, styleId, unitPriceFor, glassDoorAddonFor, styleNameById, lockedDistributorId, tier, rolloutLines, activeBundlePriceLock, resolvedLineCodeFor]);
+
+  // The V8.2 AEF window-break rule calls for physical WEP stock, not a drawn
+  // cabinet. Include its verified homeowner price in the same cart payload
+  // that drives the estimate, checkout, freight request, and CRM total.
+  const aefWindowEndPanelCartLines = useMemo<CartItem[]>(() => (
+    autoEndPanels.flatMap((panel) => {
+      if (panel.pendingSku || panel.cabinetId == null || panel.styleId == null) return [];
+      const unitPrice = priceMap.get(`${panel.cabinetId}:${panel.styleId}`) ?? null;
+      return [{
+        masterCode: panel.code,
+        name: panel.description,
+        styleId: panel.styleId,
+        styleLabel: styleNameById.get(panel.styleId) ?? "",
+        distributorId: lockedDistributorId ?? null,
+        tier: DESIGN_TIER_TO_SHARED[tier],
+        unitPrice,
+        priceLocked: unitPrice != null,
+        qty: 1,
+        category: "Cabinet panels",
+      }];
+    })
+  ), [autoEndPanels, priceMap, styleNameById, lockedDistributorId, tier]);
 
   // Cabinet-preview lines preserve exact placement UIDs and unavailable
   // cabinets. Complete trim, surface, fixture, and cart parity is added below.
@@ -4287,7 +4334,7 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
     return buildSurfaceCartLines(selectedPlanSurfaces, DESIGN_TIER_TO_SHARED[tier], areas, placedFixtureQuantityByProduct) as CartItem[];
   }, [selectedPlanSurfaces, tier, placed, openings, room, island, countertop, backsplashHeightMode, countertopBacksplashHeightIn, placedFixtureQuantityByProduct]);
 
-  // Final cart lines = cabinets + roll-out shelves + priced trim + surfaces &
+  // Final cart lines = cabinets + required source panels + roll-out shelves + priced trim + surfaces &
   // fixtures. Trim/surfaces are folded in here (aggregated by masterCode+styleId)
   // so every consumer of cartableLines (Add to Cart, the review list, the
   // running total) includes them automatically.
@@ -4343,8 +4390,8 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
           category: "Handles & hardware",
         }]
       : [];
-    return mergeDesignCartLines([...cabinetCartLines, ...pricedTrimLines, ...trimQuoteLines, ...surfaceCartLines, ...countertopQuoteLines, ...hardwareQuoteLines]);
-  }, [activeStyleName, activeTrims, cabinetCartLines, countertop, countertopMaterialId, hardwareStyleId, hwSchedule, lockedDistributorId, surfaceCartLines, styleId, tier]);
+    return mergeDesignCartLines([...cabinetCartLines, ...aefWindowEndPanelCartLines, ...pricedTrimLines, ...trimQuoteLines, ...surfaceCartLines, ...countertopQuoteLines, ...hardwareQuoteLines]);
+  }, [activeStyleName, activeTrims, aefWindowEndPanelCartLines, cabinetCartLines, countertop, countertopMaterialId, hardwareStyleId, hwSchedule, lockedDistributorId, surfaceCartLines, styleId, tier]);
 
   // The designer total, cart, checkout, and 3D order drawer now share the same
   // complete price-locked line basis. Keep unpriced placed cabinets as pending
@@ -15283,6 +15330,14 @@ function ScopedDesignTool({ affiliateSlug: affiliateSlugProp }: { affiliateSlug?
                           <div className="min-w-0 flex-1">
                             <div className="font-mono text-xs font-semibold text-foreground truncate">{c.masterCode}</div>
                             <div className="text-[10px] text-muted-foreground truncate">{c.description}</div>
+                            {(() => {
+                              const dimensions = resolvedDesignCabinetDimensions(c);
+                              return dimensions.width > 0 && dimensions.height > 0 && dimensions.depth > 0 ? (
+                                <div data-testid={`panel-catalog-dimensions-${c.masterCode}`} className="text-[9px] text-muted-foreground">
+                                  {formatCatalogInchValue(dimensions.width)}″ W × {formatCatalogInchValue(dimensions.height)}″ H × {formatCatalogInchValue(dimensions.depth)}″ D
+                                </div>
+                              ) : null;
+                            })()}
                             <div className="text-[9px] font-medium text-primary/70">{t("dt_pl_click_drag_place")}</div>
                           </div>
                           <Plus className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary shrink-0" />

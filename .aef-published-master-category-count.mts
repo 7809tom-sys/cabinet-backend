@@ -1,0 +1,2 @@
+import mysql from 'mysql2/promise';const db=await mysql.createConnection(process.env.DATABASE_URL!);
+const [r]:any=await db.query(`SELECT c.category,COUNT(DISTINCT c.id) n FROM distributor_skus s JOIN cabinets c ON c.id=s.cabinetId JOIN distributors d ON d.id=s.distributorId WHERE d.code='AEF' AND s.isPublished=1 AND s.isAvailable=1 GROUP BY c.category ORDER BY c.category`);console.log(JSON.stringify(r,null,2)); await db.end();

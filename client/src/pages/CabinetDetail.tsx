@@ -104,6 +104,17 @@ const TIER_DESCRIPTION: Record<PricingTier, string> = {
   wholesale: "For licensed dealers & high-volume trade accounts",
 };
 
+/** Internal source/provenance notes never belong in customer-facing product copy. */
+export function publicTechnicalDrawingNote(value: string | null | undefined): string | null {
+  if (!value?.trim()) return null;
+  const cleaned = value
+    .replace(/^(?:printed\s+)?(?:v?\d+(?:\.\d+)?)?\s*source\s+(?:geometry\s+and\s+face\s+layout|configuration)[:.]\s*/i, "")
+    .replace(/\s*;?\s*source\s+p(?:age)?\.?\s*\d+(?:\s*[–-]\s*\d+)?\.?\s*$/i, "")
+    .replace(/\s*;?\s*(?:AltaEuro|U\.?S\.?\s*Cabinet\s*Depot|manufacturer|full\s+spec\s+book)\b.*$/i, "")
+    .trim()
+    .replace(/[.;]\s*$/, "");
+  return cleaned || null;
+}
 // These codes are supplier/legacy references for the same physical cabinet.
 // Keep their links working after the catalog is consolidated under BA-24.
 export const LEGACY_CANONICAL_CABINET_CODES: Record<string, string> = {
@@ -166,8 +177,10 @@ interface StyleRow {
   // supplier acquisition cost must never be returned alongside this value.
   affiliateCost?: string | null;
   platformSku: string;
-  /** Source-backed line description; preserves supplier-specific construction. */
+  /** Customer-facing product description, scoped to the selected cabinet line. */
   supplierDescription?: string | null;
+  /** Customer-safe construction signal for verified printed geometry. */
+  isFrameless?: boolean;
   leadTimeDays: number | null;
   distributorId: number | null;
   /** Whether this selected distributor includes the insert for PG/GD/G cabinetry. */
@@ -454,15 +467,15 @@ export default function CabinetDetail({ masterCode }: Props) {
     styleRows[0]?.styleId ??
     null;
   const selectedRow = styleRows.find((s) => s.styleId === activeStyle) ?? null;
-  // A line may share the master code with another supplier but have a different
-  // construction (for example, Frameless B24S). Use the selected line's source
-  // description without ever changing the shared master description.
+  // A line may share the master code with another construction (for example,
+  // Frameless B24S). Use the selected line's product description without ever
+  // changing the shared master description.
   const displayedDescription = selectedRow?.supplierDescription?.trim() || masterCabinet?.description || canonicalMasterCode;
   const aefDetailGeometry = useMemo(
-    () => selectedRow?.supplierDescription?.includes("Frameless Collection") && masterCabinet
+    () => selectedRow?.isFrameless && masterCabinet
       ? aefPrintedGeometryForSku(masterCabinet.masterCode)
       : null,
-    [masterCabinet?.masterCode, selectedRow?.supplierDescription],
+    [masterCabinet?.masterCode, selectedRow?.isFrameless],
   );
   // A distributor's own configuration rule (saved per distributor from the
   // Edit Cabinet picker) is layered over the shared master for display only
@@ -1370,16 +1383,17 @@ export default function CabinetDetail({ masterCode }: Props) {
             </dl>
           </div>
 
-          {/* Spec Book Drawing & Notes */}
+          {/* Customer-facing technical drawing */}
           {(() => {
             const specImageUrl = (cabinet as Record<string, unknown>).specImageUrl as string | null;
             const specNotes = (cabinet as Record<string, unknown>).specNotes as string | null;
-            if (!specImageUrl && !specNotes) return null;
+            const publicSpecNotes = publicTechnicalDrawingNote(specNotes);
+            if (!specImageUrl && !publicSpecNotes) return null;
             return (
               <div className="rounded-xl border border-border p-5">
                 <h3 className="font-semibold text-sm text-foreground mb-3 flex items-center gap-2">
                   <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="2" y1="9" x2="8" y2="9"/><line x1="2" y1="15" x2="8" y2="15"/></svg>
-                  Spec Drawing
+                  Technical Drawing
                 </h3>
                 <div className="flex flex-col sm:flex-row gap-4 items-start">
                   {specImageUrl && (
@@ -1387,8 +1401,8 @@ export default function CabinetDetail({ masterCode }: Props) {
                       <img src={specImageUrl} alt="spec drawing" className="max-h-full max-w-full object-contain" />
                     </div>
                   )}
-                  {specNotes && (
-                    <p className="text-xs text-muted-foreground leading-relaxed flex-1">{specNotes}</p>
+                  {publicSpecNotes && (
+                    <p className="text-xs text-muted-foreground leading-relaxed flex-1">{publicSpecNotes}</p>
                   )}
                 </div>
               </div>
@@ -1434,7 +1448,7 @@ export default function CabinetDetail({ masterCode }: Props) {
               </h1>
               {isOwner && hasDistributorRule && selectedRow && (
                 <Badge variant="outline" className="mt-1 text-[10px]" data-testid="cabinet-detail-distributor-rule">
-                  Showing {(distCoverage ?? []).find((d) => d.distributorId === selectedRow.distributorId)?.name ?? "this distributor"}'s own rule
+                  Exact frameless specifications applied
                 </Badge>
               )}
             </div>

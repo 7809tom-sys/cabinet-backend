@@ -230,6 +230,8 @@ export function RefrigeratorOptionsDialog({
     ? "REP2496 · prior REP9624"
     : code === "S2496"
       ? "S2496 — finished shelf board / refrigerator side panel"
+    : code === "TEP3096"
+      ? "TEP3096 — 29-7/8″ stock panel, cut to fit"
     : code;
 
   // ── Fridge size ────────────────────────────────────────────────────────────
@@ -672,6 +674,13 @@ export function RefrigeratorOptionsDialog({
                   Panel depth: <span className="font-semibold text-foreground">{sourcePanelDepth ?? "—"}{sourcePanelDepth != null ? "″" : ""}</span>
                   {selectedPanel ? <> from source SKU <span className="font-semibold text-foreground">{panelSourceLabel(selectedPanel.masterCode)}</span></> : null}
                 </p>
+
+                {selectedPanel?.masterCode === "TEP3096" && (
+                  <p className="rounded-md border border-primary/25 bg-primary/5 px-2.5 py-2 text-[11px] leading-relaxed text-muted-foreground">
+                    <span className="font-semibold text-foreground">Refrigerator bridge side panel.</span>{" "}
+                    This source-priced 29-7/8″ × 96″ × 3/4″ stock panel is cut to the installed refrigerator depth and sits beside the refrigerator to support the bridge cabinet above.
+                  </p>
+                )}
 
                 {/* Panel style selector */}
                 {endPanels.length > 0 && (

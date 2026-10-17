@@ -155,4 +155,10 @@ export const AEF_EXPANDED_SOURCE_GEOMETRY: Record<string, AefExpandedSourceGeome
   "VT2DB1884": { width: 18, height: 84, depth: 21, toeKickHeight: 4.5, sourcePage: "69" },
   "VT2DBID1884": { width: 18, height: 84, depth: 21, toeKickHeight: 4.5, sourcePage: "70" },
   "VT3DB1884": { width: 18, height: 84, depth: 21, toeKickHeight: 4.5, sourcePage: "70" },
+  "TEP3096": { width: 29.875, height: 96, depth: 0.75, toeKickHeight: null, sourcePage: "74" },
+  "BEP2535": { width: 25.625, height: 35.25, depth: 0.75, toeKickHeight: null, sourcePage: "73" },
+  "WEP1523": { width: 15.25, height: 22.625, depth: 0.75, toeKickHeight: null, sourcePage: "74" },
+  "WEP1530": { width: 15.25, height: 30.25, depth: 0.75, toeKickHeight: null, sourcePage: "74" },
+  "WEP1535": { width: 15.25, height: 35.25, depth: 0.75, toeKickHeight: null, sourcePage: "74" },
+  "WEP1542": { width: 15.25, height: 41.75, depth: 0.75, toeKickHeight: null, sourcePage: "74" },
 };

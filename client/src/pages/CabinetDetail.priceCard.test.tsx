@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { PriceCard } from "./CabinetDetail";
+import { PriceCard, publicTechnicalDrawingNote } from "./CabinetDetail";
 
 const priceRow = {
   styleId: 330005,
@@ -23,6 +23,13 @@ const priceRow = {
   leadTimeDays: 7,
   distributorId: 210001,
 };
+
+describe("customer-facing technical drawing copy", () => {
+  it("strips internal supplier and source citations while retaining the cabinet facts", () => {
+    expect(publicTechnicalDrawingNote("Printed V8.2 source geometry and face layout. 36\" W × 34.75\" H × 24\" D; source p. 25.")).toBe("36\" W × 34.75\" H × 24\" D");
+    expect(publicTechnicalDrawingNote("AltaEuro / U.S. Cabinet Depot Frameless Collection Full Spec Book V8.2, p. 25.")).toBeNull();
+  });
+});
 
 describe("role-specific private price cards", () => {
   it("shows raw My Cost and a raw-cost margin only in Administration", () => {

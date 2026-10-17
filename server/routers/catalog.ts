@@ -4091,6 +4091,8 @@ export const pricingRouter = router({
           wholesalePrice: distributorSkus.wholesalePrice,
           contractorPrice: distributorSkus.contractorPrice,
           homeownerPrice: distributorSkus.homeownerPrice,
+          constructionType: distributorSkus.constructionType,
+          geometryStatus: distributorSkus.geometryStatus,
           yourCost: distributorSkus.yourCost,
           platformSku: distributorSkus.platformSku,
           skuImageUrl: distributorSkus.imageUrl,
@@ -4228,6 +4230,10 @@ export const pricingRouter = router({
             platformSku: r.platformSku,
             skuImageUrl: r.skuImageUrl,
             supplierDescription: r.supplierDescription ?? null,
+            // Product construction is a customer-safe attribute. It lets the
+            // detail page use verified printed geometry without inferring a
+            // supplier line from visible description copy.
+            isFrameless: r.constructionType === "frameless" && r.geometryStatus === "verified",
             leadTimeDays: r.leadTimeDays,
             distributorId: r.distributorId,
             glassIncluded: r.glassIncluded,

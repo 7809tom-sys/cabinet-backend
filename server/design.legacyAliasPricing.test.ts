@@ -80,9 +80,9 @@ describe("Designer legacy alias price resolution", () => {
         id: 9390059,
         masterCode: "REP2496",
         description: expect.stringMatching(/panel/i),
-        width: "0.75",
-        height: "96.00",
-        depth: "24.00",
+        width: "0.750",
+        height: "96.000",
+        depth: "24.000",
       }),
     ]));
     expect(surround.endPanels).not.toEqual(expect.arrayContaining([
@@ -99,9 +99,9 @@ describe("Designer legacy alias price resolution", () => {
         id: 9360215,
         masterCode: "S2496",
         description: expect.stringMatching(/24 in\. W.*96 in\. H.*3\/4 in\. D/i),
-        width: "24.00",
-        height: "96.00",
-        depth: "0.75",
+        width: "24.000",
+        height: "96.000",
+        depth: "0.750",
       }),
     ]));
   });

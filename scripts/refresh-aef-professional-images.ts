@@ -72,7 +72,10 @@ export function professionalAefImageFor(cabinet: CatalogCabinet): AssetName {
   const code = cabinet.masterCode.toUpperCase();
   const category = (cabinet.category ?? "").toUpperCase();
 
+  if (code === "BEP2535" || /^WEP\d+$/i.test(code)) return "accessoryPanel";
+
   if (category === "ACCESSORY" || category === "MOLDING") {
+    if (code === "TEP3096") return "accessoryPanel";
     if (/^FS\d/.test(code)) return "accessoryShelf";
     if (/^(EB|CORNER-PVC)/.test(code)) return "accessoryPanel";
     return "accessoryMoulding";
@@ -144,8 +147,8 @@ async function main() {
      ORDER BY c.masterCode`,
     [line.id],
   );
-  if (cabinets.length !== 277) {
-    throw new Error(`Guard failed: expected 277 published AEF cabinet masters, found ${cabinets.length}.`);
+  if (cabinets.length !== 283) {
+    throw new Error(`Guard failed: expected 283 published AEF cabinet masters, found ${cabinets.length}.`);
   }
 
   const assignments = cabinets.map((cabinet) => ({

@@ -80,6 +80,10 @@ export function isPlaceableAccessory(c: {
   masterCode?: string | null;
   subCategory?: string | null;
 }): boolean {
+  // TEP3096 is a stock panel selected only by Refrigerator Options. The workflow
+  // installs it as a cut-to-fit refrigerator side skin beside a bridge cabinet;
+  // it must not be offered as a free-standing panel in the ordinary palette.
+  if ((c.masterCode ?? "").replace(/[^a-z0-9]/gi, "").toUpperCase() === "TEP3096") return false;
   const hay = `${c.subCategory ?? ""} ${c.description ?? ""} ${c.masterCode ?? ""}`.toLowerCase();
   // Fillers and floating shelves are physical pieces that belong on the plan.
   // They must be considered before the loose-trim exclusion because some vendor

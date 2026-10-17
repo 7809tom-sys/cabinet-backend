@@ -19,7 +19,6 @@ type AefCabinet = {
   configJson: string | null;
 };
 
-const SOURCE_BOOK = "AltaEuro / U.S. Cabinet Depot Frameless Collection Full Spec Book V8.2";
 const manifestPath = path.resolve(process.cwd(), "scripts/data/aef-complete-source-manifest.json");
 const sourceManifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as SourceRecord[];
 const descriptionsBySku = new Map(sourceManifest.map((row) => [row.sku.toUpperCase(), row]));
@@ -38,20 +37,21 @@ function quoteDimension(value: string | null): string | null {
   return fraction ? `${whole} ${fraction}\"` : `${parsed}\"`;
 }
 
-function sourcePageCitation(value: string | null): string {
-  if (!value) return "";
-  const explicit = value.match(/pp?\.\s*([\d–-]+)/i);
-  if (explicit?.[1]) {
-    const pages = explicit[1].replace(/\s+/g, " ");
-    return `, ${/[-–]/.test(pages) ? "pp." : "p."} ${pages}`;
-  }
-  const numberOnly = value.match(/^\d+$/);
-  return numberOnly ? `, p. ${numberOnly[0]}` : "";
+/**
+ * Product descriptions are customer-facing copy. Provenance belongs in the
+ * private source/configuration fields, never in the visible product title,
+ * cart item, SEO description, or structured data.
+ */
+function cleanPublicDescription(value: string): string {
+  return value
+    .replace(/\s*[.;]?\s*(?:AltaEuro|U\.?S\.?\s*Cabinet\s*Depot|manufacturer|source:|full\s+spec\s+book)\b.*$/i, "")
+    .trim()
+    .replace(/[.;]\s*$/, "");
 }
 
 function lineSpecificDescription(row: AefCabinet): string {
   const direct = descriptionsBySku.get(row.masterCode.toUpperCase());
-  if (direct) return `${direct.description}. ${SOURCE_BOOK}, p. ${direct.sourcePage}.`;
+  if (direct) return cleanPublicDescription(direct.description);
 
   let config: Record<string, unknown> = {};
   try {
@@ -72,8 +72,7 @@ function lineSpecificDescription(row: AefCabinet): string {
     ?? (dimensions.length === 3
       ? `${dimensions[0]} W × ${dimensions[1]} H × ${dimensions[2]} D ${layout ?? row.masterCode}`
       : layout ?? row.masterCode);
-  const page = sourcePageCitation(row.geometrySourcePage);
-  return `${base}. ${SOURCE_BOOK}${page}.`;
+  return cleanPublicDescription(base);
 }
 
 async function main() {
@@ -97,8 +96,8 @@ async function main() {
       ORDER BY c.masterCode`,
     [line.id],
   );
-  if (cabinets.length !== 277) {
-    throw new Error(`Guard failed: expected 277 published AEF cabinet masters, found ${cabinets.length}.`);
+  if (cabinets.length !== 283) {
+    throw new Error(`Guard failed: expected 283 published AEF cabinet masters, found ${cabinets.length}.`);
   }
 
   const assignments = cabinets.map((cabinet) => ({

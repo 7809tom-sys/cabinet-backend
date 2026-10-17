@@ -95,7 +95,7 @@ describe("catalog.stylesForCabinet", () => {
     expect(styles.some((style) => style.styleId === row.styleId)).toBe(true);
   });
 
-  it("returns the published Frameless source description instead of shared-master staging text", async () => {
+  it("returns the published Frameless product description without supplier or source citations", async () => {
     const db = await getDb();
     if (!db) return;
 
@@ -119,7 +119,8 @@ describe("catalog.stylesForCabinet", () => {
     const selected = styles.find((style) => style.styleId === row.styleId);
 
     expect(selected?.supplierDescription).toContain("Two Drawer Base with One Inner Drawer");
-    expect(selected?.supplierDescription).not.toMatch(/staged|pending Designer proof/i);
+    expect(selected?.supplierDescription).not.toMatch(/staged|pending Designer proof|altaeuro|u\.?s\.?\s*cabinet|spec book|manufacturer|source:/i);
+    expect(selected?.isFrameless).toBe(true);
   });
 
   it("keeps the temporary one-dollar checkout SKU purchasable with an active style", async () => {
