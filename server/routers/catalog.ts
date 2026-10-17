@@ -252,7 +252,10 @@ export const doorStylesRouter = router({
         : await db.select(projection).from(doorStyles).where(eq(doorStyles.isActive, true));
       // Hide active-but-empty styles from every public surface (storefront +
       // Design Tool picker). Admin back-office queries do not use this router.
-      return filterStylesByAvailability(rows, available).filter((style) => style.styleCode !== "SCL");
+      // SCL (Syncron Slim Cava Rosales 3) is source-confirmed in the U.S.
+      // Cabinet Depot AltaEuro V8.2 book and is intentionally included once
+      // its published, verified AEF rows are available.
+      return filterStylesByAvailability(rows, available);
     }),
 
   // Manufacturer specification references are intentionally separate from the

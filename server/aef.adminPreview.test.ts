@@ -13,8 +13,8 @@ function contextFor(user: TrpcContext["user"]): TrpcContext {
   };
 }
 
-describe("AEF admin preview visibility", () => {
-  it("shows the full staged AEF line to admins but not public viewers", async () => {
+describe("AEF USCD frameless release", () => {
+  it("shows the complete verified U.S. Cabinet Depot frameless line publicly with source-backed SCL and printed geometry", async () => {
     const db = await getDb();
     if (!db) return;
     const [aef] = await db.select({ id: distributors.id }).from(distributors).where(eq(distributors.code, "AEF")).limit(1);
@@ -40,27 +40,29 @@ describe("AEF admin preview visibility", () => {
       updatedAt: new Date(),
     } as TrpcContext["user"]));
 
-    const [publicBase, publicWall, publicTall, adminBase, adminWall, adminTall, adminAll] = await Promise.all([
+    const [publicBase, publicWall, publicTall, publicAll, adminBase, adminWall, adminTall, adminAll] = await Promise.all([
       publicCaller.design.placeableCabinets({ placement: "base", distributorId: aef.id, search: "B18" }),
       publicCaller.design.placeableCabinets({ placement: "wall", distributorId: aef.id, search: "W3012" }),
       publicCaller.design.placeableCabinets({ placement: "tall", distributorId: aef.id, search: "T1884" }),
+      publicCaller.design.placeableCabinets({ distributorId: aef.id }),
       adminCaller.design.placeableCabinets({ placement: "base", distributorId: aef.id, search: "B18" }),
       adminCaller.design.placeableCabinets({ placement: "wall", distributorId: aef.id, search: "W3012" }),
       adminCaller.design.placeableCabinets({ placement: "tall", distributorId: aef.id, search: "T1884" }),
       adminCaller.design.placeableCabinets({ distributorId: aef.id }),
     ]);
 
-    expect(publicBase.some((row) => row.masterCode === "B18")).toBe(false);
-    expect(publicWall.some((row) => row.masterCode === "W3012")).toBe(false);
-    expect(publicTall.some((row) => row.masterCode === "T1884")).toBe(false);
+    expect(publicBase.some((row) => row.masterCode === "B18")).toBe(true);
+    expect(publicWall.some((row) => row.masterCode === "W3012")).toBe(true);
+    expect(publicTall.some((row) => row.masterCode === "T1884")).toBe(true);
     expect(adminBase.some((row) => row.masterCode === "B18")).toBe(true);
     expect(adminWall.some((row) => row.masterCode === "W3012")).toBe(true);
     expect(adminTall.some((row) => row.masterCode === "T1884")).toBe(true);
+    expect(publicAll).toHaveLength(115);
     expect(adminAll).toHaveLength(115);
-    expect(adminBase.find((row) => row.masterCode === "B18")).toMatchObject({ height: "34.75", depth: "24.00" });
-    expect(adminWall.find((row) => row.masterCode === "W3012")).toMatchObject({ height: "12.63", depth: "13.50" });
-    expect(adminAll.some((row) => row.masterCode === "B18FH")).toBe(true);
-    expect(adminAll.some((row) => row.masterCode === "B24S")).toBe(true);
+    expect(publicBase.find((row) => row.masterCode === "B18")).toMatchObject({ height: "34.75", depth: "24.00", numberOfDoors: 1, numberOfDrawers: 1 });
+    expect(publicWall.find((row) => row.masterCode === "W3012")).toMatchObject({ height: "12.63", depth: "13.50", numberOfDoors: 1 });
+    expect(publicAll.some((row) => row.masterCode === "B18FH")).toBe(true);
+    expect(publicAll.some((row) => row.masterCode === "B24S")).toBe(true);
 
     const [publicStyles, adminStyles, publicLines, adminLines] = await Promise.all([
       publicCaller.doorStyles.list({ distributorId: aef.id }),
@@ -68,20 +70,21 @@ describe("AEF admin preview visibility", () => {
       publicCaller.distributors.list(),
       adminCaller.distributors.list(),
     ]);
-    expect(publicStyles.length).toBe(0);
-    expect(publicLines.some((row) => row.code === "AEF")).toBe(false);
-    expect(adminStyles).toHaveLength(48);
-    expect(adminStyles.some((row) => row.styleCode === "SCL")).toBe(false);
+    expect(publicStyles).toHaveLength(49);
+    expect(publicLines.some((row) => row.code === "AEF")).toBe(true);
+    expect(adminStyles).toHaveLength(49);
+    expect(publicStyles.find((row) => row.styleCode === "SCL")?.doorSampleImageUrl).toContain("SCL_cd4802db.png");
     expect(adminLines.some((row) => row.code === "AEF")).toBe(true);
 
-    const [publishedState] = await db
-      .select({ isPublished: distributorSkus.isPublished })
+    const publishedState = await db
+      .select({ id: distributorSkus.id, isPublished: distributorSkus.isPublished, geometryStatus: distributorSkus.geometryStatus })
       .from(distributorSkus)
       .where(and(
         eq(distributorSkus.distributorId, aef.id),
-        eq(distributorSkus.isPublished, false),
+        eq(distributorSkus.isPublished, true),
       ))
-      .limit(1);
-    expect(publishedState?.isPublished).toBe(false);
+      ;
+    expect(publishedState).toHaveLength(5_635);
+    expect(publishedState.every((row) => row.geometryStatus === "verified" && row.isPublished)).toBe(true);
   });
 });

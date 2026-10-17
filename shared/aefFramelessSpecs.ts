@@ -17,7 +17,6 @@ const COMMON_GEOMETRY = "SKU dims: bases 30-1/4\" H × 24\" D; walls 13-1/2\" D.
 const COMMON_EMISSIONS = "CARB II emissions compliant";
 
 export function aefFramelessSpec(styleCode: string): AefFramelessSpec | null {
-  if (styleCode === "SCL") return null;
   if (["TWP", "TGW", "TDW"].includes(styleCode)) {
     return {
       boxConstruction: COMMON_BOX,

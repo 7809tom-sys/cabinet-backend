@@ -13,8 +13,10 @@ describe("AEF Frameless specifications", () => {
     expect(studio?.profileNotes).toContain("18–20 business days");
   });
 
-  it("does not create a specification for SCL", () => {
-    expect(aefFramelessSpec("SCL")).toBeNull();
+  it("maps the confirmed Slim Cava SCL finish from the V8.2 source book", () => {
+    const scl = aefFramelessSpec("SCL");
+    expect(scl?.doorPanelType).toContain("Slim Cava");
+    expect(scl?.profileDescription).toContain("Syncron");
   });
 
   it("fits existing varchar fields", () => {
